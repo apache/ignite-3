@@ -34,8 +34,10 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Auxiliary class for working with {@link DataStorageModule}.
@@ -86,17 +88,21 @@ public class DataStorageModules {
     /**
      * Creates new storage engines unique by {@link DataStorageModule#name name}.
      *
+     * @param igniteInstanceName String igniteInstanceName
      * @param configRegistry Configuration register.
      * @param storagePath Storage path.
+     * @param longJvmPauseDetector Long JVM pause detector.
      * @throws StorageException If there is an error when creating the storage engines.
      */
     public Map<String, StorageEngine> createStorageEngines(
+            String igniteInstanceName,
             ConfigurationRegistry configRegistry,
-            Path storagePath
+            Path storagePath,
+            @Nullable LongJvmPauseDetector longJvmPauseDetector
     ) {
         return modules.entrySet().stream().collect(toUnmodifiableMap(
                 Entry::getKey,
-                e -> e.getValue().createEngine(configRegistry, storagePath)
+                e -> e.getValue().createEngine(igniteInstanceName, configRegistry, storagePath, longJvmPauseDetector)
         ));
     }
 

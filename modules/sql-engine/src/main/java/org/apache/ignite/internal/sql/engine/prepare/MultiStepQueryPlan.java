@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
+import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
  * Distributed query plan.

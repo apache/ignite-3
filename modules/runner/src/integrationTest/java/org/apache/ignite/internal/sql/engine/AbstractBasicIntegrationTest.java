@@ -23,8 +23,11 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -47,6 +50,7 @@ import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.builder.TableDefinitionBuilder;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -284,6 +288,27 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     protected static List<List<Object>> sql(String sql, Object... args) {
         return getAllFromCursor(
                 await(((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine().queryAsync("PUBLIC", sql, args).get(0))
+        );
+    }
+
+    protected static void checkMetadata(ColumnMetadata expectedMeta, ColumnMetadata actualMeta) {
+        assertAll("Missmatch:\n expected = " + expectedMeta + ",\n actual = " + actualMeta,
+                () -> assertEquals(expectedMeta.name(), actualMeta.name(), "name"),
+                () -> assertEquals(expectedMeta.nullable(), actualMeta.nullable(), "nullable"),
+                () -> assertSame(expectedMeta.type(), actualMeta.type(), "type"),
+                () -> assertSame(expectedMeta.valueClass(), actualMeta.valueClass(), "value class"),
+                () -> {
+                    if (expectedMeta.origin() == null) {
+                        assertNull(actualMeta.origin(), "origin");
+
+                        return;
+                    }
+
+                    assertNotNull(actualMeta.origin(), "origin");
+                    assertEquals(expectedMeta.origin().schemaName(), actualMeta.origin().schemaName(), " origin schema");
+                    assertEquals(expectedMeta.origin().tableName(), actualMeta.origin().tableName(), " origin table");
+                    assertEquals(expectedMeta.origin().columnName(), actualMeta.origin().columnName(), " origin column");
+                }
         );
     }
 }

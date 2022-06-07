@@ -43,6 +43,7 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * {@link RaftGroupListener} implementation for the CMG.
@@ -175,5 +176,10 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     @Override
     public @Nullable CompletableFuture<Void> onBeforeApply(Command command) {
         return null;
+    }
+
+    @TestOnly
+    public RaftStorageManager storage() {
+        return storage;
     }
 }

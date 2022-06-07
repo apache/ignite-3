@@ -24,7 +24,6 @@ import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
 import java.util.ServiceLoader;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
@@ -205,6 +204,8 @@ public class IgniteImpl implements Ignite {
     IgniteImpl(String name, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
         this.name = name;
 
+        longJvmPauseDetector = new LongJvmPauseDetector(name);
+
         lifecycleManager = new LifecycleManager(name);
 
         vaultMgr = createVault(workDir);
@@ -295,8 +296,10 @@ public class IgniteImpl implements Ignite {
         dataStorageMgr = new DataStorageManager(
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 dataStorageModules.createStorageEngines(
+                        name,
                         clusterCfgMgr.configurationRegistry(),
-                        getPartitionsStorePath(workDir)
+                        getPartitionsStorePath(workDir),
+                        longJvmPauseDetector
                 )
         );
 
@@ -313,6 +316,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 txManager,
                 dataStorageMgr,
+                metaStorageMgr,
                 schemaManager
         );
 
@@ -338,8 +342,6 @@ public class IgniteImpl implements Ignite {
                 nettyBootstrapFactory,
                 sql
         );
-
-        longJvmPauseDetector = new LongJvmPauseDetector(name);
     }
 
     private static ConfigurationModules loadConfigurationModules(ClassLoader classLoader) {
@@ -419,9 +421,13 @@ public class IgniteImpl implements Ignite {
                     cmgMgr
             );
 
+            LOG.info("Components started, joining the cluster");
+
             return cmgMgr.joinFuture()
                     // using the default executor to avoid blocking the CMG Manager threads
                     .thenRunAsync(() -> {
+                        LOG.info("Join complete, starting the remaining components");
+
                         // Start all other components after the join request has completed and the node has been validated.
                         try {
                             lifecycleManager.startComponents(
@@ -441,6 +447,8 @@ public class IgniteImpl implements Ignite {
                         }
                     })
                     .thenCompose(v -> {
+                        LOG.info("Components started, performing recovery");
+
                         // Recovery future must be created before configuration listeners are triggered.
                         CompletableFuture<Void> recoveryFuture = RecoveryCompletionFutureFactory.create(
                                 clusterCfgMgr,
@@ -460,7 +468,11 @@ public class IgniteImpl implements Ignite {
                                 });
                     })
                     // Signal that local recovery is complete and the node is ready to join the cluster.
-                    .thenCompose(v -> cmgMgr.onJoinReady())
+                    .thenCompose(v -> {
+                        LOG.info("Recovery complete, finishing join");
+
+                        return cmgMgr.onJoinReady();
+                    })
                     .thenRun(() -> {
                         try {
                             // Transfer the node to the STARTED state.
@@ -530,16 +542,6 @@ public class IgniteImpl implements Ignite {
     @Override
     public String name() {
         return name;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setBaseline(Set<String> baselineNodes) {
-        try {
-            distributedTblMgr.setBaseline(baselineNodes);
-        } catch (NodeStoppingException e) {
-            throw new IgniteException(e);
-        }
     }
 
     /** {@inheritDoc} */

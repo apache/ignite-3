@@ -69,7 +69,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
     /** {@inheritDoc} */
     @Override
     protected PageMemory memory() {
-        return createPageMemoryImpl(defaultSegmentSizes(), null, null);
+        return createPageMemoryImpl(defaultSegmentSizes(), defaultCheckpointBufferSize(), null, null);
     }
 
     /** {@inheritDoc} */
@@ -90,7 +90,12 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
 
         CheckpointManager checkpointManager = createCheckpointManager(checkpointConfig, workDir, filePageStoreManager, dataRegions);
 
-        PageMemoryImpl pageMemoryImpl = createPageMemoryImpl(defaultSegmentSizes(), filePageStoreManager, checkpointManager);
+        PageMemoryImpl pageMemoryImpl = createPageMemoryImpl(
+                defaultSegmentSizes(),
+                defaultCheckpointBufferSize(),
+                filePageStoreManager,
+                checkpointManager
+        );
 
         dataRegions.add(newDataRegion(true, pageMemoryImpl));
 
@@ -144,7 +149,8 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
         dataRegionCfg.change(c -> c.changeInitSize(128 * systemPageSize).changeMaxSize(128 * systemPageSize)).get(1, SECONDS);
 
         PageMemoryImpl pageMemoryImpl = createPageMemoryImpl(
-                new long[]{100 * systemPageSize, 28 * systemPageSize},
+                new long[]{100 * systemPageSize},
+                28 * systemPageSize,
                 filePageStoreManager,
                 checkpointManager
         );
@@ -200,7 +206,8 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
     }
 
     protected PageMemoryImpl createPageMemoryImpl(
-            long[] sizes,
+            long[] segmentSizes,
+            long checkpointBufferSize,
             @Nullable FilePageStoreManager filePageStoreManager,
             @Nullable CheckpointManager checkpointManager
     ) {
@@ -211,7 +218,8 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
         return new PageMemoryImpl(
                 dataRegionCfg,
                 ioRegistry,
-                sizes,
+                segmentSizes,
+                checkpointBufferSize,
                 filePageStoreManager == null ? new TestPageReadWriteManager() : filePageStoreManager,
                 null,
                 (fullPageId, buf, tag) -> fail("Should not happen"),
@@ -235,7 +243,11 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
     }
 
     private static long[] defaultSegmentSizes() {
-        return LongStream.range(0, 10).map(i -> 5 * MiB).toArray();
+        return LongStream.range(0, 9).map(i -> 5 * MiB).toArray();
+    }
+
+    private static long defaultCheckpointBufferSize() {
+        return 5 * MiB;
     }
 
     private static CheckpointManager createCheckpointManager(

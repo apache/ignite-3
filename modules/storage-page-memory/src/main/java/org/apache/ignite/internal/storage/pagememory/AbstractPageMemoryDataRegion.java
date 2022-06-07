@@ -27,7 +27,6 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 /**
  * Abstract data region for {@link PageMemoryStorageEngine}. Based on a {@link PageMemory}.
  */
-// TODO: IGNITE-16641 Add support for persistent case.
 abstract class AbstractPageMemoryDataRegion implements PageMemoryDataRegion, IgniteComponent {
     protected final PageMemoryDataRegionConfiguration cfg;
 

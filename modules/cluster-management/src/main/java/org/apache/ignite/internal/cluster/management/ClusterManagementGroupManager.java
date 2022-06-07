@@ -256,7 +256,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         synchronized (raftServiceLock) {
             if (raftService == null) {
                 // Raft service has not been started
-                LOG.info("Init command received, starting the CMG: {}", msg);
+                LOG.info("Init command received, starting the CMG on: {}", msg.cmgNodes());
 
                 raftService = startCmgRaftService(msg.cmgNodes());
             } else {

@@ -36,8 +36,8 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
 import org.hamcrest.core.SubstringMatcher;
@@ -360,17 +360,17 @@ public abstract class QueryChecker {
         var cur = cursors.get(0).join();
 
         if (expectedColumnNames != null) {
-            List<String> colNames = cur.metadata().fields().stream()
-                    .map(ResultFieldMetadata::name)
+            List<String> colNames = cur.metadata().columns().stream()
+                    .map(ColumnMetadata::name)
                     .collect(Collectors.toList());
 
             assertThat("Column names don't match", colNames, equalTo(expectedColumnNames));
         }
 
         if (expectedColumnTypes != null) {
-            List<Type> colNames = cur.metadata().fields().stream()
-                    .map(ResultFieldMetadata::type)
-                    .map(Commons::nativeTypeToClass)
+            List<Type> colNames = cur.metadata().columns().stream()
+                    .map(ColumnMetadata::type)
+                    .map(Commons::columnTypeToClass)
                     .collect(Collectors.toList());
 
             assertThat("Column types don't match", colNames, equalTo(expectedColumnTypes));

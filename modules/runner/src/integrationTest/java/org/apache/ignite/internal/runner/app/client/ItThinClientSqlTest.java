@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app.client;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -75,6 +76,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 .join();
 
         assertFalse(createRes.hasRowSet());
+        assertNull(createRes.metadata());
         assertTrue(createRes.wasApplied());
         assertEquals(-1, createRes.affectedRows());
         assertThrows(NoRowSetExpectedException.class, createRes::currentPageSize);
@@ -86,6 +88,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                     .join();
 
             assertFalse(insertRes.hasRowSet());
+            assertNull(insertRes.metadata());
             assertFalse(insertRes.wasApplied());
             assertEquals(1, insertRes.affectedRows());
             assertThrows(NoRowSetExpectedException.class, createRes::currentPage);
@@ -93,13 +96,19 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         // Query data.
         AsyncResultSet selectRes = session
-                .executeAsync(null, "SELECT VAL, ID, ID + 1 FROM testExecuteAsyncDdlDml ORDER BY ID")
+                .executeAsync(null, "SELECT VAL as MYVALUE, ID, ID + 1 FROM testExecuteAsyncDdlDml ORDER BY ID")
                 .join();
 
         assertTrue(selectRes.hasRowSet());
         assertFalse(selectRes.wasApplied());
         assertEquals(-1, selectRes.affectedRows());
         assertEquals(10, selectRes.currentPageSize());
+
+        List<ColumnMetadata> columns = selectRes.metadata().columns();
+        assertEquals(3, columns.size());
+        assertEquals("MYVALUE", columns.get(0).name());
+        assertEquals("ID", columns.get(1).name());
+        assertEquals("ID + 1", columns.get(2).name());
 
         var rows = new ArrayList<SqlRow>();
         selectRes.currentPage().forEach(rows::add);
@@ -115,12 +124,14 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         assertFalse(updateRes.wasApplied());
         assertFalse(updateRes.hasRowSet());
+        assertNull(updateRes.metadata());
         assertEquals(5, updateRes.affectedRows());
 
         // Delete table.
         AsyncResultSet deleteRes = session.executeAsync(null, "DROP TABLE testExecuteAsyncDdlDml").join();
 
         assertFalse(deleteRes.hasRowSet());
+        assertNull(deleteRes.metadata());
         assertTrue(deleteRes.wasApplied());
     }
 

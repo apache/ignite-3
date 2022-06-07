@@ -37,6 +37,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -90,6 +92,8 @@ public class ItCmgRaftServiceTest {
                     List.copyOf(clusterService.topologyService().allMembers()),
                     () -> new CmgRaftGroupListener(raftStorage)
             );
+
+            assertThat(raftService, willCompleteSuccessfully());
 
             this.raftService = new CmgRaftService(raftService.get(), clusterService);
         }
@@ -361,7 +365,7 @@ public class ItCmgRaftServiceTest {
         // Node has not passed validation.
         String errMsg = String.format(
                 "JoinReady request denied, reason: Node \"%s\" has not yet passed the validation step",
-                cluster.get(0).clusterService.topologyService().localMember().id()
+                cluster.get(0).clusterService.topologyService().localMember()
         );
 
         assertThrowsWithCause(
@@ -374,13 +378,6 @@ public class ItCmgRaftServiceTest {
 
         // Everything is ok after the node has passed validation.
         assertThat(raftService.completeJoinCluster(), willCompleteSuccessfully());
-
-        // Validation state is cleared after the first successful attempt.
-        assertThrowsWithCause(
-                () -> raftService.completeJoinCluster().get(10, TimeUnit.SECONDS),
-                IgniteInternalException.class,
-                errMsg
-        );
     }
 
     /**
@@ -470,5 +467,32 @@ public class ItCmgRaftServiceTest {
                         invalidTagState.clusterTag().clusterName(), state.clusterTag().clusterName()
                 )
         );
+    }
+
+    /**
+     * Tests that {@link JoinRequestCommand} and {@link JoinReadyCommand} are idempotent.
+     */
+    @Test
+    void testJoinCommandsIdempotence() {
+        ClusterState state = new ClusterState(
+                List.of("foo"),
+                List.of("bar"),
+                IgniteProductVersion.CURRENT_VERSION,
+                new ClusterTag("cluster")
+        );
+
+        assertThat(cluster.get(0).raftService.initClusterState(state), willCompleteSuccessfully());
+
+        CmgRaftService service = cluster.get(1).raftService;
+
+        assertThat(service.startJoinCluster(state.clusterTag()), willCompleteSuccessfully());
+
+        assertThat(service.startJoinCluster(state.clusterTag()), willCompleteSuccessfully());
+
+        assertThat(service.completeJoinCluster(), willCompleteSuccessfully());
+
+        assertThat(service.completeJoinCluster(), willCompleteSuccessfully());
+
+        assertThat(service.completeJoinCluster(), willCompleteSuccessfully());
     }
 }

@@ -26,7 +26,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
  */
 public class VersionChainMetaIo extends BplusMetaIo {
     /** Page IO type. */
-    public static final short T_VERSION_CHAIN_META_IO = 8;
+    public static final short T_VERSION_CHAIN_META_IO = 9;
 
     /** I/O versions. */
     public static final IoVersions<VersionChainMetaIo> VERSIONS = new IoVersions<>(new VersionChainMetaIo(1));
