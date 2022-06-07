@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.api;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,7 +32,10 @@ import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.QueryProperties;
 import org.apache.ignite.internal.sql.engine.QueryTimeout;
+import org.apache.ignite.internal.sql.engine.QueryValidator;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.BatchedArguments;
@@ -150,7 +154,7 @@ public class SessionImpl implements Session {
         }
 
         try {
-            return new SessionBuilderImpl(qryProc, props)
+            return new SessionBuilderImpl(qryProc, new HashMap<>(props))
                     .defaultPageSize(pageSize)
                     .defaultTimeout(timeout, TimeUnit.NANOSECONDS)
                     .defaultSchema(schema);
@@ -236,7 +240,16 @@ public class SessionImpl implements Session {
         }
 
         try {
-            QueryContext ctx = QueryContext.of(transaction, new QueryTimeout(timeout, TimeUnit.NANOSECONDS));
+            QueryContext ctx = QueryContext.of(
+                    transaction,
+                    new QueryTimeout(timeout, TimeUnit.NANOSECONDS),
+                    (QueryValidator) plan -> {
+                        if (plan.type() != Type.DML) {
+                            throw new SqlException("Invalid SQL statement type in the batch [plan=" + plan + ']');
+                        }
+                    },
+                    new QueryProperties(props)
+            );
 
             return qryProc.batchAsync(ctx, schema, query, batch);
         } catch (Exception e) {

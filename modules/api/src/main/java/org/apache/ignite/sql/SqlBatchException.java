@@ -34,6 +34,17 @@ public class SqlBatchException extends SqlException {
      * Creates a new grid exception with the given throwable as a cause and source of error message.
      *
      * @param updCntrs Array that describes the outcome of a batch execution.
+     */
+    protected SqlBatchException(long[] updCntrs) {
+        super();
+
+        this.updCntrs = updCntrs != null ? updCntrs : ArrayUtils.LONG_EMPTY_ARRAY;
+    }
+
+    /**
+     * Creates a new grid exception with the given throwable as a cause and source of error message.
+     *
+     * @param updCntrs Array that describes the outcome of a batch execution.
      * @param cause Non-null throwable cause.
      */
     public SqlBatchException(long[] updCntrs, Throwable cause) {

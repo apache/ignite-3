@@ -22,11 +22,14 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -50,7 +53,6 @@ import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -68,8 +70,10 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.sql.SessionProperties;
 import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.SqlParallelBatchException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -79,6 +83,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SqlQueryProcessor implements QueryProcessor {
     private static final IgniteLogger LOG = IgniteLogger.forClass(SqlQueryProcessor.class);
+
+    private static final CompletableFuture[] EMPTY_FUTURES_ARRAY = new CompletableFuture[0];
 
     /** Size of the cache for query plans. */
     public static final int PLAN_CACHE_SIZE = 1024;
@@ -259,86 +265,267 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         try {
-            return batch0(context, schemaName, qry, batchArgs);
+            QueryProperties props = context.maybeUnwrap(QueryProperties.class).orElse(QueryProperties.EMPTY_PROPERTIES);
+
+            if (props.booleanValue(SessionProperties.BATCH_PARALLEL, false)) {
+                return batchParallel(context, schemaName, qry, batchArgs);
+            } else {
+                return batchSerial(context, schemaName, qry, batchArgs);
+            }
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
-            QueryContext context,
-            String schemaName,
-            String sql,
-            Object... params) {
-        SchemaPlus schema = schemaManager.schema(schemaName);
+            final QueryContext context,
+            final String schemaName,
+            final String sql,
+            final Object... params
+    ) {
+        try {
+            BaseQueryContext ctx = baseContext(schemaName, params);
 
-        if (schema == null) {
-            return CompletableFuture.failedFuture(new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName)));
+            CompletableFuture<Void> start = new CompletableFuture<>();
+
+            CompletableFuture<QueryPlan> planning = planningSingle(
+                    start,
+                    ctx,
+                    context,
+                    schemaName,
+                    sql
+            );
+
+            CompletableFuture<AsyncSqlCursor<List<Object>>> stage = planning.thenApply(plan -> {
+                context.maybeUnwrap(QueryValidator.class)
+                        .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
+
+                return new AsyncSqlCursorImpl<>(
+                        SqlQueryType.mapPlanTypeToSqlType(plan.type()),
+                        plan.metadata(),
+                        executionSrvc.executePlan(plan, ctx)
+                );
+            });
+
+            stage.whenComplete((cur, ex) -> {
+                if (ex instanceof CancellationException) {
+                    ctx.cancel().cancel();
+                }
+            });
+
+            start.completeAsync(() -> null, taskExecutor);
+
+            return stage;
+        } catch (Exception ex) {
+            return CompletableFuture.failedFuture(ex);
         }
-
-        final BaseQueryContext ctx = BaseQueryContext.builder()
-                .cancel(new QueryCancel())
-                .frameworkConfig(
-                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(schema)
-                                .build()
-                )
-                .logger(LOG)
-                .parameters(params)
-                .build();
-
-        CompletableFuture<Void> start = new CompletableFuture<>();
-
-        CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenApply(
-                        (v) -> Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig())
-                )
-                .thenApply(nodes -> {
-                    if (nodes.size() > 1) {
-                        throw new SqlException("Multiple statements aren't allowed.");
-                    }
-
-                    return nodes.get(0);
-                })
-                .thenCompose(sqlNode -> prepareSvc.prepareAsync(sqlNode, ctx))
-                .thenApply(plan -> {
-                    context.maybeUnwrap(QueryValidator.class)
-                            .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
-
-                    return new AsyncSqlCursorImpl<>(
-                            SqlQueryType.mapPlanTypeToSqlType(plan.type()),
-                            plan.metadata(),
-                            executionSrvc.executePlan(plan, ctx)
-                    );
-                });
-
-        stage.whenComplete((cur, ex) -> {
-            if (ex instanceof CancellationException) {
-                ctx.cancel().cancel();
-            }
-        });
-
-        start.completeAsync(() -> null, taskExecutor);
-
-        return stage;
     }
 
-    @SuppressWarnings("checkstyle:Indentation")
-    private CompletableFuture<long[]> batch0(
+    private CompletableFuture<long[]> batchSerial(
             QueryContext context,
             String schemaName,
             String sql,
-            List<List<Object>> batchArgs) {
+            List<List<Object>> batchArgs
+    ) {
         if (CollectionUtils.nullOrEmpty(batchArgs)) {
             return CompletableFuture.failedFuture(new IgniteException("Batch is empty"));
         }
 
+        try {
+            CompletableFuture<Void> start = new CompletableFuture<>();
+            SchemaPlus schema = schemaManager.schema(schemaName);
+
+            BaseQueryContext ctx = baseContext(schemaName, batchArgs.get(0).toArray());
+
+            CompletableFuture<QueryPlan> planning = planningSingle(
+                    start,
+                    ctx,
+                    context,
+                    schemaName,
+                    sql
+            );
+
+            final var counters = new LongArrayList(batchArgs.size());
+            CompletableFuture<Void> tail = CompletableFuture.completedFuture(null);
+            ArrayList<CompletableFuture<Void>> batchFuts = new ArrayList<>(batchArgs.size());
+
+            for (int i = 0; i < batchArgs.size(); ++i) {
+                List<Object> batch = batchArgs.get(i);
+
+                final BaseQueryContext ctx0 = BaseQueryContext.builder()
+                        .cancel(new QueryCancel())
+                        .frameworkConfig(
+                                Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                        .defaultSchema(schema)
+                                        .build()
+                        )
+                        .logger(LOG)
+                        .parameters(batch.toArray())
+                        .build();
+
+                tail = tail.thenCombine(planning, (updCntr, plan) -> new AsyncSqlCursorImpl<>(
+                                SqlQueryType.mapPlanTypeToSqlType(plan.type()),
+                                plan.metadata(),
+                                executionSrvc.executePlan(plan, ctx0)
+                        ))
+                        .thenCompose(cur -> cur.requestNextAsync(1))
+                        .thenAccept(page -> {
+                            if (page == null
+                                    || page.items() == null
+                                    || page.items().size() != 1
+                                    || page.items().get(0).size() != 1
+                                    || page.hasMore()) {
+                                throw new SqlException("Invalid DML results: " + page);
+                            }
+
+                            counters.add((long) page.items().get(0).get(0));
+                        })
+                        .whenComplete((v, ex) -> {
+                            if (ex instanceof CancellationException) {
+                                ctx0.cancel().cancel();
+                            }
+                        });
+
+                batchFuts.add(tail);
+            }
+
+            CompletableFuture<long[]> resFut = tail
+                    .exceptionally((ex) -> {
+                        checkPlanningException(ex);
+
+                        throw new SqlBatchException(counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY), ex);
+                    })
+                    .thenApply(v -> counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY));
+
+            resFut.whenComplete((cur, ex) -> {
+                if (ex instanceof CancellationException) {
+                    batchFuts.forEach(f -> f.cancel(false));
+                }
+            });
+
+            start.completeAsync(() -> null, taskExecutor);
+
+            return resFut;
+        } catch (Exception ex) {
+            return CompletableFuture.failedFuture(ex);
+        }
+    }
+
+    @SuppressWarnings("checkstyle:Indentation")
+    private CompletableFuture<long[]> batchParallel(
+            QueryContext context,
+            String schemaName,
+            String sql,
+            List<List<Object>> batchArgs
+    ) {
+        if (CollectionUtils.nullOrEmpty(batchArgs)) {
+            return CompletableFuture.failedFuture(new IgniteException("Batch is empty"));
+        }
+
+        try {
+            CompletableFuture<Void> start = new CompletableFuture<>();
+            SchemaPlus schema = schemaManager.schema(schemaName);
+
+            BaseQueryContext ctx = baseContext(schemaName, batchArgs.get(0).toArray());
+
+            CompletableFuture<QueryPlan> planning = planningSingle(
+                    start,
+                    ctx,
+                    context,
+                    schemaName,
+                    sql
+            );
+
+            long[] res = new long[batchArgs.size()];
+            ArrayList<CompletableFuture<Void>> batchFuts = new ArrayList<>(batchArgs.size());
+            Throwable[] batchExs = new Throwable[batchArgs.size()];
+
+            for (int i = 0; i < batchArgs.size(); ++i) {
+                final List<Object> batch = batchArgs.get(i);
+                final int batchIdx = i;
+
+                final BaseQueryContext ctx0 = BaseQueryContext.builder()
+                        .cancel(new QueryCancel())
+                        .frameworkConfig(
+                                Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                        .defaultSchema(schema)
+                                        .build()
+                        )
+                        .logger(LOG)
+                        .parameters(batch.toArray())
+                        .build();
+
+                batchFuts.add(
+                        planning.thenApply(plan -> new AsyncSqlCursorImpl<>(
+                                        SqlQueryType.mapPlanTypeToSqlType(plan.type()),
+                                        plan.metadata(),
+                                        executionSrvc.executePlan(plan, ctx0)
+                                ))
+                                .thenCompose(cur -> cur.requestNextAsync(1))
+                                .handle((page, ex) -> {
+                                    if (ex != null) {
+                                        checkPlanningException(ex);
+
+                                        res[batchIdx] = -1;
+                                        batchExs[batchIdx] = ex.getCause();
+
+                                        if (ex instanceof CancellationException) {
+                                            ctx0.cancel().cancel();
+                                        }
+                                    } else {
+                                        if (page == null
+                                                || page.items() == null
+                                                || page.items().size() != 1
+                                                || page.items().get(0).size() != 1
+                                                || page.hasMore()) {
+                                            throw new SqlException("Invalid DML results: " + page);
+                                        }
+
+                                        res[batchIdx] = (long) page.items().get(0).get(0);
+                                    }
+
+                                    return null;
+                                })
+                );
+            }
+
+            CompletableFuture<long[]> resFut = CompletableFuture.allOf(batchFuts.toArray(EMPTY_FUTURES_ARRAY))
+                    .handle((cur, ex) -> {
+                        if (ex != null) {
+                            if (ex instanceof CancellationException) {
+                                batchFuts.forEach(f -> f.cancel(false));
+                            }
+
+                            throw new CompletionException(ex);
+                        } else {
+                            boolean hasError = Arrays.stream(res).anyMatch(r -> r == -1);
+
+                            if (hasError) {
+                                throw new SqlParallelBatchException(res, batchExs);
+                            }
+
+                            return res;
+                        }
+                    });
+
+            start.completeAsync(() -> null, taskExecutor);
+
+            return resFut;
+        } catch (Exception ex) {
+            return CompletableFuture.failedFuture(ex);
+        }
+    }
+
+    private BaseQueryContext baseContext(
+            final String schemaName,
+            final Object[] args) {
         SchemaPlus schema = schemaManager.schema(schemaName);
 
         if (schema == null) {
-            return CompletableFuture.failedFuture(new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName)));
+            throw new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName));
         }
 
-        final BaseQueryContext ctx = BaseQueryContext.builder()
+        return BaseQueryContext.builder()
                 .cancel(new QueryCancel())
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
@@ -346,12 +533,24 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 .build()
                 )
                 .logger(LOG)
-                .parameters(batchArgs.get(0).toArray())
+                .parameters(args)
                 .build();
+    }
 
-        CompletableFuture<Void> start = new CompletableFuture<>();
+    private CompletableFuture<QueryPlan> planningSingle(
+            final CompletableFuture<Void> start,
+            final BaseQueryContext ctx,
+            final QueryContext context,
+            final String schemaName,
+            final String sql
+    ) {
+        SchemaPlus schema = schemaManager.schema(schemaName);
 
-        CompletableFuture<QueryPlan> planning = start.thenApply(
+        if (schema == null) {
+            return CompletableFuture.failedFuture(new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName)));
+        }
+
+        CompletableFuture<QueryPlan> planFut = start.thenApply(
                         (v) -> Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig())
                 )
                 .thenApply(nodes -> {
@@ -363,67 +562,16 @@ public class SqlQueryProcessor implements QueryProcessor {
                 })
                 .thenCompose(sqlNode -> prepareSvc.prepareAsync(sqlNode, ctx))
                 .thenApply(plan -> {
-                    if (plan.type() != Type.DML) {
-                        throw new SqlException("Invalid SQL statement type in the batch [plan=" + plan + ']');
-                    }
-
                     context.maybeUnwrap(QueryValidator.class)
                             .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
 
                     return plan;
+                })
+                .exceptionally(ex -> {
+                    throw new PlanningException(ex.getCause());
                 });
 
-        var counters = new LongArrayList(batchArgs.size());
-        var tail = CompletableFuture.completedFuture(counters);
-
-        for (List<Object> batch : batchArgs) {
-            final BaseQueryContext ctx0 = BaseQueryContext.builder()
-                    .cancel(new QueryCancel())
-                    .frameworkConfig(
-                            Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                    .defaultSchema(schema)
-                                    .build()
-                    )
-                    .logger(LOG)
-                    .parameters(batch.toArray())
-                    .build();
-
-            tail = tail.thenCombine(planning, (updCntr, plan) -> new AsyncSqlCursorImpl<>(
-                            SqlQueryType.mapPlanTypeToSqlType(plan.type()),
-                            plan.metadata(),
-                            executionSrvc.executePlan(plan, ctx0)
-                    ))
-                    .thenCompose(cur -> cur.requestNextAsync(1))
-                    .thenApply(page -> {
-                        if (page == null
-                                || page.items() == null
-                                || page.items().size() != 1
-                                || page.items().get(0).size() != 1
-                                || page.hasMore()) {
-                            throw new SqlException("Invalid DML results: " + page);
-                        }
-
-                        counters.add((long) page.items().get(0).get(0));
-
-                        return counters;
-                    });
-        }
-
-        CompletableFuture<long[]> res = tail
-                .exceptionally((th) -> {
-                    throw new SqlBatchException(counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY), th);
-                })
-                .thenApply(lst -> lst.toArray(ArrayUtils.LONG_EMPTY_ARRAY));
-
-        res.whenComplete((cur, ex) -> {
-            if (ex instanceof CancellationException) {
-                ctx.cancel().cancel();
-            }
-        });
-
-        start.completeAsync(() -> null, taskExecutor);
-
-        return res;
+        return planFut;
     }
 
     private List<CompletableFuture<AsyncSqlCursor<List<Object>>>> query0(
@@ -509,6 +657,18 @@ public class SqlQueryProcessor implements QueryProcessor {
             );
 
             return false;
+        }
+    }
+
+    private void checkPlanningException(Throwable ex) {
+        if (ex instanceof ExecutionException || ex instanceof CompletionException) {
+            checkPlanningException(ex.getCause());
+        } else if (ex instanceof PlanningException) {
+            if (ex.getCause() instanceof SqlException) {
+                throw (SqlException) ex.getCause();
+            } else {
+                throw new SqlException(ex.getCause());
+            }
         }
     }
 

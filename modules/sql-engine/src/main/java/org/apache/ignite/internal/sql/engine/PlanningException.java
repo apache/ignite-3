@@ -15,47 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.sql;
+package org.apache.ignite.internal.sql.engine;
 
 import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * SQL exception base class.
+ * The exception is thrown if a query was failed on planning phase..
  */
-public class SqlException extends IgniteException {
-    /**
-     * Empty constructor for subclasses.
-     */
-    protected SqlException() {
-        // No-op.
-    }
+public class PlanningException extends IgniteException {
+    private static final long serialVersionUID = 0L;
 
     /**
-     * Creates a new exception with the given error message.
-     *
-     * @param msg Error message.
-     */
-    public SqlException(String msg) {
-        super(msg);
-    }
-
-    /**
-     * Creates a new grid exception with the given throwable as a cause and source of error message.
+     * Constructor.
      *
      * @param cause Non-null throwable cause.
      */
-    public SqlException(Throwable cause) {
+    public PlanningException(Throwable cause) {
         super(cause);
-    }
-
-    /**
-     * Creates a new exception with the given error message and optional nested exception.
-     *
-     * @param msg Error message.
-     * @param cause Optional nested exception (can be {@code null}).
-     */
-    public SqlException(String msg, @Nullable Throwable cause) {
-        super(msg, cause);
     }
 }

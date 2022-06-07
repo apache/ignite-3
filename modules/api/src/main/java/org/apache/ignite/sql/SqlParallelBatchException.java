@@ -17,45 +17,31 @@
 
 package org.apache.ignite.sql;
 
-import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.Nullable;
-
 /**
- * SQL exception base class.
+ * The subclass of {@link SqlBatchException} thrown when an error occurs during a batch update operation in parallel mode
+ * ({@link SessionProperties#BATCH_PARALLEL}).
  */
-public class SqlException extends IgniteException {
-    /**
-     * Empty constructor for subclasses.
-     */
-    protected SqlException() {
-        // No-op.
-    }
-
-    /**
-     * Creates a new exception with the given error message.
-     *
-     * @param msg Error message.
-     */
-    public SqlException(String msg) {
-        super(msg);
-    }
+public class SqlParallelBatchException extends SqlBatchException {
+    private final Throwable[] causes;
 
     /**
      * Creates a new grid exception with the given throwable as a cause and source of error message.
      *
-     * @param cause Non-null throwable cause.
+     * @param updCntrs Array that describes the outcome of a batch execution.
+     * @param causes Array of errors causes.
      */
-    public SqlException(Throwable cause) {
-        super(cause);
+    public SqlParallelBatchException(long[] updCntrs, Throwable[] causes) {
+        super(updCntrs);
+
+        this.causes = causes;
     }
 
     /**
-     * Creates a new exception with the given error message and optional nested exception.
+     * Returns the array that contains batch execution exceptions.
      *
-     * @param msg Error message.
-     * @param cause Optional nested exception (can be {@code null}).
+     * @return Array that contains batch execution exceptions.
      */
-    public SqlException(String msg, @Nullable Throwable cause) {
-        super(msg, cause);
+    public Throwable[] causes() {
+        return causes;
     }
 }

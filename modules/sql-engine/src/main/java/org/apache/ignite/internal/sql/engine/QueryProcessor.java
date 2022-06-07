@@ -80,4 +80,12 @@ public interface QueryProcessor extends IgniteComponent {
      * @throws IgniteException in case of an error.
      */
     CompletableFuture<long[]> batchAsync(QueryContext context, String schemaName, String qry, List<List<Object>> batchArgs);
+
+    /**
+     * Batch execute mode.
+     */
+    enum BatchMode {
+        SERIAL,
+        PARALLEL
+    }
 }
