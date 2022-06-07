@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 
 import java.util.HashMap;
