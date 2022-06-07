@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.raft.jraft.test.TestUtils.peersToIds;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -44,8 +43,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.raft.Loza;
@@ -623,82 +620,6 @@ public class RaftGroupServiceTest {
 
         assertEquals(NODES, service.peers());
         assertEquals(Collections.emptyList(), service.learners());
-    }
-
-    /**
-     * @throws Exception
-     */
-    @Test
-    public void testChangePeersAsyncRetryLogic() throws Exception {
-        String groupId = "test";
-
-        List<String> shrunkPeers = peersToIds(NODES.subList(0, 1));
-
-        List<String> extendedPeers = peersToIds(NODES);
-
-        AtomicLong firstInvocationOfChangePeersAsync = new AtomicLong(0L);
-
-        AtomicInteger counter = new AtomicInteger(0);
-
-        when(messagingService.invoke(any(NetworkAddress.class),
-                eq(FACTORY.changePeersAsyncRequest()
-                        .newPeersList(shrunkPeers)
-                        .term(1L)
-                        .groupId(groupId).build()), anyLong()))
-                .then(invocation -> {
-                    if (firstInvocationOfChangePeersAsync.get() == 0) {
-                        firstInvocationOfChangePeersAsync.set(System.currentTimeMillis());
-                        return failedFuture(new TimeoutException());
-                    } else {
-                        if (firstInvocationOfChangePeersAsync.get() + TIMEOUT < System.currentTimeMillis()) {
-                            //retry happened, new changePeersAsync was called
-                            counter.incrementAndGet();
-
-                            return completedFuture(FACTORY.changePeersAsyncResponse().newPeersList(extendedPeers).build());
-                        }
-                    }
-
-                    return failedFuture(new TimeoutException());
-                });
-
-        mockLeaderRequest(false);
-
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(groupId, cluster, FACTORY, TIMEOUT, NODES.subList(0, 2), true, DELAY, executor).get(3, TimeUnit.SECONDS);
-
-        service.changePeersAsync(NODES.subList(0, 1), 1L).get();
-
-        assertEquals(counter.get(), 1);
-
-        AtomicLong secondInvocationOfChangePeersAsync = new AtomicLong(0L);
-
-        assertFalse(RaftGroupServiceImpl.recoverable(new NullPointerException()));
-
-        when(messagingService.invoke(any(NetworkAddress.class),
-                        eq(FACTORY.changePeersAsyncRequest()
-                                .newPeersList(shrunkPeers)
-                                .term(1L)
-                                .groupId(groupId).build()), anyLong()))
-                .then(invocation -> {
-                    if (secondInvocationOfChangePeersAsync.get() == 0) {
-                        secondInvocationOfChangePeersAsync.set(System.currentTimeMillis());
-
-                        return failedFuture(new NullPointerException());
-                    } else {
-                        if (secondInvocationOfChangePeersAsync.get() + TIMEOUT < System.currentTimeMillis()) {
-                            //retry happened, new changePeersAsync was called
-                            counter.incrementAndGet();
-
-                            return completedFuture(FACTORY.changePeersAsyncResponse().newPeersList(extendedPeers).build());
-                        }
-                    }
-
-                    return failedFuture(new NullPointerException());
-                });
-
-        service.changePeersAsync(NODES.subList(0, 1), 1L).get();
-
-        assertEquals(counter.get(), 2);
     }
 
     /**

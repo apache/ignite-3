@@ -173,7 +173,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Mock
     MetaStorageManager msm;
 
-    /** Mock messaging service */
+    /** Mock messaging service. */
     @Mock
     private MessagingService messagingService;
 
@@ -627,7 +627,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     /**
      * Tests that {@link RaftGroupServiceImpl#changePeersAsync(java.util.List, long)} was retried after some exceptions.
      *
-     * @throws Exception
+     * @throws Exception If failed.
      */
     @Test
     public void testChangePeersAsyncRetryLogic() throws Exception {
@@ -698,15 +698,15 @@ public class TableManagerTest extends IgniteAbstractTest {
                 .then(invocation -> {
                     PeerId leader0 = PeerId.fromPeer(leader);
 
-                    Object resp = leader0 == null ?
-                            factory.errorResponse().errorCode(RaftError.EPERM.getNumber()).build() :
-                            factory.getLeaderResponse().leaderId(leader0.toString()).currentTerm(1L).build();
+                    Object resp = leader0 == null
+                            ? factory.errorResponse().errorCode(RaftError.EPERM.getNumber()).build()
+                            : factory.getLeaderResponse().leaderId(leader0.toString()).currentTerm(1L).build();
 
                     return completedFuture(resp);
                 });
 
-        RaftGroupService service =
-                RaftGroupServiceImpl.start(groupId, cluster, factory, timeout, nodes.subList(0, 2), true, delay, executor).get(3, TimeUnit.SECONDS);
+        RaftGroupService service = RaftGroupServiceImpl.start(groupId, cluster, factory, timeout, nodes.subList(0, 2),
+                true, delay, executor).get(3, TimeUnit.SECONDS);
 
         tableManager.changePeersAsync(() -> service).apply(nodes.subList(0, 1), 1L).join();
 
