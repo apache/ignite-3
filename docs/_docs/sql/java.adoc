@@ -22,16 +22,10 @@ Here is an example of how you can create a new table on a cluster:
 
 [source, java]
 ----
-IgniteSql sql = CLUSTER_NODES.get(0).sql();
-Session ses = sql.createSession();
-ResultSet synchRes = ses.execute(
+try (ResultSet rs = ses.execute(null,
     null,
     `CREATE TABLE SYNCH(ID INT PRIMARY KEY, VAL0 INT)`
 );
-
-AsyncResultSet asyncRes = fut.get();
-
-ses.closeAsync().get();
 ----
 
 
