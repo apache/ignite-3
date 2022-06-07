@@ -656,7 +656,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param t The throwable.
      * @return {@code True} if this is a recoverable exception.
      */
-    public static boolean recoverable(Throwable t) {
+    private static boolean recoverable(Throwable t) {
         if (t instanceof ExecutionException || t instanceof CompletionException) {
             t = t.getCause();
         }

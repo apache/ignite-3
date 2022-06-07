@@ -30,9 +30,9 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
-import static org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl.recoverable;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -43,9 +43,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -470,7 +472,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partitionRaftGroupName(tblId, partId),
                                     partId,
                                     busyLock,
-                                    changePeersAsync(() -> internalTbl.partitionRaftGroupService(partId)),
+                                    reconfigureRaftGroup(() -> internalTbl.partitionRaftGroupService(partId)),
                                     rebalanceScheduler)
                     ).thenAccept(
                             updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
@@ -1254,7 +1256,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             partId,
                             part,
                             busyLock,
-                            changePeersAsync(() -> tbl.internalTable().partitionRaftGroupService(part)),
+                            reconfigureRaftGroup(() -> tbl.internalTable().partitionRaftGroupService(part)),
                             rebalanceScheduler);
 
                     // Stable assignments from the meta store, which revision is bounded by the current pending event.
@@ -1365,14 +1367,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Performs {@link RaftGroupService#changePeersAsync(java.util.List, long)} on a provided raft group service.
+     * Performs {@link RaftGroupService#changePeersAsync(java.util.List, long)} on a provided raft group service, so nodes
+     * of the corresponding raft group can be reconfigured.
      * Retry mechanism is applied to repeat {@link RaftGroupService#changePeersAsync(java.util.List, long)} if previous one
      * failed with some exception.
      *
      * @param raftGroupServiceSupplier Raft groups service.
      * @return Function which performs {@link RaftGroupService#changePeersAsync(java.util.List, long)}.
      */
-    public BiFunction<List<Peer>, Long, CompletableFuture<Void>> changePeersAsync(Supplier<RaftGroupService> raftGroupServiceSupplier) {
+    BiFunction<List<Peer>, Long, CompletableFuture<Void>> reconfigureRaftGroup(Supplier<RaftGroupService> raftGroupServiceSupplier) {
         return (List<Peer> peers, Long term) -> {
             if (!busyLock.enterBusy()) {
                 throw new IgniteInternalException(new NodeStoppingException());
@@ -1393,7 +1396,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 // TODO: At the moment, we repeat such intents as well.
                                 LOG.error("Unrecoverable error received during changePeersAsync invocation, retrying", err);
                             }
-                            return changePeersAsync(raftGroupServiceSupplier).apply(peers, term);
+                            return reconfigureRaftGroup(raftGroupServiceSupplier).apply(peers, term);
                         }
 
                         return CompletableFuture.<Void>completedFuture(null);
@@ -1418,5 +1421,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private <T extends ConfigurationProperty<?>> T directProxy(T property) {
         return getMetadataLocallyOnly ? property : ConfigurationUtil.directProxy(property);
+    }
+
+    /**
+     * Checks if an error is recoverable, so we can retry intent, which causes the error.
+     * @param t The throwable.
+     * @return {@code True} if this is a recoverable exception.
+     */
+    static boolean recoverable(Throwable t) {
+        if (t instanceof ExecutionException || t instanceof CompletionException) {
+            t = t.getCause();
+        }
+
+        return t instanceof TimeoutException || t instanceof IOException;
     }
 }

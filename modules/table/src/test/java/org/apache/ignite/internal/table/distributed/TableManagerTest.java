@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.table.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
@@ -94,7 +94,7 @@ import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageChange;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -713,13 +713,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         RaftGroupService service = RaftGroupServiceImpl.start(groupId, cluster, factory, timeout, nodes.subList(0, 2),
                 true, delay, executor).get(3, TimeUnit.SECONDS);
 
-        tableManager.changePeersAsync(() -> service).apply(nodes.subList(0, 1), 1L).join();
+        tableManager.reconfigureRaftGroup(() -> service).apply(nodes.subList(0, 1), 1L).join();
 
         assertEquals(counter.get(), 1);
 
         AtomicLong secondInvocationOfChangePeersAsync = new AtomicLong(0L);
 
-        assertFalse(RaftGroupServiceImpl.recoverable(new NullPointerException()));
+        assertFalse(TableManager.recoverable(new NullPointerException()));
 
         when(messagingService.invoke(any(NetworkAddress.class),
                 eq(factory.changePeersAsyncRequest()
@@ -743,7 +743,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                     return failedFuture(new NullPointerException());
                 });
 
-        tableManager.changePeersAsync(() -> service).apply(nodes.subList(0, 1), 1L).join();
+        tableManager.reconfigureRaftGroup(() -> service).apply(nodes.subList(0, 1), 1L).join();
 
         assertEquals(2, counter.get());
 
