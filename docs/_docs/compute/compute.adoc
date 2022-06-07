@@ -44,7 +44,7 @@ string res = await compute.ExecuteAsync<string>(nodes, jobClassName: "org.foo.ba
 
 == Colocated Computations
 
-In Apache Ignite 3 you can execute colocated computation with `executeColocated` method. When you do it, the data set required for the compute task is guaranteed to be on the nodes that execute the task. This can significantly reduce execution time if your tasks require data.
+In Apache Ignite 3 you can execute colocated computation with `executeColocated` method. When you do it, the compute task is guaranteed to be executed on the nodes that hold the specified key. This can significantly reduce execution time if your tasks require data.
 
 In this example we will need a table to colocate:
 
