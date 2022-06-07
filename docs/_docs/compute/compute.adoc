@@ -56,6 +56,18 @@ executeSql("CREATE TABLE test (k int, v int, CONSTRAINT PK PRIMARY KEY (k))");
 executeSql("INSERT INTO test(k, v) VALUES (1, 101)");
 ----
 
+And we will execute a simple task:
+
+----
+class GetNodeNameJob implements ComputeJob<String> {
+    @Override
+    public String execute(JobExecutionContext context, Object... args) {
+        return context.ignite().name();
+    }
+}
+----
+
+
 [tabs]
 --
 tab:Tuple[]
