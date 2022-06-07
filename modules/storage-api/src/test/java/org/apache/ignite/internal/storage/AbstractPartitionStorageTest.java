@@ -668,7 +668,7 @@ public abstract class AbstractPartitionStorageTest {
      * @param key String key.
      * @return Search row.
      */
-    protected static SearchRow searchRow(String key) {
+    protected SearchRow searchRow(String key) {
         return new SearchRow() {
             @Override
             public byte[] keyBytes() {
@@ -689,7 +689,7 @@ public abstract class AbstractPartitionStorageTest {
      * @param value String value.
      * @return Data row.
      */
-    protected static DataRow dataRow(String key, String value) {
+    protected DataRow dataRow(String key, String value) {
         return new SimpleDataRow(
                 key.getBytes(StandardCharsets.UTF_8),
                 value.getBytes(StandardCharsets.UTF_8)
