@@ -30,11 +30,11 @@ public class DeleteCommand extends SingleKeyCommand implements WriteCommand {
      * Creates a new instance of DeleteCommand with the given key to be deleted. The {@code keyRow} should not be {@code null}.
      *
      * @param keyRow    Binary key row.
-     * @param id The timestamp.
+     * @param txId      Transaction id.
      *
      * @see TransactionalCommand
      */
-    public DeleteCommand(@NotNull BinaryRow keyRow, @NotNull UUID id) {
-        super(keyRow, id);
+    public DeleteCommand(@NotNull BinaryRow keyRow, @NotNull UUID txId) {
+        super(keyRow, txId);
     }
 }

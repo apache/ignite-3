@@ -554,7 +554,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
         assertRowMatches(foundRow, binaryRow);
     }
 
-    @Disabled
+    @Disabled("Abort and commit are no op if there is no uncommitted version")
     @Test
     void abortWriteFailsIfNoUncommittedVersionExists() {
         RowId rowId = storage.insert(binaryRow, newTransactionId());

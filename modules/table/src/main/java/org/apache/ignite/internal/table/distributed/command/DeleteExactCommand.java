@@ -29,12 +29,12 @@ public class DeleteExactCommand extends SingleKeyCommand implements WriteCommand
     /**
      * Creates a new instance of DeleteExactCommand with the given row to be deleted. The {@code row} should not be {@code null}.
      *
-     * @param row       Binary row.
-     * @param id The timestamp.
+     * @param row     Binary row.
+     * @param txId    Transaction id.
      *
      * @see TransactionalCommand
      */
-    public DeleteExactCommand(@NotNull BinaryRow row, @NotNull UUID id) {
-        super(row, id);
+    public DeleteExactCommand(@NotNull BinaryRow row, @NotNull UUID txId) {
+        super(row, txId);
     }
 }

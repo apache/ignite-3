@@ -168,8 +168,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         map.compute(rowId, (ignored, versionChain) -> {
             assert versionChain != null;
-            assert versionChain.begin == null && versionChain.txId != null :
-                    "[timestamp=" + versionChain.begin + ", txId=" + versionChain.txId + ']';
+            assert versionChain.begin == null && versionChain.txId != null;
 
             return VersionChain.createCommitted(timestamp, versionChain);
         });

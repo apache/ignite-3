@@ -32,11 +32,11 @@ public class DeleteAllCommand extends MultiKeyCommand implements WriteCommand {
      * or empty.
      *
      * @param keyRows   Collection of binary row keys to be deleted.
-     * @param id The timestamp.
+     * @param txId      Transaction id.
      *
      * @see TransactionalCommand
      */
-    public DeleteAllCommand(@NotNull Collection<BinaryRow> keyRows, @NotNull UUID id) {
-        super(keyRows, id);
+    public DeleteAllCommand(@NotNull Collection<BinaryRow> keyRows, @NotNull UUID txId) {
+        super(keyRows, txId);
     }
 }
