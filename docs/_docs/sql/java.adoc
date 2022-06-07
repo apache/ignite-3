@@ -14,7 +14,22 @@
 // limitations under the License.
 = Java SQL API
 
-In your Java projects, you can use the Java SQL API to execute SQL statements and getting results. All operations are executed as a part of sql session. You can create a session with default parameters by using a `sql.createSession()` method, or use an `sql.sessionBuilder` to configure it for your environment. The `execute` method accepts a query String, or a Statement object, that can be created by using `sql.createStatement()` and `sql.statementBuilder()` methods.
+In your Java projects, you can use the Java SQL API to execute SQL statements and getting results. All operations are executed as a part of sql session. You can create a session with default parameters by using a `sql.createSession()` method, or use an `sql.sessionBuilder` to configure it for your environment. Sessions are usually long-lived objects that can be used in multiple threads and may hold data server-side. Session object is light-weight, and Ignite manages resources automatically in failover scenarios (for example, for disconnects). Keep in mind that you need to close the session manually by using the `close()` method when the session is no longer needed. Here is how you usually set up a session:
+
+[source, java]
+----
+Session ses = sql.createSession();
+Session ses = sql.sessionBuilder().defaultSchema("PUBLIC").build();
+----
+
+The `execute` method accepts a query String, or a Statement object, that can be created by using `sql.createStatement()` and `sql.statementBuilder()` methods. Stetements are light-weight objects and can be reused in multiple threads or sessions. Setting set by using `statementBuilder` override session settings for this statement. Here is how you usually set up a statement:
+
+[source, java]
+----
+Statement stmt = sql.createStatement(sqlQueryString));
+Statement stmt = sql.statementBuilder().query(sqlQueryString)).build();
+----
+
 
 == Creating Tables
 
@@ -27,6 +42,8 @@ try (ResultSet rs = ses.execute(null,
     `CREATE TABLE SYNCH(ID INT PRIMARY KEY, VAL0 INT)`
 );
 ----
+
+NOTE: ResultSet is closable, but it is safe to skip `close()` method for DDL and DML queries, as they do not keep server cursor open.
 
 
 == Filling Tables
@@ -47,7 +64,7 @@ long rowsAdded = Arrays.stream(ses.executeBatch(null,
 
 == Getting Data From Tables
 
-To get data from a table, execute a `SELECT` statement to get a set of results. You can then iterate through results to get data:
+To get data from a table, execute a `SELECT` statement to get a set of results. SqlRow can provide access to column values by column name or column index. You can then iterate through results to get data:
 
 [source, java]
 ----
@@ -60,3 +77,5 @@ try (ResultSet rs = ses.execute(null,
     }
 }
 ----
+
+NOTE: ResultSet may hold server-side cursor open due to lazy query execution. It must be closed manually, or by using the `try-with-resources` statement.
