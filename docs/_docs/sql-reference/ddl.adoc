@@ -33,7 +33,8 @@ Parameters:
 * `tableColumn` - name and type of a column to be created in the new table.
 * `DEFAULT` - specifies a default value for the column. Only constant values are accepted.
 * `IF NOT EXISTS` - create the table only if a table with the same name does not exist.
-* `ENGINE` - sets the storage engine to use. Currently: `pagememory` or `rocksdb`.
+* `ENGINE` - selects the storage engine to use. Currently `pagememory` and `rocksdb` are available.
+* `COLOCATED BY` - colocation key. The key can be composite. Primary key must include colocation key. Was `affinity_key` in Ignite 2.x.
 * `WITH` - accepts additional parameters not defined by ANSI-99 SQL:
 
 ** `Replicas` - sets the number of partition copies, including the master copy.
