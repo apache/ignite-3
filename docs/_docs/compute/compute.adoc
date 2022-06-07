@@ -1,31 +1,15 @@
 = Distributed Computing
 
-Apache Ignite 3 provides an API for distributing computations across cluster nodes in a balanced and fault-tolerant manner. You can submit individual tasks for execution as well as implement the `MapReduce(?)` pattern with automatic task splitting.
+Apache Ignite 3 provides an API for distributing computations across cluster nodes in a balanced and fault-tolerant manner. You can submit individual tasks for execution from Java and .NET clients.
 
-Here is how you can execute a remote job by using the `ignite-api` module:
-
-[source, java]
-----
-public interface IgniteCompute {
-// Executes a job represented by the given class on one node from the nodes set.
-<R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? Extends ComputeJob<R>> cls, Object … args);
-
-// Executes a job represented by the given class on one node where the given key is located.
-<R> CompletableFuture<R> executeColocated(String table, K key, Class<? extends ComputeJob<R>> cls, Object … args);
-
-// Executes a job represented by the given class on all nodes from the given nodes set.
-<R> Map<ClusterNode,CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> cls, Object … args);
-}
-----
-
-NOTE: Currently, this interface supports only basic operations. Broadcasting and operations requiring code deployment are currently not supported.
-
-== Java: Thin
-
-You can use Java thin client to execute compute jobs on the server. Make sure the required classes are deployed to the cluster before executing code.
+You can use Java or .NET client to execute compute jobs. Make sure the required classes are deployed to the cluster before executing code.
 
 Here is how you can execute a simple compute job:
 
+
+[tabs]
+--
+tab:Java[]
 [source, java]
 ----
 private void example() {
@@ -44,14 +28,10 @@ private static class NodeNameJob implements ComputeJob<String> {
 }
 ----
 
-NOTE: Unlike Ignite 2, jobs are currently not serialized.
 
-== .NET: Thin
+NOTE: Unlike Ignite 2, jobs are not serialized. Only the class name and arguments are sent to the node.
 
-You can use .NET thin client to execute Java compute tasks.  Make sure the required classes are deployed to the cluster before executing code.
-
-Here is how you can execute a simple compute job:
-
+tab:.NET[]
 [source, csharp]
 ----
 IIgniteClient client = Client;
@@ -59,5 +39,12 @@ ICompute compute = client.Compute;
 IList<IClusterNode> nodes = await Client.GetClusterNodesAsync();
 string res = await compute.ExecuteAsync<string>(nodes, jobClassName: "org.foo.bar.NodeNameJob", "Hello!");
 ----
+--
 
-NOTE: Unlike Ignite 2, jobs are currently not serialized.
+
+== Colocated Computations
+
+In Apache Ignite 3 you can execute colocated computation. When you do it, the data set required for the compute task is guaranteed to be on the nodes that execute the task. This can significantly reduce execution time if your tasks require data.
+
+Here is how you can execute a simple colocated job:
+
