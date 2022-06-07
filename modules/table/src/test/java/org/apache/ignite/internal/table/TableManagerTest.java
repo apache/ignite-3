@@ -664,20 +664,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         when(cluster.messagingService()).thenReturn(messagingService);
 
-        TableManager tableManager = new TableManager(
-                revisionUpdater,
-                tblsCfg,
-                rm,
-                bm,
-                ts,
-                tm,
-                dsm,
-                msm
-        );
-
-        tblManagerFut.complete(tableManager);
-
-        tableManager.start();
+        TableManager tableManager = createTableManager(tblManagerFut, false);
 
         ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
 
