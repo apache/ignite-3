@@ -23,6 +23,8 @@ Creates a new table.
 [source,sql]
 ----
 CREATE TABLE [IF NOT EXISTS] [simpleName | schemaName.simpleName] (tableColumn [, tableColumn]...)
+[COLOCATE [BY] (tableColumn [, tableColumn]...)]
+[ENGINE engineName]
 [WITH paramName=paramValue [,paramName=paramValue]...]
 tableColumn = columnName columnType [[NOT] NULL] [DEFAULT defaultValue] [PRIMARY KEY]
 ----
