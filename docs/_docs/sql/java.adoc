@@ -14,7 +14,7 @@
 // limitations under the License.
 = Java SQL API
 
-In your Java projects, you can use the Java SQL API to execute SQL statements and getting results. All operations are executed as a part of sql session. You can create a session with default parameters by using a `sql.createSession()` method, or use an `sql.sessionBuilder` to configure it for your environment.
+In your Java projects, you can use the Java SQL API to execute SQL statements and getting results. All operations are executed as a part of sql session. You can create a session with default parameters by using a `sql.createSession()` method, or use an `sql.sessionBuilder` to configure it for your environment. The `execute` method accepts a query String, or a Statement object, that can be created by using `sql.createStatement()` and `sql.statementBuilder()` methods.
 
 == Creating Tables
 
