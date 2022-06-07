@@ -44,7 +44,37 @@ string res = await compute.ExecuteAsync<string>(nodes, jobClassName: "org.foo.ba
 
 == Colocated Computations
 
-In Apache Ignite 3 you can execute colocated computation. When you do it, the data set required for the compute task is guaranteed to be on the nodes that execute the task. This can significantly reduce execution time if your tasks require data.
+In Apache Ignite 3 you can execute colocated computation with `executeColocated` method. When you do it, the data set required for the compute task is guaranteed to be on the nodes that execute the task. This can significantly reduce execution time if your tasks require data.
 
-Here is how you can execute a simple colocated job:
+In this example we will need a table to colocate:
 
+
+
+[source, java]
+----
+executeSql("CREATE TABLE test (k int, v int, CONSTRAINT PK PRIMARY KEY (k))");
+executeSql("INSERT INTO test(k, v) VALUES (1, 101)");
+----
+
+[tabs]
+--
+tab:Tuple[]
+[source, java]
+----
+String actualNodeName = ignite.compute()
+        .executeColocated("PUBLIC.test", Tuple.create(Map.of("k", 1)), GetNodeNameJob.class)
+        .get(1, TimeUnit.SECONDS);
+
+System.out.println(actualNodeName);
+----
+
+tab:Mapper[]
+[source, java]
+----
+String actualNodeName = ignite.compute()
+        .executeColocated("PUBLIC.test", 1, Mapper.of(Integer.class), GetNodeNameJob.class)
+        .get(1, TimeUnit.SECONDS);
+
+System.out.println(actualNodeName);
+----
+--
