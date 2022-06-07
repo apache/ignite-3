@@ -168,13 +168,13 @@ public abstract class AbstractPartitionStorageTest {
         storage.write(dataRow1);
         storage.write(dataRow2);
 
-        List<DataRow> list = toList(storage.scan(key -> key.keyBytes()[3] == '1'));
+        List<DataRow> list = toList(storage.scan(key -> key.key().get(key.key().limit() - 1) == '1'));
 
         assertThat(list, hasSize(1));
 
         assertArrayEquals(dataRow1.value().array(), list.get(0).value().array());
 
-        list = toList(storage.scan(key -> key.keyBytes()[3] == '2'));
+        list = toList(storage.scan(key -> key.key().get(key.key().limit() - 1) == '2'));
 
         assertThat(list, hasSize(1));
 
