@@ -14,7 +14,7 @@
 // limitations under the License.
 = Java SQL API
 
-In your Java projects, you can use the Java SQL API to execute SQL statements and getting results. Statements can be executed both synchronously and asynchronously.
+In your Java projects, you can use the Java SQL API to execute SQL statements and getting results. All operations are executed as a part of sql session. You can create a session with default parameters by using a `sql.createSession()` method, or use an `sql.sessionBuilder` to configure it for your environment.
 
 == Creating Tables
 
@@ -29,11 +29,6 @@ ResultSet synchRes = ses.execute(
     `CREATE TABLE SYNCH(ID INT PRIMARY KEY, VAL0 INT)`
 );
 
-CompletableFuture<AsyncResultSet> fut = ses.executeAsync(
-    null,
-    `CREATE TABLE ASYNCH(ID INT PRIMARY KEY, VAL0 INT)`
-);
-
 AsyncResultSet asyncRes = fut.get();
 
 ses.closeAsync().get();
@@ -45,28 +40,6 @@ ses.closeAsync().get();
 With Apache Ignite 3, you can fill the table by adding rows one by one, or in a batch. In both cases, you create an `INSERT` statement, and then exeute it:
 
 
-[tabs]
---
-tab:Single Row[]
-[source, java]
-----
-try (Statement stmt = client.sql().createStatement("INSERT INTO CITIES (ID, NAME) VALUES (?, ?)")) {
-    long rowsAdded = 0;
-
-    try (ResultSet rs = ses.execute(null, stmt, 1, "Forest Hill")) {
-        rowsAdded += rs.affectedRows();
-    }
-    try (ResultSet rs = ses.execute(null, stmt, 2, "Denver")) {
-        rowsAdded += rs.affectedRows();
-    }
-    try (ResultSet rs = ses.execute(null, stmt, 3, "St. Petersburg")) {
-        rowsAdded += rs.affectedRows();
-    }
-    //...
-}
-----
-
-tab:Batch Update[]
 [source, java]
 ----
 long rowsAdded = Arrays.stream(ses.executeBatch(null,
@@ -76,91 +49,20 @@ long rowsAdded = Arrays.stream(ses.executeBatch(null,
         .add(3, 1, "Mary", "Major", 1500.0d)
         .add(4, 1, "Richard", "Miles", 1450.0d)))
         .asLongStream().sum();
-
-System.out.println("\nAdded accounts: " + rowsAdded);
 ----
---
 
-== Getting Data From Table
+== Getting Data From Tables
 
 To get data from a table, execute a `SELECT` statement to get a set of results. You can then iterate through results to get data:
 
 [source, java]
 ----
 try (ResultSet rs = ses.execute(null,
-        "SELECT a.FIRST_NAME, a.LAST_NAME, c.NAME FROM ACCOUNTS a "
-        + "INNER JOIN CITIES c on c.ID = a.CITY_ID ORDER BY a.ACCOUNT_ID")) {
+        "SELECT a.FIRST_NAME, a.LAST_NAME FROM ACCOUNTS a")) {
     while (rs.hasNext()) {
         SqlRow row = rs.next();
-        System.out.println("    "
-                            + row.stringValue(1) + ", "
-                            + row.stringValue(2) + ", "
-                            + row.stringValue(3));
+
+        result += row.stringValue(1) + ", " + row.stringValue("LAST_NAME") + "\n";
     }
 }
 ----
-
-
-== Deleting Data
-
-To delete data, execute the `DELETE` statement:
-
-[source, java]
-----
-try (ResultSet rs = ses.execute(null, "DELETE FROM ACCOUNTS WHERE ACCOUNT_ID = ?", 1)) {
-    System.out.println("\n Removed accounts: " + rs.affectedRows());
-}
-----
-
-== Asynchronous Execution
-
-If necessary, you can execute your commands asynchronously:
-
-[source, java]
-----
-Statement stmt = client.sql().statementBuilder()
-    .query("SELECT a.FIRST_NAME, a.LAST_NAME, c.NAME FROM ACCOUNTS a "
-        + "INNER JOIN CITIES c on c.ID = a.CITY_ID ORDER BY a.ACCOUNT_ID")
-    .pageSize(1)
-    .build();
-
-ses.executeAsync(null, stmt)
-    .thenCompose(SqlApiExample::fetchAllRowsInto)
-    .get();
-
-stmt.close();
-
-System.out.println("\nDropping the tables...");
-
-ses.execute(null, "DROP TABLE ACCOUNTS").close();
-ses.execute(null, "DROP TABLE CITIES").close();
-----
-
-After you execute a query, you need to get the results:
-
-[source, java]
-----
-private static CompletionStage<Void> fetchAllRowsInto(AsyncResultSet resultSet) {
-    //
-    // Process current page.
-    //
-    for (var row : resultSet.currentPage()) {
-        System.out.println("    "
-            + row.stringValue(1) + ", "
-            + row.stringValue(2) + ", "
-            + row.stringValue(3));
-    }
-
-    //
-    // Finish if no more data.
-    //
-    if (!resultSet.hasMorePages()) {
-        return CompletableFuture.completedFuture(null);
-    }
-
-    //
-    // Request for the next page in async way, then subscribe to the response.
-    //
-    return resultSet.fetchNextPage().thenCompose(SqlApiExample::fetchAllRowsInto);
-}
----
