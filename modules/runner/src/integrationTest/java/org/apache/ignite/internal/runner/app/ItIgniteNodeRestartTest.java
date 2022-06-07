@@ -278,6 +278,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterSvc.topologyService(),
                 txManager,
                 dataStorageManager,
+                metaStorageMgr,
                 schemaManager
         );
 
