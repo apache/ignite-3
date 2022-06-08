@@ -21,7 +21,6 @@ import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputCont
 
 import org.apache.ignite.example.AbstractExamplesTest;
 import org.apache.ignite.example.sql.jdbc.SqlJdbcExample;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
