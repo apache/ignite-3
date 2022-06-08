@@ -16,7 +16,7 @@ The current alpha version includes the following features:
 
 ## Installation
 
-1. Download Ignite 3 Alpha 3:
+1. Download Ignite 3 Alpha 5:
    ```
    curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-alpha5/apache-ignite-3.0.0-alpha5.zip" -o apache-ignite-3.0.0-alpha5.zip
    ```
