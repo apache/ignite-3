@@ -14,7 +14,7 @@
 // limitations under the License.
 = Java SQL API
 
-In your Java projects, you can use the Java SQL API to execute SQL statements and getting results. All operations are executed as a part of sql session. You can create a session with default parameters by using a `sql.createSession()` method, or use an `sql.sessionBuilder` to configure it for your environment. Sessions are usually long-lived objects that can be used in multiple threads and may hold data server-side. Session object is light-weight, and Ignite manages resources automatically in failover scenarios (for example, for disconnects). Keep in mind that you need to close the session manually by using the `close()` method when the session is no longer needed. Here is how you usually set up a session:
+In your Java projects, you can use the Java SQL API to execute SQL statements and getting results. All operations are executed as a part of sql session. You can create a session with default parameters by using a `sql.createSession()` method, or use an `sql.sessionBuilder` to configure it for your environment. Sessions are usually long-lived objects that can be used in multiple threads and may hold data server-side. Session object is light-weight, and Ignite manages resources automatically in failover scenarios (for example, for disconnects). You have to close the session manually by using the `close()` method when the session is no longer needed to release server resources. Here is how you usually set up a session:
 
 [source, java]
 ----
