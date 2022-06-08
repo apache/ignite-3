@@ -57,11 +57,9 @@ import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.SessionProperties;
 import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlColumnType;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.sql.SqlParallelBatchException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
@@ -413,44 +411,6 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void batchParallel() {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
-        Session ses = sql.sessionBuilder()
-                .defaultPageSize(ROW_COUNT / 2)
-                .property(SessionProperties.BATCH_PARALLEL, true)
-                .build();
-
-        BatchedArguments args = BatchedArguments.of(0, 0);
-
-        for (int i = 1; i < ROW_COUNT; ++i) {
-            args.add(i, i);
-        }
-
-        long[] batchRes = ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args).join();
-
-        Arrays.stream(batchRes).forEach(r -> assertEquals(1L, r));
-
-        // Check that data are inserted OK
-        List<List<Object>> res = sql("SELECT ID FROM TEST ORDER BY ID");
-        IntStream.range(0, ROW_COUNT).forEach(i -> assertEquals(i, res.get(i).get(0)));
-
-        // Check invalid query type
-        assertThrowsWithCause(
-                () -> ses.executeBatchAsync(null, "SELECT * FROM TEST", args).get(),
-                SqlException.class,
-                "Invalid SQL statement type in the batch"
-        );
-
-        assertThrowsWithCause(
-                () -> ses.executeBatchAsync(null, "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args).get(),
-                SqlException.class,
-                "Invalid SQL statement type in the batch"
-        );
-    }
-
-    @Test
     public void batchIncomplete() {
         int err = ROW_COUNT / 2;
 
@@ -478,54 +438,6 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         assertEquals(err, batchEx.updateCounters().length);
         IntStream.range(0, batchEx.updateCounters().length).forEach(i -> assertEquals(1, batchEx.updateCounters()[i]));
-    }
-
-    @Test
-    public void batchParallelIncomplete() {
-        int err = ROW_COUNT / 2;
-
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-        sql("INSERT INTO TEST VALUES (-2, -2)");
-
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
-        Session ses = sql.sessionBuilder()
-                .defaultPageSize(ROW_COUNT / 2)
-                .property(SessionProperties.BATCH_PARALLEL, true)
-                .build();
-
-        BatchedArguments args = BatchedArguments.create();
-
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            if (i == err) {
-                args.add(-2, -2);
-            } else {
-                args.add(i, i);
-            }
-        }
-
-        Throwable ex = assertThrowsWithCause(
-                () -> ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args).join(),
-                SqlParallelBatchException.class
-        );
-
-        SqlParallelBatchException batchEx = cause(ex, SqlParallelBatchException.class, null);
-        assertEquals(args.size(), batchEx.updateCounters().length);
-
-        for (int i = 0; i < args.size(); ++i) {
-            if (i == err) {
-                assertEquals(-1, batchEx.updateCounters()[i]);
-
-                assertNotNull(cause(
-                        batchEx.causes()[i],
-                        IgniteInternalException.class,
-                        "Failed to INSERT some keys because they are already in cache"
-                ));
-
-            } else {
-                assertEquals(1, batchEx.updateCounters()[i]);
-                assertNull(batchEx.causes()[i]);
-            }
-        }
     }
 
     private void checkDdl(boolean expectedApplied, Session ses, String sql) throws ExecutionException, InterruptedException {
