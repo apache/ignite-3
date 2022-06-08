@@ -125,11 +125,12 @@ public class ClientSession implements Session {
 
             w.out().packObject(oneOf(clientStatement.defaultSchema(), defaultSchema));
             w.out().packObject(oneOf(clientStatement.pageSizeNullable(), defaultPageSize));
-            w.out().packObject(clientStatement.query());
             w.out().packObject(oneOf(clientStatement.queryTimeoutNullable(), defaultTimeout));
-            w.out().packBoolean(clientStatement.prepared());
 
             packProperties(w, clientStatement.properties());
+
+            w.out().packObject(clientStatement.query());
+            w.out().packBoolean(clientStatement.prepared());
 
             if (arguments == null) {
                 w.out().packArrayHeader(0);
