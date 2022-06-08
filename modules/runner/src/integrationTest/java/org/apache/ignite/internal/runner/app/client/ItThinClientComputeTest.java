@@ -56,7 +56,7 @@ import org.junit.jupiter.params.provider.CsvSource;
  * Thin client compute integration test.
  */
 public class ItThinClientComputeTest extends ItAbstractThinClientTest {
-    @Test
+    //@Test
     void testClusterNodes() {
         List<ClusterNode> nodes = sortedNodes();
 
@@ -71,7 +71,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertTrue(nodes.get(1).id().length() > 10);
     }
 
-    @Test
+    //@Test
     void testExecuteOnSpecificNode() {
         String res1 = client().compute().execute(Set.of(node(0)), NodeNameJob.class).join();
         String res2 = client().compute().execute(Set.of(node(1)), NodeNameJob.class).join();
@@ -80,14 +80,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertEquals("ItThinClientComputeTest_null_3345", res2);
     }
 
-    @Test
+    //@Test
     void testExecuteOnRandomNode() {
         String res = client().compute().execute(new HashSet<>(sortedNodes()), NodeNameJob.class).join();
 
         assertTrue(Set.of("ItThinClientComputeTest_null_3344", "ItThinClientComputeTest_null_3345").contains(res));
     }
 
-    @Test
+    //@Test
     void testBroadcastOneNode() {
         Map<ClusterNode, CompletableFuture<String>> futuresPerNode = client().compute().broadcast(
                 Set.of(node(1)),
@@ -102,7 +102,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertEquals("ItThinClientComputeTest_null_3345__123", res);
     }
 
-    @Test
+    //@Test
     void testBroadcastAllNodes() {
         Map<ClusterNode, CompletableFuture<String>> futuresPerNode = client().compute().broadcast(
                 new HashSet<>(sortedNodes()),
@@ -119,7 +119,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertEquals("ItThinClientComputeTest_null_3345__123", res2);
     }
 
-    @Test
+    //@Test
     void testExecuteWithArgs() {
         var nodes = new HashSet<>(client().clusterNodes());
         String res = client().compute().execute(nodes, ConcatJob.class, 1, "2", 3.3).join();
@@ -127,7 +127,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertEquals("1_2_3.3", res);
     }
 
-    @Test
+    //@Test
     void testJobErrorPropagatesToClientWithClassAndMessage() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
@@ -153,7 +153,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertEquals(expectedNode, pojoRes);
     }
 
-    @Test
+    //@Test
     void testAllSupportedArgTypes() {
         testEchoArg(Byte.MAX_VALUE);
         testEchoArg(Short.MAX_VALUE);

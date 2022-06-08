@@ -49,7 +49,7 @@ public class ItHashSpoolTest extends AbstractBasicIntegrationTest {
         }
     }
 
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
     @SuppressWarnings("unchecked")
     public void testHashSpoolCondition() {

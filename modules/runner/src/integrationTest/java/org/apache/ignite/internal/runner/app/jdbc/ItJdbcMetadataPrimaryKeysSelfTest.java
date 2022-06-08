@@ -48,7 +48,7 @@ public class ItJdbcMetadataPrimaryKeysSelfTest extends AbstractJdbcSelfTest {
     /**
      * Checks for PK that contains single field.
      */
-    @Test
+    //@Test
     public void testSingleKey() throws Exception {
         executeUpdate("CREATE TABLE PUBLIC.TEST (ID INT PRIMARY KEY, NAME VARCHAR);");
 
@@ -58,7 +58,7 @@ public class ItJdbcMetadataPrimaryKeysSelfTest extends AbstractJdbcSelfTest {
     /**
      * Checks for composite (so implicitly wrapped) primary key.
      */
-    @Test
+    //@Test
     public void testCompositeKey() throws Exception {
         executeUpdate("CREATE TABLE PUBLIC.TEST ("
                 + "ID INT, "

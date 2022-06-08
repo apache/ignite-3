@@ -79,7 +79,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         }
     }
 
-    @Test
+    //@Test
     public void testExecuteQuery0() throws Exception {
         ResultSet rs = stmt.executeQuery(SQL);
 
@@ -108,7 +108,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertEquals(2, cnt);
     }
 
-    @Test
+    //@Test
     public void testExecuteQuery1() throws Exception {
         final String sqlText = "select 5;";
 
@@ -128,7 +128,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         checkStatementClosed(() -> stmt.executeQuery(sqlText));
     }
 
-    @Test
+    //@Test
     public void testExecute() throws Exception {
         assertTrue(stmt.execute(SQL));
 
@@ -163,7 +163,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertFalse(stmt.getMoreResults(), "Statement has more results.");
     }
 
-    @Test
+    //@Test
     public void testMaxRows() throws Exception {
         stmt.setMaxRows(1);
 
@@ -224,7 +224,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertEquals(2, cnt);
     }
 
-    @Test
+    //@Test
     public void testCloseResultSet0() throws Exception {
         ResultSet rs0 = stmt.executeQuery(SQL);
         ResultSet rs1 = stmt.executeQuery(SQL);
@@ -240,7 +240,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertTrue(rs2.isClosed(), "ResultSet must be explicitly closed after close statement");
     }
 
-    @Test
+    //@Test
     public void testCloseResultSet1() throws Exception {
         stmt.execute(SQL);
 
@@ -251,7 +251,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertTrue(rs.isClosed(), "ResultSet must be explicitly closed after close statement");
     }
 
-    @Test
+    //@Test
     public void testCloseResultSetByConnectionClose() throws Exception {
         try (
                 Connection conn = DriverManager.getConnection(URL);
@@ -266,7 +266,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         }
     }
 
-    @Test
+    //@Test
     public void testCloseOnCompletionAfterQuery() throws Exception {
         assertFalse(stmt.isCloseOnCompletion(), "Invalid default closeOnCompletion");
 
@@ -293,7 +293,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertTrue(stmt.isClosed(), "Statement must be closed");
     }
 
-    @Test
+    //@Test
     public void testCloseOnCompletionBeforeQuery() throws Exception {
         assertFalse(stmt.isCloseOnCompletion(), "Invalid default closeOnCompletion");
 
@@ -320,7 +320,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertTrue(stmt.isClosed(), "Statement must be closed");
     }
 
-    @Test
+    //@Test
     public void testExecuteQueryMultipleOnlyResultSets() throws Exception {
         assertTrue(conn.getMetaData().supportsMultipleResultSets());
 
@@ -353,7 +353,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertFalse(stmt.getMoreResults());
     }
 
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16276")
     public void testExecuteQueryMultipleOnlyDml() throws Exception {
         Statement stmt0 = conn.createStatement();
@@ -388,7 +388,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertFalse(stmt0.getMoreResults());
     }
 
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16276")
     public void testExecuteQueryMultipleMixed() throws Exception {
         int stmtCnt = 10;
@@ -439,7 +439,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertFalse(stmt.getMoreResults());
     }
 
-    @Test
+    //@Test
     public void testExecuteUpdate() throws Exception {
         final String sqlText = "update TEST set NAME='CHANGED_NAME_1' where ID=1;";
 
@@ -450,7 +450,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         checkStatementClosed(() -> stmt.executeUpdate(sqlText));
     }
 
-    @Test
+    //@Test
     public void testExecuteUpdateProducesResultSet() {
         final String sqlText = "select * from TEST;";
 
@@ -459,7 +459,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         );
     }
 
-    @Test
+    //@Test
     public void testExecuteUpdateOnDdl() throws SQLException {
         String tableName = "\"test_" + UUID.randomUUID().toString() + "\"";
 
@@ -476,7 +476,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertThrows(SQLException.class, () -> stmt.executeQuery("SELECT COUNT(*) FROM " + tableName));
     }
 
-    @Test
+    //@Test
     public void testClose() throws Exception {
         String sqlText = "select 1";
 
@@ -496,7 +496,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertTrue(rs.isClosed());
     }
 
-    @Test
+    //@Test
     public void testGetSetMaxFieldSizeUnsupported() throws Exception {
         assertEquals(0, stmt.getMaxFieldSize());
 
@@ -514,7 +514,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         checkStatementClosed(() -> stmt.setMaxFieldSize(100));
     }
 
-    @Test
+    //@Test
     public void testGetSetMaxRows() throws Exception {
         assertEquals(0, stmt.getMaxRows());
 
@@ -545,7 +545,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         checkStatementClosed(() -> stmt.setMaxRows(maxRows));
     }
 
-    @Test
+    //@Test
     public void testGetSetQueryTimeout() throws Exception {
         assertEquals(0, stmt.getQueryTimeout());
 
@@ -569,7 +569,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         checkStatementClosed(() -> stmt.setQueryTimeout(timeout));
     }
 
-    @Test
+    //@Test
     public void testMaxFieldSize() throws Exception {
         assertTrue(stmt.getMaxFieldSize() >= 0);
 
@@ -579,7 +579,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         checkNotSupported(() -> stmt.setMaxFieldSize(100));
     }
 
-    @Test
+    //@Test
     public void testQueryTimeout() throws Exception {
         assertEquals(0, stmt.getQueryTimeout(), "Default timeout invalid: " + stmt.getQueryTimeout());
 
@@ -594,7 +594,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         checkStatementClosed(() -> stmt.setQueryTimeout(10));
     }
 
-    @Test
+    //@Test
     public void testWarningsOnClosedStatement() throws Exception {
         stmt.clearWarnings();
 
@@ -607,7 +607,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         checkStatementClosed(() -> stmt.clearWarnings());
     }
 
-    @Test
+    //@Test
     public void testCursorName() throws Exception {
         checkNotSupported(() -> stmt.setCursorName("test"));
 
@@ -616,7 +616,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         checkStatementClosed(() -> stmt.setCursorName("test"));
     }
 
-    @Test
+    //@Test
     public void testGetMoreResults() throws Exception {
         assertFalse(stmt.getMoreResults());
 
@@ -635,7 +635,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         checkStatementClosed(() -> stmt.getMoreResults());
     }
 
-    @Test
+    //@Test
     public void testGetMoreResultsKeepCurrent() throws Exception {
         assertFalse(stmt.getMoreResults(Statement.CLOSE_CURRENT_RESULT));
         assertFalse(stmt.getMoreResults(Statement.KEEP_CURRENT_RESULT));
@@ -652,7 +652,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         checkStatementClosed(() -> stmt.getMoreResults(Statement.KEEP_CURRENT_RESULT));
     }
 
-    @Test
+    //@Test
     public void testGetMoreResultsCloseAll() throws Exception {
         assertFalse(stmt.getMoreResults(Statement.CLOSE_CURRENT_RESULT));
         assertFalse(stmt.getMoreResults(Statement.KEEP_CURRENT_RESULT));
@@ -667,7 +667,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         checkStatementClosed(() -> stmt.getMoreResults(Statement.KEEP_CURRENT_RESULT));
     }
 
-    @Test
+    //@Test
     public void testBatchEmpty() throws Exception {
         assertTrue(conn.getMetaData().supportsBatchUpdates());
 
@@ -678,7 +678,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         stmt.executeBatch();
     }
 
-    @Test
+    //@Test
     public void testFetchDirection() throws Exception {
         assertEquals(ResultSet.FETCH_FORWARD, stmt.getFetchDirection());
 
@@ -695,7 +695,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         checkStatementClosed(() -> stmt.getFetchDirection());
     }
 
-    @Test
+    //@Test
     public void testAutogenerated() throws Exception {
         assertThrows(
                 SQLException.class,
@@ -726,7 +726,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         checkNotSupported(() -> stmt.execute("select 1", new String[]{"a", "b"}));
     }
 
-    @Test
+    //@Test
     public void testStatementTypeMismatchSelectForCachedQuery() throws Exception {
         // Put query to cache.
         stmt.executeQuery("select 1;");
@@ -740,7 +740,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertNull(stmt.getResultSet(), "Not results expected. Last statement is executed with exception");
     }
 
-    @Test
+    //@Test
     public void testStatementTypeMismatchUpdate() throws Exception {
         assertThrows(
                 SQLException.class,

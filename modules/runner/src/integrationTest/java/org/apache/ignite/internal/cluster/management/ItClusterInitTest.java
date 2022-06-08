@@ -54,7 +54,7 @@ public class ItClusterInitTest extends IgniteAbstractTest {
     /**
      * Tests a scenario when a cluster is initialized twice.
      */
-    @Test
+    //@Test
     void testDoubleInit(TestInfo testInfo) throws Exception {
         createCluster(testInfo, 2);
 

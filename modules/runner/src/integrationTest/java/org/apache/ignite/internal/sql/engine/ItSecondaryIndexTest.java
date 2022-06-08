@@ -147,7 +147,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         });
     }
 
-    @Test
+    //@Test
     public void testEqualsFilterWithUnwrpKey() {
         assertQuery("SELECT F1 FROM UNWRAP_PK WHERE F2=2")
                 .matches(containsIndexScan("PUBLIC", "UNWRAP_PK", PK_IDX))
@@ -155,7 +155,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testIndexLoopJoin() {
         assertQuery("SELECT /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ d1.name, d2.name "
                 + "FROM Developer d1, Developer d2 WHERE d1.id = d2.id")
@@ -188,7 +188,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
 
     // ===== No filter =====
 
-    @Test
+    //@Test
     public void testNoFilter() {
         assertQuery("SELECT * FROM Developer")
                 .matches(containsTableScan("PUBLIC", "DEVELOPER"))
@@ -220,7 +220,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
 
     // ===== id filter =====
 
-    @Test
+    //@Test
     public void testKeyEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id=2")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", PK_IDX))
@@ -228,7 +228,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testKeyGreaterThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE id>? and id<?")
                 .withParams(3, 12)
@@ -244,7 +244,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testKeyGreaterThanOrEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id>=3 and id<12")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", PK_IDX))
@@ -260,7 +260,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testKeyLessThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE id<3")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", PK_IDX))
@@ -269,7 +269,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testKeyLessThanOrEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id<=2")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", PK_IDX))
@@ -280,7 +280,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
 
     // ===== indexed field filter =====
 
-    @Test
+    //@Test
     public void testIndexedFieldEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE depId=2")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
@@ -289,7 +289,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testIndexedFieldGreaterThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE depId>21")
                 .withParams(3)
@@ -298,7 +298,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testIndexedFieldGreaterThanOrEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE depId>=21")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
@@ -307,7 +307,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testIndexedFieldLessThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE depId<?")
                 .withParams(3)
@@ -318,7 +318,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testIndexedFieldLessThanOrEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE depId<=?")
                 .withParams(2)
@@ -331,7 +331,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
 
     // ===== non-indexed field filter =====
 
-    @Test
+    //@Test
     public void testNonIndexedFieldEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE age=?")
                 .withParams(44)
@@ -340,7 +340,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testNonIndexedFieldGreaterThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE age>?")
                 .withParams(50)
@@ -356,7 +356,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testNonIndexedFieldGreaterThanOrEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE age>=?")
                 .withParams(34)
@@ -373,7 +373,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testNonIndexedFieldLessThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE age<?")
                 .withParams(56)
@@ -399,7 +399,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testNonIndexedFieldLessThanOrEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE age<=?")
                 .withParams(55)
@@ -427,7 +427,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
 
     // ===== various complex conditions =====
 
-    @Test
+    //@Test
     public void testComplexIndexCondition1() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND depId=3")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_DEPID_CITY_IDX))
@@ -435,7 +435,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testComplexIndexCondition2() {
         assertQuery("SELECT * FROM Developer WHERE depId=? AND name=?")
                 .withParams(3, "Mozart")
@@ -444,7 +444,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testComplexIndexCondition3() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND depId=3 AND city='Vienna'")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_DEPID_CITY_IDX))
@@ -452,14 +452,14 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testComplexIndexCondition4() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND depId=3 AND city='Leipzig'")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_DEPID_CITY_IDX))
                 .check();
     }
 
-    @Test
+    //@Test
     public void testComplexIndexCondition5() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND city='Vienna'")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_CITY_IDX))
@@ -467,7 +467,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testComplexIndexCondition6() {
         assertQuery("SELECT * FROM Developer WHERE name>='Mozart' AND depId=3")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
@@ -475,7 +475,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testComplexIndexCondition7() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND depId>=2")
                 .matches(containsAnyScan("PUBLIC", "DEVELOPER", NAME_CITY_IDX, NAME_DEPID_CITY_IDX))
@@ -483,7 +483,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testComplexIndexCondition8() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND depId>=2 AND age>20")
                 .matches(containsAnyScan("PUBLIC", "DEVELOPER", NAME_CITY_IDX, NAME_DEPID_CITY_IDX))
@@ -491,7 +491,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testComplexIndexCondition9() {
         assertQuery("SELECT * FROM Developer WHERE name>='Mozart' AND depId>=2 AND city>='Vienna'")
                 .matches(containsAnyScan("PUBLIC", "DEVELOPER", NAME_CITY_IDX, NAME_DEPID_CITY_IDX, DEPID_IDX))
@@ -500,7 +500,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testComplexIndexCondition10() {
         assertQuery("SELECT * FROM Developer WHERE name>='Mozart' AND city>='Vienna'")
                 .matches(containsAnyScan("PUBLIC", "DEVELOPER", NAME_CITY_IDX, NAME_DEPID_CITY_IDX))
@@ -509,7 +509,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testComplexIndexCondition11() {
         assertQuery("SELECT * FROM Developer WHERE name>='Mozart' AND depId=3 AND city>='Vienna'")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
@@ -517,7 +517,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testComplexIndexCondition12() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND depId=3 AND city='Vienna'")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_DEPID_CITY_IDX))
@@ -525,7 +525,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testComplexIndexCondition13() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND depId>=3 AND city='Vienna'")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_CITY_IDX))
@@ -533,7 +533,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testComplexIndexCondition14() {
         assertQuery("SELECT * FROM Developer WHERE name>='Mozart' AND depId=3 AND city>='Vienna'")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
@@ -541,7 +541,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testComplexIndexCondition15() {
         assertQuery("SELECT * FROM Developer WHERE age=33 AND city='Vienna'")
                 .matches(containsTableScan("PUBLIC", "DEVELOPER"))
@@ -549,7 +549,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testComplexIndexCondition16() {
         assertQuery("SELECT * FROM Developer WHERE age=33 AND (city='Vienna' AND depId=3)")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
@@ -557,14 +557,14 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testEmptyResult() {
         assertQuery("SELECT * FROM Developer WHERE age=33 AND city='Leipzig'")
                 .matches(containsTableScan("PUBLIC", "DEVELOPER"))
                 .check();
     }
 
-    @Test
+    //@Test
     public void testOrCondition1() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' OR age=55")
                 .matches(containsUnion(true))
@@ -578,7 +578,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-13710")
     public void testOrCondition2() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND (depId=1 OR depId=3)")
@@ -588,7 +588,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-13710")
     public void testOrCondition3() {
         assertQuery("SELECT * FROM Developer WHERE name='Mozart' AND (age > 22 AND (depId=1 OR depId=3))")
@@ -598,7 +598,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testOrCondition4() {
         assertQuery("SELECT * FROM Developer WHERE depId=1 OR (name='Mozart' AND depId=3)")
                 .matches(containsUnion(true))
@@ -608,7 +608,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testOrCondition5() {
         assertQuery("SELECT * FROM Developer WHERE depId=1 OR name='Mozart'")
                 .matches(containsUnion(true))
@@ -618,7 +618,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
 
     // ===== various complex conditions =====
 
-    @Test
+    //@Test
     public void testOrderByKey() {
         assertQuery("SELECT * FROM Developer WHERE id<=4 ORDER BY id")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER"))
@@ -631,7 +631,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testOrderByDepId() {
         assertQuery("SELECT * FROM Developer ORDER BY depId")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
@@ -665,7 +665,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testOrderByNameCityAsc() {
         assertQuery("SELECT * FROM Developer ORDER BY name, city")
                 .matches(containsAnyScan("PUBLIC", "DEVELOPER"))
@@ -698,7 +698,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testOrderByNameCityDesc() {
         assertQuery("SELECT ID, NAME, DEPID, CITY, AGE FROM Developer ORDER BY name DESC, city DESC")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_CITY_IDX))
@@ -730,7 +730,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testOrderByNoIndexedColumn() {
         assertQuery("SELECT * FROM Developer ORDER BY age DESC")
                 .matches(containsAnyProject("PUBLIC", "DEVELOPER"))
@@ -765,7 +765,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     /**
      * Test verifies that ranges would be serialized and desirialized without any errors.
      */
-    @Test
+    //@Test
     public void testSelectWithRanges() {
         String sql = "select depId from Developer "
                 + "where depId in (1,2,3,5,6,7,9,10,13,14,15,18,19,20,21,22,23,24,25,26,27,28,30,31,32,33) "

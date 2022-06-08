@@ -80,7 +80,7 @@ public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
     /**
      * Tests that the projects exist only for simple expressions without any predicates.
      */
-    @Test
+    //@Test
     public void testProjects() {
         assertQuery("SELECT NAME FROM products d;")
                 .matches(containsAnyScan("PUBLIC", "PRODUCTS"))
@@ -112,7 +112,7 @@ public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
     /**
      * Tests projects with nested requests.
      */
-    @Test
+    //@Test
     public void testNestedProjects() {
         assertQuery("SELECT NAME FROM products WHERE CAT_ID IN (SELECT CAT_ID FROM products WHERE CAT_ID > 1) and ID > 2;")
                 .matches(containsAnyProject("PUBLIC", "PRODUCTS"))

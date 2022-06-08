@@ -32,7 +32,7 @@ public class ItJdbcConnectionPropertiesTest {
      * Test check the {@link ConnectionPropertiesImpl#getDriverPropertyInfo()} return properties with prefix {@link
      * ConnectionPropertiesImpl#PROP_PREFIX}.
      */
-    @Test
+    //@Test
     public void testNamePrefixDriverPropertyInfo() {
         ConnectionPropertiesImpl connProps = new ConnectionPropertiesImpl();
         DriverPropertyInfo[] propsInfo = connProps.getDriverPropertyInfo();

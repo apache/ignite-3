@@ -32,6 +32,7 @@ import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -96,7 +97,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     /** Tests varchar min\max aggregates. */
-    @Test
+    //@Test
     public void testVarCharMinMax() {
         sql("CREATE TABLE TEST(val VARCHAR primary key, val1 integer);");
         sql("INSERT INTO test VALUES ('б', 1), ('бб', 2), ('щ', 3), ('щщ', 4), ('Б', 4), ('ББ', 4), ('Я', 4);");
@@ -108,7 +109,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         sql("DROP TABLE IF EXISTS TEST");
     }
 
-    @Test
+    //@Test
     public void testOrderingByColumnOutsideSelectList() {
         assertQuery("select salary from emp2 order by id desc")
                 .returns(13d)
@@ -125,7 +126,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testEqConditionWithDistinctSubquery() {
         var rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT DISTINCT(salary) FROM emp2 WHERE name='Igor1')");
@@ -133,7 +134,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(3, rows.size());
     }
 
-    @Test
+    //@Test
     public void testEqConditionWithAggregateSubqueryMax() {
         var rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT MAX(salary) FROM emp2 WHERE name='Roman')");
@@ -141,7 +142,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(3, rows.size());
     }
 
-    @Test
+    //@Test
     public void testEqConditionWithAggregateSubqueryMin() {
         var rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT MIN(salary) FROM emp2 WHERE name='Roman')");
@@ -149,7 +150,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(1, rows.size());
     }
 
-    @Test
+    //@Test
     public void testInConditionWithSubquery() {
         var rows = sql(
                 "SELECT name FROM emp1 WHERE name IN (SELECT name FROM emp2)");
@@ -157,7 +158,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(4, rows.size());
     }
 
-    @Test
+    //@Test
     public void testDistinctQueryWithInConditionWithSubquery() {
         var rows = sql("SELECT distinct(name) FROM emp1 o WHERE name IN ("
                 + "   SELECT name"
@@ -166,7 +167,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(2, rows.size());
     }
 
-    @Test
+    //@Test
     public void testNotInConditionWithSubquery() {
         var rows = sql(
                 "SELECT name FROM emp1 WHERE name NOT IN (SELECT name FROM emp2)");
@@ -174,7 +175,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(3, rows.size());
     }
 
-    @Test
+    //@Test
     public void testExistsConditionWithSubquery() {
         var rows = sql("SELECT name FROM emp1 o WHERE EXISTS ("
                 + "   SELECT 1"
@@ -184,7 +185,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(4, rows.size());
     }
 
-    @Test
+    //@Test
     public void testNotExistsConditionWithSubquery() {
         var rows = sql("SELECT name FROM emp1 o WHERE NOT EXISTS ("
                 + "   SELECT 1"
@@ -208,7 +209,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(1, rows.size());
     }
 
-    @Test
+    @RepeatedTest(100)
     public void testSequentialInserts() {
         sql("CREATE TABLE t(x INTEGER PRIMARY KEY, y int)");
 
@@ -224,7 +225,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     /**
      * Verifies that table modification events are passed to a calcite schema modification listener.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
     public void testIgniteSchemaAwaresAlterTableCommand() {
         String selectAllQry = "select * from test_tbl";
@@ -262,7 +263,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     /** Quantified predicates test. */
-    @Test
+    //@Test
     public void quantifiedCompTest() {
         assertQuery("select salary from emp2 where salary > SOME (10, 11) ORDER BY salary")
                 .returns(11d)
@@ -297,7 +298,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     /**
      * Checks bang equal is allowed and works.
      */
-    @Test
+    //@Test
     public void testBangEqual() {
         assertEquals(4, sql("SELECT * FROM EMP1 WHERE name != ?", "Igor").size());
     }
@@ -307,7 +308,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
      * 1) proper indexes will be chosen for queries with different kinds of ordering, and
      * 2) result set returned will be sorted as expected.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-14925")
     public void testSelectWithOrdering() {
         // sql("drop table if exists test_tbl", true);

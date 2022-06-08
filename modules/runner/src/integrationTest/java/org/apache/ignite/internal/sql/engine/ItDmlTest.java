@@ -61,7 +61,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
         IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
     }
 
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16529")
     public void mergeOpChangePrimaryKey() {
         clearAndPopulateMergeTable1();
@@ -82,7 +82,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
     }
 
     /**Test full MERGE command. */
-    @Test
+    //@Test
     public void testMerge() {
         clearAndPopulateMergeTable1();
 
@@ -172,7 +172,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
     }
 
     /** Test MERGE table with itself. */
-    @Test
+    //@Test
     public void testMergeTableWithItself() {
         sql("DROP TABLE IF EXISTS test1 ");
         sql("CREATE TABLE test1 (k1 int, k2 int, a int, b int, c varchar, CONSTRAINT PK PRIMARY KEY (k1, k2))");
@@ -197,7 +197,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
     }
 
     /** Test MERGE operator with large batch. */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
     public void testMergeBatch() {
         sql("CREATE TABLE test1 (key int PRIMARY KEY, a int)");
@@ -222,7 +222,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
     }
 
     /** Test MERGE operator with aliases. */
-    @Test
+    //@Test
     public void testMergeAliases() {
         sql("DROP TABLE IF EXISTS test1 ");
         sql("DROP TABLE IF EXISTS test2 ");
@@ -269,7 +269,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
     }
 
     /** Test MERGE operator with keys conflicts. */
-    @Test
+    //@Test
     public void testMergeKeysConflict() {
         sql("DROP TABLE IF EXISTS test1 ");
         sql("DROP TABLE IF EXISTS test2 ");
@@ -288,7 +288,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
         assertTrue(ex.getCause().getMessage().contains("Failed to MERGE some keys due to keys conflict"));
     }
 
-    @Test
+    //@Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void implicitPk() {
         IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);

@@ -103,7 +103,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         super.afterTest(testInfo);
     }
 
-    @Test
+    //@Test
     public void testBatch() throws SQLException {
         final int batchSize = 10;
 
@@ -121,7 +121,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
-    @Test
+    //@Test
     public void testBatchOnClosedStatement() throws SQLException {
         final Statement stmt2 = conn.createStatement();
         final PreparedStatement pstmt2 = conn.prepareStatement("");
@@ -142,7 +142,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         assertThrows(SQLException.class, pstmt2::executeBatch, "Statement is closed.");
     }
 
-    @Test
+    //@Test
     public void testPreparedStatementBatchException() throws Exception {
         PreparedStatement preparedStatement = conn.prepareStatement("SELECT * FROM Person;");
 
@@ -169,7 +169,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
-    @Test
+    //@Test
     public void testBatchException() throws Exception {
         final int successUpdates = 5;
 
@@ -207,7 +207,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
-    @Test
+    //@Test
     public void testBatchParseException() throws Exception {
         final int successUpdates = 5;
 
@@ -239,7 +239,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
-    @Test
+    //@Test
     public void testBatchMerge() throws SQLException {
         final int batchSize = 5;
 
@@ -282,7 +282,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
-    @Test
+    //@Test
     public void testBatchKeyDuplicatesException() throws Exception {
         final int successUpdates = 5;
 
@@ -322,7 +322,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
-    @Test
+    //@Test
     public void testHeterogeneousBatch() throws SQLException {
         stmt.addBatch("insert into Person (id, firstName, lastName, age) values (0, 'Name0', 'Lastname0', 10)");
         stmt.addBatch("insert into Person (id, firstName, lastName, age) "
@@ -336,7 +336,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         assertArrayEquals(new int[] {1, 2, 1, 3}, updCnts, "Invalid update count");
     }
 
-    @Test
+    //@Test
     public void testHeterogeneousBatchException() throws Exception {
         stmt.addBatch("insert into Person (id, firstName, lastName, age) values (0, 'Name0', 'Lastname0', 10)");
         stmt.addBatch("insert into Person (id, firstName, lastName, age) "
@@ -356,7 +356,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
-    @Test
+    //@Test
     public void testBatchClear() throws SQLException {
         final int batchSize = 7;
 
@@ -372,7 +372,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         assertEquals(0, updates.length, "Returned update counts array should have no elements for empty batch.");
     }
 
-    @Test
+    //@Test
     public void testBatchPrepared() throws SQLException {
         final int batchSize = 10;
 
@@ -396,7 +396,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
-    @Test
+    //@Test
     public void testBatchExceptionPrepared() throws Exception {
         final int failedIdx = 5;
 
@@ -458,7 +458,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         stmt.executeBatch();
     }
 
-    @Test
+    //@Test
     public void testBatchUpdatePrepared() throws SQLException {
         final int batchSize = 10;
 
@@ -481,7 +481,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
-    @Test
+    //@Test
     public void testBatchUpdateExceptionPrepared() throws Exception {
         final int batchSize = 7;
 
@@ -525,7 +525,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
-    @Test
+    //@Test
     public void testBatchDeletePrepared() throws SQLException {
         final int batchSize = 10;
 
@@ -548,7 +548,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
-    @Test
+    //@Test
     public void testBatchDeleteExceptionPrepared() throws Exception {
         final int batchSize = 7;
 
@@ -592,7 +592,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
-    @Test
+    //@Test
     public void testBatchClearPrepared() throws SQLException {
         final int batchSize = 10;
 

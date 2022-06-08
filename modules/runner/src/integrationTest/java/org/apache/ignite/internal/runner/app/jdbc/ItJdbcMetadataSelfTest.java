@@ -94,7 +94,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         tbl2.recordView().insert(null, Tuple.create().set("ID", 1).set("NAME", "AAA").set("BIGDATA", BigDecimal.valueOf(10)));
     }
 
-    @Test
+    //@Test
     public void testResultSetMetaData() throws Exception {
         Statement stmt = DriverManager.getConnection(URL).createStatement();
 
@@ -124,7 +124,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assertEquals(meta.getColumnClassName(2), "java.lang.Integer");
     }
 
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15507")
     public void testDecimalAndDateTypeMetaData() throws Exception {
         createMetaTable();
@@ -174,7 +174,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         });
     }
 
-    @Test
+    //@Test
     public void testGetTables() throws Exception {
         DatabaseMetaData meta = conn.getMetaData();
 
@@ -197,7 +197,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assertFalse(rs.next());
     }
 
-    @Test
+    //@Test
     public void testGetColumns() throws Exception {
         DatabaseMetaData meta = conn.getMetaData();
 
@@ -307,7 +307,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     /**
      * Check JDBC support flags.
      */
-    @Test
+    //@Test
     public void testCheckSupports() throws SQLException {
         DatabaseMetaData meta = conn.getMetaData();
 
@@ -317,7 +317,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assertTrue(meta.nullPlusNonNullIsNull());
     }
 
-    @Test
+    //@Test
     public void testVersions() throws Exception {
         assertEquals(conn.getMetaData().getDatabaseProductVersion(), ProtocolVersion.LATEST_VER.toString(),
                 "Unexpected ignite database product version.");
@@ -325,7 +325,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
                 "Unexpected ignite driver version.");
     }
 
-    @Test
+    //@Test
     public void testSchemasMetadata() throws Exception {
         ResultSet rs = conn.getMetaData().getSchemas();
 
@@ -340,14 +340,14 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assertEquals(schemas, expectedSchemas);
     }
 
-    @Test
+    //@Test
     public void testEmptySchemasMetadata() throws Exception {
         ResultSet rs = conn.getMetaData().getSchemas(null, "qqq");
 
         assertFalse(rs.next(), "Empty result set is expected");
     }
 
-    @Test
+    //@Test
     public void testPrimaryKeyMetadata() throws Exception {
         ResultSet rs = conn.getMetaData().getPrimaryKeys(null, "PUBLIC", "PERSON");
 
@@ -362,7 +362,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assertEquals(1, cnt);
     }
 
-    @Test
+    //@Test
     public void testGetAllPrimaryKeys() throws Exception {
         ResultSet rs = conn.getMetaData().getPrimaryKeys(null, null, null);
 
@@ -382,7 +382,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assertEquals(expectedPks, actualPks, "Metadata contains unexpected primary keys info.");
     }
 
-    @Test
+    //@Test
     public void testInvalidCatalog() throws Exception {
         DatabaseMetaData meta = conn.getMetaData();
 
@@ -407,7 +407,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assertFalse(rs.next(), "Results must be empty");
     }
 
-    @Test
+    //@Test
     public void testGetTableTypes() throws Exception {
         DatabaseMetaData meta = conn.getMetaData();
 
@@ -420,7 +420,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assertFalse(rs.next());
     }
 
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16203")
     public void testParametersMetadata() throws Exception {
         // Perform checks few times due to query/plan caching.
@@ -509,7 +509,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     /**
      * Check that parameters metadata throws correct exception on non-parsable statement.
      */
-    @Test
+    //@Test
     public void testParametersMetadataNegative() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             conn.setSchema("\"pers\"");
@@ -523,7 +523,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     /**
      * Negative scenarios for catalog name. Perform metadata lookups, that use incorrect catalog names.
      */
-    @Test
+    //@Test
     public void testCatalogWithNotExistingName() throws SQLException {
         checkNoEntitiesFoundForCatalog("");
         checkNoEntitiesFoundForCatalog("NOT_EXISTING_CATALOG");

@@ -35,7 +35,7 @@ public class ItJdbcDeleteStatementSelfTest extends ItJdbcAbstractStatementSelfTe
      *
      * @throws SQLException If failed.
      */
-    @Test
+    //@Test
     public void testExecute() throws SQLException {
         stmt.execute("delete from PUBLIC.PERSON where substring(SID, 2, 1)::int % 2 = 0");
 
@@ -51,7 +51,7 @@ public class ItJdbcDeleteStatementSelfTest extends ItJdbcAbstractStatementSelfTe
      *
      * @throws SQLException If failed.
      */
-    @Test
+    //@Test
     public void testExecuteUpdate() throws SQLException {
         int res = stmt.executeUpdate("delete from PUBLIC.PERSON where substring(SID, 2, 1)::int % 2 = 0");
 

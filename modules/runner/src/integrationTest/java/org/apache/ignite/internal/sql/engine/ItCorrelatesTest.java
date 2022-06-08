@@ -42,7 +42,7 @@ public class ItCorrelatesTest extends AbstractBasicIntegrationTest {
     }
 
     /** Checks correlates are assigned before access. */
-    @Test
+    //@Test
     public void testCorrelatesAssignedBeforeAccess() {
         sql("create table test_tbl(k INTEGER primary key, v INTEGER)");
 
@@ -58,7 +58,7 @@ public class ItCorrelatesTest extends AbstractBasicIntegrationTest {
     }
 
     /** Checks that correlates can't be moved under the table spool. */
-    @Test
+    //@Test
     public void testCorrelatesWithTableSpool() {
         sql("CREATE TABLE test(k INTEGER primary key, i1 INT, i2 INT)");
 
@@ -78,7 +78,7 @@ public class ItCorrelatesTest extends AbstractBasicIntegrationTest {
     /**
      * Tests resolving of collisions in correlates.
      */
-    @Test
+    //@Test
     public void testCorrelatesCollision() {
         sql("CREATE TABLE test1 (a INTEGER PRIMARY KEY, b INTEGER)");
         sql("INSERT INTO test1 VALUES (11, 1), (12, 2), (13, 3)");

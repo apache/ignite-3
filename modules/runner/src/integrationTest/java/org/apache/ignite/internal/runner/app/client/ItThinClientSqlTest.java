@@ -44,7 +44,7 @@ import org.junit.jupiter.api.Test;
  * Thin client SQL integration test.
  */
 public class ItThinClientSqlTest extends ItAbstractThinClientTest {
-    @Test
+    //@Test
     void testExecuteAsyncSimpleSelect() {
         AsyncResultSet resultSet = client().sql()
                 .createSession()
@@ -67,7 +67,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals("STR", columns.get(1).name());
     }
 
-    @Test
+    //@Test
     void testExecuteSimpleSelect() {
         ResultSet resultSet = client().sql()
                 .createSession()
@@ -87,7 +87,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals("STR", columns.get(1).name());
     }
 
-    @Test
+    //@Test
     void testExecuteAsyncDdlDml() {
         Session session = client().sql().createSession();
 
@@ -156,7 +156,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertTrue(deleteRes.wasApplied());
     }
 
-    @Test
+    //@Test
     void testExecuteDdlDml() {
         Session session = client().sql().createSession();
 
@@ -218,7 +218,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertTrue(deleteRes.wasApplied());
     }
 
-    @Test
+    //@Test
     @Disabled("IGNITE-16952")
     void testFetchNextPage() {
         Session session = client().sql().createSession();
@@ -250,7 +250,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(9, asyncResultSet.currentPage().iterator().next().intValue(0));
     }
 
-    @Test
+    //@Test
     void testInvalidSqlThrowsException() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
@@ -261,7 +261,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertThat(clientEx.getMessage(), Matchers.containsString("Object 'BAD' not found"));
     }
 
-    @Test
+    //@Test
     @Disabled("IGNITE-16952")
     void testTransactionRollbackRevertsSqlUpdate() {
         Session session = client().sql().createSession();

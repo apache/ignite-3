@@ -39,7 +39,7 @@ public class ItAggregatesTest extends AbstractBasicIntegrationTest {
         createAndPopulateTable();
     }
 
-    @Test
+    //@Test
     public void countOfNonNumericField() {
         assertQuery("select count(name) from person").returns(4L).check();
         assertQuery("select count(*) from person").returns(5L).check();
@@ -112,7 +112,7 @@ public class ItAggregatesTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testMultipleRowsFromSingleAggr() {
         assertThrows(
                 IgniteException.class,
@@ -133,7 +133,7 @@ public class ItAggregatesTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT t.id, (SELECT x FROM TABLE(system_range(t.id, t.id))) FROM person t").check();
     }
 
-    @Test
+    //@Test
     public void testAnyValAggr() {
         var res = sql("select any_value(name) from person");
 

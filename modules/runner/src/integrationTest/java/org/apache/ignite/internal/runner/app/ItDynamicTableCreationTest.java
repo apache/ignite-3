@@ -115,7 +115,7 @@ class ItDynamicTableCreationTest {
     /**
      * Check dynamic table creation.
      */
-    @Test
+    //@Test
     void testDynamicSimpleTableCreation() {
         // Create table on node 0.
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
@@ -162,7 +162,7 @@ class ItDynamicTableCreationTest {
     /**
      * Check dynamic table creation.
      */
-    @Test
+    //@Test
     void testDynamicTableCreation() {
         // Create table on node 0.
         TableDefinition scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
@@ -237,7 +237,7 @@ class ItDynamicTableCreationTest {
     /**
      * Check unsupported column type change.
      */
-    @Test
+    //@Test
     public void testChangeColumnType() {
         assertTableCreationFailed(c -> c.changeType(t -> t.changeType("UNKNOWN_TYPE")));
 
@@ -259,7 +259,7 @@ class ItDynamicTableCreationTest {
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15747")
-    @Test
+    //@Test
     void testMissedPk() {
         // Missed PK.
         assertThrows(ConfigurationValidationException.class, () -> {

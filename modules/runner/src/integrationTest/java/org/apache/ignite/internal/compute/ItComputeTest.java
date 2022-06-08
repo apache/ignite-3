@@ -54,7 +54,7 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings("resource")
 class ItComputeTest extends AbstractClusterIntegrationTest {
-    @Test
+    //@Test
     void executesJobLocally() throws Exception {
         IgniteImpl entryNode = node(0);
 
@@ -65,7 +65,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         assertThat(result, is("a42"));
     }
 
-    @Test
+    //@Test
     void executesJobLocallyByClassName() throws Exception {
         IgniteImpl entryNode = node(0);
 
@@ -76,7 +76,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         assertThat(result, is("a42"));
     }
 
-    @Test
+    //@Test
     void executesJobOnRemoteNodes() throws Exception {
         Ignite entryNode = node(0);
 
@@ -87,7 +87,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         assertThat(result, is("a42"));
     }
 
-    @Test
+    //@Test
     void executesJobByClassNameOnRemoteNodes() throws Exception {
         Ignite entryNode = node(0);
 
@@ -98,7 +98,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         assertThat(result, is("a42"));
     }
 
-    @Test
+    //@Test
     void localExecutionActuallyUsesLocalNode() throws Exception {
         IgniteImpl entryNode = node(0);
 
@@ -109,7 +109,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         assertThat(result, is(entryNode.name()));
     }
 
-    @Test
+    //@Test
     void remoteExecutionActuallyUsesRemoteNode() throws Exception {
         IgniteImpl entryNode = node(0);
         IgniteImpl remoteNode = node(1);
@@ -121,7 +121,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         assertThat(result, is(remoteNode.name()));
     }
 
-    @Test
+    //@Test
     void executesFailingJobLocally() {
         IgniteImpl entryNode = node(0);
 
@@ -136,7 +136,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         assertThat(ex.getCause().getCause(), is(notNullValue()));
     }
 
-    @Test
+    //@Test
     void executesFailingJobOnRemoteNodes() {
         Ignite entryNode = node(0);
 
@@ -151,7 +151,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         assertThat(ex.getCause().getCause(), is(notNullValue()));
     }
 
-    @Test
+    //@Test
     void broadcastsJobWithArguments() {
         IgniteImpl entryNode = node(0);
 
@@ -165,7 +165,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         }
     }
 
-    @Test
+    //@Test
     void broadcastsJobByClassName() {
         IgniteImpl entryNode = node(0);
 
@@ -179,7 +179,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         }
     }
 
-    @Test
+    //@Test
     void broadcastExecutesJobOnRespectiveNodes() {
         IgniteImpl entryNode = node(0);
 
@@ -193,7 +193,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         }
     }
 
-    @Test
+    //@Test
     void broadcastsFailingJob() throws Exception {
         IgniteImpl entryNode = node(0);
 
@@ -215,7 +215,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         }
     }
 
-    @Test
+    //@Test
     void executesColocatedWithTupleKey() throws Exception {
         createTestTableWithOneRow();
 
@@ -240,7 +240,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
                 .collect(toList());
     }
 
-    @Test
+    //@Test
     void executesColocatedByClassNameWithTupleKey() throws Exception {
         createTestTableWithOneRow();
 
@@ -253,7 +253,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         assertThat(actualNodeName, in(allNodeNames()));
     }
 
-    @Test
+    //@Test
     void executesColocatedWithMappedKey() throws Exception {
         createTestTableWithOneRow();
 
@@ -266,7 +266,7 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         assertThat(actualNodeName, in(allNodeNames()));
     }
 
-    @Test
+    //@Test
     void executesColocatedByClassNameWithMappedKey() throws Exception {
         createTestTableWithOneRow();
 

@@ -36,7 +36,7 @@ public class ItJdbcStatementCancelSelfTest extends ItJdbcAbstractStatementSelfTe
     /**
      * Trying to cancel stament without query. In given case cancel is noop, so no exception expected.
      */
-    @Test
+    //@Test
     public void testCancelingStmtWithoutQuery() {
         try {
             stmt.cancel();
@@ -53,7 +53,7 @@ public class ItJdbcStatementCancelSelfTest extends ItJdbcAbstractStatementSelfTe
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testResultSetRetrievalInCanceledStatement() throws Exception {
         stmt.execute("SELECT 1; SELECT 2; SELECT 3;");
 
@@ -70,7 +70,7 @@ public class ItJdbcStatementCancelSelfTest extends ItJdbcAbstractStatementSelfTe
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testCancelCanceledQuery() throws Exception {
         stmt.execute("SELECT 1;");
 
@@ -89,7 +89,7 @@ public class ItJdbcStatementCancelSelfTest extends ItJdbcAbstractStatementSelfTe
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testCancelClosedStmt() throws Exception {
         stmt.close();
 
@@ -102,7 +102,7 @@ public class ItJdbcStatementCancelSelfTest extends ItJdbcAbstractStatementSelfTe
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testResultSetNextAfterCanceling() throws Exception {
         stmt.setFetchSize(10);
 
@@ -120,7 +120,7 @@ public class ItJdbcStatementCancelSelfTest extends ItJdbcAbstractStatementSelfTe
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testCancelAnotherStmt() throws Exception {
         stmt.setFetchSize(10);
 
@@ -140,7 +140,7 @@ public class ItJdbcStatementCancelSelfTest extends ItJdbcAbstractStatementSelfTe
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testCancelAnotherStmtResultSet() throws Exception {
         try (Statement anotherStmt = conn.createStatement()) {
             ResultSet rs1 = stmt.executeQuery("select * from PUBLIC.PERSON WHERE ID % 2 = 0");

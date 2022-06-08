@@ -47,7 +47,7 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
         super.tearDownBase(testInfo);
     }
 
-    @Test
+    //@Test
     public void pkWithNullableColumns() {
         assertThrows(
                 IgniteException.class,
@@ -61,7 +61,7 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
         );
     }
 
-    @Test
+    //@Test
     public void undefinedColumnsInPrimaryKey() {
         assertThat(
                 assertThrows(
@@ -77,7 +77,7 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
      * - not PK columns;
      * - duplicates colocation columns.
      */
-    @Test
+    //@Test
     public void invalidColocationColumns() {
         assertThat(
                 assertThrows(
@@ -99,7 +99,7 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
     /**
      * Check implicit colocation columns configuration (defined by PK)..
      */
-    @Test
+    //@Test
     public void implicitColocationColumns() {
         sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0))");
 
@@ -113,7 +113,7 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
     /**
      * Check explicit colocation columns configuration.
      */
-    @Test
+    //@Test
     public void explicitColocationColumns() {
         sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE BY (id0)");
 
@@ -126,7 +126,7 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
     /**
      * Check explicit colocation columns configuration.
      */
-    @Test
+    //@Test
     public void explicitColocationColumnsCaseSensitive() {
         sql("CREATE TABLE T0(\"Id0\" INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, \"Id0\")) COLOCATE BY (\"Id0\")");
 

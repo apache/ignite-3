@@ -106,7 +106,7 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
         }
     }
 
-    @Test
+    //@Test
     public void mapReduceAggregate() {
         var res = sql(
                 "SELECT /*+ DISABLE_RULE('HashAggregateConverterRule') */"
@@ -125,7 +125,7 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
         });
     }
 
-    @Test
+    //@Test
     public void correctCollationsOnMapReduceSortAgg() {
         var cursors = sql("SELECT PK FROM TEST_ONE_COL_IDX WHERE col0 IN (SELECT col0 FROM TEST_ONE_COL_IDX)");
 

@@ -45,7 +45,7 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
      * Test error code for the case when connection string is fine but client can't reach server
      * due to <b>communication problems</b> (not due to clear misconfiguration).
      */
-    @Test
+    //@Test
     public void testConnectionError() {
         checkErrorState(() -> DriverManager.getConnection("jdbc:ignite:thin://unknown.host?connectionTimeout=1000"),
                 CLIENT_CONNECTION_FAILED, "Failed to connect to server");
@@ -54,7 +54,7 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
     /**
      * Test error code for the case when connection string is a mess.
      */
-    @Test
+    //@Test
     public void testInvalidConnectionStringFormat() {
         checkErrorState(() -> DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:1000000"),
                 CLIENT_CONNECTION_FAILED, "port range contains invalid port 1000000");
@@ -64,7 +64,7 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
      * Test error code for the case when user attempts to set an invalid isolation level to a connection.
      */
     @SuppressWarnings("MagicConstant")
-    @Test
+    //@Test
     public void testInvalidIsolationLevel() {
         checkErrorState(() -> conn.setTransactionIsolation(1000),
                 INVALID_TRANSACTION_LEVEL, "Invalid transaction isolation level.");
@@ -75,7 +75,7 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
      *
      * @throws SQLException if failed.
      */
-    @Test
+    //@Test
     public void testBatchUpdateException() throws SQLException {
         try {
             stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)");
@@ -102,7 +102,7 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
      * Check that unsupported explain of update operation causes Exception on the driver side with correct code and
      * message.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testExplainUpdatesUnsupported() {
         checkErrorState(() -> {

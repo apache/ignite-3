@@ -49,7 +49,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     /**
      * Test that parsing-related error codes get propagated to Ignite SQL exceptions.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testParsingErrors() {
         checkErrorState("gibberish", PARSING_EXCEPTION,
@@ -60,7 +60,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * Test that error codes from tables related DDL operations get propagated to Ignite SQL
      * exceptions.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testTableErrors() {
         checkErrorState("DROP TABLE \"PUBLIC\".missing", PARSING_EXCEPTION, "Table doesn't exist: MISSING");
@@ -70,7 +70,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * Test that error codes from indexes related DDL operations get propagated to Ignite SQL
      * exceptions.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testIndexErrors() {
         checkErrorState("DROP INDEX \"PUBLIC\".missing", PARSING_EXCEPTION, "Index doesn't exist: MISSING");
@@ -81,7 +81,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      *
      * @throws SQLException if failed.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testDmlErrors() throws SQLException {
         stmt.execute("CREATE TABLE INTEGER(KEY INT PRIMARY KEY, VAL INT)");
@@ -102,7 +102,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      *
      * @throws SQLException if failed.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testUnsupportedSql() throws SQLException {
         stmt.execute("CREATE TABLE INTEGER(KEY INT PRIMARY KEY, VAL INT)");
@@ -120,7 +120,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      *
      * @throws SQLException if failed.
      */
-    @Test
+    //@Test
     public void testConnectionClosed() throws SQLException {
         Connection conn = getConnection();
         DatabaseMetaData meta = conn.getMetaData();
@@ -140,7 +140,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     /**
      * Test error code for the case when user attempts to use a closed result set.
      */
-    @Test
+    //@Test
     public void testResultSetClosed() {
         checkErrorState(() -> {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT 1")) {
@@ -159,7 +159,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * Test error code for the case when user attempts to get {@code int} value from column whose
      * value can't be converted to an {@code int}.
      */
-    @Test
+    //@Test
     public void testInvalidIntFormat() {
         checkErrorState(() -> {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT 'zzz'")) {
@@ -176,7 +176,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * Test error code for the case when user attempts to get {@code long} value from column whose
      * value can't be converted to an {@code long}.
      */
-    @Test
+    //@Test
     public void testInvalidLongFormat() {
         checkErrorState(() -> {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT 'zzz'")) {
@@ -193,7 +193,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * Test error code for the case when user attempts to get {@code float} value from column whose
      * value can't be converted to an {@code float}.
      */
-    @Test
+    //@Test
     public void testInvalidFloatFormat() {
         checkErrorState(() -> {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT 'zzz'")) {
@@ -210,7 +210,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * Test error code for the case when user attempts to get {@code double} value from column whose
      * value can't be converted to an {@code double}.
      */
-    @Test
+    //@Test
     public void testInvalidDoubleFormat() {
         checkErrorState(() -> {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT 'zzz'")) {
@@ -227,7 +227,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * Test error code for the case when user attempts to get {@code byte} value from column whose
      * value can't be converted to an {@code byte}.
      */
-    @Test
+    //@Test
     public void testInvalidByteFormat() {
         checkErrorState(() -> {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT 'zzz'")) {
@@ -244,7 +244,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * Test error code for the case when user attempts to get {@code short} value from column whose
      * value can't be converted to an {@code short}.
      */
-    @Test
+    //@Test
     public void testInvalidShortFormat() {
         checkErrorState(() -> {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT 'zzz'")) {
@@ -261,7 +261,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * Test error code for the case when user attempts to get {@code BigDecimal} value from column
      * whose value can't be converted to an {@code BigDecimal}.
      */
-    @Test
+    //@Test
     public void testInvalidBigDecimalFormat() {
         checkErrorState(() -> {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT 'zzz'")) {
@@ -278,7 +278,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * Test error code for the case when user attempts to get {@code boolean} value from column
      * whose value can't be converted to an {@code boolean}.
      */
-    @Test
+    //@Test
     public void testInvalidBooleanFormat() {
         checkErrorState(() -> {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT 'zzz'")) {
@@ -295,7 +295,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * Test error code for the case when user attempts to get {@code boolean} value from column
      * whose value can't be converted to an {@code boolean}.
      */
-    @Test
+    //@Test
     public void testInvalidObjectFormat() {
         checkErrorState(() -> {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT 'zzz'")) {
@@ -312,7 +312,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * Test error code for the case when user attempts to get {@link Date} value from column whose
      * value can't be converted to a {@link Date}.
      */
-    @Test
+    //@Test
     public void testInvalidDateFormat() {
         checkErrorState(() -> {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT 'zzz'")) {
@@ -329,7 +329,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * Test error code for the case when user attempts to get {@link Time} value from column whose
      * value can't be converted to a {@link Time}.
      */
-    @Test
+    //@Test
     public void testInvalidTimeFormat() {
         checkErrorState(() -> {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT 'zzz'")) {
@@ -346,7 +346,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * Test error code for the case when user attempts to get {@link Timestamp} value from column
      * whose value can't be converted to a {@link Timestamp}.
      */
-    @Test
+    //@Test
     public void testInvalidTimestampFormat() {
         checkErrorState(() -> {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT 'zzz'")) {
@@ -363,7 +363,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * Test error code for the case when user attempts to get {@link URL} value from column whose
      * value can't be converted to a {@link URL}.
      */
-    @Test
+    //@Test
     public void testInvalidUrlFormat() {
         checkErrorState(() -> {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT 'zzz'")) {
@@ -381,7 +381,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      *
      * @throws SQLException if failed.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testNotNullViolation() throws SQLException {
         stmt.execute("CREATE TABLE public.nulltest(id INT PRIMARY KEY, name CHAR NOT NULL)");
@@ -397,7 +397,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     /**
      * Checks wrong table name select error message.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testSelectWrongTable() {
         checkSqlErrorMessage("select from wrong", PARSING_EXCEPTION,
@@ -409,7 +409,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      *
      * @throws SQLException If failed.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testSelectWrongColumnName() throws SQLException {
         stmt.execute("CREATE TABLE public.test(id INT PRIMARY KEY, name CHAR NOT NULL)");
@@ -425,7 +425,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     /**
      * Checks wrong syntax select error message.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testSelectWrongSyntax() {
         checkSqlErrorMessage("select from test where", PARSING_EXCEPTION,
@@ -435,7 +435,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     /**
      * Checks wrong table name DML error message.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testDmlWrongTable() {
         checkSqlErrorMessage("insert into wrong (id, val) values (3, 'val3')", PARSING_EXCEPTION,
@@ -454,7 +454,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     /**
      * Checks wrong column name DML error message.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testDmlWrongColumnName() {
         checkSqlErrorMessage("insert into test (id, wrong) values (3, 'val3')", PARSING_EXCEPTION,
@@ -473,7 +473,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     /**
      * Checks wrong syntax DML error message.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testDmlWrongSyntax() {
         checkSqlErrorMessage("insert test (id, val) values (3, 'val3')", PARSING_EXCEPTION,
@@ -492,7 +492,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     /**
      * Checks wrong table name DDL error message.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testDdlWrongTable() {
         checkSqlErrorMessage("create table test (id int primary key, val varchar)", PARSING_EXCEPTION,
@@ -514,7 +514,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     /**
      * Checks wrong column name DDL error message.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testDdlWrongColumnName() {
         checkSqlErrorMessage("alter table test drop column wrong", PARSING_EXCEPTION,
@@ -540,7 +540,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
     /**
      * Checks wrong syntax DDL error message.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15247")
     public void testDdlWrongSyntax() {
         checkSqlErrorMessage("create table test2 (id int wrong key, val varchar)", PARSING_EXCEPTION,

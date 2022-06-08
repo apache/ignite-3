@@ -48,7 +48,7 @@ public class IgniteCliRunnerTest {
     }
 
     /** TODO: Replace this test by full integration test on the cli side IGNITE-15097. */
-    @Test
+    //@Test
     public void smokeTestArgs() throws Exception {
         Path configPath = Path.of(IgniteCliRunnerTest.class.getResource("/ignite-config.json").toURI());
 
@@ -63,7 +63,7 @@ public class IgniteCliRunnerTest {
         assertThat(ign, willCompleteSuccessfully());
     }
 
-    @Test
+    //@Test
     public void smokeTestArgsNullConfig() {
         CompletableFuture<Ignite> ign = IgniteCliRunner.start(
                 "--work-dir", workDir.resolve("node").toAbsolutePath().toString(),

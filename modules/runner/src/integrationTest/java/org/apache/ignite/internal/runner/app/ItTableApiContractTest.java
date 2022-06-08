@@ -85,7 +85,7 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testDropTable() throws Exception {
         ignite.tables().createTable(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME)
                 .columns(
@@ -108,7 +108,7 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testDropTableAsync() throws Exception {
         ignite.tables().createTable(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME)
                 .columns(
@@ -135,7 +135,7 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testAlterTable() throws Exception {
         ignite.tables().createTable(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME)
                 .columns(
@@ -168,7 +168,7 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
      *
      * @throws Exception If fialed.
      */
-    @Test
+    //@Test
     public void testAlterTableAsync() throws Exception {
         ignite.tables().createTable(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME)
                 .columns(
@@ -205,7 +205,7 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testCreateTable() throws Exception {
         Table table = ignite.tables().createTable(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME)
                 .columns(
@@ -234,7 +234,7 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testCreateTableAsync() throws Exception {
         CompletableFuture<Table> tableFut1 = ignite.tables()
                 .createTableAsync(TABLE_NAME, tableChange -> convert(SchemaBuilders.tableBuilder(SCHEMA, SHORT_TABLE_NAME)

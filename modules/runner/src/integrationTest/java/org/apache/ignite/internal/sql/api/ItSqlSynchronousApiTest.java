@@ -76,7 +76,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         return CLUSTER_NODES.get(0).sql();
     }
 
-    @Test
+    //@Test
     public void ddl() {
         IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
@@ -146,7 +146,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         );
     }
 
-    @Test
+    //@Test
     public void dml() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
@@ -163,7 +163,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    @Test
+    //@Test
     public void select() throws ExecutionException, InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
@@ -184,7 +184,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         assertTrue(set.isEmpty());
     }
 
-    @Test
+    //@Test
     public void errors() {
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();

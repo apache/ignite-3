@@ -54,7 +54,7 @@ public class ItJdbcSelectAfterAlterTable extends AbstractJdbcSelfTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testSelectAfterAlterTableSingleNode() throws Exception {
         stmt.executeUpdate("alter table PUBLIC.PERSON add AGE int");
 

@@ -64,7 +64,7 @@ public class ItNoSyncMetadataTest extends AbstractBasicIntegrationTest {
     /**
      * Inserts data to the preconfigured table and checks it from each node.
      */
-    @Test
+    //@Test
     public void test() {
         insertData("PUBLIC.T1", new String[]{"ID", "C1", "C2", "C3"},
                 new Object[]{0, 1, 1, 1},

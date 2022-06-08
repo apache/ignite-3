@@ -145,7 +145,7 @@ public class ItDistributedConfigurationStorageTest {
      *
      * @see <a href="https://issues.apache.org/jira/browse/IGNITE-15213">IGNITE-15213</a>
      */
-    @Test
+    //@Test
     void testRestartWithPds(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
         var node = new Node(testInfo, workDir);
 

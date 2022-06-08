@@ -41,7 +41,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
         createAndPopulateTable();
     }
 
-    @Test
+    //@Test
     public void trimColumnNames() {
         String var300 = generate(() -> "X").limit(300).collect(joining());
         String var256 = "'" + var300.substring(0, 255);
@@ -49,7 +49,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
         assertQuery("select '" + var300 + "' from person").columnNames(var256).check();
     }
 
-    @Test
+    //@Test
     public void columnNames() {
         assertQuery("select (select count(*) from person), (select avg(salary) from person) from person")
                 .columnNames("EXPR$0", "EXPR$1").check();
@@ -77,7 +77,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
         assertQuery("select 1, -1, 'some string' from person").columnNames("1", "-1", "'some string'").check();
     }
 
-    @Test
+    //@Test
     public void infixTypeCast() {
         assertQuery("select id, id::tinyint as tid, id::smallint as sid, id::varchar as vid, id::interval hour, "
                 + "id::interval year from person")
@@ -88,7 +88,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
     public void columnOrder() {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "COLUMN_ORDER").columns(

@@ -40,7 +40,7 @@ public class ItJdbcJoinsSelfTest extends AbstractJdbcSelfTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testJoin() throws Exception {
         stmt.executeUpdate("CREATE TABLE PUBLIC.PERSON"
                 + " (ID INT, NAME VARCHAR(64), AGE INT, CITY_ID DOUBLE, PRIMARY KEY (NAME));");

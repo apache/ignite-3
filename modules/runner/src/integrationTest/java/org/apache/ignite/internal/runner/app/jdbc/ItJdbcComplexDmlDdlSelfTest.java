@@ -48,7 +48,7 @@ public class ItJdbcComplexDmlDdlSelfTest extends AbstractJdbcSelfTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testCreateSelectDrop() throws Exception {
         sql(new UpdateChecker(0),
                 "CREATE TABLE person_t (ID int, NAME varchar, AGE int, COMPANY varchar, CITY varchar, "

@@ -129,7 +129,7 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Check unsupported column type change.
      */
-    @Test
+    //@Test
     public void testChangeColumnType() throws Exception {
         List<Ignite> grid = startGrid();
 
@@ -160,7 +160,7 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Check unsupported nullability change.
      */
-    @Test
+    //@Test
     public void testChangeColumnsNullability() throws Exception {
         List<Ignite> grid = startGrid();
 

@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
 public class ItDataTypesTest extends AbstractBasicIntegrationTest {
     /** Tests correctness with unicode. */
-    @Test
+    //@Test
     public void testUnicodeStrings() {
         try {
             sql("CREATE TABLE string_table(key int primary key, val varchar)");
@@ -80,7 +80,7 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
     }
 
     /** Tests NOT NULL and DEFAULT column constraints. */
-    @Test
+    //@Test
     public void testCheckDefaultsAndNullables() {
         sql("CREATE TABLE tbl(c1 int PRIMARY KEY, c2 int NOT NULL, c3 int NOT NULL DEFAULT 100)");
 
@@ -103,7 +103,7 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
     /**
      * Tests numeric types mapping on Java types.
      */
-    @Test
+    //@Test
     public void testNumericRanges() {
         try {
             sql("CREATE TABLE tbl(id int PRIMARY KEY, tiny TINYINT, small SMALLINT, i INTEGER, big BIGINT)");
@@ -133,7 +133,7 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
     /**
      * Tests numeric type convertation on equals.
      */
-    @Test
+    //@Test
     public void testNumericConvertingOnEquals() {
         try {
             sql("CREATE TABLE tbl(id int PRIMARY KEY, tiny TINYINT, small SMALLINT, i INTEGER, big BIGINT)");
@@ -165,7 +165,7 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
     /**
      * Test right date/time interpretation.
      */
-    @Test
+    //@Test
     public void testDateTime() {
         assertQuery("select date '1992-01-19'").returns(sqlDate("1992-01-19")).check();
         assertQuery("select date '1992-01-18' + interval (1) days").returns(sqlDate("1992-01-19")).check();

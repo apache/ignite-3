@@ -67,7 +67,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         });
     }
 
-    @Test
+    //@Test
     public void testExcept() {
         var rows = sql("SELECT name FROM emp1 EXCEPT SELECT name FROM emp2");
 
@@ -75,14 +75,14 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         assertEquals("Igor", rows.get(0).get(0));
     }
 
-    @Test
+    //@Test
     public void testExceptFromEmpty() {
         var rows = sql("SELECT name FROM emp1 WHERE salary < 0 EXCEPT SELECT name FROM emp2");
 
         assertEquals(0, rows.size());
     }
 
-    @Test
+    //@Test
     public void testExceptSeveralColumns() {
         var rows = sql("SELECT name, salary FROM emp1 EXCEPT SELECT name, salary FROM emp2");
 
@@ -91,7 +91,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         assertEquals(1, countIf(rows, r -> r.get(0).equals("Roman")));
     }
 
-    @Test
+    //@Test
     public void testExceptAll() {
         var rows = sql("SELECT name FROM emp1 EXCEPT ALL SELECT name FROM emp2");
 
@@ -100,7 +100,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         assertEquals(1, countIf(rows, r -> r.get(0).equals("Igor1")));
     }
 
-    @Test
+    //@Test
     public void testExceptNested() {
         var rows =
                 sql("SELECT name FROM emp1 EXCEPT (SELECT name FROM emp1 EXCEPT SELECT name FROM emp2)");
@@ -110,7 +110,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         assertEquals(1, countIf(rows, r -> r.get(0).equals("Igor1")));
     }
 
-    @Test
+    //@Test
     @Disabled
     public void testSetOpBigBatch() {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "BIG_TABLE1")
@@ -186,7 +186,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         assertEquals(128, countIf(rows, r -> r.get(0).equals(3)));
     }
 
-    @Test
+    //@Test
     public void testIntersect() {
         var rows = sql("SELECT name FROM emp1 INTERSECT SELECT name FROM emp2");
 
@@ -195,7 +195,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         assertEquals(1, countIf(rows, r -> r.get(0).equals("Roman")));
     }
 
-    @Test
+    //@Test
     public void testIntersectAll() {
         var rows = sql("SELECT name FROM emp1 INTERSECT ALL SELECT name FROM emp2");
 
@@ -204,14 +204,14 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         assertEquals(1, countIf(rows, r -> r.get(0).equals("Roman")));
     }
 
-    @Test
+    //@Test
     public void testIntersectEmpty() {
         var rows = sql("SELECT name FROM emp1 WHERE salary < 0 INTERSECT SELECT name FROM emp2");
 
         assertEquals(0, rows.size());
     }
 
-    @Test
+    //@Test
     public void testIntersectSeveralColumns() {
         var rows = sql("SELECT name, salary FROM emp1 INTERSECT ALL SELECT name, salary FROM emp2");
 
@@ -222,7 +222,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
     /**
      * Test that set op node can be rewinded.
      */
-    @Test
+    //@Test
     public void testSetOpRewindability() {
         sql("CREATE TABLE test(id int PRIMARY KEY, i INTEGER)");
         sql("INSERT INTO test VALUES (1, 1), (2, 2)");
@@ -233,7 +233,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testUnionAll() {
         var rows = sql("SELECT name, salary FROM emp1 "
                 + "UNION ALL "
@@ -244,7 +244,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         assertEquals(14, rows.size());
     }
 
-    @Test
+    //@Test
     public void testUnion() {
         var rows = sql("SELECT name, salary FROM emp1 "
                 + "UNION "
@@ -255,7 +255,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         assertEquals(9, rows.size());
     }
 
-    @Test
+    //@Test
     public void testUnionWithDistinct() {
         var rows = sql(
                 "SELECT distinct(name) FROM emp1 UNION SELECT name from emp2");

@@ -72,7 +72,7 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
      * @param testInfo JUnit meta info for the test.
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void test(TestInfo testInfo) throws Exception {
         Set<Thread> threadsBefore = getCurrentThreads();
 

@@ -36,7 +36,7 @@ public class ItJdbcUpdateStatementSelfTest extends AbstractJdbcSelfTest {
      *
      * @throws SQLException If failed.
      */
-    @Test
+    //@Test
     public void testExecuteUpdateMultipleColumnsUpdate() throws Exception {
         final String q1 = "CREATE TABLE usertable (\n"
                 + "    ycsb_key1 int NOT NULL,\n"
@@ -83,7 +83,7 @@ public class ItJdbcUpdateStatementSelfTest extends AbstractJdbcSelfTest {
      *
      * @throws SQLException If failed.
      */
-    @Test
+    //@Test
     public void testExecuteAndExecuteUpdate() throws SQLException {
         testExecute((String updateQuery) -> {
             try {

@@ -44,7 +44,7 @@ import org.junit.jupiter.api.Test;
  * Thin client transactions integration test.
  */
 public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
-    @Test
+    //@Test
     void testKvViewOperations() {
         KeyValueView<Integer, String> kvView = kvView();
 
@@ -72,7 +72,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertEquals("1", kvView.get(null, key));
     }
 
-    @Test
+    //@Test
     void testKvViewBinaryOperations() {
         KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
 
@@ -100,7 +100,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertEquals(val("1"), kvView.get(null, key));
     }
 
-    @Test
+    //@Test
     void testRecordViewOperations() {
         RecordView<Rec> recordView = table().recordView(Mapper.of(Rec.class));
         Rec key = rec(1, null);
@@ -125,7 +125,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertEquals(rec(1, "1"), recordView.get(null, key));
     }
 
-    @Test
+    //@Test
     void testRecordViewBinaryOperations() {
         RecordView<Tuple> recordView = table().recordView();
 
@@ -151,7 +151,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertEquals(kv(1, "1"), recordView.get(null, key));
     }
 
-    @Test
+    //@Test
     void testCommitUpdatesData() {
         KeyValueView<Integer, String> kvView = kvView();
         kvView.put(null, 1, "1");
@@ -167,7 +167,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertEquals("2", kvView.get(null, 1));
     }
 
-    @Test
+    //@Test
     void testRollbackDoesNotUpdateData() {
         KeyValueView<Integer, String> kvView = kvView();
         kvView.put(null, 1, "1");
@@ -183,7 +183,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertEquals("1", kvView.get(null, 1));
     }
 
-    @Test
+    //@Test
     void testAccessLockedKeyTimesOut() {
         KeyValueView<Integer, String> kvView = kvView();
 
@@ -196,7 +196,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         tx.rollback();
     }
 
-    @Test
+    //@Test
     void testCommitRollbackSameTxThrows() {
         Transaction tx = client().transactions().begin();
         tx.commit();
@@ -205,7 +205,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertEquals("Transaction is already committed.", ex.getMessage());
     }
 
-    @Test
+    //@Test
     void testRollbackCommitSameTxThrows() {
         Transaction tx = client().transactions().begin();
         tx.rollback();
@@ -214,7 +214,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertEquals("Transaction is already rolled back.", ex.getMessage());
     }
 
-    @Test
+    //@Test
     void testCustomTransactionInterfaceThrows() {
         var tx = new Transaction() {
             @Override
@@ -244,7 +244,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertThat(ex.getMessage(), startsWith(expected));
     }
 
-    @Test
+    //@Test
     void testTransactionFromAnotherChannelThrows() throws Exception {
         Transaction tx = client().transactions().begin();
 

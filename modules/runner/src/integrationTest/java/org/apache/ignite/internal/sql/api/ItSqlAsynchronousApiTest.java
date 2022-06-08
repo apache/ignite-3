@@ -95,7 +95,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         return CLUSTER_NODES.get(0).sql();
     }
 
-    @Test
+    //@Test
     public void ddl() throws ExecutionException, InterruptedException {
         IgniteSql sql = CLUSTER_NODES.get(0).sql();
         Session ses = sql.createSession();
@@ -167,7 +167,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkSession(ses);
     }
 
-    @Test
+    //@Test
     public void dml() throws ExecutionException, InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
@@ -185,7 +185,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkSession(ses);
     }
 
-    @Test
+    //@Test
     public void select() throws ExecutionException, InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
@@ -209,7 +209,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkSession(ses);
     }
 
-    @Test
+    //@Test
     public void metadata() throws ExecutionException, InterruptedException {
         sql("CREATE TABLE TEST(COL0 BIGINT PRIMARY KEY, COL1 VARCHAR NOT NULL)");
         sql("INSERT INTO TEST VALUES (?, ?)", 1L, "some string");
@@ -243,7 +243,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertInstanceOf(meta.columns().get(1).valueClass(), row.value(1));
     }
 
-    @Test
+    //@Test
     public void sqlRow() throws ExecutionException, InterruptedException {
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().build();
@@ -276,7 +276,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkSession(ses);
     }
 
-    @Test
+    //@Test
     public void pageSequence() throws ExecutionException, InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
@@ -316,7 +316,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         }
     }
 
-    @Test
+    //@Test
     public void errors() {
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
@@ -348,7 +348,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkSession(ses);
     }
 
-    @Test
+    //@Test
     public void closeSession() throws ExecutionException, InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {

@@ -40,7 +40,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
     /**
      * Check that thin client can connect to any server node and work with table API.
      */
-    @Test
+    //@Test
     void testThinClientConnectsToServerNodesAndExecutesBasicTableOperations() throws Exception {
         for (var addr : getClientAddresses()) {
             try (var client = IgniteClient.builder().addresses(addr).build()) {

@@ -139,7 +139,7 @@ public class ItRebalanceDistributedTest {
         }
     }
 
-    @Test
+    //@Test
     void testOneRebalance(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -164,7 +164,7 @@ public class ItRebalanceDistributedTest {
         assertEquals(2, getPartitionClusterNodes(2, 0).size());
     }
 
-    @Test
+    //@Test
     void testTwoQueuedRebalances(@WorkDirectory Path workDir, TestInfo testInfo) {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -190,7 +190,7 @@ public class ItRebalanceDistributedTest {
         assertEquals(3, getPartitionClusterNodes(2, 0).size());
     }
 
-    @Test
+    //@Test
     void testThreeQueuedRebalances(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -217,7 +217,7 @@ public class ItRebalanceDistributedTest {
         assertEquals(2, getPartitionClusterNodes(2, 0).size());
     }
 
-    @Test
+    //@Test
     void testOnLeaderElectedRebalanceRestart(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -272,7 +272,7 @@ public class ItRebalanceDistributedTest {
         assertEquals(3, getPartitionClusterNodes(2, 0).size());
     }
 
-    @Test
+    //@Test
     void testRebalanceRetryWhenCatchupFailed(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),

@@ -136,7 +136,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     /**
      * Tries to create a table which is already created.
      */
-    @Test
+    //@Test
     public void testTableAlreadyCreated() {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
@@ -155,7 +155,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testTableAlreadyCreatedFromLaggedNode() throws Exception {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
@@ -202,7 +202,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testGetTableFromLaggedNode() throws Exception {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
@@ -245,7 +245,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     /**
      * Tries to create an index which is already created.
      */
-    @Test
+    //@Test
     public void testAddIndex() {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
@@ -266,7 +266,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testAddIndexFromLaggedNode() throws Exception {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
@@ -313,7 +313,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     /**
      * Tries to create a column which is already created.
      */
-    @Test
+    //@Test
     public void testAddColumn() {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
@@ -334,7 +334,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testAddColumnFromLaggedNode() throws Exception {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
@@ -384,7 +384,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testCreateDropTable() throws Exception {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 

@@ -110,7 +110,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testEqualityOrToUnionAllRewrite() {
         assertQuery("SELECT * "
                 + "FROM products "
@@ -132,7 +132,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testNonDistinctOrToUnionAllRewrite() {
         assertQuery("SELECT * "
                 + "FROM products "
@@ -153,7 +153,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testMixedOrToUnionAllRewrite() {
         assertQuery("SELECT * "
                 + "FROM products "
@@ -175,7 +175,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testRangeOrToUnionAllRewrite() {
         assertQuery("SELECT * "
                 + "FROM products "
@@ -193,7 +193,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
     /**
      * Check 'OR -> UNION' rule is NOT applied if no acceptable index was found.
      */
-    @Test
+    //@Test
     public void testUnionRuleNotApplicable() {
         assertQuery("SELECT * FROM products WHERE name = 'Canon' OR subcat_id = 22")
                 .matches(CoreMatchers.not(containsUnion(true)))
@@ -206,7 +206,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
     /**
      * Check 'OR -> UNION' rule is not applied if (at least) one of column is not indexed.
      */
-    @Test
+    //@Test
     public void testNonIndexedOrToUnionAllRewrite() {
         assertQuery("SELECT * "
                 + "FROM products "
@@ -225,7 +225,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testAllNonIndexedOrToUnionAllRewrite() {
         assertQuery("SELECT * "
                 + "FROM products "

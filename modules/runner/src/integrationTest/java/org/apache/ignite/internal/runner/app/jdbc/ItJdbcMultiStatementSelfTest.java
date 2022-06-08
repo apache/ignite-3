@@ -62,7 +62,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     /**
      * Assert that script containing both h2 and non h2 (native) sql statements is handled correctly.
      */
-    @Test
+    //@Test
     public void testMixedCommands() throws Exception {
         execute("CREATE TABLE public.transactions (pk INT, id INT, k VARCHAR, v VARCHAR, PRIMARY KEY (pk, id)); "
                 + "CREATE INDEX transactions_id_k_v ON public.transactions (id, k, v) INLINE_SIZE 150; "
@@ -74,7 +74,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     /**
      * Sanity test for scripts, containing empty statements are handled correctly.
      */
-    @Test
+    //@Test
     public void testEmptyStatements() throws Exception {
         execute(";; ;;;;");
         execute(" ;; ;;;; ");
@@ -88,7 +88,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     /**
      * Check multi-statement containing both h2 and native parser statements (having "?" args) works well.
      */
-    @Test
+    //@Test
     public void testMultiStatementTxWithParams() throws Exception {
         int leoAge = 28;
 

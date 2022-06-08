@@ -134,7 +134,7 @@ class ItIgnitionTest {
     /**
      * Check that Ignition.start() with bootstrap configuration returns Ignite instance.
      */
-    @Test
+    //@Test
     void testNodesStartWithBootstrapConfiguration() {
         for (Map.Entry<String, String> e : nodesBootstrapCfg.entrySet()) {
             startNode(e.getKey(), name -> IgnitionManager.start(name, e.getValue(), workDir.resolve(name)));
@@ -148,7 +148,7 @@ class ItIgnitionTest {
     /**
      * Check that Ignition.start() with bootstrap configuration returns Ignite instance.
      */
-    @Test
+    //@Test
     void testNodeStartWithoutBootstrapConfiguration(TestInfo testInfo) {
         startNode(testNodeName(testInfo, 47500), name -> IgnitionManager.start(name, null, workDir.resolve(name)));
 
@@ -158,7 +158,7 @@ class ItIgnitionTest {
     /**
      * Tests scenario when we try to start node with invalid configuration.
      */
-    @Test
+    //@Test
     void testErrorWhenStartNodeWithInvalidConfiguration() {
         try {
             startNode("invalid-config-name", name -> IgnitionManager.start(name, "{Invalid-Configuration}", workDir.resolve(name)));
@@ -175,7 +175,7 @@ class ItIgnitionTest {
     /**
      * Tests scenario when we try to start node with URL configuration.
      */
-    @Test
+    //@Test
     void testStartNodeWithUrlConfig() throws Exception {
         Ignition ign = new IgnitionImpl();
 

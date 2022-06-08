@@ -561,7 +561,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Restarts empty node.
      */
-    @Test
+    //@Test
     public void emptyNodeTest(TestInfo testInfo) {
         final int defaultPort = 47500;
 
@@ -585,7 +585,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Restarts a node with changing configuration.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16865")
     public void changeConfigurationOnStartTest(TestInfo testInfo) {
         IgniteImpl ignite = startNode(testInfo, 0);
@@ -610,7 +610,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Checks that the only one non-default property overwrites after another configuration is passed on the node restart.
      */
-    @Test
+    //@Test
     public void twoCustomPropertiesTest(TestInfo testInfo) {
         String startCfg = "network: {\n"
                 + "  port:3344,\n"
@@ -649,7 +649,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Restarts the node which stores some data.
      */
-    @Test
+    //@Test
     public void nodeWithDataTest(TestInfo testInfo) {
         Ignite ignite = startNode(testInfo, 0);
 
@@ -667,7 +667,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      *
      * @param testInfo Test information object.
      */
-    @Test
+    //@Test
     public void testTwoNodesRestartDirect(TestInfo testInfo) {
         twoNodesRestart(testInfo, true);
     }
@@ -677,7 +677,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      *
      * @param testInfo Test information object.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16811")
     public void testTwoNodesRestartReverse(TestInfo testInfo) {
         twoNodesRestart(testInfo, false);
@@ -758,7 +758,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      *
      * @param testInfo Test info.
      */
-    @Test
+    //@Test
     public void testOneNodeRestartWithGap(TestInfo testInfo) throws NodeStoppingException {
         Ignite ignite = startNode(testInfo, 0);
 
@@ -793,7 +793,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      *
      * @param testInfo Test info.
      */
-    @Test
+    //@Test
     public void testRecoveryOnOneNode(TestInfo testInfo) throws NodeStoppingException {
         Ignite ignite = startNode(testInfo, 0);
 
@@ -819,7 +819,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      *
      * @param testInfo Test info.
      */
-    @Test
+    //@Test
     public void testRestartDiffConfig(TestInfo testInfo) throws NodeStoppingException {
         Ignite ignite0 = startNode(testInfo, 0);
         Ignite ignite1 = startNode(testInfo, 1);
@@ -851,7 +851,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      *
      * @param testInfo Test info.
      */
-    @Test
+    //@Test
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testCfgGapWithoutData(TestInfo testInfo) throws NodeStoppingException {
         int nodes = 3;
@@ -895,7 +895,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      *
      * @param testInfo Test info.
      */
-    @Test
+    //@Test
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testMetastorageStop(TestInfo testInfo) throws NodeStoppingException {
         final int nodes = 3;
@@ -947,7 +947,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      *
      * @param testInfo Test info.
      */
-    @Test
+    //@Test
     public void testCfgGap(TestInfo testInfo) {
         final int nodes = 4;
 

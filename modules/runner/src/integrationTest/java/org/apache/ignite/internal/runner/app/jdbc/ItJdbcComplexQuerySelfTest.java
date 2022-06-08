@@ -61,7 +61,7 @@ public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testJoin() throws Exception {
         ResultSet rs = stmt.executeQuery(
                 "select p.id, p.name, o.name as orgName from PUBLIC.Person p, PUBLIC.Org o where p.orgId = o.id");
@@ -97,7 +97,7 @@ public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testJoinWithoutAlias() throws Exception {
         ResultSet rs = stmt.executeQuery(
                 "select p.id, p.name, o.name from PUBLIC.Person p, PUBLIC.Org o where p.orgId = o.id");
@@ -136,7 +136,7 @@ public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testIn() throws Exception {
         ResultSet rs = stmt.executeQuery("select name from PUBLIC.Person where age in (25, 35)");
 
@@ -158,7 +158,7 @@ public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testBetween() throws Exception {
         ResultSet rs = stmt.executeQuery("select name from PUBLIC.Person where age between 24 and 36");
 
@@ -180,7 +180,7 @@ public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testCalculatedValue() throws Exception {
         ResultSet rs = stmt.executeQuery("select age * 2 from PUBLIC.Person");
 
@@ -202,7 +202,7 @@ public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    //@Test
     public void testWrongArgumentType() throws Exception {
         try (ResultSet rs = stmt.executeQuery("select * from PUBLIC.Org where name = '2'")) {
             assertFalse(rs.next());

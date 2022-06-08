@@ -246,7 +246,7 @@ public class ItDistributedConfigurationPropertiesTest {
      * Tests a scenario when a distributed property is lagging behind the latest value (e.g. due to network delays. storage listeners logic,
      * etc.). In this case the "direct" value should always be in the up-to-date state.
      */
-    @Test
+    //@Test
     public void testFallingBehindDistributedStorageValue() throws Exception {
         ConfigurationValue<String> firstValue = firstNode.distributedCfgManager.configurationRegistry()
                 .getConfiguration(DistributedConfiguration.KEY)

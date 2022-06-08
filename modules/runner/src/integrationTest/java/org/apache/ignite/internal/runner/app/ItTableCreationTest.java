@@ -214,7 +214,7 @@ class ItTableCreationTest {
     /**
      * Check table creation via bootstrap configuration with pre-configured table.
      */
-    @Test
+    //@Test
     void testInitialSimpleTableConfiguration() {
         assertEquals(3, clusterNodes.size());
 
