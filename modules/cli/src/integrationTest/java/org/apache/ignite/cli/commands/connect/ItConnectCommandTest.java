@@ -24,7 +24,6 @@ import jakarta.inject.Inject;
 import org.apache.ignite.cli.commands.CliCommandTestIntegrationBase;
 import org.apache.ignite.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.cli.core.repl.prompt.PromptProvider;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine.Help.Ansi;
@@ -34,7 +33,7 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
     PromptProvider promptProvider;
 
     @Override
-    protected @NotNull Class<?> getCommandClass() {
+    protected Class<?> getCommandClass() {
         return TopLevelCliReplCommand.class;
     }
 

@@ -17,20 +17,19 @@
 
 package org.apache.ignite.cli.commands.configuration;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.cli.commands.CliCommandTestBase;
 import org.apache.ignite.cli.commands.configuration.node.NodeConfigShowSubCommand;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class ShowConfigSubCommandTest extends CliCommandTestBase {
 
-    @BeforeEach
-    void setUp() {
-        setUp(NodeConfigShowSubCommand.class);
+    @Override
+    protected Class<?> getCommandClass() {
+        return NodeConfigShowSubCommand.class;
     }
 
     @Disabled("Cluster-url has a default value")
@@ -40,9 +39,9 @@ class ShowConfigSubCommandTest extends CliCommandTestBase {
         // When execute without --cluster-url
         execute();
 
-        // Then
-        assertThat(err.toString()).contains("Missing required option: '--cluster-url=<clusterUrl>'");
-        // And
-        assertThat(out.toString()).isEmpty();
+        assertAll(
+                () -> assertErrOutputContains("Missing required option: '--cluster-url=<clusterUrl>'"),
+                this::assertOutputIsEmpty
+        );
     }
 }

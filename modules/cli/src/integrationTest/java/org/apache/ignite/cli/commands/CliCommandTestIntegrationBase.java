@@ -25,7 +25,6 @@ import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import org.apache.ignite.cli.IntegrationTestBase;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import picocli.CommandLine;
@@ -38,26 +37,30 @@ public class CliCommandTestIntegrationBase extends IntegrationTestBase {
     protected static final String JDBC_URL = "jdbc:ignite:thin://127.0.0.1:10800";
 
     @Inject
-    protected ApplicationContext applicationContext;
+    private ApplicationContext context;
 
     private CommandLine cmd;
-
     private StringWriter sout;
-
     private StringWriter serr;
-
     private int exitCode = Integer.MIN_VALUE;
 
-    protected void setupCmd(MicronautFactory factory) {
-        cmd = new CommandLine(getCommandClass(), factory);
+    /**
+     * Invokes before the test will start.
+     *
+     * @param testInfo Test information object.
+     * @throws Exception If failed.
+     */
+    @BeforeEach
+    public void setUp(TestInfo testInfo) throws Exception {
+        super.setUp(testInfo);
+        cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
         sout = new StringWriter();
         serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));
         cmd.setErr(new PrintWriter(serr));
     }
 
-    @NotNull
-    protected Class getCommandClass() {
+    protected Class<?> getCommandClass() {
         return TopLevelCliCommand.class;
     }
 
@@ -117,17 +120,4 @@ public class CliCommandTestIntegrationBase extends IntegrationTestBase {
                 .as("Expected command error output to be equal to: " + expectedErrOutput)
                 .isEqualTo(expectedErrOutput);
     }
-
-    /**
-     * Invokes before the test will start.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
-    @BeforeEach
-    public void setUp(TestInfo testInfo) throws Exception {
-        super.setUp(testInfo);
-        setupCmd(new MicronautFactory(applicationContext));
-    }
 }
-

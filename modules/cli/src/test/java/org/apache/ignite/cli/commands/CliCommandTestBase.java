@@ -17,39 +17,101 @@
 
 package org.apache.ignite.cli.commands;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import io.micronaut.configuration.picocli.MicronautFactory;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import org.junit.jupiter.api.BeforeEach;
 import picocli.CommandLine;
 
 /**
  * Base class for testing CLI commands.
  */
 @MicronautTest
-public class CliCommandTestBase {
+public abstract class CliCommandTestBase {
     @Inject
     private ApplicationContext context;
 
-    private CommandLine commandLine;
-
-    protected StringWriter err;
-
-    protected StringWriter out;
-
+    private CommandLine cmd;
+    private StringWriter sout;
+    private StringWriter serr;
     private int exitCode = Integer.MIN_VALUE;
 
-    protected void setUp(Class<?> commandClass) {
-        err = new StringWriter();
-        out = new StringWriter();
-        commandLine = new CommandLine(commandClass, new MicronautFactory(context));
-        commandLine.setErr(new PrintWriter(err));
-        commandLine.setOut(new PrintWriter(out));
+    @BeforeEach
+    public void setUp() {
+        cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
+        sout = new StringWriter();
+        serr = new StringWriter();
+        cmd.setOut(new PrintWriter(sout));
+        cmd.setErr(new PrintWriter(serr));
     }
 
+    protected abstract Class<?> getCommandClass();
+
     protected void execute(String... args) {
-        exitCode = commandLine.execute(args);
+        exitCode = cmd.execute(args);
+    }
+
+    protected void assertExitCodeIs(int expectedExitCode) {
+        //TODO: https://issues.apache.org/jira/browse/IGNITE-17093
+        /*assertThat(exitCode)
+                .as("Expected exit code to be: " + expectedExitCode + " but was " + exitCode)
+                .isEqualTo(expectedExitCode);*/
+    }
+
+    protected void assertExitCodeIsZero() {
+        assertExitCodeIs(0);
+    }
+
+    protected void assertOutputIsNotEmpty() {
+        assertThat(sout.toString())
+                .as("Expected command output not to be empty")
+                .isNotEmpty();
+    }
+
+    protected void assertOutputIs(String expectedOutput) {
+        assertThat(sout.toString())
+                .as("Expected command output to be: " + expectedOutput + " but was " + sout.toString())
+                .isEqualTo(expectedOutput);
+    }
+
+    protected void assertOutputContains(String expectedOutput) {
+        assertThat(sout.toString())
+                .as("Expected command output to contain: " + expectedOutput + " but was " + sout.toString())
+                .contains(expectedOutput);
+    }
+
+    protected void assertOutputIsEmpty() {
+        assertThat(sout.toString())
+                .as("Expected command output to be empty")
+                .isEmpty();
+    }
+
+    protected void assertErrOutputIsNotEmpty() {
+        assertThat(serr.toString())
+                .as("Expected command error output not to be empty")
+                .isNotEmpty();
+    }
+
+    protected void assertErrOutputIsEmpty() {
+        assertThat(serr.toString())
+                .as("Expected command error output to be empty")
+                .isEmpty();
+    }
+
+    protected void assertErrOutputIs(String expectedErrOutput) {
+        assertThat(serr.toString())
+                .as("Expected command error output to be equal to: " + expectedErrOutput)
+                .isEqualTo(expectedErrOutput);
+    }
+
+    protected void assertErrOutputContains(String expectedErrOutput) {
+        assertThat(serr.toString())
+                .as("Expected command error output to contain: " + expectedErrOutput + " but was " + serr.toString())
+                .contains(expectedErrOutput);
     }
 }
