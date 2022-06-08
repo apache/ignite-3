@@ -24,6 +24,8 @@
       url: sql/calcite-based-sql-engine
     - title: JDBC Driver
       url: sql/jdbc-driver
+    - title: Java API
+      url: sql/java
 - title: SQL Reference
   items:
     - title: Data Definition Language (DDL)
