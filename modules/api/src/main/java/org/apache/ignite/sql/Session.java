@@ -19,6 +19,7 @@ package org.apache.ignite.sql;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.ResultSetImpl;
@@ -53,7 +54,11 @@ public interface Session extends AutoCloseable {
         Objects.requireNonNull(query);
 
         // TODO: IGNITE-17135 fix exception handling.
-        return new ResultSetImpl(executeAsync(transaction, query, arguments).join());
+        try {
+            return new ResultSetImpl(executeAsync(transaction, query, arguments).join());
+        } catch (CompletionException e) {
+            throw new SqlException(e);
+        }
     }
 
     /**
@@ -68,7 +73,11 @@ public interface Session extends AutoCloseable {
         Objects.requireNonNull(statement);
 
         // TODO: IGNITE-17135 fix exception handling.
-        return new ResultSetImpl(executeAsync(transaction, statement, arguments).join());
+        try {
+            return new ResultSetImpl(executeAsync(transaction, statement, arguments).join());
+        } catch (CompletionException e) {
+            throw new SqlException(e);
+        }
     }
 
     /**
