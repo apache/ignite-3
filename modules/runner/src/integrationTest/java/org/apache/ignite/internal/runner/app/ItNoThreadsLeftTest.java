@@ -86,7 +86,7 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
             stopNode(testInfo);
         }
 
-        boolean threadsKilled = waitForCondition(() -> getCurrentThreads().size() == threadsBefore.size(), 3_000);
+        boolean threadsKilled = waitForCondition(() -> getCurrentThreads().size() <= threadsBefore.size(), 10, 3_000);
 
         if (!threadsKilled) {
             String leakedThreadNames = getCurrentThreads().stream()
