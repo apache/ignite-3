@@ -406,7 +406,7 @@ public final class CollectionUtils {
             @Nullable Function<? super T1, ? extends T2> mapper,
             @Nullable Predicate<? super T1> predicate
     ) {
-        if (nullOrEmpty(collection)) {
+        if (collection == null) {
             return emptyList();
         }
 
