@@ -20,15 +20,12 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -51,7 +48,6 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -60,16 +56,12 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
-import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -80,8 +72,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SqlQueryProcessor implements QueryProcessor {
     private static final IgniteLogger LOG = IgniteLogger.forClass(SqlQueryProcessor.class);
-
-    private static final CompletableFuture[] EMPTY_FUTURES_ARRAY = new CompletableFuture[0];
 
     /** Size of the cache for query plans. */
     public static final int PLAN_CACHE_SIZE = 1024;
@@ -255,163 +245,18 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
     }
 
-    @Override
-    public CompletableFuture<long[]> batchAsync(QueryContext context, String schemaName, String qry, List<List<Object>> batchArgs) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(new NodeStoppingException());
-        }
-
-        try {
-            return batch0(context, schemaName, qry, batchArgs);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
     private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
-            final QueryContext context,
-            final String schemaName,
-            final String sql,
-            final Object... params
-    ) {
-        try {
-            BaseQueryContext ctx = baseContext(schemaName, params);
-
-            CompletableFuture<Void> start = new CompletableFuture<>();
-
-            CompletableFuture<QueryPlan> planning = planningSingle(
-                    start,
-                    ctx,
-                    context,
-                    schemaName,
-                    sql
-            );
-
-            CompletableFuture<AsyncSqlCursor<List<Object>>> stage = planning.thenApply(plan -> {
-                context.maybeUnwrap(QueryValidator.class)
-                        .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
-
-                return new AsyncSqlCursorImpl<>(
-                        SqlQueryType.mapPlanTypeToSqlType(plan.type()),
-                        plan.metadata(),
-                        executionSrvc.executePlan(plan, ctx)
-                );
-            });
-
-            stage.whenComplete((cur, ex) -> {
-                if (ex instanceof CancellationException) {
-                    ctx.cancel().cancel();
-                }
-            });
-
-            start.completeAsync(() -> null, taskExecutor);
-
-            return stage;
-        } catch (Exception ex) {
-            return CompletableFuture.failedFuture(ex);
-        }
-    }
-
-    private CompletableFuture<long[]> batch0(
             QueryContext context,
             String schemaName,
             String sql,
-            List<List<Object>> batchArgs
-    ) {
-        if (CollectionUtils.nullOrEmpty(batchArgs)) {
-            return CompletableFuture.failedFuture(new IgniteException("Batch is empty"));
-        }
-
-        try {
-            CompletableFuture<Void> start = new CompletableFuture<>();
-            SchemaPlus schema = schemaManager.schema(schemaName);
-
-            BaseQueryContext ctx = baseContext(schemaName, batchArgs.get(0).toArray());
-
-            CompletableFuture<QueryPlan> planning = planningSingle(
-                    start,
-                    ctx,
-                    context,
-                    schemaName,
-                    sql
-            );
-
-            final var counters = new LongArrayList(batchArgs.size());
-            CompletableFuture<Void> tail = CompletableFuture.completedFuture(null);
-            ArrayList<CompletableFuture<Void>> batchFuts = new ArrayList<>(batchArgs.size());
-
-            for (int i = 0; i < batchArgs.size(); ++i) {
-                List<Object> batch = batchArgs.get(i);
-
-                final BaseQueryContext ctx0 = BaseQueryContext.builder()
-                        .cancel(new QueryCancel())
-                        .frameworkConfig(
-                                Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                        .defaultSchema(schema)
-                                        .build()
-                        )
-                        .logger(LOG)
-                        .parameters(batch.toArray())
-                        .build();
-
-                tail = tail.thenCombine(planning, (updCntr, plan) -> new AsyncSqlCursorImpl<>(
-                                SqlQueryType.mapPlanTypeToSqlType(plan.type()),
-                                plan.metadata(),
-                                executionSrvc.executePlan(plan, ctx0)
-                        ))
-                        .thenCompose(cur -> cur.requestNextAsync(1))
-                        .thenAccept(page -> {
-                            if (page == null
-                                    || page.items() == null
-                                    || page.items().size() != 1
-                                    || page.items().get(0).size() != 1
-                                    || page.hasMore()) {
-                                throw new SqlException("Invalid DML results: " + page);
-                            }
-
-                            counters.add((long) page.items().get(0).get(0));
-                        })
-                        .whenComplete((v, ex) -> {
-                            if (ex instanceof CancellationException) {
-                                ctx0.cancel().cancel();
-                            }
-                        });
-
-                batchFuts.add(tail);
-            }
-
-            CompletableFuture<long[]> resFut = tail
-                    .exceptionally((ex) -> {
-                        checkPlanningException(ex);
-
-                        throw new SqlBatchException(counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY), ex);
-                    })
-                    .thenApply(v -> counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY));
-
-            resFut.whenComplete((cur, ex) -> {
-                if (ex instanceof CancellationException) {
-                    batchFuts.forEach(f -> f.cancel(false));
-                }
-            });
-
-            start.completeAsync(() -> null, taskExecutor);
-
-            return resFut;
-        } catch (Exception ex) {
-            return CompletableFuture.failedFuture(ex);
-        }
-    }
-
-    private BaseQueryContext baseContext(
-            final String schemaName,
-            final Object[] args) {
+            Object... params) {
         SchemaPlus schema = schemaManager.schema(schemaName);
 
         if (schema == null) {
-            throw new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName));
+            return CompletableFuture.failedFuture(new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName)));
         }
 
-        return BaseQueryContext.builder()
+        final BaseQueryContext ctx = BaseQueryContext.builder()
                 .cancel(new QueryCancel())
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
@@ -419,24 +264,12 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 .build()
                 )
                 .logger(LOG)
-                .parameters(args)
+                .parameters(params)
                 .build();
-    }
 
-    private CompletableFuture<QueryPlan> planningSingle(
-            final CompletableFuture<Void> start,
-            final BaseQueryContext ctx,
-            final QueryContext context,
-            final String schemaName,
-            final String sql
-    ) {
-        SchemaPlus schema = schemaManager.schema(schemaName);
+        CompletableFuture<Void> start = new CompletableFuture<>();
 
-        if (schema == null) {
-            return CompletableFuture.failedFuture(new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName)));
-        }
-
-        CompletableFuture<QueryPlan> planFut = start.thenApply(
+        CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenApply(
                         (v) -> Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig())
                 )
                 .thenApply(nodes -> {
@@ -451,13 +284,22 @@ public class SqlQueryProcessor implements QueryProcessor {
                     context.maybeUnwrap(QueryValidator.class)
                             .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
 
-                    return plan;
-                })
-                .exceptionally(ex -> {
-                    throw new PlanningException(ex.getCause());
+                    return new AsyncSqlCursorImpl<>(
+                            SqlQueryType.mapPlanTypeToSqlType(plan.type()),
+                            plan.metadata(),
+                            executionSrvc.executePlan(plan, ctx)
+                    );
                 });
 
-        return planFut;
+        stage.whenComplete((cur, ex) -> {
+            if (ex instanceof CancellationException) {
+                ctx.cancel().cancel();
+            }
+        });
+
+        start.completeAsync(() -> null, taskExecutor);
+
+        return stage;
     }
 
     private List<CompletableFuture<AsyncSqlCursor<List<Object>>>> query0(
@@ -543,18 +385,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             );
 
             return false;
-        }
-    }
-
-    private void checkPlanningException(Throwable ex) {
-        if (ex instanceof ExecutionException || ex instanceof CompletionException) {
-            checkPlanningException(ex.getCause());
-        } else if (ex instanceof PlanningException) {
-            if (ex.getCause() instanceof SqlException) {
-                throw (SqlException) ex.getCause();
-            } else {
-                throw new SqlException(ex.getCause());
-            }
         }
     }
 

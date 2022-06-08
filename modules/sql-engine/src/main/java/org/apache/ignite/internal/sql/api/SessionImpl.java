@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,11 +38,13 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryTimeout;
 import org.apache.ignite.internal.sql.engine.QueryValidator;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -101,12 +106,6 @@ public class SessionImpl implements Session {
     @Override
     public ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
         throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
-        return await(executeBatchAsync(transaction, dmlQuery, batch));
     }
 
     /** {@inheritDoc} */
@@ -249,7 +248,48 @@ public class SessionImpl implements Session {
                     }
             );
 
-            return qryProc.batchAsync(ctx, schema, query, batch);
+            final var counters = new LongArrayList(batch.size());
+            CompletableFuture<Void> tail = CompletableFuture.completedFuture(null);
+            ArrayList<CompletableFuture<Void>> batchFuts = new ArrayList<>(batch.size());
+
+            for (int i = 0; i < batch.size(); ++i) {
+                Object[] args = batch.get(i).toArray();
+
+                tail = tail.thenCompose(v -> qryProc.querySingleAsync(ctx, schema, query, args))
+                        .thenCompose(cur -> cur.requestNextAsync(1))
+                        .thenAccept(page -> {
+                            if (page == null
+                                    || page.items() == null
+                                    || page.items().size() != 1
+                                    || page.items().get(0).size() != 1
+                                    || page.hasMore()) {
+                                throw new SqlException("Invalid DML results: " + page);
+                            }
+
+                            counters.add((long) page.items().get(0).get(0));
+                        })
+                        .whenComplete((v, ex) -> {
+                            if (ex instanceof CancellationException) {
+                                // TODO
+                            }
+                        });
+
+                batchFuts.add(tail);
+            }
+
+            CompletableFuture<long[]> resFut = tail
+                    .exceptionally((ex) -> {
+                        throw new SqlBatchException(counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY), ex);
+                    })
+                    .thenApply(v -> counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY));
+
+            resFut.whenComplete((cur, ex) -> {
+                if (ex instanceof CancellationException) {
+                    batchFuts.forEach(f -> f.cancel(false));
+                }
+            });
+
+            return resFut;
         } catch (Exception e) {
             return CompletableFuture.failedFuture(e);
         } finally {

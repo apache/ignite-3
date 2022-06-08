@@ -18,6 +18,7 @@
 package org.apache.ignite.sql;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -112,7 +113,14 @@ public interface Session extends AutoCloseable {
      * @return Number of rows affected by each query in the batch.
      * @throws SqlBatchException If the batch fails.
      */
-    long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch);
+    default long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
+        // TODO: IGNITE-17135 fix exception handling.
+        try {
+            return executeBatchAsync(transaction, dmlQuery, batch).join();
+        } catch (CompletionException e) {
+            throw new SqlException(e);
+        }
+    }
 
     /**
      * Executes batched SQL query. Only DML queries are supported.
