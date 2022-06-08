@@ -47,7 +47,7 @@ The following examples are included:
 * `PersistentPageMemoryStorageExample` - demonstrates the usage of the PageMemory storage engine configured with a persistent data region.
 
 To run any other example, do the following:
-1. Import the examples project into you IDE.
+1. Import the examples project into your IDE.
 2. Start a server node using the CLI tool:
    ```
    ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json my-first-node
