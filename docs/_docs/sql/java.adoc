@@ -38,9 +38,10 @@ Here is an example of how you can create a new table on a cluster:
 [source, java]
 ----
 try (ResultSet rs = ses.execute(null,
-    null,
-    `CREATE TABLE SYNCH(ID INT PRIMARY KEY, VAL0 INT)`
-);
+        "CREATE TABLE SYNCH(ID INT PRIMARY KEY, VAL0 INT)")
+) {
+    // no-op
+}
 ----
 
 NOTE: ResultSet is closable, but it is safe to skip `close()` method for DDL and DML queries, as they do not keep server cursor open.
