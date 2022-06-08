@@ -2536,7 +2536,7 @@ public class NodeImpl implements Node, RaftServerService {
             }
             return;
         }
-        // Return immediately when the new peers equals to current configuration
+        // Return immediately when the new peers equals to the current configuration
         if (this.conf.getConf().equals(newConf)) {
             Closure newDone = (Status status) -> {
                 // doOnNewPeersConfigurationApplied should be called, otherwise we could lose the callback invocation.

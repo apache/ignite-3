@@ -26,8 +26,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BooleanSupplier;
+import java.util.stream.Collectors;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -214,5 +216,15 @@ public class TestUtils {
         DefaultRaftClientService rpcService = (DefaultRaftClientService) node0.getRpcClientService();
 
         return (RpcClientEx) rpcService.getRpcClient();
+    }
+
+    /**
+     * Convert list of {@link Peer} to list of string representations.
+     *
+     * @param peers List of {@link Peer}
+     * @return List of string representations.
+     */
+    public static List<String> peersToIds(List<Peer> peers) {
+        return peers.stream().map(p -> PeerId.fromPeer(p).toString()).collect(Collectors.toList());
     }
 }
