@@ -192,7 +192,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 4).build();
 
         TestPageProcessor pageProc = new TestPageProcessor(4);
@@ -214,7 +214,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         sql("CREATE TABLE TEST(COL0 BIGINT PRIMARY KEY, COL1 VARCHAR NOT NULL)");
         sql("INSERT INTO TEST VALUES (?, ?)", 1L, "some string");
 
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().build();
 
         AsyncResultSet rs = ses.executeAsync(null, "SELECT COL1, COL0 FROM TEST").get();
@@ -245,7 +245,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void sqlRow() throws ExecutionException, InterruptedException {
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().build();
 
         AsyncResultSet ars = ses.executeAsync(null, "SELECT 1 as COL_A, 2 as COL_B").get();
@@ -283,7 +283,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(1).build();
 
         AsyncResultSet ars0 = ses.executeAsync(null, "SELECT ID FROM TEST ORDER BY ID").get();
@@ -318,7 +318,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void errors() {
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
 
         // Parse error.
@@ -355,7 +355,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(2).build();
 
         AsyncResultSet ars0 = ses.executeAsync(null, "SELECT ID FROM TEST").get();
