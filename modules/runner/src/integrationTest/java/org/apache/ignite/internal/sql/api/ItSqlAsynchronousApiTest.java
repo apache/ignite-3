@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -64,6 +65,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Tests for asynchronous SQL API.
  */
+@SuppressWarnings("ThrowableNotThrown")
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     private static final int ROW_COUNT = 16;
@@ -81,7 +83,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             sql("DROP TABLE " + t.name());
         }
 
-        super.tearDownBase(testInfo);
+        tearDownBase(testInfo);
     }
 
     @Test
@@ -313,25 +315,25 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         // Parse error.
         {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT ID FROM");
-            assertThrowsWithCause(() -> f.get(), IgniteInternalException.class, "Failed to parse query");
+            assertThrowsWithCause(f::get, IgniteInternalException.class, "Failed to parse query");
         }
 
         // Multiple statements error.
         {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1; SELECT 2");
-            assertThrowsWithCause(() -> f.get(), IgniteSqlException.class, "Multiple statements aren't allowed");
+            assertThrowsWithCause(f::get, IgniteSqlException.class, "Multiple statements aren't allowed");
         }
 
         // Planning error.
         {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "CREATE TABLE TEST (VAL INT)");
-            assertThrowsWithCause(() -> f.get(), IgniteException.class, "Table without PRIMARY KEY is not supported");
+            assertThrowsWithCause(f::get, IgniteException.class, "Table without PRIMARY KEY is not supported");
         }
 
         // Execute error.
         {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1 / ?", 0);
-            assertThrowsWithCause(() -> f.get(), ArithmeticException.class, "/ by zero");
+            assertThrowsWithCause(f::get, ArithmeticException.class, "/ by zero");
         }
 
         checkSession(ses);
@@ -368,7 +370,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkSession(ses);
     }
 
-    private void checkDdl(boolean expectedApplied, Session ses, String sql) throws ExecutionException, InterruptedException {
+    private static void checkDdl(boolean expectedApplied, Session ses, String sql) throws ExecutionException, InterruptedException {
         CompletableFuture<AsyncResultSet> fut = ses.executeAsync(
                 null,
                 sql
@@ -386,7 +388,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         asyncRes.closeAsync().toCompletableFuture().get();
     }
 
-    private void checkError(Class<? extends Throwable> expectedException, String msg, Session ses, String sql, Object... args) {
+    private static void checkError(Class<? extends Throwable> expectedException, String msg, Session ses, String sql, Object... args) {
         CompletableFuture<AsyncResultSet> fut = ses.executeAsync(
                 null,
                 sql,
@@ -396,7 +398,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertThrowsWithCause(fut::get, expectedException, msg);
     }
 
-    private void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args)
+    private static void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args)
             throws ExecutionException, InterruptedException {
         CompletableFuture<AsyncResultSet> fut = ses.executeAsync(
                 null,
@@ -416,9 +418,9 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         asyncRes.closeAsync().toCompletableFuture().get();
     }
 
-    private void checkSession(Session s) {
-        assertTrue(((Set<?>) IgniteTestUtils.getFieldValue(s, "futsToClose")).isEmpty());
-        assertTrue(((Set<?>) IgniteTestUtils.getFieldValue(s, "cursToClose")).isEmpty());
+    private static void checkSession(Session s) {
+        assertTrue(((Collection<?>) IgniteTestUtils.getFieldValue(s, "futsToClose")).isEmpty());
+        assertTrue(((Collection<?>) IgniteTestUtils.getFieldValue(s, "cursToClose")).isEmpty());
     }
 
     static class TestPageProcessor implements
@@ -451,6 +453,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         }
 
         public List<SqlRow> result() {
+            //noinspection AssignmentOrReturnOfFieldWithMutableType
             return res;
         }
     }

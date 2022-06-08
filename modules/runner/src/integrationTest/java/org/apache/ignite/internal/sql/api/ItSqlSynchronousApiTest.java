@@ -46,6 +46,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Tests for synchronous SQL API.
  */
+@SuppressWarnings("ThrowableNotThrown")
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
     private static final int ROW_COUNT = 16;
@@ -63,11 +64,11 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
             sql("DROP TABLE " + t.name());
         }
 
-        super.tearDownBase(testInfo);
+        tearDownBase(testInfo);
     }
 
     @Test
-    public void ddl() throws ExecutionException, InterruptedException {
+    public void ddl() {
         IgniteSql sql = CLUSTER_NODES.get(0).sql();
         Session ses = sql.createSession();
 
@@ -137,7 +138,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void dml() throws ExecutionException, InterruptedException {
+    public void dml() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         IgniteSql sql = CLUSTER_NODES.get(0).sql();
@@ -152,6 +153,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDml(ROW_COUNT, ses, "DELETE FROM TEST WHERE VAL0 >= 0");
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     @Test
     public void select() throws ExecutionException, InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
@@ -220,7 +222,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         res.close();
     }
 
-    private void checkError(Class<? extends Throwable> expectedException, String msg, Session ses, String sql, Object... args) {
+    private void checkError(Class<? extends Throwable> expectedException, String msg, Session ses, String sql) {
         assertThrowsWithCause(() -> ses.execute(null, sql), expectedException, msg);
     }
 
