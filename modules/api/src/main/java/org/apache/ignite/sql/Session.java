@@ -17,10 +17,12 @@
 
 package org.apache.ignite.sql;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.sql.ResultSetImpl;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.tx.Transaction;
@@ -48,7 +50,16 @@ public interface Session extends AutoCloseable {
      * @return SQL query results set.
      * @throws SqlException If failed.
      */
-    ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments);
+    default ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
+        Objects.requireNonNull(query);
+
+        // TODO: IGNITE-17135 fix exception handling.
+        try {
+            return new ResultSetImpl(executeAsync(transaction, query, arguments).join());
+        } catch (CompletionException e) {
+            throw new SqlException(e);
+        }
+    }
 
     /**
      * Executes single SQL statement.
@@ -58,7 +69,16 @@ public interface Session extends AutoCloseable {
      * @param arguments Arguments for the statement.
      * @return SQL query results set.
      */
-    ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments);
+    default ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
+        Objects.requireNonNull(statement);
+
+        // TODO: IGNITE-17135 fix exception handling.
+        try {
+            return new ResultSetImpl(executeAsync(transaction, statement, arguments).join());
+        } catch (CompletionException e) {
+            throw new SqlException(e);
+        }
+    }
 
     /**
      * Executes SQL query in an asynchronous way.

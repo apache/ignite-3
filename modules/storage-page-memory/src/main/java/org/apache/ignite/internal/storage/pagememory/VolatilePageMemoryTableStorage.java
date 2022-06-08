@@ -55,6 +55,12 @@ class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         );
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void destroy() throws StorageException {
+        stop();
+    }
+
     /**
      * Returns new {@link TableTree} instance for partition.
      *

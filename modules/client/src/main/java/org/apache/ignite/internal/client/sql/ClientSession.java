@@ -30,7 +30,6 @@ import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.sql.BatchedArguments;
-import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -81,20 +80,6 @@ public class ClientSession implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        // TODO IGNITE-17057.
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
-        // TODO IGNITE-17057.
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
@@ -122,11 +107,12 @@ public class ClientSession implements Session {
 
             w.out().packObject(oneOf(clientStatement.defaultSchema(), defaultSchema));
             w.out().packObject(oneOf(clientStatement.pageSizeNullable(), defaultPageSize));
-            w.out().packObject(clientStatement.query());
             w.out().packObject(oneOf(clientStatement.queryTimeoutNullable(), defaultTimeout));
-            w.out().packBoolean(clientStatement.prepared());
 
             packProperties(w, clientStatement.properties());
+
+            w.out().packObject(clientStatement.query());
+            w.out().packBoolean(clientStatement.prepared());
 
             if (arguments == null) {
                 w.out().packArrayHeader(0);
@@ -238,8 +224,8 @@ public class ClientSession implements Session {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeAsync() {
-        // TODO: Cancel/close all active futures.
-        return null;
+        // TODO IGNITE-17134 Cancel/close all active cursors, queries, futures.
+        return CompletableFuture.completedFuture(null);
     }
 
     /** {@inheritDoc} */

@@ -55,6 +55,7 @@ public class ClientUtils {
      */
     public static IgniteException convertException(Throwable e) {
         if (e instanceof IgniteException) {
+            // TODO: IGNITE-17135 Fix stack trace loss
             return (IgniteException) e;
         }
 

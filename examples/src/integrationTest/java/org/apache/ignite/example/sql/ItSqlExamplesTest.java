@@ -15,11 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.example.sql.jdbc;
+package org.apache.ignite.example.sql;
 
 import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputContains;
 
 import org.apache.ignite.example.AbstractExamplesTest;
+import org.apache.ignite.example.sql.jdbc.SqlJdbcExample;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -34,6 +36,35 @@ public class ItSqlExamplesTest extends AbstractExamplesTest {
     @Test
     public void testSqlJdbcExample() throws Exception {
         assertConsoleOutputContains(SqlJdbcExample::main, EMPTY_ARGS,
+                "\nAll accounts:\n"
+                        + "    John, Doe, Forest Hill\n"
+                        + "    Jane, Roe, Forest Hill\n"
+                        + "    Mary, Major, Denver\n"
+                        + "    Richard, Miles, St. Petersburg\n",
+
+                "\nAccounts with balance lower than 1,500:\n"
+                        + "    John, Doe, 1000.0\n"
+                        + "    Richard, Miles, 1450.0\n",
+
+                "\nAll accounts:\n"
+                        + "    Jane, Roe, Forest Hill\n"
+                        + "    Mary, Major, Denver\n"
+                        + "    Richard, Miles, St. Petersburg\n"
+        );
+    }
+
+    /**
+     * Runs SqlApiExample and checks its output.
+     *
+     * @throws Exception If failed.
+     */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17059")
+    @Test
+    public void testSqlApiExample() throws Exception {
+        assertConsoleOutputContains(SqlApiExample::main, EMPTY_ARGS,
+                "\nAdded cities: 3",
+                "\nAdded accounts: 4",
+
                 "\nAll accounts:\n"
                         + "    John, Doe, Forest Hill\n"
                         + "    Jane, Roe, Forest Hill\n"
