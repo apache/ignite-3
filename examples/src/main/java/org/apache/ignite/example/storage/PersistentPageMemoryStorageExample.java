@@ -36,7 +36,7 @@ package org.apache.ignite.example.storage;
  *         {@code ignite cluster init --cluster-name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=my-first-node}
  *     </li>
  *     <li>
- *         Add configuration for persistent data region of of the PageMemory storage engine using the CLI tool (if not done yet):<br>
+ *         Add configuration for a persistent data region of the PageMemory storage engine using the CLI tool (if not done yet):<br>
  *         {@code ignite cluster config update "pageMemory.regions.persistent:{persistent=true}"}
  *     </li>
  *     <li>Run the example in the IDE.</li>

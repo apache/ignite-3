@@ -36,7 +36,7 @@ package org.apache.ignite.example.storage;
  *         {@code ignite cluster init --cluster-name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=my-first-node}
  *     </li>
  *     <li>
- *         Add configuration for in-memory data region of of the PageMemory storage engine using the CLI tool (if not done yet):<br>
+ *         Add configuration for a data region of the RocksDB storage engine using the CLI tool (if not done yet):<br>
  *         {@code ignite cluster config update "rocksDb.regions: {name = rocksdb-example}"}
  *     </li>
  *     <li>Run the example in the IDE.</li>
