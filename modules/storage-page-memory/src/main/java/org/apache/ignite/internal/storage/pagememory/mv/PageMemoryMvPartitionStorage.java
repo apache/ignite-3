@@ -33,7 +33,6 @@ import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.NoUncommittedVersionException;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageUtils;
@@ -335,7 +334,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         VersionChain currentVersionChain = findVersionChainForModification(rowId);
 
         if (currentVersionChain.transactionId() == null) {
-            throw new NoUncommittedVersionException();
+            return null;
         }
 
         RowVersion currentVersion = findLatestRowVersion(currentVersionChain, ALWAYS_LOAD_VALUE);
@@ -371,7 +370,9 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         VersionChain currentVersionChain = findVersionChainForModification(rowId);
         long chainLink = PartitionlessLinks.addPartitionIdToPartititionlessLink(currentVersionChain.headLink(), partitionId);
 
-        assert currentVersionChain.transactionId() != null;
+        if (currentVersionChain.transactionId() == null) {
+            return;
+        }
 
         try {
             rowVersionFreeList.updateTimestamp(chainLink, timestamp);

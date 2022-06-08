@@ -41,7 +41,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -554,13 +553,18 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
         assertRowMatches(foundRow, binaryRow);
     }
 
-    @Disabled("Abort and commit are no op if there is no uncommitted version")
     @Test
-    void abortWriteFailsIfNoUncommittedVersionExists() {
+    void commitAndAbortWriteNoOpIfNoUncommittedVersionExists() {
         RowId rowId = storage.insert(binaryRow, newTransactionId());
         storage.commitWrite(rowId, Timestamp.nextVersion());
 
-        assertThrows(NoUncommittedVersionException.class, () -> storage.abortWrite(rowId));
+        storage.abortWrite(rowId);
+
+        assertRowMatches(storage.read(rowId, newTransactionId()), binaryRow);
+
+        storage.commitWrite(rowId, Timestamp.nextVersion());
+
+        assertRowMatches(storage.read(rowId, newTransactionId()), binaryRow);
     }
 
     @Test

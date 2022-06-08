@@ -380,12 +380,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 InternalTable internalTable = tablesById.get(tblId).internalTable();
 
                 try {
+                    // TODO: IGNITE-16923 Remove assert after the ticket is resolved.
+                    assert internalTable.storage() instanceof MvTableStorage :
+                            "Only multi version storages are supported.";
+
+                    MvTableStorage storage = (MvTableStorage) internalTable.storage();
+
                     futures[partId] = raftMgr.updateRaftGroup(
                             raftGroupName(tblId, partId),
                             newPartitionAssignment,
                             toAdd,
                             () -> new PartitionListener(tblId,
-                                    new VersionedRowStore(((MvTableStorage) (internalTable.storage())).createPartition(partId),
+                                    new VersionedRowStore(storage.createPartition(partId),
                                             txManager))
                     ).thenAccept(
                             updatedRaftGroupService -> ((InternalTableImpl) internalTable)
