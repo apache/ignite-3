@@ -428,8 +428,10 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     private static void checkSession(Session s) {
-        assertTrue(((Collection<?>) IgniteTestUtils.getFieldValue(s, "futsToClose")).isEmpty());
-        assertTrue(((Collection<?>) IgniteTestUtils.getFieldValue(s, "cursToClose")).isEmpty());
+        if (s instanceof SessionImpl) {
+            assertTrue(((Collection<?>) IgniteTestUtils.getFieldValue(s, "futsToClose")).isEmpty());
+            assertTrue(((Collection<?>) IgniteTestUtils.getFieldValue(s, "cursToClose")).isEmpty());
+        }
     }
 
     static class TestPageProcessor implements
