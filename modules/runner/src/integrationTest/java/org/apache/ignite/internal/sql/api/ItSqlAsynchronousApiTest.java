@@ -63,7 +63,6 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -71,7 +70,6 @@ import org.junit.jupiter.api.TestInfo;
  * Tests for asynchronous SQL API.
  */
 @SuppressWarnings("ThrowableNotThrown")
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     private static final int ROW_COUNT = 16;
 

@@ -47,7 +47,6 @@ import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -55,7 +54,6 @@ import org.junit.jupiter.api.TestInfo;
  * Tests for synchronous SQL API.
  */
 @SuppressWarnings("ThrowableNotThrown")
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
     private static final int ROW_COUNT = 16;
 
