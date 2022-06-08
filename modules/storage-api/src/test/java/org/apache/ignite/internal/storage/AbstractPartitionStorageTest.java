@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -41,6 +40,11 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.basic.DeleteExactInvokeClosure;
 import org.apache.ignite.internal.storage.basic.GetAndRemoveInvokeClosure;
 import org.apache.ignite.internal.storage.basic.GetAndReplaceInvokeClosure;
@@ -67,6 +71,11 @@ public abstract class AbstractPartitionStorageTest {
 
     /** Test value. */
     protected static final String VALUE = "value";
+
+    /** Schema of test tuple. */
+    protected static final SchemaDescriptor descriptor = new SchemaDescriptor(1,
+            new Column[]{new Column("key", NativeTypes.STRING, false)},
+            new Column[]{new Column("value", NativeTypes.STRING, false)});
 
     /** Storage instance. */
     protected PartitionStorage storage;
@@ -168,13 +177,13 @@ public abstract class AbstractPartitionStorageTest {
         storage.write(dataRow1);
         storage.write(dataRow2);
 
-        List<DataRow> list = toList(storage.scan(key -> key.key().get(key.key().limit() - 1) == '1'));
+        List<DataRow> list = toList(storage.scan(key -> key.key().get(8) == '1'));
 
         assertThat(list, hasSize(1));
 
         assertArrayEquals(dataRow1.value().array(), list.get(0).value().array());
 
-        list = toList(storage.scan(key -> key.key().get(key.key().limit() - 1) == '2'));
+        list = toList(storage.scan(key -> key.key().get(8) == '2'));
 
         assertThat(list, hasSize(1));
 
@@ -672,7 +681,17 @@ public abstract class AbstractPartitionStorageTest {
         return new SearchRow() {
             @Override
             public byte[] keyBytes() {
-                return key.getBytes(StandardCharsets.UTF_8);
+                RowAssembler rowAssembler = new RowAssembler(descriptor, 1, 1);
+
+                rowAssembler.appendString(key);
+
+                BinaryRow binaryRow = rowAssembler.build();
+
+                ByteBuffer k = binaryRow.keySlice();
+                byte[] ka = new byte[k.limit()];
+                k.get(ka);
+
+                return ka;
             }
 
             @Override
@@ -690,9 +709,23 @@ public abstract class AbstractPartitionStorageTest {
      * @return Data row.
      */
     protected DataRow dataRow(String key, String value) {
+        RowAssembler rowAssembler = new RowAssembler(descriptor, 1, 1);
+
+        rowAssembler.appendString(key);
+        rowAssembler.appendString(value);
+
+        BinaryRow binaryRow = rowAssembler.build();
+
+        ByteBuffer k = binaryRow.keySlice();
+        ByteBuffer v = binaryRow.valueSlice();
+        byte[] ka = new byte[k.limit()];
+        k.get(ka);
+        byte[] va = new byte[v.limit()];
+        v.get(va);
+
         return new SimpleDataRow(
-                key.getBytes(StandardCharsets.UTF_8),
-                value.getBytes(StandardCharsets.UTF_8)
+                ka,
+                va
         );
     }
 
