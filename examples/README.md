@@ -12,6 +12,7 @@ The following examples are included:
 * `SqlApiExample` - demonstrates the usage of the Java API for SQL.
 * `VolatilePageMemoryStorageExample` - demonstrates the usage of the PageMemory storage engine configured with an in-memory data region.
 * `PersistentPageMemoryStorageExample` - demonstrates the usage of the PageMemory storage engine configured with a persistent data region.
+* `RocksDbStorageExample` - demonstrates the usage of the RocksDB storage engine.
 
 Before running the examples, read about [cli](https://ignite.apache.org/docs/3.0.0-alpha/ignite-cli-tool).
 

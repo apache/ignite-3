@@ -18,7 +18,7 @@
 package org.apache.ignite.example.storage;
 
 /**
- * This example demonstrates a usage of the PageMemory storage engine configured with an in-memory data region.
+ * This example demonstrates a usage of the RocksDB storage engine.
  *
  * <p>To run the example, do the following:
  * <ol>
@@ -36,8 +36,8 @@ package org.apache.ignite.example.storage;
  *         {@code ignite cluster init --cluster-name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=my-first-node}
  *     </li>
  *     <li>
- *         Add configuration for an in-memory data region of the PageMemory storage engine using the CLI tool (if not done yet):<br>
- *         {@code ignite cluster config update "pageMemory.regions.in-memory:{persistent=false}"}
+ *         Add configuration for a data region of the RocksDB storage engine using the CLI tool (if not done yet):<br>
+ *         {@code ignite cluster config update "rocksDb.regions.rocksdb-example{}"}
  *     </li>
  *     <li>Run the example in the IDE.</li>
  *     <li>
@@ -46,7 +46,7 @@ package org.apache.ignite.example.storage;
  *     </li>
  * </ol>
  */
-public class VolatilePageMemoryStorageExample {
+public class RocksDbStorageExample {
     /**
      * Main method of the example.
      *
@@ -54,6 +54,6 @@ public class VolatilePageMemoryStorageExample {
      * @throws Exception If failed.
      */
     public static void main(String[] args) throws Exception {
-        new StorageEngineExample("pagememory", "in-memory").run();
+        new StorageEngineExample("rocksdb", "rocksdb-example").run();
     }
 }
