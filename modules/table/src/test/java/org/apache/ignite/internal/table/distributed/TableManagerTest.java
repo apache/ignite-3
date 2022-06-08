@@ -101,7 +101,6 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -719,8 +718,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertEquals(counter.get(), 1);
 
         AtomicLong secondInvocationOfChangePeersAsync = new AtomicLong(0L);
-
-        assertFalse(RebalanceUtil.recoverable(new NullPointerException()));
 
         when(messagingService.invoke(any(NetworkAddress.class),
                 eq(factory.changePeersAsyncRequest()
