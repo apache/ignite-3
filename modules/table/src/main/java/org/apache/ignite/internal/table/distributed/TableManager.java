@@ -1425,6 +1425,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /**
      * Checks if an error is recoverable, so we can retry intent, which causes the error.
+     *
      * @param t The throwable.
      * @return {@code True} if this is a recoverable exception.
      */
