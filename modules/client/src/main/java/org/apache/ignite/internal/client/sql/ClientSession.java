@@ -249,7 +249,7 @@ public class ClientSession implements Session {
     @Override
     public CompletableFuture<Void> closeAsync() {
         // TODO: Cancel/close all active futures.
-        return null;
+        return CompletableFuture.completedFuture(null);
     }
 
     /** {@inheritDoc} */
