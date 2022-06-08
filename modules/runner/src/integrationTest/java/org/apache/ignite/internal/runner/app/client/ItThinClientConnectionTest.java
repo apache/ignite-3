@@ -42,7 +42,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
      */
     @Test
     void testThinClientConnectsToServerNodesAndExecutesBasicTableOperations() throws Exception {
-        for (var addr : getNodeAddresses()) {
+        for (var addr : getClientAddresses()) {
             try (var client = IgniteClient.builder().addresses(addr).build()) {
                 List<Table> tables = client.tables().tables();
                 assertEquals(1, tables.size());

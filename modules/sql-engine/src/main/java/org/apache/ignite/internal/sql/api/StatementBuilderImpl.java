@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
@@ -27,11 +30,23 @@ import org.jetbrains.annotations.Nullable;
  * Statement builder.
  */
 class StatementBuilderImpl implements StatementBuilder {
+    /** Properties. */
+    private final Map<String, Object> properties = new HashMap<>();
+
     /** Query. */
     private String query;
 
+    /** Default schema. */
+    private String defaultSchema;
+
     /** Prepared flag. */
     private boolean prepared;
+
+    /** Query timeout. */
+    private Long queryTimeoutMs;
+
+    /** Page size. */
+    private Integer pageSize;
 
     /** {@inheritDoc} */
     @Override
@@ -64,54 +79,67 @@ class StatementBuilderImpl implements StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public long queryTimeout(@NotNull TimeUnit timeUnit) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(timeUnit);
+
+        return timeUnit.convert(queryTimeoutMs == null ? 0 : queryTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */
     @Override
     public StatementBuilder queryTimeout(long timeout, @NotNull TimeUnit timeUnit) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(timeUnit);
+
+        queryTimeoutMs = TimeUnit.MILLISECONDS.convert(timeout, timeUnit);
+
+        return this;
     }
 
     /** {@inheritDoc} */
     @Override
     public String defaultSchema() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return defaultSchema;
     }
 
     /** {@inheritDoc} */
     @Override
     public StatementBuilder defaultSchema(@NotNull String schema) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        defaultSchema = schema;
+
+        return this;
     }
 
     /** {@inheritDoc} */
     @Override
     public int pageSize() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return pageSize == null ? 0 : pageSize;
     }
 
     /** {@inheritDoc} */
     @Override
     public StatementBuilder pageSize(int pageSize) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        this.pageSize = pageSize;
+
+        return this;
     }
 
     /** {@inheritDoc} */
     @Override
     public @Nullable Object property(@NotNull String name) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return properties.get(name);
     }
 
     /** {@inheritDoc} */
     @Override
     public StatementBuilder property(@NotNull String name, @Nullable Object value) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        properties.put(name, value);
+
+        return this;
     }
 
     /** {@inheritDoc} */
     @Override
     public Statement build() {
+        // TODO IGNITE-16952
         return new StatementImpl(query);
     }
 }
