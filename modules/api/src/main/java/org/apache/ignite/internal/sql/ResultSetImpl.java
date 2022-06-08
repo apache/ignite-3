@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletionStage;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
