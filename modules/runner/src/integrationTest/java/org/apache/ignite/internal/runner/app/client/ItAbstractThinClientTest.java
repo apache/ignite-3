@@ -142,9 +142,13 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
     }
 
     protected List<String> getNodeAddresses() {
-        List<String> res = new ArrayList<>(startedNodes.size());
+        return getNodeAddresses(startedNodes);
+    }
 
-        for (Ignite ignite : startedNodes) {
+    public static List<String> getNodeAddresses(List<Ignite> nodes) {
+        List<String> res = new ArrayList<>(nodes.size());
+
+        for (Ignite ignite : nodes) {
             int port = ((IgniteImpl) ignite).clientAddress().port();
 
             res.add("127.0.0.1:" + port);
