@@ -19,10 +19,12 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.runner.app.client.ItAbstractThinClientTest.getNodeAddresses;
 
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Tests for asynchronous client SQL API.
@@ -43,5 +45,29 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
     @Override
     protected IgniteSql igniteSql() {
         return client.sql();
+    }
+
+    @Override
+    @Disabled("IGNITE-17052")
+    public void metadata() throws ExecutionException, InterruptedException {
+        super.metadata();
+    }
+
+    @Override
+    @Disabled("IGNITE-17052")
+    public void sqlRow() throws ExecutionException, InterruptedException {
+        super.sqlRow();
+    }
+
+    @Override
+    @Disabled("IGNITE-17134")
+    public void closeSession() throws ExecutionException, InterruptedException {
+        super.closeSession();
+    }
+
+    @Override
+    @Disabled("IGNITE-17135")
+    public void errors() {
+        super.errors();
     }
 }
