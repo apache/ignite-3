@@ -71,18 +71,6 @@ public class FakeSession implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
         throw new UnsupportedOperationException();
     }

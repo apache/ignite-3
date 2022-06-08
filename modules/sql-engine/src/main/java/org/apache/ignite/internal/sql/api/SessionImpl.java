@@ -89,18 +89,6 @@ public class SessionImpl implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        return new ResultSetImpl(await(executeAsync(transaction, query, arguments)));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public int[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
