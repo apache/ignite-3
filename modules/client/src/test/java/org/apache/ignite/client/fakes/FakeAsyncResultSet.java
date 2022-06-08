@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.client.sql.ClientStatement;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
@@ -72,11 +71,11 @@ public class FakeAsyncResultSet implements AsyncResultSet {
         if ("SELECT PROPS".equals(statement.query())) {
             rows = new ArrayList<>();
 
-            rows.add(getRow("schema", statement.defaultSchema()));
-            rows.add(getRow("timeout", statement.queryTimeout(TimeUnit.MILLISECONDS)));
-            rows.add(getRow("pageSize", statement.pageSize()));
+            rows.add(getRow("schema", session.defaultSchema()));
+            rows.add(getRow("timeout", session.defaultTimeout(TimeUnit.MILLISECONDS)));
+            rows.add(getRow("pageSize", session.defaultPageSize()));
 
-            var props = ((ClientStatement) statement).properties();
+            var props = ((FakeSession) session).properties();
 
             for (var e : props.entrySet()) {
                 rows.add(getRow(e.getKey(), e.getValue()));

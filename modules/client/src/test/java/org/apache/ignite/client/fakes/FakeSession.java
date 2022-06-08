@@ -161,19 +161,19 @@ public class FakeSession implements Session {
     /** {@inheritDoc} */
     @Override
     public long defaultTimeout(TimeUnit timeUnit) {
-        return 0;
+        return defaultTimeout;
     }
 
     /** {@inheritDoc} */
     @Override
     public String defaultSchema() {
-        return null;
+        return defaultSchema;
     }
 
     /** {@inheritDoc} */
     @Override
     public int defaultPageSize() {
-        return 0;
+        return defaultPageSize;
     }
 
     /** {@inheritDoc} */
@@ -204,5 +204,10 @@ public class FakeSession implements Session {
     @Override
     public SessionBuilder toBuilder() {
         return null;
+    }
+
+    public Map<String, Object> properties() {
+        //noinspection AssignmentOrReturnOfFieldWithMutableType
+        return properties;
     }
 }
