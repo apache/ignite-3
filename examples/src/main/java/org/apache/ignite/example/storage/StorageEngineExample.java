@@ -25,7 +25,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 /**
- * Base class for executing examples that demonstrate working with different storage engines.
+ * Class for executing examples that demonstrate working with different storage engines.
  */
 class StorageEngineExample {
     private final String engineName;

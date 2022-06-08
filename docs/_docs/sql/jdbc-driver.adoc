@@ -68,7 +68,7 @@ Examples are shipped as a separate Maven project, which is located in the `examp
 
 To run `SqlJdbcExample`, perform the following steps:
 
-. Import the examples project into you IDE;
+. Import the examples project into your IDE;
 . Start a server node using the CLI tool:
 +
 [source, shell]

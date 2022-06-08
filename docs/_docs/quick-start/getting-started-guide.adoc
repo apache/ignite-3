@@ -194,7 +194,7 @@ The project includes the following examples:
 
 To run any example, perform the following steps:
 
-. Import the examples project into you IDE.
+. Import the examples project into your IDE.
 
 . Start a server node using the CLI tool:
 +
@@ -225,9 +225,3 @@ From here, you may want to:
 //
 //Apache Ignite uses HOCON configuration format.
 //For more detail, please see the link:https://github.com/lightbend/config/blob/master/HOCON.md[HOCON documentation,window=_blank].
-
-
-
-
-
-

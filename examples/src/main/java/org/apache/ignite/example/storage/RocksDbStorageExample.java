@@ -22,7 +22,7 @@ package org.apache.ignite.example.storage;
  *
  * <p>To run the example, do the following:
  * <ol>
- *     <li>Import the examples project into you IDE.</li>
+ *     <li>Import the examples project into your IDE.</li>
  *     <li>
  *         Download and prepare artifacts for running an Ignite node using the CLI tool (if not done yet):<br>
  *         {@code ignite bootstrap}
