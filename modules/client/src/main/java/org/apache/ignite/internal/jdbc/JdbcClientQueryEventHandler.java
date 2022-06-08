@@ -18,6 +18,10 @@
 package org.apache.ignite.internal.jdbc;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.ClientChannel;
+import org.apache.ignite.internal.client.PayloadReader;
+import org.apache.ignite.internal.client.PayloadWriter;
+import org.apache.ignite.internal.client.ProtocolContext;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
@@ -45,7 +49,7 @@ import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
  */
 public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     /** Channel. */
-    private final TcpIgniteClient client;
+    private final ClientChannel channel;
 
     /**
      * Constructor.
@@ -53,7 +57,7 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
      * @param client TcpIgniteClient.
      */
     public JdbcClientQueryEventHandler(TcpIgniteClient client) {
-        this.client = client;
+        channel = client.getOrCreateChannel();
     }
 
     /** {@inheritDoc} */
@@ -61,7 +65,10 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<QueryExecuteResult> queryAsync(QueryExecuteRequest req) {
         QueryExecuteResult res = new QueryExecuteResult();
 
-        return client.sendRequestAsync(ClientOp.JDBC_EXEC, req, res);
+        return channel.serviceAsync(ClientOp.JDBC_EXEC, w -> req.writeBinary(w.out()), p -> {
+            res.readBinary(p.in());
+            return res;
+        });
     }
 
     /** {@inheritDoc} */
@@ -69,7 +76,10 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<QueryFetchResult> fetchAsync(QueryFetchRequest req) {
         QueryFetchResult res = new QueryFetchResult();
 
-        return client.sendRequestAsync(ClientOp.JDBC_NEXT, req, res);
+        return channel.serviceAsync(ClientOp.JDBC_NEXT, w -> req.writeBinary(w.out()), p -> {
+            res.readBinary(p.in());
+            return res;
+        });
     }
 
     /** {@inheritDoc} */
@@ -77,7 +87,10 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req) {
         BatchExecuteResult res = new BatchExecuteResult();
 
-        return client.sendRequestAsync(ClientOp.JDBC_EXEC_BATCH, req, res);
+        return channel.serviceAsync(ClientOp.JDBC_EXEC_BATCH, w -> req.writeBinary(w.out()), p -> {
+            res.readBinary(p.in());
+            return res;
+        });
     }
 
     /** {@inheritDoc} */
@@ -86,7 +99,10 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
             BatchPreparedStmntRequest req) {
         BatchExecuteResult res = new BatchExecuteResult();
 
-        return client.sendRequestAsync(ClientOp.SQL_EXEC_PS_BATCH, req, res);
+        return channel.serviceAsync(ClientOp.SQL_EXEC_PS_BATCH, w -> req.writeBinary(w.out()), p -> {
+            res.readBinary(p.in());
+            return res;
+        });
     }
 
 
@@ -95,7 +111,10 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<QueryCloseResult> closeAsync(QueryCloseRequest req) {
         QueryCloseResult res = new QueryCloseResult();
 
-        return client.sendRequestAsync(ClientOp.JDBC_CURSOR_CLOSE, req, res);
+        return channel.serviceAsync(ClientOp.JDBC_CURSOR_CLOSE, w -> req.writeBinary(w.out()), p -> {
+            res.readBinary(p.in());
+            return res;
+        });
     }
 
     /** {@inheritDoc} */
@@ -103,7 +122,10 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<JdbcMetaTablesResult> tablesMetaAsync(JdbcMetaTablesRequest req) {
         JdbcMetaTablesResult res = new JdbcMetaTablesResult();
 
-        return client.sendRequestAsync(ClientOp.JDBC_TABLE_META, req, res);
+        return channel.serviceAsync(ClientOp.JDBC_TABLE_META, w -> req.writeBinary(w.out()), p -> {
+            res.readBinary(p.in());
+            return res;
+        });
     }
 
     /** {@inheritDoc} */
@@ -111,7 +133,10 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<JdbcMetaColumnsResult> columnsMetaAsync(JdbcMetaColumnsRequest req) {
         JdbcMetaColumnsResult res = new JdbcMetaColumnsResult();
 
-        return client.sendRequestAsync(ClientOp.JDBC_COLUMN_META, req, res);
+        return channel.serviceAsync(ClientOp.JDBC_COLUMN_META, w -> req.writeBinary(w.out()), p -> {
+            res.readBinary(p.in());
+            return res;
+        });
     }
 
     /** {@inheritDoc} */
@@ -119,7 +144,10 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<JdbcMetaSchemasResult> schemasMetaAsync(JdbcMetaSchemasRequest req) {
         JdbcMetaSchemasResult res = new JdbcMetaSchemasResult();
 
-        return client.sendRequestAsync(ClientOp.JDBC_SCHEMAS_META, req, res);
+        return channel.serviceAsync(ClientOp.JDBC_SCHEMAS_META, w -> req.writeBinary(w.out()), p -> {
+            res.readBinary(p.in());
+            return res;
+        });
     }
 
     /** {@inheritDoc} */
@@ -127,7 +155,10 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(JdbcMetaPrimaryKeysRequest req) {
         JdbcMetaPrimaryKeysResult res = new JdbcMetaPrimaryKeysResult();
 
-        return client.sendRequestAsync(ClientOp.JDBC_PK_META, req, res);
+        return channel.serviceAsync(ClientOp.JDBC_PK_META, w -> req.writeBinary(w.out()), p -> {
+            res.readBinary(p.in());
+            return res;
+        });
     }
 
     /** {@inheritDoc} */
@@ -135,6 +166,9 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<JdbcMetaColumnsResult> queryMetadataAsync(JdbcQueryMetadataRequest req) {
         JdbcMetaColumnsResult res = new JdbcMetaColumnsResult();
 
-        return client.sendRequestAsync(ClientOp.JDBC_QUERY_META, req, res);
+        return channel.serviceAsync(ClientOp.JDBC_QUERY_META, w -> req.writeBinary(w.out()), p -> {
+            res.readBinary(p.in());
+            return res;
+        });
     }
 }

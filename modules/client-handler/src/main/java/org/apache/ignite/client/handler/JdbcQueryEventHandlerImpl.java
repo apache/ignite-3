@@ -27,10 +27,9 @@ import java.io.StringWriter;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcQueryCursor;
@@ -65,6 +64,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
@@ -75,17 +75,14 @@ import org.apache.ignite.sql.SqlColumnType;
  * Jdbc query event handler implementation.
  */
 public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
-    /** Current JDBC cursors. */
-    private final ConcurrentHashMap<Long, AsyncSqlCursor<List<Object>>> openCursors = new ConcurrentHashMap<>();
-
-    /** Cursor Id generator. */
-    private final AtomicLong cursorIdGenerator = new AtomicLong();
-
     /** Sql query processor. */
     private final QueryProcessor processor;
 
     /** Jdbc metadata info. */
     private final JdbcMetadataCatalog meta;
+
+    /** Jdbc client resource registry. */
+    private ClientResourceRegistry resources;
 
     /**
      * Constructor.
@@ -93,9 +90,11 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @param processor Processor.
      * @param meta      JdbcMetadataInfo.
      */
-    public JdbcQueryEventHandlerImpl(QueryProcessor processor, JdbcMetadataCatalog meta) {
+    public JdbcQueryEventHandlerImpl(QueryProcessor processor, JdbcMetadataCatalog meta,
+            ClientResourceRegistry resources) {
         this.processor = processor;
         this.meta = meta;
+        this.resources = resources;
     }
 
     /** {@inheritDoc} */
@@ -130,8 +129,14 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             results.stream()
                     .filter(fut -> !fut.isCompletedExceptionally())
                     .map(CompletableFuture::join)
-                    .map(res -> openCursors.get(res.cursorId()))
-                    .forEach(AsyncSqlCursor::closeAsync);
+                    .map(res -> {
+                        try {
+                            return resources.remove(res.cursorId()).get(AsyncSqlCursor.class);
+                        } catch (IgniteInternalCheckedException e) {
+                            //we can do nothing about this.
+                        }
+                        return null;
+                    }).filter(Objects::nonNull).forEach(AsyncSqlCursor::closeAsync);
 
             StringWriter sw = getWriterWithStackTrace(t);
 
@@ -164,9 +169,10 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<QueryFetchResult> fetchAsync(QueryFetchRequest req) {
-        var cur = openCursors.get(req.cursorId());
-
-        if (cur == null) {
+        AsyncSqlCursor<List<Object>> cur;
+        try {
+            cur = resources.get(req.cursorId()).get(AsyncSqlCursor.class);
+        } catch (IgniteInternalCheckedException e) {
             return CompletableFuture.completedFuture(new QueryFetchResult(Response.STATUS_FAILED,
                     "Failed to find query cursor with ID: " + req.cursorId()));
         }
@@ -175,6 +181,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             return CompletableFuture.completedFuture(new QueryFetchResult(Response.STATUS_FAILED,
                     "Invalid fetch size : [fetchSize=" + req.pageSize() + ']'));
         }
+
+        System.out.println("cur is " + cur);
 
         return cur.requestNextAsync(req.pageSize()).handle((batch, t) -> {
             if (t != null) {
@@ -269,9 +277,10 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<QueryCloseResult> closeAsync(QueryCloseRequest req) {
-        var cur = openCursors.remove(req.cursorId());
-
-        if (cur == null) {
+        AsyncSqlCursor<?> cur;
+        try {
+            cur = resources.remove(req.cursorId()).get(AsyncSqlCursor.class);
+        } catch (IgniteInternalCheckedException e) {
             return CompletableFuture.completedFuture(new QueryCloseResult(Response.STATUS_FAILED,
                     "Failed to find query cursor with ID: " + req.cursorId()));
         }
@@ -291,9 +300,10 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcMetaColumnsResult> queryMetadataAsync(JdbcQueryMetadataRequest req) {
-        AsyncSqlCursor<?> cur = openCursors.get(req.cursorId());
-
-        if (cur == null) {
+        AsyncSqlCursor<?> cur;
+        try {
+            cur = resources.get(req.cursorId()).get(AsyncSqlCursor.class);
+        } catch (IgniteInternalCheckedException e) {
             return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(Response.STATUS_FAILED,
                     "Failed to find query cursor with ID: " + req.cursorId()));
         }
@@ -389,9 +399,13 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @return JdbcQuerySingleResult filled with first batch of data.
      */
     private CompletionStage<QuerySingleResult> createJdbcResult(AsyncSqlCursor<List<Object>> cur, QueryExecuteRequest req) {
-        long cursorId = cursorIdGenerator.getAndIncrement();
-
-        openCursors.put(cursorId, cur);
+        long cursorId;
+        try {
+            cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
+        } catch (IgniteInternalCheckedException e) {
+            return CompletableFuture.completedFuture(new QuerySingleResult(Response.STATUS_FAILED,
+                    "Failed get next cursorId from resources holder. Node is stopping?"));
+        }
 
         return cur.requestNextAsync(req.pageSize()).thenApply(batch -> {
             boolean hasNext = batch.hasMore();

@@ -36,6 +36,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
+import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteRequest;
@@ -55,6 +56,9 @@ public class JdbcStatement implements Statement {
 
     /** JDBC Connection implementation. */
     protected final JdbcConnection conn;
+
+    /** JDBC Connection implementation. */
+    protected final JdbcQueryEventHandler handler;
 
     /** Result set holdability. */
     private final int resHoldability;
@@ -97,6 +101,7 @@ public class JdbcStatement implements Statement {
         assert conn != null;
 
         this.conn = conn;
+        this.handler = conn.handler();
         this.resHoldability = resHoldability;
         this.schema = schema;
     }
@@ -136,7 +141,7 @@ public class JdbcStatement implements Statement {
 
         QueryExecuteResult res;
         try {
-            res = conn.handler().queryAsync(req).join();
+            res = handler.queryAsync(req).join();
         } catch (CompletionException e) {
             throw toSqlException(e);
         } catch (CancellationException e) {
@@ -158,7 +163,7 @@ public class JdbcStatement implements Statement {
         for (QuerySingleResult jdbcRes : res.results()) {
             resSets.add(new JdbcResultSet(this, jdbcRes.cursorId(), pageSize,
                     jdbcRes.last(), jdbcRes.items(), jdbcRes.isQuery(), false, jdbcRes.updateCount(),
-                    closeOnCompletion, conn.handler()));
+                    closeOnCompletion, handler));
         }
 
         assert !resSets.isEmpty() : "At least one results set is expected";
@@ -543,7 +548,7 @@ public class JdbcStatement implements Statement {
         BatchExecuteRequest req = new BatchExecuteRequest(conn.getSchema(), batch);
 
         try {
-            BatchExecuteResult res = conn.handler().batchAsync(req).join();
+            BatchExecuteResult res = handler.batchAsync(req).join();
 
             if (!res.hasResults()) {
                 throw new BatchUpdateException(res.err(),

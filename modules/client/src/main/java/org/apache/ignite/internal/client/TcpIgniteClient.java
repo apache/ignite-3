@@ -187,18 +187,7 @@ public class TcpIgniteClient implements IgniteClient {
         return ch.connections();
     }
 
-    /**
-     * Sends ClientMessage request to server side asynchronously and returns result future.
-     *
-     * @param opCode Operation code.
-     * @param req ClientMessage request.
-     * @param res ClientMessage result.
-     * @return Response future.
-     */
-    public <T extends ClientMessage> CompletableFuture<T> sendRequestAsync(int opCode, ClientMessage req, T res) {
-        return ch.serviceAsync(opCode, w -> req.writeBinary(w.out()), p -> {
-            res.readBinary(p.in());
-            return res;
-        });
+    public ClientChannel getOrCreateChannel() {
+        return ch.getDefaultChannel();
     }
 }

@@ -521,7 +521,7 @@ public final class ReliableChannel implements AutoCloseable {
     /**
      * Gets the default channel, reconnecting if necessary.
      */
-    private ClientChannel getDefaultChannel() {
+    public ClientChannel getDefaultChannel() {
         IgniteClientConnectionException failure = null;
 
         for (int attempt = 0; attempt < channels.size(); attempt++) {
