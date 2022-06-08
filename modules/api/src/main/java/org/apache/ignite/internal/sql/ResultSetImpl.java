@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.api;
+package org.apache.ignite.internal.sql;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletionStage;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -27,7 +28,7 @@ import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Synchronous result set implementation.
+ * Synchronous wrapper over {@link org.apache.ignite.sql.async.AsyncResultSet}.
  */
 public class ResultSetImpl implements ResultSet {
     private final AsyncResultSet ars;
@@ -73,14 +74,14 @@ public class ResultSetImpl implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public void close() {
-        SessionImpl.await(ars.closeAsync().toCompletableFuture());
+        ars.closeAsync().toCompletableFuture().join();
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean hasNext() {
         if (it == null) {
-            throw new IgniteSqlException("There are no results");
+            throw new IgniteException("There are no results");
         }
 
         return it.hasNext();
@@ -90,7 +91,7 @@ public class ResultSetImpl implements ResultSet {
     @Override
     public SqlRow next() {
         if (it == null) {
-            throw new IgniteSqlException("There are no results");
+            throw new IgniteException("There are no results");
         }
 
         return it.next();
@@ -114,7 +115,7 @@ public class ResultSetImpl implements ResultSet {
             if (curPage.hasNext()) {
                 return true;
             } else if (nextPageStage != null) {
-                curRes = SessionImpl.await(nextPageStage);
+                curRes = nextPageStage.toCompletableFuture().join();
 
                 advance();
 
@@ -143,4 +144,5 @@ public class ResultSetImpl implements ResultSet {
             return curPage.next();
         }
     }
+
 }
