@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.runner.app.client.ItAbstractThinClientTest.getNodeAddresses;
 
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.AfterAll;
@@ -51,5 +50,11 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
     @Disabled("IGNITE-17135")
     public void errors() {
         super.errors();
+    }
+
+    @Override
+    @Disabled("IGNITE-17135")
+    public void ddl() {
+        super.ddl();
     }
 }
