@@ -86,6 +86,15 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         tearDownBase(testInfo);
     }
 
+    /**
+     * Gets the SQL API.
+     *
+     * @return SQL API.
+     */
+    protected IgniteSql igniteSql() {
+        return CLUSTER_NODES.get(0).sql();
+    }
+
     @Test
     public void ddl() throws ExecutionException, InterruptedException {
         IgniteSql sql = CLUSTER_NODES.get(0).sql();

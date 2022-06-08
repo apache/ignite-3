@@ -67,9 +67,18 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         tearDownBase(testInfo);
     }
 
+    /**
+     * Gets the SQL API.
+     *
+     * @return SQL API.
+     */
+    protected IgniteSql igniteSql() {
+        return CLUSTER_NODES.get(0).sql();
+    }
+
     @Test
     public void ddl() {
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
 
         // CREATE TABLE
@@ -141,7 +150,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
     public void dml() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
@@ -161,7 +170,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 4).build();
 
         ResultSet rs = ses.execute(null, "SELECT ID FROM TEST");
@@ -177,7 +186,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void errors() {
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
 
         // Parse error.
@@ -209,7 +218,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         );
     }
 
-    private void checkDdl(boolean expectedApplied, Session ses, String sql) {
+    private static void checkDdl(boolean expectedApplied, Session ses, String sql) {
         ResultSet res = ses.execute(
                 null,
                 sql
@@ -222,11 +231,11 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         res.close();
     }
 
-    private void checkError(Class<? extends Throwable> expectedException, String msg, Session ses, String sql) {
+    private static void checkError(Class<? extends Throwable> expectedException, String msg, Session ses, String sql) {
         assertThrowsWithCause(() -> ses.execute(null, sql), expectedException, msg);
     }
 
-    private void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args) {
+    private static void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args) {
         ResultSet res = ses.execute(
                 null,
                 sql,
