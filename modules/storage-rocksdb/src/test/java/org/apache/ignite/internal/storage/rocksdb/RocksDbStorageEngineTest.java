@@ -78,7 +78,7 @@ public class RocksDbStorageEngineTest {
         table.start();
 
         try {
-            var dataStorageConfig = (RocksDbDataStorageConfiguration) table.configuration().dataStorage();
+            RocksDbDataStorageConfiguration dataStorageConfig = (RocksDbDataStorageConfiguration) table.configuration().dataStorage();
 
             assertThat(dataStorageConfig.dataRegion().value(), is(DEFAULT_DATA_REGION_NAME));
 
@@ -111,7 +111,7 @@ public class RocksDbStorageEngineTest {
         table.start();
 
         try {
-            var dataStorageConfig = (RocksDbDataStorageConfiguration) table.configuration().dataStorage();
+            RocksDbDataStorageConfiguration dataStorageConfig = (RocksDbDataStorageConfiguration) table.configuration().dataStorage();
 
             assertThat(dataStorageConfig.dataRegion().value(), is(customRegionName));
 
