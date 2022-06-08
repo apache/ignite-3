@@ -81,36 +81,7 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage {
     /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
-        started = false;
-
-        List<AutoCloseable> autoCloseables = new ArrayList<>(this.autoCloseables);
-
-        for (int i = 0; i < partitions.length(); i++) {
-            PartitionStorage partition = partitions.getAndUpdate(i, p -> null);
-
-            if (partition != null) {
-                autoCloseables.add(partition);
-            }
-
-            autoCloseables.add(partition);
-        }
-
-        Collections.reverse(autoCloseables);
-
-        try {
-            IgniteUtils.closeAll(autoCloseables);
-        } catch (Exception e) {
-            throw new StorageException("Failed to stop PageMemory table storage.", e);
-        }
-
-        this.autoCloseables.clear();
-        partitions = null;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void destroy() throws StorageException {
-        stop();
+        close(false);
     }
 
     /** {@inheritDoc} */
@@ -191,5 +162,36 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage {
                 ((VolatilePageMemoryDataRegion) dataRegion).versionChainFreeList(),
                 ((VolatilePageMemoryDataRegion) dataRegion).rowVersionFreeList()
         );
+    }
+
+    /**
+     * Closes all {@link #partitions} and {@link #autoCloseables}.
+     *
+     * @param destroy Destroy partitions.
+     * @throws StorageException If failed.
+     */
+    protected void close(boolean destroy) throws StorageException {
+        started = false;
+
+        List<AutoCloseable> autoCloseables = new ArrayList<>(this.autoCloseables);
+
+        for (int i = 0; i < partitions.length(); i++) {
+            PartitionStorage partition = partitions.getAndUpdate(i, p -> null);
+
+            if (partition != null) {
+                autoCloseables.add(destroy ? partition::destroy : partition);
+            }
+        }
+
+        Collections.reverse(autoCloseables);
+
+        try {
+            IgniteUtils.closeAll(autoCloseables);
+        } catch (Exception e) {
+            throw new StorageException("Failed to stop PageMemory table storage.", e);
+        }
+
+        this.autoCloseables.clear();
+        partitions = null;
     }
 }
