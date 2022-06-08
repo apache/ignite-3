@@ -70,7 +70,7 @@ public class NodeCommandSpec {
 
         /** {@inheritDoc} */
         @Override
-        public void run() {
+        public Integer call() {
             IgnitePaths ignitePaths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
 
             PrintWriter out = spec.commandLine().getOut();
@@ -97,6 +97,7 @@ public class NodeCommandSpec {
             tbl.addRow("@|bold Log File|@", node.logFile);
 
             out.println(tbl);
+            return 0;
         }
     }
 
@@ -123,7 +124,7 @@ public class NodeCommandSpec {
 
         /** {@inheritDoc} */
         @Override
-        public void run() {
+        public Integer call() {
             IgnitePaths ignitePaths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
 
             PrintWriter out = spec.commandLine().getOut();
@@ -138,6 +139,7 @@ public class NodeCommandSpec {
                     out.println(cs.text("@|bold,red Failed|@"));
                 }
             });
+            return 0;
         }
     }
 
@@ -156,7 +158,7 @@ public class NodeCommandSpec {
 
         /** {@inheritDoc} */
         @Override
-        public void run() {
+        public Integer call() {
             IgnitePaths paths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
 
             List<NodeManager.RunningNode> nodes = nodeMgr.getRunningNodes(paths.logDir, paths.cliPidsDir());
@@ -183,6 +185,7 @@ public class NodeCommandSpec {
 
                 out.println(tbl);
             }
+            return 0;
         }
     }
 
@@ -197,7 +200,7 @@ public class NodeCommandSpec {
 
         /** {@inheritDoc} */
         @Override
-        public void run() {
+        public Integer call() {
             try {
                 List<String> items = nodeMgr.classpathItems();
 
@@ -211,6 +214,7 @@ public class NodeCommandSpec {
             } catch (IOException e) {
                 throw new IgniteCliException("Can't get current classpath", e);
             }
+            return 0;
         }
     }
 }

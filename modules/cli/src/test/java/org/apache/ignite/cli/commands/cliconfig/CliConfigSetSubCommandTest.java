@@ -43,8 +43,9 @@ class CliConfigSetSubCommandTest extends CliCommandTestBase {
         execute();
 
         assertAll(
-                () -> assertErrOutputContains("Missing required parameter"),
-                this::assertOutputIsEmpty
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Missing required parameter")
         );
     }
 
@@ -55,8 +56,9 @@ class CliConfigSetSubCommandTest extends CliCommandTestBase {
         execute("ignite.cluster-url");
 
         assertAll(
-                () -> assertErrOutputContains("should be in KEY=VALUE format but was ignite.cluster-url"),
-                this::assertOutputIsEmpty
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("should be in KEY=VALUE format but was ignite.cluster-url")
         );
     }
 
@@ -67,6 +69,7 @@ class CliConfigSetSubCommandTest extends CliCommandTestBase {
         execute("ignite.cluster-url=test");
 
         assertAll(
+                this::assertExitCodeIsZero,
                 this::assertOutputIsEmpty,
                 this::assertErrOutputIsEmpty,
                 () -> assertThat(config.getProperty("ignite.cluster-url")).isEqualTo("test")
@@ -80,6 +83,7 @@ class CliConfigSetSubCommandTest extends CliCommandTestBase {
         execute("ignite.cluster-url=test", "ignite.jdbc-url=test2");
 
         assertAll(
+                this::assertExitCodeIsZero,
                 this::assertOutputIsEmpty,
                 this::assertErrOutputIsEmpty,
                 () -> assertThat(config.getProperty("ignite.cluster-url")).isEqualTo("test"),

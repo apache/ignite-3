@@ -17,6 +17,7 @@
 
 package org.apache.ignite.cli.commands;
 
+import java.util.concurrent.Callable;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
@@ -24,7 +25,7 @@ import picocli.CommandLine.Spec;
 /**
  * Base class for commands.
  */
-public abstract class BaseCommand implements Runnable {
+public abstract class BaseCommand implements Callable<Integer> {
     /** Help option specification. */
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit.")
     protected boolean usageHelpRequested;
@@ -33,6 +34,7 @@ public abstract class BaseCommand implements Runnable {
     protected CommandSpec spec;
 
     @Override
-    public void run() {
+    public Integer call() {
+        return 0;
     }
 }

@@ -53,8 +53,8 @@ public class StatusReplCommand extends BaseCommand {
 
     /** {@inheritDoc} */
     @Override
-    public void run() {
-        CallExecutionPipeline.builder(statusReplCall)
+    public Integer call() {
+        return CallExecutionPipeline.builder(statusReplCall)
                 .inputProvider(EmptyCallInput::new)
                 .output(commandSpec.commandLine().getOut())
                 .errOutput(commandSpec.commandLine().getErr())

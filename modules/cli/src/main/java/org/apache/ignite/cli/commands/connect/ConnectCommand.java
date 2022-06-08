@@ -52,8 +52,8 @@ public class ConnectCommand extends BaseCommand {
 
     /** {@inheritDoc} */
     @Override
-    public void run() {
-        CallExecutionPipeline.builder(connectCall)
+    public Integer call() {
+        return CallExecutionPipeline.builder(connectCall)
                 .inputProvider(() -> ConnectCallInput.builder().nodeUrl(nodeUrl).build())
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())

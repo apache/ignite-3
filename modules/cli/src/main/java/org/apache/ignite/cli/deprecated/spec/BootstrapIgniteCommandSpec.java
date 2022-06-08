@@ -44,7 +44,8 @@ public class BootstrapIgniteCommandSpec extends BaseCommand implements IgniteCom
 
     /** {@inheritDoc} */
     @Override
-    public void run() {
+    public Integer call() {
         cmd.init(urls, spec.commandLine().getOut(), spec.commandLine().getColorScheme());
+        return 0;
     }
 }

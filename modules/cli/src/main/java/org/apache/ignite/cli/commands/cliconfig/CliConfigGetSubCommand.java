@@ -37,8 +37,8 @@ public class CliConfigGetSubCommand extends BaseCommand {
     private CliConfigGetCall call;
 
     @Override
-    public void run() {
-        CallExecutionPipeline.builder(call)
+    public Integer call() {
+        return CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new StringCallInput(key))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())

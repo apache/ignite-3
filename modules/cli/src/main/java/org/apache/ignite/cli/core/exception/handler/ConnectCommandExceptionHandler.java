@@ -26,8 +26,9 @@ import org.apache.ignite.cli.core.exception.ExceptionWriter;
  */
 public class ConnectCommandExceptionHandler implements ExceptionHandler<ConnectCommandException> {
     @Override
-    public void handle(ExceptionWriter err, ConnectCommandException e) {
+    public int handle(ExceptionWriter err, ConnectCommandException e) {
         err.write(e.getReason());
+        return 1;
     }
 
     @Override

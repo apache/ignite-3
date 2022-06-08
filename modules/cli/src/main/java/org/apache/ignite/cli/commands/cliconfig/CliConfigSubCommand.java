@@ -40,8 +40,8 @@ public class CliConfigSubCommand extends BaseCommand {
     private CliConfigCall call;
 
     @Override
-    public void run() {
-        CallExecutionPipeline.builder(call)
+    public Integer call() {
+        return CallExecutionPipeline.builder(call)
                 .inputProvider(EmptyCallInput::new)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())

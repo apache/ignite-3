@@ -56,8 +56,8 @@ public class StatusCommand extends BaseCommand {
 
     /** {@inheritDoc} */
     @Override
-    public void run() {
-        CallExecutionPipeline.builder(statusCall)
+    public Integer call() {
+        return CallExecutionPipeline.builder(statusCall)
                 .inputProvider(() -> new StatusCallInput(clusterUrl))
                 .output(commandSpec.commandLine().getOut())
                 .errOutput(commandSpec.commandLine().getErr())

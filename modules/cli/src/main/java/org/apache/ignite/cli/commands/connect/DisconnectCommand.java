@@ -41,8 +41,8 @@ public class DisconnectCommand extends BaseCommand {
 
     /** {@inheritDoc} */
     @Override
-    public void run() {
-        CallExecutionPipeline.builder(disconnectCall)
+    public Integer call() {
+        return CallExecutionPipeline.builder(disconnectCall)
                 .inputProvider(EmptyCallInput::new)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())

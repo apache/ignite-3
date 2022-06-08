@@ -84,7 +84,7 @@ public class ClusterReplCommandSpec {
 
         /** {@inheritDoc} */
         @Override
-        public void run() {
+        public Integer call() {
             String endpoint = null;
 
             if (session.isConnectedToNode()) {
@@ -95,7 +95,7 @@ public class ClusterReplCommandSpec {
                 spec.commandLine().getErr().println(
                         "You are not connected to node. Run 'connect' command or use '--node-endpoint' option."
                 );
-                return;
+                return 1;
             }
 
             if (endpoint.startsWith("http://")) {
@@ -109,6 +109,7 @@ public class ClusterReplCommandSpec {
                     clusterName,
                     spec.commandLine().getOut()
             );
+            return 0;
         }
     }
 }

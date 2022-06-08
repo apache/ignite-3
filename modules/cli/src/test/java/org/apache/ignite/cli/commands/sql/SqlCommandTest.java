@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.cliconfig;
+package org.apache.ignite.cli.commands.sql;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
@@ -23,25 +23,34 @@ import org.apache.ignite.cli.commands.CliCommandTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class CliConfigSubCommandTest extends CliCommandTestBase {
+class SqlCommandTest extends CliCommandTestBase {
 
     @Override
     protected Class<?> getCommandClass() {
-        return CliConfigSubCommand.class;
+        return SqlCommand.class;
     }
 
     @Test
-    @DisplayName("Displays all keys")
-    void noKey() {
-        // When executed without arguments
-        execute();
+    @DisplayName("Should throw error if executed without execute or script-file options")
+    void withoutOptions() {
+        execute("--jdbc-url=");
 
-        String expectedResult = "ignite.cluster-url=test_cluster_url" + System.lineSeparator()
-                + "ignite.jdbc-url=test_jdbc_url" + System.lineSeparator();
         assertAll(
-                this::assertExitCodeIsZero,
-                () -> assertOutputIs(expectedResult),
-                this::assertErrOutputIsEmpty
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Missing required argument (specify one of these): (-e=<command> | -f=<file>)")
+        );
+    }
+
+    @Test
+    @DisplayName("Should throw error if both execute or script-file options are present")
+    void mutuallyExclusiveOptions() {
+        execute("--jdbc-url=", "--execute=", "--script-file=");
+
+        assertAll(
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("--execute=<command>, --script-file=<file> are mutually exclusive (specify only one)")
         );
     }
 }

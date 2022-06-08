@@ -57,9 +57,8 @@ public class ClusterConfigShowReplSubCommand extends BaseCommand {
     @Inject
     private Session session;
 
-    /** {@inheritDoc} */
     @Override
-    public void run() {
+    public Integer call() {
         var input = ClusterConfigShowCallInput.builder().selector(selector);
         if (session.isConnectedToNode()) {
             input.clusterUrl(session.getNodeUrl());
@@ -67,10 +66,10 @@ public class ClusterConfigShowReplSubCommand extends BaseCommand {
             input.clusterUrl(clusterUrl);
         } else {
             spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--cluster-url' option.");
-            return;
+            return 1;
         }
 
-        CallExecutionPipeline.builder(call)
+        return CallExecutionPipeline.builder(call)
                 .inputProvider(input::build)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
@@ -82,14 +81,14 @@ public class ClusterConfigShowReplSubCommand extends BaseCommand {
 
     private static class ShowConfigReplExceptionHandler implements ExceptionHandler<ApiException> {
         @Override
-        public void handle(ExceptionWriter err, ApiException e) {
+        public int handle(ExceptionWriter err, ApiException e) {
             if (e.getCode() == 500) { //TODO: https://issues.apache.org/jira/browse/IGNITE-17091
                 err.write("Cannot show cluster config, probably you have not initialized the cluster. "
                         + "Try to run 'cluster init' command.");
-                return;
+            } else {
+                err.write(e.getResponseBody());
             }
-
-            err.write(e.getResponseBody());
+            return 1;
         }
 
         @Override

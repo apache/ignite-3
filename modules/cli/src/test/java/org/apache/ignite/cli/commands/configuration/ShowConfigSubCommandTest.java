@@ -40,8 +40,9 @@ class ShowConfigSubCommandTest extends CliCommandTestBase {
         execute();
 
         assertAll(
-                () -> assertErrOutputContains("Missing required option: '--cluster-url=<clusterUrl>'"),
-                this::assertOutputIsEmpty
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Missing required option: '--cluster-url=<clusterUrl>'")
         );
     }
 }

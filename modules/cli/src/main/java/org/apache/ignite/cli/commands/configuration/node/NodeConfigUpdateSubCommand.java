@@ -52,8 +52,8 @@ public class NodeConfigUpdateSubCommand extends BaseCommand {
 
     /** {@inheritDoc} */
     @Override
-    public void run() {
-        CallExecutionPipeline.builder(call)
+    public Integer call() {
+        return CallExecutionPipeline.builder(call)
                 .inputProvider(this::buildCallInput)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())

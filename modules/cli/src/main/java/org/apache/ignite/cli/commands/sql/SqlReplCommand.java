@@ -17,6 +17,7 @@
 
 package org.apache.ignite.cli.commands.sql;
 
+import jakarta.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -24,28 +25,36 @@ import java.nio.file.Files;
 import java.sql.SQLException;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.decorators.SqlQueryResultDecorator;
+import org.apache.ignite.cli.core.CallExecutionPipelineProvider;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
 import org.apache.ignite.cli.core.exception.CommandExecutionException;
+import org.apache.ignite.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.exception.handler.SqlExceptionHandler;
+import org.apache.ignite.cli.core.repl.Repl;
+import org.apache.ignite.cli.core.repl.executor.RegistryCommandExecutor;
+import org.apache.ignite.cli.core.repl.executor.ReplExecutorProvider;
 import org.apache.ignite.cli.core.repl.executor.SqlQueryCall;
 import org.apache.ignite.cli.sql.SqlManager;
+import org.apache.ignite.cli.sql.SqlSchemaProvider;
+import org.jetbrains.annotations.NotNull;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 /**
- * Command for sql execution.
+ * Command for sql execution in REPL mode.
  */
 @Command(name = "sql", description = "Executes SQL query.")
-public class SqlCommand extends BaseCommand {
+public class SqlReplCommand extends BaseCommand {
+    private static final String INTERNAL_COMMAND_PREFIX = "!";
 
     @Option(names = {"-u", "--jdbc-url"}, required = true,
             descriptionKey = "ignite.jdbc-url", description = "JDBC url to ignite cluster")
     private String jdbc;
 
-    @ArgGroup(multiplicity = "1")
+    @ArgGroup
     private ExecOptions execOptions;
 
     private static class ExecOptions {
@@ -55,6 +64,9 @@ public class SqlCommand extends BaseCommand {
         @Option(names = {"-f", "--script-file"})
         private File file;
     }
+
+    @Inject
+    private ReplExecutorProvider replExecutorProvider;
 
     private static String extract(File file) {
         try {
@@ -70,16 +82,48 @@ public class SqlCommand extends BaseCommand {
     @Override
     public Integer call() {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
-            String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
-            return CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
-                    .inputProvider(() -> new StringCallInput(executeCommand))
-                    .output(spec.commandLine().getOut())
-                    .errOutput(spec.commandLine().getErr())
-                    .decorator(new SqlQueryResultDecorator())
-                    .build().runPipeline();
+            if (execOptions == null) {
+                replExecutorProvider.get().execute(Repl.builder()
+                        .withPromptProvider(() -> "sql-cli> ")
+                        .withCompleter(new SqlCompleter(new SqlSchemaProvider(sqlManager::getMetadata)))
+                        .withCommandClass(SqlReplTopLevelCliCommand.class)
+                        .withCallExecutionPipelineProvider(provider(sqlManager))
+                        .withHistoryFileName("sqlhistory")
+                        .build());
+                return 0; // REPL mode doesn't need exit codes
+            } else {
+                String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
+                return createSqlExecPipeline(sqlManager, executeCommand).runPipeline();
+            }
         } catch (SQLException e) {
             return new SqlExceptionHandler().handle(ExceptionWriter.fromPrintWriter(spec.commandLine().getErr()), e);
         }
     }
 
+    @NotNull
+    private CallExecutionPipelineProvider provider(SqlManager sqlManager) {
+        return (call, exceptionHandlers, line) -> line.startsWith(INTERNAL_COMMAND_PREFIX)
+                ? createInternalCommandPipeline(call, exceptionHandlers, line)
+                : createSqlExecPipeline(sqlManager, line);
+    }
+
+    private CallExecutionPipeline<?, ?> createSqlExecPipeline(SqlManager sqlManager, String line) {
+        return CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
+                .inputProvider(() -> new StringCallInput(line))
+                .output(spec.commandLine().getOut())
+                .errOutput(spec.commandLine().getErr())
+                .decorator(new SqlQueryResultDecorator())
+                .build();
+    }
+
+    private CallExecutionPipeline<?, ?> createInternalCommandPipeline(RegistryCommandExecutor call,
+            ExceptionHandlers exceptionHandlers,
+            String line) {
+        return CallExecutionPipeline.builder(call)
+                .inputProvider(() -> new StringCallInput(line.substring(INTERNAL_COMMAND_PREFIX.length())))
+                .output(spec.commandLine().getOut())
+                .errOutput(spec.commandLine().getErr())
+                .exceptionHandlers(exceptionHandlers)
+                .build();
+    }
 }

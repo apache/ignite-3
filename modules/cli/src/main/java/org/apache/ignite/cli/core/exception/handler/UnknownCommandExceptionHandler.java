@@ -28,8 +28,9 @@ import org.jline.console.impl.SystemRegistryImpl.UnknownCommandException;
 public class UnknownCommandExceptionHandler implements ExceptionHandler<UnknownCommandException> {
 
     @Override
-    public void handle(ExceptionWriter err, UnknownCommandException e) {
+    public int handle(ExceptionWriter err, UnknownCommandException e) {
         err.write(e.getMessage());
+        return 1;
     }
 
     @Override

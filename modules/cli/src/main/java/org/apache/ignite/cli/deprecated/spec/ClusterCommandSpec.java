@@ -80,7 +80,7 @@ public class ClusterCommandSpec {
 
         /** {@inheritDoc} */
         @Override
-        public void run() {
+        public Integer call() {
             clusterApiClient.init(
                     nodeEndpoint,
                     metaStorageNodes,
@@ -88,6 +88,7 @@ public class ClusterCommandSpec {
                     clusterName,
                     spec.commandLine().getOut()
             );
+            return 0;
         }
     }
 }

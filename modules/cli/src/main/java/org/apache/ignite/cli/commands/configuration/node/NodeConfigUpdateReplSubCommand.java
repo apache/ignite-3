@@ -58,7 +58,7 @@ public class NodeConfigUpdateReplSubCommand extends BaseCommand {
 
     /** {@inheritDoc} */
     @Override
-    public void run() {
+    public Integer call() {
         var input = NodeConfigUpdateCallInput.builder().config(config);
         if (session.isConnectedToNode()) {
             input.nodeUrl(session.getNodeUrl());
@@ -66,10 +66,10 @@ public class NodeConfigUpdateReplSubCommand extends BaseCommand {
             input.nodeUrl(nodeUrl);
         } else {
             spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--cluster-url' option.");
-            return;
+            return 1;
         }
 
-        CallExecutionPipeline.builder(this.call)
+        return CallExecutionPipeline.builder(this.call)
                 .inputProvider(input::build)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())

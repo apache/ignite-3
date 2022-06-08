@@ -37,8 +37,9 @@ class CliConfigGetSubCommandTest extends CliCommandTestBase {
         execute();
 
         assertAll(
-                () -> assertErrOutputContains("Missing required parameter: '<key>'"),
-                this::assertOutputIsEmpty
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Missing required parameter: '<key>'")
         );
     }
 
@@ -49,6 +50,7 @@ class CliConfigGetSubCommandTest extends CliCommandTestBase {
         execute("ignite.cluster-url");
 
         assertAll(
+                this::assertExitCodeIsZero,
                 () -> assertOutputIs("test_cluster_url" + System.lineSeparator()),
                 this::assertErrOutputIsEmpty
         );
@@ -61,8 +63,9 @@ class CliConfigGetSubCommandTest extends CliCommandTestBase {
         execute("nonexistentKey");
 
         assertAll(
-                this::assertErrOutputIsEmpty,
-                () -> assertOutputIs(System.lineSeparator())
+                this::assertExitCodeIsZero,
+                () -> assertOutputIs(System.lineSeparator()),
+                this::assertErrOutputIsEmpty
         );
     }
 
@@ -73,8 +76,9 @@ class CliConfigGetSubCommandTest extends CliCommandTestBase {
         execute("ignite.cluster-url", "ignite.jdbc-url");
 
         assertAll(
-                () -> assertErrOutputContains("Unmatched argument at index 1"),
-                this::assertOutputIsEmpty
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Unmatched argument at index 1")
         );
     }
 }

@@ -29,9 +29,10 @@ public class CommandExecutionExceptionHandler implements ExceptionHandler<Comman
     private static final IgniteLogger log = IgniteLogger.forClass(CommandExecutionExceptionHandler.class);
 
     @Override
-    public void handle(ExceptionWriter err, CommandExecutionException e) {
+    public int handle(ExceptionWriter err, CommandExecutionException e) {
         log.error("Command {} failed with reason {}", e.getCommandId(), e.getReason(), e);
         err.write(String.format("Command %s failed with reason: %s", e.getCommandId(), e.getReason()));
+        return 1;
     }
 
     @Override

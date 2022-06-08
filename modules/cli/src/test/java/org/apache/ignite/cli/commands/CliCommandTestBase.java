@@ -57,10 +57,9 @@ public abstract class CliCommandTestBase {
     }
 
     protected void assertExitCodeIs(int expectedExitCode) {
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-17093
-        /*assertThat(exitCode)
+        assertThat(exitCode)
                 .as("Expected exit code to be: " + expectedExitCode + " but was " + exitCode)
-                .isEqualTo(expectedExitCode);*/
+                .isEqualTo(expectedExitCode);
     }
 
     protected void assertExitCodeIsZero() {

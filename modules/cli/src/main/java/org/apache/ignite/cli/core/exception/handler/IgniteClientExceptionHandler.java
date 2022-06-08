@@ -29,9 +29,10 @@ public class IgniteClientExceptionHandler implements ExceptionHandler<IgniteClie
     private static final IgniteLogger log = IgniteLogger.forClass(IgniteClientExceptionHandler.class);
 
     @Override
-    public void handle(ExceptionWriter err, IgniteClientException e) {
+    public int handle(ExceptionWriter err, IgniteClientException e) {
         log.error("Ignite client exception", e);
         err.write("Ignite client exception with code: " + e.errorCode());
+        return 1;
     }
 
     @Override

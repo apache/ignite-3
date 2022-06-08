@@ -26,8 +26,9 @@ import org.apache.ignite.cli.core.exception.ExceptionWriter;
  */
 public class ConnectExceptionHandler implements ExceptionHandler<ConnectException> {
     @Override
-    public void handle(ExceptionWriter err, ConnectException e) {
+    public int handle(ExceptionWriter err, ConnectException e) {
         err.write("Connection failed " + e.getMessage());
+        return 1;
     }
 
     @Override

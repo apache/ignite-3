@@ -26,8 +26,9 @@ import org.apache.ignite.rest.client.invoker.ApiException;
  */
 public class ApiExceptionHandler implements ExceptionHandler<ApiException> {
     @Override
-    public void handle(ExceptionWriter err, ApiException e) {
+    public int handle(ExceptionWriter err, ApiException e) {
         err.write("Api error: " + e.getCause());
+        return 1;
     }
 
     @Override

@@ -46,8 +46,9 @@ public class TopologyCommand extends BaseCommand {
 
     /** {@inheritDoc} */
     @Override
-    public void run() {
+    public Integer call() {
         //TODO: https://issues.apache.org/jira/browse/IGNITE-17092
         commandSpec.commandLine().getOut().println("Topology command is not implemented yet.");
+        return 0;
     }
 }

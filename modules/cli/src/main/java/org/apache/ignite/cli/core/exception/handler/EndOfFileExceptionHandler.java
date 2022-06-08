@@ -44,8 +44,9 @@ public class EndOfFileExceptionHandler implements ExceptionHandler<EndOfFileExce
     }
 
     @Override
-    public void handle(ExceptionWriter err, EndOfFileException e) {
+    public int handle(ExceptionWriter err, EndOfFileException e) {
         endAction.accept(true);
+        return 1;
     }
 
     @Override
