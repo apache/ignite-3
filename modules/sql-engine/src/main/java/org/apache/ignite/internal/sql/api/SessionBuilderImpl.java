@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.api;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
 import org.jetbrains.annotations.Nullable;
@@ -111,7 +112,10 @@ public class SessionBuilderImpl implements SessionBuilder {
     /** {@inheritDoc} */
     @Override
     public Session build() {
+        var sessionId = qryProc.createSession();
+
         return new SessionImpl(
+                sessionId,
                 qryProc,
                 schema,
                 timeout,

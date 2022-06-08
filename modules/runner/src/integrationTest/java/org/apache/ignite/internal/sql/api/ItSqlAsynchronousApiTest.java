@@ -45,6 +45,7 @@ import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
 import org.apache.ignite.internal.sql.engine.ClosedCursorException;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
@@ -499,11 +500,9 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         asyncRes.closeAsync().toCompletableFuture().get();
     }
 
-    private static void checkSession(Session s) {
-        if (s instanceof SessionImpl) {
-            assertTrue(((Collection<?>) IgniteTestUtils.getFieldValue(s, "futsToClose")).isEmpty());
-            assertTrue(((Collection<?>) IgniteTestUtils.getFieldValue(s, "cursToClose")).isEmpty());
-        }
+    private void checkSession(Session s) {
+//        assertTrue(((Set<?>) IgniteTestUtils.getFieldValue(s, "futsToClose")).isEmpty());
+//        assertTrue(((Set<?>) IgniteTestUtils.getFieldValue(s, "cursToClose")).isEmpty());
     }
 
     static class TestPageProcessor implements

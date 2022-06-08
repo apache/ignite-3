@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.sql.engine.util.Commons.close;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
@@ -26,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -50,6 +53,10 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
+import org.apache.ignite.internal.sql.engine.session.AsyncCloseable;
+import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.session.SessionManager;
+import org.apache.ignite.internal.sql.engine.session.SessionNotFound;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -83,6 +90,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     private final Consumer<Function<Long, CompletableFuture<?>>> registry;
 
     private final DataStorageManager dataStorageManager;
+
+    private final SessionManager sessionManager = new SessionManager();
 
     private final Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier;
 
@@ -178,16 +187,20 @@ public class SqlQueryProcessor implements QueryProcessor {
         services.forEach(LifecycleAware::start);
     }
 
-    private <T extends LifecycleAware> T registerService(T service) {
-        services.add(service);
-
-        return service;
+    @Override
+    public SessionId createSession() {
+        return sessionManager.createSession(TimeUnit.MINUTES.toMillis(5));
     }
 
-    private void registerTableListener(TableEvent evt, AbstractTableEventListener lsnr) {
-        evtLsnrs.add(Pair.of(evt, lsnr));
+    @Override
+    public CompletableFuture<Void> closeSession(SessionId sessionId) {
+        var session = sessionManager.session(sessionId);
 
-        tableManager.listen(evt, lsnr);
+        if (session == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        return session.closeAsync();
     }
 
     /** {@inheritDoc} */
@@ -232,24 +245,45 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(QueryContext context, String schemaName, String qry,
+    public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
+            SessionId sessionId, QueryContext context, String schemaName, String qry,
             Object... params) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(new NodeStoppingException());
         }
 
         try {
-            return querySingle0(context, schemaName, qry, params);
+            return querySingle0(sessionId, context, schemaName, qry, params);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
+    private <T extends LifecycleAware> T registerService(T service) {
+        services.add(service);
+
+        return service;
+    }
+
+    private void registerTableListener(TableEvent evt, AbstractTableEventListener lsnr) {
+        evtLsnrs.add(Pair.of(evt, lsnr));
+
+        tableManager.listen(evt, lsnr);
+    }
+
     private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
+            SessionId sessionId,
             QueryContext context,
             String schemaName,
             String sql,
-            Object... params) {
+            Object... params
+    ) {
+        var session = sessionManager.session(sessionId);
+
+        if (session == null) {
+            return CompletableFuture.failedFuture(new SessionNotFound(sessionId));
+        }
+
         SchemaPlus schema = schemaManager.schema(schemaName);
 
         if (schema == null) {
@@ -266,6 +300,20 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .logger(LOG)
                 .parameters(params)
                 .build();
+
+        AsyncCloseable closeableResource = () -> CompletableFuture.runAsync(
+                ctx.cancel()::cancel,
+                taskExecutor
+        );
+
+        ctx.cancel().add(() -> session.unregisterResource(closeableResource));
+
+        try {
+            session.registerResource(closeableResource);
+        } catch (IllegalStateException ex) {
+            return CompletableFuture.failedFuture(new IgniteInternalException(
+                    format("Session has been expired [{}]", session.sessionId()), ex));
+        }
 
         CompletableFuture<Void> start = new CompletableFuture<>();
 
@@ -284,10 +332,26 @@ public class SqlQueryProcessor implements QueryProcessor {
                     context.maybeUnwrap(QueryValidator.class)
                             .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
 
+                    var dataCursor = executionSrvc.executePlan(plan, ctx);
+
                     return new AsyncSqlCursorImpl<>(
                             SqlQueryType.mapPlanTypeToSqlType(plan.type()),
                             plan.metadata(),
-                            executionSrvc.executePlan(plan, ctx)
+                            new AsyncCursor<List<Object>>() {
+                                @Override
+                                public CompletionStage<BatchedResult<List<Object>>> requestNextAsync(int rows) {
+                                    session.touch();
+
+                                    return dataCursor.requestNextAsync(rows);
+                                }
+
+                                @Override
+                                public CompletableFuture<Void> closeAsync() {
+                                    session.touch();
+
+                                    return dataCursor.closeAsync();
+                                }
+                            }
                     );
                 });
 
