@@ -40,7 +40,7 @@ possesses the highest level of usability thanks to the following improvements:
 Apache Ignite Alpha 5 comes with the following new features:
 
 * New CLI tool;
-* Distributed Computing;
+* Distributed computing;
 * Java SQL API;
 * Data colocation;
 * REST API.
