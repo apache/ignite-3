@@ -33,6 +33,8 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -55,10 +57,11 @@ public class ClientSqlExecuteRequest {
             IgniteSql sql,
             ClientResourceRegistry resources) {
         var tx = readTx(in, resources);
+        Session session = readSession(in, sql);
         Statement statement = readStatement(in, sql);
         Object[] arguments = readArguments(in);
 
-        return sql.createSession()
+        return session
                 .executeAsync(tx, statement, arguments)
                 .thenCompose(asyncResultSet -> writeResultSetAsync(out, resources, asyncResultSet));
     }
@@ -122,28 +125,33 @@ public class ClientSqlExecuteRequest {
     private static Statement readStatement(ClientMessageUnpacker in, IgniteSql sql) {
         StatementBuilder statementBuilder = sql.statementBuilder();
 
-        if (!in.tryUnpackNil()) {
-            statementBuilder.defaultSchema(in.unpackString());
-        }
-        if (!in.tryUnpackNil()) {
-            statementBuilder.pageSize(in.unpackInt());
-        }
-
         statementBuilder.query(in.unpackString());
+        statementBuilder.prepared(in.unpackBoolean());
+
+        return statementBuilder.build();
+    }
+
+    private static Session readSession(ClientMessageUnpacker in, IgniteSql sql) {
+        SessionBuilder sessionBuilder = sql.sessionBuilder();
 
         if (!in.tryUnpackNil()) {
-            statementBuilder.queryTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
+            sessionBuilder.defaultSchema(in.unpackString());
+        }
+        if (!in.tryUnpackNil()) {
+            sessionBuilder.defaultPageSize(in.unpackInt());
         }
 
-        statementBuilder.prepared(in.unpackBoolean());
+        if (!in.tryUnpackNil()) {
+            sessionBuilder.defaultTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
+        }
 
         var propCount = in.unpackMapHeader();
 
         for (int i = 0; i < propCount; i++) {
-            statementBuilder.property(in.unpackString(), in.unpackObjectWithType());
+            sessionBuilder.property(in.unpackString(), in.unpackObjectWithType());
         }
 
-        return statementBuilder.build();
+        return sessionBuilder.build();
     }
 
     private static Object[] readArguments(ClientMessageUnpacker in) {
