@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.file.Path;
@@ -127,7 +128,7 @@ public class PageMemoryStorageEngine implements StorageEngine {
                     longJvmPauseDetector,
                     engineConfig.checkpoint(),
                     filePageStoreManager,
-                    regions.values(),
+                    viewReadOnly(regions.values(), null, AbstractPageMemoryDataRegion::persistent),
                     storagePath,
                     pageSize
             );

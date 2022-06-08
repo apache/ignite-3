@@ -26,6 +26,8 @@ import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.util.IgniteCursor;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -144,7 +146,19 @@ public class PersistentPageMemoryPartitionStorage extends VolatilePageMemoryPart
         checkpointTimeoutLock.checkpointReadLock();
 
         try {
-            super.destroy();
+            // TODO: IGNITE-17132 Fix partition destruction
+
+            IgniteCursor<TableDataRow> cursor = tree.find(null, null);
+
+            while (cursor.next()) {
+                TableDataRow row = cursor.get();
+
+                if (tree.removex(row)) {
+                    freeList.removeDataRowByLink(row.link());
+                }
+            }
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error destroy partition: " + partId, e);
         } finally {
             checkpointTimeoutLock.checkpointReadUnlock();
         }

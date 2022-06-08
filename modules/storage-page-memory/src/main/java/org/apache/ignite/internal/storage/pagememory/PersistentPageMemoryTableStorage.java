@@ -96,6 +96,12 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         }
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void destroy() throws StorageException {
+        close(true);
+    }
+
     /**
      * Initializes the partition file page store if it hasn't already.
      *
