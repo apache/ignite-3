@@ -14,7 +14,7 @@
 // limitations under the License.
 = Data Definition Language (DDL)
 
-This section walks you through all data definition language (DDL) commands supported by Apache Ignite 3.0 Alpha 4.
+This section walks you through all data definition language (DDL) commands supported by Apache Ignite 3.0 Alpha.
 
 == CREATE TABLE
 
@@ -23,6 +23,8 @@ Creates a new table.
 [source,sql]
 ----
 CREATE TABLE [IF NOT EXISTS] [simpleName | schemaName.simpleName] (tableColumn [, tableColumn]...)
+[COLOCATE [BY] (tableColumn [, tableColumn]...)]
+[ENGINE engineName]
 [WITH paramName=paramValue [,paramName=paramValue]...]
 tableColumn = columnName columnType [[NOT] NULL] [DEFAULT defaultValue] [PRIMARY KEY]
 ----
@@ -33,10 +35,13 @@ Parameters:
 * `tableColumn` - name and type of a column to be created in the new table.
 * `DEFAULT` - specifies a default value for the column. Only constant values are accepted.
 * `IF NOT EXISTS` - create the table only if a table with the same name does not exist.
+* `ENGINE` - selects the storage engine to use. Currently `pagememory` and `rocksdb` are available.
+* `COLOCATED BY` - colocation key. The key can be composite. Primary key must include colocation key. Was `affinity_key` in Ignite 2.x.
 * `WITH` - accepts additional parameters not defined by ANSI-99 SQL:
 
 ** `Replicas` - sets the number of partition copies, including the master copy.
 ** `Partitions` - sets the number of table partitions.
+** `dataRegion` - sets the data region to work with.
 
 image::images/svg/create_table_bnf1.svg[Embedded,opts=inline]
 image::images/svg/create_table_bnf2.svg[Embedded,opts=inline]
