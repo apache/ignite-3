@@ -145,6 +145,11 @@ class ClientAsyncResultSet implements AsyncResultSet {
                     readRows(r.in());
                     hasMorePages = r.in().unpackBoolean();
 
+                    if (!hasMorePages) {
+                        // When last page is fetched, server closes the cursor.
+                        closed = true;
+                    }
+
                     return this;
                 });
     }
