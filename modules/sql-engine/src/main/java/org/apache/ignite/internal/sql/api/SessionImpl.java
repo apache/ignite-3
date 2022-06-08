@@ -32,7 +32,6 @@ import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryProperties;
 import org.apache.ignite.internal.sql.engine.QueryTimeout;
 import org.apache.ignite.internal.sql.engine.QueryValidator;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
@@ -247,8 +246,7 @@ public class SessionImpl implements Session {
                         if (plan.type() != Type.DML) {
                             throw new SqlException("Invalid SQL statement type in the batch [plan=" + plan + ']');
                         }
-                    },
-                    new QueryProperties(props)
+                    }
             );
 
             return qryProc.batchAsync(ctx, schema, query, batch);
