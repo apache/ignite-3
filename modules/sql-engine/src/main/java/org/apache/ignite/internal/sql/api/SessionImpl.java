@@ -32,6 +32,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
+import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -245,13 +246,7 @@ public class SessionImpl implements Session {
                 tail = tail.thenCompose(v -> qryProc.querySingleAsync(ctx, schema, query, args))
                         .thenCompose(cur -> cur.requestNextAsync(1))
                         .thenAccept(page -> {
-                            if (page == null
-                                    || page.items() == null
-                                    || page.items().size() != 1
-                                    || page.items().get(0).size() != 1
-                                    || page.hasMore()) {
-                                throw new SqlException("Invalid DML results: " + page);
-                            }
+                            validateDmlResult(page);
 
                             counters.add((long) page.items().get(0).get(0));
                         })
@@ -364,6 +359,16 @@ public class SessionImpl implements Session {
             throw new IgniteException(e.getCause());
         } catch (Throwable e) {
             throw new IgniteException(e);
+        }
+    }
+
+    private static void validateDmlResult(AsyncCursor.BatchedResult<List<Object>> page) {
+        if (page == null
+                || page.items() == null
+                || page.items().size() != 1
+                || page.items().get(0).size() != 1
+                || page.hasMore()) {
+            throw new SqlException("Invalid DML results: " + page);
         }
     }
 }
