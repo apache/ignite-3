@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.sql.ResultSetImpl;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -82,15 +83,17 @@ public class ClientSession implements Session {
     /** {@inheritDoc} */
     @Override
     public ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        // TODO IGNITE-17057.
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(query);
+
+        return new ResultSetImpl(sync(executeAsync(transaction, query, arguments)));
     }
 
     /** {@inheritDoc} */
     @Override
     public ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
-        // TODO IGNITE-17057.
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(statement);
+
+        return new ResultSetImpl(sync(executeAsync(transaction, statement, arguments)));
     }
 
     /** {@inheritDoc} */

@@ -31,8 +31,10 @@ import org.jetbrains.annotations.Nullable;
  * Synchronous wrapper over {@link org.apache.ignite.sql.async.AsyncResultSet}.
  */
 public class ResultSetImpl implements ResultSet {
+    /** Wrapped async result set. */
     private final AsyncResultSet ars;
 
+    /** Iterator. */
     private final IteratorImpl it;
 
     /**
@@ -144,5 +146,4 @@ public class ResultSetImpl implements ResultSet {
             return curPage.next();
         }
     }
-
 }
