@@ -169,4 +169,15 @@ public class RebalanceUtil {
 
         return Integer.parseInt(strKey.substring(strKey.indexOf("_part_") + "_part_".length()));
     }
+
+    /**
+     * Checks if an error is recoverable, so we can retry a rebalance intent.
+     *
+     * @param t The throwable.
+     * @return {@code True} if this is a recoverable exception.
+     */
+    public static boolean recoverable(Throwable t) {
+        // As long as we don't have a general failure handler, we assume that all errors are recoverable.
+        return true;
+    }
 }

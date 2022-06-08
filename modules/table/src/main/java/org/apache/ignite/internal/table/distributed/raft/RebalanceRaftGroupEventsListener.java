@@ -81,8 +81,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Executor for scheduling rebalance retries. */
     private final ScheduledExecutorService rebalanceScheduler;
 
-    /** Function that performs raft group reconfiguration. */
-    private final BiFunction<List<Peer>, Long, CompletableFuture<Void>> reconfigureRaftGroup;
+    /** Function that performs a reconfiguration of a raft group of a partition. */
+    private final BiFunction<List<Peer>, Long, CompletableFuture<Void>> movePartitionFn;
 
     /** Attempts to retry the current rebalance in case of errors. */
     private final AtomicInteger rebalanceAttempts =  new AtomicInteger(0);
@@ -108,14 +108,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             String partId,
             int partNum,
             IgniteSpinBusyLock busyLock,
-            BiFunction<List<Peer>, Long, CompletableFuture<Void>> reconfigureRaftGroup,
+            BiFunction<List<Peer>, Long, CompletableFuture<Void>> movePartitionFn,
             ScheduledExecutorService rebalanceScheduler) {
         this.metaStorageMgr = metaStorageMgr;
         this.tblConfiguration = tblConfiguration;
         this.partId = partId;
         this.partNum = partNum;
         this.busyLock = busyLock;
-        this.reconfigureRaftGroup = reconfigureRaftGroup;
+        this.movePartitionFn = movePartitionFn;
         this.rebalanceScheduler = rebalanceScheduler;
     }
 
@@ -140,7 +140,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     if (!pendingEntry.empty()) {
                         List<ClusterNode> pendingNodes = (List<ClusterNode>) ByteUtils.fromBytes(pendingEntry.value());
 
-                        reconfigureRaftGroup.apply(clusterNodesToPeers(pendingNodes), term).join();
+                        movePartitionFn.apply(clusterNodesToPeers(pendingNodes), term).join();
                     }
                 } catch (InterruptedException | ExecutionException e) {
                     // TODO: IGNITE-14693
@@ -228,7 +228,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             LOG.info("Started {} attempt to retry the current rebalance for the partId = {}.", rebalanceAttempts.get(), partId);
 
             try {
-                reconfigureRaftGroup.apply(peerIdsToPeers(peers), term).join();
+                movePartitionFn.apply(peerIdsToPeers(peers), term).join();
             } finally {
                 busyLock.leaveBusy();
             }

@@ -101,6 +101,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -713,13 +714,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         RaftGroupService service = RaftGroupServiceImpl.start(groupId, cluster, factory, timeout, nodes.subList(0, 2),
                 true, delay, executor).get(3, TimeUnit.SECONDS);
 
-        tableManager.reconfigureRaftGroup(() -> service).apply(nodes.subList(0, 1), 1L).join();
+        tableManager.movePartition(() -> service).apply(nodes.subList(0, 1), 1L).join();
 
         assertEquals(counter.get(), 1);
 
         AtomicLong secondInvocationOfChangePeersAsync = new AtomicLong(0L);
 
-        assertFalse(TableManager.recoverable(new NullPointerException()));
+        assertFalse(RebalanceUtil.recoverable(new NullPointerException()));
 
         when(messagingService.invoke(any(NetworkAddress.class),
                 eq(factory.changePeersAsyncRequest()
@@ -743,7 +744,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                     return failedFuture(new NullPointerException());
                 });
 
-        tableManager.reconfigureRaftGroup(() -> service).apply(nodes.subList(0, 1), 1L).join();
+        tableManager.movePartition(() -> service).apply(nodes.subList(0, 1), 1L).join();
 
         assertEquals(2, counter.get());
 
