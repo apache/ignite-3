@@ -9,6 +9,7 @@ The following examples are included:
 * `RecordViewExample` - demonstrates the usage of the `org.apache.ignite.table.RecordView` API
 * `KeyValueViewExample` - demonstrates the usage of the `org.apache.ignite.table.KeyValueView` API
 * `SqlJdbcExample` - demonstrates the usage of the Apache Ignite JDBC driver.
+* `SqlApiExample` - demonstrates the usage of the Java API for SQL.
 * `VolatilePageMemoryStorageExample` - demonstrates the usage of the PageMemory storage engine configured with an in-memory data region.
 * `PersistentPageMemoryStorageExample` - demonstrates the usage of the PageMemory storage engine configured with a persistent data region.
 
