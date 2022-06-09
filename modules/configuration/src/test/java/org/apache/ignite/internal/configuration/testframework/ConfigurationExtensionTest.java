@@ -177,7 +177,7 @@ class ConfigurationExtensionTest {
 
     /** Test UUID generation in mocks. */
     @Test
-    public void testUuidGeneration(
+    public void testInjectInternalId(
             @InjectConfiguration(
                     name = "test",
                     polymorphicExtensions = {
