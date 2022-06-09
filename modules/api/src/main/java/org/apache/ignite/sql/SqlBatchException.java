@@ -17,45 +17,37 @@
 
 package org.apache.ignite.sql;
 
-import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
- * SQL exception base class.
+ * The subclass of {@link SqlException} thrown when an error occurs during a batch update operation. In addition to the
+ * information provided by {@link SqlException}, a <code>SqlBatchException</code> provides the update
+ * counts for all commands that were executed successfully during the batch update, that is,
+ * all commands that were executed before the error occurred. The order of elements in an array of update counts
+ * corresponds to the order in which commands were added to the batch.
+ *
  */
-public class SqlException extends IgniteException {
-    /**
-     * Empty constructor for subclasses.
-     */
-    protected SqlException() {
-        // No-op.
-    }
-
-    /**
-     * Creates a new exception with the given error message.
-     *
-     * @param msg Error message.
-     */
-    public SqlException(String msg) {
-        super(msg);
-    }
+public class SqlBatchException extends SqlException {
+    private final long[] updCntrs;
 
     /**
      * Creates a new grid exception with the given throwable as a cause and source of error message.
      *
+     * @param updCntrs Array that describes the outcome of a batch execution.
      * @param cause Non-null throwable cause.
      */
-    public SqlException(Throwable cause) {
+    public SqlBatchException(long[] updCntrs, Throwable cause) {
         super(cause);
+
+        this.updCntrs = updCntrs != null ? updCntrs : ArrayUtils.LONG_EMPTY_ARRAY;
     }
 
     /**
-     * Creates a new exception with the given error message and optional nested exception.
+     * Returns the array that describes the outcome of a batch execution.
      *
-     * @param msg Error message.
-     * @param cause Optional nested exception (can be {@code null}).
+     * @return Array that describes the outcome of a batch execution.
      */
-    public SqlException(String msg, @Nullable Throwable cause) {
-        super(msg, cause);
+    public long[] updateCounters() {
+        return updCntrs;
     }
 }

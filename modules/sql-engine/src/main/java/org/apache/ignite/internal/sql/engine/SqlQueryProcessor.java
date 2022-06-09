@@ -37,7 +37,6 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.manager.EventListener;
-import org.apache.ignite.internal.sql.api.IgniteSqlException;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
@@ -63,6 +62,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -274,7 +274,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 )
                 .thenApply(nodes -> {
                     if (nodes.size() > 1) {
-                        throw new IgniteSqlException("Multiple statements aren't allowed.");
+                        throw new SqlException("Multiple statements aren't allowed.");
                     }
 
                     return nodes.get(0);
