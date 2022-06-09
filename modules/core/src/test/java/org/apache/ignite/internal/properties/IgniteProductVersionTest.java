@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.properties;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -36,6 +37,7 @@ public class IgniteProductVersionTest {
         assertThat(version.minor(), is((byte) 0));
         assertThat(version.maintenance(), is((byte) 0));
         assertThat(version.snapshot(), is(true));
+        assertThat(version.alphaVersion(), is(emptyString()));
         assertThat(version.toString(), is(equalTo("3.0.0-SNAPSHOT")));
 
         version = IgniteProductVersion.fromString("1.2.3");
@@ -44,7 +46,17 @@ public class IgniteProductVersionTest {
         assertThat(version.minor(), is((byte) 2));
         assertThat(version.maintenance(), is((byte) 3));
         assertThat(version.snapshot(), is(false));
+        assertThat(version.alphaVersion(), is(emptyString()));
         assertThat(version.toString(), is(equalTo("1.2.3")));
+
+        version = IgniteProductVersion.fromString("3.0.0-alpha22");
+
+        assertThat(version.major(), is((byte) 3));
+        assertThat(version.minor(), is((byte) 0));
+        assertThat(version.maintenance(), is((byte) 0));
+        assertThat(version.snapshot(), is(false));
+        assertThat(version.alphaVersion(), is("alpha22"));
+        assertThat(version.toString(), is(equalTo("3.0.0-alpha22")));
     }
 
     @Test
@@ -54,5 +66,6 @@ public class IgniteProductVersionTest {
         assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("a.b.c"));
         assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("1.2.3-"));
         assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("1.2.3-SSDAD"));
+        assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("1.2.3-SNAPSHOT-alpha123"));
     }
 }
