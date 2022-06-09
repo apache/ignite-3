@@ -86,22 +86,37 @@ public class IgniteProductVersion implements Serializable {
         );
     }
 
+    /**
+     * Returns the major version number.
+     */
     public byte major() {
         return major;
     }
 
+    /**
+     * Returns the minor version number.
+     */
     public byte minor() {
         return minor;
     }
 
+    /**
+     * Returns the maintenance version number.
+     */
     public byte maintenance() {
         return maintenance;
     }
 
+    /**
+     * Returns {@code true} if this is a snapshot release, {@code false} otherwise.
+     */
     public boolean snapshot() {
         return isSnapshot;
     }
 
+    /**
+     * Returns the alpha version of this release or an empty string if this is not an alpha release.
+     */
     public String alphaVersion() {
         return alphaVersion;
     }
