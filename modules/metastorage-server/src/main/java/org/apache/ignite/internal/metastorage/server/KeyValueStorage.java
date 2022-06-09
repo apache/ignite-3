@@ -60,7 +60,7 @@ public interface KeyValueStorage extends AutoCloseable {
      * Returns an entry by the given key and bounded by the given revision.
      *
      * @param key The key.
-     * @param revUpperBound Upper bound of revision.
+     * @param revUpperBound The upper bound of revision.
      * @return Value corresponding to the given key.
      */
     @NotNull Entry get(byte[] key, long revUpperBound);
