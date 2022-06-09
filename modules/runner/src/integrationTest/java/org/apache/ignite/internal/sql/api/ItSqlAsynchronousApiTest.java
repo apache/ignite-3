@@ -337,7 +337,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         // Multiple statements error.
         {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1; SELECT 2");
-            assertThrowsWithCause(() -> f.get(), SqlException.class, "Multiple statements aren't allowed");
+            assertThrowsWithCause(f::get, SqlException.class, "Multiple statements aren't allowed");
         }
 
         // Planning error.
