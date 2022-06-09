@@ -49,6 +49,7 @@ public class IgniteProductVersion implements Serializable {
     private final boolean isSnapshot;
 
     /** Alpha version part or an empty string if this is not an alpha release. */
+    // TODO: IGNITE-17146 Fix and add support for beta and other releases
     private final String alphaVersion;
 
     private IgniteProductVersion(byte major, byte minor, byte maintenance, boolean isSnapshot, @Nullable String alphaVersion) {
