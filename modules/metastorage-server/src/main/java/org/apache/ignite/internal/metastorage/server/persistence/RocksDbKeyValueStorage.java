@@ -417,7 +417,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.readLock().lock();
 
         try {
-            return doGet(key, LATEST_REV, false);
+            return doGet(key, LATEST_REV);
         } finally {
             rwLock.readLock().unlock();
         }
@@ -426,11 +426,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** {@inheritDoc} */
     @NotNull
     @Override
-    public Entry get(byte[] key, long rev) {
+    public Entry get(byte[] key, long revUpperBound) {
         rwLock.readLock().lock();
 
         try {
-            return doGet(key, rev, true);
+            return doGet(key, revUpperBound);
         } finally {
             rwLock.readLock().unlock();
         }
@@ -478,7 +478,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try {
-            Entry e = doGet(key, LATEST_REV, false);
+            Entry e = doGet(key, LATEST_REV);
 
             if (e.empty() || e.tombstone()) {
                 return e;
@@ -538,7 +538,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             List<byte[]> vals = new ArrayList<>(keys.size());
 
             for (byte[] key : keys) {
-                Entry e = doGet(key, LATEST_REV, false);
+                Entry e = doGet(key, LATEST_REV);
 
                 res.add(e);
 
@@ -759,7 +759,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @throws RocksDBException If failed.
      */
     private boolean addToBatchForRemoval(WriteBatch batch, byte[] key, long curRev, long counter) throws RocksDBException {
-        Entry e = doGet(key, LATEST_REV, false);
+        Entry e = doGet(key, LATEST_REV);
 
         if (e.empty() || e.tombstone()) {
             return false;
@@ -817,7 +817,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         try {
             for (byte[] key : keys) {
-                res.add(doGet(key, rev, false));
+                res.add(doGet(key, rev));
             }
         } finally {
             rwLock.readLock().unlock();
@@ -829,15 +829,13 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /**
      * Gets the value by key and revision.
      *
-     * @param key      Target key.
-     * @param rev      Target revision.
-     * @param exactRev {@code true} if searching for exact revision, {@code false} if rev is an upper bound (inclusive).
+     * @param key            Target key.
+     * @param revUpperBound  Target upper bound of revision.
      * @return Value.
      */
     @NotNull
-    Entry doGet(byte[] key, long rev, boolean exactRev) {
-        assert rev == LATEST_REV && !exactRev || rev > LATEST_REV :
-                "Invalid arguments: [rev=" + rev + ", exactRev=" + exactRev + ']';
+    Entry doGet(byte[] key, long revUpperBound) {
+        assert rev >= LATEST_REV : "Invalid arguments: [rev=" + rev + ']';
 
         long[] revs;
         try {
@@ -852,10 +850,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         long lastRev;
 
-        if (rev == LATEST_REV) {
+        if (revUpperBound == LATEST_REV) {
             lastRev = lastRevision(revs);
         } else {
-            lastRev = exactRev ? rev : maxRevision(revs, rev);
+            lastRev = maxRevision(revs, revUpperBound);
         }
 
         // lastRev can be -1 if maxRevision return -1.
