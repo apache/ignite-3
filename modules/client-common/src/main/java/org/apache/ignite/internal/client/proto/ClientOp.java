@@ -118,7 +118,7 @@ public class ClientOp {
     public static final int TX_ROLLBACK = 45;
 
     /** Execute prepared statement batch query. */
-    public static final int SQL_EXEC_PS_BATCH = 46;
+    public static final int JDBC_SQL_EXEC_PS_BATCH = 46;
 
     /** Execute compute job. */
     public static final int COMPUTE_EXECUTE = 47;

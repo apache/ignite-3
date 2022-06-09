@@ -53,7 +53,6 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.client.TcpIgniteClient;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.jetbrains.annotations.Nullable;
@@ -731,7 +730,7 @@ public class JdbcConnection implements Connection {
      *
      * @return Handler.
      */
-    public JdbcQueryEventHandler handler() {
+    public JdbcClientQueryEventHandler handler() {
         return new JdbcClientQueryEventHandler(client);
     }
 

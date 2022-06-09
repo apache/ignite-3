@@ -124,14 +124,14 @@ public class JdbcMetadataCatalog {
         String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
 
-        return tables.tablesAsync().thenApply(tablesList -> {
-            return tablesList.stream()
+        return tables.tablesAsync().thenApply(
+                tablesList -> tablesList.stream()
                     .filter(t -> matches(getTblSchema(t.name()), schemaNameRegex))
                     .filter(t -> matches(getTblName(t.name()), tlbNameRegex))
                     .sorted(byTblTypeThenSchemaThenTblName)
                     .map(t -> new JdbcTableMeta(getTblSchema(t.name()), getTblName(t.name()), TBL_TYPE))
-                    .collect(Collectors.toList());
-        });
+                    .collect(Collectors.toList())
+        );
     }
 
     /**
@@ -149,8 +149,8 @@ public class JdbcMetadataCatalog {
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
         String colNameRegex = translateSqlWildcardsToRegex(colNamePtrn);
 
-        return tables.tablesAsync().thenApply(tablesList -> {
-            return tablesList.stream()
+        return tables.tablesAsync().thenApply(tablesList ->
+                tablesList.stream()
                     .filter(t -> matches(getTblSchema(t.name()), schemaNameRegex))
                     .filter(t -> matches(getTblName(t.name()), tlbNameRegex))
                     .flatMap(
@@ -172,8 +172,8 @@ public class JdbcMetadataCatalog {
                     .filter(e -> matches(e.getSecond().name(), colNameRegex))
                     .sorted(bySchemaThenTabNameThenColOrder)
                     .map(pair -> createColumnMeta(pair.getFirst(), pair.getSecond()))
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
-        });
+                    .collect(Collectors.toCollection(LinkedHashSet::new))
+        );
     }
 
     /**

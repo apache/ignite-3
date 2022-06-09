@@ -20,8 +20,8 @@ package org.apache.ignite.client.handler.requests.jdbc;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
+import org.apache.ignite.internal.jdbc.proto.event.ClientMessageUtils;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysResult;
 
 /**
  * Client jdbc primary key metadata request handler.
@@ -32,18 +32,18 @@ public class ClientJdbcPrimaryKeyMetadataRequest {
      *
      * @param in      Client message unpacker.
      * @param out     Client message packer.
-     * @param handler Query event handler.
      * @return Operation future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            JdbcQueryEventHandler handler
+            JdbcMetadataCatalog metadataCatalog
     ) {
-        var req = new JdbcMetaPrimaryKeysRequest();
+        String schemaName = ClientMessageUtils.readStringNullable(in);
+        String tblName = ClientMessageUtils.readStringNullable(in);
 
-        req.readBinary(in);
-
-        return handler.primaryKeysMetaAsync(req).thenAccept(res -> res.writeBinary(out));
+        return metadataCatalog.getPrimaryKeys(schemaName, tblName)
+                .thenApply(JdbcMetaPrimaryKeysResult::new)
+                .thenAccept(res -> res.writeBinary(out));
     }
 }

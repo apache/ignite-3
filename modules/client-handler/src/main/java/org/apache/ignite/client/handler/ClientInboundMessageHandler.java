@@ -73,7 +73,6 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -99,7 +98,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     private final IgniteTransactions igniteTransactions;
 
     /** JDBC Handler. */
-    private final JdbcQueryEventHandler jdbcQueryEventHandler;
+    private final JdbcQueryExecutionHandler jdbcQueryEventHandler;
 
     /** Connection resources. */
     private final ClientResourceRegistry resources = new ClientResourceRegistry();
@@ -115,6 +114,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
     /** SQL. */
     private final IgniteSql sql;
+
+    /** Jdbc metadata catalog. */
+    private final JdbcMetadataCatalog jdbcMetadataCatalog;
 
     /** Context. */
     private ClientContext clientContext;
@@ -152,7 +154,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         this.clusterService = clusterService;
         this.sql = sql;
 
-        jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources);
+        this.jdbcMetadataCatalog = new JdbcMetadataCatalog(igniteTables);
+        this.jdbcQueryEventHandler = new JdbcQueryExecutionHandler(processor, resources);
     }
 
     /** {@inheritDoc} */
@@ -398,29 +401,29 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             case ClientOp.JDBC_EXEC_BATCH:
                 return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler);
 
-            case ClientOp.SQL_EXEC_PS_BATCH:
+            case ClientOp.JDBC_SQL_EXEC_PS_BATCH:
                 return ClientJdbcPreparedStmntBatchRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_NEXT:
-                return ClientJdbcFetchRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcFetchRequest.process(in, out, resources);
 
             case ClientOp.JDBC_CURSOR_CLOSE:
-                return ClientJdbcCloseRequest.process(in, out, jdbcQueryEventHandler);
-
-            case ClientOp.JDBC_TABLE_META:
-                return ClientJdbcTableMetadataRequest.process(in, out, jdbcQueryEventHandler);
-
-            case ClientOp.JDBC_COLUMN_META:
-                return ClientJdbcColumnMetadataRequest.process(in, out, jdbcQueryEventHandler);
-
-            case ClientOp.JDBC_SCHEMAS_META:
-                return ClientJdbcSchemasMetadataRequest.process(in, out, jdbcQueryEventHandler);
-
-            case ClientOp.JDBC_PK_META:
-                return ClientJdbcPrimaryKeyMetadataRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcCloseRequest.process(in, out, resources);
 
             case ClientOp.JDBC_QUERY_META:
-                return ClientJdbcQueryMetadataRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcQueryMetadataRequest.process(in, out, resources);
+
+            case ClientOp.JDBC_TABLE_META:
+                return ClientJdbcTableMetadataRequest.process(in, out, jdbcMetadataCatalog);
+
+            case ClientOp.JDBC_COLUMN_META:
+                return ClientJdbcColumnMetadataRequest.process(in, out, jdbcMetadataCatalog);
+
+            case ClientOp.JDBC_SCHEMAS_META:
+                return ClientJdbcSchemasMetadataRequest.process(in, out, jdbcMetadataCatalog);
+
+            case ClientOp.JDBC_PK_META:
+                return ClientJdbcPrimaryKeyMetadataRequest.process(in, out, jdbcMetadataCatalog);
 
             case ClientOp.TX_BEGIN:
                 return ClientTransactionBeginRequest.process(out, igniteTransactions, resources);

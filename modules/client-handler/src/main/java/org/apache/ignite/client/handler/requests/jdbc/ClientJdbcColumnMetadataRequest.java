@@ -20,8 +20,8 @@ package org.apache.ignite.client.handler.requests.jdbc;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
+import org.apache.ignite.internal.jdbc.proto.event.ClientMessageUtils;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 
 /**
  * Client jdbc column metadata request handler.
@@ -32,18 +32,19 @@ public class ClientJdbcColumnMetadataRequest {
      *
      * @param in      Client message unpacker.
      * @param out     Client message packer.
-     * @param handler Query event handler.
      * @return Operation future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            JdbcQueryEventHandler handler
+            JdbcMetadataCatalog jdbcMetadataCatalog
     ) {
-        var req = new JdbcMetaColumnsRequest();
+        String schemaName = ClientMessageUtils.readStringNullable(in);
+        String tblName = ClientMessageUtils.readStringNullable(in);
+        String colName = ClientMessageUtils.readStringNullable(in);
 
-        req.readBinary(in);
-
-        return handler.columnsMetaAsync(req).thenAccept(res -> res.writeBinary(out));
+        return jdbcMetadataCatalog
+                .getColumnsMeta(schemaName, tblName, colName)
+                .thenApply(JdbcMetaColumnsResult::new).thenAccept(res -> res.writeBinary(out));
     }
 }

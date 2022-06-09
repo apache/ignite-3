@@ -18,10 +18,13 @@
 package org.apache.ignite.client.handler.requests.jdbc;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
-import org.apache.ignite.internal.jdbc.proto.event.QueryCloseRequest;
+import org.apache.ignite.internal.jdbc.proto.event.QueryCloseResult;
+import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Client jdbc close request handler.
@@ -32,18 +35,26 @@ public class ClientJdbcCloseRequest {
      *
      * @param in      Client message unpacker.
      * @param out     Client message packer.
-     * @param handler Query event handler.
      * @return Operation future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            JdbcQueryEventHandler handler
-    ) {
-        var req = new QueryCloseRequest();
+            ClientResourceRegistry resources)
+    throws IgniteInternalCheckedException {
+        long cursorId = in.unpackLong();
 
-        req.readBinary(in);
+        return resources.remove(cursorId).get(AsyncSqlCursor.class).closeAsync().handle((none, t) -> {
+            if (t != null) {
+//                StringWriter sw = getWriterWithStackTrace(t);
 
-        return handler.closeAsync(req).thenAccept(res -> res.writeBinary(out));
+                new QueryCloseResult(Response.STATUS_FAILED,
+                        "Failed to close SQL query [curId=" + cursorId + "]. Error message: ").writeBinary(out);
+            }
+
+            new QueryCloseResult().writeBinary(out);
+
+            return null;
+        });
     }
 }

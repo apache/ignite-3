@@ -17,11 +17,21 @@
 
 package org.apache.ignite.client.handler.requests.jdbc;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
+import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
+import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
  * Client jdbc query metadata request handler.
@@ -32,18 +42,64 @@ public class ClientJdbcQueryMetadataRequest {
      *
      * @param in      Client message unpacker.
      * @param out     Client message packer.
-     * @param handler Query event handler.
      * @return Operation future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            JdbcQueryEventHandler handler
-    ) {
-        var req = new JdbcQueryMetadataRequest();
+            ClientResourceRegistry resources
+    ) throws IgniteInternalCheckedException {
+        long cursor = in.unpackLong();
 
-        req.readBinary(in);
+        AsyncSqlCursor<?> cur = resources.get(cursor).get(AsyncSqlCursor.class);
 
-        return handler.queryMetadataAsync(req).thenAccept(res -> res.writeBinary(out));
+
+        ResultSetMetadata metadata = cur.metadata();
+
+        if (metadata == null) {
+            new JdbcMetaColumnsResult(Response.STATUS_FAILED,
+                    "Failed to get query metadata for cursor with ID : " + cursor).writeBinary(out);
+
+            return null;
+        }
+
+        List<JdbcColumnMeta> meta = metadata.columns().stream()
+                .map(ClientJdbcQueryMetadataRequest::createColumnMetadata)
+                .collect(Collectors.toList());
+
+        new JdbcMetaColumnsResult(meta).writeBinary(out);
+
+        return null;
+    }
+
+    /**
+     * Create Jdbc representation of column metadata from given origin and RelDataTypeField field.
+     *
+     * @param fldMeta field metadata contains info about column.
+     * @return JdbcColumnMeta object.
+     */
+    private static JdbcColumnMeta createColumnMetadata(ColumnMetadata fldMeta) {
+        ColumnOrigin origin = fldMeta.origin();
+
+        String schemaName = null;
+        String tblName = null;
+        String colName = null;
+
+        if (origin != null) {
+            schemaName = origin.schemaName();
+            tblName = origin.tableName();
+            colName = origin.columnName();
+        }
+
+        return new JdbcColumnMeta(
+                fldMeta.name(),
+                schemaName,
+                tblName,
+                colName,
+                Commons.columnTypeToClass(fldMeta.type()),
+                fldMeta.precision(),
+                fldMeta.scale(),
+                fldMeta.nullable()
+        );
     }
 }

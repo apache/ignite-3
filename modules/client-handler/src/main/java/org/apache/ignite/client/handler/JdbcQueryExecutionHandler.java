@@ -31,29 +31,13 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
-import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcQueryCursor;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.BatchPreparedStmntRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryCloseRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryCloseResult;
 import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteResult;
-import org.apache.ignite.internal.jdbc.proto.event.QueryFetchRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.QuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -63,42 +47,35 @@ import org.apache.ignite.internal.sql.engine.QueryValidator;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlColumnType;
 
 /**
  * Jdbc query event handler implementation.
  */
-public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
+public class JdbcQueryExecutionHandler {
     /** Sql query processor. */
     private final QueryProcessor processor;
 
-    /** Jdbc metadata info. */
-    private final JdbcMetadataCatalog meta;
-
-    /** Jdbc client resource registry. */
-    private ClientResourceRegistry resources;
+    /** Client registry resources. */
+    private final ClientResourceRegistry resources;
 
     /**
      * Constructor.
      *
      * @param processor Processor.
-     * @param meta      JdbcMetadataInfo.
      */
-    public JdbcQueryEventHandlerImpl(QueryProcessor processor, JdbcMetadataCatalog meta,
-            ClientResourceRegistry resources) {
+    public JdbcQueryExecutionHandler(QueryProcessor processor, ClientResourceRegistry resources) {
+        assert processor != null;
+        assert resources != null;
+
         this.processor = processor;
-        this.meta = meta;
         this.resources = resources;
     }
 
     /** {@inheritDoc} */
-    @Override
     public CompletableFuture<QueryExecuteResult> queryAsync(QueryExecuteRequest req) {
         if (req.pageSize() <= 0) {
             return CompletableFuture.completedFuture(new QueryExecuteResult(Response.STATUS_FAILED,
@@ -167,37 +144,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     }
 
     /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<QueryFetchResult> fetchAsync(QueryFetchRequest req) {
-        AsyncSqlCursor<List<Object>> cur;
-        try {
-            cur = resources.get(req.cursorId()).get(AsyncSqlCursor.class);
-        } catch (IgniteInternalCheckedException e) {
-            return CompletableFuture.completedFuture(new QueryFetchResult(Response.STATUS_FAILED,
-                    "Failed to find query cursor with ID: " + req.cursorId()));
-        }
-
-        if (req.pageSize() <= 0) {
-            return CompletableFuture.completedFuture(new QueryFetchResult(Response.STATUS_FAILED,
-                    "Invalid fetch size : [fetchSize=" + req.pageSize() + ']'));
-        }
-
-        System.out.println("cur is " + cur);
-
-        return cur.requestNextAsync(req.pageSize()).handle((batch, t) -> {
-            if (t != null) {
-                StringWriter sw = getWriterWithStackTrace(t);
-
-                return new QueryFetchResult(Response.STATUS_FAILED,
-                        "Failed to fetch results for cursor id " + req.cursorId() + ". Error message: " + sw);
-            }
-
-            return new QueryFetchResult(batch.items(), batch.hasMore());
-        }).toCompletableFuture();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req) {
         List<String> queries = req.queries();
 
@@ -223,7 +169,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     }
 
     /** {@inheritDoc} */
-    @Override
     public CompletableFuture<BatchExecuteResult> batchPrepStatementAsync(BatchPreparedStmntRequest req) {
         var argList = req.getArgs();
 
@@ -272,109 +217,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
         return new BatchExecuteResult(Response.STATUS_FAILED, UNKNOWN, error, counters);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<QueryCloseResult> closeAsync(QueryCloseRequest req) {
-        AsyncSqlCursor<?> cur;
-        try {
-            cur = resources.remove(req.cursorId()).get(AsyncSqlCursor.class);
-        } catch (IgniteInternalCheckedException e) {
-            return CompletableFuture.completedFuture(new QueryCloseResult(Response.STATUS_FAILED,
-                    "Failed to find query cursor with ID: " + req.cursorId()));
-        }
-
-        return cur.closeAsync().handle((none, t) -> {
-            if (t != null) {
-                StringWriter sw = getWriterWithStackTrace(t);
-
-                return new QueryCloseResult(Response.STATUS_FAILED,
-                        "Failed to close SQL query [curId=" + req.cursorId() + "]. Error message: " + sw);
-            }
-
-            return new QueryCloseResult();
-        });
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<JdbcMetaColumnsResult> queryMetadataAsync(JdbcQueryMetadataRequest req) {
-        AsyncSqlCursor<?> cur;
-        try {
-            cur = resources.get(req.cursorId()).get(AsyncSqlCursor.class);
-        } catch (IgniteInternalCheckedException e) {
-            return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(Response.STATUS_FAILED,
-                    "Failed to find query cursor with ID: " + req.cursorId()));
-        }
-
-        ResultSetMetadata metadata = cur.metadata();
-
-        if (metadata == null) {
-            return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(Response.STATUS_FAILED,
-                    "Failed to get query metadata for cursor with ID : " + req.cursorId()));
-        }
-
-        List<JdbcColumnMeta> meta = metadata.columns().stream()
-                .map(this::createColumnMetadata)
-                .collect(Collectors.toList());
-
-        return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(meta));
-    }
-
-    /**
-     * Create Jdbc representation of column metadata from given origin and RelDataTypeField field.
-     *
-     * @param fldMeta field metadata contains info about column.
-     * @return JdbcColumnMeta object.
-     */
-    private JdbcColumnMeta createColumnMetadata(ColumnMetadata fldMeta) {
-        ColumnOrigin origin = fldMeta.origin();
-
-        String schemaName = null;
-        String tblName = null;
-        String colName = null;
-
-        if (origin != null) {
-            schemaName = origin.schemaName();
-            tblName = origin.tableName();
-            colName = origin.columnName();
-        }
-
-        return new JdbcColumnMeta(
-                fldMeta.name(),
-                schemaName,
-                tblName,
-                colName,
-                Commons.columnTypeToClass(fldMeta.type()),
-                fldMeta.precision(),
-                fldMeta.scale(),
-                fldMeta.nullable()
-        );
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<JdbcMetaTablesResult> tablesMetaAsync(JdbcMetaTablesRequest req) {
-        return meta.getTablesMeta(req.schemaName(), req.tableName(), req.tableTypes()).thenApply(JdbcMetaTablesResult::new);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<JdbcMetaColumnsResult> columnsMetaAsync(JdbcMetaColumnsRequest req) {
-        return meta.getColumnsMeta(req.schemaName(), req.tableName(), req.columnName()).thenApply(JdbcMetaColumnsResult::new);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<JdbcMetaSchemasResult> schemasMetaAsync(JdbcMetaSchemasRequest req) {
-        return meta.getSchemasMeta(req.schemaName()).thenApply(JdbcMetaSchemasResult::new);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(JdbcMetaPrimaryKeysRequest req) {
-        return meta.getPrimaryKeys(req.schemaName(), req.tableName()).thenApply(JdbcMetaPrimaryKeysResult::new);
     }
 
     /**

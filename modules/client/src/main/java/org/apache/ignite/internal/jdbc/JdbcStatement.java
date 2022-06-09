@@ -36,14 +36,11 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteResult;
-import org.apache.ignite.internal.jdbc.proto.event.QuerySingleResult;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 
@@ -58,7 +55,7 @@ public class JdbcStatement implements Statement {
     protected final JdbcConnection conn;
 
     /** JDBC Connection implementation. */
-    protected final JdbcQueryEventHandler handler;
+    protected final JdbcClientQueryEventHandler handler;
 
     /** Result set holdability. */
     private final int resHoldability;
@@ -139,7 +136,7 @@ public class JdbcStatement implements Statement {
         QueryExecuteRequest req = new QueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql,
                 args == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : args.toArray());
 
-        QueryExecuteResult res;
+        ClientQueryExecuteResult res;
         try {
             res = handler.queryAsync(req).join();
         } catch (CompletionException e) {
@@ -152,7 +149,7 @@ public class JdbcStatement implements Statement {
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
         }
 
-        for (QuerySingleResult jdbcRes : res.results()) {
+        for (JdbcClientQuerySingleResult jdbcRes : res.results()) {
             if (!jdbcRes.hasResults()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(jdbcRes.err(), jdbcRes.status());
             }
@@ -160,10 +157,9 @@ public class JdbcStatement implements Statement {
 
         resSets = new ArrayList<>(res.results().size());
 
-        for (QuerySingleResult jdbcRes : res.results()) {
-            resSets.add(new JdbcResultSet(this, jdbcRes.cursorId(), pageSize,
-                    jdbcRes.last(), jdbcRes.items(), jdbcRes.isQuery(), false, jdbcRes.updateCount(),
-                    closeOnCompletion, handler));
+        for (JdbcClientQuerySingleResult jdbcRes : res.results()) {
+            resSets.add(new JdbcResultSet(this, pageSize, false, jdbcRes.updateCount(),
+                    closeOnCompletion, jdbcRes));
         }
 
         assert !resSets.isEmpty() : "At least one results set is expected";

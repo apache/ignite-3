@@ -17,11 +17,15 @@
 
 package org.apache.ignite.client.handler.requests.jdbc;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
-import org.apache.ignite.internal.jdbc.proto.event.QueryFetchRequest;
+import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
+import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Client jdbc request handler.
@@ -32,18 +36,38 @@ public class ClientJdbcFetchRequest {
      *
      * @param in      Client message unpacker.
      * @param out     Client message packer.
-     * @param handler Query event handler.
      * @return Operation future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            JdbcQueryEventHandler handler
-    ) {
-        var req = new QueryFetchRequest();
+            ClientResourceRegistry resources
+    ) throws IgniteInternalCheckedException {
+        long cursorId = in.unpackLong();
+        int fetchSize = in.unpackInt();
 
-        req.readBinary(in);
+        AsyncSqlCursor<List<Object>> cur = resources.get(cursorId).get(AsyncSqlCursor.class);
 
-        return handler.fetchAsync(req).thenAccept(res -> res.writeBinary(out));
+        if (fetchSize <= 0) {
+            new QueryFetchResult(Response.STATUS_FAILED,
+                    "Invalid fetch size : [fetchSize=" + fetchSize + ']').writeBinary(out);
+
+            return null;
+        }
+
+        cur.requestNextAsync(fetchSize).handle((batch, t) -> {
+            if (t != null) {
+//                StringWriter sw = getWriterWithStackTrace(t);
+
+                new QueryFetchResult(Response.STATUS_FAILED,
+                        "Failed to fetch results for cursor id " + cursorId).writeBinary(out);
+                return null;
+            }
+
+            new QueryFetchResult(batch.items(), batch.hasMore()).writeBinary(out);
+            return null;
+        }).toCompletableFuture();
+
+        return null;
     }
 }

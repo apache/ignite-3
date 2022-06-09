@@ -20,8 +20,8 @@ package org.apache.ignite.client.handler.requests.jdbc;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
 
 /**
  * Client jdbc table metadata request handler.
@@ -32,18 +32,19 @@ public class ClientJdbcTableMetadataRequest {
      *
      * @param in      Client message unpacker.
      * @param out     Client message packer.
-     * @param handler Query event handler.
+     * @param metadataCatalog JdbcMetadataCatalog.
      * @return Operation future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            JdbcQueryEventHandler handler
+            JdbcMetadataCatalog metadataCatalog
     ) {
         var req = new JdbcMetaTablesRequest();
 
         req.readBinary(in);
 
-        return handler.tablesMetaAsync(req).thenAccept(res -> res.writeBinary(out));
+        return metadataCatalog.getTablesMeta(req.schemaName(), req.tableName(), req.tableTypes())
+                .thenAccept(res -> new JdbcMetaTablesResult(res).writeBinary(out));
     }
 }

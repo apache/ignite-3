@@ -38,13 +38,9 @@ import java.util.LinkedList;
 import java.util.List;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
@@ -68,7 +64,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     private final JdbcConnection conn;
 
     /** Connection. */
-    private final JdbcQueryEventHandler handler;
+    private final JdbcClientQueryEventHandler handler;
 
     /**
      * Constructor.
@@ -903,7 +899,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
             return new JdbcResultSet(Collections.emptyList(), meta);
         }
 
-        JdbcMetaSchemasResult res = handler.schemasMetaAsync(new JdbcMetaSchemasRequest(schemaPtrn)).join();
+        JdbcMetaSchemasResult res = handler.schemasMetaAsync(schemaPtrn).join();
 
         if (!res.hasResults()) {
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
@@ -976,7 +972,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
             return new JdbcResultSet(Collections.emptyList(), meta);
         }
 
-        JdbcMetaColumnsResult res = handler.columnsMetaAsync(new JdbcMetaColumnsRequest(schemaPtrn, tblNamePtrn, colNamePtrn))
+        JdbcMetaColumnsResult res = handler.columnsMetaAsync(schemaPtrn, tblNamePtrn, colNamePtrn)
                 .join();
 
         if (!res.hasResults()) {
@@ -1071,7 +1067,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
             return new JdbcResultSet(Collections.emptyList(), meta);
         }
 
-        JdbcMetaPrimaryKeysResult res = handler.primaryKeysMetaAsync(new JdbcMetaPrimaryKeysRequest(schema, tbl)).join();
+        JdbcMetaPrimaryKeysResult res = handler.primaryKeysMetaAsync(schema, tbl).join();
 
         if (!res.hasResults()) {
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());

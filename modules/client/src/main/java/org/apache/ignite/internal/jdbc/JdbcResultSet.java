@@ -57,15 +57,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.QueryCloseResult;
-import org.apache.ignite.internal.jdbc.proto.event.QueryFetchRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
 
 /**
  * Jdbc result set implementation.
@@ -91,9 +86,6 @@ public class JdbcResultSet implements ResultSet {
 
     /** Statement. */
     private final JdbcStatement stmt;
-
-    /** Cursor ID. */
-    private final Long cursorId;
 
     /** Jdbc column metadata. */
     private List<JdbcColumnMeta> meta;
@@ -140,16 +132,16 @@ public class JdbcResultSet implements ResultSet {
     /** Close statement after close result set count. */
     private boolean closeStmt;
 
-    /** Query request handler. */
-    private JdbcQueryEventHandler qryHandler;
+//    /** Query request handler. */
+//    private JdbcQueryEventHandler qryHandler;
 
     /** Jdbc metadata. */
     private JdbcResultSetMetadata jdbcMeta;
+    private JdbcClientQuerySingleResult singleResult;
 
     /**
      * Creates new result set.
-     *
-     * @param stmt       Statement.
+     *  @param stmt       Statement.
      * @param cursorId   Cursor ID.
      * @param fetchSize  Fetch size.
      * @param finished   Finished flag.
@@ -160,26 +152,25 @@ public class JdbcResultSet implements ResultSet {
      * @param closeStmt  Close statement on the result set close.
      * @param qryHandler QueryEventHandler (local or remote).
      */
-    JdbcResultSet(JdbcStatement stmt, long cursorId, int fetchSize, boolean finished,
-            List<List<Object>> rows, boolean isQry, boolean autoClose, long updCnt, boolean closeStmt, JdbcQueryEventHandler qryHandler) {
+    JdbcResultSet(JdbcStatement stmt, int fetchSize, boolean autoClose, long updCnt, boolean closeStmt, JdbcClientQuerySingleResult singleResult) {
+
         assert stmt != null;
         assert fetchSize > 0;
 
-        this.qryHandler = qryHandler;
+        this.singleResult = singleResult;
         this.stmt = stmt;
-        this.cursorId = cursorId;
         this.fetchSize = fetchSize;
-        this.finished = finished;
-        this.isQuery = isQry;
+        this.finished = singleResult.last();
+        this.isQuery = singleResult.isQuery();
         this.autoClose = autoClose;
         this.closeStmt = closeStmt;
 
         if (isQuery) {
-            this.rows = rows;
+            this.rows = singleResult.items();
 
             rowsIter = rows != null ? rows.iterator() : null;
         } else {
-            this.updCnt = updCnt;
+            this.updCnt = singleResult.updateCount();
         }
     }
 
@@ -191,7 +182,6 @@ public class JdbcResultSet implements ResultSet {
      */
     public JdbcResultSet(List<List<Object>> rows, List<JdbcColumnMeta> meta) {
         stmt = null;
-        cursorId = null;
 
         finished = true;
         isQuery = true;
@@ -210,14 +200,14 @@ public class JdbcResultSet implements ResultSet {
         ensureNotClosed();
 
         if ((rowsIter == null || !rowsIter.hasNext()) && !finished) {
-            QueryFetchResult res = qryHandler.fetchAsync(new QueryFetchRequest(cursorId, fetchSize)).join();
+            singleResult.nextAsync(fetchSize).join();
 
-            if (!res.hasResults()) {
-                throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+            if (!singleResult.hasResults()) {
+                throw IgniteQueryErrorCode.createJdbcSqlException(singleResult.err(), singleResult.status());
             }
 
-            rows = res.items();
-            finished = res.last();
+            rows = singleResult.items();
+            finished = singleResult.last();
 
             rowsIter = rows.iterator();
         }
@@ -262,7 +252,7 @@ public class JdbcResultSet implements ResultSet {
 
         try {
             if (stmt != null && (!finished || (isQuery && !autoClose))) {
-                QueryCloseResult res = qryHandler.closeAsync(new QueryCloseRequest(cursorId)).join();
+                QueryCloseResult res = singleResult.closeAsync();
 
                 if (!res.hasResults()) {
                     throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
@@ -2195,9 +2185,13 @@ public class JdbcResultSet implements ResultSet {
         }
 
         if (!metaInit) {
-            JdbcMetaColumnsResult res = qryHandler.queryMetadataAsync(new JdbcQueryMetadataRequest(cursorId)).join();
+            JdbcMetaColumnsResult jdbcMetaColumnsResult = singleResult.metadataAsync();
 
-            meta = res.meta();
+            if (!jdbcMetaColumnsResult.hasResults()) {
+                throw new SQLException("Unable to get jdbc query metadata results: " + singleResult.err(), SqlStateCode.INTERNAL_ERROR);
+            }
+
+            meta = jdbcMetaColumnsResult.meta();
 
             metaInit = true;
         }
