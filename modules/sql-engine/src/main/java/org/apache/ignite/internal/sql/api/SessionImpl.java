@@ -243,8 +243,10 @@ public class SessionImpl implements Session {
             for (int i = 0; i < batch.size(); ++i) {
                 Object[] args = batch.get(i).toArray();
 
-                tail = tail.thenCompose(v -> qryProc.querySingleAsync(ctx, schema, query, args))
-                        .thenCompose(cur -> cur.requestNextAsync(1))
+                final var qryFut = tail
+                        .thenCompose(v -> qryProc.querySingleAsync(ctx, schema, query, args));
+
+                tail = qryFut.thenCompose(cur -> cur.requestNextAsync(1))
                         .thenAccept(page -> {
                             validateDmlResult(page);
 
@@ -252,7 +254,7 @@ public class SessionImpl implements Session {
                         })
                         .whenComplete((v, ex) -> {
                             if (ex instanceof CancellationException) {
-                                // TODO
+                                qryFut.cancel(false);
                             }
                         });
 
