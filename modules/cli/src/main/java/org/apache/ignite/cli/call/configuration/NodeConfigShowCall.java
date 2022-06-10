@@ -20,7 +20,7 @@ package org.apache.ignite.cli.call.configuration;
 import jakarta.inject.Singleton;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.exception.CommandExecutionException;
+import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -34,15 +34,13 @@ public class NodeConfigShowCall implements Call<NodeConfigShowCallInput, String>
 
     /** {@inheritDoc} */
     @Override
-    public DefaultCallOutput<String> execute(NodeConfigShowCallInput readConfigurationInput) {
-        NodeConfigurationApi client = createApiClient(readConfigurationInput);
+    public DefaultCallOutput<String> execute(NodeConfigShowCallInput input) {
+        NodeConfigurationApi client = createApiClient(input);
 
         try {
-            return DefaultCallOutput.success(readNodeConfig(client, readConfigurationInput));
-        } catch (ApiException e) {
-            return DefaultCallOutput.failure(e);
-        } catch (IllegalArgumentException e) {
-            return DefaultCallOutput.failure(new CommandExecutionException("node config show", e.getMessage()));
+            return DefaultCallOutput.success(readNodeConfig(client, input));
+        } catch (ApiException | IllegalArgumentException e) {
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, "get node configuration", input.getNodeUrl()));
         }
     }
 

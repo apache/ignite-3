@@ -23,22 +23,21 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.sql.SQLException;
+import org.apache.ignite.cli.call.sql.SqlQueryCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.decorators.SqlQueryResultDecorator;
 import org.apache.ignite.cli.core.CallExecutionPipelineProvider;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
-import org.apache.ignite.cli.core.exception.CommandExecutionException;
 import org.apache.ignite.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.exception.handler.SqlExceptionHandler;
 import org.apache.ignite.cli.core.repl.Repl;
 import org.apache.ignite.cli.core.repl.executor.RegistryCommandExecutor;
 import org.apache.ignite.cli.core.repl.executor.ReplExecutorProvider;
-import org.apache.ignite.cli.core.repl.executor.SqlQueryCall;
+import org.apache.ignite.cli.deprecated.IgniteCliException;
 import org.apache.ignite.cli.sql.SqlManager;
 import org.apache.ignite.cli.sql.SqlSchemaProvider;
-import org.jetbrains.annotations.NotNull;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -72,7 +71,7 @@ public class SqlReplCommand extends BaseCommand {
         try {
             return String.join("\n", Files.readAllLines(file.toPath(), StandardCharsets.UTF_8));
         } catch (IOException e) {
-            throw new CommandExecutionException("sql", "File with command not found.");
+            throw new IgniteCliException("File with command not found.");
         }
     }
 
@@ -100,7 +99,6 @@ public class SqlReplCommand extends BaseCommand {
         }
     }
 
-    @NotNull
     private CallExecutionPipelineProvider provider(SqlManager sqlManager) {
         return (call, exceptionHandlers, line) -> line.startsWith(INTERNAL_COMMAND_PREFIX)
                 ? createInternalCommandPipeline(call, exceptionHandlers, line)

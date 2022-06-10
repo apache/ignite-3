@@ -18,12 +18,11 @@
 package org.apache.ignite.cli.call.status;
 
 import jakarta.inject.Singleton;
-import java.net.ConnectException;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.CallOutput;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.cli.core.call.StatusCallInput;
-import org.apache.ignite.cli.core.exception.CommandExecutionException;
+import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.cli.deprecated.CliPathsConfigLoader;
 import org.apache.ignite.cli.deprecated.IgnitePaths;
 import org.apache.ignite.cli.deprecated.builtins.node.NodeManager;
@@ -41,7 +40,6 @@ import org.apache.ignite.rest.client.invoker.Configuration;
 public class StatusCall implements Call<StatusCallInput, Status> {
 
     private final NodeManager nodeManager;
-
     private final CliPathsConfigLoader cliPathsCfgLdr;
 
     /**
@@ -55,32 +53,27 @@ public class StatusCall implements Call<StatusCallInput, Status> {
     @Override
     public CallOutput<Status> execute(StatusCallInput input) {
         IgnitePaths paths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
-        String connected = null;
         try {
-            connected = createNodeApi(input).getNodeConfiguration();
-        } catch (ApiException e) {
-            if (e.getCause() instanceof ConnectException) {
-                return DefaultCallOutput.failure(new CommandExecutionException("status", "cannot connect to " + input.getClusterUrl()));
-            } else {
-                return DefaultCallOutput.failure(e);
-            }
+            String connected = createNodeApi(input).getNodeConfiguration();
+            return DefaultCallOutput.success(
+                    Status.builder()
+                            .connected(connected != null)
+                            .connectedNodeUrl(input.getClusterUrl())
+                            .initialized(connected != null && canReadClusterConfig(input))
+                            .nodeCount(nodeManager.getRunningNodes(paths.logDir, paths.cliPidsDir()).size())
+                            .build()
+            );
+        } catch (ApiException | IllegalArgumentException e) {
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, "get node configuration", input.getClusterUrl()));
         }
-        return DefaultCallOutput.success(
-                Status.builder()
-                        .connected(connected != null)
-                        .connectedNodeUrl(input.getClusterUrl())
-                        .initialized(connected != null && canReadClusterConfig(input))
-                        .nodeCount(nodeManager.getRunningNodes(paths.logDir, paths.cliPidsDir()).size())
-                        .build()
-        );
     }
 
     private boolean canReadClusterConfig(StatusCallInput input) {
-        var clusterApi = createClusterApi(input);
+        ClusterConfigurationApi clusterApi = createClusterApi(input);
         try {
             clusterApi.getClusterConfiguration();
             return true;
-        } catch (ApiException e) {
+        } catch (ApiException | IllegalArgumentException e) {
             return false;
         }
     }

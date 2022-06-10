@@ -15,24 +15,43 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.exception.handler;
-
-import org.apache.ignite.cli.core.exception.ExceptionHandlers;
+package org.apache.ignite.cli.core.exception;
 
 /**
- * Default collection of exception handlers.
+ * Top level runtime exception for throwing the error message from REST API to user.
  */
-public class DefaultExceptionHandlers extends ExceptionHandlers {
+public class IgniteCliApiException extends RuntimeException {
+
+    private final String call;
+    private final String url;
 
     /**
-     * Constructor.
+     * Creates a new instance of {@code IgniteCliApiException}.
+     *
+     * @param cause the cause.
+     * @param call REST API call.
+     * @param url endpoint URL.
      */
-    public DefaultExceptionHandlers() {
-        addExceptionHandler(new SqlExceptionHandler());
-        addExceptionHandler(new TimeoutExceptionHandler());
-        addExceptionHandler(new IgniteClientExceptionHandler());
-        addExceptionHandler(new IgniteCliExceptionHandler());
-        addExceptionHandler(new IgniteCliApiExceptionHandler());
-        addExceptionHandler(new UnknownCommandExceptionHandler());
+    public IgniteCliApiException(Throwable cause, String call, String url) {
+        super(cause);
+        this.call = call;
+        this.url = url;
+    }
+
+    /**
+     * Gets the REST API call
+     * @return call.
+     */
+    public String getCall() {
+        return call;
+    }
+
+    /**
+     * Gets the endpoint URL.
+     *
+     * @return endpoint URL.
+     */
+    public String getUrl() {
+        return url;
     }
 }

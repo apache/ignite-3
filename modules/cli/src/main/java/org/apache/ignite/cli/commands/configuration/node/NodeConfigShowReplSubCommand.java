@@ -23,10 +23,7 @@ import org.apache.ignite.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.decorators.JsonDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.exception.ExceptionHandler;
-import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.repl.Session;
-import org.apache.ignite.rest.client.invoker.ApiException;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -75,26 +72,7 @@ public class NodeConfigShowReplSubCommand extends BaseCommand {
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new JsonDecorator())
-                .exceptionHandler(new ShowConfigReplExceptionHandler())
                 .build()
                 .runPipeline();
-    }
-
-    private static class ShowConfigReplExceptionHandler implements ExceptionHandler<ApiException> {
-        @Override
-        public int handle(ExceptionWriter err, ApiException e) {
-            if (e.getCode() == 500) { //TODO: https://issues.apache.org/jira/browse/IGNITE-17091
-                err.write("Cannot show node config, probably you have not initialized the cluster. "
-                        + "Try to run 'cluster init' command.");
-            } else {
-                err.write(e.getResponseBody());
-            }
-            return 1;
-        }
-
-        @Override
-        public Class<ApiException> applicableException() {
-            return ApiException.class;
-        }
     }
 }

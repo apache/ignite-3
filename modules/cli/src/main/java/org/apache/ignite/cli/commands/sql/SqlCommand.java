@@ -22,14 +22,14 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.sql.SQLException;
+import org.apache.ignite.cli.call.sql.SqlQueryCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.decorators.SqlQueryResultDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
-import org.apache.ignite.cli.core.exception.CommandExecutionException;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.exception.handler.SqlExceptionHandler;
-import org.apache.ignite.cli.core.repl.executor.SqlQueryCall;
+import org.apache.ignite.cli.deprecated.IgniteCliException;
 import org.apache.ignite.cli.sql.SqlManager;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
@@ -60,7 +60,7 @@ public class SqlCommand extends BaseCommand {
         try {
             return String.join("\n", Files.readAllLines(file.toPath(), StandardCharsets.UTF_8));
         } catch (IOException e) {
-            throw new CommandExecutionException("sql", "File with command not found.");
+            throw new IgniteCliException("File with command not found.");
         }
     }
 

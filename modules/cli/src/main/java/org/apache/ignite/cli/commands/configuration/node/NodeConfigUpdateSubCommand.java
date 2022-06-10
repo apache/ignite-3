@@ -34,8 +34,6 @@ import picocli.CommandLine.Parameters;
         description = "Updates node configuration.")
 @Singleton
 public class NodeConfigUpdateSubCommand extends BaseCommand {
-    @Inject
-    NodeConfigUpdateCall call;
     /**
      * Node url option.
      */
@@ -44,11 +42,15 @@ public class NodeConfigUpdateSubCommand extends BaseCommand {
             descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
     )
     private String nodeUrl;
+
     /**
      * Configuration that will be updated.
      */
     @Parameters(index = "0")
     private String config;
+
+    @Inject
+    private NodeConfigUpdateCall call;
 
     /** {@inheritDoc} */
     @Override
