@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
@@ -227,7 +228,10 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         ConfigurationUtil.addDefaults(superRoot);
 
         if (!annotation.name().isEmpty()) {
-            superRoot.getRoot(rootKey).setInjectedNameFieldValue(annotation.name());
+            InnerNode root = superRoot.getRoot(rootKey);
+
+            root.internalId(UUID.randomUUID());
+            root.setInjectedNameFieldValue(annotation.name());
         }
 
         // Reference to the super root is required to make DynamicConfigurationChanger#change method atomic.
