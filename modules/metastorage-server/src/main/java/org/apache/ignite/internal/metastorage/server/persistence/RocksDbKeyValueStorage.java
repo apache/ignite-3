@@ -835,7 +835,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      */
     @NotNull
     Entry doGet(byte[] key, long revUpperBound) {
-        assert revUpperBound >= LATEST_REV : "Invalid arguments: [rev=" + rev + ']';
+        assert revUpperBound >= LATEST_REV : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
 
         long[] revs;
         try {
