@@ -21,7 +21,6 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -32,9 +31,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryTimeout;
+import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.QueryValidator;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionNotFound;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -63,35 +63,25 @@ public class SessionImpl implements Session {
 
     private final SessionId sessionId;
 
-    private final long timeout;
-
-    private final String schema;
-
     private final int pageSize;
 
-    private final Map<String, Object> props;
+    private final PropertiesHolder props;
 
     /**
      * Constructor.
      *
      * @param qryProc Query processor.
-     * @param schema  Query default schema.
-     * @param timeout Query default timeout.
      * @param pageSize Query fetch page size.
      * @param props Session's properties.
      */
     SessionImpl(
             SessionId sessionId,
             QueryProcessor qryProc,
-            String schema,
-            long timeout,
             int pageSize,
-            Map<String, Object> props
+            PropertiesHolder props
     ) {
         this.qryProc = qryProc;
         this.sessionId = sessionId;
-        this.schema = schema;
-        this.timeout = timeout;
         this.pageSize = pageSize;
         this.props = props;
     }
@@ -111,13 +101,13 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public long defaultTimeout(TimeUnit timeUnit) {
-        return timeUnit.convert(timeout, TimeUnit.NANOSECONDS);
+        return timeUnit.convert(props.get(QueryProperty.QUERY_TIMEOUT), TimeUnit.NANOSECONDS);
     }
 
     /** {@inheritDoc} */
     @Override
     public String defaultSchema() {
-        return schema;
+        return props.get(QueryProperty.DEFAULT_SCHEMA);
     }
 
     /** {@inheritDoc} */
@@ -129,16 +119,20 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public @Nullable Object property(String name) {
-        return props.get(name);
+        var prop = QueryProperty.byName(name);
+
+        if (prop == null) {
+            return null;
+        }
+
+        return props.get(prop);
     }
 
     /** {@inheritDoc} */
     @Override
     public SessionBuilder toBuilder() {
-        return new SessionBuilderImpl(qryProc, new HashMap<>(props))
-                .defaultPageSize(pageSize)
-                .defaultTimeout(timeout, TimeUnit.NANOSECONDS)
-                .defaultSchema(schema);
+        return new SessionBuilderImpl(qryProc, new HashMap<>(props.toMap()))
+                .defaultPageSize(pageSize);
     }
 
     /** {@inheritDoc} */
@@ -149,9 +143,9 @@ public class SessionImpl implements Session {
         }
 
         try {
-            QueryContext ctx = QueryContext.of(transaction, new QueryTimeout(timeout, TimeUnit.NANOSECONDS));
+            QueryContext ctx = QueryContext.of(transaction);
 
-            CompletableFuture<AsyncResultSet> result = qryProc.querySingleAsync(sessionId, ctx, schema, query, arguments)
+            CompletableFuture<AsyncResultSet> result = qryProc.querySingleAsync(sessionId, ctx, query, arguments)
                     .thenCompose(cur -> cur.requestNextAsync(pageSize)
                             .thenApply(
                                     batchRes -> new AsyncResultSetImpl(
@@ -198,7 +192,6 @@ public class SessionImpl implements Session {
         try {
             QueryContext ctx = QueryContext.of(
                     transaction,
-                    new QueryTimeout(timeout, TimeUnit.NANOSECONDS),
                     (QueryValidator) plan -> {
                         if (plan.type() != Type.DML) {
                             throw new SqlException("Invalid SQL statement type in the batch [plan=" + plan + ']');
@@ -214,7 +207,7 @@ public class SessionImpl implements Session {
                 Object[] args = batch.get(i).toArray();
 
                 final var qryFut = tail
-                        .thenCompose(v -> qryProc.querySingleAsync(sessionId, ctx, schema, query, args));
+                        .thenCompose(v -> qryProc.querySingleAsync(sessionId, ctx, query, args));
 
                 tail = qryFut.thenCompose(cur -> cur.requestNextAsync(1))
                         .thenAccept(page -> {

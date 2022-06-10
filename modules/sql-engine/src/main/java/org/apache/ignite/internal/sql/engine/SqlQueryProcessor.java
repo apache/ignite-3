@@ -51,6 +51,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.session.AsyncCloseable;
@@ -188,8 +189,11 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     @Override
-    public SessionId createSession() {
-        return sessionManager.createSession(TimeUnit.MINUTES.toMillis(5));
+    public SessionId createSession(PropertiesHolder queryProperties) {
+        return sessionManager.createSession(
+                TimeUnit.MINUTES.toMillis(5),
+                queryProperties
+        );
     }
 
     @Override
@@ -246,14 +250,14 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
-            SessionId sessionId, QueryContext context, String schemaName, String qry,
-            Object... params) {
+            SessionId sessionId, QueryContext context, String qry, Object... params
+    ) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(new NodeStoppingException());
         }
 
         try {
-            return querySingle0(sessionId, context, schemaName, qry, params);
+            return querySingle0(sessionId, context, qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -274,7 +278,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
             SessionId sessionId,
             QueryContext context,
-            String schemaName,
             String sql,
             Object... params
     ) {
@@ -283,6 +286,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         if (session == null) {
             return CompletableFuture.failedFuture(new SessionNotFound(sessionId));
         }
+
+        var schemaName = session.queryProperties().get(QueryProperty.DEFAULT_SCHEMA);
 
         SchemaPlus schema = schemaManager.schema(schemaName);
 

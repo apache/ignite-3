@@ -7,6 +7,7 @@ import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.util.IgniteSpinReadWriteLock;
 
 public class Session implements AsyncCloseable {
@@ -26,16 +27,24 @@ public class Session implements AsyncCloseable {
 
     private final long idleTimeoutMs;
 
+    private final PropertiesHolder queryProperties;
+
     public Session(
             SessionId sessionId,
             CurrentTimeProvider currentTimeProvider,
-            long idleTimeoutMs
+            long idleTimeoutMs,
+            PropertiesHolder queryProperties
     ) {
         this.sessionId = sessionId;
         this.currentTimeProvider = currentTimeProvider;
         this.idleTimeoutMs = idleTimeoutMs;
+        this.queryProperties = queryProperties;
 
         lastTouched = new AtomicLong(currentTimeProvider.now());
+    }
+
+    public PropertiesHolder queryProperties() {
+        return queryProperties;
     }
 
     public SessionId sessionId() {
