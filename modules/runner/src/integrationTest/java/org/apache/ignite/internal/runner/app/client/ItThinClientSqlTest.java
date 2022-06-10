@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app.client;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -29,6 +30,7 @@ import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
@@ -66,6 +68,26 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
+    void testExecuteSimpleSelect() {
+        ResultSet resultSet = client().sql()
+                .createSession()
+                .execute(null, "select 1 as num, 'hello' as str");
+
+        assertTrue(resultSet.hasRowSet());
+        assertFalse(resultSet.wasApplied());
+        assertEquals(-1, resultSet.affectedRows());
+
+        SqlRow row = resultSet.next();
+        assertEquals(1, row.intValue(0));
+        assertEquals("hello", row.stringValue(1));
+
+        List<ColumnMetadata> columns = resultSet.metadata().columns();
+        assertEquals(2, columns.size());
+        assertEquals("NUM", columns.get(0).name());
+        assertEquals("STR", columns.get(1).name());
+    }
+
+    @Test
     void testExecuteAsyncDdlDml() {
         Session session = client().sql().createSession();
 
@@ -75,6 +97,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 .join();
 
         assertFalse(createRes.hasRowSet());
+        assertNull(createRes.metadata());
         assertTrue(createRes.wasApplied());
         assertEquals(-1, createRes.affectedRows());
         assertThrows(NoRowSetExpectedException.class, createRes::currentPageSize);
@@ -86,20 +109,27 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                     .join();
 
             assertFalse(insertRes.hasRowSet());
+            assertNull(insertRes.metadata());
             assertFalse(insertRes.wasApplied());
             assertEquals(1, insertRes.affectedRows());
-            assertThrows(NoRowSetExpectedException.class, createRes::currentPage);
+            assertThrows(NoRowSetExpectedException.class, insertRes::currentPage);
         }
 
         // Query data.
         AsyncResultSet selectRes = session
-                .executeAsync(null, "SELECT VAL, ID, ID + 1 FROM testExecuteAsyncDdlDml ORDER BY ID")
+                .executeAsync(null, "SELECT VAL as MYVALUE, ID, ID + 1 FROM testExecuteAsyncDdlDml ORDER BY ID")
                 .join();
 
         assertTrue(selectRes.hasRowSet());
         assertFalse(selectRes.wasApplied());
         assertEquals(-1, selectRes.affectedRows());
         assertEquals(10, selectRes.currentPageSize());
+
+        List<ColumnMetadata> columns = selectRes.metadata().columns();
+        assertEquals(3, columns.size());
+        assertEquals("MYVALUE", columns.get(0).name());
+        assertEquals("ID", columns.get(1).name());
+        assertEquals("ID + 1", columns.get(2).name());
 
         var rows = new ArrayList<SqlRow>();
         selectRes.currentPage().forEach(rows::add);
@@ -115,12 +145,76 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         assertFalse(updateRes.wasApplied());
         assertFalse(updateRes.hasRowSet());
+        assertNull(updateRes.metadata());
         assertEquals(5, updateRes.affectedRows());
 
         // Delete table.
         AsyncResultSet deleteRes = session.executeAsync(null, "DROP TABLE testExecuteAsyncDdlDml").join();
 
         assertFalse(deleteRes.hasRowSet());
+        assertNull(deleteRes.metadata());
+        assertTrue(deleteRes.wasApplied());
+    }
+
+    @Test
+    void testExecuteDdlDml() {
+        Session session = client().sql().createSession();
+
+        // Create table.
+        ResultSet createRes = session
+                .execute(null, "CREATE TABLE testExecuteDdlDml(ID INT PRIMARY KEY, VAL VARCHAR)");
+
+        assertFalse(createRes.hasRowSet());
+        assertNull(createRes.metadata());
+        assertTrue(createRes.wasApplied());
+        assertEquals(-1, createRes.affectedRows());
+
+        // Insert data.
+        for (int i = 0; i < 10; i++) {
+            ResultSet insertRes = session
+                    .execute(null, "INSERT INTO testExecuteDdlDml VALUES (?, ?)", i, "hello " + i);
+
+            assertFalse(insertRes.hasRowSet());
+            assertNull(insertRes.metadata());
+            assertFalse(insertRes.wasApplied());
+            assertEquals(1, insertRes.affectedRows());
+        }
+
+        // Query data.
+        ResultSet selectRes = session
+                .execute(null, "SELECT VAL as MYVALUE, ID, ID + 1 FROM testExecuteDdlDml ORDER BY ID");
+
+        assertTrue(selectRes.hasRowSet());
+        assertFalse(selectRes.wasApplied());
+        assertEquals(-1, selectRes.affectedRows());
+
+        List<ColumnMetadata> columns = selectRes.metadata().columns();
+        assertEquals(3, columns.size());
+        assertEquals("MYVALUE", columns.get(0).name());
+        assertEquals("ID", columns.get(1).name());
+        assertEquals("ID + 1", columns.get(2).name());
+
+        var rows = new ArrayList<SqlRow>();
+        selectRes.forEachRemaining(rows::add);
+
+        assertEquals(10, rows.size());
+        assertEquals("hello 1", rows.get(1).stringValue(0));
+        assertEquals(1, rows.get(1).intValue(1));
+        assertEquals(2, rows.get(1).intValue(2));
+
+        // Update data.
+        ResultSet updateRes = session.execute(null, "UPDATE testExecuteDdlDml SET VAL='upd' WHERE ID < 5");
+
+        assertFalse(updateRes.wasApplied());
+        assertFalse(updateRes.hasRowSet());
+        assertNull(updateRes.metadata());
+        assertEquals(5, updateRes.affectedRows());
+
+        // Delete table.
+        ResultSet deleteRes = session.execute(null, "DROP TABLE testExecuteDdlDml");
+
+        assertFalse(deleteRes.hasRowSet());
+        assertNull(deleteRes.metadata());
         assertTrue(deleteRes.wasApplied());
     }
 

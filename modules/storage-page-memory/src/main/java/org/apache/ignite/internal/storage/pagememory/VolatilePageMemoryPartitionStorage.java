@@ -48,11 +48,11 @@ import org.jetbrains.annotations.Nullable;
  */
 // TODO: IGNITE-16644 Support snapshots.
 class VolatilePageMemoryPartitionStorage implements PartitionStorage {
-    private final int partId;
+    protected final int partId;
 
-    private final TableTree tree;
+    protected final TableTree tree;
 
-    private final TableFreeList freeList;
+    protected final TableFreeList freeList;
 
     /**
      * Constructor.

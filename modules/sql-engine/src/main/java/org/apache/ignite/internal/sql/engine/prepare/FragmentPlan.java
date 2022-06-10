@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
-import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
  * FragmentPlan.
@@ -53,7 +52,7 @@ public class FragmentPlan implements QueryPlan {
     /** {@inheritDoc} */
     @Override
     public ResultSetMetadata metadata() {
-        return List::of;
+        throw new IllegalStateException("Metadata is not available for a FragmentPlan.");
     }
 
     /** {@inheritDoc} */
