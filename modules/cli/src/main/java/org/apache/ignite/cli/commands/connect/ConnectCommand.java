@@ -24,9 +24,7 @@ import org.apache.ignite.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Parameters;
-import picocli.CommandLine.Spec;
 
 /**
  * Connects to the Ignite 3 node.
@@ -43,9 +41,6 @@ public class ConnectCommand extends BaseCommand {
             descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
     )
     private String nodeUrl;
-
-    @Spec
-    private CommandSpec spec;
 
     @Inject
     private ConnectCall connectCall;
