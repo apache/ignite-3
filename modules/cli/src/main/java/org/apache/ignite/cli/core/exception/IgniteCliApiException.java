@@ -39,7 +39,8 @@ public class IgniteCliApiException extends RuntimeException {
     }
 
     /**
-     * Gets the REST API call
+     * Gets the REST API call.
+     *
      * @return call.
      */
     public String getCall() {
