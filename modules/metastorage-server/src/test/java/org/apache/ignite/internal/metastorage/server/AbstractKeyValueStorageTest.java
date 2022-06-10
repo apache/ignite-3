@@ -107,6 +107,94 @@ public abstract class AbstractKeyValueStorageTest {
     }
 
     @Test
+    void getWithRevisionBound() {
+        byte[] key1 = key(1);
+        byte[] val1 = keyValue(1, 1);
+
+        final byte[] key2 = key(2);
+        final byte[] val2_1 = keyValue(2, 21);
+        final byte[] val2_2 = keyValue(2, 22);
+
+        final byte[] key3 = key(3);
+        final byte[] val3 = keyValue(3, 3);
+
+        final byte[] key4 = key(4);
+
+        assertEquals(0, storage.revision());
+        assertEquals(0, storage.updateCounter());
+
+        // Regular put.
+        storage.put(key1, val1);
+
+        // Rewrite.
+        storage.put(key2, val2_1);
+        storage.put(key2, val2_2);
+
+        // Remove.
+        storage.put(key3, val3);
+        storage.remove(key3);
+
+        assertEquals(5, storage.revision());
+        assertEquals(5, storage.updateCounter());
+
+        // Bounded by revision 2.
+        Entry key1EntryBounded2 = storage.get(key1, 2);
+
+        assertNotNull(key1EntryBounded2);
+        assertEquals(1, key1EntryBounded2.revision());
+        assertEquals(1, key1EntryBounded2.updateCounter());
+        assertArrayEquals(val1, key1EntryBounded2.value());
+        assertFalse(key1EntryBounded2.tombstone());
+        assertFalse(key1EntryBounded2.empty());
+
+        Entry key2EntryBounded2 = storage.get(key2, 2);
+
+        assertNotNull(key2EntryBounded2);
+        assertEquals(2, key2EntryBounded2.revision());
+        assertEquals(2, key2EntryBounded2.updateCounter());
+        assertArrayEquals(val2_1, key2EntryBounded2.value());
+        assertFalse(key2EntryBounded2.tombstone());
+        assertFalse(key2EntryBounded2.empty());
+
+        Entry key3EntryBounded2 = storage.get(key3, 2);
+
+        assertNotNull(key3EntryBounded2);
+        assertEquals(0, key3EntryBounded2.revision());
+        assertEquals(0, key3EntryBounded2.updateCounter());
+        assertNull(key3EntryBounded2.value());
+        assertFalse(key3EntryBounded2.tombstone());
+        assertTrue(key3EntryBounded2.empty());
+
+        // Bounded by revision 5.
+        Entry key1EntryBounded5 = storage.get(key1, 5);
+
+        assertNotNull(key1EntryBounded5);
+        assertEquals(1, key1EntryBounded5.revision());
+        assertEquals(1, key1EntryBounded5.updateCounter());
+        assertArrayEquals(val1, key1EntryBounded5.value());
+        assertFalse(key1EntryBounded5.tombstone());
+        assertFalse(key1EntryBounded5.empty());
+
+        Entry key2EntryBounded5 = storage.get(key2, 5);
+
+        assertNotNull(key2EntryBounded5);
+        assertEquals(3, key2EntryBounded5.revision());
+        assertEquals(3, key2EntryBounded5.updateCounter());
+        assertArrayEquals(val2_2, key2EntryBounded5.value());
+        assertFalse(key2EntryBounded5.tombstone());
+        assertFalse(key2EntryBounded5.empty());
+
+        Entry key3EntryBounded5 = storage.get(key3, 5);
+
+        assertNotNull(key3EntryBounded5);
+        assertEquals(5, key3EntryBounded5.revision());
+        assertEquals(5, key3EntryBounded5.updateCounter());
+        assertTrue(key3EntryBounded5.tombstone());
+        assertNull(key3EntryBounded5.value());
+        assertFalse(key3EntryBounded5.empty());
+    }
+
+    @Test
     void getAll() {
         byte[] key1 = key(1);
         byte[] val1 = keyValue(1, 1);

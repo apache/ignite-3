@@ -146,16 +146,16 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     @Override
     public Entry get(byte[] key) {
         synchronized (mux) {
-            return doGet(key, LATEST_REV, false);
+            return doGet(key, LATEST_REV);
         }
     }
 
     /** {@inheritDoc} */
     @NotNull
     @Override
-    public Entry get(byte[] key, long rev) {
+    public Entry get(byte[] key, long revUpperBound) {
         synchronized (mux) {
-            return doGet(key, rev, true);
+            return doGet(key, revUpperBound);
         }
     }
 
@@ -190,7 +190,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     @Override
     public Entry getAndRemove(byte[] key) {
         synchronized (mux) {
-            Entry e = doGet(key, LATEST_REV, false);
+            Entry e = doGet(key, LATEST_REV);
 
             if (e.empty() || e.tombstone()) {
                 return e;
@@ -211,7 +211,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             List<byte[]> vals = new ArrayList<>(keys.size());
 
             for (byte[] key : keys) {
-                Entry e = doGet(key, LATEST_REV, false);
+                Entry e = doGet(key, LATEST_REV);
 
                 if (e.empty() || e.tombstone()) {
                     continue;
@@ -240,7 +240,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             List<byte[]> vals = new ArrayList<>(keys.size());
 
             for (byte[] key : keys) {
-                Entry e = doGet(key, LATEST_REV, false);
+                Entry e = doGet(key, LATEST_REV);
 
                 res.add(e);
 
@@ -434,7 +434,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     private boolean doRemove(byte[] key, long curRev) {
-        Entry e = doGet(key, LATEST_REV, false);
+        Entry e = doGet(key, LATEST_REV);
 
         if (e.empty() || e.tombstone()) {
             return false;
@@ -479,7 +479,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
         synchronized (mux) {
             for (byte[] key : keys) {
-                res.add(doGet(key, rev, false));
+                res.add(doGet(key, rev));
             }
         }
 
@@ -487,9 +487,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @NotNull
-    private Entry doGet(byte[] key, long rev, boolean exactRev) {
-        assert rev == LATEST_REV && !exactRev || rev > LATEST_REV :
-                "Invalid arguments: [rev=" + rev + ", exactRev=" + exactRev + ']';
+    private Entry doGet(byte[] key, long revUpperBound) {
+        assert revUpperBound >= LATEST_REV : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
 
         List<Long> revs = keysIdx.get(key);
 
@@ -499,10 +498,10 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
         long lastRev;
 
-        if (rev == LATEST_REV) {
+        if (revUpperBound == LATEST_REV) {
             lastRev = lastRevision(revs);
         } else {
-            lastRev = exactRev ? rev : maxRevision(revs, rev);
+            lastRev = maxRevision(revs, revUpperBound);
         }
 
         // lastRev can be -1 if maxRevision return -1.
@@ -853,7 +852,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                                             newEntry = new Entry(key, val.bytes(), nextRetRev, val.updateCounter());
                                         }
 
-                                        Entry oldEntry = doGet(key, nextRetRev - 1, false);
+                                        Entry oldEntry = doGet(key, nextRetRev - 1);
 
                                         evts.add(new EntryEvent(oldEntry, newEntry));
                                     }
