@@ -30,13 +30,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.sample.DiscoveryConfiguration;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
+import org.apache.ignite.internal.configuration.sample.ExtendedDiscoveryConfiguration;
+import org.apache.ignite.internal.configuration.sample.ExtendedDiscoveryConfigurationSchema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -46,7 +43,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 class ConfigurationExtensionTest {
     /** Injected field. */
-    @InjectConfiguration
+    @InjectConfiguration(internalExtensions = ExtendedDiscoveryConfigurationSchema.class)
     private DiscoveryConfiguration fieldCfg;
 
     @InjectRevisionListenerHolder
@@ -179,14 +176,10 @@ class ConfigurationExtensionTest {
     @Test
     public void testInjectInternalId(
             @InjectConfiguration(
-                    name = "test",
-                    polymorphicExtensions = {
-                            SortedIndexConfigurationSchema.class,
-                            UnknownDataStorageConfigurationSchema.class
-                    },
-                    internalExtensions = { ExtendedTableConfigurationSchema.class }
-            ) TableConfiguration tableCfg
+                    internalExtensions = ExtendedDiscoveryConfigurationSchema.class,
+                    name = "test"
+            ) DiscoveryConfiguration discoveryConfig
     ) {
-        assertNotNull(((ExtendedTableConfiguration) tableCfg).id().value());
+        assertNotNull(((ExtendedDiscoveryConfiguration) discoveryConfig).id().value());
     }
 }
