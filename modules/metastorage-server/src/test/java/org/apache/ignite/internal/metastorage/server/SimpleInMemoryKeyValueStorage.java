@@ -487,8 +487,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @NotNull
-    private Entry doGet(byte[] key, long upperBoundRev) {
-        assert upperBoundRev >= LATEST_REV : "Invalid arguments: [upperBoundRev=" + upperBoundRev + ']';
+    private Entry doGet(byte[] key, long revUpperBound) {
+        assert revUpperBound >= LATEST_REV : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
 
         List<Long> revs = keysIdx.get(key);
 
@@ -498,10 +498,10 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
         long lastRev;
 
-        if (upperBoundRev == LATEST_REV) {
+        if (revUpperBound == LATEST_REV) {
             lastRev = lastRevision(revs);
         } else {
-            lastRev = maxRevision(revs, upperBoundRev);
+            lastRev = maxRevision(revs, revUpperBound);
         }
 
         // lastRev can be -1 if maxRevision return -1.
