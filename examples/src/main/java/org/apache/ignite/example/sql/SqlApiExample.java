@@ -113,7 +113,7 @@ public class SqlApiExample {
                                         .add(2, 1, "Jane", "Roe", 2000.0d)
                                         .add(3, 1, "Mary", "Major", 1500.0d)
                                         .add(4, 1, "Richard", "Miles", 1450.0d)))
-                        .asLongStream().sum();
+                        .sum();
 
                 System.out.println("\nAdded accounts: " + rowsAdded);
 

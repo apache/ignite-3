@@ -331,6 +331,60 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy
+     * <b>including</b> that throwable itself.
+     *
+     * <p>Note that this method follows includes {@link Throwable#getSuppressed()} into check.
+     *
+     * @param t   Throwable to check.
+     * @param cls Cause classes to check.
+     * @return reference to the cause error if found, otherwise returns {@code null}.
+     */
+    public static <T extends Throwable> T cause(
+            @NotNull Throwable t,
+            @NotNull Class<T> cls
+    ) {
+        return cause(t, cls, null);
+    }
+
+    /**
+     * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy
+     * <b>including</b> that throwable itself.
+     *
+     * <p>Note that this method follows includes {@link Throwable#getSuppressed()} into check.
+     *
+     * @param t   Throwable to check.
+     * @param cls Cause classes to check.
+     * @param msg Message text that should be in cause (if {@code null}, message won't be checked).
+     * @return reference to the cause error if found, otherwise returns {@code null}.
+     */
+    public static <T extends Throwable> T cause(
+            @NotNull Throwable t,
+            @NotNull Class<T> cls,
+            @Nullable String msg
+    ) {
+        for (Throwable th = t; th != null; th = th.getCause()) {
+            if (cls.isAssignableFrom(th.getClass())) {
+                if (msg != null) {
+                    if (th.getMessage() != null && th.getMessage().contains(msg)) {
+                        return (T) th;
+                    } else {
+                        continue;
+                    }
+                }
+
+                return (T) th;
+            }
+
+            if (th.getCause() == th) {
+                break;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Runs runnable task asyncronously.
      *
      * @param task Runnable.

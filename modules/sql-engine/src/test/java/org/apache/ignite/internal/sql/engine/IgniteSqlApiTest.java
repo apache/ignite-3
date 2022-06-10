@@ -142,7 +142,7 @@ public class IgniteSqlApiTest {
         assertFalse(rs.hasRowSet());
 
         // Execute batched DML query.
-        int[] res = sess.executeBatch(null, "INSERT INTO tbl VALUES (?, ?)",
+        long[] res = sess.executeBatch(null, "INSERT INTO tbl VALUES (?, ?)",
                 BatchedArguments.of(2, "str2").add(3, "str3").add(4, "str4"));
 
         assertEquals(3, res.length);
@@ -183,7 +183,7 @@ public class IgniteSqlApiTest {
             assertEquals(1, rs.affectedRows());
 
             // Execute batched DML query.
-            int[] res = sess.executeBatch(tx, "INSERT INTO tbl VALUES (?, ?)",
+            long[] res = sess.executeBatch(tx, "INSERT INTO tbl VALUES (?, ?)",
                     BatchedArguments.of(2, "str2").add(3, "str3").add(4, "str4"));
 
             assertTrue(Arrays.stream(res).allMatch(i -> i == 1));
@@ -470,8 +470,8 @@ public class IgniteSqlApiTest {
 
                     args.forEach(a -> state(ans.getArgument(0)).put((Integer) a.get(0), (String) a.get(1)));
 
-                    int[] res = new int[args.size()];
-                    Arrays.fill(res, 1);
+                    long[] res = new long[args.size()];
+                    Arrays.fill(res, 1L);
                     return res;
                 });
 
