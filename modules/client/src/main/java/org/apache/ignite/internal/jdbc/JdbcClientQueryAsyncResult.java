@@ -38,7 +38,6 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * JDBC query execute result.
  */
-
 public class JdbcClientQueryAsyncResult {
     /** Cursor ID. */
     private final long cursorId;
