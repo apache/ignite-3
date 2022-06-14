@@ -15,35 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.session;
-
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
-
-import org.apache.ignite.sql.SqlException;
+package org.apache.ignite.internal.sql.engine;
 
 /**
- * Exception is thrown when someone try to perform action on behalf of a session that has already expired or never exists.
+ * The clock to be used within the components to ease the testing of time-related parts.
  */
-public class SessionNotFound extends SqlException {
-    private final SessionId sessionId;
-
+@FunctionalInterface
+public interface CurrentTimeProvider {
     /**
-     * Constructor.
+     * Returns the current time in milliseconds.
      *
-     * @param sessionId A session id.
+     * @return The difference, measured in milliseconds, between the current time and midnight, January 1, 1970 UTC.
      */
-    public SessionNotFound(SessionId sessionId) {
-        super(format("Session not found [{}]", sessionId));
-
-        this.sessionId = sessionId;
-    }
-
-    /**
-     * Returns a sessionId of session which was not found.
-     *
-     * @return A session id.
-     */
-    public SessionId sessionId() {
-        return sessionId;
-    }
+    long now();
 }

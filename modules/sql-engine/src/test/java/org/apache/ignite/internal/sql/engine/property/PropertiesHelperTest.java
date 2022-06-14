@@ -7,12 +7,20 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Test class to verify {@link PropertiesHelper} class.
+ */
 class PropertiesHelperTest {
+    private static final String NON_STATIC_PROP_NAME = "non_static_prop";
+
     static class TestProps {
         public static final Property<Long> LONG_PROP = new Property<>("long_prop", Long.class);
         public static final Property<String> STRING_PROP = new Property<>("string_prop", String.class);
         private static final Property<String> PRIVATE_PROP = new Property<>("private_prop", String.class);
         static final Property<String> PROTECTED_PROP = new Property<>("protected_prop", String.class);
+
+        @SuppressWarnings("unused")
+        public final Property<String> nonStaticProp = new Property<>(NON_STATIC_PROP_NAME, String.class);
     }
 
     @Test
@@ -44,6 +52,10 @@ class PropertiesHelperTest {
             for (var prop : omittedProps) {
                 assertNull(propMap.get(prop.name));
             }
+        }
+
+        {
+            assertNull(propMap.get(NON_STATIC_PROP_NAME));
         }
     }
 }

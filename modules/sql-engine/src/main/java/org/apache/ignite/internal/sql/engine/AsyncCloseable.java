@@ -15,35 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.session;
+package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
-
-import org.apache.ignite.sql.SqlException;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Exception is thrown when someone try to perform action on behalf of a session that has already expired or never exists.
+ * An object that may hold resources until it is closed.
  */
-public class SessionNotFound extends SqlException {
-    private final SessionId sessionId;
-
+@FunctionalInterface
+public interface AsyncCloseable {
     /**
-     * Constructor.
+     * Closes this object and releases all associated resources.
      *
-     * @param sessionId A session id.
-     */
-    public SessionNotFound(SessionId sessionId) {
-        super(format("Session not found [{}]", sessionId));
-
-        this.sessionId = sessionId;
-    }
-
-    /**
-     * Returns a sessionId of session which was not found.
+     * <p>If the object is already closed then invoking this method has no effect.
      *
-     * @return A session id.
+     * @return A future representing the result of the operation.
      */
-    public SessionId sessionId() {
-        return sessionId;
-    }
+    CompletableFuture<Void> closeAsync();
 }
