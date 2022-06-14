@@ -25,39 +25,11 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 /**
- * This annotation, if applied to a class, marks it as a configuration schema part. Annotation processor generates
- * several classes for each configuration schema part:
- * <ul>
- * <li>Config - Represents configuration itself, provides API to init, change and view it.
- * Extends {@code DynamicConfiguration}</li>
- * <li>Change - changes config tree</li>
- * <li>View - immutable object to view config tree</li>
- * </ul>
- *
- * <h1 class="header">Example</h1>
- * Here is how to create a configuration schema part:
- * <pre><code>
- * {@literal @}Config
- * public class SubConfigurationSchema {
- *
- *      {@literal @}Value
- *      public String foo;
- *
- *      {@literal @}Value
- *      public boolean bar;
- *
- *      {@literal @}ConfigValue
- *      public SomeOtherConfiguration someOther;
- * }
- * </code></pre>
- *
- * <p>The main difference between @{@link ConfigurationRoot} and @{@link Config} is that the former marks schema root,
- * while the latter is for marking non-root parts of the schema.
- *
- * @see ConfigurationRoot
+ * Don't forget to write documentation.
  */
 @Target(TYPE)
 @Retention(RUNTIME)
 @Documented
-public @interface Config {
+// TODO: IGNITE-17148 Don't forget to write documentation
+public @interface AbstractConfiguration {
 }
