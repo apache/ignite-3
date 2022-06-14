@@ -28,13 +28,23 @@ import org.apache.ignite.lang.IgniteException;
  * QueryProcessor interface.
  */
 public interface QueryProcessor extends IgniteComponent {
-    default SessionId createSession(PropertiesHolder queryProperties) {
-        throw new UnsupportedOperationException();
-    }
+    /**
+     * Creates a session with given properties.
+     *
+     * @param queryProperties Properties to store within a new session.
+     * @return An identifier of a created session.
+     */
+    SessionId createSession(PropertiesHolder queryProperties);
 
-    default CompletableFuture<Void> closeSession(SessionId sessionId) {
-        throw new UnsupportedOperationException();
-    }
+    /**
+     * Closes the session with given id.
+     *
+     * <p>This method just return a completed future in case the session was already closed or never exists.
+     *
+     * @param sessionId An identifier of a session to close.
+     * @return A future representing result of an operation.
+     */
+    CompletableFuture<Void> closeSession(SessionId sessionId);
 
     /**
      * Execute the query with given schema name and parameters.

@@ -186,6 +186,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         services.forEach(LifecycleAware::start);
     }
 
+    /** {@inheritDoc} */
     @Override
     public SessionId createSession(PropertiesHolder queryProperties) {
         return sessionManager.createSession(
@@ -194,6 +195,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         );
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeSession(SessionId sessionId) {
         var session = sessionManager.session(sessionId);
