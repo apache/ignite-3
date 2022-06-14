@@ -40,16 +40,15 @@ public class ClientJdbcCloseRequest {
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            ClientResourceRegistry resources)
-    throws IgniteInternalCheckedException {
+            ClientResourceRegistry resources) throws IgniteInternalCheckedException {
         long cursorId = in.unpackLong();
 
         return resources.remove(cursorId).get(AsyncSqlCursor.class).closeAsync().handle((none, t) -> {
             if (t != null) {
-//                StringWriter sw = getWriterWithStackTrace(t);
-
-                new QueryCloseResult(Response.STATUS_FAILED,
-                        "Failed to close SQL query [curId=" + cursorId + "]. Error message: ").writeBinary(out);
+                new QueryCloseResult(
+                        Response.STATUS_FAILED,
+                        "Failed to close SQL query [curId=" + cursorId + "]. Error message: "
+                ).writeBinary(out);
             }
 
             new QueryCloseResult().writeBinary(out);

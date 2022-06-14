@@ -136,7 +136,7 @@ public class JdbcStatement implements Statement {
         QueryExecuteRequest req = new QueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql,
                 args == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : args.toArray());
 
-        ClientQueryExecuteResult res;
+        List<JdbcClientQueryAsyncResult> res;
         try {
             res = handler.queryAsync(req).join();
         } catch (CompletionException e) {
@@ -145,21 +145,10 @@ public class JdbcStatement implements Statement {
             throw new SQLException("Query execution canceled.", SqlStateCode.QUERY_CANCELLED, e);
         }
 
-        if (!res.hasResults()) {
-            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
-        }
+        resSets = new ArrayList<>(res.size());
 
-        for (JdbcClientQuerySingleResult jdbcRes : res.results()) {
-            if (!jdbcRes.hasResults()) {
-                throw IgniteQueryErrorCode.createJdbcSqlException(jdbcRes.err(), jdbcRes.status());
-            }
-        }
-
-        resSets = new ArrayList<>(res.results().size());
-
-        for (JdbcClientQuerySingleResult jdbcRes : res.results()) {
-            resSets.add(new JdbcResultSet(this, pageSize, false, jdbcRes.updateCount(),
-                    closeOnCompletion, jdbcRes));
+        for (JdbcClientQueryAsyncResult jdbcRes : res) {
+            resSets.add(new JdbcResultSet(this, pageSize, false, closeOnCompletion, jdbcRes));
         }
 
         assert !resSets.isEmpty() : "At least one results set is expected";
@@ -727,6 +716,9 @@ public class JdbcStatement implements Statement {
     }
 
     private static SQLException toSqlException(CompletionException e) {
+        if (e.getCause() instanceof SQLException) {
+            return (SQLException) e.getCause();
+        }
         if (e.getCause() instanceof IgniteClientException) {
             IgniteClientException cause = (IgniteClientException) e.getCause();
             String message = cause.getMessage();

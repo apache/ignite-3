@@ -23,7 +23,6 @@ import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
-import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
@@ -49,21 +48,21 @@ public class ClientJdbcFetchRequest {
         AsyncSqlCursor<List<Object>> cur = resources.get(cursorId).get(AsyncSqlCursor.class);
 
         if (fetchSize <= 0) {
-            new QueryFetchResult(Response.STATUS_FAILED,
-                    "Invalid fetch size : [fetchSize=" + fetchSize + ']').writeBinary(out);
+            out.packInt(1);
+            out.packString("Invalid fetch size : [fetchSize=" + fetchSize + ']');
 
             return null;
         }
 
         cur.requestNextAsync(fetchSize).handle((batch, t) -> {
             if (t != null) {
-//                StringWriter sw = getWriterWithStackTrace(t);
+                out.packInt(1);
+                out.packString("Failed to fetch results for cursor id " + cursorId);
 
-                new QueryFetchResult(Response.STATUS_FAILED,
-                        "Failed to fetch results for cursor id " + cursorId).writeBinary(out);
                 return null;
             }
 
+            out.packInt(0);
             new QueryFetchResult(batch.items(), batch.hasMore()).writeBinary(out);
             return null;
         }).toCompletableFuture();

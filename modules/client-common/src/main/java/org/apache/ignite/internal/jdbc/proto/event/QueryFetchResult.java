@@ -23,12 +23,13 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.jdbc.proto.ClientMessage;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * JDBC query fetch result.
  */
-public class QueryFetchResult extends Response {
+public class QueryFetchResult implements ClientMessage {
     /** Query result rows. */
     private List<List<Object>> items;
 
@@ -44,16 +45,6 @@ public class QueryFetchResult extends Response {
     /**
      * Constructor.
      *
-     * @param status Status code.
-     * @param err    Error message.
-     */
-    public QueryFetchResult(int status, String err) {
-        super(status, err);
-    }
-
-    /**
-     * Constructor.
-     *
      * @param items Query result rows.
      * @param last  Flag indicating the query has no unfetched results.
      */
@@ -62,8 +53,6 @@ public class QueryFetchResult extends Response {
 
         this.items = items;
         this.last = last;
-
-        hasResults = true;
     }
 
     /**
@@ -87,12 +76,6 @@ public class QueryFetchResult extends Response {
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
-        super.writeBinary(packer);
-
-        if (!hasResults) {
-            return;
-        }
-
         packer.packBoolean(last);
 
         packer.packArrayHeader(items.size());
@@ -105,12 +88,6 @@ public class QueryFetchResult extends Response {
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
-        super.readBinary(unpacker);
-
-        if (!hasResults) {
-            return;
-        }
-
         last = unpacker.unpackBoolean();
 
         int size = unpacker.unpackArrayHeader();

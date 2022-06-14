@@ -24,12 +24,13 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.jdbc.proto.ClientMessage;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * JDBC query execute result.
  */
-public class QuerySingleResult extends Response {
+public class QuerySingleResult implements ClientMessage {
     /** Cursor ID. */
     private long cursorId;
 
@@ -44,22 +45,6 @@ public class QuerySingleResult extends Response {
 
     /** Update count. */
     private long updateCnt;
-
-    /**
-     * Constructor. For deserialization purposes only.
-     */
-    public QuerySingleResult() {
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param status Status code.
-     * @param err    Error message.
-     */
-    public QuerySingleResult(int status, String err) {
-        super(status, err);
-    }
 
     /**
      * Constructor.
@@ -77,8 +62,6 @@ public class QuerySingleResult extends Response {
         this.items = items;
         this.last = last;
         this.isQuery = true;
-
-        hasResults = true;
     }
 
     /**
@@ -95,8 +78,6 @@ public class QuerySingleResult extends Response {
         this.isQuery = false;
         this.updateCnt = updateCnt;
         this.items = Collections.emptyList();
-
-        hasResults = true;
     }
 
     /**
@@ -147,12 +128,6 @@ public class QuerySingleResult extends Response {
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
-        super.writeBinary(packer);
-
-        if (!hasResults) {
-            return;
-        }
-
         packer.packLong(cursorId);
         packer.packBoolean(isQuery);
         packer.packLong(updateCnt);
@@ -168,12 +143,6 @@ public class QuerySingleResult extends Response {
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
-        super.readBinary(unpacker);
-
-        if (!hasResults) {
-            return;
-        }
-
         cursorId = unpacker.unpackLong();
         isQuery = unpacker.unpackBoolean();
         updateCnt = unpacker.unpackLong();

@@ -56,11 +56,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
-import org.apache.ignite.internal.jdbc.proto.event.QueryCloseResult;
 
 /**
  * Jdbc result set implementation.
@@ -132,27 +129,21 @@ public class JdbcResultSet implements ResultSet {
     /** Close statement after close result set count. */
     private boolean closeStmt;
 
-//    /** Query request handler. */
-//    private JdbcQueryEventHandler qryHandler;
-
     /** Jdbc metadata. */
     private JdbcResultSetMetadata jdbcMeta;
-    private JdbcClientQuerySingleResult singleResult;
+
+    private JdbcClientQueryAsyncResult singleResult;
 
     /**
      * Creates new result set.
-     *  @param stmt       Statement.
-     * @param cursorId   Cursor ID.
+     *
+     * @param stmt       Statement.
      * @param fetchSize  Fetch size.
-     * @param finished   Finished flag.
-     * @param rows       Rows.
-     * @param isQry      Is Result ser for Select query.
      * @param autoClose  Is automatic close of server cursors enabled.
-     * @param updCnt     Update count.
      * @param closeStmt  Close statement on the result set close.
-     * @param qryHandler QueryEventHandler (local or remote).
+     * @param singleResult  Close statement on the result set close.
      */
-    JdbcResultSet(JdbcStatement stmt, int fetchSize, boolean autoClose, long updCnt, boolean closeStmt, JdbcClientQuerySingleResult singleResult) {
+    JdbcResultSet(JdbcStatement stmt, int fetchSize, boolean autoClose, boolean closeStmt, JdbcClientQueryAsyncResult singleResult) {
 
         assert stmt != null;
         assert fetchSize > 0;
@@ -200,11 +191,7 @@ public class JdbcResultSet implements ResultSet {
         ensureNotClosed();
 
         if ((rowsIter == null || !rowsIter.hasNext()) && !finished) {
-            singleResult.nextAsync(fetchSize).join();
-
-            if (!singleResult.hasResults()) {
-                throw IgniteQueryErrorCode.createJdbcSqlException(singleResult.err(), singleResult.status());
-            }
+            singleResult.next(fetchSize);
 
             rows = singleResult.items();
             finished = singleResult.last();
@@ -252,11 +239,7 @@ public class JdbcResultSet implements ResultSet {
 
         try {
             if (stmt != null && (!finished || (isQuery && !autoClose))) {
-                QueryCloseResult res = singleResult.closeAsync();
-
-                if (!res.hasResults()) {
-                    throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
-                }
+                singleResult.close();
             }
         } finally {
             closed = true;
@@ -2185,13 +2168,7 @@ public class JdbcResultSet implements ResultSet {
         }
 
         if (!metaInit) {
-            JdbcMetaColumnsResult jdbcMetaColumnsResult = singleResult.metadataAsync();
-
-            if (!jdbcMetaColumnsResult.hasResults()) {
-                throw new SQLException("Unable to get jdbc query metadata results: " + singleResult.err(), SqlStateCode.INTERNAL_ERROR);
-            }
-
-            meta = jdbcMetaColumnsResult.meta();
+            meta = singleResult.metadata();
 
             metaInit = true;
         }

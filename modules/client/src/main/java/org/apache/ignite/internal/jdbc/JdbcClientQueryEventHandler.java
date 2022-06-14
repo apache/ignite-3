@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.jdbc;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.BatchPreparedStmntRequest;
@@ -48,11 +52,30 @@ public class JdbcClientQueryEventHandler {
     }
 
     /** {@inheritDoc} */
-    public CompletableFuture<ClientQueryExecuteResult> queryAsync(QueryExecuteRequest req) {
+    public CompletableFuture<List<JdbcClientQueryAsyncResult>> queryAsync(QueryExecuteRequest req) {
         return client.sendRequestAsync(ClientOp.JDBC_EXEC,  w -> req.writeBinary(w.out()), p -> {
-            ClientQueryExecuteResult res = new ClientQueryExecuteResult(p.clientChannel());
-            res.readBinary(p.in());
-            return res;
+            int status = p.in().unpackInt();
+
+            if (status == 1) {
+                throw IgniteQueryErrorCode.createJdbcSqlException(p.in().unpackString(),
+                        p.in().unpackInt());
+            }
+
+            int size = p.in().unpackArrayHeader();
+
+            if (size == 0) {
+                return Collections.emptyList();
+            }
+
+            List<JdbcClientQueryAsyncResult> results = new ArrayList<>(size);
+
+            for (int i = 0; i < size; i++) {
+                var res = new JdbcClientQueryAsyncResult(p.clientChannel(), p.in());
+
+                results.add(res);
+            }
+
+            return results;
         });
     }
 

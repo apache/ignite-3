@@ -206,7 +206,15 @@ public class TcpIgniteClient implements IgniteClient {
         });
     }
 
-    public <T extends ClientMessage> CompletableFuture<T> sendRequestAsync(int opCode,
+    /**
+     * Sends ClientMessage request to server side asynchronously and returns result future.
+     *
+     * @param opCode Operation code.
+     * @param payloadWriter Payload writer.
+     * @param payloadReader Payload reader.
+     * @return Response future.
+     */
+    public <T> CompletableFuture<T> sendRequestAsync(int opCode,
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader) {
         return ch.serviceAsync(opCode, payloadWriter, payloadReader);

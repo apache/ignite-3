@@ -17,36 +17,17 @@
 
 package org.apache.ignite.internal.jdbc.proto.event;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * JDBC query execute result.
  */
-public class QueryExecuteResult extends Response {
+public class QueryExecuteResult {
     /** Query result rows. */
-    private List<QuerySingleResult> results;
-
-    /**
-     * Constructor. For deserialization purposes only.
-     */
-    public QueryExecuteResult() {
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param status Status code.
-     * @param err    Error message.
-     */
-    public QueryExecuteResult(int status, String err) {
-        super(status, err);
-    }
+    private final List<QuerySingleResult> results;
 
     /**
      * Constructor.
@@ -54,55 +35,17 @@ public class QueryExecuteResult extends Response {
      * @param results Results.
      */
     public QueryExecuteResult(List<QuerySingleResult> results) {
-        super();
-
         Objects.requireNonNull(results);
 
         this.results = results;
-
-        this.hasResults = true;
     }
 
     /** {@inheritDoc} */
-    @Override
     public void writeBinary(ClientMessagePacker packer) {
-        super.writeBinary(packer);
-
-        if (!hasResults) {
-            return;
-        }
-
         packer.packArrayHeader(results.size());
 
         for (QuerySingleResult result : results) {
             result.writeBinary(packer);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void readBinary(ClientMessageUnpacker unpacker) {
-        super.readBinary(unpacker);
-
-        if (!hasResults) {
-            return;
-        }
-
-        int size = unpacker.unpackArrayHeader();
-
-        if (size == 0) {
-            results = Collections.emptyList();
-
-            return;
-        }
-
-        results = new ArrayList<>(size);
-
-        for (int i = 0; i < size; i++) {
-            var res = new QuerySingleResult();
-            res.readBinary(unpacker);
-
-            results.add(res);
         }
     }
 

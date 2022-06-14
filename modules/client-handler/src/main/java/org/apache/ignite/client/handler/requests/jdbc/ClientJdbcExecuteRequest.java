@@ -44,6 +44,18 @@ public class ClientJdbcExecuteRequest {
 
         req.readBinary(in);
 
-        return handler.queryAsync(req).thenAccept(res -> res.writeBinary(out));
+        return handler.queryAsync(req)
+                .exceptionally(ex -> {
+                    if (ex != null) {
+                        out.packInt(1);
+                        out.packString(ex.getMessage());
+                    }
+
+                    return null;
+                })
+                .thenAccept(res -> {
+                    out.packInt(0);
+                    res.writeBinary(out);
+                });
     }
 }

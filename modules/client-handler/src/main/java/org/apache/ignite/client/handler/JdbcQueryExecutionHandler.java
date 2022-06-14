@@ -18,7 +18,6 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNKNOWN;
-import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -78,8 +77,7 @@ public class JdbcQueryExecutionHandler {
     /** {@inheritDoc} */
     public CompletableFuture<QueryExecuteResult> queryAsync(QueryExecuteRequest req) {
         if (req.pageSize() <= 0) {
-            return CompletableFuture.completedFuture(new QueryExecuteResult(Response.STATUS_FAILED,
-                    "Invalid fetch size : [fetchSize=" + req.pageSize() + ']'));
+            return CompletableFuture.failedFuture(new IgniteInternalException("Invalid fetch size : [fetchSize=" + req.pageSize() + ']'));
         }
 
         QueryContext context = createQueryContext(req.getStmtType());
@@ -94,8 +92,9 @@ public class JdbcQueryExecutionHandler {
         }
 
         if (results.isEmpty()) {
-            return CompletableFuture.completedFuture(new QueryExecuteResult(Response.STATUS_FAILED,
-                    "At least one cursor is expected for query " + req.sqlQuery()));
+            return CompletableFuture.failedFuture(
+                    new IgniteInternalException("At least one cursor is expected for query " + req.sqlQuery())
+            );
         }
 
         return CompletableFuture.allOf(results.toArray(new CompletableFuture[0])).thenApply(none -> {
@@ -115,10 +114,7 @@ public class JdbcQueryExecutionHandler {
                         return null;
                     }).filter(Objects::nonNull).forEach(AsyncSqlCursor::closeAsync);
 
-            StringWriter sw = getWriterWithStackTrace(t);
-
-            return new QueryExecuteResult(Response.STATUS_FAILED,
-                    "Exception while executing query " + req.sqlQuery() + ". Error message: " + sw);
+            throw new IgniteInternalException("Exception while executing query " + req.sqlQuery() + ". Error message: " + t.getMessage());
         });
     }
 
@@ -211,9 +207,9 @@ public class JdbcQueryExecutionHandler {
         String error;
 
         if (e instanceof ClassCastException) {
-            error = "Unexpected result after query:" + query + ". Not an upsert statement? " + sw;
+            error = "Unexpected result after query:" + query + ". Not an upsert statement? Error message: " + e.getMessage();
         } else {
-            error = sw.toString();
+            error = e.getMessage();
         }
 
         return new BatchExecuteResult(Response.STATUS_FAILED, UNKNOWN, error, counters);
@@ -245,8 +241,9 @@ public class JdbcQueryExecutionHandler {
         try {
             cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
         } catch (IgniteInternalCheckedException e) {
-            return CompletableFuture.completedFuture(new QuerySingleResult(Response.STATUS_FAILED,
-                    "Failed get next cursorId from resources holder. Node is stopping?"));
+            return CompletableFuture.failedFuture(
+                    new IgniteInternalException("Failed get next cursorId from resources holder. Node is stopping?")
+            );
         }
 
         return cur.requestNextAsync(req.pageSize()).thenApply(batch -> {
@@ -258,16 +255,14 @@ public class JdbcQueryExecutionHandler {
                     return new QuerySingleResult(cursorId, batch.items(), !hasNext);
                 case DML:
                     if (!validateDmlResult(cur.metadata(), hasNext)) {
-                        return new QuerySingleResult(Response.STATUS_FAILED,
-                                "Unexpected result for DML query [" + req.sqlQuery() + "].");
+                        throw new IgniteInternalException("Unexpected result for DML query [" + req.sqlQuery() + "].");
                     }
 
                     return new QuerySingleResult(cursorId, (Long) batch.items().get(0).get(0));
                 case DDL:
                     return new QuerySingleResult(cursorId, 0);
                 default:
-                    return new QuerySingleResult(UNSUPPORTED_OPERATION,
-                            "Query type [" + cur.queryType() + "] is not supported yet.");
+                    throw new IgniteInternalException("Query type [" + cur.queryType() + "] is not supported yet.");
             }
         });
     }
