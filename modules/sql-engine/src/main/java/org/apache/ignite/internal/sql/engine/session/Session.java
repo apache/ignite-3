@@ -96,7 +96,8 @@ public class Session implements AsyncCloseable {
             return true;
         }
 
-        return currentTimeProvider.now() - last > idleTimeoutMs && lastTouched.compareAndSet(last, EXPIRED);
+        return currentTimeProvider.now() - last > idleTimeoutMs
+                && (lastTouched.compareAndSet(last, EXPIRED) || lastTouched.get() == EXPIRED);
     }
 
     /**
