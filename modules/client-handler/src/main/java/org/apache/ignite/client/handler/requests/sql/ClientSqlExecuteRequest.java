@@ -97,6 +97,7 @@ public class ClientSqlExecuteRequest {
         if (asyncResultSet.metadata() == null || asyncResultSet.metadata().columns() == null) {
             out.packArrayHeader(0);
         } else {
+            // TODO: Use query schema caching, don't send meta with every request.
             List<ColumnMetadata> cols = asyncResultSet.metadata().columns();
             out.packArrayHeader(cols.size());
 
@@ -104,6 +105,11 @@ public class ClientSqlExecuteRequest {
                 ColumnMetadata col = cols.get(i);
                 out.packString(col.name());
                 out.packBoolean(col.nullable());
+
+                // TODO: Type code
+                // TODO: Origin
+                // TODO: Scale
+                // TODO: Precision
 
                 // TODO: IGNITE-17052 Implement query metadata.
                 // Ideally we only need the type code here.
