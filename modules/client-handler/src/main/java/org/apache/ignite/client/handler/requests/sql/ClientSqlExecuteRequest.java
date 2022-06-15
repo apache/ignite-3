@@ -41,7 +41,6 @@ import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Client SQL execute request.
@@ -161,51 +160,55 @@ public class ClientSqlExecuteRequest {
         // TODO IGNITE-17179 metadata caching - avoid sending same meta over and over.
         if (meta == null || meta.columns() == null) {
             out.packArrayHeader(0);
-        } else {
-            List<ColumnMetadata> cols = meta.columns();
-            out.packArrayHeader(cols.size());
+            return;
+        }
 
-            for (int i = 0; i < cols.size(); i++) {
-                ColumnMetadata col = cols.get(i);
-                out.packString(col.name());
-                out.packBoolean(col.nullable());
-                out.packInt(ClientSqlColumnTypeConverter.columnTypeToOrdinal(col.type()));
-                out.packInt(col.scale());
-                out.packInt(col.precision());
+        List<ColumnMetadata> cols = meta.columns();
+        out.packArrayHeader(cols.size());
 
-                ColumnOrigin origin = col.origin();
+        for (int i = 0; i < cols.size(); i++) {
+            ColumnMetadata col = cols.get(i);
 
-                if (origin == null) {
-                    out.packNil();
-                } else {
-                    if (i == 0) {
-                        out.packString(origin.schemaName());
-                        out.packString(origin.tableName());
-                    } else {
-                        // In many cases there are multiple columns from the same table.
-                        // Schema is the same for all columns in most cases.
-                        // Pack nil when previous column has the same value for schema or table.
-                        ColumnOrigin prev = cols.get(i - 1).origin();
+            out.packString(col.name());
+            out.packBoolean(col.nullable());
+            out.packInt(ClientSqlColumnTypeConverter.columnTypeToOrdinal(col.type()));
+            out.packInt(col.scale());
+            out.packInt(col.precision());
 
-                        if (prev != null && prev.schemaName().equals(origin.schemaName())) {
-                            out.packNil();
-                        } else {
-                            out.packString(origin.schemaName());
-                        }
+            ColumnOrigin origin = col.origin();
 
-                        if (prev != null && prev.tableName().equals(origin.tableName())) {
-                            out.packNil();
-                        } else {
-                            out.packString(origin.tableName());
-                        }
-                    }
+            if (origin == null) {
+                out.packNil();
+                continue;
+            }
 
-                    if (col.name().equals(origin.columnName())) {
-                        out.packNil();
-                    } else {
-                        out.packString(origin.columnName());
-                    }
-                }
+            if (col.name().equals(origin.columnName())) {
+                out.packNil();
+            } else {
+                out.packString(origin.columnName());
+            }
+
+            if (i == 0) {
+                out.packString(origin.schemaName());
+                out.packString(origin.tableName());
+                continue;
+            }
+
+            // In many cases there are multiple columns from the same table.
+            // Schema is the same for all columns in most cases.
+            // Pack nil when previous column has the same value for schema or table.
+            ColumnOrigin prev = cols.get(i - 1).origin();
+
+            if (prev != null && prev.schemaName().equals(origin.schemaName())) {
+                out.packNil();
+            } else {
+                out.packString(origin.schemaName());
+            }
+
+            if (prev != null && prev.tableName().equals(origin.tableName())) {
+                out.packNil();
+            } else {
+                out.packString(origin.tableName());
             }
         }
     }
