@@ -19,7 +19,6 @@ package org.apache.ignite.internal.jdbc.proto.event;
 
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -38,15 +37,6 @@ public class QueryExecuteResult {
         Objects.requireNonNull(results);
 
         this.results = results;
-    }
-
-    /** {@inheritDoc} */
-    public void writeBinary(ClientMessagePacker packer) {
-        packer.packArrayHeader(results.size());
-
-        for (QuerySingleResult result : results) {
-            result.writeBinary(packer);
-        }
     }
 
     /**

@@ -23,6 +23,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcRequestStatus;
 import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteRequest;
+import org.apache.ignite.internal.jdbc.proto.event.QuerySingleResult;
 
 /**
  * Client jdbc request handler.
@@ -55,7 +56,11 @@ public class ClientJdbcExecuteRequest {
                 })
                 .thenAccept(res -> {
                     out.packByte(JdbcRequestStatus.SUCCESS.getStatus());
-                    res.writeBinary(out);
+                    out.packArrayHeader(res.results().size());
+
+                    for (QuerySingleResult result : res.results()) {
+                        result.writeBinary(out);
+                    }
                 });
     }
 }
