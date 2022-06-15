@@ -66,6 +66,7 @@ import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.PolymorphicChange;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -82,6 +83,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Annotation processor that produces configuration classes.
  */
+// TODO: IGNITE-17166 Split into classes/methods for regular/internal/polymorphic/abstract configuration
 public class Processor extends AbstractProcessor {
     /** Java file padding. */
     private static final String INDENT = "    ";
@@ -143,7 +145,7 @@ public class Processor extends AbstractProcessor {
             // Find all the fields of the schema.
             List<VariableElement> fields = fields(clazz);
 
-            validate(clazz, fields);
+            validateConfigurationSchemaClass(clazz, fields);
 
             // Get package name of the schema class
             String packageName = elementUtils.getPackageOf(clazz).getQualifiedName().toString();
@@ -566,14 +568,12 @@ public class Processor extends AbstractProcessor {
     /**
      * Validate the class.
      *
-     * @param clazz  Class type.
+     * @param clazz Class type.
      * @param fields Class fields.
      * @throws ProcessorException If the class validation fails.
      */
-    private void validate(TypeElement clazz, List<VariableElement> fields) {
-        String simpleName = clazz.getSimpleName().toString();
-
-        if (!simpleName.endsWith(CONFIGURATION_SCHEMA_POSTFIX)) {
+    private void validateConfigurationSchemaClass(TypeElement clazz, List<VariableElement> fields) {
+        if (!clazz.getSimpleName().toString().endsWith(CONFIGURATION_SCHEMA_POSTFIX)) {
             throw new ProcessorException(
                     String.format("%s must end with '%s'", clazz.getQualifiedName(), CONFIGURATION_SCHEMA_POSTFIX));
         }
@@ -706,8 +706,6 @@ public class Processor extends AbstractProcessor {
 
     /**
      * Returns annotation types supported by this processor.
-     *
-     * @return Annotation types supported by this processor.
      */
     private Set<Class<? extends Annotation>> supportedAnnotationTypes() {
         return Set.of(
@@ -715,7 +713,8 @@ public class Processor extends AbstractProcessor {
                 ConfigurationRoot.class,
                 InternalConfiguration.class,
                 PolymorphicConfig.class,
-                PolymorphicConfigInstance.class
+                PolymorphicConfigInstance.class,
+                AbstractConfiguration.class
         );
     }
 

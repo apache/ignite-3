@@ -154,6 +154,7 @@ import org.objectweb.asm.Type;
  * This class is responsible for generating internal implementation classes for configuration schemas. It uses classes from {@code bytecode}
  * module to achieve this goal, like {@link ClassGenerator}, for examples.
  */
+// TODO: IGNITE-17167 Split into classes/methods for regular/internal/polymorphic/abstract configuration
 public class ConfigurationAsmGenerator {
     /** {@link DynamicConfiguration#DynamicConfiguration} constructor. */
     private static final Constructor<?> DYNAMIC_CONFIGURATION_CTOR;
