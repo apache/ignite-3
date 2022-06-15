@@ -129,7 +129,7 @@ public class ItRebalanceDistributedTest {
             node.start();
         }
 
-        nodes.get(0).cmgManager.initCluster(List.of(nodes.get(0).name), List.of(), "cluster");
+        nodes.get(0).cmgManager.initCluster(List.of(nodes.get(2).name), List.of(), "cluster");
     }
 
     @AfterEach
