@@ -132,7 +132,7 @@ public class JdbcResultSet implements ResultSet {
     /** Jdbc metadata. */
     private JdbcResultSetMetadata jdbcMeta;
 
-    private JdbcClientQueryAsyncResult singleResult;
+    private JdbcClientQueryAsyncResult asyncResult;
 
     /**
      * Creates new result set.
@@ -141,27 +141,27 @@ public class JdbcResultSet implements ResultSet {
      * @param fetchSize  Fetch size.
      * @param autoClose  Is automatic close of server cursors enabled.
      * @param closeStmt  Close statement on the result set close.
-     * @param singleResult  Close statement on the result set close.
+     * @param asyncResult  Close statement on the result set close.
      */
-    JdbcResultSet(JdbcStatement stmt, int fetchSize, boolean autoClose, boolean closeStmt, JdbcClientQueryAsyncResult singleResult) {
+    JdbcResultSet(JdbcStatement stmt, int fetchSize, boolean autoClose, boolean closeStmt, JdbcClientQueryAsyncResult asyncResult) {
 
         assert stmt != null;
         assert fetchSize > 0;
 
-        this.singleResult = singleResult;
+        this.asyncResult = asyncResult;
         this.stmt = stmt;
         this.fetchSize = fetchSize;
-        this.finished = singleResult.last();
-        this.isQuery = singleResult.isQuery();
+        this.finished = asyncResult.last();
+        this.isQuery = asyncResult.isQuery();
         this.autoClose = autoClose;
         this.closeStmt = closeStmt;
 
         if (isQuery) {
-            this.rows = singleResult.rows();
+            this.rows = asyncResult.rows();
 
             rowsIter = rows != null ? rows.iterator() : null;
         } else {
-            this.updCnt = singleResult.updateCount();
+            this.updCnt = asyncResult.updateCount();
         }
     }
 
@@ -191,10 +191,10 @@ public class JdbcResultSet implements ResultSet {
         ensureNotClosed();
 
         if ((rowsIter == null || !rowsIter.hasNext()) && !finished) {
-            singleResult.next(fetchSize);
+            asyncResult.next(fetchSize);
 
-            rows = singleResult.rows();
-            finished = singleResult.last();
+            rows = asyncResult.rows();
+            finished = asyncResult.last();
 
             rowsIter = rows.iterator();
         }
@@ -239,7 +239,7 @@ public class JdbcResultSet implements ResultSet {
 
         try {
             if (stmt != null && (!finished || (isQuery && !autoClose))) {
-                singleResult.close();
+                asyncResult.close();
             }
         } finally {
             closed = true;
@@ -2168,7 +2168,7 @@ public class JdbcResultSet implements ResultSet {
         }
 
         if (!metaInit) {
-            meta = singleResult.metadata();
+            meta = asyncResult.metadata();
 
             metaInit = true;
         }
