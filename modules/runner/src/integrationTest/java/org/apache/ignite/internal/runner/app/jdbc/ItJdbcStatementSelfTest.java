@@ -164,6 +164,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled
     public void testExecuteAndFetch() throws Exception {
         try (Statement statement = conn.createStatement()) {
             statement.setFetchSize(2);
