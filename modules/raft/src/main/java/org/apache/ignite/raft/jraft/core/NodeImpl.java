@@ -406,8 +406,10 @@ public class NodeImpl implements Node, RaftServerService {
             }
             Requires.requireTrue(this.stage == Stage.STAGE_CATCHING_UP, "Stage is not in STAGE_CATCHING_UP");
             if (success) {
+                LOG.info("Catch up for peer={} was finished", peer);
                 this.addingPeers.remove(peer);
                 if (this.addingPeers.isEmpty()) {
+                    LOG.info("Catch up phase to change peers from={} to={} was successfully finished", oldPeers, newPeers);
                     nextStage();
                     return;
                 }

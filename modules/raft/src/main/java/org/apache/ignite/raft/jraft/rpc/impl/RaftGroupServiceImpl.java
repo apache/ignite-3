@@ -372,6 +372,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         CompletableFuture<ChangePeersAsyncResponse> fut = new CompletableFuture<>();
 
+        LOG.info("Sending request to changePeers of group={} to peers={} with leader term={}",
+                groupId, peers, term);
+
         sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
 
         return fut.handle((resp, err) -> {
@@ -567,6 +570,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 if (err != null) {
                     if (recoverable(err)) {
                         executor.schedule(() -> {
+                            LOG.warn("Recoverable error during the request type={} occurred: ",
+                                    err, req.getClass().getSimpleName());
+
                             sendWithRetry(randomNode(), req, stopTime, fut);
 
                             return null;

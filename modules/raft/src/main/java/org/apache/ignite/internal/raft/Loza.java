@@ -36,6 +36,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -69,6 +70,9 @@ public class Loza implements IgniteComponent {
 
     /** Retry delay. */
     private static final int DELAY = 200;
+
+    /** Logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(Loza.class);
 
     /** Cluster network service. */
     private final ClusterService clusterNetSvc;
@@ -187,6 +191,8 @@ public class Loza implements IgniteComponent {
         boolean hasLocalRaft = nodes.stream().anyMatch(n -> locNodeName.equals(n.name()));
 
         if (hasLocalRaft) {
+            LOG.info("Start new raft node for group={} with initial peers={}", groupId, peers);
+
             if (!raftServer.startRaftGroup(groupId, raftGrpEvtsLsnrSupplier.get(), lsnrSupplier.get(), peers)) {
                 throw new IgniteInternalException(IgniteStringFormatter.format(
                         "Raft group on the node is already started [node={}, raftGrp={}]",
@@ -237,6 +243,8 @@ public class Loza implements IgniteComponent {
             String locNodeName = clusterNetSvc.topologyService().localMember().name();
 
             if (deltaNodes.stream().anyMatch(n -> locNodeName.equals(n.name()))) {
+                LOG.info("Start new raft node for group={} with initial peers={}", grpId, peers);
+
                 if (!raftServer.startRaftGroup(grpId, raftGrpEvtsLsnrSupplier.get(), lsnrSupplier.get(), peers)) {
                     throw new IgniteInternalException(IgniteStringFormatter.format(
                             "Raft group on the node is already started [node={}, raftGrp={}]",
@@ -303,6 +311,8 @@ public class Loza implements IgniteComponent {
         String locNodeName = clusterNetSvc.topologyService().localMember().name();
 
         if (deltaNodes.stream().anyMatch(n -> locNodeName.equals(n.name()))) {
+            LOG.info("Start new raft node for group={} with initial peers={}", grpId, peers);
+
             if (!raftServer.startRaftGroup(grpId,  raftGrpEvtsLsnrSupplier.get(), lsnrSupplier.get(), peers)) {
                 throw new IgniteInternalException(IgniteStringFormatter.format(
                         "Raft group on the node is already started [node={}, raftGrp={}]",
@@ -337,6 +347,8 @@ public class Loza implements IgniteComponent {
         }
 
         try {
+            LOG.info("Stop raft group={}", groupId);
+
             raftServer.stopRaftGroup(groupId);
         } finally {
             busyLock.leaveBusy();

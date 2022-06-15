@@ -366,6 +366,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (replicasCtx.oldValue() != null && replicasCtx.oldValue() > 0) {
                 TableConfiguration tblCfg = replicasCtx.config(TableConfiguration.class);
 
+                LOG.info("Received update for replicas number for table={} from replicas={} to replicas={}",
+                        tblCfg.name().value(), replicasCtx.oldValue(), replicasCtx.newValue());
+
                 int partCnt = tblCfg.partitions().value();
 
                 int newReplicas = replicasCtx.newValue();
@@ -376,7 +379,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     String partId = partitionRaftGroupName(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
                     futures[i] = updatePendingAssignmentsKeys(
-                            partId, baselineMgr.nodes(),
+                            tblCfg.name().value(), partId, baselineMgr.nodes(),
                             partCnt, newReplicas,
                             replicasCtx.storageRevision(), metaStorageMgr, i);
                 }
