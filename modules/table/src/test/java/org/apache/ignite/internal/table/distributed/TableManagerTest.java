@@ -133,7 +133,6 @@ import org.mockito.quality.Strictness;
 /**
  * Tests scenarios for table manager.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-16923")
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest extends IgniteAbstractTest {
@@ -269,6 +268,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     /**
      * Tests a table which was preconfigured.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16923")
     @Test
     public void testPreconfiguredTable() throws Exception {
         when(rm.updateRaftGroup(any(), any(), any(), any(), any())).thenAnswer(mock ->
@@ -325,6 +325,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16923")
     @Test
     public void testCreateTable() throws Exception {
         TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_NAME).columns(
@@ -346,6 +347,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16923")
     @Test
     public void testDropTable() throws Exception {
         TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
@@ -438,6 +440,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16923")
     @Test
     public void tableManagerStopTest() throws Exception {
         TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
@@ -459,6 +462,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     /**
      * Instantiates a table and prepares Table manager.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16923")
     @Test
     public void testGetTableDuringCreation() {
         TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
@@ -506,6 +510,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16923")
     @Test
     public void testDoubledCreateTable() throws Exception {
         TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_NAME)

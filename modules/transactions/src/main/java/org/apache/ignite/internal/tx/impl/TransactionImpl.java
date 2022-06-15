@@ -166,7 +166,7 @@ public class TransactionImpl implements InternalTransaction {
 
             futs[i++] = txManager.finishRemote(entry.getKey(), id, commit, entry.getValue());
 
-            LOG.debug("finish [addr={}, commit={}, id={}, local={}, groupIds={}",
+            LOG.debug("finish [addr={}, commit={}, txId={}, local={}, groupIds={}",
                     address, commit, id, local, entry.getValue());
         }
 

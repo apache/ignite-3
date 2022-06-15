@@ -42,6 +42,12 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public MvPartitionStorage createPartition(int partitionId) throws StorageException {
+        TestMvPartitionStorage storage = partitions.get(partitionId);
+
+        if (storage != null) {
+            return storage;
+        }
+
         partitions.put(partitionId, new TestMvPartitionStorage(List.of(), partitionId));
 
         return partition(partitionId);

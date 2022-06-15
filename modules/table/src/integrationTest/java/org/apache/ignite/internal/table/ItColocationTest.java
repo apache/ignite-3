@@ -117,7 +117,7 @@ public class ItColocationTest {
         };
         txManager.start();
 
-        MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);;
+        MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
         when(clusterService.messagingService()).thenReturn(messagingService);
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();

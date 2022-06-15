@@ -50,6 +50,7 @@ public class VersionedRowStore {
     /** Transaction manager. */
     private TxManager txManager;
 
+    //TODO: Temporary solution until the implementation of the primary index is done.
     /** Dummy primary index. */
     private ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
@@ -462,6 +463,8 @@ public class VersionedRowStore {
                     txsInsertedKeys.remove(txId.get());
                 }
             }
+
+            txsRemovedKeys.remove(txId.get());
         }
 
         storage.abortWrite(rowId);

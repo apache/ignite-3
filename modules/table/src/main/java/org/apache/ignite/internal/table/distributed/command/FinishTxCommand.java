@@ -39,7 +39,7 @@ public class FinishTxCommand implements WriteCommand {
      *
      * @param txId          The txId.
      * @param finish        Commit or rollback state {@code True} to commit.
-     * @param lockedKeys    Keys that are locked by the transaction.
+     * @param lockedKeys    Keys that are locked by the transaction. Mapping: lockId (tableId) -> keys.
      */
     public FinishTxCommand(UUID txId, boolean finish, Map<IgniteUuid, List<byte[]>> lockedKeys) {
         this.txId = txId;

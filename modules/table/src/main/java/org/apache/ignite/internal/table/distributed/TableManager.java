@@ -459,9 +459,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 try {
                     // TODO: IGNITE-16923 Remove assert after the ticket is resolved.
                     assert internalTbl.storage() instanceof MvTableStorage :
-                            "Only multi version storages are supported.";
-
-                    MvTableStorage storage = (MvTableStorage) internalTbl.storage();
+                            "Only multi version storages are supported. Current storage is a " + internalTbl.storage().getClass().getName();
 
                     futures[partId] = raftMgr.updateRaftGroup(
                             partitionRaftGroupName(tblId, partId),
@@ -470,7 +468,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             // other cases will be covered by rebalance logic
                             (oldPartAssignment.isEmpty()) ? newPartAssignment : Collections.emptyList(),
                             () -> new PartitionListener(tblId,
-                                    new VersionedRowStore(storage.createPartition(partId),
+                                    new VersionedRowStore(((MvTableStorage) internalTbl.storage()).createPartition(partId),
                                             txManager)),
                             () -> new RebalanceRaftGroupEventsListener(
                                     metaStorageMgr,

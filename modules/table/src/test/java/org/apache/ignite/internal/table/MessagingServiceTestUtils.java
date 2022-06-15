@@ -22,12 +22,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
+import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.tx.TxManager;
@@ -38,6 +37,7 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.service.CommandClosure;
+import org.jetbrains.annotations.Nullable;
 import org.mockito.Mockito;
 
 /**
@@ -69,12 +69,7 @@ public class MessagingServiceTestUtils {
                             txFinishRequest.txId(), txFinishRequest.commit(), txManager.lockedKeys(txFinishRequest.txId())
                     );
 
-                    partitionListeners.forEach(partitionListener -> partitionListener.onWrite(iterator((i, clo) -> {
-                        when(clo.command()).thenReturn(finishTxCommand);
-
-                        doAnswer(invocation -> null).when(clo).result(any());
-                    }))
-                    );
+                    partitionListeners.forEach(partitionListener -> partitionListener.onWrite(iterator(finishTxCommand)));
 
                     if (txFinishRequest.commit()) {
                         txManager.commitAsync(txFinishRequest.txId()).get();
@@ -90,28 +85,19 @@ public class MessagingServiceTestUtils {
         return messagingService;
     }
 
-    private static <T extends Command> Iterator<CommandClosure<T>> iterator(BiConsumer<Integer, CommandClosure<T>> func) {
-        return new Iterator<>() {
-            /** Iteration. */
-            private int it = 0;
-
-            /** {@inheritDoc} */
+    private static <T extends Command> Iterator<CommandClosure<T>> iterator(T obj) {
+        CommandClosure<T> closure = new CommandClosure<>() {
             @Override
-            public boolean hasNext() {
-                return it++ < 1;
+            public T command() {
+                return obj;
             }
 
-            /** {@inheritDoc} */
             @Override
-            public CommandClosure<T> next() {
-                CommandClosure<T> clo = mock(CommandClosure.class);
-
-                func.accept(it, clo);
-
-                it++;
-
-                return clo;
+            public void result(@Nullable Serializable res) {
+                // no-op.
             }
         };
+
+        return List.of(closure).iterator();
     }
 }

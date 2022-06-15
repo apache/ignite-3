@@ -126,7 +126,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return completedFuture(null);
         }
 
-        return failedFuture(new TransactionException(format("Failed to commit a transaction [id={}, state={}]", txId, state(txId))));
+        return failedFuture(new TransactionException(format("Failed to commit a transaction [txId={}, state={}]", txId, state(txId))));
     }
 
     /** {@inheritDoc} */
@@ -138,7 +138,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return completedFuture(null);
         }
 
-        return failedFuture(new TransactionException(format("Failed to rollback a transaction [id={}, state={}]", txId, state(txId))));
+        return failedFuture(new TransactionException(format("Failed to rollback a transaction [txId={}, state={}]", txId, state(txId))));
     }
 
     /**
@@ -270,6 +270,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     /** {@inheritDoc} */
+    @Override
     public Map<IgniteUuid, List<byte[]>> lockedKeys(UUID txId) {
         return locks.getOrDefault(txId, new HashMap<>()).entrySet().stream()
                 .filter(entry -> !entry.getValue())
