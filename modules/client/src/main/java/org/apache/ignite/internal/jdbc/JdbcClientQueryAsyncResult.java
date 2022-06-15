@@ -27,11 +27,10 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
-import org.apache.ignite.internal.jdbc.proto.event.QueryCloseResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcRequestStatus;
 import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
 import org.apache.ignite.internal.tostring.S;
 
@@ -140,11 +139,10 @@ public class JdbcClientQueryAsyncResult {
                     w.out().packLong(cursorId);
                     w.out().packInt(fetchSize);
                 }, p -> {
-                    int status = p.in().unpackInt();
+                    byte status = p.in().unpackByte();
 
-                    if (status == 1) {
-                        throw IgniteQueryErrorCode.createJdbcSqlException(p.in().unpackString(),
-                                p.in().unpackInt());
+                    if (status == JdbcRequestStatus.FAILED.getStatus()) {
+                        throw new SQLException(p.in().unpackString(), SqlStateCode.INTERNAL_ERROR);
                     }
 
                     QueryFetchResult res = new QueryFetchResult();
@@ -164,17 +162,19 @@ public class JdbcClientQueryAsyncResult {
      * Closes remote cursor.
      */
     public void close() throws SQLException {
-        CompletableFuture<QueryCloseResult> f = channel.serviceAsync(ClientOp.JDBC_CURSOR_CLOSE,
+        CompletableFuture<Object> f = channel.serviceAsync(ClientOp.JDBC_CURSOR_CLOSE,
                 w -> w.out().packLong(cursorId), p -> {
-                    QueryCloseResult res = new QueryCloseResult();
+                    byte status = p.in().unpackByte();
 
-                    res.readBinary(p.in());
+                    if (status == JdbcRequestStatus.FAILED.getStatus()) {
+                        throw new SQLException(p.in().unpackString(), SqlStateCode.INTERNAL_ERROR);
+                    }
 
-                    return res;
+                    return null;
                 });
 
         //Do nothing, result is just a marker of success operation.
-        QueryCloseResult result = getOrThrow(f);
+        getOrThrow(f);
     }
 
     /**
@@ -185,6 +185,12 @@ public class JdbcClientQueryAsyncResult {
     public List<JdbcColumnMeta> metadata() throws SQLException {
         CompletableFuture<JdbcMetaColumnsResult> f = channel.serviceAsync(
                 ClientOp.JDBC_QUERY_META, w -> w.out().packLong(cursorId), p -> {
+                    byte status = p.in().unpackByte();
+
+                    if (status == JdbcRequestStatus.FAILED.getStatus()) {
+                        throw new SQLException(p.in().unpackString(), SqlStateCode.INTERNAL_ERROR);
+                    }
+
                     JdbcMetaColumnsResult res = new JdbcMetaColumnsResult();
 
                     res.readBinary(p.in());

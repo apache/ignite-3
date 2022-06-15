@@ -25,7 +25,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
-import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcRequestStatus;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -53,12 +53,12 @@ public class ClientJdbcQueryMetadataRequest {
 
         AsyncSqlCursor<?> cur = resources.get(cursor).get(AsyncSqlCursor.class);
 
-
         ResultSetMetadata metadata = cur.metadata();
 
         if (metadata == null) {
-            new JdbcMetaColumnsResult(Response.STATUS_FAILED,
-                    "Failed to get query metadata for cursor with ID : " + cursor).writeBinary(out);
+            out.packByte(JdbcRequestStatus.FAILED.getStatus());
+            out.packString("Failed to get query metadata for cursor with ID : " + cursor);
+            //TODO:IGNITE-15247 A proper JDBC error code should be sent.
 
             return null;
         }
@@ -67,6 +67,7 @@ public class ClientJdbcQueryMetadataRequest {
                 .map(ClientJdbcQueryMetadataRequest::createColumnMetadata)
                 .collect(Collectors.toList());
 
+        out.packByte(JdbcRequestStatus.SUCCESS.getStatus());
         new JdbcMetaColumnsResult(meta).writeBinary(out);
 
         return null;

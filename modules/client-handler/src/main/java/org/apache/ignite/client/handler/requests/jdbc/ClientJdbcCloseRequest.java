@@ -21,8 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.event.QueryCloseResult;
-import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcRequestStatus;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
@@ -43,17 +42,17 @@ public class ClientJdbcCloseRequest {
             ClientResourceRegistry resources) throws IgniteInternalCheckedException {
         long cursorId = in.unpackLong();
 
-        return resources.remove(cursorId).get(AsyncSqlCursor.class).closeAsync().handle((none, t) -> {
-            if (t != null) {
-                new QueryCloseResult(
-                        Response.STATUS_FAILED,
-                        "Failed to close SQL query [curId=" + cursorId + "]. Error message: "
-                ).writeBinary(out);
-            }
+        return resources.remove(cursorId).get(AsyncSqlCursor.class).closeAsync()
+                .handle((res, ex) -> {
+                    if (ex != null) {
+                        out.packByte(JdbcRequestStatus.FAILED.getStatus());
+                        out.packString("Failed to close SQL query [curId=" + cursorId + "]");
+                        //TODO:IGNITE-15247 A proper JDBC error code should be sent.
+                    }
 
-            new QueryCloseResult().writeBinary(out);
+                    out.packByte(JdbcRequestStatus.SUCCESS.getStatus());
 
-            return null;
-        });
+                    return null;
+                });
     }
 }

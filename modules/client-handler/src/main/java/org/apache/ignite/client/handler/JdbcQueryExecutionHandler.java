@@ -93,7 +93,7 @@ public class JdbcQueryExecutionHandler {
 
         if (results.isEmpty()) {
             return CompletableFuture.failedFuture(
-                    new IgniteInternalException("At least one cursor is expected for query " + req.sqlQuery())
+                    new IgniteInternalException("At least one result is expected for query " + req.sqlQuery())
             );
         }
 

@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcRequestStatus;
 import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -31,7 +32,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  */
 public class ClientJdbcFetchRequest {
     /**
-     * Processes remote {@code JdbcQueryFetchRequest}.
+     * Processes remote fetch next batch request.
      *
      * @param in      Client message unpacker.
      * @param out     Client message packer.
@@ -45,27 +46,30 @@ public class ClientJdbcFetchRequest {
         long cursorId = in.unpackLong();
         int fetchSize = in.unpackInt();
 
-        AsyncSqlCursor<List<Object>> cur = resources.get(cursorId).get(AsyncSqlCursor.class);
-
         if (fetchSize <= 0) {
-            out.packInt(1);
+            out.packByte(JdbcRequestStatus.FAILED.getStatus());
             out.packString("Invalid fetch size : [fetchSize=" + fetchSize + ']');
+            //TODO:IGNITE-15247 A proper JDBC error code should be sent.
 
             return null;
         }
 
+        AsyncSqlCursor<List<Object>> cur = resources.get(cursorId).get(AsyncSqlCursor.class);
+
         cur.requestNextAsync(fetchSize).handle((batch, t) -> {
             if (t != null) {
-                out.packInt(1);
-                out.packString("Failed to fetch results for cursor id " + cursorId);
+                out.packByte(JdbcRequestStatus.FAILED.getStatus());
+                out.packString("Failed to fetch results for cursor id " + cursorId + ", " + t.getMessage());
+                //TODO:IGNITE-15247 A proper JDBC error code should be sent.
 
                 return null;
             }
 
-            out.packInt(0);
+            out.packByte(JdbcRequestStatus.SUCCESS.getStatus());
             new QueryFetchResult(batch.items(), batch.hasMore()).writeBinary(out);
+
             return null;
-        }).toCompletableFuture();
+        });
 
         return null;
     }

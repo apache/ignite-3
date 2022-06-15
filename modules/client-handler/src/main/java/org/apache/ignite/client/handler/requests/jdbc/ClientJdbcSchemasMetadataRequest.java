@@ -41,6 +41,7 @@ public class ClientJdbcSchemasMetadataRequest {
         String schemaPtrn = in.unpackString();
 
         return metadataCatalog.getSchemasMeta(schemaPtrn)
-                .thenApply(JdbcMetaSchemasResult::new).thenAccept(res -> res.writeBinary(out));
+                .thenApply(JdbcMetaSchemasResult::new)
+                .thenAccept(res -> res.writeBinary(out));
     }
 }

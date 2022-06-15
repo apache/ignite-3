@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.JdbcQueryExecutionHandler;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcRequestStatus;
 import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteRequest;
 
 /**
@@ -46,15 +47,14 @@ public class ClientJdbcExecuteRequest {
 
         return handler.queryAsync(req)
                 .exceptionally(ex -> {
-                    if (ex != null) {
-                        out.packInt(1);
-                        out.packString(ex.getMessage());
-                    }
+                    out.packByte(JdbcRequestStatus.FAILED.getStatus());
+                    out.packString(ex.getMessage());
+                    //TODO:IGNITE-15247 A proper JDBC error code should be sent.
 
                     return null;
                 })
                 .thenAccept(res -> {
-                    out.packInt(0);
+                    out.packByte(JdbcRequestStatus.SUCCESS.getStatus());
                     res.writeBinary(out);
                 });
     }

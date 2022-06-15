@@ -17,32 +17,24 @@
 
 package org.apache.ignite.internal.jdbc.proto.event;
 
-import org.apache.ignite.internal.tostring.S;
-
 /**
- * JDBC query fetch result.
+ * JDBC request status.
  */
-public class QueryCloseResult extends Response {
-    /**
-     * Default constructor is used for deserialization.
-     */
-    public QueryCloseResult() {
-        hasResults = true;
+public enum JdbcRequestStatus {
+    /** JDBC request success flag. */
+    SUCCESS((byte) 0),
+
+    /** JDBC request failed flag. */
+    FAILED((byte) 1);
+
+    /** JDBC request flag. */
+    private final byte status;
+
+    JdbcRequestStatus(byte status) {
+        this.status = status;
     }
 
-    /**
-     * Constructor.
-     *
-     * @param status Status code.
-     * @param err    Error message.
-     */
-    public QueryCloseResult(int status, String err) {
-        super(status, err);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return S.toString(QueryCloseResult.class, this);
+    public byte getStatus() {
+        return status;
     }
 }
