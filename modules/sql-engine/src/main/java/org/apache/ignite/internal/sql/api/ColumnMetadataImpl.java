@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.api;
 
 import java.util.List;
+import org.apache.ignite.internal.sql.ColumnTypeConverter;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -110,7 +111,7 @@ public class ColumnMetadataImpl implements ColumnMetadata {
     /** {@inheritDoc} */
     @Override
     public Class<?> valueClass() {
-        return Commons.columnTypeToClass(type);
+        return ColumnTypeConverter.columnTypeToClass(type);
     }
 
     /** {@inheritDoc} */
