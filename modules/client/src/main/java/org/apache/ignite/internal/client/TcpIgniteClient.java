@@ -187,10 +187,6 @@ public class TcpIgniteClient implements IgniteClient {
         return ch.connections();
     }
 
-    public ClientChannel getOrCreateChannel() {
-        return ch.getDefaultChannel();
-    }
-
     /**
      * Sends ClientMessage request to server side asynchronously and returns result future.
      *
