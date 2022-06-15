@@ -28,10 +28,12 @@ import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ClientSqlColumnTypeConverter;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
@@ -39,6 +41,7 @@ import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client SQL execute request.
@@ -166,16 +169,43 @@ public class ClientSqlExecuteRequest {
                 ColumnMetadata col = cols.get(i);
                 out.packString(col.name());
                 out.packBoolean(col.nullable());
+                out.packInt(ClientSqlColumnTypeConverter.columnTypeToOrdinal(col.type()));
+                out.packInt(col.scale());
+                out.packInt(col.precision());
 
-                // TODO: Type code
-                // TODO: Origin
-                // TODO: Scale
-                // TODO: Precision
+                ColumnOrigin origin = col.origin();
 
-                // TODO: IGNITE-17052 Implement query metadata.
-                // Ideally we only need the type code here.
-                out.packString(col.valueClass().getName());
-                out.packObjectWithType(null /*col.type()*/);
+                if (origin == null) {
+                    out.packNil();
+                } else {
+                    if (i == 0) {
+                        out.packString(origin.schemaName());
+                        out.packString(origin.tableName());
+                    } else {
+                        // In many cases there are multiple columns from the same table.
+                        // Schema is the same for all columns in most cases.
+                        // Pack nil when previous column has the same value for schema or table.
+                        ColumnOrigin prev = cols.get(i - 1).origin();
+
+                        if (prev != null && prev.schemaName().equals(origin.schemaName())) {
+                            out.packNil();
+                        } else {
+                            out.packString(origin.schemaName());
+                        }
+
+                        if (prev != null && prev.tableName().equals(origin.tableName())) {
+                            out.packNil();
+                        } else {
+                            out.packString(origin.tableName());
+                        }
+                    }
+
+                    if (col.name().equals(origin.columnName())) {
+                        out.packNil();
+                    } else {
+                        out.packString(origin.columnName());
+                    }
+                }
             }
         }
     }
