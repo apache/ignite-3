@@ -33,6 +33,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.Statement;
@@ -93,31 +94,7 @@ public class ClientSqlExecuteRequest {
         out.packBoolean(asyncResultSet.wasApplied());
         out.packLong(asyncResultSet.affectedRows());
 
-        // Pack metadata.
-        // TODO IGNITE-17179 metadata caching - avoid sending same meta over and over.
-        if (asyncResultSet.metadata() == null || asyncResultSet.metadata().columns() == null) {
-            out.packArrayHeader(0);
-        } else {
-            // TODO: Use query schema caching, don't send meta with every request.
-            List<ColumnMetadata> cols = asyncResultSet.metadata().columns();
-            out.packArrayHeader(cols.size());
-
-            for (int i = 0; i < cols.size(); i++) {
-                ColumnMetadata col = cols.get(i);
-                out.packString(col.name());
-                out.packBoolean(col.nullable());
-
-                // TODO: Type code
-                // TODO: Origin
-                // TODO: Scale
-                // TODO: Precision
-
-                // TODO: IGNITE-17052 Implement query metadata.
-                // Ideally we only need the type code here.
-                out.packString(col.valueClass().getName());
-                out.packObjectWithType(null /*col.type()*/);
-            }
-        }
+        packMeta(out, asyncResultSet.metadata());
 
         // Pack first page.
         if (asyncResultSet.hasRowSet()) {
@@ -175,5 +152,31 @@ public class ClientSqlExecuteRequest {
         }
 
         return res;
+    }
+
+    private static void packMeta(ClientMessagePacker out, ResultSetMetadata meta) {
+        // TODO IGNITE-17179 metadata caching - avoid sending same meta over and over.
+        if (meta == null || meta.columns() == null) {
+            out.packArrayHeader(0);
+        } else {
+            List<ColumnMetadata> cols = meta.columns();
+            out.packArrayHeader(cols.size());
+
+            for (int i = 0; i < cols.size(); i++) {
+                ColumnMetadata col = cols.get(i);
+                out.packString(col.name());
+                out.packBoolean(col.nullable());
+
+                // TODO: Type code
+                // TODO: Origin
+                // TODO: Scale
+                // TODO: Precision
+
+                // TODO: IGNITE-17052 Implement query metadata.
+                // Ideally we only need the type code here.
+                out.packString(col.valueClass().getName());
+                out.packObjectWithType(null /*col.type()*/);
+            }
+        }
     }
 }
