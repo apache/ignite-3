@@ -24,13 +24,12 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.ClientMessage;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * JDBC columns metadata result.
  */
-public class JdbcMetaColumnsResult implements ClientMessage {
+public class JdbcMetaColumnsResult extends Response {
     /** Columns metadata. */
     private List<JdbcColumnMeta> meta;
 
@@ -43,12 +42,24 @@ public class JdbcMetaColumnsResult implements ClientMessage {
     /**
      * Constructor.
      *
+     * @param status Status code.
+     * @param err    Error message.
+     */
+    public JdbcMetaColumnsResult(int status, String err) {
+        super(status, err);
+    }
+
+    /**
+     * Constructor.
+     *
      * @param meta Columns metadata.
      */
     public JdbcMetaColumnsResult(Collection<JdbcColumnMeta> meta) {
         Objects.requireNonNull(meta);
 
         this.meta = new ArrayList<>(meta);
+
+        this.hasResults = true;
     }
 
     /**
@@ -63,6 +74,12 @@ public class JdbcMetaColumnsResult implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
+        super.writeBinary(packer);
+
+        if (!hasResults) {
+            return;
+        }
+
         packer.packArrayHeader(meta.size());
 
         for (JdbcColumnMeta m : meta) {
@@ -73,6 +90,12 @@ public class JdbcMetaColumnsResult implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
+        super.readBinary(unpacker);
+
+        if (!hasResults) {
+            return;
+        }
+
         int size = unpacker.unpackArrayHeader();
 
         if (size == 0) {
