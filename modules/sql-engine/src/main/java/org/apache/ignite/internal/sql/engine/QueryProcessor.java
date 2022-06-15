@@ -56,7 +56,6 @@ public interface QueryProcessor extends IgniteComponent {
      *
      * @throws IgniteException in case of an error.
      */
-    @Deprecated
     List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params);
 
     /**
@@ -70,7 +69,6 @@ public interface QueryProcessor extends IgniteComponent {
      *
      * @throws IgniteException in case of an error.
      */
-    @Deprecated
     List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName, String qry, Object... params);
 
     /**
