@@ -197,6 +197,7 @@ public class ClientSqlExecuteRequest {
             // In many cases there are multiple columns from the same table.
             // Schema is the same for all columns in most cases.
             // Pack nil when previous column has the same value for schema or table.
+            // TODO: Pack index instead - collect previous names into a map (name -> ordinal)
             ColumnOrigin prev = cols.get(i - 1).origin();
 
             if (prev != null && prev.schemaName().equals(origin.schemaName())) {
