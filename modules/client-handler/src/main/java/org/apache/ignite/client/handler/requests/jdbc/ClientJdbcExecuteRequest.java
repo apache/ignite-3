@@ -47,20 +47,23 @@ public class ClientJdbcExecuteRequest {
         req.readBinary(in);
 
         return handler.queryAsync(req)
-                .exceptionally(ex -> {
-                    out.packByte(JdbcRequestStatus.FAILED.getStatus());
-                    out.packString(ex.getMessage());
-                    //TODO:IGNITE-15247 A proper JDBC error code should be sent.
+                .handle((res, ex) -> {
+                    if (ex != null) {
+                        out.packByte(JdbcRequestStatus.FAILED.getStatus());
+                        out.packString(ex.getMessage());
+                        //TODO:IGNITE-15247 A proper JDBC error code should be sent.
 
-                    return null;
-                })
-                .thenAccept(res -> {
+                        return null;
+                    }
+
                     out.packByte(JdbcRequestStatus.SUCCESS.getStatus());
                     out.packArrayHeader(res.results().size());
 
                     for (QuerySingleResult result : res.results()) {
                         result.writeBinary(out);
                     }
+
+                    return null;
                 });
     }
 }

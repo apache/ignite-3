@@ -56,17 +56,17 @@ public class ClientJdbcFetchRequest {
 
         AsyncSqlCursor<List<Object>> cur = resources.get(cursorId).get(AsyncSqlCursor.class);
 
-        cur.requestNextAsync(fetchSize).handle((batch, t) -> {
-            if (t != null) {
+        cur.requestNextAsync(fetchSize).handle((batch, ex) -> {
+            if (ex != null) {
                 out.packByte(JdbcRequestStatus.FAILED.getStatus());
-                out.packString("Failed to fetch results for cursor id " + cursorId + ", " + t.getMessage());
+                out.packString("Failed to fetch results for cursor id " + cursorId + ", " + ex.getMessage());
                 //TODO:IGNITE-15247 A proper JDBC error code should be sent.
 
                 return null;
             }
 
             out.packByte(JdbcRequestStatus.SUCCESS.getStatus());
-            new QueryFetchResult(batch.items(), batch.hasMore()).writeBinary(out);
+            new QueryFetchResult(batch.items(), !batch.hasMore()).writeBinary(out);
 
             return null;
         });

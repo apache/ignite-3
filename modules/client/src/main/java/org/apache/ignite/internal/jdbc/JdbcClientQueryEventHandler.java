@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.jdbc;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
+import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.BatchPreparedStmntRequest;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcRequestStatus;
 import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteRequest;
 
 /**
@@ -56,9 +58,8 @@ public class JdbcClientQueryEventHandler {
         return client.sendRequestAsync(ClientOp.JDBC_EXEC,  w -> req.writeBinary(w.out()), p -> {
             int status = p.in().unpackInt();
 
-            if (status == 1) {
-                throw IgniteQueryErrorCode.createJdbcSqlException(p.in().unpackString(),
-                        p.in().unpackInt());
+            if (status == JdbcRequestStatus.FAILED.getStatus()) {
+                throw new SQLException(p.in().unpackString(), SqlStateCode.INTERNAL_ERROR);
             }
 
             int size = p.in().unpackArrayHeader();

@@ -84,15 +84,6 @@ public class JdbcClientQueryAsyncResult {
     }
 
     /**
-     * Get the cursor id.
-     *
-     * @return Cursor ID.
-     */
-    public long cursorId() {
-        return cursorId;
-    }
-
-    /**
      * Get the items.
      *
      * @return Query result rows.
@@ -216,7 +207,7 @@ public class JdbcClientQueryAsyncResult {
             if (e.getCause() instanceof SQLException) {
                 throw (SQLException) e.getCause();
             }
-            throw new SQLException(e.getMessage(), SqlStateCode.INTERNAL_ERROR);
+            throw new SQLException(e.getMessage(), SqlStateCode.INTERNAL_ERROR, e);
         }
     }
 }
