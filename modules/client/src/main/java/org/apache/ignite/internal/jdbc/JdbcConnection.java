@@ -67,6 +67,9 @@ public class JdbcConnection implements Connection {
     /** Statements modification mutex. */
     private final Object stmtsMux = new Object();
 
+    /** Handler. */
+    private final JdbcClientQueryEventHandler handler;
+
     /** Schema name. */
     private String schema;
 
@@ -104,6 +107,28 @@ public class JdbcConnection implements Connection {
     private JdbcDatabaseMetadata metadata;
 
     /**
+     * Constructor.
+     *
+     * @param handler Handler.
+     * @param props   Properties.
+     */
+    public JdbcConnection(JdbcClientQueryEventHandler handler, ConnectionProperties props) {
+        this.connProps = props;
+        this.handler = handler;
+
+        autoCommit = true;
+
+        netTimeout = connProps.getConnectionTimeout();
+        qryTimeout = connProps.getQueryTimeout();
+
+        holdability = HOLD_CURSORS_OVER_COMMIT;
+
+        schema = TableDefinition.DEFAULT_DATABASE_SCHEMA_NAME;
+
+        client = null;
+    }
+
+    /**
      * Creates new connection.
      *
      * @param props Connection properties.
@@ -133,6 +158,8 @@ public class JdbcConnection implements Connection {
         } catch (Exception e) {
             throw new SQLException("Failed to connect to server", CLIENT_CONNECTION_FAILED, e);
         }
+
+        this.handler = new JdbcClientQueryEventHandler(client);
 
         txIsolation = Connection.TRANSACTION_NONE;
 
@@ -731,7 +758,7 @@ public class JdbcConnection implements Connection {
      * @return Handler.
      */
     public JdbcClientQueryEventHandler handler() {
-        return new JdbcClientQueryEventHandler(client);
+        return handler;
     }
 
     /** {@inheritDoc} */

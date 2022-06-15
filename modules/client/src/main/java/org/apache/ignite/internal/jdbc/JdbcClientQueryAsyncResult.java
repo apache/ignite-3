@@ -35,14 +35,14 @@ import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * JDBC query execute result.
+ * JDBC query async result.
  */
 public class JdbcClientQueryAsyncResult {
     /** Cursor ID. */
     private final long cursorId;
 
     /** Query result rows. */
-    private List<List<Object>> items;
+    private List<List<Object>> rows;
 
     /** Flag indicating the query has no unfetched results. */
     private boolean last;
@@ -73,12 +73,12 @@ public class JdbcClientQueryAsyncResult {
         int size = in.unpackArrayHeader();
 
         if (size == 0) {
-            this.items = Collections.emptyList();
+            this.rows = Collections.emptyList();
         } else {
-            items = new ArrayList<>(size);
+            rows = new ArrayList<>(size);
 
             for (int i = 0; i < size; i++) {
-                items.add(Arrays.asList(in.unpackObjectArray()));
+                rows.add(Arrays.asList(in.unpackObjectArray()));
             }
         }
     }
@@ -97,8 +97,8 @@ public class JdbcClientQueryAsyncResult {
      *
      * @return Query result rows.
      */
-    public List<List<Object>> items() {
-        return items;
+    public List<List<Object>> rows() {
+        return rows;
     }
 
     /**
@@ -154,7 +154,7 @@ public class JdbcClientQueryAsyncResult {
 
         QueryFetchResult queryFetchResult = getOrThrow(f);
 
-        this.items = queryFetchResult.items();
+        this.rows = queryFetchResult.items();
         this.last = queryFetchResult.last();
     }
 

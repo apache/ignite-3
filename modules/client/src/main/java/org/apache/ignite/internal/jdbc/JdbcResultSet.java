@@ -157,7 +157,7 @@ public class JdbcResultSet implements ResultSet {
         this.closeStmt = closeStmt;
 
         if (isQuery) {
-            this.rows = singleResult.items();
+            this.rows = singleResult.rows();
 
             rowsIter = rows != null ? rows.iterator() : null;
         } else {
@@ -193,7 +193,7 @@ public class JdbcResultSet implements ResultSet {
         if ((rowsIter == null || !rowsIter.hasNext()) && !finished) {
             singleResult.next(fetchSize);
 
-            rows = singleResult.items();
+            rows = singleResult.rows();
             finished = singleResult.last();
 
             rowsIter = rows.iterator();
