@@ -94,6 +94,7 @@ public class ClientSqlExecuteRequest {
         out.packLong(asyncResultSet.affectedRows());
 
         // Pack metadata.
+        // TODO IGNITE-17179 metadata caching - avoid sending same meta over and over.
         if (asyncResultSet.metadata() == null || asyncResultSet.metadata().columns() == null) {
             out.packArrayHeader(0);
         } else {
