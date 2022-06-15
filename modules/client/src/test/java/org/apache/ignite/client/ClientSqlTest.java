@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
@@ -36,7 +37,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ClientSqlTest extends AbstractClientTableTest {
     @Test
-    public void testExecute() {
+    public void testExecuteAsync() {
         Session session = client.sql().createSession();
         AsyncResultSet resultSet = session.executeAsync(null, "SELECT 1").join();
 
@@ -45,6 +46,18 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals(1, resultSet.currentPageSize());
 
         SqlRow row = resultSet.currentPage().iterator().next();
+        assertEquals(1, row.intValue(0));
+    }
+
+    @Test
+    public void testExecute() {
+        Session session = client.sql().createSession();
+        ResultSet resultSet = session.execute(null, "SELECT 1");
+
+        assertTrue(resultSet.hasRowSet());
+        assertFalse(resultSet.wasApplied());
+
+        SqlRow row = resultSet.next();
         assertEquals(1, row.intValue(0));
     }
 

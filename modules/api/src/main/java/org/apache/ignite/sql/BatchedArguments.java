@@ -32,6 +32,15 @@ public class BatchedArguments extends ArrayList<List<Object>> implements List<Li
     /**
      * Creates batched arguments.
      *
+     * @return Batch query arguments.
+     */
+    public static BatchedArguments create() {
+        return new BatchedArguments();
+    }
+
+    /**
+     * Creates batched arguments.
+     *
      * @param args Arguments.
      * @return Batch query arguments.
      */

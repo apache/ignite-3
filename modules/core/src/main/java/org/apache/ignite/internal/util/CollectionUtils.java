@@ -36,12 +36,16 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class provides various method to work with collections.
  */
 public final class CollectionUtils {
+    /** Special object for determining that there is no next element. */
+    private static final Object NO_NEXT_ELEMENT = new Object();
+
     /** Stub. */
     private CollectionUtils() {
         // No op.
@@ -383,6 +387,101 @@ public final class CollectionUtils {
             @Override
             public boolean isEmpty() {
                 return collection.isEmpty();
+            }
+        };
+    }
+
+    /**
+     * Create a collection view that can only be read.
+     *
+     * @param collection Basic collection.
+     * @param mapper Conversion function.
+     * @param predicate Predicate to apply to each element of basic collection.
+     * @param <T1> Base type of the collection.
+     * @param <T2> Type for view.
+     * @return Read-only collection view.
+     */
+    public static <T1, T2> Collection<T2> viewReadOnly(
+            @Nullable Collection<? extends T1> collection,
+            @Nullable Function<? super T1, ? extends T2> mapper,
+            @Nullable Predicate<? super T1> predicate
+    ) {
+        if (collection == null) {
+            return emptyList();
+        }
+
+        if (mapper == null && predicate == null) {
+            return unmodifiableCollection((Collection<T2>) collection);
+        }
+
+        return new AbstractCollection<>() {
+            /** {@inheritDoc} */
+            @Override
+            public Iterator<T2> iterator() {
+                Iterator<? extends T1> iterator = collection.iterator();
+
+                return new Iterator<>() {
+                    @Nullable
+                    T1 current = advance();
+
+                    /** {@inheritDoc} */
+                    @Override
+                    public boolean hasNext() {
+                        return current != NO_NEXT_ELEMENT;
+                    }
+
+                    /** {@inheritDoc} */
+                    @Override
+                    public T2 next() {
+                        T1 current = this.current;
+
+                        if (current == NO_NEXT_ELEMENT) {
+                            throw new NoSuchElementException();
+                        }
+
+                        this.current = advance();
+
+                        return mapper == null ? (T2) current : mapper.apply(current);
+                    }
+
+                    private @Nullable T1 advance() {
+                        while (iterator.hasNext()) {
+                            T1 next = iterator.next();
+
+                            if (predicate == null || predicate.test(next)) {
+                                return next;
+                            }
+                        }
+
+                        return (T1) NO_NEXT_ELEMENT;
+                    }
+                };
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public int size() {
+                if (predicate == null) {
+                    return collection.size();
+                }
+
+                int count = 0;
+
+                for (Iterator<T2> iterator = iterator(); iterator.hasNext(); iterator.next()) {
+                    count++;
+                }
+
+                return count;
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public boolean isEmpty() {
+                if (predicate == null) {
+                    return collection.isEmpty();
+                }
+
+                return size() == 0;
             }
         };
     }

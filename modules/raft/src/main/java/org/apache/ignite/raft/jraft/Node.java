@@ -190,6 +190,17 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     void changePeers(final Configuration newPeers, final Closure done);
 
     /**
+     * Asynchronously change the configuration of the raft group to |newPeers|. If done closure was completed with {@link Status#OK()},
+     * then it is guaranteed that state of {@link org.apache.ignite.raft.jraft.core.NodeImpl.ConfigurationCtx} was switched to
+     * {@code STAGE_CATCHING_UP}
+     *
+     * @param newPeers new peers to change
+     * @param term term on which this method was called.
+     * @param done callback
+     */
+    void changePeersAsync(final Configuration newPeers, long term, final Closure done);
+
+    /**
      * Reset the configuration of this node individually, without any replication to other peers before this node
      * becomes the leader. This function is supposed to be invoked when the majority of the replication group are dead
      * and you'd like to revive the service in the consideration of availability. Notice that neither consistency nor

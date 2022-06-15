@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.cause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -28,6 +30,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -35,6 +39,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
@@ -49,10 +54,13 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
@@ -64,6 +72,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Tests for asynchronous SQL API.
  */
+@SuppressWarnings("ThrowableNotThrown")
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     private static final int ROW_COUNT = 16;
@@ -81,7 +90,16 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             sql("DROP TABLE " + t.name());
         }
 
-        super.tearDownBase(testInfo);
+        tearDownBase(testInfo);
+    }
+
+    /**
+     * Gets the SQL API.
+     *
+     * @return SQL API.
+     */
+    protected IgniteSql igniteSql() {
+        return CLUSTER_NODES.get(0).sql();
     }
 
     @Test
@@ -181,7 +199,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 4).build();
 
         TestPageProcessor pageProc = new TestPageProcessor(4);
@@ -203,7 +221,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         sql("CREATE TABLE TEST(COL0 BIGINT PRIMARY KEY, COL1 VARCHAR NOT NULL)");
         sql("INSERT INTO TEST VALUES (?, ?)", 1L, "some string");
 
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().build();
 
         AsyncResultSet rs = ses.executeAsync(null, "SELECT COL1, COL0 FROM TEST").get();
@@ -234,7 +252,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void sqlRow() throws ExecutionException, InterruptedException {
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().build();
 
         AsyncResultSet ars = ses.executeAsync(null, "SELECT 1 as COL_A, 2 as COL_B").get();
@@ -272,7 +290,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(1).build();
 
         AsyncResultSet ars0 = ses.executeAsync(null, "SELECT ID FROM TEST ORDER BY ID").get();
@@ -307,31 +325,31 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void errors() {
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
 
         // Parse error.
         {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT ID FROM");
-            assertThrowsWithCause(() -> f.get(), IgniteInternalException.class, "Failed to parse query");
+            assertThrowsWithCause(f::get, IgniteInternalException.class, "Failed to parse query");
         }
 
         // Multiple statements error.
         {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1; SELECT 2");
-            assertThrowsWithCause(() -> f.get(), IgniteSqlException.class, "Multiple statements aren't allowed");
+            assertThrowsWithCause(f::get, SqlException.class, "Multiple statements aren't allowed");
         }
 
         // Planning error.
         {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "CREATE TABLE TEST (VAL INT)");
-            assertThrowsWithCause(() -> f.get(), IgniteException.class, "Table without PRIMARY KEY is not supported");
+            assertThrowsWithCause(f::get, IgniteException.class, "Table without PRIMARY KEY is not supported");
         }
 
         // Execute error.
         {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1 / ?", 0);
-            assertThrowsWithCause(() -> f.get(), ArithmeticException.class, "/ by zero");
+            assertThrowsWithCause(f::get, ArithmeticException.class, "/ by zero");
         }
 
         checkSession(ses);
@@ -344,7 +362,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(2).build();
 
         AsyncResultSet ars0 = ses.executeAsync(null, "SELECT ID FROM TEST").get();
@@ -361,14 +379,79 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         assertThrowsWithCause(
                 () -> ses.executeAsync(null, "SELECT ID FROM TEST").get(),
-                IgniteSqlException.class,
+                SqlException.class,
                 "Session is closed"
         );
 
         checkSession(ses);
     }
 
-    private void checkDdl(boolean expectedApplied, Session ses, String sql) throws ExecutionException, InterruptedException {
+    @Test
+    public void batch() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
+
+        BatchedArguments args = BatchedArguments.of(0, 0);
+
+        for (int i = 1; i < ROW_COUNT; ++i) {
+            args.add(i, i);
+        }
+
+        long[] batchRes = ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args).join();
+
+        Arrays.stream(batchRes).forEach(r -> assertEquals(1L, r));
+
+        // Check that data are inserted OK
+        List<List<Object>> res = sql("SELECT ID FROM TEST ORDER BY ID");
+        IntStream.range(0, ROW_COUNT).forEach(i -> assertEquals(i, res.get(i).get(0)));
+
+        // Check invalid query type
+        assertThrowsWithCause(
+                () -> ses.executeBatchAsync(null, "SELECT * FROM TEST", args).get(),
+                SqlException.class,
+                "Invalid SQL statement type in the batch"
+        );
+
+        assertThrowsWithCause(
+                () -> ses.executeBatchAsync(null, "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args).get(),
+                SqlException.class,
+                "Invalid SQL statement type in the batch"
+        );
+    }
+
+    @Test
+    public void batchIncomplete() {
+        int err = ROW_COUNT / 2;
+
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
+
+        BatchedArguments args = BatchedArguments.of(0, 0);
+
+        for (int i = 1; i < ROW_COUNT; ++i) {
+            if (i == err) {
+                args.add(1, 1);
+            } else {
+                args.add(i, i);
+            }
+        }
+
+        Throwable ex = assertThrowsWithCause(
+                () -> ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args).join(),
+                SqlBatchException.class
+        );
+        assertTrue(hasCause(ex, IgniteInternalException.class, "Failed to INSERT some keys because they are already in cache"));
+        SqlBatchException batchEx = cause(ex, SqlBatchException.class, null);
+
+        assertEquals(err, batchEx.updateCounters().length);
+        IntStream.range(0, batchEx.updateCounters().length).forEach(i -> assertEquals(1, batchEx.updateCounters()[i]));
+    }
+
+    private static void checkDdl(boolean expectedApplied, Session ses, String sql) throws ExecutionException, InterruptedException {
         CompletableFuture<AsyncResultSet> fut = ses.executeAsync(
                 null,
                 sql
@@ -386,7 +469,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         asyncRes.closeAsync().toCompletableFuture().get();
     }
 
-    private void checkError(Class<? extends Throwable> expectedException, String msg, Session ses, String sql, Object... args) {
+    private static void checkError(Class<? extends Throwable> expectedException, String msg, Session ses, String sql, Object... args) {
         CompletableFuture<AsyncResultSet> fut = ses.executeAsync(
                 null,
                 sql,
@@ -396,7 +479,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertThrowsWithCause(fut::get, expectedException, msg);
     }
 
-    private void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args)
+    private static void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args)
             throws ExecutionException, InterruptedException {
         CompletableFuture<AsyncResultSet> fut = ses.executeAsync(
                 null,
@@ -416,9 +499,11 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         asyncRes.closeAsync().toCompletableFuture().get();
     }
 
-    private void checkSession(Session s) {
-        assertTrue(((Set<?>) IgniteTestUtils.getFieldValue(s, "futsToClose")).isEmpty());
-        assertTrue(((Set<?>) IgniteTestUtils.getFieldValue(s, "cursToClose")).isEmpty());
+    private static void checkSession(Session s) {
+        if (s instanceof SessionImpl) {
+            assertTrue(((Collection<?>) IgniteTestUtils.getFieldValue(s, "futsToClose")).isEmpty());
+            assertTrue(((Collection<?>) IgniteTestUtils.getFieldValue(s, "cursToClose")).isEmpty());
+        }
     }
 
     static class TestPageProcessor implements
@@ -451,6 +536,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         }
 
         public List<SqlRow> result() {
+            //noinspection AssignmentOrReturnOfFieldWithMutableType
             return res;
         }
     }

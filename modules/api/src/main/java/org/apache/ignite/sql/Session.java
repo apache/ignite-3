@@ -17,9 +17,12 @@
 
 package org.apache.ignite.sql;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.sql.ResultSetImpl;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.tx.Transaction;
@@ -47,7 +50,16 @@ public interface Session extends AutoCloseable {
      * @return SQL query results set.
      * @throws SqlException If failed.
      */
-    ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments);
+    default ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
+        Objects.requireNonNull(query);
+
+        // TODO: IGNITE-17135 fix exception handling.
+        try {
+            return new ResultSetImpl(executeAsync(transaction, query, arguments).join());
+        } catch (CompletionException e) {
+            throw new SqlException(e);
+        }
+    }
 
     /**
      * Executes single SQL statement.
@@ -57,7 +69,16 @@ public interface Session extends AutoCloseable {
      * @param arguments Arguments for the statement.
      * @return SQL query results set.
      */
-    ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments);
+    default ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
+        Objects.requireNonNull(statement);
+
+        // TODO: IGNITE-17135 fix exception handling.
+        try {
+            return new ResultSetImpl(executeAsync(transaction, statement, arguments).join());
+        } catch (CompletionException e) {
+            throw new SqlException(e);
+        }
+    }
 
     /**
      * Executes SQL query in an asynchronous way.
@@ -110,8 +131,16 @@ public interface Session extends AutoCloseable {
      * @param dmlQuery DML query template.
      * @param batch Batch of query arguments.
      * @return Number of rows affected by each query in the batch.
+     * @throws SqlBatchException If the batch fails.
      */
-    int[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch);
+    default long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
+        // TODO: IGNITE-17135 fix exception handling.
+        try {
+            return executeBatchAsync(transaction, dmlQuery, batch).join();
+        } catch (CompletionException e) {
+            throw new SqlException(e);
+        }
+    }
 
     /**
      * Executes batched SQL query. Only DML queries are supported.
@@ -120,8 +149,9 @@ public interface Session extends AutoCloseable {
      * @param dmlStatement DML statement to execute.
      * @param batch Batch of query arguments.
      * @return Number of rows affected by each query in the batch.
+     * @throws SqlBatchException If the batch fails.
      */
-    int[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch);
+    long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch);
 
     /**
      * Executes batched SQL query in an asynchronous way.
@@ -129,10 +159,10 @@ public interface Session extends AutoCloseable {
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param query SQL query template.
      * @param batch List of batch rows, where each row is a list of statement arguments.
-     * @return Operation future.
-     * @throws SqlException If failed.
+     * @return Operation future completed with number of rows affected by each query in the batch on batch success,
+     *      if the batch fails the future completed with the {@link SqlBatchException}.
      */
-    CompletableFuture<int[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch);
+    CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch);
 
     /**
      * Executes batched SQL query in an asynchronous way.
@@ -140,10 +170,10 @@ public interface Session extends AutoCloseable {
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param statement SQL statement to execute.
      * @param batch List of batch rows, where each row is a list of statement arguments.
-     * @return Operation future.
-     * @throws SqlException If failed.
+     * @return Operation future completed with number of rows affected by each query in the batch on batch success,
+     *      if the batch fails the future completed with the {@link SqlBatchException}.
      */
-    CompletableFuture<int[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch);
+    CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch);
 
     /**
      * Executes batched SQL query in a reactive way.
@@ -154,7 +184,7 @@ public interface Session extends AutoCloseable {
      * @return Publisher for the number of rows affected by the query.
      * @throws SqlException If failed.
      */
-    Flow.Publisher<Integer> executeBatchReactive(@Nullable Transaction transaction, String query, BatchedArguments batch);
+    Flow.Publisher<Long> executeBatchReactive(@Nullable Transaction transaction, String query, BatchedArguments batch);
 
     /**
      * Executes batched SQL query in a reactive way.
@@ -165,7 +195,7 @@ public interface Session extends AutoCloseable {
      * @return Publisher for the number of rows affected by the query.
      * @throws SqlException If failed.
      */
-    Flow.Publisher<Integer> executeBatchReactive(@Nullable Transaction transaction, Statement statement, BatchedArguments batch);
+    Flow.Publisher<Long> executeBatchReactive(@Nullable Transaction transaction, Statement statement, BatchedArguments batch);
 
     /**
      * Executes multi-statement SQL query.

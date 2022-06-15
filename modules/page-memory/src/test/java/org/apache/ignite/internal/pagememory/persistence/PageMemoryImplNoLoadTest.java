@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.PageMemoryTestUtils.newDataRegion;
 import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.PAGE_OVERHEAD;
@@ -121,7 +120,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
             checkpointManager
                     .forceCheckpoint("for_test_flash_dirty_pages")
                     .futureFor(FINISHED)
-                    .get(100, MILLISECONDS);
+                    .get(1, SECONDS);
 
             assertThat(pageMemoryImpl.dirtyPages(), empty());
         } finally {
@@ -193,7 +192,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
             checkpointManager
                     .forceCheckpoint("for_test_safe_to_update")
                     .futureFor(FINISHED)
-                    .get(100, MILLISECONDS);
+                    .get(1, SECONDS);
 
             assertTrue(pageMemoryImpl.safeToUpdate());
         } finally {

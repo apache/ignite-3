@@ -35,7 +35,7 @@ public class QueryContext implements Context {
      * Constructor.
      *
      * @param params Context params.
-     * */
+     */
     private QueryContext(Object[] params) {
         this.params = params;
     }

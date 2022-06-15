@@ -14,136 +14,158 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<svg class="railroad-diagram" width="861" height="122" viewBox="0 0 861 122" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg class="railroad-diagram" width="1072" height="109" viewBox="0 0 1072 109" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
     <g transform="translate(.5 .5)">
         <g fill="none" stroke="black" stroke-width="2">
-            <path stroke-dasharray="5,5" d="M10 61 l30 0" />
+            <path stroke-dasharray="5,5" d="M10 48 l30 0" />
         </g>
-        <path d="M40 61h10"></path>
+        <path d="M40 48h10"></path>
         <g>
-            <path d="M50 61h0"></path>
-            <path d="M811 61h0"></path>
-            <g class="terminal ">
-                <path d="M50 61h0"></path>
-                <path d="M78.5 61h0"></path>
-                <rect x="50" y="50" width="28.5" height="22" rx="10" ry="10"></rect>
-                <text x="64.25" y="65">(</text>
-            </g>
-            <path d="M78.5 61h10"></path>
-            <path d="M88.5 61h10"></path>
+            <path d="M50 48h0"></path>
+            <path d="M1022 48h0"></path>
             <g>
-                <path d="M98.5 61h0"></path>
-                <path d="M331.5 61h0"></path>
-                <path d="M98.5 61h10"></path>
+                <path d="M50 48h0"></path>
+                <path d="M378 48h0"></path>
+                <path d="M50 48a10 10 0 0 0 10 -10v-8a10 10 0 0 1 10 -10"></path>
                 <g>
-                    <path d="M108.5 61h0"></path>
-                    <path d="M321.5 61h0"></path>
-                    <path d="M108.5 61a10 10 0 0 0 10 -10v-10a10 10 0 0 1 10 -10"></path>
-                    <a xlink:href="https://ignite.apache.org/docs/3.0.0-alpha/sql-reference/ddl#constraint">
-                        <g class="non-terminal ">
-                            <path d="M128.5 31h21.25"></path>
-                            <path d="M280.25 31h21.25"></path>
-                            <rect x="149.75" y="20" width="130.5" height="22"></rect>
-                            <text x="215" y="35" fill="blue">constraint</text>
-                        </g>
-                    </a>
-                    <path d="M301.5 31a10 10 0 0 1 10 10v10a10 10 0 0 0 10 10"></path>
-                    <path d="M108.5 61h20"></path>
-                    <a xlink:href="https://ignite.apache.org/docs/3.0.0-alpha/sql-reference/ddl#column_definition">
-                        <g class="non-terminal ">
-                            <path d="M128.5 61h0"></path>
-                            <path d="M301.5 61h0"></path>
-                            <rect x="128.5" y="50" width="173" height="22"></rect>
-                            <text x="215" y="65" fill="blue">column&#95;definition</text>
-                        </g>
-                    </a>
-                    <path d="M301.5 61h20"></path>
+                    <path d="M70 20h288"></path>
                 </g>
-                <path d="M321.5 61h10"></path>
-                <path d="M108.5 61a10 10 0 0 0 -10 10v10a10 10 0 0 0 10 10"></path>
-                <g class="terminal ">
-                    <path d="M108.5 91h92.25"></path>
-                    <path d="M229.25 91h92.25"></path>
-                    <rect x="200.75" y="80" width="28.5" height="22" rx="10" ry="10"></rect>
-                    <text x="215" y="95">,</text>
-                </g>
-                <path d="M321.5 91a10 10 0 0 0 10 -10v-10a10 10 0 0 0 -10 -10"></path>
-            </g>
-            <path d="M331.5 61h10"></path>
-            <path d="M341.5 61h10"></path>
-            <g class="terminal ">
-                <path d="M351.5 61h0"></path>
-                <path d="M380 61h0"></path>
-                <rect x="351.5" y="50" width="28.5" height="22" rx="10" ry="10"></rect>
-                <text x="365.75" y="65">)</text>
-            </g>
-            <path d="M380 61h10"></path>
-            <g>
-                <path d="M390 61h0"></path>
-                <path d="M811 61h0"></path>
-                <path d="M390 61a10 10 0 0 0 10 -10v0a10 10 0 0 1 10 -10"></path>
+                <path d="M358 20a10 10 0 0 1 10 10v8a10 10 0 0 0 10 10"></path>
+                <path d="M50 48h20"></path>
                 <g>
-                    <path d="M410 41h381"></path>
-                </g>
-                <path d="M791 41a10 10 0 0 1 10 10v0a10 10 0 0 0 10 10"></path>
-                <path d="M390 61h20"></path>
-                <g>
-                    <path d="M410 61h0"></path>
-                    <path d="M791 61h0"></path>
+                    <path d="M70 48h0"></path>
+                    <path d="M358 48h0"></path>
                     <g class="terminal ">
-                        <path d="M410 61h0"></path>
-                        <path d="M464 61h0"></path>
-                        <rect x="410" y="50" width="54" height="22" rx="10" ry="10"></rect>
-                        <text x="437" y="65">WITH</text>
+                        <path d="M70 48h0"></path>
+                        <path d="M154 48h0"></path>
+                        <rect x="70" y="37" width="84" height="22" rx="10" ry="10"></rect>
+                        <text x="112" y="52">COLOCATE</text>
                     </g>
-                    <path d="M464 61h10"></path>
-                    <path d="M474 61h10"></path>
+                    <path d="M154 48h10"></path>
                     <g>
-                        <path d="M484 61h0"></path>
-                        <path d="M791 61h0"></path>
-                        <path d="M484 61h10"></path>
+                        <path d="M164 48h0"></path>
+                        <path d="M240 48h0"></path>
+                        <path d="M164 48a10 10 0 0 0 10 -10v0a10 10 0 0 1 10 -10"></path>
                         <g>
-                            <path d="M494 61h0"></path>
-                            <path d="M781 61h0"></path>
-                            <g class="non-terminal ">
-                                <path d="M494 61h0"></path>
-                                <path d="M599 61h0"></path>
-                                <rect x="494" y="50" width="105" height="22"></rect>
-                                <text x="546.5" y="65">param&#95;name</text>
-                            </g>
-                            <path d="M599 61h10"></path>
-                            <path d="M609 61h10"></path>
-                            <g class="terminal ">
-                                <path d="M619 61h0"></path>
-                                <path d="M647.5 61h0"></path>
-                                <rect x="619" y="50" width="28.5" height="22" rx="10" ry="10"></rect>
-                                <text x="633.25" y="65">=</text>
-                            </g>
-                            <path d="M647.5 61h10"></path>
-                            <path d="M657.5 61h10"></path>
-                            <g class="non-terminal ">
-                                <path d="M667.5 61h0"></path>
-                                <path d="M781 61h0"></path>
-                                <rect x="667.5" y="50" width="113.5" height="22"></rect>
-                                <text x="724.25" y="65">param&#95;value</text>
-                            </g>
+                            <path d="M184 28h36"></path>
                         </g>
-                        <path d="M781 61h10"></path>
-                        <path d="M494 61a10 10 0 0 0 -10 10v10a10 10 0 0 0 10 10"></path>
+                        <path d="M220 28a10 10 0 0 1 10 10v0a10 10 0 0 0 10 10"></path>
+                        <path d="M164 48h20"></path>
                         <g class="terminal ">
-                            <path d="M494 91h129.25"></path>
-                            <path d="M651.75 91h129.25"></path>
-                            <rect x="623.25" y="80" width="28.5" height="22" rx="10" ry="10"></rect>
-                            <text x="637.5" y="95">,</text>
+                            <path d="M184 48h0"></path>
+                            <path d="M220 48h0"></path>
+                            <rect x="184" y="37" width="36" height="22" rx="10" ry="10"></rect>
+                            <text x="202" y="52">BY</text>
                         </g>
-                        <path d="M781 91a10 10 0 0 0 10 -10v-10a10 10 0 0 0 -10 -10"></path>
+                        <path d="M220 48h20"></path>
+                    </g>
+                    <path d="M240 48h10"></path>
+                    <a xlink:href="https://ignite.apache.org/docs/3.0.0-alpha/sql-reference/ddl#column_list">
+                        <g class="non-terminal ">
+                            <path d="M250 48h0"></path>
+                            <path d="M358 48h0"></path>
+                            <rect x="250" y="37" width="108" height="22"></rect>
+                            <text x="304" y="52" fill="blue">column_list</text>
+                        </g>
+                    </a>
+                </g>
+                <path d="M358 48h20"></path>
+            </g>
+            <g>
+                <path d="M378 48h0"></path>
+                <path d="M614 48h0"></path>
+                <path d="M378 48a10 10 0 0 0 10 -10v0a10 10 0 0 1 10 -10"></path>
+                <g>
+                    <path d="M398 28h196"></path>
+                </g>
+                <path d="M594 28a10 10 0 0 1 10 10v0a10 10 0 0 0 10 10"></path>
+                <path d="M378 48h20"></path>
+                <g>
+                    <path d="M398 48h0"></path>
+                    <path d="M594 48h0"></path>
+                    <g class="terminal ">
+                        <path d="M398 48h0"></path>
+                        <path d="M466 48h0"></path>
+                        <rect x="398" y="37" width="68" height="22" rx="10" ry="10"></rect>
+                        <text x="432" y="52">ENGINE</text>
+                    </g>
+                    <path d="M466 48h10"></path>
+                    <path d="M476 48h10"></path>
+                    <g class="non-terminal ">
+                        <path d="M486 48h0"></path>
+                        <path d="M594 48h0"></path>
+                        <rect x="486" y="37" width="108" height="22"></rect>
+                        <text x="540" y="52">engine&#95;name</text>
                     </g>
                 </g>
-                <path d="M791 61h20"></path>
+                <path d="M594 48h20"></path>
+            </g>
+            <g>
+                <path d="M614 48h0"></path>
+                <path d="M1022 48h0"></path>
+                <path d="M614 48a10 10 0 0 0 10 -10v0a10 10 0 0 1 10 -10"></path>
+                <g>
+                    <path d="M634 28h368"></path>
+                </g>
+                <path d="M1002 28a10 10 0 0 1 10 10v0a10 10 0 0 0 10 10"></path>
+                <path d="M614 48h20"></path>
+                <g>
+                    <path d="M634 48h0"></path>
+                    <path d="M1002 48h0"></path>
+                    <g class="terminal ">
+                        <path d="M634 48h0"></path>
+                        <path d="M686 48h0"></path>
+                        <rect x="634" y="37" width="52" height="22" rx="10" ry="10"></rect>
+                        <text x="660" y="52">WITH</text>
+                    </g>
+                    <path d="M686 48h10"></path>
+                    <path d="M696 48h10"></path>
+                    <g>
+                        <path d="M706 48h0"></path>
+                        <path d="M1002 48h0"></path>
+                        <path d="M706 48h10"></path>
+                        <g>
+                            <path d="M716 48h0"></path>
+                            <path d="M992 48h0"></path>
+                            <g class="non-terminal ">
+                                <path d="M716 48h0"></path>
+                                <path d="M816 48h0"></path>
+                                <rect x="716" y="37" width="100" height="22"></rect>
+                                <text x="766" y="52">param&#95;name</text>
+                            </g>
+                            <path d="M816 48h10"></path>
+                            <path d="M826 48h10"></path>
+                            <g class="terminal ">
+                                <path d="M836 48h0"></path>
+                                <path d="M864 48h0"></path>
+                                <rect x="836" y="37" width="28" height="22" rx="10" ry="10"></rect>
+                                <text x="850" y="52">=</text>
+                            </g>
+                            <path d="M864 48h10"></path>
+                            <path d="M874 48h10"></path>
+                            <g class="non-terminal ">
+                                <path d="M884 48h0"></path>
+                                <path d="M992 48h0"></path>
+                                <rect x="884" y="37" width="108" height="22"></rect>
+                                <text x="938" y="52">param&#95;value</text>
+                            </g>
+                        </g>
+                        <path d="M992 48h10"></path>
+                        <path d="M716 48a10 10 0 0 0 -10 10v10a10 10 0 0 0 10 10"></path>
+                        <g class="terminal ">
+                            <path d="M716 78h124"></path>
+                            <path d="M868 78h124"></path>
+                            <rect x="840" y="67" width="28" height="22" rx="10" ry="10"></rect>
+                            <text x="854" y="82">,</text>
+                        </g>
+                        <path d="M992 78a10 10 0 0 0 10 -10v-10a10 10 0 0 0 -10 -10"></path>
+                    </g>
+                </g>
+                <path d="M1002 48h20"></path>
             </g>
         </g>
-        <path d="M811 61h10"></path>
-        <path d="M 821 61 h 20 m -10 -10 v 20 m 10 -20 v 20"></path>
+        <path d="M1022 48h10"></path>
+        <path d="M 1032 48 h 20 m -10 -10 v 20 m 10 -20 v 20"></path>
     </g>
     <style>
         svg {

@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.core;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.raft.jraft.test.TestUtils.peersToIds;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -875,16 +876,6 @@ public class RaftGroupServiceTest {
             .then(invocation ->
                 completedFuture(FACTORY.learnersOpResponse().newLearnersList(resultLearners).build()));
 
-    }
-
-    /**
-     * Convert list of {@link Peer} to list of string representations.
-     *
-     * @param peers List of {@link Peer}
-     * @return List of string representations.
-     */
-    private List<String> peersToIds(List<Peer> peers) {
-        return peers.stream().map(p -> PeerId.fromPeer(p).toString()).collect(Collectors.toList());
     }
 
     /** */

@@ -48,6 +48,18 @@ public interface RaftServer extends IgniteComponent {
     boolean startRaftGroup(String groupId, RaftGroupListener lsnr, List<Peer> initialConf);
 
     /**
+     * Starts a raft group bound to this cluster node.
+     *
+     * @param groupId     Group id.
+     * @param evLsnr      Listener for group membership and other events.
+     * @param lsnr        Listener for state machine events.
+     * @param initialConf Inititial group configuration.
+     * @return {@code True} if a group was successfully started, {@code False} when the group with given name is already exists.
+     */
+    boolean startRaftGroup(String groupId, RaftGroupEventsListener evLsnr,
+            RaftGroupListener lsnr, List<Peer> initialConf);
+
+    /**
      * Synchronously stops a raft group if any.
      *
      * @param groupId Group id.

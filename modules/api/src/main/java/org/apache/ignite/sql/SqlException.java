@@ -25,6 +25,13 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SqlException extends IgniteException {
     /**
+     * Empty constructor for subclasses.
+     */
+    protected SqlException() {
+        // No-op.
+    }
+
+    /**
      * Creates a new exception with the given error message.
      *
      * @param msg Error message.

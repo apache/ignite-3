@@ -34,6 +34,7 @@ import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
 import org.apache.ignite.internal.metastorage.watch.WatchAggregator;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.jetbrains.annotations.NotNull;
 import org.junit.platform.commons.util.ReflectionUtils;
 import org.mockito.Mockito;
 
@@ -115,7 +116,7 @@ public class WatchListenerInhibitor implements WatchListener {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized boolean onUpdate(WatchEvent evt) {
+    @Override public synchronized boolean onUpdate(@NotNull WatchEvent evt) {
         if (!inhibit) {
             return realListener.onUpdate(evt);
         }
@@ -124,7 +125,7 @@ public class WatchListenerInhibitor implements WatchListener {
     }
 
     /** {@inheritDoc} */
-    @Override public synchronized void onError(Throwable e) {
+    @Override public synchronized void onError(@NotNull Throwable e) {
         realListener.onError(e);
     }
 
