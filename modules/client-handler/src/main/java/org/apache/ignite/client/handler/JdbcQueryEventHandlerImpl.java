@@ -57,7 +57,7 @@ import org.apache.ignite.internal.jdbc.proto.event.QueryFetchRequest;
 import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.QuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
-import org.apache.ignite.internal.sql.ColumnTypeConverter;
+import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -336,7 +336,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 schemaName,
                 tblName,
                 colName,
-                ColumnTypeConverter.columnTypeToClass(fldMeta.type()),
+                SqlColumnTypeConverter.columnTypeToClass(fldMeta.type()),
                 fldMeta.precision(),
                 fldMeta.scale(),
                 fldMeta.nullable()

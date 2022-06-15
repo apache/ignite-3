@@ -23,8 +23,8 @@ import org.apache.ignite.sql.SqlColumnType;
  * SQL column type utils.
  */
 // TODO: Write a test that checks all possible types (using reflection) to detect when new types are added.
-public class ClientSqlColumnType {
-    public static int toOrdinal(SqlColumnType columnType) {
+public class ClientSqlColumnTypeConverter {
+    public static int columnTypeToOrdinal(SqlColumnType columnType) {
         switch (columnType) {
             case BOOLEAN:
                 return 0;
@@ -88,7 +88,7 @@ public class ClientSqlColumnType {
         }
     }
 
-    public static SqlColumnType fromOrdinal(int ordinal) {
+    public static SqlColumnType ordinalToColumnType(int ordinal) {
         switch (ordinal) {
             case 0:
                 return SqlColumnType.BOOLEAN;

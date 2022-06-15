@@ -32,7 +32,7 @@ import org.apache.ignite.sql.SqlColumnType;
 /**
  * Column type converter.
  */
-public class ColumnTypeConverter {
+public class SqlColumnTypeConverter {
     /**
      * Column type to Java class.
      */
