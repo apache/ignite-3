@@ -17,7 +17,6 @@
 
 package org.apache.ignite.cli.commands;
 
-import java.util.concurrent.Callable;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
@@ -25,7 +24,7 @@ import picocli.CommandLine.Spec;
 /**
  * Base class for commands.
  */
-public abstract class BaseCommand implements Callable<Integer> {
+public abstract class BaseCommand {
     /** Help option specification. */
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit.")
     protected boolean usageHelpRequested;
@@ -33,8 +32,22 @@ public abstract class BaseCommand implements Callable<Integer> {
     @Spec
     protected CommandSpec spec;
 
-    @Override
-    public Integer call() {
-        return 0;
+    /**
+     * Constructs current full command name from the {@code CommandSpec} including all parent commands.
+     *
+     * @return full command name.
+     */
+    protected String getCommandName() {
+        StringBuilder sb = new StringBuilder();
+        CommandSpec root = spec;
+        do {
+            sb.insert(0, root.name());
+            root = root.parent();
+            // Don't add the space after the empty top level repl command's name
+            if (root != null && !root.name().isEmpty()) {
+                sb.insert(0, " ");
+            }
+        } while (root != null);
+        return sb.toString();
     }
 }

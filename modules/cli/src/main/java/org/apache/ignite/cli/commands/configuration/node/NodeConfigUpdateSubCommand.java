@@ -19,6 +19,7 @@ package org.apache.ignite.cli.commands.configuration.node;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.configuration.NodeConfigUpdateCall;
 import org.apache.ignite.cli.call.configuration.NodeConfigUpdateCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
@@ -33,7 +34,7 @@ import picocli.CommandLine.Parameters;
 @Command(name = "update",
         description = "Updates node configuration.")
 @Singleton
-public class NodeConfigUpdateSubCommand extends BaseCommand {
+public class NodeConfigUpdateSubCommand extends BaseCommand implements Callable<Integer> {
     /**
      * Node url option.
      */
@@ -67,6 +68,7 @@ public class NodeConfigUpdateSubCommand extends BaseCommand {
         return NodeConfigUpdateCallInput.builder()
                 .nodeUrl(nodeUrl)
                 .config(config)
+                .commandName(getCommandName())
                 .build();
     }
 }

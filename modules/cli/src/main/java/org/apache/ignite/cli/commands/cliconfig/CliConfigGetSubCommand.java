@@ -18,6 +18,7 @@
 package org.apache.ignite.cli.commands.cliconfig;
 
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cliconfig.CliConfigGetCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
@@ -29,7 +30,7 @@ import picocli.CommandLine.Parameters;
  * Command to get CLI configuration parameters.
  */
 @Command(name = "get")
-public class CliConfigGetSubCommand extends BaseCommand {
+public class CliConfigGetSubCommand extends BaseCommand implements Callable<Integer> {
     @Parameters
     private String key;
 

@@ -32,7 +32,7 @@ import picocli.CommandLine.Option;
  */
 @Command(name = "show",
         description = "Shows node configuration.")
-public class NodeConfigShowReplSubCommand extends BaseCommand {
+public class NodeConfigShowReplSubCommand extends BaseCommand implements Runnable {
 
     /**
      * Configuration selector option.
@@ -56,18 +56,19 @@ public class NodeConfigShowReplSubCommand extends BaseCommand {
 
     /** {@inheritDoc} */
     @Override
-    public Integer call() {
-        var input = NodeConfigShowCallInput.builder().selector(selector);
+    public void run() {
+        var input = NodeConfigShowCallInput.builder()
+                .selector(selector)
+                .commandName(getCommandName());
         if (session.isConnectedToNode()) {
             input.nodeUrl(session.getNodeUrl());
         } else if (nodeUrl != null) {
             input.nodeUrl(nodeUrl);
         } else {
             spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--node-url' option.");
-            return 1;
         }
 
-        return CallExecutionPipeline.builder(call)
+        CallExecutionPipeline.builder(call)
                 .inputProvider(input::build)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())

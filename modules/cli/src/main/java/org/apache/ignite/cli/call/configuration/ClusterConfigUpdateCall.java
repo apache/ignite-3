@@ -39,7 +39,7 @@ public class ClusterConfigUpdateCall implements Call<ClusterConfigUpdateCallInpu
         try {
             return updateClusterConfig(client, input);
         } catch (ApiException | IllegalArgumentException e) {
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, "update cluster configuration", input.getClusterUrl()));
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getCommandName(), input.getClusterUrl()));
         }
     }
 

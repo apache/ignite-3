@@ -19,6 +19,7 @@ package org.apache.ignite.cli.commands.cliconfig;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cliconfig.CliConfigCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.decorators.ConfigDecorator;
@@ -34,7 +35,7 @@ import picocli.CommandLine.Command;
         CliConfigSetSubCommand.class
 })
 @Singleton
-public class CliConfigSubCommand extends BaseCommand {
+public class CliConfigSubCommand extends BaseCommand implements Callable<Integer> {
 
     @Inject
     private CliConfigCall call;

@@ -36,7 +36,7 @@ import picocli.CommandLine.Option;
  */
 @Command(name = "show",
         description = "Shows cluster configuration.")
-public class ClusterConfigShowReplSubCommand extends BaseCommand {
+public class ClusterConfigShowReplSubCommand extends BaseCommand implements Runnable {
 
     /**
      * Configuration selector option.
@@ -59,18 +59,19 @@ public class ClusterConfigShowReplSubCommand extends BaseCommand {
     private Session session;
 
     @Override
-    public Integer call() {
-        var input = ClusterConfigShowCallInput.builder().selector(selector);
+    public void run() {
+        var input = ClusterConfigShowCallInput.builder()
+                .selector(selector)
+                .commandName(getCommandName());
         if (session.isConnectedToNode()) {
             input.clusterUrl(session.getNodeUrl());
         } else if (clusterUrl != null) {
             input.clusterUrl(clusterUrl);
         } else {
             spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--cluster-url' option.");
-            return 1;
         }
 
-        return CallExecutionPipeline.builder(call)
+        CallExecutionPipeline.builder(call)
                 .inputProvider(input::build)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())

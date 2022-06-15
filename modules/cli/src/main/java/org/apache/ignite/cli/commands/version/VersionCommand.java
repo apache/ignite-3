@@ -28,14 +28,13 @@ import picocli.CommandLine.Command;
  */
 @Command(name = "version", description = "Prints CLI version.")
 @Singleton
-public class VersionCommand extends BaseCommand {
+public class VersionCommand extends BaseCommand implements Runnable {
 
     @Inject
     private VersionProvider versionProvider;
 
     @Override
-    public Integer call() {
+    public void run() {
         spec.commandLine().getOut().println(versionProvider.getVersion()[0]);
-        return 0;
     }
 }

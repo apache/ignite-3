@@ -126,7 +126,7 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
         assertEquals(1, exitCode);
         assertThat(
                 err.toString(UTF_8),
-                both(startsWith("An error occurred when calling \"update node configuration\""))
+                both(startsWith("An error occurred when calling \"ignite node config update\""))
                         .and(containsString("'network' configuration doesn't have the 'foo' sub-configuration"))
         );
 
@@ -144,7 +144,7 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
         assertEquals(1, exitCode);
         assertThat(
                 err.toString(UTF_8),
-                both(containsString("An error occurred when calling \"update node configuration\""))
+                both(containsString("An error occurred when calling \"ignite node config update\""))
                         .and(containsString("'long' is expected as a type for the 'network.shutdownQuietPeriod' configuration value"))
         );
     }

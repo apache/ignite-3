@@ -31,7 +31,7 @@ import picocli.CommandLine.Parameters;
  */
 @Command(name = "connect", description = "Connect to Ignite 3 node.")
 @Singleton
-public class ConnectCommand extends BaseCommand {
+public class ConnectCommand extends BaseCommand implements Runnable {
 
     /**
      * Cluster url option.
@@ -47,12 +47,19 @@ public class ConnectCommand extends BaseCommand {
 
     /** {@inheritDoc} */
     @Override
-    public Integer call() {
-        return CallExecutionPipeline.builder(connectCall)
-                .inputProvider(() -> ConnectCallInput.builder().nodeUrl(nodeUrl).build())
+    public void run() {
+        CallExecutionPipeline.builder(connectCall)
+                .inputProvider(this::buildCallInput)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .build()
                 .runPipeline();
+    }
+
+    private ConnectCallInput buildCallInput() {
+        return ConnectCallInput.builder()
+                .nodeUrl(nodeUrl)
+                .commandName(getCommandName())
+                .build();
     }
 }

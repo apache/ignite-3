@@ -40,7 +40,7 @@ public class NodeConfigShowCall implements Call<NodeConfigShowCallInput, String>
         try {
             return DefaultCallOutput.success(readNodeConfig(client, input));
         } catch (ApiException | IllegalArgumentException e) {
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, "get node configuration", input.getNodeUrl()));
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getCommandName(), input.getNodeUrl()));
         }
     }
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.cli.commands.configuration.cluster;
 
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
@@ -31,7 +32,7 @@ import picocli.CommandLine.Option;
  */
 @Command(name = "show",
         description = "Shows cluster configuration.")
-public class ClusterConfigShowSubCommand extends BaseCommand {
+public class ClusterConfigShowSubCommand extends BaseCommand implements Callable<Integer> {
 
     /**
      * Configuration selector option.
@@ -67,6 +68,7 @@ public class ClusterConfigShowSubCommand extends BaseCommand {
         return ClusterConfigShowCallInput.builder()
                 .clusterUrl(clusterUrl)
                 .selector(selector)
+                .commandName(getCommandName())
                 .build();
     }
 }

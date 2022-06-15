@@ -33,7 +33,6 @@ class CliConfigSubCommandTest extends CliCommandTestBase {
     @Test
     @DisplayName("Displays all keys")
     void noKey() {
-        // When executed without arguments
         execute();
 
         String expectedResult = "ignite.cluster-url=test_cluster_url" + System.lineSeparator()

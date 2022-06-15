@@ -19,6 +19,7 @@ package org.apache.ignite.cli.commands.status;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.status.StatusCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.decorators.StatusDecorator;
@@ -34,7 +35,7 @@ import picocli.CommandLine.Option;
         aliases = "cluster show", //TODO: https://issues.apache.org/jira/browse/IGNITE-17102
         description = "Prints status of the cluster.")
 @Singleton
-public class StatusCommand extends BaseCommand {
+public class StatusCommand extends BaseCommand implements Callable<Integer> {
 
     /**
      * Cluster url option.
@@ -53,7 +54,7 @@ public class StatusCommand extends BaseCommand {
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(statusCall)
-                .inputProvider(() -> new StatusCallInput(clusterUrl))
+                .inputProvider(() -> new StatusCallInput(clusterUrl, getCommandName()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new StatusDecorator())

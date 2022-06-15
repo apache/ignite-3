@@ -33,9 +33,15 @@ public class ClusterConfigShowCallInput implements CallInput {
      */
     private final String clusterUrl;
 
-    private ClusterConfigShowCallInput(String selector, String clusterUrl) {
+    /**
+     * Command name.
+     */
+    private final String commandName;
+
+    private ClusterConfigShowCallInput(String selector, String clusterUrl, String commandName) {
         this.selector = selector;
         this.clusterUrl = clusterUrl;
+        this.commandName = commandName;
     }
 
     /**
@@ -64,11 +70,23 @@ public class ClusterConfigShowCallInput implements CallInput {
     }
 
     /**
+     * Get command name.
+     *
+     * @return command name.
+     */
+    public String getCommandName() {
+        return commandName;
+    }
+
+    /**
      * Builder for {@link ClusterConfigShowCallInput}.
      */
     public static class ShowConfigurationCallInputBuilder {
         private String selector;
+
         private String clusterUrl;
+
+        private String commandName;
 
         public ShowConfigurationCallInputBuilder selector(String selector) {
             this.selector = selector;
@@ -80,8 +98,13 @@ public class ClusterConfigShowCallInput implements CallInput {
             return this;
         }
 
+        public ShowConfigurationCallInputBuilder commandName(String commandName) {
+            this.commandName = commandName;
+            return this;
+        }
+
         public ClusterConfigShowCallInput build() {
-            return new ClusterConfigShowCallInput(selector, clusterUrl);
+            return new ClusterConfigShowCallInput(selector, clusterUrl, commandName);
         }
     }
 }

@@ -39,7 +39,7 @@ public class NodeConfigUpdateCall implements Call<NodeConfigUpdateCallInput, Str
         try {
             return updateNodeConfig(client, input);
         } catch (ApiException | IllegalArgumentException e) {
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, "update node configuration", input.getNodeUrl()));
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getCommandName(), input.getNodeUrl()));
         }
     }
 

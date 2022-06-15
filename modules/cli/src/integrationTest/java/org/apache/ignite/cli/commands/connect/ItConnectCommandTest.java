@@ -49,7 +49,6 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
 
         // Then
         assertAll(
-                this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Connected to http://localhost:10300")
         );
@@ -66,7 +65,6 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
 
         // Then
         assertAll(
-                this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Connected to http://localhost:10301")
         );
@@ -80,7 +78,6 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
 
         // Then
         assertAll(
-                () -> assertExitCodeIs(1),
                 () -> assertErrOutputIs("Could not connect to URL: http://localhost:11111" + System.lineSeparator())
         );
         // And prompt is
@@ -101,7 +98,6 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
         execute("disconnect");
         // Then
         assertAll(
-                this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Disconnected from http://localhost:10300")
         );

@@ -44,8 +44,13 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
             } else if (apiCause != null) {
                 message = apiCause.getMessage();
             } else {
-                message = "An error occurred when calling \"" + e.getCall() + "\" "
-                        + cause.getCode() + ", response: " + cause.getResponseBody();
+                if (e.getCommandName() != null) {
+                    message = "An error occurred when calling \"" + e.getCommandName() + "\", error code: "
+                            + cause.getCode() + ", response: " + cause.getResponseBody();
+                } else {
+                    message = "An error occurred, error code: "
+                            + cause.getCode() + ", response: " + cause.getResponseBody();
+                }
             }
         } else {
             message = e.getCause() != e ? e.getCause().getMessage() : e.getMessage();

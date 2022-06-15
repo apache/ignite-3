@@ -41,7 +41,7 @@ public class ClusterReplCommandSpec {
      * Initializes an Ignite cluster.
      */
     @CommandLine.Command(name = "init", description = "Initializes an Ignite cluster.")
-    public static class InitClusterCommandSpec extends BaseCommand {
+    public static class InitClusterCommandSpec extends BaseCommand implements Runnable {
 
         @Inject
         private ClusterApiClient clusterApiClient;
@@ -84,7 +84,7 @@ public class ClusterReplCommandSpec {
 
         /** {@inheritDoc} */
         @Override
-        public Integer call() {
+        public void run() {
             String endpoint = null;
 
             if (session.isConnectedToNode()) {
@@ -95,7 +95,6 @@ public class ClusterReplCommandSpec {
                 spec.commandLine().getErr().println(
                         "You are not connected to node. Run 'connect' command or use '--node-endpoint' option."
                 );
-                return 1;
             }
 
             if (endpoint.startsWith("http://")) {
@@ -107,9 +106,9 @@ public class ClusterReplCommandSpec {
                     metaStorageNodes,
                     cmgNodes,
                     clusterName,
-                    spec.commandLine().getOut()
+                    spec.commandLine().getOut(),
+                    getCommandName()
             );
-            return 0;
         }
     }
 }

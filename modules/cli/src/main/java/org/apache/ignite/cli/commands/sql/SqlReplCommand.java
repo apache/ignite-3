@@ -46,7 +46,7 @@ import picocli.CommandLine.Option;
  * Command for sql execution in REPL mode.
  */
 @Command(name = "sql", description = "Executes SQL query.")
-public class SqlReplCommand extends BaseCommand {
+public class SqlReplCommand extends BaseCommand implements Runnable {
     private static final String INTERNAL_COMMAND_PREFIX = "!";
 
     @Option(names = {"-u", "--jdbc-url"}, required = true,
@@ -79,7 +79,7 @@ public class SqlReplCommand extends BaseCommand {
      * {@inheritDoc}
      */
     @Override
-    public Integer call() {
+    public void run() {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
             if (execOptions == null) {
                 replExecutorProvider.get().execute(Repl.builder()
@@ -89,13 +89,12 @@ public class SqlReplCommand extends BaseCommand {
                         .withCallExecutionPipelineProvider(provider(sqlManager))
                         .withHistoryFileName("sqlhistory")
                         .build());
-                return 0; // REPL mode doesn't need exit codes
             } else {
                 String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
-                return createSqlExecPipeline(sqlManager, executeCommand).runPipeline();
+                createSqlExecPipeline(sqlManager, executeCommand).runPipeline();
             }
         } catch (SQLException e) {
-            return new SqlExceptionHandler().handle(ExceptionWriter.fromPrintWriter(spec.commandLine().getErr()), e);
+            new SqlExceptionHandler().handle(ExceptionWriter.fromPrintWriter(spec.commandLine().getErr()), e);
         }
     }
 

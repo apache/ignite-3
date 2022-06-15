@@ -19,6 +19,7 @@ package org.apache.ignite.cli.commands.cliconfig;
 
 import jakarta.inject.Inject;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cliconfig.CliConfigSetCall;
 import org.apache.ignite.cli.call.cliconfig.CliConfigSetCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
@@ -30,7 +31,7 @@ import picocli.CommandLine.Parameters;
  * Command to set CLI configuration parameters.
  */
 @Command(name = "set")
-public class CliConfigSetSubCommand extends BaseCommand {
+public class CliConfigSetSubCommand extends BaseCommand implements Callable<Integer> {
     @Parameters(arity = "1..*")
     private Map<String, String> parameters;
 

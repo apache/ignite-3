@@ -34,7 +34,7 @@ import picocli.CommandLine.Parameters;
 @Command(name = "update",
         description = "Updates cluster configuration.")
 @Singleton
-public class ClusterConfigUpdateReplSubCommand extends BaseCommand {
+public class ClusterConfigUpdateReplSubCommand extends BaseCommand implements Runnable {
     /**
      * Cluster url option.
      */
@@ -57,18 +57,19 @@ public class ClusterConfigUpdateReplSubCommand extends BaseCommand {
     private Session session;
 
     /** {@inheritDoc} */
-    public Integer call() {
-        var input = ClusterConfigUpdateCallInput.builder().config(config);
+    public void run() {
+        var input = ClusterConfigUpdateCallInput.builder()
+                .config(config)
+                .commandName(getCommandName());
         if (session.isConnectedToNode()) {
             input.clusterUrl(session.getNodeUrl());
         } else if (clusterUrl != null) {
             input.clusterUrl(clusterUrl);
         } else {
             spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--cluster-url' option.");
-            return 1;
         }
 
-        return CallExecutionPipeline.builder(this.call)
+        CallExecutionPipeline.builder(call)
                 .inputProvider(input::build)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())

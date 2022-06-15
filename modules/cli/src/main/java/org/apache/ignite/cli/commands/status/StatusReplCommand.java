@@ -32,7 +32,7 @@ import picocli.CommandLine.Option;
  */
 @Command(name = "status", description = "Prints status of the cluster.")
 @Singleton
-public class StatusReplCommand extends BaseCommand {
+public class StatusReplCommand extends BaseCommand implements Runnable {
 
     /**
      * Cluster url option.
@@ -48,8 +48,8 @@ public class StatusReplCommand extends BaseCommand {
 
     /** {@inheritDoc} */
     @Override
-    public Integer call() {
-        return CallExecutionPipeline.builder(statusReplCall)
+    public void run() {
+        CallExecutionPipeline.builder(statusReplCall)
                 .inputProvider(EmptyCallInput::new)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())

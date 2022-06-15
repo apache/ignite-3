@@ -32,6 +32,7 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.util.List;
+import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.cli.deprecated.IgniteCliException;
 
 /**
@@ -59,13 +60,15 @@ public class ClusterApiClient {
      *                           {@code metaStorageNodeIds} will be used to host the CMG as well
      * @param clusterName Human-readable name of the cluster
      * @param out                {@link PrintWriter} to which to report about the command outcome
+     * @param commandName command name
      */
     public void init(
             String nodeEndpoint,
             List<String> metaStorageNodeIds,
             List<String> cmgNodeIds,
             String clusterName,
-            PrintWriter out
+            PrintWriter out,
+            String commandName
     ) {
         InitClusterRequest requestPayload = new InitClusterRequest(metaStorageNodeIds, cmgNodeIds, clusterName);
         String requestJson = toJson(requestPayload);
@@ -81,7 +84,7 @@ public class ClusterApiClient {
         try {
             httpResponse = httpClient.send(httpRequest, BodyHandlers.ofString());
         } catch (IOException | InterruptedException e) {
-            throw new IgniteCliException("Connection issues while trying to send http request", e);
+            throw new IgniteCliApiException(e, commandName, nodeEndpoint);
         }
 
         if (httpResponse.statusCode() == HttpURLConnection.HTTP_OK) {

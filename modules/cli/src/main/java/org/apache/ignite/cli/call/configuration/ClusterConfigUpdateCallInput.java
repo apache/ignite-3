@@ -20,7 +20,7 @@ package org.apache.ignite.cli.call.configuration;
 import org.apache.ignite.cli.core.call.CallInput;
 
 /**
- * Input for {@link NodeConfigUpdateCall}.
+ * Input for {@link ClusterConfigUpdateCall}.
  */
 public class ClusterConfigUpdateCallInput implements CallInput {
     /**
@@ -33,9 +33,15 @@ public class ClusterConfigUpdateCallInput implements CallInput {
      */
     private final String clusterUrl;
 
-    private ClusterConfigUpdateCallInput(String config, String clusterUrl) {
+    /**
+     * Command name.
+     */
+    private final String commandName;
+
+    private ClusterConfigUpdateCallInput(String config, String clusterUrl, String commandName) {
         this.config = config;
         this.clusterUrl = clusterUrl;
+        this.commandName = commandName;
     }
 
     /**
@@ -59,10 +65,19 @@ public class ClusterConfigUpdateCallInput implements CallInput {
     /**
      * Get cluster URL.
      *
-     * @return Cluster url.
+     * @return Cluster URL.
      */
     public String getClusterUrl() {
         return clusterUrl;
+    }
+
+    /**
+     * Get command name.
+     *
+     * @return command name.
+     */
+    public String getCommandName() {
+        return commandName;
     }
 
     /**
@@ -74,6 +89,8 @@ public class ClusterConfigUpdateCallInput implements CallInput {
 
         private String clusterUrl;
 
+        private String commandName;
+
         public UpdateConfigurationCallInputBuilder config(String config) {
             this.config = config;
             return this;
@@ -84,8 +101,13 @@ public class ClusterConfigUpdateCallInput implements CallInput {
             return this;
         }
 
+        public UpdateConfigurationCallInputBuilder commandName(String commandName) {
+            this.commandName = commandName;
+            return this;
+        }
+
         public ClusterConfigUpdateCallInput build() {
-            return new ClusterConfigUpdateCallInput(config, clusterUrl);
+            return new ClusterConfigUpdateCallInput(config, clusterUrl, commandName);
         }
     }
 }

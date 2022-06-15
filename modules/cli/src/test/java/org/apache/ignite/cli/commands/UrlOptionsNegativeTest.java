@@ -28,10 +28,15 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigShowReplSubCommand;
 import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigShowSubCommand;
+import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigUpdateReplSubCommand;
 import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigUpdateSubCommand;
+import org.apache.ignite.cli.commands.configuration.node.NodeConfigShowReplSubCommand;
 import org.apache.ignite.cli.commands.configuration.node.NodeConfigShowSubCommand;
+import org.apache.ignite.cli.commands.configuration.node.NodeConfigUpdateReplSubCommand;
 import org.apache.ignite.cli.commands.configuration.node.NodeConfigUpdateSubCommand;
+import org.apache.ignite.cli.commands.connect.ConnectCommand;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -39,10 +44,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 import picocli.CommandLine;
 
 /**
- * Base class for testing error handling in CLI commands that use REST.
+ * Tests error handling with various invalid URLs in CLI commands that use REST.
  */
 @MicronautTest
-public class CliCommandsErrorTest {
+public class UrlOptionsNegativeTest {
     private static final String NODE_URL = "http://localhost:10300";
 
     @Inject
@@ -64,28 +69,45 @@ public class CliCommandsErrorTest {
     private void execute(Class<?> cmdClass, String urlOptionName, String urlOptionValue, List<String> additionalOptions) {
         setUp(cmdClass);
         List<String> options = new ArrayList<>();
-        options.add("--" + urlOptionName + "=" + urlOptionValue);
+        options.add(urlOptionName + urlOptionValue);
         options.addAll(additionalOptions);
         exitCode = cmd.execute(options.toArray(new String[0]));
     }
 
     static List<Arguments> cmdClassAndOptionsProvider() {
         return List.of(
-                Arguments.arguments(NodeConfigShowSubCommand.class, "node-url", List.of()),
-                Arguments.arguments(NodeConfigUpdateSubCommand.class, "node-url", List.of("config")),
-                Arguments.arguments(ClusterConfigShowSubCommand.class, "cluster-url", List.of()),
-                Arguments.arguments(ClusterConfigUpdateSubCommand.class, "cluster-url", List.of("config"))
+                Arguments.arguments(NodeConfigShowSubCommand.class, "--node-url=", List.of(), false),
+                Arguments.arguments(NodeConfigUpdateSubCommand.class, "--node-url=", List.of("{key: value}"), false),
+                Arguments.arguments(ClusterConfigShowSubCommand.class, "--cluster-url=", List.of(), false),
+                Arguments.arguments(ClusterConfigUpdateSubCommand.class, "--cluster-url=", List.of("{key: value}"), false),
+                Arguments.arguments(NodeConfigShowReplSubCommand.class, "--node-url=", List.of(), true),
+                Arguments.arguments(NodeConfigUpdateReplSubCommand.class, "--node-url=", List.of("{key: value}"), true),
+                Arguments.arguments(ClusterConfigShowReplSubCommand.class, "--cluster-url=", List.of(), true),
+                Arguments.arguments(ClusterConfigUpdateReplSubCommand.class, "--cluster-url=", List.of("{key: value}"), true),
+                Arguments.arguments(ConnectCommand.class, "", List.of(), true)
+        // TODO https://issues.apache.org/jira/browse/IGNITE-17091
+        //                Arguments.arguments(StatusCommand.class, "--cluster-url=", List.of()),
+        // TODO https://issues.apache.org/jira/browse/IGNITE-17102
+        //                Arguments.arguments(ClusterShowCommand.class, "--cluster-url=", List.of()),
+        // TODO https://issues.apache.org/jira/browse/IGNITE-17092
+        //                Arguments.arguments(TopologyCommand.class, "--cluster-url", List.of()),
+        // TODO https://issues.apache.org/jira/browse/IGNITE-17162
+        //                Arguments.arguments(ClusterCommandSpec.InitClusterCommandSpec.class, "---cluster-url=",
+        //                        List.of("--cluster-name=cluster", "--meta-storage-node=test"))
         );
     }
 
     @ParameterizedTest
     @MethodSource("cmdClassAndOptionsProvider")
     @DisplayName("Should display error when wrong port is given")
-    public void incorrectPortTest(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions) {
+    void incorrectPort(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions, boolean isReplCommand) {
         execute(cmdClass, urlOptionName, NODE_URL + "incorrect", additionalOptions);
 
+        if (!isReplCommand) {
+            assertExitCodeIsFailure();
+        }
+
         assertAll(
-                this::assertExitCodeIsFailure,
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputIs("Invalid URL port: \"10300incorrect\"" + System.lineSeparator())
         );
@@ -94,11 +116,14 @@ public class CliCommandsErrorTest {
     @ParameterizedTest
     @MethodSource("cmdClassAndOptionsProvider")
     @DisplayName("Should display error when wrong url is given")
-    void invalidUrlScheme(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions) {
+    void invalidUrlScheme(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions, boolean isReplCommand) {
         execute(cmdClass, urlOptionName, "incorrect" + NODE_URL, additionalOptions);
 
+        if (!isReplCommand) {
+            assertExitCodeIsFailure();
+        }
+
         assertAll(
-                this::assertExitCodeIsFailure,
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputIs("Expected URL scheme 'http' or 'https' but was 'incorrecthttp'" + System.lineSeparator())
         );
@@ -107,12 +132,14 @@ public class CliCommandsErrorTest {
     @ParameterizedTest
     @MethodSource("cmdClassAndOptionsProvider")
     @DisplayName("Should display error when unknown host is given")
-    void invalidUrl(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions) {
-        System.out.println("executing");
+    void invalidUrl(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions, boolean isReplCommand) {
         execute(cmdClass, urlOptionName, "http://no-such-host.com", additionalOptions);
-        System.out.println("done");
+
+        if (!isReplCommand) {
+            assertExitCodeIsFailure();
+        }
+
         assertAll(
-                this::assertExitCodeIsFailure,
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputIs("Could not determine IP address when connecting to URL: http://no-such-host.com" + System.lineSeparator())
         );
@@ -121,11 +148,13 @@ public class CliCommandsErrorTest {
     @ParameterizedTest
     @MethodSource("cmdClassAndOptionsProvider")
     @DisplayName("Should display error when failed to connect to host")
-    void connectError(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions) {
+    void connectError(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions, boolean isReplCommand) {
         execute(cmdClass, urlOptionName, NODE_URL, additionalOptions);
 
+        if (!isReplCommand) {
+            assertExitCodeIsFailure();
+        }
         assertAll(
-                this::assertExitCodeIsFailure,
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputIs("Could not connect to URL: " + NODE_URL + System.lineSeparator())
         );

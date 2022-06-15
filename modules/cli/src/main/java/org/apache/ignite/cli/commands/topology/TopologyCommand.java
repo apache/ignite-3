@@ -18,6 +18,7 @@
 package org.apache.ignite.cli.commands.topology;
 
 import jakarta.inject.Singleton;
+import java.util.concurrent.Callable;
 import org.apache.ignite.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -27,7 +28,7 @@ import picocli.CommandLine.Option;
  */
 @Command(name = "topology", description = "Prints topology information.")
 @Singleton
-public class TopologyCommand extends BaseCommand {
+public class TopologyCommand extends BaseCommand implements Callable<Integer> {
 
     /**
      * Cluster url option.

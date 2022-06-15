@@ -30,14 +30,14 @@ import picocli.CommandLine.Command;
  */
 @Command(name = "disconnect", description = "Disconnect from Ignite 3 node.")
 @Singleton
-public class DisconnectCommand extends BaseCommand {
+public class DisconnectCommand extends BaseCommand implements Runnable {
     @Inject
     private DisconnectCall disconnectCall;
 
     /** {@inheritDoc} */
     @Override
-    public Integer call() {
-        return CallExecutionPipeline.builder(disconnectCall)
+    public void run() {
+        CallExecutionPipeline.builder(disconnectCall)
                 .inputProvider(EmptyCallInput::new)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())

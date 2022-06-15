@@ -31,7 +31,7 @@ class SqlCommandTest extends CliCommandTestBase {
     }
 
     @Test
-    @DisplayName("Should throw error if executed without execute or script-file options")
+    @DisplayName("Should throw error if executed without --execute or --script-file options")
     void withoutOptions() {
         execute("--jdbc-url=");
 
@@ -43,7 +43,7 @@ class SqlCommandTest extends CliCommandTestBase {
     }
 
     @Test
-    @DisplayName("Should throw error if both execute or script-file options are present")
+    @DisplayName("Should throw error if both --execute or --script-file options are present")
     void mutuallyExclusiveOptions() {
         execute("--jdbc-url=", "--execute=", "--script-file=");
 

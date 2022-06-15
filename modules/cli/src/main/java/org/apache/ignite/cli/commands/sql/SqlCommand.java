@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.sql.SQLException;
+import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.sql.SqlQueryCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.decorators.SqlQueryResultDecorator;
@@ -39,7 +40,7 @@ import picocli.CommandLine.Option;
  * Command for sql execution.
  */
 @Command(name = "sql", description = "Executes SQL query.")
-public class SqlCommand extends BaseCommand {
+public class SqlCommand extends BaseCommand implements Callable<Integer> {
 
     @Option(names = {"-u", "--jdbc-url"}, required = true,
             descriptionKey = "ignite.jdbc-url", description = "JDBC url to ignite cluster")

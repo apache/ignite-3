@@ -33,9 +33,15 @@ public class NodeConfigShowCallInput implements CallInput {
      */
     private final String nodeUrl;
 
-    private NodeConfigShowCallInput(String selector, String nodeUrl) {
+    /**
+     * Command name.
+     */
+    private final String commandName;
+
+    private NodeConfigShowCallInput(String selector, String nodeUrl, String commandName) {
         this.nodeUrl = nodeUrl;
         this.selector = selector;
+        this.commandName = commandName;
     }
 
     /**
@@ -64,6 +70,15 @@ public class NodeConfigShowCallInput implements CallInput {
     }
 
     /**
+     * Get command name.
+     *
+     * @return command name.
+     */
+    public String getCommandName() {
+        return commandName;
+    }
+
+    /**
      * Builder for {@link NodeConfigShowCallInput}.
      */
     public static class ShowConfigurationCallInputBuilder {
@@ -71,6 +86,8 @@ public class NodeConfigShowCallInput implements CallInput {
         private String selector;
 
         private String nodeUrl;
+
+        private String commandName;
 
         public ShowConfigurationCallInputBuilder selector(String selector) {
             this.selector = selector;
@@ -82,8 +99,13 @@ public class NodeConfigShowCallInput implements CallInput {
             return this;
         }
 
+        public ShowConfigurationCallInputBuilder commandName(String commandName) {
+            this.commandName = commandName;
+            return this;
+        }
+
         public NodeConfigShowCallInput build() {
-            return new NodeConfigShowCallInput(selector, nodeUrl);
+            return new NodeConfigShowCallInput(selector, nodeUrl, commandName);
         }
     }
 }
