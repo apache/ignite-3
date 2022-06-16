@@ -112,7 +112,7 @@ public class JdbcConnection implements Connection {
      * @param handler Handler.
      * @param props   Properties.
      */
-    public JdbcConnection(JdbcClientQueryEventHandler handler, ConnectionProperties props) {
+    public JdbcConnection(JdbcClientQueryEventHandlerImpl handler, ConnectionProperties props) {
         this.connProps = props;
         this.handler = handler;
 
@@ -159,7 +159,7 @@ public class JdbcConnection implements Connection {
             throw new SQLException("Failed to connect to server", CLIENT_CONNECTION_FAILED, e);
         }
 
-        this.handler = new JdbcClientQueryEventHandler(client);
+        this.handler = new JdbcClientQueryEventHandlerImpl(client);
 
         txIsolation = Connection.TRANSACTION_NONE;
 

@@ -17,130 +17,78 @@
 
 package org.apache.ignite.internal.jdbc;
 
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.TcpIgniteClient;
-import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.BatchPreparedStmntRequest;
-import org.apache.ignite.internal.jdbc.proto.event.ClientMessageUtils;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcRequestStatus;
 import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteRequest;
 
 /**
- * Jdbc query network event handler implementation.
+ * Jdbc client request handler.
  */
-public class JdbcClientQueryEventHandler {
-    /** Channel. */
-    private final TcpIgniteClient client;
+public interface JdbcClientQueryEventHandler {
+    /**
+     * {@link QueryExecuteRequest} command handler.
+     *
+     * @param req Execute query request.
+     * @return Result future.
+     */
+    CompletableFuture<List<JdbcClientQueryAsyncResult>> queryAsync(QueryExecuteRequest req);
 
     /**
-     * Constructor.
+     * {@link BatchExecuteRequest} command handler.
      *
-     * @param client TcpIgniteClient.
+     * @param req Batch query request.
+     * @return Result future.
      */
-    public JdbcClientQueryEventHandler(TcpIgniteClient client) {
-        this.client = client;
-    }
+    CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req);
 
-    /** {@inheritDoc} */
-    public CompletableFuture<List<JdbcClientQueryAsyncResult>> queryAsync(QueryExecuteRequest req) {
-        return client.sendRequestAsync(ClientOp.JDBC_EXEC,  w -> req.writeBinary(w.out()), p -> {
-            int status = p.in().unpackInt();
+    /**
+     * {@link BatchPreparedStmntRequest} command handler.
+     *
+     * @param req Batch query request.
+     * @return Result future.
+     */
+    CompletableFuture<BatchExecuteResult> batchPrepStatementAsync(BatchPreparedStmntRequest req);
 
-            if (status == JdbcRequestStatus.FAILED.getStatus()) {
-                throw new SQLException(p.in().unpackString(), SqlStateCode.INTERNAL_ERROR);
-            }
+    /**
+     * {@link JdbcMetaTablesRequest} command handler.
+     *
+     * @param req Jdbc tables metadata request.
+     * @return Result future.
+     */
+    CompletableFuture<JdbcMetaTablesResult> tablesMetaAsync(JdbcMetaTablesRequest req);
 
-            int size = p.in().unpackArrayHeader();
+    /**
+     * Jdbc metadata column request command handler.
+     *
+     * @param schemaName Schema name pattern.
+     * @param tblName Table name pattern.
+     * @param colName Column name pattern.
+     * @return Result future.
+     */
+    CompletableFuture<JdbcMetaColumnsResult> columnsMetaAsync(String schemaName, String tblName, String colName);
 
-            if (size == 0) {
-                return Collections.emptyList();
-            }
+    /**
+     * Jdbc metadata schemas command handler.
+     *
+     * @param schemaName Schema name pattern.
+     * @return Result future.
+     */
+    CompletableFuture<JdbcMetaSchemasResult> schemasMetaAsync(String schemaName);
 
-            List<JdbcClientQueryAsyncResult> results = new ArrayList<>(size);
-
-            for (int i = 0; i < size; i++) {
-                var res = new JdbcClientQueryAsyncResult(p.clientChannel(), p.in());
-
-                results.add(res);
-            }
-
-            return results;
-        });
-    }
-
-    /** {@inheritDoc} */
-    public CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req) {
-        BatchExecuteResult res = new BatchExecuteResult();
-
-        return client.sendRequestAsync(ClientOp.JDBC_EXEC_BATCH, req, res);
-    }
-
-    /** {@inheritDoc} */
-    public CompletableFuture<BatchExecuteResult> batchPrepStatementAsync(
-            BatchPreparedStmntRequest req) {
-        BatchExecuteResult res = new BatchExecuteResult();
-
-        return client.sendRequestAsync(ClientOp.JDBC_SQL_EXEC_PS_BATCH, req, res);
-    }
-
-    /** {@inheritDoc} */
-    public CompletableFuture<JdbcMetaTablesResult> tablesMetaAsync(JdbcMetaTablesRequest req) {
-        JdbcMetaTablesResult res = new JdbcMetaTablesResult();
-
-        return client.sendRequestAsync(ClientOp.JDBC_TABLE_META, req, res);
-    }
-
-    /** {@inheritDoc} */
-    public CompletableFuture<JdbcMetaColumnsResult> columnsMetaAsync(String schemaName, String tblName, String colName) {
-        JdbcMetaColumnsResult res = new JdbcMetaColumnsResult();
-
-        return client.sendRequestAsync(ClientOp.JDBC_COLUMN_META, w -> {
-            ClientMessageUtils.writeStringNullable(w.out(), schemaName);
-            ClientMessageUtils.writeStringNullable(w.out(), tblName);
-            ClientMessageUtils.writeStringNullable(w.out(), colName);
-        }, r -> {
-            res.readBinary(r.in());
-
-            return res;
-        });
-    }
-
-    /** {@inheritDoc} */
-    public CompletableFuture<JdbcMetaSchemasResult> schemasMetaAsync(String schemaName) {
-        JdbcMetaSchemasResult res = new JdbcMetaSchemasResult();
-
-        return client.sendRequestAsync(ClientOp.JDBC_SCHEMAS_META, w -> {
-            ClientMessageUtils.writeStringNullable(w.out(), schemaName);
-        }, r -> {
-            res.readBinary(r.in());
-
-            return res;
-        });
-    }
-
-    /** {@inheritDoc} */
-    public CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(String schemaName, String tblName) {
-        JdbcMetaPrimaryKeysResult res = new JdbcMetaPrimaryKeysResult();
-
-        return client.sendRequestAsync(ClientOp.JDBC_PK_META, w -> {
-            ClientMessageUtils.writeStringNullable(w.out(), schemaName);
-            ClientMessageUtils.writeStringNullable(w.out(), tblName);
-        }, r -> {
-            res.readBinary(r.in());
-
-            return res;
-        });
-    }
+    /**
+     * Jdbc metadata primary keys command handler.
+     *
+     * @param schemaName Schema name pattern.
+     * @param tblName Table name pattern.
+     * @return Result future.
+     */
+    CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(String schemaName, String tblName);
 }

@@ -155,7 +155,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         this.sql = sql;
 
         this.jdbcMetadataCatalog = new JdbcMetadataCatalog(igniteTables);
-        this.jdbcQueryEventHandler = new JdbcQueryExecutionHandler(processor, resources);
+        this.jdbcQueryEventHandler = new JdbcQueryExecutionHandlerImpl(processor, resources);
     }
 
     /** {@inheritDoc} */
