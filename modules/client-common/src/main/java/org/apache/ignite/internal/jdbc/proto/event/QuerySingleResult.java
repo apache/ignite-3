@@ -32,7 +32,7 @@ import org.apache.ignite.internal.tostring.S;
  */
 public class QuerySingleResult implements ClientMessage {
     /** Cursor ID. */
-    private long cursorId;
+    private Long cursorId;
 
     /** Query result rows. */
     private List<List<Object>> items;
@@ -70,10 +70,9 @@ public class QuerySingleResult implements ClientMessage {
      * @param cursorId  Cursor ID.
      * @param updateCnt Update count for DML queries.
      */
-    public QuerySingleResult(long cursorId, long updateCnt) {
+    public QuerySingleResult(long updateCnt) {
         super();
 
-        this.cursorId = cursorId;
         this.last = true;
         this.isQuery = false;
         this.updateCnt = updateCnt;
@@ -85,7 +84,7 @@ public class QuerySingleResult implements ClientMessage {
      *
      * @return Cursor ID.
      */
-    public long cursorId() {
+    public Long cursorId() {
         return cursorId;
     }
 
@@ -128,7 +127,11 @@ public class QuerySingleResult implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
-        packer.packLong(cursorId);
+        if (cursorId != null) {
+            packer.packLong(cursorId);
+        } else {
+            packer.packNil();
+        }
         packer.packBoolean(isQuery);
         packer.packLong(updateCnt);
         packer.packBoolean(last);
@@ -143,7 +146,11 @@ public class QuerySingleResult implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
-        cursorId = unpacker.unpackLong();
+        if (unpacker.tryUnpackNil()) {
+            cursorId = null;
+        } else {
+            cursorId = unpacker.unpackLong();
+        }
         isQuery = unpacker.unpackBoolean();
         updateCnt = unpacker.unpackLong();
         last = unpacker.unpackBoolean();

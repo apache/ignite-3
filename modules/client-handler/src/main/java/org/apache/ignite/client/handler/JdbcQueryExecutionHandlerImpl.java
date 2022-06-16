@@ -106,6 +106,7 @@ public class JdbcQueryExecutionHandlerImpl implements JdbcQueryExecutionHandler 
             results.stream()
                     .filter(fut -> !fut.isCompletedExceptionally())
                     .map(CompletableFuture::join)
+                    .filter(res -> res.cursorId() != null) //close only for QUERY cursors
                     .map(res -> {
                         try {
                             return resources.remove(res.cursorId()).get(AsyncSqlCursor.class);
@@ -238,30 +239,28 @@ public class JdbcQueryExecutionHandlerImpl implements JdbcQueryExecutionHandler 
      * @return JdbcQuerySingleResult filled with first batch of data.
      */
     private CompletionStage<QuerySingleResult> createJdbcResult(AsyncSqlCursor<List<Object>> cur, QueryExecuteRequest req) {
-        long cursorId;
-        try {
-            cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
-        } catch (IgniteInternalCheckedException e) {
-            return CompletableFuture.failedFuture(
-                    new IgniteInternalException("Failed get next cursorId from resources holder. Node is stopping?")
-            );
-        }
-
         return cur.requestNextAsync(req.pageSize()).thenApply(batch -> {
             boolean hasNext = batch.hasMore();
 
             switch (cur.queryType()) {
                 case EXPLAIN:
-                case QUERY:
+                case QUERY: {
+                    long cursorId;
+                    try {
+                        cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
+                    } catch (IgniteInternalCheckedException e) {
+                        throw new IgniteInternalException("Failed get next cursorId from resources holder. Node is stopping?");
+                    }
                     return new QuerySingleResult(cursorId, batch.items(), !hasNext);
+                }
                 case DML:
                     if (!validateDmlResult(cur.metadata(), hasNext)) {
                         throw new IgniteInternalException("Unexpected result for DML query [" + req.sqlQuery() + "].");
                     }
 
-                    return new QuerySingleResult(cursorId, (Long) batch.items().get(0).get(0));
+                    return new QuerySingleResult((Long) batch.items().get(0).get(0));
                 case DDL:
-                    return new QuerySingleResult(cursorId, 0);
+                    return new QuerySingleResult(0);
                 default:
                     throw new IgniteInternalException("Query type [" + cur.queryType() + "] is not supported yet.");
             }

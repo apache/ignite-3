@@ -38,6 +38,9 @@ import org.apache.ignite.internal.tostring.S;
  * JDBC query async result.
  */
 public class JdbcClientQueryAsyncResult {
+    /** Cursor ID for DML\DDL queries. */
+    private static final long UNDEFINED_CURSOR = -1;
+
     /** Cursor ID. */
     private final long cursorId;
 
@@ -65,7 +68,11 @@ public class JdbcClientQueryAsyncResult {
     public JdbcClientQueryAsyncResult(ClientChannel ch, ClientMessageUnpacker in) {
         this.channel = ch;
 
-        cursorId = in.unpackLong();
+        if (in.tryUnpackNil()) {
+            cursorId = UNDEFINED_CURSOR;
+        } else {
+            cursorId = in.unpackLong();
+        }
         isQuery = in.unpackBoolean();
         updateCnt = in.unpackLong();
         last = in.unpackBoolean();
@@ -125,6 +132,8 @@ public class JdbcClientQueryAsyncResult {
      * @param fetchSize Fetch size.
      */
     public void next(int fetchSize) throws SQLException {
+        assert cursorId != UNDEFINED_CURSOR : "Fetch for DDL and DML queries is prohibited";
+
         CompletableFuture<QueryFetchResult> f = channel.serviceAsync(
                 ClientOp.JDBC_NEXT, w -> {
                     w.out().packLong(cursorId);
@@ -153,6 +162,7 @@ public class JdbcClientQueryAsyncResult {
      * Closes remote cursor.
      */
     public void close() throws SQLException {
+        assert cursorId != UNDEFINED_CURSOR : "Close for DDL and DML queries is prohibited";
         CompletableFuture<Object> f = channel.serviceAsync(ClientOp.JDBC_CURSOR_CLOSE,
                 w -> w.out().packLong(cursorId), p -> {
                     byte status = p.in().unpackByte();
@@ -174,6 +184,7 @@ public class JdbcClientQueryAsyncResult {
      * @return result set metadata list.
      */
     public List<JdbcColumnMeta> metadata() throws SQLException {
+        assert cursorId != UNDEFINED_CURSOR : "Metadata for DDL and DML queries is prohibited";
         CompletableFuture<JdbcMetaColumnsResult> f = channel.serviceAsync(
                 ClientOp.JDBC_QUERY_META, w -> w.out().packLong(cursorId), p -> {
                     byte status = p.in().unpackByte();
