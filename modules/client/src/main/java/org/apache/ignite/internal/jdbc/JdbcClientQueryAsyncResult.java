@@ -29,7 +29,6 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcRequestStatus;
 import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
 import org.apache.ignite.internal.tostring.S;
