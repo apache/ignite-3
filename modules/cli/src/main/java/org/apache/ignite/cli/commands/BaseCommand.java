@@ -42,12 +42,9 @@ public abstract class BaseCommand {
         CommandSpec root = spec;
         do {
             sb.insert(0, root.name());
+            sb.insert(0, " ");
             root = root.parent();
-            // Don't add the space after the empty top level repl command's name
-            if (root != null && !root.name().isEmpty()) {
-                sb.insert(0, " ");
-            }
         } while (root != null);
-        return sb.toString();
+        return sb.toString().trim();
     }
 }
