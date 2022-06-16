@@ -35,7 +35,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration test for set op (EXCEPT, INTERSECT).
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItSetOpTest extends AbstractBasicIntegrationTest {
     /**
      * Before all.

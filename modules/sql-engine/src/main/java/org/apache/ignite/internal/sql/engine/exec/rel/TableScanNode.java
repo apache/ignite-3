@@ -33,6 +33,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -186,7 +187,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
             }
         }
 
-        if (waiting == 0 || activeSubscription == null) {
+        if (requested > 0 && waiting == 0) {
             requestNextBatch();
         }
 
@@ -228,7 +229,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
             assert TableScanNode.this.activeSubscription == null;
 
             TableScanNode.this.activeSubscription = subscription;
-            subscription.request(inBufSize);
+            subscription.request(waiting);
         }
 
         /** {@inheritDoc} */
@@ -238,7 +239,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
 
             inBuff.add(row);
 
-            if (++received == inBufSize) {
+            if (++received == waiting) {
                 received = 0;
 
                 context().execute(() -> {

@@ -198,7 +198,6 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
 
     /** Test MERGE operator with large batch. */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
     public void testMergeBatch() {
         sql("CREATE TABLE test1 (key int PRIMARY KEY, a int)");
 

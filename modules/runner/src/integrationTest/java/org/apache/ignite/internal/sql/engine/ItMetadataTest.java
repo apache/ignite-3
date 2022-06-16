@@ -31,7 +31,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Group of tests to verify the query metadata returned alongside the query result.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItMetadataTest extends AbstractBasicIntegrationTest {
     /**
      * Before all.
@@ -89,7 +88,6 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
     public void columnOrder() {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "COLUMN_ORDER").columns(
                 SchemaBuilders.column("DOUBLE_C", ColumnType.DOUBLE).asNullable(true).build(),

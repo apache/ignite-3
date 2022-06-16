@@ -31,7 +31,6 @@ import org.junit.jupiter.params.provider.EnumSource;
 /**
  * Check JOIN on basic cases.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItJoinTest extends AbstractBasicIntegrationTest {
     @BeforeAll
     public static void beforeTestsStarted() {
