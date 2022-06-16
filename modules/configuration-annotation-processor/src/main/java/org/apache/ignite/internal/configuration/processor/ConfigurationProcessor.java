@@ -235,6 +235,8 @@ public class ConfigurationProcessor extends AbstractProcessor {
             // Is an instance of a polymorphic configuration.
             boolean isPolymorphicInstance = clazz.getAnnotation(PolymorphicConfigInstance.class) != null;
 
+            TypeElement superClazz = superClass(clazz);
+
             // Create VIEW and CHANGE classes.
             createPojoBindings(
                     fields,
@@ -379,16 +381,48 @@ public class ConfigurationProcessor extends AbstractProcessor {
         @Nullable TypeName viewBaseSchemaInterfaceType;
         @Nullable TypeName changeBaseSchemaInterfaceType;
 
-        if (extendBaseSchema) {
-            DeclaredType superClassType = (DeclaredType) realSchemaClass.getSuperclass();
+        TypeElement superClass = superClass(realSchemaClass);
+
+        boolean isSuperClassAbstractConfiguration = !isClass(superClass.asType(), Object.class)
+                && superClass.getAnnotation(AbstractConfiguration.class) != null;
+
+        if (extendBaseSchema || isSuperClassAbstractConfiguration) {
+            DeclaredType superClassType = (DeclaredType) superClass.asType();
             ClassName superClassSchemaClassName = ClassName.get((TypeElement) superClassType.asElement());
 
-            configInterfaceType = getConfigurationInterfaceName(superClassSchemaClassName);
             viewBaseSchemaInterfaceType = getViewName(superClassSchemaClassName);
             changeBaseSchemaInterfaceType = getChangeName(superClassSchemaClassName);
+
+            if (isSuperClassAbstractConfiguration) {
+                // Example: ExtendedTableConfig extends TableConfig<ExtendedTableView, ExtendedTableChange>
+                configInterfaceType = ParameterizedTypeName.get(
+                        getConfigurationInterfaceName(superClassSchemaClassName),
+                        viewClsName,
+                        changeClsName
+                );
+            } else {
+                // Example: ExtendedTableConfig extends TableConfig
+                configInterfaceType = getConfigurationInterfaceName(superClassSchemaClassName);
+            }
         } else {
             ClassName confTreeInterface = ClassName.get("org.apache.ignite.configuration", "ConfigurationTree");
-            configInterfaceType = ParameterizedTypeName.get(confTreeInterface, viewClsName, changeClsName);
+
+            if (realSchemaClass.getAnnotation(AbstractConfiguration.class) != null) {
+                // Example: TableConfig<VIEWT extends TableView, CHANGET extends TableChange> extends ConfigurationTree<VIEWT, CHANGET>
+                configurationInterfaceBuilder.addTypeVariables(List.of(
+                        TypeVariableName.get("VIEWT", viewClsName),
+                        TypeVariableName.get("CHANGET", changeClsName)
+                ));
+
+                configInterfaceType = ParameterizedTypeName.get(
+                        confTreeInterface,
+                        TypeVariableName.get("VIEWT"),
+                        TypeVariableName.get("CHANGET")
+                );
+            } else {
+                // Example: TableConfig extends ConfigurationTree<TableView, TableChange>
+                configInterfaceType = ParameterizedTypeName.get(confTreeInterface, viewClsName, changeClsName);
+            }
 
             viewBaseSchemaInterfaceType = null;
             changeBaseSchemaInterfaceType = null;
@@ -821,7 +855,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
         if (incompatible != null) {
             throw new ConfigurationProcessorException(String.format(
                     "Class with %s is not allowed with %s: %s",
-                    simpleName(incompatible.getClass()),
+                    simpleName(incompatible.annotationType()),
                     simpleName(clazzAnnotation),
                     clazz.getQualifiedName()
             ));
@@ -1082,7 +1116,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
         checkIncompatibleClassAnnotations(
                 clazz,
-                ConfigurationRoot.class,
+                schemaAnnotationClass,
                 incompatibleSchemaClassAnnotations(schemaAnnotationClass)
         );
 
