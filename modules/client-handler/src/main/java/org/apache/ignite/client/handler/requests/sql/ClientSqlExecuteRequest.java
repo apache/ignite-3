@@ -20,7 +20,9 @@ package org.apache.ignite.client.handler.requests.sql;
 import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
@@ -166,6 +168,12 @@ public class ClientSqlExecuteRequest {
         List<ColumnMetadata> cols = meta.columns();
         out.packArrayHeader(cols.size());
 
+        // In many cases there are multiple columns from the same table.
+        // Schema is the same for all columns in most cases.
+        // When table or schema name was packed before, pack index instead of string.
+        Map<String, Integer> schemas = new HashMap<>();
+        Map<String, Integer> tables = new HashMap<>();
+
         for (int i = 0; i < cols.size(); i++) {
             ColumnMetadata col = cols.get(i);
 
@@ -188,28 +196,22 @@ public class ClientSqlExecuteRequest {
                 out.packString(origin.columnName());
             }
 
-            if (i == 0) {
+            Integer schemaIdx = schemas.get(origin.schemaName());
+
+            if (schemaIdx == null) {
+                schemas.put(origin.schemaName(), i);
                 out.packString(origin.schemaName());
-                out.packString(origin.tableName());
-                continue;
+            } else {
+                out.packInt(schemaIdx);
             }
 
-            // In many cases there are multiple columns from the same table.
-            // Schema is the same for all columns in most cases.
-            // Pack nil when previous column has the same value for schema or table.
-            // TODO: Pack index instead - collect previous names into a map (name -> ordinal)
-            ColumnOrigin prev = cols.get(i - 1).origin();
+            Integer tableIdx = tables.get(origin.schemaName());
 
-            if (prev != null && prev.schemaName().equals(origin.schemaName())) {
-                out.packNil();
-            } else {
-                out.packString(origin.schemaName());
-            }
-
-            if (prev != null && prev.tableName().equals(origin.tableName())) {
-                out.packNil();
-            } else {
+            if (tableIdx == null) {
+                tables.put(origin.tableName(), i);
                 out.packString(origin.tableName());
+            } else {
+                out.packInt(tableIdx);
             }
         }
     }
