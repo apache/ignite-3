@@ -41,7 +41,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Test Ignite SQL functions.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItFunctionsTest extends AbstractBasicIntegrationTest {
     private static final Object[] NULL_RESULT = new Object[] { null };
 
@@ -61,6 +60,7 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17183")
     public void testCurrentDateTimeTimeStamp() {
         checkDateTimeQuery("SELECT CURRENT_DATE", Date::new);
         checkDateTimeQuery("SELECT CURRENT_TIME", Time::new);
