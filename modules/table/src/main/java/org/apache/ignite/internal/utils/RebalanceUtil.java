@@ -68,6 +68,7 @@ public class RebalanceUtil {
     /**
      * Update keys that related to rebalance algorithm in Meta Storage. Keys are specific for partition.
      *
+     * @param tableName Table name.
      * @param partId Unique identifier of a partition.
      * @param baselineNodes Nodes in baseline.
      * @param partitions Number of partitions in a table.
