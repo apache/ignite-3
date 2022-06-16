@@ -15,21 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor.internal;
+package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.configuration.processor.ItConfigurationProcessorTest;
+import java.util.ArrayList;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 
 /**
- * Test class for {@link ItConfigurationProcessorTest#testStaticConstants()}.
+ * Checks that there should not be a superclass.
  */
-@Config
-public class StaticConstantsConfigurationSchema {
-    public static final int INT_CONSTANT = 0;
-
-    public static final String STRING_CONSTANT = "foobar";
-
-    @Value
-    public String str;
+@AbstractConfiguration
+public class MustNotBeSuperClassConfigurationSchema extends ArrayList {
 }

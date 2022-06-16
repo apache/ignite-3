@@ -15,21 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor.internal;
+package org.apache.ignite.internal.configuration.processor;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.configuration.processor.ItConfigurationProcessorTest;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Test class for {@link ItConfigurationProcessorTest#testStaticConstants()}.
+ * Annotation processing exception.
  */
-@Config
-public class StaticConstantsConfigurationSchema {
-    public static final int INT_CONSTANT = 0;
+public class ConfigurationProcessorException extends RuntimeException {
+    /**
+     * Constructor.
+     *
+     * @param message Error massage.
+     */
+    public ConfigurationProcessorException(String message) {
+        super(message);
+    }
 
-    public static final String STRING_CONSTANT = "foobar";
-
-    @Value
-    public String str;
+    /**
+     * Constructor.
+     *
+     * @param message Error message.
+     * @param cause Cause
+     */
+    public ConfigurationProcessorException(String message, @Nullable Throwable cause) {
+        super(message, cause);
+    }
 }

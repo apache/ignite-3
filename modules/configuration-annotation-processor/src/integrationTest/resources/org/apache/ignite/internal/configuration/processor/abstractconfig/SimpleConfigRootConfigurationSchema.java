@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor.internal;
+package org.apache.ignite.internal.configuration.processor.abstractconfig;
 
-import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.configuration.processor.ItConfigurationProcessorTest;
 
 /**
- * Test class for {@link ItConfigurationProcessorTest#testStaticConstants()}.
+ * An example of a simple configuration that extends {@link AbstractConfigConfigurationSchema}.
  */
-@Config
-public class StaticConstantsConfigurationSchema {
-    public static final int INT_CONSTANT = 0;
-
-    public static final String STRING_CONSTANT = "foobar";
-
+@ConfigurationRoot(rootName = "test")
+public class SimpleConfigRootConfigurationSchema extends AbstractConfigConfigurationSchema {
     @Value
-    public String str;
+    public long longVal;
 }

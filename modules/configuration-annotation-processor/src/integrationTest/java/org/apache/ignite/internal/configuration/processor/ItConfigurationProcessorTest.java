@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.configuration.processor;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
+import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getChangeName;
+import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getConfigurationInterfaceName;
+import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getViewName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,7 +44,7 @@ import org.opentest4j.AssertionFailedError;
 /**
  * Test for basic code generation scenarios.
  */
-public class ItProcessorTest extends AbstractProcessorTest {
+public class ItConfigurationProcessorTest extends AbstractProcessorTest {
     /**
      * The simplest test for code generation.
      */
@@ -255,9 +258,9 @@ public class ItProcessorTest extends AbstractProcessorTest {
         assertThat(compilation).succeededWithoutWarnings();
 
         var generatedClasses = List.of(
-                Utils.getViewName(schema).toString(),
-                Utils.getChangeName(schema).toString(),
-                Utils.getConfigurationInterfaceName(schema).toString()
+                getViewName(schema).toString(),
+                getChangeName(schema).toString(),
+                getConfigurationInterfaceName(schema).toString()
         );
 
         for (String generatedClass : generatedClasses) {

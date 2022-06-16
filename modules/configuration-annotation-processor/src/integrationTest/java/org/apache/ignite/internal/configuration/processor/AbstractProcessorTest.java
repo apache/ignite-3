@@ -47,7 +47,7 @@ public class AbstractProcessorTest {
 
         List<JavaFileObject> fileObjects = fileNames.stream().map(JavaFileObjects::forResource).collect(Collectors.toList());
 
-        return javac().withProcessors(new Processor()).compile(fileObjects);
+        return javac().withProcessors(new ConfigurationProcessor()).compile(fileObjects);
     }
 
     /**
@@ -68,8 +68,8 @@ public class AbstractProcessorTest {
      * @return ConfigSet.
      */
     protected static ConfigSet getConfigSet(ClassName clazz, final Map<ClassName, JavaFileObject> generatedClasses) {
-        final ClassName viewName = Utils.getViewName(clazz);
-        final ClassName changeName = Utils.getChangeName(clazz);
+        final ClassName viewName = ConfigurationProcessorUtils.getViewName(clazz);
+        final ClassName changeName = ConfigurationProcessorUtils.getChangeName(clazz);
 
         final JavaFileObject viewClass = generatedClasses.get(viewName);
         final JavaFileObject changeClass = generatedClasses.get(changeName);

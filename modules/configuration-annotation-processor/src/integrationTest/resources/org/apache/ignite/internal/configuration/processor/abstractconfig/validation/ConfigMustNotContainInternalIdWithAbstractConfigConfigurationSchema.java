@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor;
+package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
+
+import java.util.UUID;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InternalId;
+import org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigConfigurationSchema;
 
 /**
- * Annotation processing exception.
+ * Checks that {@link Config} must not contain a field with {@link InternalId} if {@link AbstractConfiguration} already has a field with
+ * {@link InternalId}.
  */
-public class ProcessorException extends RuntimeException {
-    public ProcessorException(String message) {
-        super(message);
-    }
-
-    public ProcessorException(String message, Throwable cause) {
-        super(message, cause);
-    }
+@Config
+public class ConfigMustNotContainInternalIdWithAbstractConfigConfigurationSchema extends AbstractConfigConfigurationSchema {
+    @InternalId
+    public UUID id0;
 }

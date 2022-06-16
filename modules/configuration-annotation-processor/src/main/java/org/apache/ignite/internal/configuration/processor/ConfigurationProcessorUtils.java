@@ -18,24 +18,26 @@
 package org.apache.ignite.internal.configuration.processor;
 
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 
 import com.squareup.javapoet.ClassName;
 import java.lang.annotation.Annotation;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Annotation processing utilities.
  */
-public class Utils {
-    /** Private constructor. */
-    private Utils() {
-    }
-
+class ConfigurationProcessorUtils {
     /**
      * Get {@link ClassName} for configuration class' public interface.
      *
      * @param schemaClassName Configuration schema ClassName.
-     * @return Configuration's public interface ClassName.
      */
     public static ClassName getConfigurationInterfaceName(ClassName schemaClassName) {
         return ClassName.get(
@@ -48,7 +50,6 @@ public class Utils {
      * Get {@link ClassName} for configuration VIEW object class.
      *
      * @param schemaClassName Configuration schema ClassName.
-     * @return Configuration VIEW object ClassName.
      */
     public static ClassName getViewName(ClassName schemaClassName) {
         return ClassName.get(
@@ -61,7 +62,6 @@ public class Utils {
      * Get {@link ClassName} for configuration CHANGE object class.
      *
      * @param schemaClassName Configuration schema ClassName.
-     * @return Configuration CHANGE object ClassName.
      */
     public static ClassName getChangeName(ClassName schemaClassName) {
         return ClassName.get(
@@ -71,24 +71,49 @@ public class Utils {
     }
 
     /**
-     * Returns the simple name of the annotation as: @Config.
+     * Returns the simple name of the annotation as: {@code @Config}.
      *
      * @param annotationClass Annotation class.
-     * @return Simple name of the annotation.
      */
     public static String simpleName(Class<? extends Annotation> annotationClass) {
         return '@' + annotationClass.getSimpleName();
     }
 
     /**
-     * Create a string with simple annotation names like: @Config and @PolymorphicConfig.
+     * Create a string with simple annotation names like: {@code @Config} and {@code @PolymorphicConfig}.
      *
-     * @param delimiter   Delimiter between elements.
+     * @param delimiter Delimiter between elements.
      * @param annotations Annotations.
-     * @return String with simple annotation names.
      */
     @SafeVarargs
     public static String joinSimpleName(String delimiter, Class<? extends Annotation>... annotations) {
-        return Stream.of(annotations).map(Utils::simpleName).collect(joining(delimiter));
+        return Stream.of(annotations).map(ConfigurationProcessorUtils::simpleName).collect(joining(delimiter));
+    }
+
+    /**
+     * Returns the first annotation found for the class.
+     *
+     * @param clazz Class type.
+     * @param annotationClasses Annotation classes that will be searched for the class.
+     */
+    @SafeVarargs
+    public static @Nullable Annotation findFirst(
+            TypeElement clazz,
+            Class<? extends Annotation>... annotationClasses
+    ) {
+        return Stream.of(annotationClasses).map(clazz::getAnnotation).filter(Objects::nonNull).findFirst().orElse(null);
+    }
+
+    /**
+     * Collect fields with annotation.
+     *
+     * @param fields Fields.
+     * @param annotationClass Annotation class.
+     */
+    public static List<VariableElement> collectFieldsWithAnnotation(
+            Collection<VariableElement> fields,
+            Class<? extends Annotation> annotationClass
+    ) {
+        return fields.stream().filter(f -> f.getAnnotation(annotationClass) != null).collect(toList());
     }
 }

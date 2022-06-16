@@ -49,7 +49,8 @@ import java.lang.annotation.Target;
  * </code></pre>
  *
  * <p>NOTE: Field must be a {@link String} and the only one (with this annotation) in the schema, field name is used instead of
- * {@link NamedConfigValue#syntheticKeyName()}, it can be used in schemas with {@link Config} and {@link PolymorphicConfig}.
+ * {@link NamedConfigValue#syntheticKeyName()}, it can be used in schemas with {@link Config}, {@link PolymorphicConfig} and
+ * {@link AbstractConfiguration}.
  *
  * @see Config
  * @see PolymorphicConfig

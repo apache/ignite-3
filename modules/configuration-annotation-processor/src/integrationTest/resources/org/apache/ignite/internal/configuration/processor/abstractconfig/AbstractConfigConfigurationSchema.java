@@ -15,21 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor.internal;
+package org.apache.ignite.internal.configuration.processor.abstractconfig;
 
-import org.apache.ignite.configuration.annotation.Config;
+import java.util.UUID;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.configuration.processor.ItConfigurationProcessorTest;
 
 /**
- * Test class for {@link ItConfigurationProcessorTest#testStaticConstants()}.
+ * An example of an abstract configuration.
  */
-@Config
-public class StaticConstantsConfigurationSchema {
-    public static final int INT_CONSTANT = 0;
+@AbstractConfiguration
+public class AbstractConfigConfigurationSchema {
+    @InjectedName
+    public String name;
 
-    public static final String STRING_CONSTANT = "foobar";
+    @InternalId
+    public UUID id;
 
     @Value
-    public String str;
+    public String strVal;
+
+    @Value
+    public int intVal;
 }

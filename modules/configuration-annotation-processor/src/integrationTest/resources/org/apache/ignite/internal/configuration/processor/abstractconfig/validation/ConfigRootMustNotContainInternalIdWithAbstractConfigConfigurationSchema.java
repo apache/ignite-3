@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor.internal;
+package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.configuration.processor.ItConfigurationProcessorTest;
+import java.util.UUID;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.InternalId;
+import org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigConfigurationSchema;
 
 /**
- * Test class for {@link ItConfigurationProcessorTest#testStaticConstants()}.
+ * Checks that {@link ConfigurationRoot} must not contain a field with {@link InternalId} if {@link AbstractConfiguration} already has a
+ * field with {@link InternalId}.
  */
-@Config
-public class StaticConstantsConfigurationSchema {
-    public static final int INT_CONSTANT = 0;
-
-    public static final String STRING_CONSTANT = "foobar";
-
-    @Value
-    public String str;
+@ConfigurationRoot(rootName = "test")
+public class ConfigRootMustNotContainInternalIdWithAbstractConfigConfigurationSchema extends AbstractConfigConfigurationSchema {
+    @InternalId
+    public UUID id0;
 }

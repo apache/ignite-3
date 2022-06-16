@@ -15,21 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor.internal;
+package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
+import java.util.ArrayList;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.configuration.processor.ItConfigurationProcessorTest;
 
 /**
- * Test class for {@link ItConfigurationProcessorTest#testStaticConstants()}.
+ * Checks that {@link Config} can only extend schema with {@link AbstractConfiguration}.
  */
 @Config
-public class StaticConstantsConfigurationSchema {
-    public static final int INT_CONSTANT = 0;
-
-    public static final String STRING_CONSTANT = "foobar";
-
-    @Value
-    public String str;
+public class ConfigCanExtendOnlyAbstractConfigurationConfigurationSchema extends ArrayList {
 }

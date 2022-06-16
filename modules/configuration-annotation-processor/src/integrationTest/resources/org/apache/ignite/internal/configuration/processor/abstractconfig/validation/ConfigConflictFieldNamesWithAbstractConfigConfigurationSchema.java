@@ -15,21 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor.internal;
+package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.configuration.processor.ItConfigurationProcessorTest;
+import org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigConfigurationSchema;
 
 /**
- * Test class for {@link ItConfigurationProcessorTest#testStaticConstants()}.
+ * Checks if the {@link Config} conflicts in field names with {@link AbstractConfiguration}.
  */
 @Config
-public class StaticConstantsConfigurationSchema {
-    public static final int INT_CONSTANT = 0;
-
-    public static final String STRING_CONSTANT = "foobar";
-
+public class ConfigConflictFieldNamesWithAbstractConfigConfigurationSchema extends AbstractConfigConfigurationSchema {
     @Value
-    public String str;
+    public String name;
 }
