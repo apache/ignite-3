@@ -67,7 +67,6 @@ public class QuerySingleResult implements ClientMessage {
     /**
      * Constructor.
      *
-     * @param cursorId  Cursor ID.
      * @param updateCnt Update count for DML queries.
      */
     public QuerySingleResult(long updateCnt) {
