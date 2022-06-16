@@ -26,10 +26,12 @@ import static org.mockito.Mockito.mock;
 import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.message.TxFinishRequest;
 import org.apache.ignite.internal.tx.message.TxFinishResponse;
 import org.apache.ignite.network.ClusterService;
@@ -65,16 +67,20 @@ public class MessagingServiceTestUtils {
 
                     TxFinishRequest txFinishRequest = invocationClose.getArgument(1);
 
+                    UUID txId = txFinishRequest.txId();
+
+                    txManager.changeState(txId, TxState.PENDING, txFinishRequest.commit() ? TxState.COMMITED : TxState.ABORTED);
+
                     FinishTxCommand finishTxCommand = new FinishTxCommand(
-                            txFinishRequest.txId(), txFinishRequest.commit(), txManager.lockedKeys(txFinishRequest.txId())
+                            txId, txFinishRequest.commit(), txManager.lockedKeys(txId)
                     );
 
                     partitionListeners.forEach(partitionListener -> partitionListener.onWrite(iterator(finishTxCommand)));
 
                     if (txFinishRequest.commit()) {
-                        txManager.commitAsync(txFinishRequest.txId()).get();
+                        txManager.commitAsync(txId).get();
                     } else {
-                        txManager.rollbackAsync(txFinishRequest.txId()).get();
+                        txManager.rollbackAsync(txId).get();
                     }
 
                     return CompletableFuture.completedFuture(mock(TxFinishResponse.class));

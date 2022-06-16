@@ -1250,6 +1250,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
 
+                    // TODO: IGNITE-16923 Remove assert after the ticket is resolved.
+                    assert tbl.internalTable().storage() instanceof MvTableStorage :
+                            "Only multi version storages are supported. Current storage is a "
+                                    + tbl.internalTable().storage().getClass().getName();
+
                     Supplier<RaftGroupListener> raftGrpLsnrSupplier = () -> new PartitionListener(tblId,
                             new VersionedRowStore(
                                     ((MvTableStorage) tbl.internalTable().storage()).createPartition(part), txManager));
