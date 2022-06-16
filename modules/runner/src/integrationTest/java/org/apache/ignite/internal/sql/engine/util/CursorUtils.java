@@ -21,7 +21,9 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
@@ -52,18 +54,20 @@ public class CursorUtils {
         List<T> res = new ArrayList<>();
         int batchSize = 256;
 
-        var consumer = new Consumer<BatchedResult<T>>() {
+        var consumer = new Function<BatchedResult<T>, CompletionStage<BatchedResult<T>>>() {
             @Override
-            public void accept(BatchedResult<T> br) {
+            public CompletionStage<BatchedResult<T>> apply(BatchedResult<T> br) {
                 res.addAll(br.items());
 
                 if (br.hasMore()) {
-                    cur.requestNextAsync(batchSize).thenAccept(this);
+                    return cur.requestNextAsync(batchSize).thenCompose(this);
                 }
+
+                return CompletableFuture.completedFuture(br);
             }
         };
 
-        await(cur.requestNextAsync(batchSize).thenAccept(consumer));
+        await(cur.requestNextAsync(batchSize).thenCompose(consumer));
         await(cur.closeAsync());
 
         return res;
