@@ -43,7 +43,6 @@ public class ClientJdbcPrimaryKeyMetadataRequest {
         String tblName = ClientMessageUtils.readStringNullable(in);
 
         return metadataCatalog.getPrimaryKeys(schemaName, tblName)
-                .thenApply(JdbcMetaPrimaryKeysResult::new)
-                .thenAccept(res -> res.writeBinary(out));
+                .thenAccept(res -> new JdbcMetaPrimaryKeysResult(res).writeBinary(out));
     }
 }

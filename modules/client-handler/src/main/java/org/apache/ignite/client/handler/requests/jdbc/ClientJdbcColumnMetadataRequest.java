@@ -45,6 +45,6 @@ public class ClientJdbcColumnMetadataRequest {
 
         return jdbcMetadataCatalog
                 .getColumnsMeta(schemaName, tblName, colName)
-                .thenApply(JdbcMetaColumnsResult::new).thenAccept(res -> res.writeBinary(out));
+                .thenAccept(res -> new JdbcMetaColumnsResult(res).writeBinary(out));
     }
 }
