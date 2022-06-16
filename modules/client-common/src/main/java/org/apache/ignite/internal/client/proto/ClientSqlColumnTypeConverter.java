@@ -24,6 +24,12 @@ import org.apache.ignite.sql.SqlColumnType;
  */
 // TODO: Write a test that checks all possible types (using reflection) to detect when new types are added.
 public class ClientSqlColumnTypeConverter {
+    /**
+     * Converts column type to wire code.
+     *
+     * @param columnType Column type.
+     * @return Wire code.
+     */
     public static int columnTypeToOrdinal(SqlColumnType columnType) {
         switch (columnType) {
             case BOOLEAN:
@@ -88,6 +94,12 @@ public class ClientSqlColumnTypeConverter {
         }
     }
 
+    /**
+     * Converts wire type code to column type.
+     *
+     * @param ordinal Type code.
+     * @return Column type.
+     */
     public static SqlColumnType ordinalToColumnType(int ordinal) {
         switch (ordinal) {
             case 0:
