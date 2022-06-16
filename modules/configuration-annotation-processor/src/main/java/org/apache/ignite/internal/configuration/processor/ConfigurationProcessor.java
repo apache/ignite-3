@@ -235,8 +235,6 @@ public class ConfigurationProcessor extends AbstractProcessor {
             // Is an instance of a polymorphic configuration.
             boolean isPolymorphicInstance = clazz.getAnnotation(PolymorphicConfigInstance.class) != null;
 
-            TypeElement superClazz = superClass(clazz);
-
             // Create VIEW and CHANGE classes.
             createPojoBindings(
                     fields,

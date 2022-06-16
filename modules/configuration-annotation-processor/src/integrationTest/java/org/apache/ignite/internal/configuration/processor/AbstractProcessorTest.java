@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.configuration.processor;
 
 import static com.google.testing.compile.Compiler.javac;
+import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getChangeName;
+import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getViewName;
 
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
@@ -68,8 +70,8 @@ public class AbstractProcessorTest {
      * @return ConfigSet.
      */
     protected static ConfigSet getConfigSet(ClassName clazz, final Map<ClassName, JavaFileObject> generatedClasses) {
-        final ClassName viewName = ConfigurationProcessorUtils.getViewName(clazz);
-        final ClassName changeName = ConfigurationProcessorUtils.getChangeName(clazz);
+        final ClassName viewName = getViewName(clazz);
+        final ClassName changeName = getChangeName(clazz);
 
         final JavaFileObject viewClass = generatedClasses.get(viewName);
         final JavaFileObject changeClass = generatedClasses.get(changeName);

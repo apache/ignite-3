@@ -32,5 +32,6 @@ import java.util.UUID;
 @Target(FIELD)
 @Retention(RUNTIME)
 @Documented
+// TODO: IGNITE-17148 Don't forget modify javadoc
 public @interface InternalId {
 }
