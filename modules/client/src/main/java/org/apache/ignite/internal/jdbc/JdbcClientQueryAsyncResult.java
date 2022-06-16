@@ -163,6 +163,7 @@ public class JdbcClientQueryAsyncResult {
      */
     public void close() throws SQLException {
         assert cursorId != UNDEFINED_CURSOR : "Close for DDL and DML queries is prohibited";
+
         CompletableFuture<Object> f = channel.serviceAsync(ClientOp.JDBC_CURSOR_CLOSE,
                 w -> w.out().packLong(cursorId), p -> {
                     byte status = p.in().unpackByte();
@@ -185,6 +186,7 @@ public class JdbcClientQueryAsyncResult {
      */
     public List<JdbcColumnMeta> metadata() throws SQLException {
         assert cursorId != UNDEFINED_CURSOR : "Metadata for DDL and DML queries is prohibited";
+
         CompletableFuture<JdbcMetaColumnsResult> f = channel.serviceAsync(
                 ClientOp.JDBC_QUERY_META, w -> w.out().packLong(cursorId), p -> {
                     byte status = p.in().unpackByte();
