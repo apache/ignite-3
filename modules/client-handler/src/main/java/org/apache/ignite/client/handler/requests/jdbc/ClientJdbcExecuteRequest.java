@@ -37,7 +37,7 @@ public class ClientJdbcExecuteRequest {
      * @param handler Query event handler.
      * @return Operation future.
      */
-    public static CompletableFuture<Void> execute(
+    public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             JdbcQueryExecutionHandler handler

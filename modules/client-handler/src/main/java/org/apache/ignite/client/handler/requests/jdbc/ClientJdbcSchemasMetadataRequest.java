@@ -23,11 +23,11 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasResult;
 
 /**
- * Client jdbc schema metadata request handler.
+ * Client jdbc metadata schemas request handler.
  */
 public class ClientJdbcSchemasMetadataRequest {
     /**
-     * Processes remote {@code JdbcMetaSchemasRequest}.
+     * Processes remote Jdbc metadata schemas request.
      *
      * @param in      Client message unpacker.
      * @param out     Client message packer.

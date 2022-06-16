@@ -50,7 +50,7 @@ public class ClientMessagePacker implements AutoCloseable {
     /**
      * Closed flag.
      */
-    private boolean closed;
+    private volatile boolean closed;
 
     /**
      * Constructor.

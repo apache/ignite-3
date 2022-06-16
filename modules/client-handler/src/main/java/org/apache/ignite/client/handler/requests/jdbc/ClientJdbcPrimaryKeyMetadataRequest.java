@@ -28,7 +28,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysResult;
  */
 public class ClientJdbcPrimaryKeyMetadataRequest {
     /**
-     * Processes remote {@code JdbcMetaPrimaryKeysRequest}.
+     * Processes remote jdbc primary key metadata request.
      *
      * @param in      Client message unpacker.
      * @param out     Client message packer.

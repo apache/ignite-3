@@ -153,6 +153,7 @@ public class JdbcClientQueryAsyncResult {
      * Closes remote cursor.
      */
     public void close() throws SQLException {
+        System.out.println("Call close?..");
         CompletableFuture<Object> f = channel.serviceAsync(ClientOp.JDBC_CURSOR_CLOSE,
                 w -> w.out().packLong(cursorId), p -> {
                     byte status = p.in().unpackByte();

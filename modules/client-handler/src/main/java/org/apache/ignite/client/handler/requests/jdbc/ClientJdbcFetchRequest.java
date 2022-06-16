@@ -38,7 +38,7 @@ public class ClientJdbcFetchRequest {
      * @param out     Client message packer.
      * @return Operation future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<Object> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             ClientResourceRegistry resources
@@ -56,7 +56,7 @@ public class ClientJdbcFetchRequest {
 
         AsyncSqlCursor<List<Object>> cur = resources.get(cursorId).get(AsyncSqlCursor.class);
 
-        cur.requestNextAsync(fetchSize).handle((batch, ex) -> {
+        return cur.requestNextAsync(fetchSize).handle((batch, ex) -> {
             if (ex != null) {
                 out.packByte(JdbcRequestStatus.FAILED.getStatus());
                 out.packString("Failed to fetch results for cursor id " + cursorId + ", " + ex.getMessage());
@@ -69,8 +69,6 @@ public class ClientJdbcFetchRequest {
             new QueryFetchResult(batch.items(), !batch.hasMore()).writeBinary(out);
 
             return null;
-        });
-
-        return null;
+        }).toCompletableFuture();
     }
 }

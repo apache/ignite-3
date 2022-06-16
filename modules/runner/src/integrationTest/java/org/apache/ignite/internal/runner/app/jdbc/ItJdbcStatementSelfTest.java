@@ -164,23 +164,27 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled
     public void testExecuteAndFetch() throws Exception {
         try (Statement statement = conn.createStatement()) {
             statement.setFetchSize(2);
+
             ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST");
             assertNotNull(resultSet);
             int cnt = 0;
 
             while (resultSet.next()) {
-                int id = resultSet.getInt("id");
-
                 cnt++;
-                System.out.println(cnt);
             }
 
-            assertFalse(stmt.getMoreResults(), "Statement has more results.");
+            assertFalse(statement.getMoreResults(), "Statement has more results.");
             assertEquals(10, cnt);
+        }
+    }
+
+    @Test
+    public void testExecuteWrongFetchCount() throws Exception {
+        try (Statement statement = conn.createStatement()) {
+            assertThrows(SQLException.class, () -> statement.setFetchSize(-2));
         }
     }
 
