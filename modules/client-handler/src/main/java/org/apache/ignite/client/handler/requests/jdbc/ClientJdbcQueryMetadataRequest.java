@@ -17,14 +17,11 @@
 
 package org.apache.ignite.client.handler.requests.jdbc;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcRequestStatus;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -63,12 +60,13 @@ public class ClientJdbcQueryMetadataRequest {
             return null;
         }
 
-        List<JdbcColumnMeta> meta = metadata.columns().stream()
-                .map(ClientJdbcQueryMetadataRequest::createColumnMetadata)
-                .collect(Collectors.toList());
-
         out.packByte(JdbcRequestStatus.SUCCESS.getStatus());
-        new JdbcMetaColumnsResult(meta).writeBinary(out);
+
+        out.packArrayHeader(metadata.columns().size());
+
+        metadata.columns().stream()
+                .map(ClientJdbcQueryMetadataRequest::createColumnMetadata)
+                .forEach(meta -> meta.writeBinary(out));
 
         return null;
     }

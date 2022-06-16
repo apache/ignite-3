@@ -48,6 +48,8 @@ public class ClientJdbcCloseRequest {
                         out.packByte(JdbcRequestStatus.FAILED.getStatus());
                         out.packString("Failed to close SQL query [curId=" + cursorId + "]");
                         //TODO:IGNITE-15247 A proper JDBC error code should be sent.
+
+                        return null;
                     }
 
                     out.packByte(JdbcRequestStatus.SUCCESS.getStatus());

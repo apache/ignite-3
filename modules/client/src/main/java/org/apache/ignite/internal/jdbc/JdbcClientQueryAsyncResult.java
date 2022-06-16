@@ -187,7 +187,7 @@ public class JdbcClientQueryAsyncResult {
     public List<JdbcColumnMeta> metadata() throws SQLException {
         assert cursorId != UNDEFINED_CURSOR : "Metadata for DDL and DML queries is prohibited";
 
-        CompletableFuture<JdbcMetaColumnsResult> f = channel.serviceAsync(
+        CompletableFuture<List<JdbcColumnMeta>> f = channel.serviceAsync(
                 ClientOp.JDBC_QUERY_META, w -> w.out().packLong(cursorId), p -> {
                     byte status = p.in().unpackByte();
 
@@ -195,14 +195,30 @@ public class JdbcClientQueryAsyncResult {
                         throw new SQLException(p.in().unpackString(), SqlStateCode.INTERNAL_ERROR);
                     }
 
-                    JdbcMetaColumnsResult res = new JdbcMetaColumnsResult();
+                    int size = p.in().unpackArrayHeader();
 
-                    res.readBinary(p.in());
+                    List<JdbcColumnMeta> meta;
 
-                    return res;
+                    if (size == 0) {
+                        meta = Collections.emptyList();
+
+                        return meta;
+                    }
+
+                    meta = new ArrayList<>(size);
+
+                    for (int i = 0; i < size; ++i) {
+                        var m = new JdbcColumnMeta();
+
+                        m.readBinary(p.in());
+
+                        meta.add(m);
+                    }
+
+                    return meta;
                 });
 
-        return getOrThrow(f).meta();
+        return getOrThrow(f);
     }
 
     /** {@inheritDoc} */
