@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.configuration.processor.ConfigurationPr
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.simpleName;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
+import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
 import com.squareup.javapoet.ClassName;
@@ -1065,7 +1066,18 @@ public class ConfigurationProcessor extends AbstractProcessor {
     private void checkMissingNameForInjectedName(VariableElement field) {
         TypeElement fieldType = (TypeElement) processingEnv.getTypeUtils().asElement(field.asType());
 
-        List<VariableElement> fields = collectFieldsWithAnnotation(fields(fieldType), InjectedName.class);
+        TypeElement superClassFieldType = superClass(fieldType);
+
+        Collection<VariableElement> fields;
+
+        if (!isClass(superClassFieldType.asType(), Object.class) && findFirst(superClassFieldType, AbstractConfiguration.class) != null) {
+            fields = union(
+                    collectFieldsWithAnnotation(fields(fieldType), InjectedName.class),
+                    collectFieldsWithAnnotation(fields(superClassFieldType), InjectedName.class)
+            );
+        } else {
+            fields = collectFieldsWithAnnotation(fields(fieldType), InjectedName.class);
+        }
 
         if (!fields.isEmpty() && field.getAnnotation(org.apache.ignite.configuration.annotation.Name.class) == null) {
             throw new ConfigurationProcessorException(String.format(

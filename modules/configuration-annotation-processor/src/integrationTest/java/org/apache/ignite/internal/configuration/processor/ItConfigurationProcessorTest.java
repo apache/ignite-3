@@ -486,6 +486,12 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
                 "Class with @AbstractConfiguration cannot have a field with @PolymorphicId"
         );
 
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "FieldWithInjectedNameFromAbstractConfigMustContainsNameConfigurationSchema"),
+                "Missing @Name for field"
+        );
+
         // Let's check the validation of the abstract configuration descendants.
 
         assertThrowsEx(
