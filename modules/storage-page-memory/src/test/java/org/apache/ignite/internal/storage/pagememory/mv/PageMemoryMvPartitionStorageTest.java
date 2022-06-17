@@ -18,7 +18,11 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static java.util.stream.Collectors.joining;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
@@ -56,6 +60,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<PageMemoryMvPartitionStorage> {
     private final PageIoRegistry ioRegistry = new PageIoRegistry();
 
+    private final BinaryRow binaryRow3 = binaryRow(key, new TestValue(22, "bar3"));
+
     {
         ioRegistry.loadFromServiceLoader();
     }
@@ -76,8 +82,6 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
     private VolatilePageMemoryStorageEngine engine;
 
     private AbstractPageMemoryTableStorage table;
-
-    private int nextPageIndex = 100;
 
     @WorkDirectory
     private Path workDir;
@@ -211,5 +215,48 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
 
             assertRowMatches(foundRow, longRow);
         }
+    }
+
+    @Test
+    void readByTimestampWorksCorrectlyAfterCommitAndAbortFollowedByUncommittedWrite() {
+        RowId rowId = commitAbortAndAddUncommitted();
+
+        BinaryRow foundRow = storage.read(rowId, Timestamp.nextVersion());
+
+        assertRowMatches(foundRow, binaryRow);
+    }
+
+    private RowId commitAbortAndAddUncommitted() {
+        RowId rowId = storage.insert(binaryRow, txId);
+        storage.commitWrite(rowId, Timestamp.nextVersion());
+
+        storage.addWrite(rowId, binaryRow2, newTransactionId());
+        storage.abortWrite(rowId);
+
+        storage.addWrite(rowId, binaryRow3, newTransactionId());
+
+        return rowId;
+    }
+
+    @Test
+    void scanByTimestampWorksCorrectlyAfterCommitAndAbortFollowedByUncommittedWrite() throws Exception {
+        commitAbortAndAddUncommitted();
+
+        try (Cursor<BinaryRow> cursor = storage.scan(k -> true, Timestamp.nextVersion())) {
+            BinaryRow foundRow = cursor.next();
+
+            assertRowMatches(foundRow, binaryRow);
+
+            assertFalse(cursor.hasNext());
+        }
+    }
+
+    @Test
+    void readByTimestampWorksCorrectlyIfNoUncommittedValueExists() {
+        LinkRowId rowId = storage.insert(binaryRow, txId);
+
+        BinaryRow foundRow = storage.read(rowId, Timestamp.nextVersion());
+
+        assertThat(foundRow, is(nullValue()));
     }
 }

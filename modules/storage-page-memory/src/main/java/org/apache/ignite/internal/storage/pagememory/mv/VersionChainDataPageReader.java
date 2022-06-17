@@ -65,7 +65,10 @@ class VersionChainDataPageReader extends NonFragmentableDataPageReader<VersionCh
         long headLink = PartitionlessLinks.readFromMemory(pageAddr, offset);
         offset += PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
 
-        return new VersionChain(partitionOfLink(link), link, txId, headLink);
+        long nextLink = PartitionlessLinks.readFromMemory(pageAddr, offset);
+        offset += PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
+
+        return new VersionChain(partitionOfLink(link), link, txId, headLink, nextLink);
     }
 
     private int partitionOfLink(long link) {

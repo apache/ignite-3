@@ -27,9 +27,9 @@ import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Traversal for reading the latest row version. If the version is uncommitted, returns its value; otherwise, does NOT return it.
+ * Traversal for reading a row version by its link. Loads the version value conditionally.
  */
-class ReadLatestRowVersion implements PageMemoryTraversal<Predicate<Timestamp>> {
+class ReadRowVersion implements PageMemoryTraversal<Predicate<Timestamp>> {
     private RowVersion result;
 
     private boolean readingFirstSlot = true;

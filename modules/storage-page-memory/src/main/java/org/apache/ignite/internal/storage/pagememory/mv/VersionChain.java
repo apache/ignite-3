@@ -35,40 +35,50 @@ public class VersionChain extends VersionChainLink implements Storable {
 
     private static final int TRANSACTION_ID_STORE_SIZE_BYTES = 2 * Long.BYTES;
     private static final int HEAD_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
+    private static final int NEXT_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
 
     public static final int TRANSACTION_ID_OFFSET = 0;
 
     private final int partitionId;
     @Nullable
     private final UUID transactionId;
+
+    /**
+     * Link to the latest version.
+     */
     private final long headLink;
 
-    // TODO: IGNITE-17008 - add nextLink
+    /**
+     * Link to the pre-latest version ({@link RowVersion#NULL_LINK} if there is just one version).
+     */
+    private final long nextLink;
 
     /**
      * Constructs a VersionChain without a transaction ID.
      */
-    public static VersionChain withoutTxId(int partitionId, long link, long headLink) {
-        return new VersionChain(partitionId, link, null, headLink);
+    public static VersionChain withoutTxId(int partitionId, long link, long headLink, long nextLink) {
+        return new VersionChain(partitionId, link, null, headLink, nextLink);
     }
 
     /**
      * Constructor.
      */
-    public VersionChain(int partitionId, @Nullable UUID transactionId, long headLink) {
+    public VersionChain(int partitionId, @Nullable UUID transactionId, long headLink, long nextLink) {
         this.partitionId = partitionId;
         this.transactionId = transactionId;
         this.headLink = headLink;
+        this.nextLink = nextLink;
     }
 
     /**
      * Constructor.
      */
-    public VersionChain(int partitionId, long link, @Nullable UUID transactionId, long headLink) {
+    public VersionChain(int partitionId, long link, @Nullable UUID transactionId, long headLink, long nextLink) {
         super(link);
         this.partitionId = partitionId;
         this.transactionId = transactionId;
         this.headLink = headLink;
+        this.nextLink = nextLink;
     }
 
     @Nullable
@@ -80,6 +90,22 @@ public class VersionChain extends VersionChainLink implements Storable {
         return headLink;
     }
 
+    public long nextLink() {
+        return nextLink;
+    }
+
+    public long newestCommittedPartitionlessLink() {
+        return isUncommitted() ? nextLink : headLink;
+    }
+
+    private boolean isUncommitted() {
+        return transactionId != null;
+    }
+
+    public boolean hasCommittedVersions() {
+        return newestCommittedPartitionlessLink() != RowVersion.NULL_LINK;
+    }
+
     @Override
     public final int partition() {
         return partitionId;
@@ -87,7 +113,7 @@ public class VersionChain extends VersionChainLink implements Storable {
 
     @Override
     public int size() {
-        return TRANSACTION_ID_STORE_SIZE_BYTES + HEAD_LINK_STORE_SIZE_BYTES;
+        return TRANSACTION_ID_STORE_SIZE_BYTES + HEAD_LINK_STORE_SIZE_BYTES + NEXT_LINK_STORE_SIZE_BYTES;
     }
 
     @Override
