@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.configuration.processor.abstractconfig;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.Value;
+import java.util.UUID;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.InternalId;
 
 /**
- * An example of a simple configuration that extends {@link AbstractConfigConfigurationSchema}.
+ * An example of an abstract configuration with field that contain {@link InternalId}.
  */
-@ConfigurationRoot(rootName = "test")
-public class SimpleConfigRootConfigurationSchema extends AbstractRootConfigConfigurationSchema {
-    @Value
-    public long longVal;
+@AbstractConfiguration
+public class AbstractConfigWithInternalIdConfigurationSchema {
+    @InternalId
+    public UUID id;
 }

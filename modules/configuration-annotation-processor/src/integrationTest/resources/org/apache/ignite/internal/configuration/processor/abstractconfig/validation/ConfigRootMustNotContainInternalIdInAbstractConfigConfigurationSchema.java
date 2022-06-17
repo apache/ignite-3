@@ -17,18 +17,14 @@
 
 package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
-import java.util.UUID;
 import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InternalId;
-import org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigConfigurationSchema;
+import org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigWithInternalIdConfigurationSchema;
 
 /**
- * Checks that {@link ConfigurationRoot} must not contain a field with {@link InternalId} if {@link AbstractConfiguration} already has a
- * field with {@link InternalId}.
+ * Checks that {@link ConfigurationRoot} should not extend {@link AbstractConfiguration} which has {@link InternalId}.
  */
 @ConfigurationRoot(rootName = "test")
-public class ConfigRootMustNotContainInternalIdWithAbstractConfigConfigurationSchema extends AbstractConfigConfigurationSchema {
-    @InternalId
-    public UUID id0;
+public class ConfigRootMustNotContainInternalIdInAbstractConfigConfigurationSchema extends AbstractConfigWithInternalIdConfigurationSchema {
 }

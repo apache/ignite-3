@@ -514,12 +514,12 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
                 "Duplicate field names are not allowed"
         );
 
-        // Let's check the search for duplicate fields with @InjectedName.
+        // Let's check @InjectedName for descendants of abstract configuration.
 
         assertThrowsEx(
                 IllegalStateException.class,
-                () -> batchCompile(packageName, "ConfigRootMustNotContainInjectedNameWithAbstractConfigConfigurationSchema"),
-                "Field with @InjectedName is already present in the superclass"
+                () -> batchCompile(packageName, "ConfigRootMustNotContainInjectedNameInAbstractConfigConfigurationSchema"),
+                "Field with @InjectedName in superclass are not allowed"
         );
 
         assertThrowsEx(
@@ -528,12 +528,12 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
                 "Field with @InjectedName is already present in the superclass"
         );
 
-        // Let's check the search for duplicate fields with @InternalId.
+        // Let's check @InternalId for descendants of abstract configuration.
 
         assertThrowsEx(
                 IllegalStateException.class,
-                () -> batchCompile(packageName, "ConfigRootMustNotContainInternalIdWithAbstractConfigConfigurationSchema"),
-                "Field with @InternalId is already present in the superclass"
+                () -> batchCompile(packageName, "ConfigRootMustNotContainInternalIdInAbstractConfigConfigurationSchema"),
+                "Field with @InternalId in superclass are not allowed"
         );
 
         assertThrowsEx(
@@ -548,47 +548,64 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
         String packageName = "org.apache.ignite.internal.configuration.processor.abstractconfig";
 
         ClassName abstractConfigSchema = ClassName.get(packageName, "AbstractConfigConfigurationSchema");
-        ClassName configSchema = ClassName.get(packageName, "SimpleConfigRootConfigurationSchema");
-        ClassName configRootSchema = ClassName.get(packageName, "SimpleConfigConfigurationSchema");
+        ClassName abstractRootConfigSchema = ClassName.get(packageName, "AbstractRootConfigConfigurationSchema");
 
-        BatchCompilation batchCompile = batchCompile(abstractConfigSchema, configSchema, configRootSchema);
+        ClassName configSchema = ClassName.get(packageName, "SimpleConfigConfigurationSchema");
+        ClassName configRootSchema = ClassName.get(packageName, "SimpleConfigRootConfigurationSchema");
+
+        BatchCompilation batchCompile = batchCompile(abstractConfigSchema, abstractRootConfigSchema, configSchema, configRootSchema);
 
         assertThat(batchCompile.getCompilationStatus()).succeededWithoutWarnings();
 
-        assertEquals(3 * 3, batchCompile.generated().size());
+        assertEquals(4 * 3, batchCompile.generated().size());
 
         assertTrue(batchCompile.getBySchema(abstractConfigSchema).allGenerated());
+        assertTrue(batchCompile.getBySchema(abstractRootConfigSchema).allGenerated());
         assertTrue(batchCompile.getBySchema(configSchema).allGenerated());
         assertTrue(batchCompile.getBySchema(configRootSchema).allGenerated());
 
-        for (ClassName schemaClass : List.of(configSchema, configRootSchema)) {
-            StringSubject viewInterfaceContent = assertThat(batchCompile.getCompilationStatus())
-                    .generatedSourceFile(getViewName(schemaClass).toString())
-                    .contentsAsUtf8String();
+        StringSubject configViewInterfaceContent = assertThat(batchCompile.getCompilationStatus())
+                .generatedSourceFile(getViewName(configSchema).toString())
+                .contentsAsUtf8String();
 
-            viewInterfaceContent.contains("extends " + getViewName(abstractConfigSchema).simpleName());
+        StringSubject configRootViewInterfaceContent = assertThat(batchCompile.getCompilationStatus())
+                .generatedSourceFile(getViewName(configRootSchema).toString())
+                .contentsAsUtf8String();
 
-            StringSubject changeInterfaceContent = assertThat(batchCompile.getCompilationStatus())
-                    .generatedSourceFile(getChangeName(schemaClass).toString())
-                    .contentsAsUtf8String();
+        configViewInterfaceContent.contains("extends " + getViewName(abstractConfigSchema).simpleName());
+        configRootViewInterfaceContent.contains("extends " + getViewName(abstractRootConfigSchema).simpleName());
 
-            changeInterfaceContent.contains(
-                    "extends " + getViewName(schemaClass).simpleName() + ", " + getChangeName(abstractConfigSchema).simpleName()
-            );
+        StringSubject configChangeInterfaceContent = assertThat(batchCompile.getCompilationStatus())
+                .generatedSourceFile(getChangeName(configSchema).toString())
+                .contentsAsUtf8String();
 
-            StringSubject configurationInterfaceContent = assertThat(batchCompile.getCompilationStatus())
-                    .generatedSourceFile(getConfigurationInterfaceName(schemaClass).toString())
-                    .contentsAsUtf8String();
+        StringSubject configRootChangeInterfaceContent = assertThat(batchCompile.getCompilationStatus())
+                .generatedSourceFile(getChangeName(configRootSchema).toString())
+                .contentsAsUtf8String();
 
-            configurationInterfaceContent.contains("extends " + getConfigurationInterfaceName(abstractConfigSchema).simpleName());
-        }
+        configChangeInterfaceContent.contains("extends " + getViewName(configSchema).simpleName()
+                + ", " + getChangeName(abstractConfigSchema).simpleName());
+
+        configRootChangeInterfaceContent.contains("extends " + getViewName(configRootSchema).simpleName()
+                + ", " + getChangeName(abstractRootConfigSchema).simpleName());
+
+        StringSubject configConfigurationInterfaceContent = assertThat(batchCompile.getCompilationStatus())
+                .generatedSourceFile(getConfigurationInterfaceName(configSchema).toString())
+                .contentsAsUtf8String();
+
+        StringSubject configRootConfigurationInterfaceContent = assertThat(batchCompile.getCompilationStatus())
+                .generatedSourceFile(getConfigurationInterfaceName(configRootSchema).toString())
+                .contentsAsUtf8String();
+
+        configConfigurationInterfaceContent.contains("extends " + getConfigurationInterfaceName(abstractConfigSchema).simpleName());
+        configRootConfigurationInterfaceContent.contains("extends " + getConfigurationInterfaceName(abstractRootConfigSchema).simpleName());
     }
 
     /**
      * Compile set of classes.
      *
      * @param packageName Package names.
-     * @param classNames  Simple class names.
+     * @param classNames Simple class names.
      * @return Result of batch compilation.
      */
     private static BatchCompilation batchCompile(String packageName, String... classNames) {

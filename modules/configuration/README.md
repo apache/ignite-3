@@ -308,3 +308,5 @@ node. There's API for this purpose.
 
 Please refer to `ConfigurationUtil#directProxy(ConfigurationProperty)` for details. There are many usages of this method in tests. It
 should provide the context.
+
+TODO: IGNITE-17148 не забудь добавить опаисание

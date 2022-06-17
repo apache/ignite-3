@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor.abstractconfig;
+package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigWithInjectedNameConfigurationSchema;
 
 /**
- * An example of a simple configuration that extends {@link AbstractConfigConfigurationSchema}.
+ * Checks that {@link ConfigurationRoot} should not extend {@link AbstractConfiguration} which has {@link InjectedName}.
  */
 @ConfigurationRoot(rootName = "test")
-public class SimpleConfigRootConfigurationSchema extends AbstractRootConfigConfigurationSchema {
-    @Value
-    public long longVal;
+public class ConfigRootMustNotContainInjectedNameInAbstractConfigConfigurationSchema extends AbstractConfigWithInjectedNameConfigurationSchema {
 }

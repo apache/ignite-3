@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.configuration.processor.abstractconfig;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.InjectedName;
 
 /**
- * An example of a simple configuration that extends {@link AbstractConfigConfigurationSchema}.
+ * An example of an abstract configuration with field that contain {@link InjectedName}.
  */
-@ConfigurationRoot(rootName = "test")
-public class SimpleConfigRootConfigurationSchema extends AbstractRootConfigConfigurationSchema {
-    @Value
-    public long longVal;
+@AbstractConfiguration
+public class AbstractConfigWithInjectedNameConfigurationSchema {
+    @InjectedName
+    public String name;
 }

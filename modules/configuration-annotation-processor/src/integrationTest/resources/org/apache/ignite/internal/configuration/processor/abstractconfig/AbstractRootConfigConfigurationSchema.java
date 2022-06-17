@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
+package org.apache.ignite.internal.configuration.processor.abstractconfig;
 
 import org.apache.ignite.configuration.annotation.AbstractConfiguration;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.InjectedName;
-import org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigConfigurationSchema;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Checks that {@link ConfigurationRoot} must not contain a field with {@link InjectedName} if {@link AbstractConfiguration} already has a
- * field with {@link InjectedName}.
+ * An example of an abstract root configuration.
  */
-@ConfigurationRoot(rootName = "test")
-public class ConfigRootMustNotContainInjectedNameWithAbstractConfigConfigurationSchema extends AbstractConfigConfigurationSchema {
-    @InjectedName
-    public String name0;
+@AbstractConfiguration
+public class AbstractRootConfigConfigurationSchema {
+    @Value
+    public String strVal;
+
+    @Value
+    public int intVal;
 }
