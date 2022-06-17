@@ -54,6 +54,7 @@ import java.lang.annotation.Target;
  *
  * @see Config
  * @see PolymorphicConfig
+ * @see AbstractConfiguration
  * @see ConfigValue
  * @see NamedConfigValue
  * @see Name
@@ -61,6 +62,5 @@ import java.lang.annotation.Target;
 @Target(FIELD)
 @Retention(RUNTIME)
 @Documented
-// TODO: IGNITE-17148 Don't forget to modify javadoc
 public @interface InjectedName {
 }
