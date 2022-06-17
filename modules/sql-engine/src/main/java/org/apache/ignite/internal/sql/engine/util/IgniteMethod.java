@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.lang.reflect.Method;
+import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.linq4j.tree.Types;
 import org.apache.calcite.sql.SqlIntervalQualifier;
@@ -73,7 +74,10 @@ public enum IgniteMethod {
     BYTESTRING_TO_STRING(IgniteSqlFunctions.class, "toString", ByteString.class),
 
     /** See {@link IgniteSqlFunctions#toByteString(String)}. */
-    STRING_TO_BYTESTRING(IgniteSqlFunctions.class, "toByteString", String.class);
+    STRING_TO_BYTESTRING(IgniteSqlFunctions.class, "toByteString", String.class),
+
+    /** See {@link IgniteSqlFunctions#currentTime(DataContext)}. */
+    CURRENT_TIME(IgniteSqlFunctions.class, "currentTime", DataContext.class);
 
     private final Method method;
 

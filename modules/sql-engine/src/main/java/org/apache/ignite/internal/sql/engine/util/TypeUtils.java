@@ -250,7 +250,7 @@ public class TypeUtils {
         } else if (storageType == LocalDate.class) {
             return (int) ((LocalDate) val).toEpochDay();
         } else if (storageType == LocalTime.class) {
-            return ((LocalTime) val).toSecondOfDay();
+            return (int) (((LocalTime) val).toNanoOfDay() / 1000 / 1000 /* convert to millis */);
         } else if (storageType == LocalDateTime.class) {
             return ((LocalDateTime) val).toEpochSecond(ZoneOffset.UTC);
         } else if (storageType == Duration.class) {
@@ -275,7 +275,7 @@ public class TypeUtils {
         } else if (storageType == LocalDate.class && val instanceof Integer) {
             return LocalDate.ofEpochDay((Integer) val);
         } else if (storageType == LocalTime.class && val instanceof Integer) {
-            return LocalTime.ofSecondOfDay((Integer) val);
+            return LocalTime.ofNanoOfDay(Long.valueOf((Integer) val) * 1000 * 1000 /* convert from millis */);
         } else if (storageType == LocalDateTime.class && (val instanceof Long)) {
             return LocalDateTime.ofEpochSecond((Long) val / 1000, (int) ((Long) val % 1000) * 1000 * 1000, ZoneOffset.UTC);
         } else if (storageType == Duration.class && val instanceof Long) {
