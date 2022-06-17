@@ -247,21 +247,19 @@ public class TypeUtils {
     public static Object toInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
         if (val == null) {
             return null;
-        } else if (storageType == java.sql.Date.class) {
-            return (int) (SqlFunctions.toLong((java.util.Date) val, DataContext.Variable.TIME_ZONE.get(ectx))
-                    / DateTimeUtils.MILLIS_PER_DAY);
-        } else if (storageType == java.sql.Time.class) {
-            return (int) (SqlFunctions.toLong((java.util.Date) val, DataContext.Variable.TIME_ZONE.get(ectx))
-                    % DateTimeUtils.MILLIS_PER_DAY);
-        } else if (storageType == Timestamp.class) {
-            return SqlFunctions.toLong((java.util.Date) val, DataContext.Variable.TIME_ZONE.get(ectx));
-        } else if (storageType == java.util.Date.class) {
-            return SqlFunctions.toLong((java.util.Date) val, DataContext.Variable.TIME_ZONE.get(ectx));
+        } else if (storageType == LocalDate.class) {
+            return (int) ((LocalDate) val).toEpochDay();
+        } else if (storageType == LocalTime.class) {
+            return ((LocalTime) val).toSecondOfDay();
+        } else if (storageType == LocalDateTime.class) {
+            return ((LocalDateTime) val).toEpochSecond(ZoneOffset.UTC);
         } else if (storageType == Duration.class) {
             return TimeUnit.SECONDS.toMillis(((Duration) val).getSeconds())
                     + TimeUnit.NANOSECONDS.toMillis(((Duration) val).getNano());
         } else if (storageType == Period.class) {
             return (int) ((Period) val).toTotalMonths();
+        } else if (storageType == byte[].class) {
+                return new ByteString((byte[]) val);
         } else {
             return val;
         }
@@ -277,7 +275,7 @@ public class TypeUtils {
         } else if (storageType == LocalDate.class && val instanceof Integer) {
             return LocalDate.ofEpochDay((Integer) val);
         } else if (storageType == LocalTime.class && val instanceof Integer) {
-            return LocalTime.ofSecondOfDay((Integer) val / 1000);
+            return LocalTime.ofSecondOfDay((Integer) val);
         } else if (storageType == LocalDateTime.class && (val instanceof Long)) {
             return LocalDateTime.ofEpochSecond((Long) val / 1000, (int) ((Long) val % 1000) * 1000 * 1000, ZoneOffset.UTC);
         } else if (storageType == Duration.class && val instanceof Long) {

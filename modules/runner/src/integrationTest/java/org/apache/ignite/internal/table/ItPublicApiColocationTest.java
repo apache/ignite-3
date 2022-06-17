@@ -97,7 +97,7 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
     @ParameterizedTest(name = "type=" + ARGUMENTS_PLACEHOLDER)
     @EnumSource(
             value = NativeTypeSpec.class,
-            names = {"INT8", "UUID", "BITMASK", "DECIMAL", "NUMBER", "TIMESTAMP", "BYTES"},
+            names = {"INT8", "UUID", "BITMASK", "DECIMAL", "NUMBER", "TIMESTAMP", "BYTES", "DATETIME"},
             mode = Mode.EXCLUDE
     )
     // @EnumSource(value = NativeTypeSpec.class, names = {"BYTES", "TIME", "DATETIME"}, mode = Mode.INCLUDE)
