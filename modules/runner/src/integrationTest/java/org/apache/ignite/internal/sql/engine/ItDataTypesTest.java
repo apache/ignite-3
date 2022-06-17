@@ -23,59 +23,74 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import org.apache.ignite.lang.IgniteException;
-import org.junit.jupiter.api.Disabled;
+import org.apache.calcite.runtime.CalciteContextException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test SQL data types.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
 public class ItDataTypesTest extends AbstractBasicIntegrationTest {
+    /**
+     * Drops all created tables.
+     */
+    @AfterEach
+    public void dropTables() {
+        var igniteTables = CLUSTER_NODES.get(0).tables();
+
+        var tables = igniteTables.tables();
+
+        var futs = new CompletableFuture<?>[tables.size()];
+
+        int idx = 0;
+        for (var table : tables) {
+            futs[idx++] = igniteTables.dropTableAsync(table.name());
+        }
+
+        CompletableFuture.allOf(futs).join();
+    }
+
     /** Tests correctness with unicode. */
     @Test
     public void testUnicodeStrings() {
-        try {
-            sql("CREATE TABLE string_table(key int primary key, val varchar)");
+        sql("CREATE TABLE string_table(key int primary key, val varchar)");
 
-            String[] values = new String[]{"Кирилл", "Müller", "我是谁", "ASCII"};
+        String[] values = new String[]{"Кирилл", "Müller", "我是谁", "ASCII"};
 
-            int key = 0;
+        int key = 0;
 
-            // Insert as inlined values.
-            for (String val : values) {
-                sql("INSERT INTO string_table (key, val) VALUES (?, ?)", key++, val);
-            }
+        // Insert as inlined values.
+        for (String val : values) {
+            sql("INSERT INTO string_table (key, val) VALUES (?, ?)", key++, val);
+        }
 
-            var rows = sql("SELECT val FROM string_table");
+        var rows = sql("SELECT val FROM string_table");
 
-            assertEquals(Set.of(values), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
+        assertEquals(Set.of(values), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
-            sql("DELETE FROM string_table");
+        sql("DELETE FROM string_table");
 
-            // Insert as parameters.
-            for (String val : values) {
-                sql("INSERT INTO string_table (key, val) VALUES (?, ?)", key++, val);
-            }
+        // Insert as parameters.
+        for (String val : values) {
+            sql("INSERT INTO string_table (key, val) VALUES (?, ?)", key++, val);
+        }
 
-            rows = sql("SELECT val FROM string_table");
+        rows = sql("SELECT val FROM string_table");
 
-            assertEquals(Set.of(values), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
+        assertEquals(Set.of(values), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
-            rows = sql("SELECT substring(val, 1, 2) FROM string_table");
+        rows = sql("SELECT substring(val, 1, 2) FROM string_table");
 
-            assertEquals(Set.of("Ки", "Mü", "我是", "AS"),
-                    rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
+        assertEquals(Set.of("Ки", "Mü", "我是", "AS"),
+                rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
-            for (String val : values) {
-                rows = sql("SELECT char_length(val) FROM string_table WHERE val = ?", val);
+        for (String val : values) {
+            rows = sql("SELECT char_length(val) FROM string_table WHERE val = ?", val);
 
-                assertEquals(1, rows.size());
-                assertEquals(val.length(), rows.get(0).get(0));
-            }
-        } finally {
-            sql("DROP TABLE IF EXISTS string_table");
+            assertEquals(1, rows.size());
+            assertEquals(val.length(), rows.get(0).get(0));
         }
     }
 
@@ -97,7 +112,7 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
         assertEquals(Set.of(101), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
         //todo: correct exception https://issues.apache.org/jira/browse/IGNITE-16095
-        assertThrows(IgniteException.class, () -> sql("INSERT INTO tbl(c1, c2) VALUES (2, NULL)"));
+        assertThrows(CalciteContextException.class, () -> sql("INSERT INTO tbl(c1, c2) VALUES (2, NULL)"));
     }
 
     /**
@@ -105,29 +120,25 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testNumericRanges() {
-        try {
-            sql("CREATE TABLE tbl(id int PRIMARY KEY, tiny TINYINT, small SMALLINT, i INTEGER, big BIGINT)");
+        sql("CREATE TABLE tbl(id int PRIMARY KEY, tiny TINYINT, small SMALLINT, i INTEGER, big BIGINT)");
 
-            sql("INSERT INTO tbl VALUES (1, " + Byte.MAX_VALUE + ", " + Short.MAX_VALUE + ", "
-                    + Integer.MAX_VALUE + ", " + Long.MAX_VALUE + ')');
+        sql("INSERT INTO tbl VALUES (1, " + Byte.MAX_VALUE + ", " + Short.MAX_VALUE + ", "
+                + Integer.MAX_VALUE + ", " + Long.MAX_VALUE + ')');
 
-            assertQuery("SELECT tiny FROM tbl").returns(Byte.MAX_VALUE).check();
-            assertQuery("SELECT small FROM tbl").returns(Short.MAX_VALUE).check();
-            assertQuery("SELECT i FROM tbl").returns(Integer.MAX_VALUE).check();
-            assertQuery("SELECT big FROM tbl").returns(Long.MAX_VALUE).check();
+        assertQuery("SELECT tiny FROM tbl").returns(Byte.MAX_VALUE).check();
+        assertQuery("SELECT small FROM tbl").returns(Short.MAX_VALUE).check();
+        assertQuery("SELECT i FROM tbl").returns(Integer.MAX_VALUE).check();
+        assertQuery("SELECT big FROM tbl").returns(Long.MAX_VALUE).check();
 
-            sql("DELETE from tbl");
+        sql("DELETE from tbl");
 
-            sql("INSERT INTO tbl VALUES (1, " + Byte.MIN_VALUE + ", " + Short.MIN_VALUE + ", "
-                    + Integer.MIN_VALUE + ", " + Long.MIN_VALUE + ')');
+        sql("INSERT INTO tbl VALUES (1, " + Byte.MIN_VALUE + ", " + Short.MIN_VALUE + ", "
+                + Integer.MIN_VALUE + ", " + Long.MIN_VALUE + ')');
 
-            assertQuery("SELECT tiny FROM tbl").returns(Byte.MIN_VALUE).check();
-            assertQuery("SELECT small FROM tbl").returns(Short.MIN_VALUE).check();
-            assertQuery("SELECT i FROM tbl").returns(Integer.MIN_VALUE).check();
-            assertQuery("SELECT big FROM tbl").returns(Long.MIN_VALUE).check();
-        } finally {
-            sql("DROP TABLE IF EXISTS tbl");
-        }
+        assertQuery("SELECT tiny FROM tbl").returns(Byte.MIN_VALUE).check();
+        assertQuery("SELECT small FROM tbl").returns(Short.MIN_VALUE).check();
+        assertQuery("SELECT i FROM tbl").returns(Integer.MIN_VALUE).check();
+        assertQuery("SELECT big FROM tbl").returns(Long.MIN_VALUE).check();
     }
 
     /**
@@ -135,31 +146,27 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testNumericConvertingOnEquals() {
-        try {
-            sql("CREATE TABLE tbl(id int PRIMARY KEY, tiny TINYINT, small SMALLINT, i INTEGER, big BIGINT)");
+        sql("CREATE TABLE tbl(id int PRIMARY KEY, tiny TINYINT, small SMALLINT, i INTEGER, big BIGINT)");
 
-            sql("INSERT INTO tbl VALUES (-1, 1, 2, 3, 4), (0, 5, 5, 5, 5)");
+        sql("INSERT INTO tbl VALUES (-1, 1, 2, 3, 4), (0, 5, 5, 5, 5)");
 
-            assertQuery("SELECT t1.tiny FROM tbl t1 JOIN tbl t2 ON (t1.tiny=t2.small)").returns((byte) 5).check();
-            assertQuery("SELECT t1.small FROM tbl t1 JOIN tbl t2 ON (t1.small=t2.tiny)").returns((short) 5).check();
+        assertQuery("SELECT t1.tiny FROM tbl t1 JOIN tbl t2 ON (t1.tiny=t2.small)").returns((byte) 5).check();
+        assertQuery("SELECT t1.small FROM tbl t1 JOIN tbl t2 ON (t1.small=t2.tiny)").returns((short) 5).check();
 
-            assertQuery("SELECT t1.tiny FROM tbl t1 JOIN tbl t2 ON (t1.tiny=t2.i)").returns((byte) 5).check();
-            assertQuery("SELECT t1.i FROM tbl t1 JOIN tbl t2 ON (t1.i=t2.tiny)").returns(5).check();
+        assertQuery("SELECT t1.tiny FROM tbl t1 JOIN tbl t2 ON (t1.tiny=t2.i)").returns((byte) 5).check();
+        assertQuery("SELECT t1.i FROM tbl t1 JOIN tbl t2 ON (t1.i=t2.tiny)").returns(5).check();
 
-            assertQuery("SELECT t1.tiny FROM tbl t1 JOIN tbl t2 ON (t1.tiny=t2.big)").returns((byte) 5).check();
-            assertQuery("SELECT t1.big FROM tbl t1 JOIN tbl t2 ON (t1.big=t2.tiny)").returns(5L).check();
+        assertQuery("SELECT t1.tiny FROM tbl t1 JOIN tbl t2 ON (t1.tiny=t2.big)").returns((byte) 5).check();
+        assertQuery("SELECT t1.big FROM tbl t1 JOIN tbl t2 ON (t1.big=t2.tiny)").returns(5L).check();
 
-            assertQuery("SELECT t1.small FROM tbl t1 JOIN tbl t2 ON (t1.small=t2.i)").returns((short) 5).check();
-            assertQuery("SELECT t1.i FROM tbl t1 JOIN tbl t2 ON (t1.i=t2.small)").returns(5).check();
+        assertQuery("SELECT t1.small FROM tbl t1 JOIN tbl t2 ON (t1.small=t2.i)").returns((short) 5).check();
+        assertQuery("SELECT t1.i FROM tbl t1 JOIN tbl t2 ON (t1.i=t2.small)").returns(5).check();
 
-            assertQuery("SELECT t1.small FROM tbl t1 JOIN tbl t2 ON (t1.small=t2.big)").returns((short) 5).check();
-            assertQuery("SELECT t1.big FROM tbl t1 JOIN tbl t2 ON (t1.big=t2.small)").returns(5L).check();
+        assertQuery("SELECT t1.small FROM tbl t1 JOIN tbl t2 ON (t1.small=t2.big)").returns((short) 5).check();
+        assertQuery("SELECT t1.big FROM tbl t1 JOIN tbl t2 ON (t1.big=t2.small)").returns(5L).check();
 
-            assertQuery("SELECT t1.i FROM tbl t1 JOIN tbl t2 ON (t1.i=t2.big)").returns(5).check();
-            assertQuery("SELECT t1.big FROM tbl t1 JOIN tbl t2 ON (t1.big=t2.i)").returns(5L).check();
-        } finally {
-            sql("DROP TABLE if exists tbl");
-        }
+        assertQuery("SELECT t1.i FROM tbl t1 JOIN tbl t2 ON (t1.i=t2.big)").returns(5).check();
+        assertQuery("SELECT t1.big FROM tbl t1 JOIN tbl t2 ON (t1.big=t2.i)").returns(5L).check();
     }
 
     /**
