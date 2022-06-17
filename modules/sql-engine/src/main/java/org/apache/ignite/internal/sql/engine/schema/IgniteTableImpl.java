@@ -383,7 +383,8 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
             int colIdx = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex() + offset);
 
-            Object val = TypeUtils.fromInternal(ectx, hnd.get(colIdx, row), NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
+            Object val = TypeUtils.fromInternal(ectx, hnd.get(colIdx, row),
+                    NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
 
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
         }
@@ -438,7 +439,8 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
                 break;
             }
 
-            Object val = TypeUtils.fromInternal(ectx, hnd.get(colDesc.logicalIndex(), row), NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
+            Object val = TypeUtils.fromInternal(ectx, hnd.get(colDesc.logicalIndex(), row),
+                    NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
 
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
         }

@@ -255,7 +255,7 @@ public class TypeUtils {
         } else if (storageType == Period.class) {
             return (int) ((Period) val).toTotalMonths();
         } else if (storageType == byte[].class) {
-                return new ByteString((byte[]) val);
+            return new ByteString((byte[]) val);
         } else {
             return val;
         }
