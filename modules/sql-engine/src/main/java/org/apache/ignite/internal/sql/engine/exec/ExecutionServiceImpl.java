@@ -183,6 +183,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert old == null;
 
+        ctx.cancel().add(() -> queryManager.close(false));
+
         return queryManager.execute(plan);
     }
 
@@ -626,6 +628,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         var compoundCancelFut = CompletableFuture.allOf(cancelFuts.toArray(new CompletableFuture[0]));
                         var finalStepFut = compoundCancelFut.thenRun(() -> {
                             queryManagerMap.remove(ctx.queryId());
+
+                            try {
+                                ctx.cancel().cancel();
+                            } catch (Exception ex) {
+                                // NO-OP
+                            }
 
                             cancelFut.complete(null);
                         });

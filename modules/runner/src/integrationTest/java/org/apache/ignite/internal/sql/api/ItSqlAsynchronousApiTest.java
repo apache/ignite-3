@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -45,7 +44,6 @@ import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
 import org.apache.ignite.internal.sql.engine.ClosedCursorException;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
@@ -170,8 +168,6 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
                 ses,
                 "DROP TABLE TEST"
         );
-
-        checkSession(ses);
     }
 
     @Test
@@ -188,8 +184,6 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDml(ROW_COUNT, ses, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
         checkDml(ROW_COUNT, ses, "DELETE FROM TEST WHERE VAL0 >= 0");
-
-        checkSession(ses);
     }
 
     @Test
@@ -212,8 +206,6 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         }
 
         assertTrue(rs.isEmpty());
-
-        checkSession(ses);
     }
 
     @Test
@@ -279,8 +271,6 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertThrowsWithCause(() -> r.intValue(10), IndexOutOfBoundsException.class);
 
         await(ars.closeAsync());
-
-        checkSession(ses);
     }
 
     @Test
@@ -351,8 +341,6 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1 / ?", 0);
             assertThrowsWithCause(f::get, ArithmeticException.class, "/ by zero");
         }
-
-        checkSession(ses);
     }
 
     @Test
@@ -382,8 +370,6 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
                 SqlException.class,
                 "Session is closed"
         );
-
-        checkSession(ses);
     }
 
     @Test
@@ -497,13 +483,6 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertNull(asyncRes.metadata());
 
         asyncRes.closeAsync().toCompletableFuture().get();
-    }
-
-    private static void checkSession(Session s) {
-        if (s instanceof SessionImpl) {
-            assertTrue(((Collection<?>) IgniteTestUtils.getFieldValue(s, "futsToClose")).isEmpty());
-            assertTrue(((Collection<?>) IgniteTestUtils.getFieldValue(s, "cursToClose")).isEmpty());
-        }
     }
 
     static class TestPageProcessor implements
