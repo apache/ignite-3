@@ -57,6 +57,7 @@ import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.vie
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.containsNameAnnotation;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.extensionsFields;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.hasDefault;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isAbstractConfiguration;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isConfigValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isInjectedName;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isInternalId;
@@ -433,7 +434,12 @@ public class ConfigurationAsmGenerator {
                         + " is polymorphic but polymorphic extensions are absent");
             }
 
-            List<Field> schemaFields = schemaFields(schemaClass);
+            Class<?> schemaSuperClass = schemaClass.getSuperclass();
+
+            List<Field> schemaFields = isAbstractConfiguration(schemaSuperClass)
+                    ? union(schemaFields(schemaClass), schemaFields(schemaSuperClass))
+                    : schemaFields(schemaClass);
+
             Collection<Field> internalExtensionsFields = extensionsFields(internalExtensions, true);
             Collection<Field> polymorphicExtensionsFields = extensionsFields(polymorphicExtensions, false);
 
@@ -752,6 +758,7 @@ public class ConfigurationAsmGenerator {
 
         // constructDefault
         addNodeConstructDefaultMethod(
+                schemaClass,
                 classDef,
                 specFields,
                 fieldDefs,
@@ -771,6 +778,10 @@ public class ConfigurationAsmGenerator {
 
         if (internalSchemaTypesFieldDef != null) {
             addInternalSchemaTypesMethod(classDef, internalSchemaTypesFieldDef);
+        }
+
+        if (isAbstractConfiguration(schemaClass.getSuperclass())) {
+            addIsExtendAbstractConfigurationMethod(classDef);
         }
 
         return classDef;
@@ -1542,6 +1553,7 @@ public class ConfigurationAsmGenerator {
     /**
      * Implements {@link InnerNode#constructDefault(String)} method.
      *
+     * @param schemaClass                  Configuration schema class.
      * @param classDef                     Class definition.
      * @param specFields                   Field definitions for the schema and its extensions: {@code _spec#}.
      * @param fieldDefs                    Definitions for all fields in {@code schemaFields}.
@@ -1551,6 +1563,7 @@ public class ConfigurationAsmGenerator {
      * @param polymorphicTypeIdFieldDef    Identification field for the polymorphic configuration instance.
      */
     private static void addNodeConstructDefaultMethod(
+            Class<?> schemaClass,
             ClassDefinition classDef,
             Map<Class<?>, FieldDefinition> specFields,
             Map<String, FieldDefinition> fieldDefs,
@@ -1585,7 +1598,12 @@ public class ConfigurationAsmGenerator {
                     switchBuilder.addCase(fieldName, new BytecodeBlock().ret());
                 } else {
                     FieldDefinition fieldDef = fieldDefs.get(fieldName);
-                    FieldDefinition specFieldDef = specFields.get(schemaField.getDeclaringClass());
+
+                    Class<?> fieldType = schemaField.getDeclaringClass();
+
+                    FieldDefinition specFieldDef = isAbstractConfiguration(fieldType)
+                            ? specFields.get(schemaClass)
+                            : specFields.get(fieldType);
 
                     // this.field = spec_#.field;
                     switchBuilder.addCase(
@@ -3406,5 +3424,22 @@ public class ConfigurationAsmGenerator {
         mtd.getBody()
                 .append(getThisFieldCode(mtd, internalSchemaTypesFieldDef))
                 .retObject();
+    }
+
+    /**
+     * Adds an override for the {@link InnerNode#isExtendAbstractConfiguration()} method that returns {@code true}.
+     *
+     * @param innerNodeClassDef {@link InnerNode} class definition.
+     */
+    private static void addIsExtendAbstractConfigurationMethod(ClassDefinition innerNodeClassDef) {
+        MethodDefinition mtd = innerNodeClassDef.declareMethod(
+                of(PUBLIC),
+                "isExtendAbstractConfiguration",
+                type(boolean.class)
+        );
+
+        mtd.getBody()
+                .push(true)
+                .retBoolean();
     }
 }

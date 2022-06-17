@@ -1068,7 +1068,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
         TypeElement superClassFieldType = superClass(fieldType);
 
-        Collection<VariableElement> fields;
+        List<VariableElement> fields;
 
         if (!isClass(superClassFieldType.asType(), Object.class) && findFirst(superClassFieldType, AbstractConfiguration.class) != null) {
             fields = union(
