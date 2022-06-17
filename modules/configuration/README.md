@@ -32,16 +32,28 @@ Instances of this interface are generated automatically and are mandatory for re
 An example configuration schema may look like the following:
 
 ```java
-@ConfigurationRoot(rootName = "root", type = ConfigurationType.LOCAL)
+@ConfigurationRoot(rootName = "rootLocal", type = ConfigurationType.LOCAL)
 public static class ParentConfigurationSchema {
     @NamedConfigValue
-    private NamedElementConfigurationSchema elements;
+    public NamedElementConfigurationSchema elements;
 
     @ConfigValue
-    private ChildConfigurationSchema child;
+    public ChildConfigurationSchema child;
+    
+    @ConfigValue
+    public PolymorphicConfigurationSchema polymorphicChild;
 
     @ConfigValue
-    private PolymorphicConfigurationSchema polymorphicChild;
+    public SecondChildConfigurationSchema secondChild;
+}
+
+@ConfigurationRoot(rootName = "rootDistributed", type = ConfigurationType.DISTRIBUTED)
+public static class SecondParentConfigurationSchema extends AbstractRootConfigurationSchema { 
+    @ConfigValue
+    public ChildConfigurationSchema child;
+
+    @ConfigValue
+    public SecondChildConfigurationSchema secondChild;
 }
 
 @Config
@@ -52,6 +64,12 @@ public static class ChildConfigurationSchema {
     @Value
     @Immutable
     public String str2;
+}
+
+@Config
+public static class SecondChildConfigurationSchema extends AbstractConfigurationSchema {
+    @Value(hasDefault = true)
+    public long longVal = 0;
 }
 
 @PolymorphicConfig
@@ -65,6 +83,18 @@ public static class FirstPolymorphicInstanceConfigurationSchema extends Polymorp
     @Value(hasDefault = true)
     public int intVal = 0;
 }
+
+@AbstractConfiguration
+public static class AbstractRootConfigurationSchema {
+    @Value(hasDefault = true)
+    public String strVal = "foobar";
+}
+
+@AbstractConfiguration
+public static class AbstractConfigurationSchema {
+  @Value(hasDefault = true)
+  public int intVal = 0;
+}
 ```
 
 * `@ConfigurationRoot` marks the root schema. It contains the following properties:
@@ -76,7 +106,9 @@ public static class FirstPolymorphicInstanceConfigurationSchema extends Polymorp
 * `@Config` is similar to the `@ConfigurationRoot` but represents an inner configuration node;
 * `@PolymorphicConfig` is similar to the `@Config` and an abstract class in java, i.e. it cannot be instantiated, but it can be subclassed;
 * `@PolymorphicConfigInstance` marks an inheritor of a polymorphic configuration. This annotation has a single property called `value` - 
-   a unique identifier among the inheritors of one polymorphic configuration, used to define the type (schema) of the polymorphic configuration we are dealing with now.
+   a unique identifier among the inheritors of one polymorphic configuration, used to define the type (schema) of the polymorphic configuration we are dealing with now;
+* `@AbstractConfiguration` is similar to the `@PolymorphicConfig` but its type cannot be changed and its inheritors must contain
+  either `@Config` or `@ConfigurationRoot` and also cannot be used as a nested configuration only its inheritors;
 * `@ConfigValue` marks a nested schema field. Cyclic dependencies are not allowed;
 * `@NamedConfigValue` is similar to `@ConfigValue`, but such fields represent a collection of properties, not a single
   instance. Every element of the collection will have a `String` name, similar to a `Map`.
@@ -308,5 +340,3 @@ node. There's API for this purpose.
 
 Please refer to `ConfigurationUtil#directProxy(ConfigurationProperty)` for details. There are many usages of this method in tests. It
 should provide the context.
-
-TODO: IGNITE-17148 не забудь добавить опаисание
