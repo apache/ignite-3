@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
@@ -34,33 +33,28 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.message.TxFinishRequest;
 import org.apache.ignite.internal.tx.message.TxFinishResponse;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.jetbrains.annotations.Nullable;
-import org.mockito.Mockito;
 
 /**
- * Test utils for mocking messaging service.
+ * Test utils for adding mock logic to messaging service.
  */
 public class MessagingServiceTestUtils {
     /**
      * Prepares messaging service mock.
      *
+     * @param messagingService Messaging service.
      * @param txManager Transaction manager.
-     * @return Messaging service mock.
+     * @param partitionListeners Partition listeners.
      */
-    public static MessagingService mockMessagingService(
-            ClusterService clusterService,
+    public static void messagingServiceInvoke(
+            MessagingService messagingService,
             TxManager txManager,
             List<PartitionListener> partitionListeners
     ) {
-        MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
-
-        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
-
         doAnswer(
                 invocationClose -> {
                     assert invocationClose.getArgument(1) instanceof TxFinishRequest;
@@ -87,8 +81,6 @@ public class MessagingServiceTestUtils {
                 }
         ).when(messagingService)
                 .invoke(any(NetworkAddress.class), any(TxFinishRequest.class), anyLong());
-
-        return messagingService;
     }
 
     private static <T extends Command> Iterator<CommandClosure<T>> iterator(T obj) {

@@ -53,6 +53,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -75,7 +76,7 @@ public class InteropOperationsTest {
     private static final TableImpl TABLE;
 
     /** Dummy internal table for tests. */
-    private static final InternalTable INT_TABLE;
+    private static final DummyInternalTableImpl INT_TABLE;
 
     /** Key value binary view for test. */
     private static final KeyValueView<Tuple, Tuple> KV_BIN_VIEW;
@@ -120,9 +121,11 @@ public class InteropOperationsTest {
         INT_TABLE = new DummyInternalTableImpl(new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager), txManager);
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(SCHEMA);
 
-        List<PartitionListener> partitionListeners = List.of(((DummyInternalTableImpl) INT_TABLE).getPartitionListener());
+        List<PartitionListener> partitionListeners = List.of(INT_TABLE.getPartitionListener());
 
-        MessagingServiceTestUtils.mockMessagingService(clusterService, txManager, partitionListeners);
+        MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
+        MessagingServiceTestUtils.messagingServiceInvoke(messagingService, txManager, partitionListeners);
 
         TABLE = new TableImpl(INT_TABLE, schemaRegistry);
         KV_BIN_VIEW =  new KeyValueBinaryViewImpl(INT_TABLE, schemaRegistry);

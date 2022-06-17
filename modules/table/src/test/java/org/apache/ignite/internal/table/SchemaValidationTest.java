@@ -36,6 +36,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -68,7 +69,9 @@ public class SchemaValidationTest {
 
         List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
 
-        MessagingServiceTestUtils.mockMessagingService(clusterService, txManager, partitionListeners);
+        MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
+        MessagingServiceTestUtils.messagingServiceInvoke(messagingService, txManager, partitionListeners);
 
         return table;
     }

@@ -493,6 +493,8 @@ public class JraftServerImpl implements RaftServer {
             } catch (Exception err) {
                 Status st;
 
+                err.printStackTrace();
+
                 if (err.getMessage() != null) {
                     st = new Status(RaftError.ESTATEMACHINE, err.getMessage());
                 } else {

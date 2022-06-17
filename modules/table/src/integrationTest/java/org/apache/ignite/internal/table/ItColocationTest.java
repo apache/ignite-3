@@ -69,7 +69,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -116,9 +115,6 @@ public class ItColocationTest {
             }
         };
         txManager.start();
-
-        MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
-        when(clusterService.messagingService()).thenReturn(messagingService);
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
 

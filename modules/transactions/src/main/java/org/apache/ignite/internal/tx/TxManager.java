@@ -128,6 +128,7 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return Keys that are locked by the transaction.
      */
+    @TestOnly
     Map<IgniteUuid, List<byte[]>> lockedKeys(UUID txId);
 
     /**

@@ -468,7 +468,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             // other cases will be covered by rebalance logic
                             (oldPartAssignment.isEmpty()) ? newPartAssignment : Collections.emptyList(),
                             () -> new PartitionListener(tblId,
-                                    new VersionedRowStore(((MvTableStorage) internalTbl.storage()).createPartition(partId),
+                                    new VersionedRowStore(((MvTableStorage) internalTbl.storage()).getOrCreateMvPartition(partId),
                                             txManager)),
                             () -> new RebalanceRaftGroupEventsListener(
                                     metaStorageMgr,
@@ -1257,7 +1257,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     Supplier<RaftGroupListener> raftGrpLsnrSupplier = () -> new PartitionListener(tblId,
                             new VersionedRowStore(
-                                    ((MvTableStorage) tbl.internalTable().storage()).createPartition(part), txManager));
+                                    ((MvTableStorage) tbl.internalTable().storage()).getOrCreateMvPartition(part), txManager));
 
                     Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier = () -> new RebalanceRaftGroupEventsListener(
                             metaStorageMgr,
