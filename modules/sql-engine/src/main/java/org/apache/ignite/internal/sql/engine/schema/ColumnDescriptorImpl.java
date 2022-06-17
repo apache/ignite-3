@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.schema;
 import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.NativeType;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Simple implementation of {@link ColumnDescriptor}.

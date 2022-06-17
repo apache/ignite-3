@@ -421,8 +421,8 @@ public class TypeUtils {
                 return factory.createSqlType(SqlTypeName.TIMESTAMP);
             case DATETIME:
                 throw new AssertionError("DATETIME is not supported yet");
+            default:
+                throw new IllegalStateException("Unexpected native type " + nativeType);
         }
-
-        throw new IllegalStateException("Unexpected native type " + nativeType);
     }
 }
