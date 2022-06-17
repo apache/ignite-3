@@ -54,7 +54,7 @@ public class StatusCommand extends BaseCommand implements Callable<Integer> {
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(statusCall)
-                .inputProvider(() -> new StatusCallInput(clusterUrl, getCommandName()))
+                .inputProvider(() -> new StatusCallInput(clusterUrl))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new StatusDecorator())

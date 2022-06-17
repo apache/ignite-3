@@ -68,7 +68,6 @@ public class NodeConfigUpdateSubCommand extends BaseCommand implements Callable<
         return NodeConfigUpdateCallInput.builder()
                 .nodeUrl(nodeUrl)
                 .config(config)
-                .commandName(getCommandName())
                 .build();
     }
 }

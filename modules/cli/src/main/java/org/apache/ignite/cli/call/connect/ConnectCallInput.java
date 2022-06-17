@@ -25,19 +25,12 @@ import org.apache.ignite.cli.core.call.CallInput;
 public class ConnectCallInput implements CallInput {
     private final String nodeUrl;
 
-    private final String commandName;
-
-    ConnectCallInput(String nodeUrl, String commandName) {
+    ConnectCallInput(String nodeUrl) {
         this.nodeUrl = nodeUrl;
-        this.commandName = commandName;
     }
 
     public String getNodeUrl() {
         return nodeUrl;
-    }
-
-    public String getCommandName() {
-        return commandName;
     }
 
     public static ConnectCallInputBuilder builder() {
@@ -50,20 +43,13 @@ public class ConnectCallInput implements CallInput {
     public static class ConnectCallInputBuilder {
         private String nodeUrl;
 
-        private String commandName;
-
         public ConnectCallInputBuilder nodeUrl(String nodeUrl) {
             this.nodeUrl = nodeUrl;
             return this;
         }
 
-        public ConnectCallInputBuilder commandName(String commandName) {
-            this.commandName = commandName;
-            return this;
-        }
-
         public ConnectCallInput build() {
-            return new ConnectCallInput(nodeUrl, commandName);
+            return new ConnectCallInput(nodeUrl);
         }
     }
 }

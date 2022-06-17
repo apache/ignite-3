@@ -22,29 +22,17 @@ package org.apache.ignite.cli.core.exception;
  */
 public class IgniteCliApiException extends RuntimeException {
 
-    private final String commandName;
     private final String url;
 
     /**
      * Creates a new instance of {@code IgniteCliApiException}.
      *
      * @param cause the cause.
-     * @param commandName command name.
      * @param url endpoint URL.
      */
-    public IgniteCliApiException(Throwable cause, String commandName, String url) {
+    public IgniteCliApiException(Throwable cause, String url) {
         super(cause);
-        this.commandName = commandName;
         this.url = url;
-    }
-
-    /**
-     * Gets the command name.
-     *
-     * @return command name.
-     */
-    public String getCommandName() {
-        return commandName;
     }
 
     /**

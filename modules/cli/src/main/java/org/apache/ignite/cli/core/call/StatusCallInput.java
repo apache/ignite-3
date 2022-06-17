@@ -22,18 +22,13 @@ package org.apache.ignite.cli.core.call;
  */
 public class StatusCallInput implements CallInput {
     private final String clusterUrl;
-    private final String commandName;
 
-    public StatusCallInput(String clusterUrl, String commandName) {
+    public StatusCallInput(String clusterUrl) {
         this.clusterUrl = clusterUrl;
-        this.commandName = commandName;
     }
 
     public String getClusterUrl() {
         return clusterUrl;
     }
 
-    public String getCommandName() {
-        return commandName;
-    }
 }

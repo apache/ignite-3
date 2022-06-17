@@ -58,15 +58,14 @@ public class ClusterConfigUpdateReplSubCommand extends BaseCommand implements Ru
 
     /** {@inheritDoc} */
     public void run() {
-        var input = ClusterConfigUpdateCallInput.builder()
-                .config(config)
-                .commandName(getCommandName());
+        var input = ClusterConfigUpdateCallInput.builder().config(config);
         if (session.isConnectedToNode()) {
             input.clusterUrl(session.getNodeUrl());
         } else if (clusterUrl != null) {
             input.clusterUrl(clusterUrl);
         } else {
             spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--cluster-url' option.");
+            return;
         }
 
         CallExecutionPipeline.builder(call)

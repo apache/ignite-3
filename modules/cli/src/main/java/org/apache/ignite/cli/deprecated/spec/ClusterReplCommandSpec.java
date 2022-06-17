@@ -95,6 +95,7 @@ public class ClusterReplCommandSpec {
                 spec.commandLine().getErr().println(
                         "You are not connected to node. Run 'connect' command or use '--node-endpoint' option."
                 );
+                return;
             }
 
             if (endpoint.startsWith("http://")) {
@@ -106,8 +107,7 @@ public class ClusterReplCommandSpec {
                     metaStorageNodes,
                     cmgNodes,
                     clusterName,
-                    spec.commandLine().getOut(),
-                    getCommandName()
+                    spec.commandLine().getOut()
             );
         }
     }

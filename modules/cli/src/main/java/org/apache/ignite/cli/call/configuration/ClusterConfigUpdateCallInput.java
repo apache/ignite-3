@@ -33,15 +33,9 @@ public class ClusterConfigUpdateCallInput implements CallInput {
      */
     private final String clusterUrl;
 
-    /**
-     * Command name.
-     */
-    private final String commandName;
-
-    private ClusterConfigUpdateCallInput(String config, String clusterUrl, String commandName) {
+    private ClusterConfigUpdateCallInput(String config, String clusterUrl) {
         this.config = config;
         this.clusterUrl = clusterUrl;
-        this.commandName = commandName;
     }
 
     /**
@@ -72,15 +66,6 @@ public class ClusterConfigUpdateCallInput implements CallInput {
     }
 
     /**
-     * Get command name.
-     *
-     * @return command name.
-     */
-    public String getCommandName() {
-        return commandName;
-    }
-
-    /**
      * Builder for {@link ClusterConfigUpdateCallInput}.
      */
     public static class UpdateConfigurationCallInputBuilder {
@@ -88,8 +73,6 @@ public class ClusterConfigUpdateCallInput implements CallInput {
         private String config;
 
         private String clusterUrl;
-
-        private String commandName;
 
         public UpdateConfigurationCallInputBuilder config(String config) {
             this.config = config;
@@ -101,13 +84,8 @@ public class ClusterConfigUpdateCallInput implements CallInput {
             return this;
         }
 
-        public UpdateConfigurationCallInputBuilder commandName(String commandName) {
-            this.commandName = commandName;
-            return this;
-        }
-
         public ClusterConfigUpdateCallInput build() {
-            return new ClusterConfigUpdateCallInput(config, clusterUrl, commandName);
+            return new ClusterConfigUpdateCallInput(config, clusterUrl);
         }
     }
 }

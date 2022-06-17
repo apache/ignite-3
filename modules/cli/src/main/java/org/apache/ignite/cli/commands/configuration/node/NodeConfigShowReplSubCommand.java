@@ -57,15 +57,14 @@ public class NodeConfigShowReplSubCommand extends BaseCommand implements Runnabl
     /** {@inheritDoc} */
     @Override
     public void run() {
-        var input = NodeConfigShowCallInput.builder()
-                .selector(selector)
-                .commandName(getCommandName());
+        var input = NodeConfigShowCallInput.builder().selector(selector);
         if (session.isConnectedToNode()) {
             input.nodeUrl(session.getNodeUrl());
         } else if (nodeUrl != null) {
             input.nodeUrl(nodeUrl);
         } else {
             spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--node-url' option.");
+            return;
         }
 
         CallExecutionPipeline.builder(call)

@@ -40,7 +40,7 @@ public class ClusterConfigShowCall implements Call<ClusterConfigShowCallInput, S
         try {
             return DefaultCallOutput.success(readClusterConfig(client, input));
         } catch (ApiException | IllegalArgumentException e) {
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getCommandName(), input.getClusterUrl()));
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getClusterUrl()));
         }
     }
 

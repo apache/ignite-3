@@ -60,15 +60,14 @@ public class ClusterConfigShowReplSubCommand extends BaseCommand implements Runn
 
     @Override
     public void run() {
-        var input = ClusterConfigShowCallInput.builder()
-                .selector(selector)
-                .commandName(getCommandName());
+        var input = ClusterConfigShowCallInput.builder().selector(selector);
         if (session.isConnectedToNode()) {
             input.clusterUrl(session.getNodeUrl());
         } else if (clusterUrl != null) {
             input.clusterUrl(clusterUrl);
         } else {
             spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--cluster-url' option.");
+            return;
         }
 
         CallExecutionPipeline.builder(call)

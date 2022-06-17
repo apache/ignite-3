@@ -33,15 +33,9 @@ public class NodeConfigUpdateCallInput implements CallInput {
      */
     private final String nodeUrl;
 
-    /**
-     * Command name.
-     */
-    private final String commandName;
-
-    private NodeConfigUpdateCallInput(String config, String clusterUrl, String commandName) {
+    private NodeConfigUpdateCallInput(String config, String clusterUrl) {
         this.config = config;
         this.nodeUrl = clusterUrl;
-        this.commandName = commandName;
     }
 
     /**
@@ -72,15 +66,6 @@ public class NodeConfigUpdateCallInput implements CallInput {
     }
 
     /**
-     * Get command name.
-     *
-     * @return command name.
-     */
-    public String getCommandName() {
-        return commandName;
-    }
-
-    /**
      * Builder for {@link NodeConfigUpdateCallInput}.
      */
     public static class UpdateConfigurationCallInputBuilder {
@@ -88,8 +73,6 @@ public class NodeConfigUpdateCallInput implements CallInput {
         private String config;
 
         private String nodeUrl;
-
-        private String commandName;
 
         public UpdateConfigurationCallInputBuilder config(String config) {
             this.config = config;
@@ -101,13 +84,8 @@ public class NodeConfigUpdateCallInput implements CallInput {
             return this;
         }
 
-        public UpdateConfigurationCallInputBuilder commandName(String commandName) {
-            this.commandName = commandName;
-            return this;
-        }
-
         public NodeConfigUpdateCallInput build() {
-            return new NodeConfigUpdateCallInput(config, nodeUrl, commandName);
+            return new NodeConfigUpdateCallInput(config, nodeUrl);
         }
     }
 }

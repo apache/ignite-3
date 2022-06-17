@@ -59,15 +59,14 @@ public class NodeConfigUpdateReplSubCommand extends BaseCommand implements Runna
     /** {@inheritDoc} */
     @Override
     public void run() {
-        var input = NodeConfigUpdateCallInput.builder()
-                .config(config)
-                .commandName(getCommandName());
+        var input = NodeConfigUpdateCallInput.builder().config(config);
         if (session.isConnectedToNode()) {
             input.nodeUrl(session.getNodeUrl());
         } else if (nodeUrl != null) {
             input.nodeUrl(nodeUrl);
         } else {
             spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--cluster-url' option.");
+            return;
         }
 
         CallExecutionPipeline.builder(call)

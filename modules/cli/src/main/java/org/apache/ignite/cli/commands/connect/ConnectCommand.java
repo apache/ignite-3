@@ -59,7 +59,6 @@ public class ConnectCommand extends BaseCommand implements Runnable {
     private ConnectCallInput buildCallInput() {
         return ConnectCallInput.builder()
                 .nodeUrl(nodeUrl)
-                .commandName(getCommandName())
                 .build();
     }
 }

@@ -68,7 +68,6 @@ public class ClusterConfigUpdateSubCommand extends BaseCommand implements Callab
         return ClusterConfigUpdateCallInput.builder()
                 .clusterUrl(clusterUrl)
                 .config(config)
-                .commandName(getCommandName())
                 .build();
     }
 }

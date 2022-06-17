@@ -68,7 +68,6 @@ public class NodeConfigShowSubCommand extends BaseCommand implements Callable<In
         return NodeConfigShowCallInput.builder()
                 .nodeUrl(nodeUrl)
                 .selector(selector)
-                .commandName(getCommandName())
                 .build();
     }
 }

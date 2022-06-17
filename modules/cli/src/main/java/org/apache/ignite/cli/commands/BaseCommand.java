@@ -31,20 +31,4 @@ public abstract class BaseCommand {
 
     @Spec
     protected CommandSpec spec;
-
-    /**
-     * Constructs current full command name from the {@code CommandSpec} including all parent commands.
-     *
-     * @return full command name.
-     */
-    protected String getCommandName() {
-        StringBuilder sb = new StringBuilder();
-        CommandSpec root = spec;
-        do {
-            sb.insert(0, root.name());
-            sb.insert(0, " ");
-            root = root.parent();
-        } while (root != null);
-        return sb.toString().trim();
-    }
 }

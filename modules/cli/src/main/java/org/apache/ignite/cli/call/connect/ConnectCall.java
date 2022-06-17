@@ -54,7 +54,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
             setJdbcUrl(configuration, nodeUrl);
         } catch (ApiException | IllegalArgumentException e) {
             session.setConnectedToNode(false);
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getCommandName(), nodeUrl));
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, nodeUrl));
         }
 
         session.setNodeUrl(nodeUrl);

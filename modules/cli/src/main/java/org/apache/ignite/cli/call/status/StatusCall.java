@@ -64,7 +64,7 @@ public class StatusCall implements Call<StatusCallInput, Status> {
                             .build()
             );
         } catch (ApiException | IllegalArgumentException e) {
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getCommandName(), input.getClusterUrl()));
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getClusterUrl()));
         }
     }
 

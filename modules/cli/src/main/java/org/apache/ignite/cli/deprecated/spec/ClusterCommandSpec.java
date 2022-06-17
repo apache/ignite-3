@@ -87,8 +87,7 @@ public class ClusterCommandSpec {
                     metaStorageNodes,
                     cmgNodes,
                     clusterName,
-                    spec.commandLine().getOut(),
-                    getCommandName()
+                    spec.commandLine().getOut()
             );
             return 0;
         }
