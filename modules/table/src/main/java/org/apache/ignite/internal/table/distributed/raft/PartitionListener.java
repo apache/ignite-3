@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -32,7 +33,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.basic.BinarySearchRow;
@@ -406,11 +406,11 @@ public class PartitionListener implements RaftGroupListener {
 
         if (txManager.state(txId) == TxState.COMMITED) {
             cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(row -> {
-                storage.commitWrite(new ByteBufferRow(row).keySlice(), txId);
+                storage.commitWrite(ByteBuffer.wrap(row), txId);
             });
         } else if (txManager.state(txId) == TxState.ABORTED) {
             cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(row -> {
-                storage.abortWrite(new ByteBufferRow(row).keySlice());
+                storage.abortWrite(ByteBuffer.wrap(row));
             });
         }
 
@@ -545,9 +545,12 @@ public class PartitionListener implements RaftGroupListener {
         if (command instanceof SingleKeyCommand) {
             SingleKeyCommand cmd0 = (SingleKeyCommand) command;
 
+            byte[] arr = new byte[cmd0.getRow().keySlice().remaining()];
+            cmd0.getRow().keySlice().get(arr);
+
             return cmd0 instanceof ReadCommand
-                    ? txManager.readLock(lockId, cmd0.getRow().bytes(), cmd0.getRow().keySlice(), cmd0.getTxId()) :
-                    txManager.writeLock(lockId, cmd0.getRow().bytes(), cmd0.getRow().keySlice(), cmd0.getTxId());
+                    ? txManager.readLock(lockId, arr, cmd0.getRow().keySlice(), cmd0.getTxId()) :
+                    txManager.writeLock(lockId, arr, cmd0.getRow().keySlice(), cmd0.getTxId());
         } else if (command instanceof MultiKeyCommand) {
             MultiKeyCommand cmd0 = (MultiKeyCommand) command;
 
@@ -559,8 +562,11 @@ public class PartitionListener implements RaftGroupListener {
             boolean read = cmd0 instanceof ReadCommand;
 
             for (BinaryRow row : rows) {
-                futs[i++] = read ? txManager.readLock(lockId, row.bytes(), row.keySlice(), cmd0.getTxId()) :
-                        txManager.writeLock(lockId, row.bytes(), row.keySlice(), cmd0.getTxId());
+                byte[] arr = new byte[row.keySlice().remaining()];
+                row.keySlice().get(arr);
+
+                futs[i++] = read ? txManager.readLock(lockId, arr, row.keySlice(), cmd0.getTxId()) :
+                        txManager.writeLock(lockId, arr, row.keySlice(), cmd0.getTxId());
             }
 
             return CompletableFuture.allOf(futs);
