@@ -513,8 +513,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             assertThat(capturedRequest.uri().toString(), is("http://127.0.0.1:8081/management/v1/cluster/init/"));
             assertThat(capturedRequest.method(), is("POST"));
 
-	          JsonParser parser = new JsonParser();
-	          assertEquals(parser.parse(new String(requestBodyBytes(capturedRequest), UTF_8)), parser.parse(expSentContent));
+            JsonParser parser = new JsonParser();
+            assertEquals(parser.parse(new String(requestBodyBytes(capturedRequest), UTF_8)), parser.parse(expSentContent));
 
             assertThat(capturedRequest.headers().firstValue("Content-Type"), isPresentAnd(is("application/json")));
 
