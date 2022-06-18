@@ -18,6 +18,7 @@
 package org.apache.ignite.cli.commands.cliconfig;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.cli.commands.CliCommandTestBase;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,9 +39,11 @@ class CliConfigSubCommandTest extends CliCommandTestBase {
         execute();
 
         // Then
-        String expectedResult = "ignite.cluster-url=test_cluster_url" + System.lineSeparator()
+        String expectedResult1 = "ignite.cluster-url=test_cluster_url" + System.lineSeparator()
                 + "ignite.jdbc-url=test_jdbc_url" + System.lineSeparator();
-        assertThat(out.toString()).isEqualTo(expectedResult);
+	String expectedResult2 = "ignite.jdbc-url=test_jdbc_url" + System.lineSeparator()
+		+ "ignite.cluster-url=test_cluster_url" + System.lineSeparator();
+        assertThat(out.toString().equals(expectedResult1) || out.toString().equals(expectedResult2));
         // And
         assertThat(err.toString()).isEmpty();
     }

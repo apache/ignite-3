@@ -32,6 +32,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.gson.JsonParser;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.env.Environment;
 import java.io.ByteArrayOutputStream;
@@ -511,7 +512,10 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             assertThat(capturedRequest.uri().toString(), is("http://127.0.0.1:8081/management/v1/cluster/init/"));
             assertThat(capturedRequest.method(), is("POST"));
-            assertThat(new String(requestBodyBytes(capturedRequest), UTF_8), is(expSentContent));
+
+	          JsonParser parser = new JsonParser();
+	          assertEquals(parser.parse(new String(requestBodyBytes(capturedRequest), UTF_8)), parser.parse(expSentContent));
+
             assertThat(capturedRequest.headers().firstValue("Content-Type"), isPresentAnd(is("application/json")));
 
             assertThat(out.toString(UTF_8), is(platformizeNewLines("Cluster was initialized successfully.\n")));
