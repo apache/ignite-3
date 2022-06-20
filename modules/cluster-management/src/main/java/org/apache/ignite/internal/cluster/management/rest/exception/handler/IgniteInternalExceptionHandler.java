@@ -23,7 +23,7 @@ import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Produces;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.rest.api.ErrorResult;
+import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -32,11 +32,11 @@ import org.apache.ignite.lang.IgniteInternalException;
 @Produces
 @Singleton
 @Requires(classes = {IgniteInternalException.class, ExceptionHandler.class})
-public class IgniteInternalExceptionHandler implements ExceptionHandler<IgniteInternalException, HttpResponse<ErrorResult>> {
+public class IgniteInternalExceptionHandler implements ExceptionHandler<IgniteInternalException, HttpResponse<Problem>> {
 
     @Override
-    public HttpResponse<ErrorResult> handle(HttpRequest request, IgniteInternalException exception) {
-        ErrorResult errorResult = new ErrorResult("SERVER_ERROR", exception.getMessage());
-        return HttpResponse.serverError().body(errorResult);
+    public HttpResponse<Problem> handle(HttpRequest request, IgniteInternalException exception) {
+        Problem problem = Problem.builder().status(500).detail(exception.getMessage()).build();
+        return HttpResponse.serverError().body(problem);
     }
 }

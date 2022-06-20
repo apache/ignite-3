@@ -15,13 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration.exception;
+package org.apache.ignite.internal.rest.api;
 
 /**
- * Exception that is thrown when the wrong configuration is given.
+ * REST API media types.
  */
-public class InvalidConfigFormatException extends RuntimeException {
-    public InvalidConfigFormatException(Throwable cause) {
-        super(cause);
-    }
+public final class RestApiMediaType {
+    private RestApiMediaType() {}
+
+    /**
+     * application/json media type.
+     */
+    public static final String APPLICATION_JSON = "application/json";
+
+    /**
+     * application/problem+json media type.
+     */
+    public static final String PROBLEM_JSON = "application/problem+json";
+
+    /**
+     * text/plain media type.
+     */
+    public static final String TEXT_PLAIN = "text/plain";
 }
