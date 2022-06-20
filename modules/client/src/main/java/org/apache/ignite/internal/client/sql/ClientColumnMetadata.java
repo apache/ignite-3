@@ -61,10 +61,10 @@ public class ClientColumnMetadata implements ColumnMetadata {
         scale = unpacker.unpackInt();
         precision = unpacker.unpackInt();
 
-        if (unpacker.tryUnpackNil()) {
-            origin = null;
-        } else {
+        if (unpacker.unpackBoolean()) {
             origin = new ClientColumnOrigin(unpacker, name, prevColumns);
+        } else {
+            origin = null;
         }
     }
 

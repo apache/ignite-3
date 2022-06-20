@@ -192,9 +192,11 @@ public class ClientSqlExecuteRequest {
             ColumnOrigin origin = col.origin();
 
             if (origin == null) {
-                out.packNil();
+                out.packBoolean(false);
                 continue;
             }
+
+            out.packBoolean(true);
 
             if (col.name().equals(origin.columnName())) {
                 out.packNil();
