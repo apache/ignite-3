@@ -20,23 +20,15 @@ package org.apache.ignite.internal.recovery;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
-import org.apache.ignite.internal.manager.EventListener;
-import org.apache.ignite.internal.manager.EventParameters;
-import org.apache.ignite.internal.metastorage.event.MetaStorageEvent;
-import org.apache.ignite.internal.metastorage.event.MetaStorageEventParameters;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 /**
  * Configuration listener class that is intended to complete catch-up future during recovery when configuration
  * is up-to-date.
  */
-public class ConfigurationCatchUpListener implements EventListener<MetaStorageEventParameters> {
+public class ConfigurationCatchUpListener implements ConfigurationStorageRevisionListener {
     /** Configuration catch-up difference property name. */
     public static final String CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY = "CONFIGURATION_CATCH_UP_DIFFERENCE";
 
@@ -45,13 +37,13 @@ public class ConfigurationCatchUpListener implements EventListener<MetaStorageEv
      * TODO: IGNITE-16488 Make this property adjustable and remove system property.
      */
     private final int configurationCatchUpDifference =
-            IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100);
+        IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100);
 
     /** Revision to catch up. */
     private volatile long targetRevision = -1;
 
     /** Catch-up future. */
-    private final CompletableFuture<?> catchUpFuture;
+    private final CompletableFuture<Void> catchUpFuture;
 
     /** Configuration storage. */
     private final ConfigurationStorage cfgStorage;
@@ -67,7 +59,7 @@ public class ConfigurationCatchUpListener implements EventListener<MetaStorageEv
      *
      * @param catchUpFuture Catch-up future.
      */
-    public ConfigurationCatchUpListener(ConfigurationStorage cfgStorage, CompletableFuture<?> catchUpFuture, IgniteLogger log) {
+    public ConfigurationCatchUpListener(ConfigurationStorage cfgStorage, CompletableFuture<Void> catchUpFuture, IgniteLogger log) {
         this.cfgStorage = cfgStorage;
         this.catchUpFuture = catchUpFuture;
         this.log = log;
@@ -89,8 +81,8 @@ public class ConfigurationCatchUpListener implements EventListener<MetaStorageEv
      *
      * @param appliedRevision Applied revision.
      */
-    private CompletableFuture<Boolean> checkRevisionUpToDate(long appliedRevision) {
-        return cfgStorage.lastRevision().thenApply(rev -> {
+    private void checkRevisionUpToDate(long appliedRevision) {
+        cfgStorage.lastRevision().thenAccept(rev -> {
             synchronized (targetRevisionUpdateMutex) {
                 assert rev >= appliedRevision : IgniteStringFormatter.format(
                     "Configuration revision must be greater than local node applied revision [msRev={}, appliedRev={}",
@@ -99,31 +91,30 @@ public class ConfigurationCatchUpListener implements EventListener<MetaStorageEv
                 targetRevision = rev;
 
                 log.info("Checking revision on recovery ["
-                        + "targetRevision=" + targetRevision
-                        + ", appliedRevision=" + appliedRevision
-                        + ", acceptableDifference=" + configurationCatchUpDifference + ']'
+                    + "targetRevision=" + targetRevision
+                    + ", appliedRevision=" + appliedRevision
+                    + ", acceptableDifference=" + configurationCatchUpDifference + ']'
                 );
 
                 if (isConfigurationUpToDate(targetRevision, appliedRevision)) {
                     catchUpFuture.complete(null);
-
-                    return true;
-                } else {
-                    return false;
                 }
             }
         });
     }
 
-    @Override
-    public CompletableFuture<Boolean> notify(@NotNull MetaStorageEventParameters parameters, @Nullable Throwable exception) {
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<?> onUpdate(long appliedRevision) {
         long targetRev = targetRevision;
-        long appliedRevision = parameters.causalityToken();
 
         if (targetRev >= 0) {
-            return isConfigurationUpToDate(targetRev, appliedRevision) ? checkRevisionUpToDate(appliedRevision) : completedFuture(false);
+            if (isConfigurationUpToDate(targetRev, appliedRevision)) {
+                checkRevisionUpToDate(appliedRevision);
+            }
         } else {
-            return checkRevisionUpToDate(appliedRevision);
+            checkRevisionUpToDate(appliedRevision);
         }
+
+        return CompletableFuture.completedFuture(null);
     }
 }

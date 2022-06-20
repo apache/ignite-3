@@ -43,8 +43,6 @@ import org.apache.ignite.internal.metastorage.client.Operation;
 import org.apache.ignite.internal.metastorage.client.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.client.StatementResult;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
-import org.apache.ignite.internal.metastorage.event.MetaStorageEvent;
-import org.apache.ignite.internal.metastorage.event.MetaStorageEventParameters;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
@@ -77,7 +75,7 @@ import org.jetbrains.annotations.Nullable;
  *     <li>Providing corresponding meta storage service proxy interface</li>
  * </ul>
  */
-public class MetaStorageManager extends Producer<MetaStorageEvent, MetaStorageEventParameters> implements IgniteComponent {
+public class MetaStorageManager implements IgniteComponent {
     /** Meta storage raft group name. */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "metastorage_raft_group";
 
@@ -804,7 +802,7 @@ public class MetaStorageManager extends Producer<MetaStorageEvent, MetaStorageEv
     /**
      * Returns applied revision for {@link VaultManager#putAll} operation.
      */
-    public CompletableFuture<Long> appliedRevision() {
+    private CompletableFuture<Long> appliedRevision() {
         return vaultMgr.get(APPLIED_REV)
                 .thenApply(appliedRevision -> appliedRevision == null ? 0L : bytesToLong(appliedRevision.value()));
     }
@@ -862,8 +860,7 @@ public class MetaStorageManager extends Producer<MetaStorageEvent, MetaStorageEv
 
                     entries.forEach(e -> batch.put(e.getKey(), e.getValue()));
 
-                    return vaultMgr.putAll(batch)
-                            .thenCompose(v -> fireEvent(MetaStorageEvent.REVISION_APPLIED, new MetaStorageEventParameters(revision)));
+                    return vaultMgr.putAll(batch);
                 })
                 .join();
     }

@@ -19,15 +19,8 @@ package org.apache.ignite.internal.recovery;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
-import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
-import org.apache.ignite.internal.manager.EventListener;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.event.MetaStorageEvent;
-import org.apache.ignite.internal.metastorage.event.MetaStorageEventParameters;
-import org.apache.ignite.lang.IgniteLogger;
-
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 /**
  * Creates a future that completes when local recovery is finished.
@@ -40,27 +33,19 @@ public class RecoveryCompletionFutureFactory {
      * @param listenerProvider Provider of configuration listener.
      * @return Recovery completion future.
      */
-    public static CompletableFuture<?> create(
-            MetaStorageManager metaStorageManager,
-            ConfigurationStorage cfgStorage,
-            Function<CompletableFuture<?>, EventListener<MetaStorageEventParameters>> listenerProvider
+    public static CompletableFuture<Void> create(
+        ConfigurationManager clusterCfgMgr,
+        Function<CompletableFuture<Void>, ConfigurationStorageRevisionListener> listenerProvider
     ) {
-        return metaStorageManager.appliedRevision()
-            .thenCombine(cfgStorage.lastRevision(), (appliedRevision, lastRevision) -> {
-                if (appliedRevision >= lastRevision) {
-                    System.out.println("qqq Applied revision is not behind the last revision, completing recovery.");
+        CompletableFuture<Void> configCatchUpFuture = new CompletableFuture<>();
 
-                    return completedFuture(null);
-                }
+        ConfigurationStorageRevisionListener listener = listenerProvider.apply(configCatchUpFuture);
 
-                CompletableFuture<?> configCatchUpFuture = new CompletableFuture<>();
+        CompletableFuture<Void> recoveryCompletionFuture =
+            configCatchUpFuture.thenRun(() -> clusterCfgMgr.configurationRegistry().stopListenUpdateStorageRevision(listener));
 
-                EventListener<MetaStorageEventParameters> listener = listenerProvider.apply(configCatchUpFuture);
+        clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(listener);
 
-                metaStorageManager.listen(MetaStorageEvent.REVISION_APPLIED, listener);
-
-                return configCatchUpFuture;
-            })
-            .thenCompose(f -> f);
+        return recoveryCompletionFuture;
     }
 }

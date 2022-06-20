@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
@@ -43,7 +42,6 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -69,7 +67,6 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.event.MetaStorageEventParameters;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
@@ -106,7 +103,6 @@ import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.checkerframework.checker.units.qual.Time;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -345,9 +341,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             lastRevision.set(rev);
         };
 
-        CompletableFuture<?> configurationCatchUpFuture = RecoveryCompletionFutureFactory.create(
-                metaStorageMgr,
-                cfgStorage,
+        CompletableFuture<Void> configurationCatchUpFuture = RecoveryCompletionFutureFactory.create(
+            clusterCfgMgr,
                 fut -> new TestConfigurationCatchUpListener(cfgStorage, fut, revisionCallback0)
         );
 
@@ -882,6 +877,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         stopNode(nodes - 1);
 
         createTableWithData(CLUSTER_NODES.get(0), TABLE_NAME_2, nodes);
+        createTableWithData(CLUSTER_NODES.get(0), TABLE_NAME_2 + "0", nodes);
 
         log.info("Starting the node.");
 
@@ -1000,14 +996,28 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param name Table name.
      */
     private static void checkTableWithData(Ignite ignite, String name) {
+        System.out.println("qqq 1");
         Table table = ignite.tables().table("PUBLIC." + name);
 
+        System.out.println("qqq 2");
         assertNotNull(table);
+        System.out.println("qqq 3");
 
-        for (int i = 0; i < 100; i++) {
-            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i));
+        try {
+            for (int i = 0; i < 100; i++) {
+                System.out.println("qqq 3.5 " + i);
+                Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i));
 
-            assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
+                System.out.println("qqq 4 " + i);
+
+                assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
+                System.out.println("qqq 5 " + i);
+            }
+        }
+        catch (Throwable e) {
+            System.out.println("qqq th");
+            e.printStackTrace();
+            throw e;
         }
     }
 
@@ -1067,24 +1077,23 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
          * @param catchUpFuture Catch-up future.
          */
         TestConfigurationCatchUpListener(
-                ConfigurationStorage cfgStorage,
-                CompletableFuture<?> catchUpFuture,
-                Consumer<Long> revisionCallback
+            ConfigurationStorage cfgStorage,
+            CompletableFuture<Void> catchUpFuture,
+            Consumer<Long> revisionCallback
         ) {
             super(cfgStorage, catchUpFuture, log);
 
             this.revisionCallback = revisionCallback;
         }
 
+        /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Boolean> notify(@NotNull MetaStorageEventParameters parameters, @Nullable Throwable exception) {
-            long appliedRevision = parameters.causalityToken();
-
+        public CompletableFuture<?> onUpdate(long appliedRevision) {
             if (revisionCallback != null) {
                 revisionCallback.accept(appliedRevision);
             }
 
-            return super.notify(parameters, exception);
+            return super.onUpdate(appliedRevision);
         }
     }
 }

@@ -441,8 +441,7 @@ public class IgniteImpl implements Ignite {
                     .thenCompose(v -> {
                         // Recovery future must be created before configuration listeners are triggered.
                         CompletableFuture<?> recoveryFuture = RecoveryCompletionFutureFactory.create(
-                                metaStorageMgr,
-                                cfgStorage,
+                                clusterCfgMgr,
                                 fut -> new ConfigurationCatchUpListener(cfgStorage, fut, LOG)
                         );
 
