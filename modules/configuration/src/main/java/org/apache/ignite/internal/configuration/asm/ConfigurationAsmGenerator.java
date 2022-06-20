@@ -120,6 +120,7 @@ import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdExcept
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InjectedName;
@@ -154,6 +155,7 @@ import org.objectweb.asm.Type;
  * This class is responsible for generating internal implementation classes for configuration schemas. It uses classes from {@code bytecode}
  * module to achieve this goal, like {@link ClassGenerator}, for examples.
  */
+// TODO: IGNITE-17167 Split into classes/methods for regular/internal/polymorphic/abstract configuration
 public class ConfigurationAsmGenerator {
     /** {@link DynamicConfiguration#DynamicConfiguration} constructor. */
     private static final Constructor<?> DYNAMIC_CONFIGURATION_CTOR;
@@ -432,7 +434,12 @@ public class ConfigurationAsmGenerator {
                         + " is polymorphic but polymorphic extensions are absent");
             }
 
-            List<Field> schemaFields = schemaFields(schemaClass);
+            Class<?> schemaSuperClass = schemaClass.getSuperclass();
+
+            List<Field> schemaFields = schemaSuperClass.isAnnotationPresent(AbstractConfiguration.class)
+                    ? concat(schemaFields(schemaClass), schemaFields(schemaSuperClass))
+                    : schemaFields(schemaClass);
+
             Collection<Field> internalExtensionsFields = extensionsFields(internalExtensions, true);
             Collection<Field> polymorphicExtensionsFields = extensionsFields(polymorphicExtensions, false);
 
@@ -751,6 +758,7 @@ public class ConfigurationAsmGenerator {
 
         // constructDefault
         addNodeConstructDefaultMethod(
+                schemaClass,
                 classDef,
                 specFields,
                 fieldDefs,
@@ -770,6 +778,10 @@ public class ConfigurationAsmGenerator {
 
         if (internalSchemaTypesFieldDef != null) {
             addInternalSchemaTypesMethod(classDef, internalSchemaTypesFieldDef);
+        }
+
+        if (schemaClass.getSuperclass().isAnnotationPresent(AbstractConfiguration.class)) {
+            addIsExtendAbstractConfigurationMethod(classDef);
         }
 
         return classDef;
@@ -1541,6 +1553,7 @@ public class ConfigurationAsmGenerator {
     /**
      * Implements {@link InnerNode#constructDefault(String)} method.
      *
+     * @param schemaClass                  Configuration schema class.
      * @param classDef                     Class definition.
      * @param specFields                   Field definitions for the schema and its extensions: {@code _spec#}.
      * @param fieldDefs                    Definitions for all fields in {@code schemaFields}.
@@ -1550,6 +1563,7 @@ public class ConfigurationAsmGenerator {
      * @param polymorphicTypeIdFieldDef    Identification field for the polymorphic configuration instance.
      */
     private static void addNodeConstructDefaultMethod(
+            Class<?> schemaClass,
             ClassDefinition classDef,
             Map<Class<?>, FieldDefinition> specFields,
             Map<String, FieldDefinition> fieldDefs,
@@ -1584,7 +1598,12 @@ public class ConfigurationAsmGenerator {
                     switchBuilder.addCase(fieldName, new BytecodeBlock().ret());
                 } else {
                     FieldDefinition fieldDef = fieldDefs.get(fieldName);
-                    FieldDefinition specFieldDef = specFields.get(schemaField.getDeclaringClass());
+
+                    Class<?> fieldType = schemaField.getDeclaringClass();
+
+                    FieldDefinition specFieldDef = fieldType.isAnnotationPresent(AbstractConfiguration.class)
+                            ? specFields.get(schemaClass)
+                            : specFields.get(fieldType);
 
                     // this.field = spec_#.field;
                     switchBuilder.addCase(
@@ -3405,5 +3424,22 @@ public class ConfigurationAsmGenerator {
         mtd.getBody()
                 .append(getThisFieldCode(mtd, internalSchemaTypesFieldDef))
                 .retObject();
+    }
+
+    /**
+     * Adds an override for the {@link InnerNode#extendsAbstractConfiguration()} method that returns {@code true}.
+     *
+     * @param innerNodeClassDef {@link InnerNode} class definition.
+     */
+    private static void addIsExtendAbstractConfigurationMethod(ClassDefinition innerNodeClassDef) {
+        MethodDefinition mtd = innerNodeClassDef.declareMethod(
+                of(PUBLIC),
+                "extendsAbstractConfiguration",
+                type(boolean.class)
+        );
+
+        mtd.getBody()
+                .push(true)
+                .retBoolean();
     }
 }

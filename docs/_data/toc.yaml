@@ -24,6 +24,8 @@
       url: sql/calcite-based-sql-engine
     - title: JDBC Driver
       url: sql/jdbc-driver
+    - title: Java API
+      url: sql/java
 - title: SQL Reference
   items:
     - title: Data Definition Language (DDL)
@@ -32,6 +34,12 @@
       url: sql-reference/dml
     - title: Supported Operators and Functions
       url: sql-reference/operators-and-functions
+- title: REST API
+  url: rest/rest-api
+- title: Distributed Computing
+  url: compute/compute
+- title: Data Region Configuration
+  url: config/data-region
 - title: Binary Client Protocol
   url: binary-protocol
 - title: Native Persistence

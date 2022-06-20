@@ -158,7 +158,7 @@ class WatchCursor implements Cursor<WatchEvent> {
                         newEntry = new Entry(key, val.bytes(), revision, val.updateCounter());
                     }
 
-                    Entry oldEntry = storage.doGet(key, revision - 1, false);
+                    Entry oldEntry = storage.doGet(key, revision - 1);
 
                     evts.add(new EntryEvent(oldEntry, newEntry));
                 }

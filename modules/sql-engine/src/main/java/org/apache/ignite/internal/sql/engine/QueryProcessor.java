@@ -20,12 +20,32 @@ package org.apache.ignite.internal.sql.engine;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.lang.IgniteException;
 
 /**
  * QueryProcessor interface.
  */
 public interface QueryProcessor extends IgniteComponent {
+    /**
+     * Creates a session with given properties.
+     *
+     * @param queryProperties Properties to store within a new session.
+     * @return An identifier of a created session.
+     */
+    SessionId createSession(PropertiesHolder queryProperties);
+
+    /**
+     * Closes the session with given id.
+     *
+     * <p>This method just return a completed future in case the session was already closed or never exists.
+     *
+     * @param sessionId An identifier of a session to close.
+     * @return A future representing result of an operation.
+     */
+    CompletableFuture<Void> closeSession(SessionId sessionId);
+
     /**
      * Execute the query with given schema name and parameters.
      *
@@ -35,7 +55,7 @@ public interface QueryProcessor extends IgniteComponent {
      * @return List of sql cursors.
      *
      * @throws IgniteException in case of an error.
-     * */
+     */
     List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params);
 
     /**
@@ -57,12 +77,16 @@ public interface QueryProcessor extends IgniteComponent {
      * <p>If the query string contains more than one statement the IgniteException will be thrown.
      *
      * @param context User query context.
-     * @param schemaName Schema name.
      * @param qry Single statement SQL query .
      * @param params Query parameters.
      * @return Sql cursor.
      *
      * @throws IgniteException in case of an error.
      */
-    CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(QueryContext context, String schemaName, String qry, Object... params);
+    CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
+            SessionId sessionId,
+            QueryContext context,
+            String qry,
+            Object... params
+    );
 }

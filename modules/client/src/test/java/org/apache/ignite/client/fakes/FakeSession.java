@@ -25,7 +25,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.BatchedArguments;
-import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -71,18 +70,6 @@ public class FakeSession implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
         throw new UnsupportedOperationException();
     }
@@ -112,37 +99,37 @@ public class FakeSession implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public int[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
+    public long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    public int[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
+    public long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<int[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
+    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<int[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
+    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<Integer> executeBatchReactive(@Nullable Transaction transaction, String query, BatchedArguments batch) {
+    public Publisher<Long> executeBatchReactive(@Nullable Transaction transaction, String query, BatchedArguments batch) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<Integer> executeBatchReactive(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
+    public Publisher<Long> executeBatchReactive(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         throw new UnsupportedOperationException();
     }
 
@@ -161,19 +148,19 @@ public class FakeSession implements Session {
     /** {@inheritDoc} */
     @Override
     public long defaultTimeout(TimeUnit timeUnit) {
-        return 0;
+        return defaultTimeout;
     }
 
     /** {@inheritDoc} */
     @Override
     public String defaultSchema() {
-        return null;
+        return defaultSchema;
     }
 
     /** {@inheritDoc} */
     @Override
     public int defaultPageSize() {
-        return 0;
+        return defaultPageSize;
     }
 
     /** {@inheritDoc} */
@@ -204,5 +191,10 @@ public class FakeSession implements Session {
     @Override
     public SessionBuilder toBuilder() {
         return null;
+    }
+
+    public Map<String, Object> properties() {
+        //noinspection AssignmentOrReturnOfFieldWithMutableType
+        return properties;
     }
 }

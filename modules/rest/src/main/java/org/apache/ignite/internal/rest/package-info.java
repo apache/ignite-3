@@ -16,7 +16,7 @@
  */
 
 /**
- * This package contains an implementation of Ignite component related to REST interface.
+ * This package contains REST component core implementation.
  */
 
 package org.apache.ignite.internal.rest;

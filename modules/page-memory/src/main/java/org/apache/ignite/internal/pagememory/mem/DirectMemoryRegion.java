@@ -24,12 +24,12 @@ public interface DirectMemoryRegion {
     /**
      * Returns a region start address.
      */
-    public long address();
+    long address();
 
     /**
      * Returns a region size.
      */
-    public long size();
+    long size();
 
     /**
      * Creates a sub-region of this region starting from the given offset.
@@ -37,5 +37,5 @@ public interface DirectMemoryRegion {
      * @param offset Offset within this region.
      * @return Sub-region.
      */
-    public DirectMemoryRegion slice(long offset);
+    DirectMemoryRegion slice(long offset);
 }

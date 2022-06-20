@@ -630,7 +630,6 @@ public class ConfigurationUtil {
      * PolymorphicId}.
      *
      * @param schemaClass Configuration schema class.
-     * @return Schema fields.
      */
     public static List<Field> schemaFields(Class<?> schemaClass) {
         return Arrays.stream(schemaClass.getDeclaredFields())

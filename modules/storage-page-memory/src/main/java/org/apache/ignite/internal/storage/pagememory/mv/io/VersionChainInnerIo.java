@@ -34,7 +34,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
  */
 public class VersionChainInnerIo extends BplusInnerIo<VersionChainLink> implements VersionChainIo {
     /** Page IO type. */
-    public static final short T_VERSION_CHAIN_INNER_IO = 9;
+    public static final short T_VERSION_CHAIN_INNER_IO = 10;
 
     /** I/O versions. */
     public static final IoVersions<VersionChainInnerIo> VERSIONS = new IoVersions<>(new VersionChainInnerIo(1));

@@ -63,10 +63,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class AbstractPartitionStorageTest {
     /** Test key. */
-    private static final String KEY = "key";
+    protected static final String KEY = "key";
 
     /** Test value. */
-    private static final String VALUE = "value";
+    protected static final String VALUE = "value";
 
     /** Storage instance. */
     protected PartitionStorage storage;
@@ -168,13 +168,13 @@ public abstract class AbstractPartitionStorageTest {
         storage.write(dataRow1);
         storage.write(dataRow2);
 
-        List<DataRow> list = toList(storage.scan(key -> key.keyBytes()[3] == '1'));
+        List<DataRow> list = toList(storage.scan(key -> stringKey(key).charAt(3) == '1'));
 
         assertThat(list, hasSize(1));
 
         assertArrayEquals(dataRow1.value().array(), list.get(0).value().array());
 
-        list = toList(storage.scan(key -> key.keyBytes()[3] == '2'));
+        list = toList(storage.scan(key -> stringKey(key).charAt(3) == '2'));
 
         assertThat(list, hasSize(1));
 
@@ -644,7 +644,7 @@ public abstract class AbstractPartitionStorageTest {
      *
      * @param row Expected data row.
      */
-    private void checkHasSameEntry(DataRow row) {
+    protected void checkHasSameEntry(DataRow row) {
         DataRow read = storage.read(row);
 
         assertNotNull(read);
@@ -668,7 +668,7 @@ public abstract class AbstractPartitionStorageTest {
      * @param key String key.
      * @return Search row.
      */
-    protected static SearchRow searchRow(String key) {
+    protected SearchRow searchRow(String key) {
         return new SearchRow() {
             @Override
             public byte[] keyBytes() {
@@ -683,13 +683,23 @@ public abstract class AbstractPartitionStorageTest {
     }
 
     /**
+     * Get key as a string.
+     *
+     * @param searchRow Search row.
+     * @return String key.
+     */
+    protected String stringKey(SearchRow searchRow) {
+        return new String(searchRow.keyBytes(), StandardCharsets.UTF_8);
+    }
+
+    /**
      * Wraps string key/value pair into a data row.
      *
      * @param key   String key.
      * @param value String value.
      * @return Data row.
      */
-    protected static DataRow dataRow(String key, String value) {
+    protected DataRow dataRow(String key, String value) {
         return new SimpleDataRow(
                 key.getBytes(StandardCharsets.UTF_8),
                 value.getBytes(StandardCharsets.UTF_8)

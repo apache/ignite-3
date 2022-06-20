@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 
 import java.util.HashMap;
@@ -30,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -38,6 +38,7 @@ import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
 import org.apache.ignite.internal.configuration.schema.SchemaConfiguration;
 import org.apache.ignite.internal.configuration.schema.SchemaView;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -59,6 +61,14 @@ import org.jetbrains.annotations.Nullable;
 public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> implements IgniteComponent {
     /** Initial version for schemas. */
     public static final int INITIAL_SCHEMA_VERSION = 1;
+
+    /**
+     * If this property is set to {@code true} then an attempt to get the configuration property directly from the meta storage will be
+     * skipped, and the local property will be returned.
+     * TODO: IGNITE-16774 This property and overall approach, access configuration directly through the Metostorage,
+     * TODO: will be removed after fix of the issue.
+     */
+    private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -371,5 +381,18 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         }
 
         busyLock.block();
+    }
+
+    /**
+     * Gets a direct accessor for the configuration distributed property.
+     * If the metadata access only locally configured the method will return local property accessor.
+     *
+     * @param property Distributed configuration property to receive direct access.
+     * @param <T> Type of the property accessor.
+     * @return An accessor for distributive property.
+     * @see #getMetadataLocallyOnly
+     */
+    private <T extends ConfigurationProperty<?>> T directProxy(T property) {
+        return getMetadataLocallyOnly ? property : ConfigurationUtil.directProxy(property);
     }
 }

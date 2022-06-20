@@ -95,7 +95,8 @@ public class UnsafeMemoryProvider implements DirectMemoryProvider {
     }
 
     /** {@inheritDoc} */
-    @Override public DirectMemoryRegion nextRegion() {
+    @Override
+    public @Nullable DirectMemoryRegion nextRegion() {
         if (used == sizes.length) {
             return null;
         }

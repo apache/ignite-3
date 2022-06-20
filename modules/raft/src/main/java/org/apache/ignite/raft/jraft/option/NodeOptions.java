@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
@@ -37,6 +38,7 @@ import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.apache.ignite.raft.jraft.util.timer.Timer;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Node options.
@@ -103,6 +105,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     // The specific StateMachine implemented your business logic, which must be
     // a valid instance.
     private StateMachine fsm;
+
+    // Listener for raft group reconfiguration events.
+    private RaftGroupEventsListener raftGrpEvtsLsnr;
 
     // Describe a specific RaftMetaStorage in format ${type}://${parameters}
     private String raftMetaUri;
@@ -422,6 +427,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setInitialConf(final Configuration initialConf) {
         this.initialConf = initialConf;
+    }
+
+    public RaftGroupEventsListener getRaftGrpEvtsLsnr() {
+        return raftGrpEvtsLsnr;
+    }
+
+    public void setRaftGrpEvtsLsnr(@NotNull RaftGroupEventsListener raftGrpEvtsLsnr) {
+        this.raftGrpEvtsLsnr = raftGrpEvtsLsnr;
     }
 
     public StateMachine getFsm() {

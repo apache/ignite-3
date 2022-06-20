@@ -77,8 +77,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
         hasMorePages = in.unpackBoolean();
         wasApplied = in.unpackBoolean();
         affectedRows = in.unpackLong();
-
-        metadata = new ClientResultSetMetadata(in);
+        metadata = hasRowSet ? new ClientResultSetMetadata(in) : null;
 
         if (hasRowSet) {
             readRows(in);
@@ -145,6 +144,11 @@ class ClientAsyncResultSet implements AsyncResultSet {
                 r -> {
                     readRows(r.in());
                     hasMorePages = r.in().unpackBoolean();
+
+                    if (!hasMorePages) {
+                        // When last page is fetched, server closes the cursor.
+                        closed = true;
+                    }
 
                     return this;
                 });

@@ -27,7 +27,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Hash spool test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItHashSpoolTest extends AbstractBasicIntegrationTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(AbstractBasicIntegrationTest.class);
 

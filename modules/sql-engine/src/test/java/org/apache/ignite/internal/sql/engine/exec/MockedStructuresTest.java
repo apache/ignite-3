@@ -56,6 +56,7 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -75,6 +76,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
@@ -129,6 +131,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** TX manager. */
     @Mock(lenient = true)
     private TxManager tm;
+
+    /** Meta storage manager. */
+    @Mock
+    MetaStorageManager msm;
 
     /**
      * Revision listener holder. It uses for the test configurations:
@@ -223,12 +229,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 new TestConcurrentHashMapDataStorageModule()
         ));
 
-        rocksDbEngineConfig.regions().change(c -> c.create("test_region", rocksDbDataRegionChange -> {
-        })).get(1, TimeUnit.SECONDS);
-
         dataStorageManager = new DataStorageManager(
                 tblsCfg,
-                dataStorageModules.createStorageEngines(configRegistry, workDir)
+                dataStorageModules.createStorageEngines(NODE_NAME, configRegistry, workDir, null)
         );
 
         dataStorageManager.start();
@@ -254,6 +257,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         queryProc.start();
 
         tblsCfg.defaultDataStorage().update(ENGINE_NAME).get(1, TimeUnit.SECONDS);
+
+        rocksDbEngineConfig.regions()
+                .change(c -> c.create("test_region", rocksDbDataRegionChange -> {}))
+                .get(1, TimeUnit.SECONDS);
     }
 
     /**
@@ -635,7 +642,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             return completedFuture(raftGrpSrvcMock);
         });
 
-        when(rm.updateRaftGroup(any(), any(), any(), any())).thenAnswer(mock -> {
+        when(rm.updateRaftGroup(any(), any(), any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
@@ -675,6 +682,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
             return ret;
         });
+
+        when(msm.registerWatch(any(ByteArray.class), any())).thenReturn(CompletableFuture.completedFuture(1L));
 
         TableManager tableManager = createTableManager();
 

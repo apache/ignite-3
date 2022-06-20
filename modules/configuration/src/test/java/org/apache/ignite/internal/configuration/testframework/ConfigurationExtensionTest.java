@@ -32,6 +32,8 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.sample.DiscoveryConfiguration;
+import org.apache.ignite.internal.configuration.sample.ExtendedDiscoveryConfiguration;
+import org.apache.ignite.internal.configuration.sample.ExtendedDiscoveryConfigurationSchema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -41,7 +43,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 class ConfigurationExtensionTest {
     /** Injected field. */
-    @InjectConfiguration
+    @InjectConfiguration(internalExtensions = ExtendedDiscoveryConfigurationSchema.class)
     private DiscoveryConfiguration fieldCfg;
 
     @InjectRevisionListenerHolder
@@ -168,5 +170,16 @@ class ConfigurationExtensionTest {
         assertEquals(2, revisions.size(), revisions::toString);
 
         assertTrue(revisions.get(0) < revisions.get(1), revisions::toString);
+    }
+
+    /** Test UUID generation in mocks. */
+    @Test
+    public void testInjectInternalId(
+            @InjectConfiguration(
+                    internalExtensions = ExtendedDiscoveryConfigurationSchema.class,
+                    name = "test"
+            ) DiscoveryConfiguration discoveryConfig
+    ) {
+        assertNotNull(((ExtendedDiscoveryConfiguration) discoveryConfig).id().value());
     }
 }
