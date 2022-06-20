@@ -334,6 +334,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         VersionChain currentVersionChain = findVersionChainForModification(rowId);
 
         if (currentVersionChain.transactionId() == null) {
+            //the chain doesn't contain an uncommitted write intent
             return null;
         }
 
@@ -371,6 +372,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         long chainLink = PartitionlessLinks.addPartitionIdToPartititionlessLink(currentVersionChain.headLink(), partitionId);
 
         if (currentVersionChain.transactionId() == null) {
+            //the chain doesn't contain an uncommitted write intent
             return;
         }
 

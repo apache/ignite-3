@@ -35,6 +35,7 @@ import org.apache.ignite.internal.tx.message.TxFinishRequest;
 import org.apache.ignite.internal.tx.message.TxFinishResponse;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.jetbrains.annotations.Nullable;
@@ -44,13 +45,13 @@ import org.jetbrains.annotations.Nullable;
  */
 public class MessagingServiceTestUtils {
     /**
-     * Prepares messaging service mock.
+     * Mocking of {@link MessagingService#invoke(NetworkAddress, NetworkMessage, long)}.
      *
      * @param messagingService Messaging service.
      * @param txManager Transaction manager.
      * @param partitionListeners Partition listeners.
      */
-    public static void messagingServiceInvoke(
+    public static void mockMessagingServiceInvoke(
             MessagingService messagingService,
             TxManager txManager,
             List<PartitionListener> partitionListeners

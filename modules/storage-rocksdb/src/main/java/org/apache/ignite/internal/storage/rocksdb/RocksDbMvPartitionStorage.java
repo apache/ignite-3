@@ -214,6 +214,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             byte[] previousValue = db.get(cf, keyBuf.array(), 0, ROW_PREFIX_SIZE);
 
             if (previousValue == null) {
+                //the chain doesn't contain an uncommitted write intent
                 return null;
             }
 
@@ -238,6 +239,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             byte[] valueBytes = db.get(cf, keyBuf.array(), 0, ROW_PREFIX_SIZE);
 
             if (valueBytes == null) {
+                //the chain doesn't contain an uncommitted write intent
                 return;
             }
 

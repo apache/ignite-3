@@ -311,7 +311,7 @@ public class RecordViewOperationsTest {
 
         MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
-        MessagingServiceTestUtils.messagingServiceInvoke(messagingService, txManager, partitionListeners);
+        MessagingServiceTestUtils.mockMessagingServiceInvoke(messagingService, txManager, partitionListeners);
 
         Mapper<TestObjectWithAllTypes> recMapper = Mapper.of(TestObjectWithAllTypes.class);
 

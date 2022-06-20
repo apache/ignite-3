@@ -78,7 +78,7 @@ public class TxLocalTest extends TxAbstractTest {
 
         MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
-        MessagingServiceTestUtils.messagingServiceInvoke(messagingService, txManager, partitionListeners);
+        MessagingServiceTestUtils.mockMessagingServiceInvoke(messagingService, txManager, partitionListeners);
     }
 
     @Disabled

@@ -131,7 +131,7 @@ import org.mockito.quality.Strictness;
 
 /**
  * Tests scenarios for table manager.
- * TODO: to change storage from rocksdb to "rocksdb" to "pagememory" https://issues.apache.org/jira/browse/IGNITE-17197
+ * TODO: to change storage from "rocksdb" to "pagememory" https://issues.apache.org/jira/browse/IGNITE-17197
  */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)

@@ -22,11 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.TestOnly;
 
-/**
- * Lock manager allows to acquire locks in shared and exclusive mode and supports deadlock prevention by timestamp ordering.
- *
- * @see Timestamp
- */
+/** Lock manager allows to acquire locks in shared and exclusive mode and supports deadlock prevention by transaction id ordering. */
 public interface LockManager {
     /**
      * Attempts to acquire a lock for the specified {@code key} in exclusive mode.
@@ -67,7 +63,7 @@ public interface LockManager {
     public void tryReleaseShared(Object key, UUID txId) throws LockException;
 
     /**
-     * Returns a collection of timestamps that is associated with the specified {@code key}.
+     * Returns a collection of transaction ids that is associated with the specified {@code key}.
      *
      * @param key The key.
      * @return The waiters queue.

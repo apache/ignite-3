@@ -475,6 +475,7 @@ public class VersionedRowStore {
      * Tests row values for equality.
      *
      * @param row Row.
+     * @param row2 Row.
      * @return Extracted key.
      */
     private boolean equalValues(@NotNull BinaryRow row, @NotNull BinaryRow row2) {

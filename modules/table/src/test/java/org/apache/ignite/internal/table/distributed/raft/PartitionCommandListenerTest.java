@@ -91,6 +91,7 @@ public class PartitionCommandListenerTest {
     /** Table command listener. */
     private PartitionListener commandListener;
 
+    /** Versioned row store. */
     private VersionedRowStore versionedRowStore;
 
     /**

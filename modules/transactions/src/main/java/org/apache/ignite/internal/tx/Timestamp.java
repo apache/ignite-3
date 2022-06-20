@@ -22,7 +22,7 @@ import java.util.UUID;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * A timestamp implementation. Timestamps are used to order transactions.
+ * A timestamp implementation. Timestamps are used to order values in a version chain {@see MvPartitionStorage}.
  * Temporary solution until the implementation of the HLC is done.
  * TODO https://issues.apache.org/jira/browse/IGNITE-15129
  *

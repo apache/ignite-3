@@ -406,7 +406,7 @@ public class HeapLockManager implements LockManager {
         @IgniteToStringExclude
         private final CompletableFuture<Void> fut;
 
-        /** Waiter timestamp. */
+        /** Waiter transaction id. */
         private final UUID txId;
 
         /** Upgraded lock. */
