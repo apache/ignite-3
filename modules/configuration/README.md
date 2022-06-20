@@ -108,7 +108,7 @@ public static class AbstractConfigurationSchema {
 * `@PolymorphicConfigInstance` marks an inheritor of a polymorphic configuration. This annotation has a single property called `value` - 
    a unique identifier among the inheritors of one polymorphic configuration, used to define the type (schema) of the polymorphic configuration we are dealing with now;
 * `@AbstractConfiguration` is similar to `@PolymorphicConfig` but its type cannot be changed and its inheritors must be annotated with
-  either `@Config` or `@ConfigurationRoot` and also cannot be used as a nested configuration only its inheritors;
+  either `@Config` or `@ConfigurationRoot`. Configuration schemas with this annotation cannot be used as a nested (sub)configuration;
 * `@ConfigValue` marks a nested schema field. Cyclic dependencies are not allowed;
 * `@NamedConfigValue` is similar to `@ConfigValue`, but such fields represent a collection of properties, not a single
   instance. Every element of the collection will have a `String` name, similar to a `Map`.

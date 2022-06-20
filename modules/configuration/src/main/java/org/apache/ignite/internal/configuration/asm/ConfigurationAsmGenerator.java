@@ -57,7 +57,6 @@ import static org.apache.ignite.internal.configuration.asm.SchemaClassesInfo.vie
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.containsNameAnnotation;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.extensionsFields;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.hasDefault;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isAbstractConfiguration;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isConfigValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isInjectedName;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isInternalId;
@@ -121,6 +120,7 @@ import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdExcept
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InjectedName;
@@ -436,7 +436,7 @@ public class ConfigurationAsmGenerator {
 
             Class<?> schemaSuperClass = schemaClass.getSuperclass();
 
-            List<Field> schemaFields = isAbstractConfiguration(schemaSuperClass)
+            List<Field> schemaFields = schemaSuperClass.isAnnotationPresent(AbstractConfiguration.class)
                     ? concat(schemaFields(schemaClass), schemaFields(schemaSuperClass))
                     : schemaFields(schemaClass);
 
@@ -780,7 +780,7 @@ public class ConfigurationAsmGenerator {
             addInternalSchemaTypesMethod(classDef, internalSchemaTypesFieldDef);
         }
 
-        if (isAbstractConfiguration(schemaClass.getSuperclass())) {
+        if (schemaClass.getSuperclass().isAnnotationPresent(AbstractConfiguration.class)) {
             addIsExtendAbstractConfigurationMethod(classDef);
         }
 
@@ -1601,7 +1601,7 @@ public class ConfigurationAsmGenerator {
 
                     Class<?> fieldType = schemaField.getDeclaringClass();
 
-                    FieldDefinition specFieldDef = isAbstractConfiguration(fieldType)
+                    FieldDefinition specFieldDef = fieldType.isAnnotationPresent(AbstractConfiguration.class)
                             ? specFields.get(schemaClass)
                             : specFields.get(fieldType);
 

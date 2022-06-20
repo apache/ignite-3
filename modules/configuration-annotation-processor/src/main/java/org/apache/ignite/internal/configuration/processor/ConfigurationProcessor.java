@@ -1017,15 +1017,14 @@ public class ConfigurationProcessor extends AbstractProcessor {
             ));
         }
 
-        if (findFirstPresentAnnotation(clazz, Config.class, PolymorphicConfig.class, AbstractConfiguration.class).isEmpty()) {
-            throw new ConfigurationProcessorException(String.format(
-                    "%s %s.%s can only be present in a class annotated with %s",
-                    simpleName(InjectedName.class),
-                    clazz.getQualifiedName(),
-                    injectedNameField.getSimpleName(),
-                    joinSimpleName(" or ", Config.class, PolymorphicConfig.class, AbstractConfiguration.class)
-            ));
-        }
+        findFirstPresentAnnotation(clazz, Config.class, PolymorphicConfig.class, AbstractConfiguration.class)
+                .orElseThrow(() -> new ConfigurationProcessorException(String.format(
+                        "%s %s.%s can only be present in a class annotated with %s",
+                        simpleName(InjectedName.class),
+                        clazz.getQualifiedName(),
+                        injectedNameField.getSimpleName(),
+                        joinSimpleName(" or ", Config.class, PolymorphicConfig.class, AbstractConfiguration.class)
+                )));
     }
 
     /**

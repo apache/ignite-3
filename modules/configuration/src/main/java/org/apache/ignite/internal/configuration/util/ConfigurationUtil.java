@@ -49,7 +49,6 @@ import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdExcept
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -1148,14 +1147,5 @@ public class ConfigurationUtil {
      */
     public static <N> N getByInternalId(NamedListView<N> node, UUID internalId) {
         return node.get(((NamedListNode<?>) node).keyByInternalId(internalId));
-    }
-
-    /**
-     * Checks whether configuration schema contains {@link AbstractConfiguration}.
-     *
-     * @param schemaClass Configuration schema class.
-     */
-    public static boolean isAbstractConfiguration(Class<?> schemaClass) {
-        return schemaClass.isAnnotationPresent(AbstractConfiguration.class);
     }
 }

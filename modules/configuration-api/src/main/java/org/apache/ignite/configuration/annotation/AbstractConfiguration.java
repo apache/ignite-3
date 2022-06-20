@@ -26,8 +26,8 @@ import java.lang.annotation.Target;
 
 /**
  * This annotation marks a class as an abstract configuration schema. Has basically the same properties as a {@link PolymorphicConfig}, but
- * its type cannot be changed and its inheritors must be annotated with either {@link Config} or {@link ConfigurationRoot} and also cannot
- * be used as nested configuration only its inheritors.
+ * its type cannot be changed and its inheritors must be annotated with either {@link Config} or {@link ConfigurationRoot}. Configuration
+ * schemas with this annotation cannot be used as a nested (sub)configuration.
  *
  * @see Config
  * @see ConfigurationRoot
