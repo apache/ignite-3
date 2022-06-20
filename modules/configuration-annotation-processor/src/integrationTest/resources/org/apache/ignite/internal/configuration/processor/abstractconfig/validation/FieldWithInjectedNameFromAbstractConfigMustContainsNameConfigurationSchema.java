@@ -15,27 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.annotation;
+package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.Name;
+import org.apache.ignite.internal.configuration.processor.abstractconfig.SimpleConfigConfigurationSchema;
 
 /**
- * This annotation marks configuration schema field as a configuration tree node.
- * <pre><code>
- * {@literal @}Config
- *  public class FooConfigurationSchema {
- *      {@literal @}ConfigValue
- *       public SomeOtherConfiguration someOther;
- * }
- * </code></pre>
+ * Field whose configuration schema (extends abstract configuration) contains {@link InjectedName} must contain {@link Name}.
  */
-@Target(FIELD)
-@Retention(RUNTIME)
-@Documented
-public @interface ConfigValue {
+@ConfigurationRoot(rootName = "test")
+public class FieldWithInjectedNameFromAbstractConfigMustContainsNameConfigurationSchema {
+    @ConfigValue
+    public SimpleConfigConfigurationSchema config;
 }

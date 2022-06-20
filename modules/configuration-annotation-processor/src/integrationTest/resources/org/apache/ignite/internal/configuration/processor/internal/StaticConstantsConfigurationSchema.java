@@ -19,10 +19,10 @@ package org.apache.ignite.internal.configuration.processor.internal;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.configuration.processor.ItProcessorTest;
+import org.apache.ignite.internal.configuration.processor.ItConfigurationProcessorTest;
 
 /**
- * Test class for {@link ItProcessorTest#testStaticConstants()}.
+ * Test class for {@link ItConfigurationProcessorTest#testStaticConstants()}.
  */
 @Config
 public class StaticConstantsConfigurationSchema {

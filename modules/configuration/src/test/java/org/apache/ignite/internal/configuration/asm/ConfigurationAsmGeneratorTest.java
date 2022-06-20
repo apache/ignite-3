@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -39,11 +40,13 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.ConfigurationReadOnlyException;
 import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
@@ -103,7 +106,7 @@ public class ConfigurationAsmGeneratorTest {
 
         changer = new TestConfigurationChanger(
                 generator,
-                List.of(TestRootConfiguration.KEY, InjectedNameRootConfiguration.KEY),
+                List.of(TestRootConfiguration.KEY, InjectedNameRootConfiguration.KEY, RootFromAbstractConfiguration.KEY),
                 Map.of(),
                 new TestConfigurationStorage(LOCAL),
                 internalExtensions,
@@ -595,6 +598,54 @@ public class ConfigurationAsmGeneratorTest {
         assertEquals("p4", rootCfg.nestedNamedPoly().get("p4").name().value());
     }
 
+    @Test
+    void testAbstractConfiguration() throws Exception {
+        RootFromAbstractConfiguration rootFromAbstractConfig = (RootFromAbstractConfiguration) generator.instantiateCfg(
+                RootFromAbstractConfiguration.KEY,
+                changer
+        );
+
+        // Checks for default values.
+
+        assertEquals("test", rootFromAbstractConfig.configFromAbstract().name().value());
+
+        assertEquals("strVal", rootFromAbstractConfig.strVal().value());
+        assertEquals(500100, rootFromAbstractConfig.longVal().value());
+
+        assertEquals(100500, rootFromAbstractConfig.configFromAbstract().intVal().value());
+        assertTrue(rootFromAbstractConfig.configFromAbstract().booleanVal().value());
+
+        // Checks for changes to all fields at once.
+
+        rootFromAbstractConfig.change(ch0 -> ch0
+                .changeLongVal(1)
+                .changeConfigFromAbstract(ch1 -> ch1.changeBooleanVal(false).changeIntVal(1))
+                .changeStrVal("1")
+        ).get(1, SECONDS);
+
+        RootFromAbstractView fromAbstractView0 = rootFromAbstractConfig.value();
+
+        assertEquals("1", fromAbstractView0.strVal());
+        assertEquals(1, fromAbstractView0.longVal());
+
+        assertEquals(1, fromAbstractView0.configFromAbstract().intVal());
+        assertFalse(fromAbstractView0.configFromAbstract().booleanVal());
+
+        // Checks for changes to each field.
+
+        rootFromAbstractConfig.longVal().update(2L).get(1, SECONDS);
+        rootFromAbstractConfig.strVal().update("2").get(1, SECONDS);
+
+        rootFromAbstractConfig.configFromAbstract().intVal().update(2).get(1, SECONDS);
+        rootFromAbstractConfig.configFromAbstract().booleanVal().update(true).get(1, SECONDS);
+
+        assertEquals("2", rootFromAbstractConfig.strVal().value());
+        assertEquals(2, rootFromAbstractConfig.longVal().value());
+
+        assertEquals(2, rootFromAbstractConfig.configFromAbstract().intVal().value());
+        assertTrue(rootFromAbstractConfig.configFromAbstract().booleanVal().value());
+    }
+
     /**
      * Test root configuration schema.
      */
@@ -827,5 +878,51 @@ public class ConfigurationAsmGeneratorTest {
      */
     @PolymorphicConfigInstance(PolyInjectedNameConfigurationSchema.SECOND)
     public static class PolyInst1InjectedNameConfigurationSchema extends PolyInjectedNameConfigurationSchema {
+    }
+
+    /**
+     * Simple abstract schema configuration for root configurations.
+     */
+    @AbstractConfiguration
+    public static class AbstractRootConfigurationSchema {
+        @Value(hasDefault = true)
+        public String strVal = "strVal";
+    }
+
+    /**
+     * Simple abstract schema configuration for configurations.
+     */
+    @AbstractConfiguration
+    public static class AbstractConfigurationSchema {
+        @InjectedName
+        public String name;
+
+        @InternalId
+        public UUID id;
+
+        @Value(hasDefault = true)
+        public int intVal = 100500;
+    }
+
+    /**
+     * Simple root configuration schema that extends {@link AbstractRootConfigurationSchema}.
+     */
+    @ConfigurationRoot(rootName = "rootFromAbstract")
+    public static class RootFromAbstractConfigurationSchema extends AbstractRootConfigurationSchema {
+        @Value(hasDefault = true)
+        public long longVal = 500100;
+
+        @Name("test")
+        @ConfigValue
+        public ConfigFromAbstractConfigurationSchema configFromAbstract;
+    }
+
+    /**
+     * Simple configuration schema that extends {@link AbstractRootConfigurationSchema}.
+     */
+    @Config
+    public static class ConfigFromAbstractConfigurationSchema extends AbstractConfigurationSchema {
+        @Value(hasDefault = true)
+        public boolean booleanVal = true;
     }
 }

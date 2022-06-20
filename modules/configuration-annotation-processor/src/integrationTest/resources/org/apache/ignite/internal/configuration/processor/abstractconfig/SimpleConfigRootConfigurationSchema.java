@@ -15,27 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.annotation;
+package org.apache.ignite.internal.configuration.processor.abstractconfig;
 
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * This annotation marks configuration schema field as a configuration tree node.
- * <pre><code>
- * {@literal @}Config
- *  public class FooConfigurationSchema {
- *      {@literal @}ConfigValue
- *       public SomeOtherConfiguration someOther;
- * }
- * </code></pre>
+ * An example of a simple configuration that extends {@link AbstractConfigConfigurationSchema}.
  */
-@Target(FIELD)
-@Retention(RUNTIME)
-@Documented
-public @interface ConfigValue {
+@ConfigurationRoot(rootName = "test")
+public class SimpleConfigRootConfigurationSchema extends AbstractRootConfigConfigurationSchema {
+    @Value
+    public long longVal;
 }

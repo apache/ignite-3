@@ -27,6 +27,7 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.ints.IntSets;
 import java.util.AbstractCollection;
+import java.util.AbstractList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -184,7 +185,6 @@ public final class CollectionUtils {
 
                 for (int i = 0; i < collections.length; i++) {
                     size += collections[i].size();
-
                 }
 
                 return size;
@@ -331,6 +331,66 @@ public final class CollectionUtils {
                 } else {
                     return curr.next();
                 }
+            }
+        };
+    }
+
+    /**
+     * Concatenates lists.
+     *
+     * @param lists Lists.
+     * @param <T> Type of the elements of lists.
+     * @return Immutable list concatenation.
+     */
+    @SafeVarargs
+    public static <T> List<T> concat(List<T>... lists) {
+        if (lists == null || lists.length == 0) {
+            return List.of();
+        }
+
+        return new AbstractList<>() {
+            /** {@inheritDoc} */
+            @Override
+            public T get(int index) {
+                for (List<T> list : lists) {
+                    if (index >= list.size()) {
+                        index -= list.size();
+                    } else {
+                        return list.get(index);
+                    }
+                }
+
+                throw new IndexOutOfBoundsException(index);
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public Iterator<T> iterator() {
+                return concat((Iterable<T>[]) lists).iterator();
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public int size() {
+                int size = 0;
+
+                for (List<T> list : lists) {
+                    size += list.size();
+                }
+
+                return size;
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public boolean contains(Object o) {
+                for (List<T> list : lists) {
+                    if (list.contains(o)) {
+                        return true;
+                    }
+                }
+
+                return false;
             }
         };
     }

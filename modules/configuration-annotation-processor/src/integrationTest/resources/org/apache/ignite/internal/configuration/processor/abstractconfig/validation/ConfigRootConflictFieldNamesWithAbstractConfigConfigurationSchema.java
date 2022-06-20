@@ -15,29 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor;
+package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
-import static org.apache.ignite.internal.configuration.processor.Utils.joinSimpleName;
-import static org.apache.ignite.internal.configuration.processor.Utils.simpleName;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.junit.jupiter.api.Test;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigConfigurationSchema;
 
 /**
- * Class for testing the {@link Utils}.
+ * Checks if the {@link ConfigurationRoot} conflicts in field names with {@link AbstractConfiguration}.
  */
-public class UtilsTest {
-    @Test
-    void testSimpleName() {
-        assertEquals("@Config", simpleName(Config.class));
-    }
-
-    @Test
-    void testJoinSimpleName() {
-        assertEquals("@Config", joinSimpleName(" and ", Config.class));
-        assertEquals("@Config or @ConfigurationRoot", joinSimpleName(" or ", Config.class, ConfigurationRoot.class));
-        assertEquals("", joinSimpleName(" or "));
-    }
+@ConfigurationRoot(rootName = "test")
+public class ConfigRootConflictFieldNamesWithAbstractConfigConfigurationSchema extends AbstractConfigConfigurationSchema {
+    @Value
+    public String name;
 }

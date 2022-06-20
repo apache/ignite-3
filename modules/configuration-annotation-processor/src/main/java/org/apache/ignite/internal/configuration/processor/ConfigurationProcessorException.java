@@ -15,27 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.annotation;
+package org.apache.ignite.internal.configuration.processor;
 
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * This annotation marks configuration schema field as a configuration tree node.
- * <pre><code>
- * {@literal @}Config
- *  public class FooConfigurationSchema {
- *      {@literal @}ConfigValue
- *       public SomeOtherConfiguration someOther;
- * }
- * </code></pre>
+ * Annotation processing exception.
  */
-@Target(FIELD)
-@Retention(RUNTIME)
-@Documented
-public @interface ConfigValue {
+public class ConfigurationProcessorException extends RuntimeException {
+    /**
+     * Constructor.
+     *
+     * @param message Error massage.
+     */
+    public ConfigurationProcessorException(String message) {
+        super(message);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param message Error message.
+     * @param cause Cause
+     */
+    public ConfigurationProcessorException(String message, @Nullable Throwable cause) {
+        super(message, cause);
+    }
 }

@@ -15,27 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.annotation;
+package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.InternalId;
+import org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigWithInternalIdConfigurationSchema;
 
 /**
- * This annotation marks configuration schema field as a configuration tree node.
- * <pre><code>
- * {@literal @}Config
- *  public class FooConfigurationSchema {
- *      {@literal @}ConfigValue
- *       public SomeOtherConfiguration someOther;
- * }
- * </code></pre>
+ * Checks that {@link ConfigurationRoot} should not extend {@link AbstractConfiguration} which has {@link InternalId}.
  */
-@Target(FIELD)
-@Retention(RUNTIME)
-@Documented
-public @interface ConfigValue {
+@ConfigurationRoot(rootName = "test")
+public class ConfigRootMustNotContainInternalIdInAbstractConfigConfigurationSchema extends AbstractConfigWithInternalIdConfigurationSchema {
 }
