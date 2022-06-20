@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.client.sql;
 
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ClientSqlColumnTypeConverter;
+import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.SqlColumnType;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Client column metadata.
@@ -29,29 +33,38 @@ public class ClientColumnMetadata implements ColumnMetadata {
     /** Name. */
     private final String name;
 
-    /** Value class. */
-    private final Class<?> valueClass;
-
     /** Type. */
-    private final Object type;
+    private final SqlColumnType type;
 
     /** Nullable flag. */
     private final boolean nullable;
+
+    /** Column precision. */
+    private final int precision;
+
+    /** Column scale. */
+    private final int scale;
+
+    /** Origin of the result's column. */
+    private final ColumnOrigin origin;
 
     /**
      * Constructor.
      *
      * @param unpacker Unpacker.
+     * @param prevColumns Previous columns.
      */
-    public ClientColumnMetadata(ClientMessageUnpacker unpacker) {
-        try {
-            name = unpacker.unpackString();
-            nullable = unpacker.unpackBoolean();
-            valueClass = Class.forName(unpacker.unpackString());
-            // TODO: IGNITE-17052 Unpack according to metadata type.
-            type = unpacker.unpackObjectWithType();
-        } catch (ClassNotFoundException e) {
-            throw new IgniteClientException(e.getMessage(), e);
+    public ClientColumnMetadata(ClientMessageUnpacker unpacker, List<ColumnMetadata> prevColumns) {
+        name = unpacker.unpackString();
+        nullable = unpacker.unpackBoolean();
+        type = ClientSqlColumnTypeConverter.ordinalToColumnType(unpacker.unpackInt());
+        scale = unpacker.unpackInt();
+        precision = unpacker.unpackInt();
+
+        if (unpacker.tryUnpackNil()) {
+            origin = null;
+        } else {
+            origin = new ClientColumnOrigin(unpacker, name, prevColumns);
         }
     }
 
@@ -64,27 +77,25 @@ public class ClientColumnMetadata implements ColumnMetadata {
     /** {@inheritDoc} */
     @Override
     public Class<?> valueClass() {
-        return valueClass;
+        return SqlColumnTypeConverter.columnTypeToClass(type);
     }
 
     /** {@inheritDoc} */
     @Override
     public SqlColumnType type() {
-        return (SqlColumnType) type;
+        return type;
     }
 
     /** {@inheritDoc} */
     @Override
     public int precision() {
-        // TODO: IGNITE-17052
-        return -1;
+        return precision;
     }
 
     /** {@inheritDoc} */
     @Override
     public int scale() {
-        // TODO: IGNITE-17052
-        return -1;
+        return scale;
     }
 
     /** {@inheritDoc} */
@@ -96,7 +107,6 @@ public class ClientColumnMetadata implements ColumnMetadata {
     /** {@inheritDoc} */
     @Override
     public ColumnOrigin origin() {
-        // TODO: IGNITE-17052
-        return null;
+        return origin;
     }
 }
