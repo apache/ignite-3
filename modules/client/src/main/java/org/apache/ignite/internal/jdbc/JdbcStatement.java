@@ -42,6 +42,7 @@ import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -150,17 +151,19 @@ public class JdbcStatement implements Statement {
 
         JdbcQueryExecuteResponse result = (JdbcQueryExecuteResponse) res;
 
-        for (JdbcQuerySingleResult jdbcRes : result.results()) {
+        JdbcQueryExecuteResult executeResult = result.result();
+
+        for (JdbcQuerySingleResult jdbcRes : executeResult.results()) {
             if (!jdbcRes.hasResults()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(jdbcRes.err(), jdbcRes.status());
             }
         }
 
-        resSets = new ArrayList<>(result.results().size());
+        resSets = new ArrayList<>(executeResult.results().size());
 
         JdbcQueryCursorHandler handler = new JdbcClientQueryCursorHandler(result.getChannel());
 
-        for (JdbcQuerySingleResult jdbcRes : result.results()) {
+        for (JdbcQuerySingleResult jdbcRes : executeResult.results()) {
             resSets.add(new JdbcResultSet(handler, this, jdbcRes.cursorId(), pageSize,
                     jdbcRes.last(), jdbcRes.items(), jdbcRes.isQuery(), false, jdbcRes.updateCount(),
                     closeOnCompletion));

@@ -17,13 +17,10 @@
 
 package org.apache.ignite.internal.jdbc;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.tostring.S;
 
@@ -31,8 +28,8 @@ import org.apache.ignite.internal.tostring.S;
  * JDBC query execute result.
  */
 public class JdbcQueryExecuteResponse extends Response {
-    /** Query result rows. */
-    private List<JdbcQuerySingleResult> results;
+    /** Query result. */
+    private JdbcQueryExecuteResult result;
 
     /** Client channel. */
     private final ClientChannel channel;
@@ -49,53 +46,24 @@ public class JdbcQueryExecuteResponse extends Response {
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
-        super.writeBinary(packer);
-
-        if (!hasResults) {
-            return;
-        }
-
-        packer.packArrayHeader(results.size());
-
-        for (JdbcQuerySingleResult result : results) {
-            result.writeBinary(packer);
-        }
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
-        super.readBinary(unpacker);
+        result = new JdbcQueryExecuteResult();
 
-        if (!hasResults) {
-            return;
-        }
-
-        int size = unpacker.unpackArrayHeader();
-
-        if (size == 0) {
-            results = Collections.emptyList();
-
-            return;
-        }
-
-        results = new ArrayList<>(size);
-
-        for (int i = 0; i < size; i++) {
-            var res = new JdbcQuerySingleResult();
-            res.readBinary(unpacker);
-
-            results.add(res);
-        }
+        result.readBinary(unpacker);
     }
 
     /**
      * Get the query results.
      *
-     * @return Query result rows.
+     * @return Query result.
      */
-    public List<JdbcQuerySingleResult> results() {
-        return results;
+    public JdbcQueryExecuteResult result() {
+        return result;
     }
 
     /** {@inheritDoc} */
