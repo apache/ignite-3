@@ -26,13 +26,19 @@ import org.apache.ignite.sql.SqlColumnType;
 class FakeColumnMetadata implements ColumnMetadata {
     private final String name;
 
+    private final SqlColumnType type;
+
     /**
      * Constructor.
      *
      * @param name Column name.
      */
-    FakeColumnMetadata(String name) {
+    FakeColumnMetadata(String name, SqlColumnType type) {
+        assert name != null;
+        assert type != null;
+
         this.name = name;
+        this.type = type;
     }
 
     /** {@inheritDoc} */
@@ -50,7 +56,7 @@ class FakeColumnMetadata implements ColumnMetadata {
     /** {@inheritDoc} */
     @Override
     public SqlColumnType type() {
-        return null;
+        return type;
     }
 
     /** {@inheritDoc} */

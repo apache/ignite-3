@@ -23,11 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.sql.Statement;
+
+import org.apache.ignite.sql.*;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -83,14 +80,14 @@ public class FakeAsyncResultSet implements AsyncResultSet {
 
             columns = new ArrayList<>();
 
-            columns.add(new FakeColumnMetadata("name"));
-            columns.add(new FakeColumnMetadata("val"));
+            columns.add(new FakeColumnMetadata("name", SqlColumnType.STRING));
+            columns.add(new FakeColumnMetadata("val", SqlColumnType.INT32));
         } else {
             rows = new ArrayList<>();
             rows.add(getRow(1));
 
             columns = new ArrayList<>();
-            columns.add(new FakeColumnMetadata("col1"));
+            columns.add(new FakeColumnMetadata("col1", SqlColumnType.STRING));
         }
     }
 
