@@ -18,22 +18,13 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.IgniteClientException;
-import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.NoRowSetExpectedException;
-import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.*;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.Transaction;
 import org.hamcrest.Matchers;
@@ -61,7 +52,10 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(1, row.intValue(0));
         assertEquals("hello", row.stringValue(1));
 
-        List<ColumnMetadata> columns = resultSet.metadata().columns();
+        ResultSetMetadata metadata = resultSet.metadata();
+        assertNotNull(metadata);
+
+        List<ColumnMetadata> columns = metadata.columns();
         assertEquals(2, columns.size());
         assertEquals("NUM", columns.get(0).name());
         assertEquals("STR", columns.get(1).name());
