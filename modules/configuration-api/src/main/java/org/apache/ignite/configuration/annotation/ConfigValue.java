@@ -34,7 +34,7 @@ import java.lang.annotation.Target;
  * }
  * </code></pre>
  */
-@Target({FIELD})
+@Target(FIELD)
 @Retention(RUNTIME)
 @Documented
 public @interface ConfigValue {

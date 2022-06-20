@@ -15,34 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
-import java.util.concurrent.TimeUnit;
+import java.util.UUID;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InternalId;
+import org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigConfigurationSchema;
 
 /**
- * Query timeout.
+ * Checks that {@link Config} must not contain a field with {@link InternalId} if {@link AbstractConfiguration} already has a field with
+ * {@link InternalId}.
  */
-public class QueryTimeout {
-    /** Timeout. */
-    private final long timeoutNanos;
-
-    /**
-     * Constructor.
-     *
-     * @param timeout Query timeout value.
-     * @param timeUnit Timeunit.
-     */
-    public QueryTimeout(long timeout, TimeUnit timeUnit) {
-        this.timeoutNanos = timeUnit.toNanos(timeout);
-    }
-
-    /**
-     * Return query timeout.
-     *
-     * @param timeUnit Timeunit to convert timeout to.
-     * @return Default query timeout in the given timeunit.
-     */
-    public long timeout(TimeUnit timeUnit) {
-        return timeUnit.convert(timeoutNanos, TimeUnit.NANOSECONDS);
-    }
+@Config
+public class ConfigMustNotContainInternalIdWithAbstractConfigConfigurationSchema extends AbstractConfigConfigurationSchema {
+    @InternalId
+    public UUID id0;
 }

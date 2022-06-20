@@ -17,31 +17,31 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.util.function.LongFunction;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.temporal.Temporal;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test Ignite SQL functions.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItFunctionsTest extends AbstractBasicIntegrationTest {
     private static final Object[] NULL_RESULT = new Object[] { null };
 
@@ -62,39 +62,40 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testCurrentDateTimeTimeStamp() {
-        checkDateTimeQuery("SELECT CURRENT_DATE", Date::new);
-        checkDateTimeQuery("SELECT CURRENT_TIME", Time::new);
-        checkDateTimeQuery("SELECT CURRENT_TIMESTAMP", Timestamp::new);
-        checkDateTimeQuery("SELECT LOCALTIME", Time::new);
-        checkDateTimeQuery("SELECT LOCALTIMESTAMP", Timestamp::new);
-        checkDateTimeQuery("SELECT {fn CURDATE()}", Date::new);
-        checkDateTimeQuery("SELECT {fn CURTIME()}", Time::new);
-        checkDateTimeQuery("SELECT {fn NOW()}", Timestamp::new);
+        checkDateTimeQuery("SELECT CURRENT_DATE", Clock.DATE_CLOCK, LocalDate.class);
+        checkDateTimeQuery("SELECT CURRENT_TIME", Clock.TIME_CLOCK, LocalTime.class);
+        checkDateTimeQuery("SELECT CURRENT_TIMESTAMP", Clock.DATE_TIME_CLOCK, LocalDateTime.class);
+        checkDateTimeQuery("SELECT LOCALTIME", Clock.TIME_CLOCK, LocalTime.class);
+        checkDateTimeQuery("SELECT LOCALTIMESTAMP", Clock.DATE_TIME_CLOCK, LocalDateTime.class);
+        checkDateTimeQuery("SELECT {fn CURDATE()}", Clock.DATE_CLOCK, LocalDate.class);
+        checkDateTimeQuery("SELECT {fn CURTIME()}", Clock.TIME_CLOCK, LocalTime.class);
+        checkDateTimeQuery("SELECT {fn NOW()}", Clock.DATE_TIME_CLOCK, LocalDateTime.class);
     }
 
-    private static <T> void checkDateTimeQuery(String sql, LongFunction<T> func) {
+    private static <T extends Temporal & Comparable<? super T>> void checkDateTimeQuery(String sql, Clock<T> clock, Class<T> cls) {
         while (true) {
-            long tsBeg = System.currentTimeMillis();
+            T tsBeg = clock.now();
 
             var res = sql(sql);
 
-            long tsEnd = System.currentTimeMillis();
+            T tsEnd = clock.now();
+
+            // Date changed, time comparison may return wrong result.
+            if (tsBeg.compareTo(tsEnd) > 0) {
+                continue;
+            }
 
             assertEquals(1, res.size());
             assertEquals(1, res.get(0).size());
 
-            String strBeg = func.apply(tsBeg).toString();
-            String strEnd = func.apply(tsEnd).toString();
+            Object time = res.get(0).get(0);
 
-            // Date changed, time comparison may return wrong result.
-            if (strBeg.compareTo(strEnd) > 0) {
-                continue;
-            }
+            assertThat(time, instanceOf(cls));
 
-            String strRes = res.get(0).get(0).toString();
+            var castedTime = cls.cast(time);
 
-            assertTrue(strBeg.compareTo(strRes) <= 0);
-            assertTrue(strEnd.compareTo(strRes) >= 0);
+            assertTrue(tsBeg.compareTo(castedTime) <= 0, format("exp ts:{}, act ts:{}", tsBeg, castedTime));
+            assertTrue(tsEnd.compareTo(castedTime) >= 0, format("exp ts:{}, act ts:{}", tsEnd, castedTime));
 
             return;
         }
@@ -135,7 +136,7 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
 
         assertTrue(
                 ex.getCause() instanceof IllegalArgumentException,
-                IgniteStringFormatter.format(
+                format(
                         "Expected cause is {}, but was {}",
                         IllegalArgumentException.class.getSimpleName(),
                         ex.getCause() == null ? null : ex.getCause().getClass().getSimpleName()
@@ -298,5 +299,40 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
         } catch (Throwable e) {
             assertTrue(IgniteTestUtils.hasCause(e, SqlValidatorException.class, "Invalid number of arguments"));
         }
+    }
+
+    /**
+     * An interface describing a clock reporting time in a specified temporal value.
+     *
+     * @param <T> A type of the temporal value returned by the clock.
+     */
+    private interface Clock<T extends Temporal & Comparable<? super T>> {
+        /**
+         * A clock reporting a local time.
+         */
+        Clock<LocalTime> TIME_CLOCK = () -> {
+            var tmp = LocalTime.now();
+
+            // need to erase millis because that is what we do when converting from internal types
+            // see: org.apache.ignite.internal.sql.engine.util.TypeUtils.fromInternal
+            return LocalTime.of(tmp.getHour(), tmp.getMinute(), tmp.getSecond());
+        };
+
+        /**
+         * A clock reporting a local date.
+         */
+        Clock<LocalDate> DATE_CLOCK = LocalDate::now;
+
+        /**
+         * A clock reporting a local datetime.
+         */
+        Clock<LocalDateTime> DATE_TIME_CLOCK = LocalDateTime::now;
+
+        /**
+         * Returns a temporal value representing the current moment.
+         *
+         * @return Current moment representing by a temporal value.
+         */
+        T now();
     }
 }

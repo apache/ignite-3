@@ -15,29 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor;
-
-import static org.apache.ignite.internal.configuration.processor.Utils.joinSimpleName;
-import static org.apache.ignite.internal.configuration.processor.Utils.simpleName;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+package org.apache.ignite.internal.configuration.processor.abstractconfig;
 
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.junit.jupiter.api.Test;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Class for testing the {@link Utils}.
+ * An example of a simple configuration that extends {@link AbstractConfigConfigurationSchema}.
  */
-public class UtilsTest {
-    @Test
-    void testSimpleName() {
-        assertEquals("@Config", simpleName(Config.class));
-    }
-
-    @Test
-    void testJoinSimpleName() {
-        assertEquals("@Config", joinSimpleName(" and ", Config.class));
-        assertEquals("@Config or @ConfigurationRoot", joinSimpleName(" or ", Config.class, ConfigurationRoot.class));
-        assertEquals("", joinSimpleName(" or "));
-    }
+@Config
+public class SimpleConfigConfigurationSchema extends AbstractConfigConfigurationSchema {
+    @Value
+    public long longVal;
 }

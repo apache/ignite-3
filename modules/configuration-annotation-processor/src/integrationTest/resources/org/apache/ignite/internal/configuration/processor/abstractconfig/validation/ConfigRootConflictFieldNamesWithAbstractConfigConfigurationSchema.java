@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor;
+package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
+
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigConfigurationSchema;
 
 /**
- * Annotation processing exception.
+ * Checks if the {@link ConfigurationRoot} conflicts in field names with {@link AbstractConfiguration}.
  */
-public class ProcessorException extends RuntimeException {
-    public ProcessorException(String message) {
-        super(message);
-    }
-
-    public ProcessorException(String message, Throwable cause) {
-        super(message, cause);
-    }
+@ConfigurationRoot(rootName = "test")
+public class ConfigRootConflictFieldNamesWithAbstractConfigConfigurationSchema extends AbstractConfigConfigurationSchema {
+    @Value
+    public String name;
 }
