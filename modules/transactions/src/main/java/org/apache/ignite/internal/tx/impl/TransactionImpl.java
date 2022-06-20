@@ -164,7 +164,7 @@ public class TransactionImpl implements InternalTransaction {
         for (Map.Entry<NetworkAddress, Set<String>> entry : tmp.entrySet()) {
             boolean local = address.equals(entry.getKey());
 
-            futs[i++] = txManager.finishRemote(entry.getKey(), id, commit, entry.getValue());
+            futs[i++] = txManager.finishRemote(entry.getKey(), commit, entry.getValue(), id);
 
             LOG.debug("finish [addr={}, commit={}, txId={}, local={}, groupIds={}",
                     address, commit, id, local, entry.getValue());

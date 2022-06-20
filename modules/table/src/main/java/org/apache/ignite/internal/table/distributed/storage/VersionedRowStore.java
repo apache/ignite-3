@@ -34,6 +34,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -519,7 +520,7 @@ public class VersionedRowStore {
      * @return The cursor.
      */
     public Cursor<BinaryRow> scan(Predicate<BinaryRow> pred) {
-        Cursor<BinaryRow> delegate = storage.scan(pred, Timestamp.nextVersion());
+        Cursor<BinaryRow> delegate = storage.scan(pred, new Timestamp(TxUtils.newTxId()));
 
         // TODO asch add tx support IGNITE-15087.
         return new Cursor<BinaryRow>() {

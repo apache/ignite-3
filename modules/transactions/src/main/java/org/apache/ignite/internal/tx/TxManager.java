@@ -90,7 +90,7 @@ public interface TxManager extends IgniteComponent {
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> writeLock(IgniteUuid lockId, byte[] row, ByteBuffer keyData, UUID txId);
+    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, UUID txId);
 
     /**
      * Acqures a read lock.
@@ -101,7 +101,7 @@ public interface TxManager extends IgniteComponent {
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> readLock(IgniteUuid lockId, byte[] row, ByteBuffer keyData, UUID txId);
+    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, UUID txId);
 
     /**
      * Returns a transaction state or starts a new in the PENDING state.
@@ -115,12 +115,12 @@ public interface TxManager extends IgniteComponent {
     /**
      * Finishes a dependant remote transactions.
      *
-     * @param txId Transaction id.
-     * @param addr The address.
+     * @param addr   The address.
      * @param commit {@code True} if a commit requested.
      * @param groups Enlisted partition groups.
+     * @param txId   Transaction id.
      */
-    CompletableFuture<Void> finishRemote(NetworkAddress addr, UUID txId, boolean commit, Set<String> groups);
+    CompletableFuture<Void> finishRemote(NetworkAddress addr, boolean commit, Set<String> groups, UUID txId);
 
     /**
      * Keys that are locked by the transaction.

@@ -35,9 +35,9 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxUtils;
 import org.apache.ignite.internal.tx.message.TxFinishRequest;
 import org.apache.ignite.internal.tx.message.TxFinishResponse;
 import org.apache.ignite.internal.tx.message.TxFinishResponseBuilder;
@@ -98,7 +98,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** {@inheritDoc} */
     @Override
     public InternalTransaction begin() {
-        UUID txId = Timestamp.nextId();
+        UUID txId = TxUtils.newTxId();
 
         states.put(txId, TxState.PENDING);
 
@@ -174,7 +174,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> writeLock(IgniteUuid lockId, byte[] row, ByteBuffer keyData, UUID txId) {
+    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, UUID txId) {
         // TODO IGNITE-15933 process tx messages in striped fasion to avoid races. But locks can be acquired from any thread !
         TxState state = state(txId);
 
@@ -184,15 +184,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
 
         // Should rollback tx on lock error.
-        LockKey key = new LockKey(lockId, row, keyData);
+        LockKey lockKey = new LockKey(lockId, keyData);
 
-        return lockManager.tryAcquire(key, txId)
-                .thenAccept(ignored -> recordLock(key, txId, Boolean.FALSE));
+        return lockManager.tryAcquire(lockKey, txId)
+                .thenAccept(ignored -> recordLock(lockKey, txId, Boolean.FALSE));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> readLock(IgniteUuid lockId, byte[] row, ByteBuffer keyData, UUID txId) {
+    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, UUID txId) {
         TxState state = state(txId);
 
         if (state != null && state != TxState.PENDING) {
@@ -200,10 +200,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     "The operation is attempted for completed transaction"));
         }
 
-        LockKey key = new LockKey(lockId, row, keyData);
+        LockKey lockKey = new LockKey(lockId, keyData);
 
-        return lockManager.tryAcquireShared(key, txId)
-                .thenAccept(ignored -> recordLock(key, txId, Boolean.TRUE));
+        return lockManager.tryAcquireShared(lockKey, txId)
+                .thenAccept(ignored -> recordLock(lockKey, txId, Boolean.TRUE));
     }
 
     /**
@@ -246,9 +246,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public CompletableFuture<Void> finishRemote(
             NetworkAddress addr,
-            UUID txId,
-            boolean commit,
-            Set<String> groups
+            boolean commit, Set<String> groups, UUID txId
     ) {
         assert groups != null && !groups.isEmpty();
 
@@ -275,7 +273,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         return locks.getOrDefault(txId, new HashMap<>()).entrySet().stream()
                 .filter(entry -> !entry.getValue())
                 .collect(Collectors.groupingBy(entry -> entry.getKey().id(),
-                        Collectors.mapping(entry -> entry.getKey().row, Collectors.toList())));
+                        Collectors.mapping(entry -> entry.getKey().keyBytes(), Collectors.toList())));
     }
 
     /** {@inheritDoc} */
@@ -303,10 +301,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         /** The id. */
         private final IgniteUuid id;
 
-        byte[] row;
-
         /** The key. */
         private final ByteBuffer key;
+
+        /**
+         * Key bytes.
+         * TODO: Remove the field after (IGNITE-14793).
+         */
+        private byte[] keyBytes;
 
         /**
          * The constructor.
@@ -314,10 +316,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
          * @param id The id.
          * @param key The key.
          */
-        LockKey(IgniteUuid id, byte[] row, ByteBuffer key) {
+        LockKey(IgniteUuid id, ByteBuffer key) {
             this.id = id;
-            this.row = row;
             this.key = key;
+
+            ByteBuffer key0 = key.duplicate();
+            byte[] keyBytes = new byte[key0.remaining()];
+            key0.get(keyBytes);
+
+            this.keyBytes = keyBytes;
         }
 
         /**
@@ -327,6 +334,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
          */
         public IgniteUuid id() {
             return id;
+        }
+
+        /**
+         * Key bytes.
+         *
+         * @return Key bytes.
+         */
+        public byte[] keyBytes() {
+            return keyBytes;
         }
 
         /** {@inheritDoc} */

@@ -457,7 +457,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 InternalTable internalTbl = tablesById.get(tblId).internalTable();
 
                 try {
-                    // TODO: IGNITE-16923 Remove assert after the ticket is resolved.
+                    // TODO: IGNITE-17197 Remove assert after the ticket is resolved.
                     assert internalTbl.storage() instanceof MvTableStorage :
                             "Only multi version storages are supported. Current storage is a " + internalTbl.storage().getClass().getName();
 
@@ -1250,7 +1250,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
 
-                    // TODO: IGNITE-16923 Remove assert after the ticket is resolved.
+                    // TODO: IGNITE-17197 Remove assert after the ticket is resolved.
                     assert tbl.internalTable().storage() instanceof MvTableStorage :
                             "Only multi version storages are supported. Current storage is a "
                                     + tbl.internalTable().storage().getClass().getName();

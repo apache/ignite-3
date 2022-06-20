@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 /**
  * For testing examples demonstrating work with {@link PageMemoryStorageEngine}.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-16923")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-17197")
 public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
     @Test
     public void testPersistentExample() throws Exception {

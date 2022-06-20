@@ -405,12 +405,12 @@ public class PartitionListener implements RaftGroupListener {
         boolean stateChanged = txManager.changeState(txId, TxState.PENDING, cmd.finish() ? TxState.COMMITED : TxState.ABORTED);
 
         if (txManager.state(txId) == TxState.COMMITED) {
-            cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(row -> {
-                storage.commitWrite(ByteBuffer.wrap(row), txId);
+            cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(key -> {
+                storage.commitWrite(ByteBuffer.wrap(key), txId);
             });
         } else if (txManager.state(txId) == TxState.ABORTED) {
-            cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(row -> {
-                storage.abortWrite(ByteBuffer.wrap(row));
+            cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(key -> {
+                storage.abortWrite(ByteBuffer.wrap(key));
             });
         }
 
@@ -545,12 +545,9 @@ public class PartitionListener implements RaftGroupListener {
         if (command instanceof SingleKeyCommand) {
             SingleKeyCommand cmd0 = (SingleKeyCommand) command;
 
-            byte[] arr = new byte[cmd0.getRow().keySlice().remaining()];
-            cmd0.getRow().keySlice().get(arr);
-
             return cmd0 instanceof ReadCommand
-                    ? txManager.readLock(lockId, arr, cmd0.getRow().keySlice(), cmd0.getTxId()) :
-                    txManager.writeLock(lockId, arr, cmd0.getRow().keySlice(), cmd0.getTxId());
+                    ? txManager.readLock(lockId, cmd0.getRow().keySlice(), cmd0.getTxId()) :
+                    txManager.writeLock(lockId, cmd0.getRow().keySlice(), cmd0.getTxId());
         } else if (command instanceof MultiKeyCommand) {
             MultiKeyCommand cmd0 = (MultiKeyCommand) command;
 
@@ -562,11 +559,8 @@ public class PartitionListener implements RaftGroupListener {
             boolean read = cmd0 instanceof ReadCommand;
 
             for (BinaryRow row : rows) {
-                byte[] arr = new byte[row.keySlice().remaining()];
-                row.keySlice().get(arr);
-
-                futs[i++] = read ? txManager.readLock(lockId, arr, row.keySlice(), cmd0.getTxId()) :
-                        txManager.writeLock(lockId, arr, row.keySlice(), cmd0.getTxId());
+                futs[i++] = read ? txManager.readLock(lockId, row.keySlice(), cmd0.getTxId()) :
+                        txManager.writeLock(lockId, row.keySlice(), cmd0.getTxId());
             }
 
             return CompletableFuture.allOf(futs);

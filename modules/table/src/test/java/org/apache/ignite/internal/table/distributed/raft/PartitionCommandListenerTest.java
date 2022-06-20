@@ -61,7 +61,7 @@ import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
-import org.apache.ignite.internal.tx.Timestamp;
+import org.apache.ignite.internal.tx.TxUtils;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -349,7 +349,7 @@ public class PartitionCommandListenerTest {
             }).when(clo).result(any(MultiRowsResponse.class));
 
             Set<BinaryRow> rows = new HashSet<>(KEY_COUNT);
-            UUID txId = Timestamp.nextId();
+            UUID txId = TxUtils.newTxId();
 
             for (int i = 0; i < KEY_COUNT; i++) {
                 Row row = getTestRow(i, i);
@@ -380,7 +380,7 @@ public class PartitionCommandListenerTest {
 
             Set<BinaryRow> rows = new HashSet<>(KEY_COUNT);
 
-            UUID txId = Timestamp.nextId();
+            UUID txId = TxUtils.newTxId();
 
             for (int i = 0; i < KEY_COUNT; i++) {
                 Row row = getTestRow(i, i);
@@ -390,7 +390,7 @@ public class PartitionCommandListenerTest {
                 txs.add(new IgniteBiTuple<>(row, txId));
             }
 
-            when(clo.command()).thenReturn(new UpsertAllCommand(rows, Timestamp.nextId()));
+            when(clo.command()).thenReturn(new UpsertAllCommand(rows, TxUtils.newTxId()));
         }));
 
         txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
@@ -427,7 +427,7 @@ public class PartitionCommandListenerTest {
 
             Set<BinaryRow> keyRows = new HashSet<>(KEY_COUNT);
 
-            UUID txId = Timestamp.nextId();
+            UUID txId = TxUtils.newTxId();
 
             for (int i = 0; i < KEY_COUNT; i++) {
                 Row row = getTestRow(i, i);
@@ -437,7 +437,7 @@ public class PartitionCommandListenerTest {
                 txs.add(new IgniteBiTuple<>(row, txId));
             }
 
-            when(clo.command()).thenReturn(new DeleteAllCommand(keyRows, Timestamp.nextId()));
+            when(clo.command()).thenReturn(new DeleteAllCommand(keyRows, TxUtils.newTxId()));
         }));
 
         txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
@@ -478,7 +478,7 @@ public class PartitionCommandListenerTest {
                 keyRows.add(getTestKey(i));
             }
 
-            when(clo.command()).thenReturn(new GetAllCommand(keyRows, Timestamp.nextId()));
+            when(clo.command()).thenReturn(new GetAllCommand(keyRows, TxUtils.newTxId()));
         }));
     }
 
@@ -489,7 +489,7 @@ public class PartitionCommandListenerTest {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextId();
+            UUID txId = TxUtils.newTxId();
             Row row = getTestRow(i, i);
             txs.add(new IgniteBiTuple<>(row, txId));
 
@@ -514,7 +514,7 @@ public class PartitionCommandListenerTest {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextId();
+            UUID txId = TxUtils.newTxId();
             Row row = getTestRow(i, i);
             txs.add(new IgniteBiTuple<>(row, txId));
 
@@ -547,7 +547,7 @@ public class PartitionCommandListenerTest {
      */
     private void readAndCheck(boolean existed, Function<Integer, Integer> keyValueMapper) {
         commandListener.onRead(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new GetCommand(getTestKey(i), Timestamp.nextId()));
+            when(clo.command()).thenReturn(new GetCommand(getTestKey(i), TxUtils.newTxId()));
 
             doAnswer(invocation -> {
                 SingleRowResponse resp = invocation.getArgument(0);
@@ -579,7 +579,7 @@ public class PartitionCommandListenerTest {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextId();
+            UUID txId = TxUtils.newTxId();
             Row row = getTestRow(i, i);
             txs.add(new IgniteBiTuple<>(row, txId));
 
@@ -604,7 +604,7 @@ public class PartitionCommandListenerTest {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(batchIterator(clo -> {
-            UUID txId = Timestamp.nextId();
+            UUID txId = TxUtils.newTxId();
 
             HashSet rows = new HashSet(KEY_COUNT);
 
@@ -653,7 +653,7 @@ public class PartitionCommandListenerTest {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextId();
+            UUID txId = TxUtils.newTxId();
             Row row = getTestRow(i, i + 1);
             txs.add(new IgniteBiTuple<>(row, txId));
 
@@ -687,7 +687,7 @@ public class PartitionCommandListenerTest {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextId();
+            UUID txId = TxUtils.newTxId();
             Row row = getTestRow(i, i);
             txs.add(new IgniteBiTuple<>(row, txId));
 
@@ -721,7 +721,7 @@ public class PartitionCommandListenerTest {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextId();
+            UUID txId = TxUtils.newTxId();
             Row row = getTestRow(i, i);
             txs.add(new IgniteBiTuple<>(row, txId));
 
@@ -755,11 +755,11 @@ public class PartitionCommandListenerTest {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextId();
+            UUID txId = TxUtils.newTxId();
             Row row = getTestRow(i, i + 1);
             txs.add(new IgniteBiTuple<>(row, txId));
 
-            when(clo.command()).thenReturn(new ReplaceIfExistCommand(row, Timestamp.nextId()));
+            when(clo.command()).thenReturn(new ReplaceIfExistCommand(row, TxUtils.newTxId()));
 
             doAnswer(invocation -> {
                 boolean result = invocation.getArgument(0);
@@ -782,7 +782,7 @@ public class PartitionCommandListenerTest {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextId();
+            UUID txId = TxUtils.newTxId();
             Row row = getTestRow(i, i + 1);
             txs.add(new IgniteBiTuple<>(row, txId));
 
@@ -809,7 +809,7 @@ public class PartitionCommandListenerTest {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(iterator((i, clo) -> {
-            UUID txId = Timestamp.nextId();
+            UUID txId = TxUtils.newTxId();
             Row row = getTestRow(i, i);
             txs.add(new IgniteBiTuple<>(row, txId));
 
