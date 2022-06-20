@@ -179,6 +179,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
                 return buf.readInt();
 
             default:
+                buf.readerIndex(buf.readerIndex() - 1);
                 return defaultValue;
         }
     }
