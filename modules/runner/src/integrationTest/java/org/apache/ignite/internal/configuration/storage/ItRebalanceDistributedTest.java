@@ -482,7 +482,7 @@ public class ItRebalanceDistributedTest {
                     schemaManager);
 
             //TODO: Get rid of it after IGNITE-17062.
-            sqlQueryProcessor = new SqlQueryProcessor(registry, clusterService, tableManager, dataStorageMgr, Map::of);
+            sqlQueryProcessor = new SqlQueryProcessor(registry, clusterService, tableManager, schemaManager, dataStorageMgr, Map::of);
         }
 
         /**
