@@ -352,9 +352,7 @@ public final class CollectionUtils {
             /** {@inheritDoc} */
             @Override
             public T get(int index) {
-                for (int i = 0; i < lists.length; i++) {
-                    List<T> list = lists[i];
-
+                for (List<T> list : lists) {
                     if (index >= list.size()) {
                         index -= list.size();
                     } else {
@@ -376,8 +374,8 @@ public final class CollectionUtils {
             public int size() {
                 int size = 0;
 
-                for (int i = 0; i < lists.length; i++) {
-                    size += lists[i].size();
+                for (List<T> list : lists) {
+                    size += list.size();
                 }
 
                 return size;
@@ -386,8 +384,8 @@ public final class CollectionUtils {
             /** {@inheritDoc} */
             @Override
             public boolean contains(Object o) {
-                for (int i = 0; i < lists.length; i++) {
-                    if (lists[i].contains(o)) {
+                for (List<T> list : lists) {
+                    if (list.contains(o)) {
                         return true;
                     }
                 }
