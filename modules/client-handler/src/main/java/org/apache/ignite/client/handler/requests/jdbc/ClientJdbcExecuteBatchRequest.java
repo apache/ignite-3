@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
-import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 
 /**
  * Client jdbc request handler.
@@ -40,7 +40,7 @@ public class ClientJdbcExecuteBatchRequest {
             ClientMessagePacker out,
             JdbcQueryEventHandler handler
     ) {
-        var req = new BatchExecuteRequest();
+        var req = new JdbcBatchExecuteRequest();
 
         req.readBinary(in);
 
