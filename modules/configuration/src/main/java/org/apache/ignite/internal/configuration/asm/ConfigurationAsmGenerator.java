@@ -437,7 +437,7 @@ public class ConfigurationAsmGenerator {
             Class<?> schemaSuperClass = schemaClass.getSuperclass();
 
             List<Field> schemaFields = isAbstractConfiguration(schemaSuperClass)
-                    ? union(schemaFields(schemaClass), schemaFields(schemaSuperClass))
+                    ? concat(schemaFields(schemaClass), schemaFields(schemaSuperClass))
                     : schemaFields(schemaClass);
 
             Collection<Field> internalExtensionsFields = extensionsFields(internalExtensions, true);
@@ -3427,14 +3427,14 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Adds an override for the {@link InnerNode#isExtendAbstractConfiguration()} method that returns {@code true}.
+     * Adds an override for the {@link InnerNode#extendsAbstractConfiguration()} method that returns {@code true}.
      *
      * @param innerNodeClassDef {@link InnerNode} class definition.
      */
     private static void addIsExtendAbstractConfigurationMethod(ClassDefinition innerNodeClassDef) {
         MethodDefinition mtd = innerNodeClassDef.declareMethod(
                 of(PUBLIC),
-                "isExtendAbstractConfiguration",
+                "extendsAbstractConfiguration",
                 type(boolean.class)
         );
 

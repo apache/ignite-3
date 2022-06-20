@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 
 /**
- * Checks that there should not be a superclass.
+ * Checks that the config schema with {@link AbstractConfiguration} will not extend other classes.
  */
 @AbstractConfiguration
 public class MustNotBeSuperClassConfigurationSchema extends ArrayList {

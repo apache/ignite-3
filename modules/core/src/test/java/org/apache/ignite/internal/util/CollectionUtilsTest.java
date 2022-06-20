@@ -178,7 +178,7 @@ public class CollectionUtilsTest {
     void testCollectionUnion() {
         assertTrue(union(new Collection[0]).isEmpty());
         assertTrue(union((Collection<Object>[]) null).isEmpty());
-        assertTrue(union((Collection<Object>) List.of()).isEmpty());
+        assertTrue(union(List.of()).isEmpty());
 
         assertEquals(List.of(1), collect(union(List.of(1), Set.of())));
         assertEquals(List.of(1), collect(union(List.of(), Set.of(1))));
@@ -187,19 +187,19 @@ public class CollectionUtilsTest {
         assertEquals(List.of(1, 2, 2), collect(union(List.of(1), List.of(2), Set.of(2))));
 
         assertFalse(union(new Collection[0]).contains(0));
-        assertFalse(union((Collection<Object>) List.of()).contains(0));
-        assertFalse(union((Collection<Integer>) List.of(1)).contains(0));
+        assertFalse(union(List.of()).contains(0));
+        assertFalse(union(List.of(1)).contains(0));
         assertFalse(union(List.of(1), Set.of()).contains(0));
         assertFalse(union(List.of(), Set.of(1)).contains(0));
         assertFalse(union(List.of(1), Set.of(2, 3)).contains(0));
 
-        assertTrue(union((Collection<Integer>) List.of(0)).contains(0));
+        assertTrue(union(List.of(0)).contains(0));
         assertTrue(union(List.of(), Set.of(0)).contains(0));
         assertTrue(union(List.of(0), Set.of()).contains(0));
 
         assertEquals(0, union(new Collection[0]).size());
-        assertEquals(0, union((Collection<Object>) List.of()).size());
-        assertEquals(1, union((Collection<Integer>) List.of(1)).size());
+        assertEquals(0, union(List.of()).size());
+        assertEquals(1, union(List.of(1)).size());
         assertEquals(1, union(List.of(), Set.of(1)).size());
         assertEquals(1, union(List.of(1), Set.of()).size());
         assertEquals(2, union(List.of(1), Set.of(2)).size());
@@ -270,46 +270,46 @@ public class CollectionUtilsTest {
     }
 
     @Test
-    void testListUnion() {
-        assertTrue(union(new List[0]).isEmpty());
-        assertTrue(union((List<Object>[]) null).isEmpty());
-        assertTrue(union(List.of()).isEmpty());
+    void testConcatList() {
+        assertTrue(concat(new List[0]).isEmpty());
+        assertTrue(concat((List<Object>[]) null).isEmpty());
+        assertTrue(concat((List<Object>) List.of()).isEmpty());
 
-        assertEquals(List.of(1), collect(union(List.of(1), List.of())));
-        assertEquals(List.of(1), collect(union(List.of(), List.of(1))));
+        assertEquals(List.of(1), concat(List.of(1), List.of()));
+        assertEquals(List.of(1), concat(List.of(), List.of(1)));
 
-        assertEquals(List.of(1, 2), collect(union(List.of(1), List.of(2))));
-        assertEquals(List.of(1, 2, 2), collect(union(List.of(1), List.of(2), List.of(2))));
+        assertEquals(List.of(1, 2), concat(List.of(1), List.of(2)));
+        assertEquals(List.of(1, 2, 2), concat(List.of(1), List.of(2), List.of(2)));
 
-        assertFalse(union(new List[0]).contains(0));
-        assertFalse(union(List.of()).contains(0));
-        assertFalse(union(List.of(1)).contains(0));
-        assertFalse(union(List.of(1), List.of()).contains(0));
-        assertFalse(union(List.of(), List.of(1)).contains(0));
-        assertFalse(union(List.of(1), List.of(2, 3)).contains(0));
+        assertFalse(concat(new List[0]).contains(0));
+        assertFalse(concat((List<Object>) List.of()).contains(0));
+        assertFalse(concat(List.of(1)).contains(0));
+        assertFalse(concat(List.of(1), List.of()).contains(0));
+        assertFalse(concat(List.of(), List.of(1)).contains(0));
+        assertFalse(concat(List.of(1), List.of(2, 3)).contains(0));
 
-        assertTrue(union(List.of(0)).contains(0));
-        assertTrue(union(List.of(), List.of(0)).contains(0));
-        assertTrue(union(List.of(0), List.of()).contains(0));
+        assertTrue(concat(List.of(0)).contains(0));
+        assertTrue(concat(List.of(), List.of(0)).contains(0));
+        assertTrue(concat(List.of(0), List.of()).contains(0));
 
-        assertEquals(0, union(new List[0]).size());
-        assertEquals(0, union(List.of()).size());
-        assertEquals(1, union(List.of(1)).size());
-        assertEquals(1, union(List.of(), List.of(1)).size());
-        assertEquals(1, union(List.of(1), List.of()).size());
-        assertEquals(2, union(List.of(1), List.of(2)).size());
-        assertEquals(3, union(List.of(1), List.of(2, 3)).size());
-        assertEquals(5, union(List.of(1, 4, 5), List.of(2, 3)).size());
+        assertEquals(0, concat(new List[0]).size());
+        assertEquals(0, concat((List<Object>) List.of()).size());
+        assertEquals(1, concat(List.of(1)).size());
+        assertEquals(1, concat(List.of(), List.of(1)).size());
+        assertEquals(1, concat(List.of(1), List.of()).size());
+        assertEquals(2, concat(List.of(1), List.of(2)).size());
+        assertEquals(3, concat(List.of(1), List.of(2, 3)).size());
+        assertEquals(5, concat(List.of(1, 4, 5), List.of(2, 3)).size());
 
         List<Integer> integers = new ArrayList<>(List.of(1, 2, 3));
 
-        List<Integer> union0 = union(integers);
+        List<Integer> union0 = concat(integers);
 
         integers.remove(1);
 
         assertEquals(2, union0.size());
 
-        List<Integer> union1 = union(List.of(0), List.of(1, 2), List.of(3, 4, 5));
+        List<Integer> union1 = concat(List.of(0), List.of(1, 2), List.of(3, 4, 5));
 
         assertEquals(0, union1.get(0));
         assertEquals(1, union1.get(1));

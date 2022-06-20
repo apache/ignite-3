@@ -250,7 +250,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     /**
      * Returns {@code true} if the config schema extends {@link AbstractConfiguration}.
      */
-    public boolean isExtendAbstractConfiguration() {
+    public boolean extendsAbstractConfiguration() {
         return false;
     }
 }

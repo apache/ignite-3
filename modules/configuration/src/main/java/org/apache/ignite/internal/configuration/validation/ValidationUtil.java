@@ -191,7 +191,7 @@ public class ValidationUtil {
     private static @Nullable Field findSchemaField(InnerNode innerNode, String schemaFieldName) throws NoSuchFieldException {
         Class<?> schemaType = innerNode.schemaType();
 
-        if (innerNode.isPolymorphic() || innerNode.isExtendAbstractConfiguration()) {
+        if (innerNode.isPolymorphic() || innerNode.extendsAbstractConfiguration()) {
             // Linear search to not fight with NoSuchFieldException.
             for (Field field : schemaType.getDeclaredFields()) {
                 if (field.getName().equals(schemaFieldName)) {

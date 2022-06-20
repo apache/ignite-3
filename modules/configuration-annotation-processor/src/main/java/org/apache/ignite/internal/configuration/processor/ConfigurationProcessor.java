@@ -24,15 +24,15 @@ import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.collectFieldsWithAnnotation;
-import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.findFirst;
+import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.findFirstPresentAnnotation;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getChangeName;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getConfigurationInterfaceName;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getViewName;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.joinSimpleName;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.simpleName;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
-import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
 import com.squareup.javapoet.ClassName;
@@ -49,6 +49,7 @@ import java.io.StringWriter;
 import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -62,7 +63,6 @@ import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.ArrayType;
-import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
@@ -386,8 +386,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
                 && superClass.getAnnotation(AbstractConfiguration.class) != null;
 
         if (extendBaseSchema || isSuperClassAbstractConfiguration) {
-            DeclaredType superClassType = (DeclaredType) superClass.asType();
-            ClassName superClassSchemaClassName = ClassName.get((TypeElement) superClassType.asElement());
+            ClassName superClassSchemaClassName = ClassName.get(superClass);
 
             viewBaseSchemaInterfaceType = getViewName(superClassSchemaClassName);
             changeBaseSchemaInterfaceType = getChangeName(superClassSchemaClassName);
@@ -849,12 +848,12 @@ public class ConfigurationProcessor extends AbstractProcessor {
         assert clazz.getAnnotation(clazzAnnotation) != null : clazz.getQualifiedName();
         assert !nullOrEmpty(incompatibleAnnotations);
 
-        Annotation incompatible = findFirst(clazz, incompatibleAnnotations);
+        Optional<? extends Annotation> incompatible = findFirstPresentAnnotation(clazz, incompatibleAnnotations);
 
-        if (incompatible != null) {
+        if (incompatible.isPresent()) {
             throw new ConfigurationProcessorException(String.format(
                     "Class with %s is not allowed with %s: %s",
-                    simpleName(incompatible.annotationType()),
+                    simpleName(incompatible.get().annotationType()),
                     simpleName(clazzAnnotation),
                     clazz.getQualifiedName()
             ));
@@ -1018,7 +1017,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
             ));
         }
 
-        if (findFirst(clazz, Config.class, PolymorphicConfig.class, AbstractConfiguration.class) == null) {
+        if (findFirstPresentAnnotation(clazz, Config.class, PolymorphicConfig.class, AbstractConfiguration.class).isEmpty()) {
             throw new ConfigurationProcessorException(String.format(
                     "%s %s.%s can only be present in a class annotated with %s",
                     simpleName(InjectedName.class),
@@ -1070,8 +1069,9 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
         List<VariableElement> fields;
 
-        if (!isClass(superClassFieldType.asType(), Object.class) && findFirst(superClassFieldType, AbstractConfiguration.class) != null) {
-            fields = union(
+        if (!isClass(superClassFieldType.asType(), Object.class)
+                && findFirstPresentAnnotation(superClassFieldType, AbstractConfiguration.class).isPresent()) {
+            fields = concat(
                     collectFieldsWithAnnotation(fields(fieldType), InjectedName.class),
                     collectFieldsWithAnnotation(fields(superClassFieldType), InjectedName.class)
             );
@@ -1204,6 +1204,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
         }
     }
 
+    @SafeVarargs
     private Class<? extends Annotation>[] incompatibleSchemaClassAnnotations(Class<? extends Annotation>... compatibleAnnotations) {
         return difference(supportedAnnotationTypes(), Set.of(compatibleAnnotations)).toArray(Class[]::new);
     }

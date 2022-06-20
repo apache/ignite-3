@@ -646,11 +646,9 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
      * @param pattern Error message pattern.
      * @throws AssertionFailedError If failed.
      */
-    private void assertThrowsEx(Class<? extends Throwable> expErrCls, Executable exec, @Nullable Pattern pattern) {
+    private void assertThrowsEx(Class<? extends Throwable> expErrCls, Executable exec, Pattern pattern) {
         Throwable t = assertThrows(expErrCls, exec);
 
-        if (pattern != null) {
-            assertThat(t.getMessage().replaceAll("[\\r\\n]", " "), matchesRegex(pattern));
-        }
+        assertThat(t.getMessage().replaceAll("[\\r\\n]", " "), matchesRegex(pattern));
     }
 }

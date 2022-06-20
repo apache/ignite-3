@@ -25,17 +25,17 @@ import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Annotation processing utilities.
  */
 class ConfigurationProcessorUtils {
     /**
-     * Get {@link ClassName} for configuration class' public interface.
+     * Returns {@link ClassName} for configuration class public interface.
      *
      * @param schemaClassName Configuration schema ClassName.
      */
@@ -47,7 +47,7 @@ class ConfigurationProcessorUtils {
     }
 
     /**
-     * Get {@link ClassName} for configuration VIEW object class.
+     * Returns {@link ClassName} for configuration VIEW object class.
      *
      * @param schemaClassName Configuration schema ClassName.
      */
@@ -59,7 +59,7 @@ class ConfigurationProcessorUtils {
     }
 
     /**
-     * Get {@link ClassName} for configuration CHANGE object class.
+     * Returns {@link ClassName} for configuration CHANGE object class.
      *
      * @param schemaClassName Configuration schema ClassName.
      */
@@ -80,7 +80,7 @@ class ConfigurationProcessorUtils {
     }
 
     /**
-     * Create a string with simple annotation names like: {@code @Config} and {@code @PolymorphicConfig}.
+     * Creates a string with simple annotation names like: {@code @Config} and {@code @PolymorphicConfig}.
      *
      * @param delimiter Delimiter between elements.
      * @param annotations Annotations.
@@ -97,11 +97,11 @@ class ConfigurationProcessorUtils {
      * @param annotationClasses Annotation classes that will be searched for the class.
      */
     @SafeVarargs
-    public static @Nullable Annotation findFirst(
+    public static Optional<? extends Annotation> findFirstPresentAnnotation(
             TypeElement clazz,
             Class<? extends Annotation>... annotationClasses
     ) {
-        return Stream.of(annotationClasses).map(clazz::getAnnotation).filter(Objects::nonNull).findFirst().orElse(null);
+        return Stream.of(annotationClasses).map(clazz::getAnnotation).filter(Objects::nonNull).findFirst();
     }
 
     /**

@@ -205,68 +205,6 @@ public final class CollectionUtils {
     }
 
     /**
-     * Union lists.
-     *
-     * @param lists Lists.
-     * @param <T> Type of the elements of lists.
-     * @return Immutable union of lists.
-     */
-    @SafeVarargs
-    public static <T> List<T> union(List<T>... lists) {
-        if (lists == null || lists.length == 0) {
-            return List.of();
-        }
-
-        return new AbstractList<>() {
-            /** {@inheritDoc} */
-            @Override
-            public T get(int index) {
-                for (int i = 0; i < lists.length; i++) {
-                    List<T> list = lists[i];
-
-                    if (index >= list.size()) {
-                        index -= list.size();
-                    } else {
-                        return list.get(index);
-                    }
-                }
-
-                throw new IndexOutOfBoundsException(index);
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public Iterator<T> iterator() {
-                return concat(lists).iterator();
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public int size() {
-                int size = 0;
-
-                for (int i = 0; i < lists.length; i++) {
-                    size += lists[i].size();
-                }
-
-                return size;
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public boolean contains(Object o) {
-                for (int i = 0; i < lists.length; i++) {
-                    if (lists[i].contains(o)) {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-        };
-    }
-
-    /**
      * Create a lazy concatenation of iterables.
      *
      * <p>NOTE: {@link Iterator#remove} - not supported.
@@ -393,6 +331,68 @@ public final class CollectionUtils {
                 } else {
                     return curr.next();
                 }
+            }
+        };
+    }
+
+    /**
+     * Concatenates lists.
+     *
+     * @param lists Lists.
+     * @param <T> Type of the elements of lists.
+     * @return Immutable list concatenation.
+     */
+    @SafeVarargs
+    public static <T> List<T> concat(List<T>... lists) {
+        if (lists == null || lists.length == 0) {
+            return List.of();
+        }
+
+        return new AbstractList<>() {
+            /** {@inheritDoc} */
+            @Override
+            public T get(int index) {
+                for (int i = 0; i < lists.length; i++) {
+                    List<T> list = lists[i];
+
+                    if (index >= list.size()) {
+                        index -= list.size();
+                    } else {
+                        return list.get(index);
+                    }
+                }
+
+                throw new IndexOutOfBoundsException(index);
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public Iterator<T> iterator() {
+                return concat((Iterable<T>[]) lists).iterator();
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public int size() {
+                int size = 0;
+
+                for (int i = 0; i < lists.length; i++) {
+                    size += lists[i].size();
+                }
+
+                return size;
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public boolean contains(Object o) {
+                for (int i = 0; i < lists.length; i++) {
+                    if (lists[i].contains(o)) {
+                        return true;
+                    }
+                }
+
+                return false;
             }
         };
     }
