@@ -156,8 +156,9 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         Session session = client().sql().createSession();
 
         // Create table.
-        ResultSet createRes = session
-                .execute(null, "CREATE TABLE testExecuteDdlDml(ID INT PRIMARY KEY, VAL VARCHAR)");
+        ResultSet createRes = session.execute(
+                null,
+                "CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR)");
 
         assertFalse(createRes.hasRowSet());
         assertNull(createRes.metadata());
@@ -166,8 +167,9 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         // Insert data.
         for (int i = 0; i < 10; i++) {
-            ResultSet insertRes = session
-                    .execute(null, "INSERT INTO testExecuteDdlDml VALUES (?, ?)", i, "hello " + i);
+            ResultSet insertRes = session.execute(
+                    null,
+                    "INSERT INTO testExecuteDdlDml VALUES (?, ?)", i, "hello " + i);
 
             assertFalse(insertRes.hasRowSet());
             assertNull(insertRes.metadata());
@@ -195,6 +197,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals("ID", columns.get(1).origin().columnName());
         assertEquals("PUBLIC", columns.get(1).origin().schemaName());
         assertEquals("TESTEXECUTEDDLDML", columns.get(1).origin().tableName());
+        assertFalse(columns.get(1).nullable());
 
         assertEquals("ID + 1", columns.get(2).name());
         assertNull(columns.get(2).origin());
