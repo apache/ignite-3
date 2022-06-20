@@ -57,7 +57,7 @@ public class ClientColumnOrigin implements ColumnMetadata.ColumnOrigin {
         //noinspection ConstantConditions
         this.tableName = tableNameIdx == -1
                 ? unpacker.unpackString()
-                : prevColumns.get(schemaNameIdx).origin().tableName();
+                : prevColumns.get(tableNameIdx).origin().tableName();
     }
 
     /** {@inheritDoc} */

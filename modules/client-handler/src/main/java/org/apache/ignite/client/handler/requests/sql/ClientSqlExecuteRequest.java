@@ -211,7 +211,7 @@ public class ClientSqlExecuteRequest {
                 out.packInt(schemaIdx);
             }
 
-            Integer tableIdx = tables.get(origin.schemaName());
+            Integer tableIdx = tables.get(origin.tableName());
 
             if (tableIdx == null) {
                 tables.put(origin.tableName(), i);
