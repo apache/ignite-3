@@ -346,6 +346,12 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         }
     }
 
+    /**
+     * Returns schema registry by table id.
+     *
+     * @param tableId Table id.
+     * @return Schema registry.
+     */
     public SchemaRegistry schemaRegistry(UUID tableId) {
         return registriesVv.latest().get(tableId);
     }

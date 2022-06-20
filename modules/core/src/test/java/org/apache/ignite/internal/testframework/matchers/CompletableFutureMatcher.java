@@ -38,35 +38,20 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
     /** Matcher to forward the result of the completable future. */
     private final Matcher<T> matcher;
 
-    private final int timeout;
-
-    private final TimeUnit timeUnit;
-
     /**
      * Constructor.
      *
      * @param matcher Matcher to forward the result of the completable future.
      */
     private CompletableFutureMatcher(Matcher<T> matcher) {
-        this(matcher, TIMEOUT_SECONDS, TimeUnit.SECONDS);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param matcher Matcher to forward the result of the completable future.
-     */
-    private CompletableFutureMatcher(Matcher<T> matcher, int timeout, TimeUnit timeUnit) {
         this.matcher = matcher;
-        this.timeout = timeout;
-        this.timeUnit = timeUnit;
     }
 
     /** {@inheritDoc} */
     @Override
     protected boolean matchesSafely(CompletableFuture<? extends T> item) {
         try {
-            return matcher.matches(item.get(timeout, timeUnit));
+            return matcher.matches(item.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new AssertionError(e);
         }
@@ -95,10 +80,6 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
         return willBe(anything());
     }
 
-    public static CompletableFutureMatcher<Object> willCompleteSuccessfully(int timeout, TimeUnit timeUnit) {
-        return willBe(anything(), timeout, timeUnit);
-    }
-
     /**
      * A shorter version of {@link #willBe} to be used with some matchers for aesthetical reasons.
      */
@@ -113,15 +94,6 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      */
     public static <T> CompletableFutureMatcher<T> willBe(Matcher<T> matcher) {
         return new CompletableFutureMatcher<>(matcher);
-    }
-
-    /**
-     * Factory method.
-     *
-     * @param matcher matcher to forward the result of the completable future.
-     */
-    public static <T> CompletableFutureMatcher<T> willBe(Matcher<T> matcher, int timeout, TimeUnit timeUnit) {
-        return new CompletableFutureMatcher<>(matcher, timeout, timeUnit);
     }
 
     /**

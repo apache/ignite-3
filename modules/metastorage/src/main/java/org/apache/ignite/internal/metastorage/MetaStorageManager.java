@@ -32,7 +32,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.client.CompactedException;
 import org.apache.ignite.internal.metastorage.client.Condition;
 import org.apache.ignite.internal.metastorage.client.Entry;

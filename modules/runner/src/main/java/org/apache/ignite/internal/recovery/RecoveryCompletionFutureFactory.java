@@ -34,15 +34,15 @@ public class RecoveryCompletionFutureFactory {
      * @return Recovery completion future.
      */
     public static CompletableFuture<Void> create(
-        ConfigurationManager clusterCfgMgr,
-        Function<CompletableFuture<Void>, ConfigurationStorageRevisionListener> listenerProvider
+            ConfigurationManager clusterCfgMgr,
+            Function<CompletableFuture<Void>, ConfigurationStorageRevisionListener> listenerProvider
     ) {
         CompletableFuture<Void> configCatchUpFuture = new CompletableFuture<>();
 
         ConfigurationStorageRevisionListener listener = listenerProvider.apply(configCatchUpFuture);
 
         CompletableFuture<Void> recoveryCompletionFuture =
-            configCatchUpFuture.thenRun(() -> clusterCfgMgr.configurationRegistry().stopListenUpdateStorageRevision(listener));
+                configCatchUpFuture.thenRun(() -> clusterCfgMgr.configurationRegistry().stopListenUpdateStorageRevision(listener));
 
         clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(listener);
 

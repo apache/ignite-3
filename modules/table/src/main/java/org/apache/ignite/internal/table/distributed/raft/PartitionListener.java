@@ -209,17 +209,7 @@ public class PartitionListener implements RaftGroupListener {
      * @return Result.
      */
     private SingleRowResponse handleGetCommand(GetCommand cmd) {
-        System.out.println("qqq get command begin");
-        try {
-            return new SingleRowResponse(storage.get(cmd.getRow(), cmd.getTimestamp()));
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-            throw  e;
-        }
-        finally {
-            System.out.println("qqq get command end");
-        }
+        return new SingleRowResponse(storage.get(cmd.getRow(), cmd.getTimestamp()));
     }
 
     /**

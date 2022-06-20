@@ -375,7 +375,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                             TxFinishResponseBuilder resp = FACTORY.txFinishResponse();
 
                             if (err != null) {
-                                System.out.println("qqqq " + err.getMessage());
                                 resp.errorMessage(err.getMessage());
                             }
 

@@ -364,7 +364,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                     return configurationCatchUpFuture;
                 });
 
-        assertThat(startFuture, willCompleteSuccessfully(60, TimeUnit.SECONDS));
+        assertThat(startFuture, willCompleteSuccessfully());
 
         log.info("Completed recovery on partially started node, last revision applied: " + lastRevision.get()
                 + ", acceptableDifference: " + IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100)

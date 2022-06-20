@@ -435,19 +435,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return failedFuture(e);
             }
 
-            InternalTable internalTable = tablesById.get(tblId).internalTable();
-
             // Create new raft nodes according to new assignments.
             for (int i = 0; i < partitions; i++) {
                 int partId = i;
 
-            List<ClusterNode> oldPartAssignment = oldAssignments == null ? Collections.emptyList() :
-                    oldAssignments.get(partId);
+                List<ClusterNode> oldPartAssignment = oldAssignments == null ? Collections.emptyList() :
+                        oldAssignments.get(partId);
 
-            List<ClusterNode> newPartAssignment = newAssignments.get(partId);
+                List<ClusterNode> newPartAssignment = newAssignments.get(partId);
 
-            // Create new raft nodes according to new assignments.
-            tablesByIdVv.update(causalityToken, (tablesById, e) -> {
                 if (e != null) {
                     return failedFuture(e);
                 }
@@ -1039,10 +1035,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @TestOnly
     public Map<UUID, TableImpl> latestTables() {
         return unmodifiableMap(tablesByIdVv.latest());
-    }
-
-    public TableImpl latestTable(UUID tableId) {
-        return tablesByIdVv.latest().get(tableId);
     }
 
     /** {@inheritDoc} */

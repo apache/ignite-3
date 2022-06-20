@@ -37,7 +37,7 @@ public class ConfigurationCatchUpListener implements ConfigurationStorageRevisio
      * TODO: IGNITE-16488 Make this property adjustable and remove system property.
      */
     private final int configurationCatchUpDifference =
-        IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100);
+            IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100);
 
     /** Revision to catch up. */
     private volatile long targetRevision = -1;
@@ -91,9 +91,9 @@ public class ConfigurationCatchUpListener implements ConfigurationStorageRevisio
                 targetRevision = rev;
 
                 log.info("Checking revision on recovery ["
-                    + "targetRevision=" + targetRevision
-                    + ", appliedRevision=" + appliedRevision
-                    + ", acceptableDifference=" + configurationCatchUpDifference + ']'
+                        + "targetRevision=" + targetRevision
+                        + ", appliedRevision=" + appliedRevision
+                        + ", acceptableDifference=" + configurationCatchUpDifference + ']'
                 );
 
                 if (isConfigurationUpToDate(targetRevision, appliedRevision)) {
