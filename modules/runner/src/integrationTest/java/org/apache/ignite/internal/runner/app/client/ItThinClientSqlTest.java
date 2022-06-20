@@ -150,6 +150,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertTrue(deleteRes.wasApplied());
     }
 
+    @SuppressWarnings("ConstantConditions")
     @Test
     void testExecuteDdlDml() {
         Session session = client().sql().createSession();
@@ -184,9 +185,19 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         List<ColumnMetadata> columns = selectRes.metadata().columns();
         assertEquals(3, columns.size());
+
         assertEquals("MYVALUE", columns.get(0).name());
+        assertEquals("VAL", columns.get(0).origin().columnName());
+        assertEquals("PUBLIC", columns.get(0).origin().schemaName());
+        assertEquals("TESTEXECUTEDDLDML", columns.get(0).origin().tableName());
+
         assertEquals("ID", columns.get(1).name());
+        assertEquals("ID", columns.get(1).origin().columnName());
+        assertEquals("PUBLIC", columns.get(1).origin().schemaName());
+        assertEquals("TESTEXECUTEDDLDML", columns.get(1).origin().tableName());
+
         assertEquals("ID + 1", columns.get(2).name());
+        assertNull(columns.get(2).origin());
 
         var rows = new ArrayList<SqlRow>();
         selectRes.forEachRemaining(rows::add);
