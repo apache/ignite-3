@@ -301,6 +301,7 @@ public class TypeUtils {
             case INTEGER:
                 return SqlColumnType.INT32;
             case TIMESTAMP:
+                return SqlColumnType.DATETIME;
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 return SqlColumnType.TIMESTAMP;
             case BIGINT:
@@ -412,9 +413,9 @@ public class TypeUtils {
             case TIME:
                 return factory.createSqlType(SqlTypeName.TIME);
             case TIMESTAMP:
-                return factory.createSqlType(SqlTypeName.TIMESTAMP);
+                return factory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
             case DATETIME:
-                throw new AssertionError("DATETIME is not supported yet");
+                return factory.createSqlType(SqlTypeName.TIMESTAMP);
             default:
                 throw new IllegalStateException("Unexpected native type " + nativeType);
         }
