@@ -44,6 +44,8 @@ import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
 
+import javax.annotation.Nullable;
+
 /**
  * Client SQL execute request.
  */
@@ -143,6 +145,10 @@ public class ClientSqlExecuteRequest {
     }
 
     private static Object[] readArguments(ClientMessageUnpacker in) {
+        if (in.tryUnpackNil()) {
+            return null;
+        }
+
         int size = in.unpackArrayHeader();
 
         if (size == 0) {
