@@ -43,6 +43,7 @@ import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
@@ -58,6 +59,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
@@ -318,6 +320,8 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
                 val = hnd.get(colDesc.logicalIndex(), row);
             }
 
+            val = TypeUtils.fromInternal(ectx, val, NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
+
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
         }
 
@@ -379,7 +383,8 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
             int colIdx = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex() + offset);
 
-            Object val = hnd.get(colIdx, row);
+            Object val = TypeUtils.fromInternal(ectx, hnd.get(colIdx, row),
+                    NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
 
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
         }
@@ -434,7 +439,10 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
                 break;
             }
 
-            RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), hnd.get(colDesc.logicalIndex(), row));
+            Object val = TypeUtils.fromInternal(ectx, hnd.get(colDesc.logicalIndex(), row),
+                    NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
+
+            RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
         }
 
         return new ModifyRow(new Row(schemaDescriptor, rowAssembler.build()), Operation.DELETE_ROW);

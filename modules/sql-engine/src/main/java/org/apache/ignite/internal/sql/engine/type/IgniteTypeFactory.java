@@ -26,6 +26,7 @@ import java.math.BigInteger;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -206,12 +207,12 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 case DATE:
                     return LocalDate.class;
                 case TIME:
-                    return LocalTime.class;
-                case TIMESTAMP:
-                case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                    return LocalDateTime.class;
                 case TIME_WITH_LOCAL_TIME_ZONE:
                     return LocalTime.class;
+                case TIMESTAMP:
+                    return LocalDateTime.class;
+                case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                    return Instant.class;
                 case INTEGER:
                     return type.isNullable() ? Integer.class : int.class;
                 case INTERVAL_YEAR:

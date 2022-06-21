@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.time.LocalTime;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.config.CalciteConnectionConfig;
@@ -35,8 +36,10 @@ import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
@@ -156,6 +159,10 @@ public class IgniteSqlFunctions {
     /** CAST(VARCHAR AS VARBINARY). */
     public static ByteString toByteString(String s) {
         return s == null ? null : new ByteString(s.getBytes(Commons.typeFactory().getDefaultCharset()));
+    }
+
+    public static int currentTime(DataContext ctx) {
+        return (int) TypeUtils.toInternal((ExecutionContext<?>) ctx, LocalTime.now(), LocalTime.class);
     }
 
     /**
