@@ -24,8 +24,16 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
+import java.util.BitSet;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -174,31 +182,31 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals(LocalDate.of(2001, 2, 3), row.dateValue(8));
         assertEquals(SqlColumnType.DATE, meta.columns().get(8).type());
 
-        assertEquals(LocalDate.of(2001, 2, 3), row.dateValue(9));
+        assertEquals(LocalTime.of(4, 5), row.timeValue(9));
         assertEquals(SqlColumnType.TIME, meta.columns().get(9).type());
 
-        assertEquals(LocalDate.of(2001, 2, 3), row.dateValue(10));
+        assertEquals(LocalDateTime.of(2001, 3, 4, 5, 6), row.datetimeValue(10));
         assertEquals(SqlColumnType.DATETIME, meta.columns().get(10).type());
 
-        assertEquals(LocalDate.of(2001, 2, 3), row.dateValue(11));
+        assertEquals(Instant.ofEpochSecond(987), row.timestampValue(11));
         assertEquals(SqlColumnType.TIMESTAMP, meta.columns().get(11).type());
 
-        assertEquals(LocalDate.of(2001, 2, 3), row.dateValue(12));
+        assertEquals(new UUID(0, 0), row.uuidValue(12));
         assertEquals(SqlColumnType.UUID, meta.columns().get(12).type());
 
-        assertEquals(LocalDate.of(2001, 2, 3), row.dateValue(12));
-        assertEquals(SqlColumnType.BITMASK, meta.columns().get(12).type());
+        assertEquals(BitSet.valueOf(new byte[0]), row.bitmaskValue(13));
+        assertEquals(SqlColumnType.BITMASK, meta.columns().get(13).type());
 
-        assertEquals(LocalDate.of(2001, 2, 3), row.dateValue(14));
+        assertEquals(0, ((byte[])row.value(14))[0]);
         assertEquals(SqlColumnType.BYTE_ARRAY, meta.columns().get(14).type());
 
-        assertEquals(LocalDate.of(2001, 2, 3), row.dateValue(15));
+        assertEquals(Period.of(10, 9, 8), row.value(15));
         assertEquals(SqlColumnType.PERIOD, meta.columns().get(15).type());
 
-        assertEquals(LocalDate.of(2001, 2, 3), row.dateValue(16));
+        assertEquals(Duration.ofDays(11), row.value(16));
         assertEquals(SqlColumnType.DURATION, meta.columns().get(16).type());
 
-        assertEquals(LocalDate.of(2001, 2, 3), row.dateValue(17));
+        assertEquals(BigInteger.valueOf(42), row.value(17));
         assertEquals(SqlColumnType.NUMBER, meta.columns().get(17).type());
     }
 }
