@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -132,7 +133,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertSame(meta, row.metadata());
 
         for (int i = 0; i < meta.columns().size(); i++) {
-            ColumnMetadata col = meta.columns().get(0);
+            ColumnMetadata col = meta.columns().get(i);
             assertEquals(i, meta.indexOf(col.name()));
             assertEquals(row.<Object>value(i), row.value(col.name()));
         }
@@ -141,7 +142,25 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals(SqlColumnType.BOOLEAN, meta.columns().get(0).type());
 
         assertEquals(Byte.MIN_VALUE, row.byteValue(1));
-        assertEquals(SqlColumnType.INT8, meta.columns().get(0).type());
+        assertEquals(SqlColumnType.INT8, meta.columns().get(1).type());
+
+        assertEquals(Short.MIN_VALUE, row.shortValue(2));
+        assertEquals(SqlColumnType.INT16, meta.columns().get(2).type());
+
+        assertEquals(Integer.MIN_VALUE, row.intValue(3));
+        assertEquals(SqlColumnType.INT32, meta.columns().get(3).type());
+
+        assertEquals(Long.MIN_VALUE, row.longValue(4));
+        assertEquals(SqlColumnType.INT64, meta.columns().get(4).type());
+
+        assertEquals(1.3f, row.floatValue(5));
+        assertEquals(SqlColumnType.FLOAT, meta.columns().get(5).type());
+
+        assertEquals(1.4d, row.doubleValue(6));
+        assertEquals(SqlColumnType.DOUBLE, meta.columns().get(6).type());
+
+        assertEquals(BigDecimal.valueOf(145), row.value(7));
+        assertEquals(SqlColumnType.DECIMAL, meta.columns().get(7).type());
 
         // TODO: Test meta in cursor and in row - all properties and methods, all column types.
         // TODO: Precision, scale, nullable, origin.
