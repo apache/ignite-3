@@ -101,9 +101,9 @@ public class ItClusterManagerTest {
     void testInit(TestInfo testInfo) throws Exception {
         startCluster(2, testInfo);
 
-        String[] cmgNodes = { cluster.get(0).name() };
+        String[] cmgNodes = { cluster.get(0).localMember().name() };
 
-        String[] metaStorageNodes = { cluster.get(1).name() };
+        String[] metaStorageNodes = { cluster.get(1).localMember().name() };
 
         initCluster(metaStorageNodes, cmgNodes);
 
@@ -153,7 +153,7 @@ public class ItClusterManagerTest {
 
         // complete initialization with one node to check that it finishes correctly
 
-        String[] aliveNodes = {cluster.get(0).name()};
+        String[] aliveNodes = {cluster.get(0).localMember().name()};
 
         initCluster(aliveNodes, aliveNodes);
 
@@ -169,9 +169,9 @@ public class ItClusterManagerTest {
     void testNodeRestart(TestInfo testInfo) throws Exception {
         startCluster(2, testInfo);
 
-        String[] cmgNodes = {cluster.get(0).name()};
+        String[] cmgNodes = {cluster.get(0).localMember().name()};
 
-        String[] metaStorageNodes = {cluster.get(1).name()};
+        String[] metaStorageNodes = {cluster.get(1).localMember().name()};
 
         initCluster(metaStorageNodes, cmgNodes);
 
@@ -191,33 +191,6 @@ public class ItClusterManagerTest {
     }
 
     /**
-     * Tests executing the init command with incorrect node names.
-     */
-    @Test
-    void testInitInvalidNodes(TestInfo testInfo) throws Exception {
-        startCluster(2, testInfo);
-
-        ClusterManagementGroupManager clusterManager = cluster.get(0).clusterManager();
-
-        // non-existent node
-        assertThrowsWithCause(
-                () -> clusterManager.initCluster(List.of("wrong"), List.of(), "cluster"),
-                InitException.class,
-                "Node \"wrong\" is not present in the physical topology"
-        );
-
-        // successful init
-        clusterManager.initCluster(List.of(cluster.get(0).name()), List.of(), "cluster");
-
-        // different node
-        assertThrowsWithCause(
-                () -> clusterManager.initCluster(List.of(cluster.get(1).name()), List.of(), "cluster"),
-                InitException.class,
-                "Init CMG request denied, reason: CMG node names do not match."
-        );
-    }
-
-    /**
      * Tests a scenario, when every node in a cluster gets restarted.
      */
     @Test
@@ -225,11 +198,11 @@ public class ItClusterManagerTest {
         startCluster(3, testInfo);
 
         String[] cmgNodes = {
-                cluster.get(0).name(),
-                cluster.get(1).name()
+                cluster.get(0).localMember().name(),
+                cluster.get(1).localMember().name()
         };
 
-        String[] metaStorageNodes = { cluster.get(2).name() };
+        String[] metaStorageNodes = { cluster.get(2).localMember().name() };
 
         initCluster(cmgNodes, metaStorageNodes);
 
@@ -282,7 +255,7 @@ public class ItClusterManagerTest {
     void testNodeLeave(TestInfo testInfo) throws Exception {
         startCluster(2, testInfo);
 
-        String[] cmgNodes = { cluster.get(0).name() };
+        String[] cmgNodes = { cluster.get(0).localMember().name() };
 
         initCluster(cmgNodes, cmgNodes);
 
@@ -306,7 +279,7 @@ public class ItClusterManagerTest {
         // Start a cluster and initialize it
         startCluster(2, testInfo);
 
-        String[] cmgNodes = { cluster.get(0).name() };
+        String[] cmgNodes = { cluster.get(0).localMember().name() };
 
         initCluster(cmgNodes, cmgNodes);
 
@@ -388,7 +361,8 @@ public class ItClusterManagerTest {
 
     private String[] clusterNodeNames() {
         return cluster.stream()
-                .map(MockNode::name)
+                .map(MockNode::localMember)
+                .map(ClusterNode::name)
                 .toArray(String[]::new);
     }
 
