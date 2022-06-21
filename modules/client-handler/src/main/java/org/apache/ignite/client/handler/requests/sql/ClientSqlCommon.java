@@ -24,6 +24,7 @@ import java.util.List;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlColumnType;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 
@@ -50,8 +51,13 @@ class ClientSqlCommon {
         }
     }
 
-    private static void packValue(ClientMessagePacker out, ColumnMetadata col, SqlRow row, int idx) {
-        switch (col.type()) {
+    private static void packValue(ClientMessagePacker out, SqlColumnType colType, SqlRow row, int idx) {
+        if (row.value(idx) == null) {
+            out.packNil();
+            return;
+        }
+
+        switch (colType) {
             case BOOLEAN:
                 out.packBoolean(row.value(idx));
                 break;
@@ -137,7 +143,7 @@ class ClientSqlCommon {
                 break;
 
             default:
-                throw new UnsupportedOperationException("Unsupported column type: " + col.type());
+                throw new UnsupportedOperationException("Unsupported column type: " + colType);
         }
     }
 }

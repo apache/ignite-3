@@ -91,7 +91,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
             rows.add(getRow(1));
 
             columns = new ArrayList<>();
-            columns.add(new FakeColumnMetadata("col1", SqlColumnType.STRING));
+            columns.add(new FakeColumnMetadata("col1", SqlColumnType.INT32));
         }
     }
 

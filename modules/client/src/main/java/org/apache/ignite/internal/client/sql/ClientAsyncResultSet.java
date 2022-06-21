@@ -26,8 +26,10 @@ import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlColumnType;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
@@ -188,13 +190,63 @@ class ClientAsyncResultSet implements AsyncResultSet {
             var row = new ArrayList<>(rowSize);
 
             for (int j = 0; j < rowSize; j++) {
-                // TODO: IGNITE-17052 Unpack according to metadata type.
-                row.add(in.unpackObjectWithType());
+                var col = metadata.columns().get(j);
+                row.add(readValue(in, col.type()));
             }
 
             res.add(new ClientSqlRow(row, metadata));
         }
 
         rows = Collections.unmodifiableList(res);
+    }
+
+    private static Object readValue(ClientMessageUnpacker in, SqlColumnType colType) {
+        if (in.tryUnpackNil()) {
+            return null;
+        }
+
+        switch (colType) {
+            case BOOLEAN:
+                break;
+            case INT8:
+                break;
+            case INT16:
+                break;
+            case INT32:
+                break;
+            case INT64:
+                break;
+            case FLOAT:
+                break;
+            case DOUBLE:
+                break;
+            case DECIMAL:
+                break;
+            case DATE:
+                break;
+            case TIME:
+                break;
+            case DATETIME:
+                break;
+            case TIMESTAMP:
+                break;
+            case UUID:
+                break;
+            case BITMASK:
+                break;
+            case STRING:
+                break;
+            case BYTE_ARRAY:
+                break;
+            case PERIOD:
+                break;
+            case DURATION:
+                break;
+            case NUMBER:
+                break;
+
+            default:
+                throw new UnsupportedOperationException("Unsupported column type: " + colType);
+        }
     }
 }
