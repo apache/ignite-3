@@ -191,7 +191,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     ) throws NodeStoppingException {
         Path dir = workDir.resolve(name);
 
-        List<IgniteComponent> res = new ArrayList<>();
+        partialNode = new ArrayList<>();
 
         VaultManager vault = createVault(dir);
 
@@ -288,8 +288,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         // Preparing the result map.
 
-        res.add(vault);
-        res.add(nodeCfgMgr);
+        partialNode.add(vault);
+        partialNode.add(nodeCfgMgr);
 
         // Start.
 
@@ -327,7 +327,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         for (IgniteComponent component : otherComponents) {
             component.start();
 
-            res.add(component);
+            partialNode.add(component);
         }
 
         AtomicLong lastRevision = new AtomicLong();
@@ -368,9 +368,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 + ", acceptableDifference: " + IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100)
         );
 
-        partialNode = res;
-
-        return res;
+        return partialNode;
     }
 
     /**
