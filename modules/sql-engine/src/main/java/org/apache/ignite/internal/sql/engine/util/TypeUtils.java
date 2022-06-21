@@ -17,12 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.calcite.util.Util.last;
 import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.lang.reflect.Type;
-import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,6 +27,7 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -37,41 +35,48 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
-import org.apache.calcite.avatica.util.DateTimeUtils;
-import org.apache.calcite.plan.RelOptSchema;
-import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
-import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.schema.DecimalNativeType;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NumberNativeType;
+import org.apache.ignite.internal.schema.VarlenNativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.sql.SqlColumnType;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * TypeUtils.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TypeUtils {
-    private static final Set<Type> CONVERTABLE_TYPES = Set.of(
-            LocalDate.class,
-            LocalDateTime.class,
-            LocalTime.class,
-            Timestamp.class,
-            Duration.class,
-            Period.class
+    private static final Set<SqlTypeName> CONVERTABLE_TYPES = EnumSet.of(
+            SqlTypeName.DATE,
+            SqlTypeName.TIME,
+            SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE,
+            SqlTypeName.TIMESTAMP,
+            SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE,
+            SqlTypeName.INTERVAL_SECOND,
+            SqlTypeName.INTERVAL_MINUTE,
+            SqlTypeName.INTERVAL_MINUTE_SECOND,
+            SqlTypeName.INTERVAL_HOUR,
+            SqlTypeName.INTERVAL_HOUR_MINUTE,
+            SqlTypeName.INTERVAL_HOUR_SECOND,
+            SqlTypeName.INTERVAL_DAY,
+            SqlTypeName.INTERVAL_DAY_HOUR,
+            SqlTypeName.INTERVAL_DAY_MINUTE,
+            SqlTypeName.INTERVAL_DAY_SECOND,
+            SqlTypeName.INTERVAL_MONTH,
+            SqlTypeName.INTERVAL_YEAR,
+            SqlTypeName.INTERVAL_YEAR_MONTH
     );
 
     /**
@@ -175,78 +180,11 @@ public class TypeUtils {
     }
 
     /**
-     * SqlType.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static RelDataType sqlType(IgniteTypeFactory typeFactory, RelDataType rowType) {
-        if (!rowType.isStruct()) {
-            return typeFactory.toSql(rowType);
-        }
-
-        return typeFactory.createStructType(
-                transform(rowType.getFieldList(),
-                        f -> Pair.of(f.getName(), sqlType(typeFactory, f.getType()))));
-    }
-
-    /**
-     * GetResultType.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param schema  Schema.
-     * @param sqlType Logical row type.
-     * @param origins Columns origins.
-     * @return Result type.
-     */
-    public static RelDataType getResultType(IgniteTypeFactory typeFactory, RelOptSchema schema, RelDataType sqlType,
-            @Nullable List<List<String>> origins) {
-        assert origins == null || origins.size() == sqlType.getFieldCount();
-
-        RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(typeFactory);
-        List<RelDataTypeField> fields = sqlType.getFieldList();
-
-        for (int i = 0; i < sqlType.getFieldCount(); i++) {
-            List<String> origin = origins == null ? null : origins.get(i);
-            b.add(fields.get(i).getName(), typeFactory.createType(
-                    getResultClass(typeFactory, schema, fields.get(i).getType(), origin)));
-        }
-
-        return b.build();
-    }
-
-    /**
-     * GetResultClass.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param schema Schema.
-     * @param type   Logical column type.
-     * @param origin Column origin.
-     * @return Result type.
-     */
-    private static Type getResultClass(IgniteTypeFactory typeFactory, RelOptSchema schema, RelDataType type,
-            @Nullable List<String> origin) {
-        if (nullOrEmpty(origin)) {
-            return typeFactory.getResultClass(type);
-        }
-
-        RelOptTable table = schema.getTableForMember(origin.subList(0, origin.size() - 1));
-
-        assert table != null;
-
-        ColumnDescriptor fldDesc = table.unwrap(TableDescriptor.class).columnDescriptor(last(origin));
-
-        assert fldDesc != null;
-
-        return Commons.nativeTypeToClass(fldDesc.physicalType());
-    }
-
-    /**
      * Function.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static <RowT> Function<RowT, RowT> resultTypeConverter(ExecutionContext<RowT> ectx, RelDataType resultType) {
         assert resultType.isStruct();
-
-        resultType = TypeUtils.getResultType(Commons.typeFactory(), ectx.unwrap(BaseQueryContext.class).catalogReader(), resultType, null);
 
         if (hasConvertableFields(resultType)) {
             RowHandler<RowT> handler = ectx.rowHandler();
@@ -268,9 +206,9 @@ public class TypeUtils {
     }
 
     private static Function<Object, Object> fieldConverter(ExecutionContext<?> ectx, RelDataType fieldType) {
-        Type storageType = ectx.getTypeFactory().getJavaClass(fieldType);
+        Type storageType = ectx.getTypeFactory().getResultClass(fieldType);
 
-        if (isConvertableType(storageType)) {
+        if (isConvertableType(fieldType)) {
             return v -> fromInternal(ectx, v, storageType);
         }
 
@@ -281,17 +219,8 @@ public class TypeUtils {
      * IsConvertableType.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static boolean isConvertableType(Type type) {
-        return CONVERTABLE_TYPES.contains(type);
-    }
-
-    /**
-     * IsConvertableType.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
     public static boolean isConvertableType(RelDataType type) {
-        return type instanceof RelDataTypeFactoryImpl.JavaType
-                && isConvertableType(((RelDataTypeFactoryImpl.JavaType) type).getJavaClass());
+        return CONVERTABLE_TYPES.contains(type.getSqlTypeName());
     }
 
     private static boolean hasConvertableFields(RelDataType resultType) {
@@ -314,21 +243,19 @@ public class TypeUtils {
     public static Object toInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
         if (val == null) {
             return null;
-        } else if (storageType == java.sql.Date.class) {
-            return (int) (SqlFunctions.toLong((java.util.Date) val, DataContext.Variable.TIME_ZONE.get(ectx))
-                    / DateTimeUtils.MILLIS_PER_DAY);
-        } else if (storageType == java.sql.Time.class) {
-            return (int) (SqlFunctions.toLong((java.util.Date) val, DataContext.Variable.TIME_ZONE.get(ectx))
-                    % DateTimeUtils.MILLIS_PER_DAY);
-        } else if (storageType == Timestamp.class) {
-            return SqlFunctions.toLong((java.util.Date) val, DataContext.Variable.TIME_ZONE.get(ectx));
-        } else if (storageType == java.util.Date.class) {
-            return SqlFunctions.toLong((java.util.Date) val, DataContext.Variable.TIME_ZONE.get(ectx));
+        } else if (storageType == LocalDate.class) {
+            return (int) ((LocalDate) val).toEpochDay();
+        } else if (storageType == LocalTime.class) {
+            return (int) (((LocalTime) val).toNanoOfDay() / 1000 / 1000 /* convert to millis */);
+        } else if (storageType == LocalDateTime.class) {
+            return ((LocalDateTime) val).toEpochSecond(ZoneOffset.UTC);
         } else if (storageType == Duration.class) {
             return TimeUnit.SECONDS.toMillis(((Duration) val).getSeconds())
                     + TimeUnit.NANOSECONDS.toMillis(((Duration) val).getNano());
         } else if (storageType == Period.class) {
             return (int) ((Period) val).toTotalMonths();
+        } else if (storageType == byte[].class) {
+            return new ByteString((byte[]) val);
         } else {
             return val;
         }
@@ -344,7 +271,7 @@ public class TypeUtils {
         } else if (storageType == LocalDate.class && val instanceof Integer) {
             return LocalDate.ofEpochDay((Integer) val);
         } else if (storageType == LocalTime.class && val instanceof Integer) {
-            return LocalTime.ofSecondOfDay((Integer) val / 1000);
+            return LocalTime.ofNanoOfDay(Long.valueOf((Integer) val) * 1000 * 1000 /* convert from millis */);
         } else if (storageType == LocalDateTime.class && (val instanceof Long)) {
             return LocalDateTime.ofEpochSecond((Long) val / 1000, (int) ((Long) val % 1000) * 1000 * 1000, ZoneOffset.UTC);
         } else if (storageType == Duration.class && val instanceof Long) {
@@ -374,6 +301,7 @@ public class TypeUtils {
             case INTEGER:
                 return SqlColumnType.INT32;
             case TIMESTAMP:
+                return SqlColumnType.DATETIME;
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 return SqlColumnType.TIMESTAMP;
             case BIGINT:
@@ -414,6 +342,82 @@ public class TypeUtils {
             default:
                 assert false : "Unexpected type of result: " + type.getSqlTypeName();
                 return null;
+        }
+    }
+
+    /**
+     * Converts a {@link NativeType native type} to {@link RelDataType relational type} with respect to the nullability flag.
+     *
+     * @param factory Type factory.
+     * @param nativeType A native type to convert.
+     * @param nullable A flag that specify whether the resulting type should be nullable or not.
+     * @return Relational type.
+     */
+    public static RelDataType native2relationalType(RelDataTypeFactory factory, NativeType nativeType, boolean nullable) {
+        return factory.createTypeWithNullability(native2relationalType(factory, nativeType), nullable);
+    }
+
+    /**
+     * Converts a {@link NativeType native type} to {@link RelDataType relational type}.
+     *
+     * @param factory Type factory.
+     * @param nativeType A native type to convert.
+     * @return Relational type.
+     */
+    public static RelDataType native2relationalType(RelDataTypeFactory factory, NativeType nativeType) {
+        switch (nativeType.spec()) {
+            case INT8:
+                return factory.createSqlType(SqlTypeName.TINYINT);
+            case INT16:
+                return factory.createSqlType(SqlTypeName.SMALLINT);
+            case INT32:
+                return factory.createSqlType(SqlTypeName.INTEGER);
+            case INT64:
+                return factory.createSqlType(SqlTypeName.BIGINT);
+            case FLOAT:
+                return factory.createSqlType(SqlTypeName.REAL);
+            case DOUBLE:
+                return factory.createSqlType(SqlTypeName.DOUBLE);
+            case DECIMAL:
+                assert nativeType instanceof DecimalNativeType;
+
+                var decimal = (DecimalNativeType) nativeType;
+
+                return factory.createSqlType(SqlTypeName.DECIMAL, decimal.precision(), decimal.scale());
+            case UUID:
+                throw new AssertionError("UUID is not supported yet");
+            case STRING: {
+                assert nativeType instanceof VarlenNativeType;
+
+                var varlen = (VarlenNativeType) nativeType;
+
+                return factory.createSqlType(SqlTypeName.VARCHAR, varlen.length());
+            }
+            case BYTES: {
+                assert nativeType instanceof VarlenNativeType;
+
+                var varlen = (VarlenNativeType) nativeType;
+
+                return factory.createSqlType(SqlTypeName.BINARY, varlen.length());
+            }
+            case BITMASK:
+                throw new AssertionError("BITMASK is not supported yet");
+            case NUMBER:
+                assert nativeType instanceof NumberNativeType;
+
+                var number = (NumberNativeType) nativeType;
+
+                return factory.createSqlType(SqlTypeName.DECIMAL, number.precision(), 0);
+            case DATE:
+                return factory.createSqlType(SqlTypeName.DATE);
+            case TIME:
+                return factory.createSqlType(SqlTypeName.TIME);
+            case TIMESTAMP:
+                return factory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
+            case DATETIME:
+                return factory.createSqlType(SqlTypeName.TIMESTAMP);
+            default:
+                throw new IllegalStateException("Unexpected native type " + nativeType);
         }
     }
 }

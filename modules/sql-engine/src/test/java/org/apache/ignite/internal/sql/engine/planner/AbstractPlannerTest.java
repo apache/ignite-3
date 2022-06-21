@@ -92,6 +92,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
+import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -1026,14 +1027,20 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
+        public boolean nullable() {
+            return true;
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public boolean key() {
             return false;
         }
 
         /** {@inheritDoc} */
         @Override
-        public boolean hasDefaultValue() {
-            return false;
+        public DefaultValueStrategy defaultStrategy() {
+            return DefaultValueStrategy.DEFAULT_NULL;
         }
 
         /** {@inheritDoc} */
@@ -1052,12 +1059,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         @Override
         public int physicalIndex() {
             return idx;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RelDataType logicalType(IgniteTypeFactory f) {
-            throw new AssertionError();
         }
 
         /** {@inheritDoc} */

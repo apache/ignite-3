@@ -17,28 +17,34 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * ColumnDescriptor interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * An object describing a particular column in a table.
  */
 public interface ColumnDescriptor {
+    /** Returns {@code true} if this column accepts a null value. */
+    boolean nullable();
+
+    /** Returns {@code true} if this column is part of the primary key. */
     boolean key();
 
-    boolean hasDefaultValue();
+    /** Returns the strategy to follow when generating value for column not specified in the INSERT statement. */
+    DefaultValueStrategy defaultStrategy();
 
+    /** Returns the name of the column. */
     String name();
 
+    /** Returns 0-based index of the column according to a schema defined by a user. */
     int logicalIndex();
 
+    /** Returns 0-based index of the column according to an actual row layout defined by a storage. */
     int physicalIndex();
 
-    RelDataType logicalType(IgniteTypeFactory f);
-
+    /** Returns the type of this column in a storage. */
     NativeType physicalType();
 
-    Object defaultValue();
+    /** Returns the value to use for column not specified in the INSERT statement. */
+    @Nullable Object defaultValue();
 }

@@ -316,6 +316,54 @@ public enum NativeTypeSpec {
     }
 
     /**
+     * Maps native type spec to a particular java class.
+     *
+     * @param spec Type spec to map.
+     * @param nullable Whether class should accept null values.
+     * @return Java class.
+     */
+    public static Class<?> toClass(NativeTypeSpec spec, boolean nullable) {
+        assert spec != null;
+
+        switch (spec) {
+            case INT8:
+                return nullable ? Byte.class : byte.class;
+            case INT16:
+                return nullable ? Short.class : short.class;
+            case INT32:
+                return nullable ? Integer.class : int.class;
+            case INT64:
+                return nullable ? Long.class : long.class;
+            case FLOAT:
+                return nullable ? Float.class : float.class;
+            case DOUBLE:
+                return nullable ? Double.class : double.class;
+            case BITMASK:
+                return BitSet.class;
+            case BYTES:
+                return byte[].class;
+            case STRING:
+                return String.class;
+            case DATE:
+                return LocalDate.class;
+            case TIME:
+                return LocalTime.class;
+            case TIMESTAMP:
+                return Instant.class;
+            case DATETIME:
+                return LocalDateTime.class;
+            case UUID:
+                return java.util.UUID.class;
+            case NUMBER:
+                return BigInteger.class;
+            case DECIMAL:
+                return BigDecimal.class;
+            default:
+                throw new IllegalStateException("Unknown typeSpec " + spec);
+        }
+    }
+
+    /**
      * Maps object to native type.
      *
      * @param val Object to map.
