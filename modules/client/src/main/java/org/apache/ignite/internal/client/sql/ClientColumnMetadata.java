@@ -23,7 +23,6 @@ import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.SqlColumnType;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**

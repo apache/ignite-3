@@ -37,7 +37,6 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -147,7 +146,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
             assertEquals(row.<Object>value(i), row.value(col.name()));
         }
 
-        assertTrue((boolean)row.value(0));
+        assertTrue((boolean) row.value(0));
         assertEquals(SqlColumnType.BOOLEAN, meta.columns().get(0).type());
 
         assertEquals(Byte.MIN_VALUE, row.byteValue(1));
@@ -197,7 +196,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals(BitSet.valueOf(new byte[0]), row.bitmaskValue(13));
         assertEquals(SqlColumnType.BITMASK, meta.columns().get(13).type());
 
-        assertEquals(0, ((byte[])row.value(14))[0]);
+        assertEquals(0, ((byte[]) row.value(14))[0]);
         assertEquals(SqlColumnType.BYTE_ARRAY, meta.columns().get(14).type());
 
         assertEquals(Period.of(10, 9, 8), row.value(15));
