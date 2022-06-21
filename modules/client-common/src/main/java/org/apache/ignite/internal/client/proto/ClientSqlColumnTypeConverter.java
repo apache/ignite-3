@@ -22,7 +22,6 @@ import org.apache.ignite.sql.SqlColumnType;
 /**
  * SQL column type utils.
  */
-// TODO: Write a test that checks all possible types (using reflection) to detect when new types are added.
 public class ClientSqlColumnTypeConverter {
     /**
      * Converts column type to wire code.
