@@ -66,7 +66,19 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
      * @param cause   The exception that was a cause which a listener is removed.
      */
     public void removeListener(T evt, EventListener<P> closure, @Nullable IgniteInternalCheckedException cause) {
-        if (listeners.computeIfAbsent(evt, evtKey -> new CopyOnWriteArrayList<>()).remove(closure)) {
+        removeListener(evt, closure, cause, true);
+    }
+
+    /**
+     * Removes a listener associated with the event.
+     *
+     * @param evt          Event.
+     * @param closure      Closure.
+     * @param cause        The exception that was a cause which a listener is removed.
+     * @param callOnRemove Whether to call {@link EventListener#remove(Throwable)} callback on the closure.
+     */
+    public void removeListener(T evt, EventListener<P> closure, @Nullable IgniteInternalCheckedException cause, boolean callOnRemove) {
+        if (listeners.computeIfAbsent(evt, evtKey -> new CopyOnWriteArrayList<>()).remove(closure) && callOnRemove) {
             closure.remove(cause == null ? new ListenerRemovedException() : cause.getCause() == null ? cause : cause.getCause());
         }
     }
@@ -96,7 +108,7 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
             CompletableFuture<?> future = closure.notify(params, err)
                     .thenAccept(b -> {
                         if (b) {
-                            removeListener(evt, closure);
+                            removeListener(evt, closure, null, false);
                         }
                     });
 

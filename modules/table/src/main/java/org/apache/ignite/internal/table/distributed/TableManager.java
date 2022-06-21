@@ -228,7 +228,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         clusterNodeResolver = topologyService::getByAddress;
 
-        tablesByIdVv = new VersionedValue<>(null, HashMap::new);
+        tablesByIdVv = new VersionedValue<>(registry, HashMap::new);
 
         rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                 new NamedThreadFactory("rebalance-scheduler"));
@@ -435,6 +435,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return failedFuture(e);
             }
 
+            System.out.println("qqq tablesByIdVv updateAssignmentInternal, tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
+
             // Create new raft nodes according to new assignments.
             for (int i = 0; i < partitions; i++) {
                 int partId = i;
@@ -484,7 +486,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
 
             return allOf(futures)
-                  .thenApply(f -> tablesById);
+                  .thenApply(f -> {
+                      System.out.println("qqq tablesByIdVv finished creating all partitions, tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
+                      return tablesById;
+                  });
         });
     }
 
@@ -544,18 +549,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return failedFuture(e);
             }
 
-            System.out.println("qqq create table locally" + ", tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
+            System.out.println("qqq tablesByIdVv create table locally" + ", tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
 
             var val = new HashMap<>(previous);
 
             val.put(tblId, table);
 
-            tablesByIdVv.get(causalityToken).thenRun(() -> completeApiCreateFuture(table));
+            tablesByIdVv.get(causalityToken).thenRun(() -> {
+                System.out.println("qqq completed table creation" + ", tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
+
+                completeApiCreateFuture(table);
+            });
 
             return eventFut
                 .thenCompose(v -> schemaManager.schemaRegistry(causalityToken, tblId))
-                .thenAccept(table::schemaView)
-                .thenApply(v -> val);
+                .thenAccept(schemaRegistry -> {
+                    table.schemaView(schemaRegistry);
+                })
+                .thenApply(v -> {
+                    System.out.println("qqq tablesByIdVv finished creating table locally" + ", tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
+                    return val;
+                });
         });
     }
 

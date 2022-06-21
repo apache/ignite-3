@@ -932,6 +932,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
                         stopNode(0);
 
+                        log.info("Starting METASTORAGE");
+
                         startNode(testInfo, 0);
 
                         log.info("Restarted METASTORAGE");

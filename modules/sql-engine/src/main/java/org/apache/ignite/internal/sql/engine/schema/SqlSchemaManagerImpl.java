@@ -90,6 +90,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 throw new IgniteInternalException("Couldn't evaluate sql schemas for causality token: " + token, throwable);
 
             rebuild(token, stringIgniteSchemaMap);
+            System.out.println("qqq completed sql schemas rebuild token=" + token + ", tableManager=" + tableManager);
 
             listeners.forEach(SchemaUpdateListener::onSchemaUpdated);
         });
