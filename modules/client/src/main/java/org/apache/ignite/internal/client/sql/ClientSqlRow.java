@@ -48,7 +48,7 @@ public class ClientSqlRow implements SqlRow {
      * @param row Row.
      * @param meta Meta.
      */
-    ClientSqlRow(List<Object> row, ResultSetMetadata meta) {
+    public ClientSqlRow(List<Object> row, ResultSetMetadata meta) {
         assert row != null;
         assert meta != null;
 

@@ -23,6 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
+
+import org.apache.ignite.internal.client.sql.ClientSqlRow;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
@@ -73,8 +75,8 @@ public class FakeAsyncResultSet implements AsyncResultSet {
             rows = new ArrayList<>();
 
             rows.add(getRow("schema", session.defaultSchema()));
-            rows.add(getRow("timeout", session.defaultTimeout(TimeUnit.MILLISECONDS)));
-            rows.add(getRow("pageSize", session.defaultPageSize()));
+            rows.add(getRow("timeout", String.valueOf(session.defaultTimeout(TimeUnit.MILLISECONDS))));
+            rows.add(getRow("pageSize", String.valueOf(session.defaultPageSize())));
 
             var props = ((FakeSession) session).properties();
 
@@ -85,7 +87,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
             columns = new ArrayList<>();
 
             columns.add(new FakeColumnMetadata("name", SqlColumnType.STRING));
-            columns.add(new FakeColumnMetadata("val", SqlColumnType.INT32));
+            columns.add(new FakeColumnMetadata("val", SqlColumnType.STRING));
         } else {
             rows = new ArrayList<>();
             rows.add(getRow(1));
@@ -161,12 +163,6 @@ public class FakeAsyncResultSet implements AsyncResultSet {
 
     @NotNull
     private SqlRow getRow(Object... vals) {
-        var row = mock(SqlRow.class);
-
-        for (int i = 0; i < vals.length; i++) {
-            Mockito.when(row.value(i)).thenReturn(vals[i]);
-        }
-
-        return row;
+        return new ClientSqlRow(List.of(vals), metadata());
     }
 }
