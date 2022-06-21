@@ -369,12 +369,12 @@ public abstract class QueryChecker {
         }
 
         if (expectedColumnTypes != null) {
-            List<Type> colNames = cur.metadata().columns().stream()
+            List<Type> colTypes = cur.metadata().columns().stream()
                     .map(ColumnMetadata::type)
                     .map(SqlColumnTypeConverter::columnTypeToClass)
                     .collect(Collectors.toList());
 
-            assertThat("Column types don't match", colNames, equalTo(expectedColumnTypes));
+            assertThat("Column types don't match", colTypes, equalTo(expectedColumnTypes));
         }
 
         var res = CursorUtils.getAllFromCursor(cur);

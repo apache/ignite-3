@@ -1712,7 +1712,7 @@ public class RexImpTable {
             } else if (op == CURRENT_TIMESTAMP) {
                 return Expressions.call(BuiltInMethod.CURRENT_TIMESTAMP.method, root);
             } else if (op == CURRENT_TIME) {
-                return Expressions.call(BuiltInMethod.CURRENT_TIME.method, root);
+                return Expressions.call(IgniteMethod.CURRENT_TIME.method(), root);
             } else if (op == CURRENT_DATE) {
                 return Expressions.call(BuiltInMethod.CURRENT_DATE.method, root);
             } else if (op == LOCALTIMESTAMP) {

@@ -226,7 +226,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
             QueryTemplate template = new QueryTemplate(fragments);
 
-            return new MultiStepQueryPlan(template, resultSetMetadata(ctx, validated.dataType(), validated.origins()));
+            return new MultiStepQueryPlan(template, resultSetMetadata(validated.dataType(), validated.origins()));
         }, planningPool));
 
         return planFut.thenApply(QueryPlan::copy);
@@ -255,12 +255,12 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return planFut.thenApply(QueryPlan::copy);
     }
 
-    private ResultSetMetadata resultSetMetadata(PlanningContext ctx, RelDataType sqlType,
-            @Nullable List<List<String>> origins) {
+    private ResultSetMetadata resultSetMetadata(
+            RelDataType rowType,
+            @Nullable List<List<String>> origins
+    ) {
         return new LazyResultSetMetadata(
                 () -> {
-                    RelDataType rowType = TypeUtils.getResultType(ctx.typeFactory(), ctx.catalogReader(), sqlType, origins);
-
                     List<ColumnMetadata> fieldsMeta = new ArrayList<>(rowType.getFieldCount());
 
                     for (int i = 0; i < rowType.getFieldCount(); ++i) {
