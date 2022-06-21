@@ -42,7 +42,6 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -103,7 +102,6 @@ import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.intellij.lang.annotations.Language;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -286,7 +284,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         //TODO: Get rid of it after IGNITE-17062.
         SqlQueryProcessor queryProcessor =
-            new SqlQueryProcessor(registry, clusterSvc, tableManager, schemaManager, dataStorageManager, Map::of);
+                new SqlQueryProcessor(registry, clusterSvc, tableManager, schemaManager, dataStorageManager, Map::of);
 
         // Preparing the result map.
 
@@ -343,7 +341,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         };
 
         CompletableFuture<Void> configurationCatchUpFuture = RecoveryCompletionFutureFactory.create(
-            clusterCfgMgr,
+                clusterCfgMgr,
                 fut -> new TestConfigurationCatchUpListener(cfgStorage, fut, revisionCallback0)
         );
 
@@ -1066,9 +1064,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
          * @param catchUpFuture Catch-up future.
          */
         TestConfigurationCatchUpListener(
-            ConfigurationStorage cfgStorage,
-            CompletableFuture<Void> catchUpFuture,
-            Consumer<Long> revisionCallback
+                ConfigurationStorage cfgStorage,
+                CompletableFuture<Void> catchUpFuture,
+                Consumer<Long> revisionCallback
         ) {
             super(cfgStorage, catchUpFuture, log);
 

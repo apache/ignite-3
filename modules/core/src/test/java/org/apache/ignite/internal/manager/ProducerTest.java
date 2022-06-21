@@ -75,7 +75,7 @@ public class ProducerTest {
         }
 
         assertEquals(stopListenAfterCount, listenConter.get());
-        assertEquals(1, removeCounter.get());
+        assertEquals(0, removeCounter.get());
     }
 
     @Test

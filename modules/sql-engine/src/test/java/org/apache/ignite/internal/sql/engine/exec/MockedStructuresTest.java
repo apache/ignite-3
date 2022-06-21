@@ -692,15 +692,15 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     private TableManager createTableManager() {
         TableManager tableManager = new TableManager(
-            revisionUpdater,
-            tblsCfg,
-            rm,
-            bm,
-            ts,
-            tm,
-            dataStorageManager,
-            msm,
-            schemaManager
+                revisionUpdater,
+                tblsCfg,
+                rm,
+                bm,
+                ts,
+                tm,
+                dataStorageManager,
+                msm,
+                schemaManager
         );
 
         tableManager.start();
