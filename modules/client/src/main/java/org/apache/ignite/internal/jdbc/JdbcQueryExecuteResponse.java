@@ -57,6 +57,24 @@ public class JdbcQueryExecuteResponse extends Response {
         result.readBinary(unpacker);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public int status() {
+        return result.status();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String err() {
+        return result.err();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean hasResults() {
+        return result.hasResults();
+    }
+
     /**
      * Get the query results.
      *
