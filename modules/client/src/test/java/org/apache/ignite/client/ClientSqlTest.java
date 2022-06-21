@@ -118,6 +118,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
     @Test
     public void testMetadata() {
         // TODO: Test meta in cursor and in row - all properties and methods, all column types.
+        // SELECT META
         assertEquals(0, 1);
     }
 }

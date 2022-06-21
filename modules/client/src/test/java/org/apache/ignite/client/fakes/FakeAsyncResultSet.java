@@ -19,8 +19,21 @@ package org.apache.ignite.client.fakes;
 
 import static org.mockito.Mockito.mock;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
 import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 
@@ -88,12 +101,52 @@ public class FakeAsyncResultSet implements AsyncResultSet {
 
             columns.add(new FakeColumnMetadata("name", SqlColumnType.STRING));
             columns.add(new FakeColumnMetadata("val", SqlColumnType.STRING));
-        } else {
-            rows = new ArrayList<>();
-            rows.add(getRow(1));
-
+        } else if ("SELECT META".equals(statement.query())) {
             columns = new ArrayList<>();
-            columns.add(new FakeColumnMetadata("col1", SqlColumnType.INT32));
+
+            columns.add(new FakeColumnMetadata("bool", SqlColumnType.BOOLEAN));
+            columns.add(new FakeColumnMetadata("int8", SqlColumnType.INT8));
+            columns.add(new FakeColumnMetadata("int16", SqlColumnType.INT16));
+            columns.add(new FakeColumnMetadata("int32", SqlColumnType.INT32));
+            columns.add(new FakeColumnMetadata("int64", SqlColumnType.INT64));
+            columns.add(new FakeColumnMetadata("float", SqlColumnType.FLOAT));
+            columns.add(new FakeColumnMetadata("double", SqlColumnType.DOUBLE));
+            columns.add(new FakeColumnMetadata("decimal", SqlColumnType.DECIMAL));
+            columns.add(new FakeColumnMetadata("date", SqlColumnType.DATE));
+            columns.add(new FakeColumnMetadata("time", SqlColumnType.TIME));
+            columns.add(new FakeColumnMetadata("datetime", SqlColumnType.DATETIME));
+            columns.add(new FakeColumnMetadata("timestamp", SqlColumnType.TIMESTAMP));
+            columns.add(new FakeColumnMetadata("uuid", SqlColumnType.UUID));
+            columns.add(new FakeColumnMetadata("bitmask", SqlColumnType.BITMASK));
+            columns.add(new FakeColumnMetadata("byte_array", SqlColumnType.BYTE_ARRAY));
+            columns.add(new FakeColumnMetadata("period", SqlColumnType.PERIOD));
+            columns.add(new FakeColumnMetadata("duration", SqlColumnType.DURATION));
+            columns.add(new FakeColumnMetadata("number", SqlColumnType.NUMBER));
+
+            var row = getRow(
+                    true,
+                    Byte.MIN_VALUE,
+                    Short.MIN_VALUE,
+                    Integer.MIN_VALUE,
+                    Long.MIN_VALUE,
+                    1.3f,
+                    1.4d,
+                    BigDecimal.valueOf(145),
+                    LocalDate.of(2001, 2, 3),
+                    LocalTime.of(4, 5),
+                    LocalDateTime.of(2001, 3, 4, 5, 6),
+                    Instant.ofEpochSecond(987),
+                    new UUID(0, 0),
+                    BitSet.valueOf(new byte[0]),
+                    new byte[1],
+                    Period.of(10, 9, 8),
+                    Duration.ofDays(11),
+                    BigInteger.valueOf(42));
+
+            rows = List.of(row);
+        } else {
+            rows = List.of(getRow(1));
+            columns = List.of(new FakeColumnMetadata("col1", SqlColumnType.INT32));
         }
     }
 
