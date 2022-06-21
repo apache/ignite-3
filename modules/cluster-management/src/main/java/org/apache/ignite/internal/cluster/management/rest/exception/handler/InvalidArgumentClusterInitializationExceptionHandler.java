@@ -20,24 +20,24 @@ package org.apache.ignite.internal.cluster.management.rest.exception.handler;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
-import io.micronaut.http.annotation.Produces;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cluster.management.rest.exception.InvalidArgumentClusterInitializationException;
+import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 import org.apache.ignite.internal.rest.api.Problem;
 
 /**
  * Handles {@link InvalidArgumentClusterInitializationException} and represents it as a rest response.
  */
-@Produces
 @Singleton
 @Requires(classes = {InvalidArgumentClusterInitializationException.class, ExceptionHandler.class})
 public class InvalidArgumentClusterInitializationExceptionHandler implements
-        ExceptionHandler<InvalidArgumentClusterInitializationException, HttpResponse<Problem>> {
+        ExceptionHandler<InvalidArgumentClusterInitializationException, HttpResponse<? extends Problem>> {
 
     @Override
-    public HttpResponse<Problem> handle(HttpRequest request, InvalidArgumentClusterInitializationException exception) {
-        Problem problem = Problem.builder().status(400).detail(exception.getCause().getMessage()).build();
-        return HttpResponse.badRequest().body(problem);
+    public HttpResponse<? extends Problem> handle(HttpRequest request, InvalidArgumentClusterInitializationException exception) {
+        return HttpProblemResponse.from(
+                Problem.builder().status(400).detail(exception.getCause().getMessage())
+        );
     }
 }

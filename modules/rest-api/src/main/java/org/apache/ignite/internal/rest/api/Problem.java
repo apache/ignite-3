@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.UUID;
+import org.apache.ignite.internal.rest.problem.Builder;
 
 /**
  * Implements application/problem+json schema defined in <a href="https://www.rfc-editor.org/rfc/rfc7807.html">RFC-7807</a>.
@@ -117,65 +118,66 @@ public class Problem {
         return traceId;
     }
 
-    public static ProblemBuilder builder() {
-        return new ProblemBuilder();
+    public static <T extends Problem, B extends ProblemBuilder<T,B>> ProblemBuilder<T, B> builder() {
+        return new ProblemBuilder<>();
     }
 
     /**
      * Builder for {@link Problem}.
      */
-    public static class ProblemBuilder {
-        private String title;
+    public static class ProblemBuilder<T extends Problem, B extends ProblemBuilder<T, B>> implements Builder<T, B> {
+        protected String title;
 
-        private int status;
+        protected int status;
 
-        private String code;
+        protected String code;
 
-        private String type;
+        protected String type;
 
-        private String detail;
+        protected String detail;
 
-        private String node;
+        protected String node;
 
-        private UUID traceId;
+        protected UUID traceId;
 
-        public ProblemBuilder title(String title) {
+        public B title(String title) {
             this.title = title;
-            return this;
+            return (B) this;
         }
 
-        public ProblemBuilder status(int status) {
+        public B status(int status) {
             this.status = status;
-            return this;
+            return (B) this;
         }
 
-        public ProblemBuilder code(String code) {
+        public B code(String code) {
             this.code = code;
-            return this;
+            return (B) this;
         }
 
-        public ProblemBuilder type(String type) {
+        public B type(String type) {
             this.type = type;
-            return this;
+            return (B) this;
         }
 
-        public ProblemBuilder detail(String detail) {
+        public B detail(String detail) {
             this.detail = detail;
-            return this;
+            return (B) this;
         }
 
-        public ProblemBuilder node(String node) {
+        public B node(String node) {
             this.node = node;
-            return this;
+            return (B) this;
         }
 
-        public ProblemBuilder traceId(UUID traceId) {
+        public B traceId(UUID traceId) {
             this.traceId = traceId;
-            return this;
+            return (B) this;
         }
 
-        public Problem build() {
-            return new Problem(title, status, code, type, detail, node, traceId);
+        @Override
+        public T build() {
+            return (T) new Problem(title, status, code, type, detail, node, traceId);
         }
     }
 }

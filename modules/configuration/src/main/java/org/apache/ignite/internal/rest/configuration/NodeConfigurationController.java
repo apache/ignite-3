@@ -35,7 +35,7 @@ import jakarta.inject.Named;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.rest.api.Problem;
-import org.apache.ignite.internal.rest.api.RestApiMediaType;
+import org.apache.ignite.internal.rest.constants.RestApiMediaType;
 import org.apache.ignite.internal.rest.exception.handler.IgniteExceptionHandler;
 
 /**

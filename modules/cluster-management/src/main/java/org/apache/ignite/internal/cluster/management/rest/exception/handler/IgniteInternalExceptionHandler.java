@@ -20,23 +20,23 @@ package org.apache.ignite.internal.cluster.management.rest.exception.handler;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
-import io.micronaut.http.annotation.Produces;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Handles {@link IgniteInternalException} and represents it as a rest response.
  */
-@Produces
 @Singleton
 @Requires(classes = {IgniteInternalException.class, ExceptionHandler.class})
-public class IgniteInternalExceptionHandler implements ExceptionHandler<IgniteInternalException, HttpResponse<Problem>> {
+public class IgniteInternalExceptionHandler implements ExceptionHandler<IgniteInternalException, HttpResponse<? extends Problem>> {
 
     @Override
-    public HttpResponse<Problem> handle(HttpRequest request, IgniteInternalException exception) {
-        Problem problem = Problem.builder().status(500).detail(exception.getMessage()).build();
-        return HttpResponse.serverError().body(problem);
+    public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteInternalException exception) {
+        return HttpProblemResponse.from(
+                Problem.builder().status(500).detail(exception.getMessage())
+        );
     }
 }

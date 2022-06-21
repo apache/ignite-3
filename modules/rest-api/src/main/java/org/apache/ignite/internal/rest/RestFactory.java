@@ -15,26 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.api;
+package org.apache.ignite.internal.rest;
 
 /**
- * REST API media types.
+ * Factory that produces all beans that is necessary for the controller class.
  */
-public final class RestApiMediaType {
-    private RestApiMediaType() {}
-
-    /**
-     * application/json media type.
-     */
-    public static final String APPLICATION_JSON = "application/json";
-
-    /**
-     * application/problem+json media type.
-     */
-    public static final String PROBLEM_JSON = "application/problem+json";
-
-    /**
-     * text/plain media type.
-     */
-    public static final String TEXT_PLAIN = "text/plain";
+public interface RestFactory {
 }

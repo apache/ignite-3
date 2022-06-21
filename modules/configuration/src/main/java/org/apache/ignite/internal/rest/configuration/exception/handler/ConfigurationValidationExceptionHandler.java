@@ -20,7 +20,6 @@ package org.apache.ignite.internal.rest.configuration.exception.handler;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
-import io.micronaut.http.annotation.Produces;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
 import java.util.List;
@@ -28,33 +27,32 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.rest.api.InvalidParam;
-import org.apache.ignite.internal.rest.api.RestApiMediaType;
+import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.ValidationProblem;
+import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 
 /**
  * Handles {@link ConfigurationValidationException} and represents it as a rest response.
  */
-@Produces(RestApiMediaType.APPLICATION_JSON)
 @Singleton
 @Requires(classes = {ConfigurationValidationException.class, ExceptionHandler.class})
 public class ConfigurationValidationExceptionHandler implements
-        ExceptionHandler<ConfigurationValidationException, HttpResponse<ValidationProblem>> {
+        ExceptionHandler<ConfigurationValidationException, HttpResponse<? extends Problem>> {
 
     @Override
     // todo: propagate invalid parameter name in ValidationIssue
-    public HttpResponse<ValidationProblem> handle(HttpRequest request, ConfigurationValidationException exception) {
+    public HttpResponse<? extends Problem> handle(HttpRequest request, ConfigurationValidationException exception) {
         List<InvalidParam> invalidParams = exception.getIssues()
                 .stream()
                 .map(ValidationIssue::message)
                 .map(message -> new InvalidParam("changeme", message))
                 .collect(Collectors.toList());
 
-        ValidationProblem problem = ValidationProblem.validationProblemBuilder()
+        return HttpProblemResponse.from(
+                ValidationProblem.builder()
                 .status(400)
                 .detail("Parameters validation did not pass")
                 .invalidParams(invalidParams)
-                .build();
-
-        return HttpResponse.badRequest().body(problem);
+        );
     }
 }

@@ -15,10 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.api;
+package org.apache.ignite.internal.rest.problem;
 
-/**
- * Factory that produces all beans that is necessary for the controller class.
- */
-public interface RestFactory {
+public interface Builder<T, B extends Builder<T, B>> {
+    T build();
 }

@@ -33,7 +33,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.rest.exception.InvalidArgumentClusterInitializationException;
 import org.apache.ignite.internal.rest.api.Problem;
-import org.apache.ignite.internal.rest.api.RestApiMediaType;
+import org.apache.ignite.internal.rest.constants.RestApiMediaType;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;

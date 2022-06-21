@@ -20,47 +20,42 @@ package org.apache.ignite.internal.rest.exception.handler;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
-import io.micronaut.http.annotation.Produces;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 import org.apache.ignite.internal.rest.api.Problem;
-import org.apache.ignite.internal.rest.api.RestApiMediaType;
 import org.apache.ignite.lang.IgniteException;
 
 /**
  * Handles {@link IgniteException} and represents it as an application/problem+json response.
  */
-@Produces(RestApiMediaType.APPLICATION_JSON)
 @Singleton
 @Requires(classes = {IgniteException.class, ExceptionHandler.class})
-public class IgniteExceptionHandler implements ExceptionHandler<IgniteException, HttpResponse<Problem>> {
+public class IgniteExceptionHandler implements ExceptionHandler<IgniteException, HttpResponse<? extends Problem>> {
 
     @Override
-    public HttpResponse<Problem> handle(HttpRequest request, IgniteException exception) { // todo: refactor and add unit test
+    public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteException exception) { // todo: refactor and add unit test
         if (exception.getCause() instanceof IllegalArgumentException) {
-            return HttpResponse.badRequest(
+            return HttpProblemResponse.from(
                     Problem.builder()
                             .status(400)
                             .detail(exception.getCause().getMessage())
-                            .build()
             );
         }
 
         if (exception.getCause() instanceof ConfigurationValidationException) {
-            return HttpResponse.badRequest(
+            return HttpProblemResponse.from(
                     Problem.builder()
                             .status(400)
                             .detail(exception.getCause().getMessage())
-                            .build()
             );
         }
 
-        return HttpResponse.serverError(
+        return HttpProblemResponse.from(
                 Problem.builder()
                         .status(500)
                         .detail(exception.getMessage())
-                        .build()
         );
     }
 }

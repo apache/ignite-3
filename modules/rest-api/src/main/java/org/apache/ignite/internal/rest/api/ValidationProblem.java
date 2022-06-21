@@ -55,70 +55,22 @@ public class ValidationProblem extends Problem {
         return invalidParams;
     }
 
-    public static ValidationProblemBuilder validationProblemBuilder() {
+    public static ValidationProblemBuilder builder() {
         return new ValidationProblemBuilder();
     }
 
     /**
      * Builder for {@link ValidationProblem}.
      */
-    public static class ValidationProblemBuilder { // todo: use builder inheritance
-        private String title;
-
-        private int status;
-
-        private String code;
-
-        private String type;
-
-        private String detail;
-
-        private String node;
-
-        private UUID traceId;
-
+    public static class ValidationProblemBuilder extends ProblemBuilder<ValidationProblem, ValidationProblemBuilder> {
         private Collection<InvalidParam> invalidParams;
-
-        public ValidationProblemBuilder title(String title) {
-            this.title = title;
-            return this;
-        }
-
-        public ValidationProblemBuilder status(int status) {
-            this.status = status;
-            return this;
-        }
-
-        public ValidationProblemBuilder code(String code) {
-            this.code = code;
-            return this;
-        }
-
-        public ValidationProblemBuilder type(String type) {
-            this.type = type;
-            return this;
-        }
-
-        public ValidationProblemBuilder detail(String detail) {
-            this.detail = detail;
-            return this;
-        }
-
-        public ValidationProblemBuilder node(String node) {
-            this.node = node;
-            return this;
-        }
-
-        public ValidationProblemBuilder traceId(UUID traceId) {
-            this.traceId = traceId;
-            return this;
-        }
 
         public ValidationProblemBuilder invalidParams(Collection<InvalidParam> invalidParams) {
             this.invalidParams = invalidParams;
             return this;
         }
 
+        @Override
         public ValidationProblem build() {
             return new ValidationProblem(title, status, code, type, detail, node, traceId, invalidParams);
         }
