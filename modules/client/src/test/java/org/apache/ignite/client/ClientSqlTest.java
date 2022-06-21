@@ -20,12 +20,15 @@ package org.apache.ignite.client;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
@@ -126,13 +129,22 @@ public class ClientSqlTest extends AbstractClientTableTest {
         SqlRow row = resultSet.next();
 
         assertNotNull(meta);
+        assertSame(meta, row.metadata());
+
+        for (int i = 0; i < meta.columns().size(); i++) {
+            ColumnMetadata col = meta.columns().get(0);
+            assertEquals(i, meta.indexOf(col.name()));
+            assertEquals(row.<Object>value(i), row.value(col.name()));
+        }
 
         assertTrue((boolean)row.value(0));
-        assertTrue((boolean)row.value("bool"));
         assertEquals(SqlColumnType.BOOLEAN, meta.columns().get(0).type());
-        assertEquals(0, row.columnIndex("bool"));
+
+        assertEquals(Byte.MIN_VALUE, row.byteValue(1));
+        assertEquals(SqlColumnType.INT8, meta.columns().get(0).type());
 
         // TODO: Test meta in cursor and in row - all properties and methods, all column types.
+        // TODO: Precision, scale, nullable, origin.
         assertEquals(0, 1);
     }
 }
