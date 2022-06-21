@@ -192,6 +192,11 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals("VAL", columns.get(0).origin().columnName());
         assertEquals("PUBLIC", columns.get(0).origin().schemaName());
         assertEquals("TESTEXECUTEDDLDML", columns.get(0).origin().tableName());
+        assertTrue(columns.get(0).nullable());
+        assertEquals(String.class, columns.get(0).valueClass());
+        assertEquals(SqlColumnType.STRING, columns.get(0).type());
+        assertEquals(-1, columns.get(0).scale());
+        assertEquals(-1, columns.get(0).precision());
 
         assertEquals("ID", columns.get(1).name());
         assertEquals("ID", columns.get(1).origin().columnName());
