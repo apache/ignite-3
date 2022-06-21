@@ -102,16 +102,25 @@ class ClientSqlCommon {
                 break;
 
             case BITMASK:
+                out.packBitSet(row.bitmaskValue(idx));
                 break;
 
             case STRING:
+                out.packString(row.stringValue(idx));
                 break;
+
             case BYTE_ARRAY:
+                byte[] bytes = row.value(idx);
+                out.packBinaryHeader(bytes.length);
+                out.writePayload(bytes);
                 break;
+
             case PERIOD:
                 break;
+
             case DURATION:
                 break;
+
             case NUMBER:
                 break;
 
