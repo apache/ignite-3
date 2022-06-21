@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import java.util.List;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientSqlColumnTypeConverter;
 import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.SqlColumnType;
-
-import java.util.List;
 
 /**
  * Client column metadata.
