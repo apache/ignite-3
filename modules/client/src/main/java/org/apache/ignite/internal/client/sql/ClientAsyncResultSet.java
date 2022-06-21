@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import java.time.Duration;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -26,7 +28,6 @@ import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlColumnType;
@@ -207,43 +208,61 @@ class ClientAsyncResultSet implements AsyncResultSet {
 
         switch (colType) {
             case BOOLEAN:
-                break;
+                return in.unpackBoolean();
+
             case INT8:
-                break;
+                return in.unpackByte();
+
             case INT16:
-                break;
+                return in.unpackShort();
+
             case INT32:
-                break;
+                return in.unpackInt();
+
             case INT64:
-                break;
+                return in.unpackLong();
+
             case FLOAT:
-                break;
+                return in.unpackFloat();
+
             case DOUBLE:
-                break;
+                return in.unpackDouble();
+
             case DECIMAL:
-                break;
+                return in.unpackDecimal();
+
             case DATE:
-                break;
+                return in.unpackDate();
+
             case TIME:
-                break;
+                return in.unpackTime();
+
             case DATETIME:
-                break;
+                return in.unpackDateTime();
+
             case TIMESTAMP:
-                break;
+                return in.unpackTimestamp();
+
             case UUID:
-                break;
+                return in.unpackUuid();
+
             case BITMASK:
-                break;
+                return in.unpackBitSet();
+
             case STRING:
-                break;
+                return in.unpackString();
+
             case BYTE_ARRAY:
-                break;
+                return in.readPayload(in.unpackBinaryHeader());
+
             case PERIOD:
-                break;
+                return Period.of(in.unpackInt(), in.unpackInt(), in.unpackInt());
+
             case DURATION:
-                break;
+                return Duration.ofSeconds(in.unpackLong(), in.unpackInt());
+
             case NUMBER:
-                break;
+                return in.unpackBigInteger();
 
             default:
                 throw new UnsupportedOperationException("Unsupported column type: " + colType);

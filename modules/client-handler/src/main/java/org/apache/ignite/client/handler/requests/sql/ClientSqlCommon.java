@@ -42,7 +42,7 @@ class ClientSqlCommon {
 
         for (SqlRow row : asyncResultSet.currentPage()) {
             for (int i = 0; i < cols.size(); i++) {
-                packValue(out, cols.get(i), row, i);
+                packValue(out, cols.get(i).type(), row, i);
             }
         }
 
