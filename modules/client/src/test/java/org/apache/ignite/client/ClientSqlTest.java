@@ -114,4 +114,10 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals(22, props.get("prop2"));
         assertEquals(3, props.get("prop3"));
     }
+
+    @Test
+    public void testMetadata() {
+        // TODO: Test meta in cursor and in row - all properties and methods, all column types.
+        assertEquals(0, 1);
+    }
 }
