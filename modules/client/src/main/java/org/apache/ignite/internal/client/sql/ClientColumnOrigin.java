@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import java.util.List;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnMetadata;
-
-import java.util.List;
 
 /**
  * Column origin.

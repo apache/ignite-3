@@ -17,18 +17,6 @@
 
 package org.apache.ignite.client.fakes;
 
-import org.apache.ignite.internal.client.sql.ClientSqlRow;
-import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.SqlColumnType;
-import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.async.AsyncResultSet;
-import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
@@ -43,6 +31,17 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.client.sql.ClientSqlRow;
+import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake result set.
