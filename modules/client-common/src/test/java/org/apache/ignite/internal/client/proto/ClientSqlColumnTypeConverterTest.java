@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.apache.ignite.sql.SqlColumnType;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests column type converter.

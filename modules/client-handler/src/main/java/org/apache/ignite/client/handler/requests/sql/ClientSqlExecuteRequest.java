@@ -44,8 +44,6 @@ import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
 
-import javax.annotation.Nullable;
-
 /**
  * Client SQL execute request.
  */
