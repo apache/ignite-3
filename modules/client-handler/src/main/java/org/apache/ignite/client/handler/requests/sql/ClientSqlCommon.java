@@ -17,6 +17,9 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
+import java.math.BigInteger;
+import java.time.Duration;
+import java.time.Period;
 import java.util.List;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -116,12 +119,21 @@ class ClientSqlCommon {
                 break;
 
             case PERIOD:
+                Period period = row.value(idx);
+                out.packInt(period.getYears());
+                out.packInt(period.getMonths());
+                out.packInt(period.getDays());
                 break;
 
             case DURATION:
+                Duration duration = row.value(idx);
+                out.packLong(duration.getSeconds());
+                out.packInt(duration.getNano());
                 break;
 
             case NUMBER:
+                BigInteger number = row.value(idx);
+                out.packBigInteger(number);
                 break;
 
             default:
