@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.serializer;
 
 import static java.math.RoundingMode.HALF_UP;
+import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -192,7 +193,7 @@ public class AbstractSerializerTest {
                         new Column("ID", NativeTypes.INT8, false)
                 },
                 new Column[]{
-                        new Column(columnName, arg.type, nullable, () -> arg.defaultValue)
+                        new Column(columnName, arg.type, nullable, constantProvider(arg.defaultValue))
                 }
         );
 
@@ -218,11 +219,11 @@ public class AbstractSerializerTest {
 
         SchemaDescriptor desc = new SchemaDescriptor(100500,
                 new Column[]{
-                        new Column("A", NativeTypes.INT8, false, () -> (byte) 1)
+                        new Column("A", NativeTypes.INT8, false, constantProvider((byte) 1))
                 },
                 new Column[]{
-                        new Column("A1", NativeTypes.stringOf(128), false, () -> "test"),
-                        new Column("B1", NativeTypes.numberOf(255), false, () -> BigInteger.TEN)
+                        new Column("A1", NativeTypes.stringOf(128), false, constantProvider("test")),
+                        new Column("B1", NativeTypes.numberOf(255), false, constantProvider(BigInteger.TEN))
                 }
         );
 
@@ -230,7 +231,7 @@ public class AbstractSerializerTest {
 
         mapper.add(0, 1);
 
-        Column c1 = new Column("C1", NativeTypes.stringOf(128), false, () -> "brandNewColumn").copy(2);
+        Column c1 = new Column("C1", NativeTypes.stringOf(128), false, constantProvider("brandNewColumn")).copy(2);
 
         mapper.add(c1);
 

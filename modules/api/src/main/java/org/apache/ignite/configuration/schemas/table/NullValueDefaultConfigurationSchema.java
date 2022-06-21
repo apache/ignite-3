@@ -15,37 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition;
+package org.apache.ignite.configuration.schemas.table;
+
+import static org.apache.ignite.configuration.schemas.table.ColumnDefaultConfigurationSchema.NULL_VALUE_TYPE;
+
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
 /**
- * Table column descriptor.
+ * Configuration of a value provider that returns null.
  */
-public interface ColumnDefinition {
-    /**
-     * Returns column name.
-     *
-     * @return Column name.
-     */
-    String name();
-
-    /**
-     * Returns column type.
-     *
-     * @return Column type.
-     */
-    ColumnType type();
-
-    /**
-     * Returns {@code Nullable} flag value.
-     *
-     * @return {@code True} if null-values is allowed, {@code false} otherwise.
-     */
-    boolean nullable();
-
-    /**
-     * Returns default value definition.
-     *
-     * @return Default value definition.
-     */
-    DefaultValueDefinition defaultValueDefinition();
+@PolymorphicConfigInstance(NULL_VALUE_TYPE)
+public class NullValueDefaultConfigurationSchema extends ColumnDefaultConfigurationSchema {
 }

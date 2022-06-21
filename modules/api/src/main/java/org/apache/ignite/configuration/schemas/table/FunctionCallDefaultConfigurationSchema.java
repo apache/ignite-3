@@ -15,37 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition;
+package org.apache.ignite.configuration.schemas.table;
+
+import static org.apache.ignite.configuration.schemas.table.ColumnDefaultConfigurationSchema.FUNCTION_CALL_TYPE;
+
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Immutable;
 
 /**
- * Table column descriptor.
+ * Configuration of a value provider which returns the value returned by a function call.
  */
-public interface ColumnDefinition {
-    /**
-     * Returns column name.
-     *
-     * @return Column name.
-     */
-    String name();
-
-    /**
-     * Returns column type.
-     *
-     * @return Column type.
-     */
-    ColumnType type();
-
-    /**
-     * Returns {@code Nullable} flag value.
-     *
-     * @return {@code True} if null-values is allowed, {@code false} otherwise.
-     */
-    boolean nullable();
-
-    /**
-     * Returns default value definition.
-     *
-     * @return Default value definition.
-     */
-    DefaultValueDefinition defaultValueDefinition();
+@PolymorphicConfigInstance(FUNCTION_CALL_TYPE)
+public class FunctionCallDefaultConfigurationSchema extends ColumnDefaultConfigurationSchema {
+    /** Name of a function that should be used to generate next value. */
+    @Value
+    @Immutable
+    public String functionName;
 }

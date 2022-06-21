@@ -20,9 +20,12 @@ package org.apache.ignite.internal.schema.builder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import java.time.LocalDate;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.DefaultValueDefinition.ConstantValue;
+import org.apache.ignite.schema.definition.DefaultValueDefinition.DefaultValueType;
 import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
 import org.junit.jupiter.api.Test;
 
@@ -35,13 +38,16 @@ public class ColumnDefinitionBuilderTest {
      */
     @Test
     public void testCreateColumn() {
-        ColumnDefinitionBuilder builder = SchemaBuilders.column("TEST", ColumnType.DOUBLE);
+        ColumnDefinitionBuilder builder = SchemaBuilders.column("TEST", ColumnType.DATE);
 
-        ColumnDefinition col = builder.withDefaultValueExpression("NOW()").build();
+        var dflt = LocalDate.now();
+
+        ColumnDefinition col = builder.withDefaultValueExpression(dflt).build();
 
         assertEquals("TEST", col.name());
-        assertEquals(ColumnType.DOUBLE, col.type());
-        assertEquals("NOW()", col.defaultValue());
+        assertEquals(ColumnType.DATE, col.type());
+        assertEquals(DefaultValueType.CONSTANT, col.defaultValueDefinition().type());
+        assertEquals(dflt, ((ConstantValue) col.defaultValueDefinition()).value());
         assertFalse(col.nullable());
     }
 }

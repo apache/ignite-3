@@ -21,12 +21,12 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTR
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -35,7 +35,10 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -45,7 +48,8 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.ColumnType.ColumnTypeSpec;
+import org.apache.ignite.schema.definition.DefaultValueDefinition;
+import org.apache.ignite.schema.definition.DefaultValueDefinition.ConstantValue;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.builder.HashIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.PartialIndexDefinitionBuilder;
@@ -92,7 +96,10 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
                         HashIndexConfigurationSchema.class,
                         SortedIndexConfigurationSchema.class,
                         PartialIndexConfigurationSchema.class,
-                        UnknownDataStorageConfigurationSchema.class
+                        UnknownDataStorageConfigurationSchema.class,
+                        ConstantValueDefaultConfigurationSchema.class,
+                        FunctionCallDefaultConfigurationSchema.class,
+                        NullValueDefaultConfigurationSchema.class
                 )
         );
 
@@ -304,7 +311,13 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
 
         assertThat(targetColumn.name(), equalTo(columnName));
         assertThat(targetColumn.type(), equalTo(arg.type));
-        assertThat(targetColumn.defaultValue(), equalTo(arg.defaultValue));
+
+        if (arg.defaultValue != null) {
+            assertThat(targetColumn.defaultValueDefinition(), instanceOf(ConstantValue.class));
+            assertThat(((ConstantValue) targetColumn.defaultValueDefinition()).value(), equalTo(arg.defaultValue));
+        } else {
+            assertThat(targetColumn.defaultValueDefinition(), instanceOf(DefaultValueDefinition.class));
+        }
     }
 
     /**
@@ -332,32 +345,11 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
 
         for (var entry : DEFAULT_VALUES_TO_TEST.entrySet()) {
             for (var defaultValue : entry.getValue()) {
-                if (skipValue(entry.getKey(), defaultValue)) {
-                    continue;
-                }
-
                 paramList.add(
                         new DefaultValueArg(specToType(entry.getKey()), adjust(defaultValue))
                 );
             }
         }
         return paramList;
-    }
-
-    // TODO: IGNITE-17370 remove this
-    private static boolean skipValue(ColumnTypeSpec type, Object value) {
-        if (value == null) {
-            return false;
-        }
-
-        if (type == ColumnTypeSpec.BLOB && ((byte[]) value).length == 0) {
-            return true;
-        }
-
-        if (type == ColumnTypeSpec.BITMASK && ((BitSet) value).isEmpty()) {
-            return true;
-        }
-
-        return type == ColumnTypeSpec.STRING && ((String) value).isEmpty();
     }
 }

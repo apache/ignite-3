@@ -22,6 +22,7 @@ import org.apache.ignite.internal.schema.definition.ColumnDefinitionImpl;
 import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.DefaultValueDefinition;
 import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
 
 /**
@@ -78,6 +79,9 @@ public class ColumnDefinitionBuilderImpl implements ColumnDefinitionBuilder {
     /** {@inheritDoc} */
     @Override
     public ColumnDefinition build() {
-        return new ColumnDefinitionImpl(colName, colType, nullable, defValExpr);
+        var defaultSupp = defValExpr == null
+                ? DefaultValueDefinition.nullValue()
+                : DefaultValueDefinition.constant(defValExpr);
+        return new ColumnDefinitionImpl(colName, colType, nullable, defaultSupp);
     }
 }

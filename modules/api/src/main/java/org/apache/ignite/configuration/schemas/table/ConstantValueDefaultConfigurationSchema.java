@@ -15,37 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition;
+package org.apache.ignite.configuration.schemas.table;
+
+import static org.apache.ignite.configuration.schemas.table.ColumnDefaultConfigurationSchema.CONSTANT_VALUE_TYPE;
+
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Immutable;
 
 /**
- * Table column descriptor.
+ * Configuration of a value provider which returns the same constant value.
  */
-public interface ColumnDefinition {
-    /**
-     * Returns column name.
-     *
-     * @return Column name.
-     */
-    String name();
-
-    /**
-     * Returns column type.
-     *
-     * @return Column type.
-     */
-    ColumnType type();
-
-    /**
-     * Returns {@code Nullable} flag value.
-     *
-     * @return {@code True} if null-values is allowed, {@code false} otherwise.
-     */
-    boolean nullable();
-
-    /**
-     * Returns default value definition.
-     *
-     * @return Default value definition.
-     */
-    DefaultValueDefinition defaultValueDefinition();
+@PolymorphicConfigInstance(CONSTANT_VALUE_TYPE)
+public class ConstantValueDefaultConfigurationSchema extends ColumnDefaultConfigurationSchema {
+    /** The value to be used as default for a column. */
+    @Value
+    @Immutable
+    public String defaultValue;
 }

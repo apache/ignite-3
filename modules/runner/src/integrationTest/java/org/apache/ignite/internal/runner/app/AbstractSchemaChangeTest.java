@@ -34,6 +34,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.schemas.table.ColumnChange;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultChange;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteObjectName;
@@ -261,7 +262,8 @@ abstract class AbstractSchemaChangeTest {
                         colListChanger -> colListChanger
                                 .update(
                                         IgniteObjectName.parse(colName),
-                                        colChanger -> colChanger.changeDefaultValue(defSup.get().toString())
+                                        colChanger -> colChanger.changeDefaultValue(colDefChange -> colDefChange.convert(
+                                                ConstantValueDefaultChange.class).changeDefaultValue(defSup.get().toString()))
                                 )
                 )
         );

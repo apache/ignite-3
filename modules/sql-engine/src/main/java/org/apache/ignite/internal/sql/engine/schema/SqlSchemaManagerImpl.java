@@ -35,6 +35,8 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DefaultValueProvider;
+import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -359,7 +361,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                         col.columnOrder(),
                         col.schemaIndex(),
                         col.type(),
-                        DefaultValueStrategy.DEFAULT_CONSTANT,
+                        convertDefaultValueProvider(col.defaultValueProvider()),
                         col::defaultValue
                 ))
                 .collect(Collectors.toList());
@@ -369,6 +371,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 table.internalTable(),
                 schemaRegistry
         );
+    }
+
+    private DefaultValueStrategy convertDefaultValueProvider(DefaultValueProvider defaultValueProvider) {
+        return defaultValueProvider.type() == Type.CONSTANT
+                ? DefaultValueStrategy.DEFAULT_CONSTANT
+                : DefaultValueStrategy.DEFAULT_COMPUTED;
     }
 
     private static String removeSchema(String schemaName, String canonicalName) {

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.util.function.Supplier;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.NotNull;
@@ -30,7 +29,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class Column {
     /** Default "default value supplier". */
-    private static final Supplier<Object> NULL_SUPPLIER = () -> null;
+    private static final DefaultValueProvider NULL_SUPPLIER = DefaultValueProvider.constantProvider(null);
 
     /** Absolute index in schema descriptor. */
     private final int schemaIndex;
@@ -57,7 +56,7 @@ public class Column {
      * Default value supplier.
      */
     @IgniteToStringExclude
-    private final Supplier<Object> defValSup;
+    private final DefaultValueProvider defaultValueProvider;
 
     /**
      * Constructor.
@@ -80,15 +79,15 @@ public class Column {
      * @param name      Column name.
      * @param type      An instance of column data type.
      * @param nullable  If {@code false}, null values will not be allowed for this column.
-     * @param defValSup Default value supplier.
+     * @param defaultValueProvider Default value supplier.
      */
     public Column(
             String name,
             NativeType type,
             boolean nullable,
-            @NotNull Supplier<Object> defValSup
+            @NotNull DefaultValueProvider defaultValueProvider
     ) {
-        this(-1, -1, name, type, nullable, defValSup);
+        this(-1, -1, name, type, nullable, defaultValueProvider);
     }
 
     /**
@@ -115,16 +114,16 @@ public class Column {
      * @param name        Column name.
      * @param type        An instance of column data type.
      * @param nullable    If {@code false}, null values will not be allowed for this column.
-     * @param defValSup   Default value supplier.
+     * @param defaultValueProvider   Default value supplier.
      */
     public Column(
             int columnOrder,
             String name,
             NativeType type,
             boolean nullable,
-            @NotNull Supplier<Object> defValSup
+            @NotNull DefaultValueProvider defaultValueProvider
     ) {
-        this(-1, columnOrder, name, type, nullable, defValSup);
+        this(-1, columnOrder, name, type, nullable, defaultValueProvider);
     }
 
     /**
@@ -135,7 +134,7 @@ public class Column {
      * @param name        Column name.
      * @param type        An instance of column data type.
      * @param nullable    If {@code false}, null values will not be allowed for this column.
-     * @param defValSup   Default value supplier.
+     * @param defaultValueProvider   Default value supplier.
      */
     private Column(
             int schemaIndex,
@@ -143,14 +142,14 @@ public class Column {
             String name,
             NativeType type,
             boolean nullable,
-            @NotNull Supplier<Object> defValSup
+            @NotNull DefaultValueProvider defaultValueProvider
     ) {
         this.schemaIndex = schemaIndex;
         this.columnOrder = columnOrder;
         this.name = name;
         this.type = type;
         this.nullable = nullable;
-        this.defValSup = defValSup;
+        this.defaultValueProvider = defaultValueProvider;
     }
 
     /**
@@ -188,13 +187,17 @@ public class Column {
         return nullable;
     }
 
+    public DefaultValueProvider defaultValueProvider() {
+        return defaultValueProvider;
+    }
+
     /**
      * Get default value for the column.
      *
      * @return Default value.
      */
     public Object defaultValue() {
-        return defValSup.get();
+        return defaultValueProvider.get();
     }
 
     /** {@inheritDoc} */
@@ -248,7 +251,7 @@ public class Column {
      * @return Column.
      */
     public Column copy(int schemaIndex) {
-        return new Column(schemaIndex, columnOrder, name, type, nullable, defValSup);
+        return new Column(schemaIndex, columnOrder, name, type, nullable, defaultValueProvider);
     }
 
     /** {@inheritDoc} */
