@@ -999,28 +999,14 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param name Table name.
      */
     private static void checkTableWithData(Ignite ignite, String name) {
-        System.out.println("qqq 1");
         Table table = ignite.tables().table("PUBLIC." + name);
 
-        System.out.println("qqq 2");
         assertNotNull(table);
-        System.out.println("qqq 3");
 
-        try {
-            for (int i = 0; i < 100; i++) {
-                System.out.println("qqq 3.5 " + i);
-                Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i));
+        for (int i = 0; i < 100; i++) {
+            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i));
 
-                System.out.println("qqq 4 " + i);
-
-                assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
-                System.out.println("qqq 5 " + i);
-            }
-        }
-        catch (Throwable e) {
-            System.out.println("qqq th");
-            e.printStackTrace();
-            throw e;
+            assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
         }
     }
 

@@ -86,10 +86,6 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     public SchemaManager(Consumer<Function<Long, CompletableFuture<?>>> registry, TablesConfiguration tablesCfg) {
         this.registriesVv = new VersionedValue<>(registry, HashMap::new);
 
-        registriesVv.whenComplete((token, map, e) -> {
-            System.out.println("qqq completed registriesVv token=" + token);
-        });
-
         this.tablesCfg = tablesCfg;
     }
 

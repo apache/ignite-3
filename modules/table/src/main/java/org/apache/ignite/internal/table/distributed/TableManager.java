@@ -412,7 +412,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         UUID tblId = tblCfg.id().value();
 
         long causalityToken = assignmentsCtx.storageRevision();
-        System.out.println("qqq updateAssignmentInternal start" + ", tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
 
         List<List<ClusterNode>> oldAssignments = assignmentsCtx.oldValue() == null ? null :
                 (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.oldValue());
@@ -434,8 +433,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (e != null) {
                 return failedFuture(e);
             }
-
-            System.out.println("qqq tablesByIdVv updateAssignmentInternal, tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
 
             // Create new raft nodes according to new assignments.
             for (int i = 0; i < partitions; i++) {
@@ -476,20 +473,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         LOG.error("Failed to update raft groups one the node", th);
 
                         return null;
-                    }).thenApply(v -> {
-                        System.out.println("qqq finished creating partition=" + partId + ", tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
-                        return tablesById;
-                    });
+                    }).thenApply(v -> tablesById);
                 } catch (NodeStoppingException ex) {
                     throw new AssertionError("Loza was stopped before Table manager", ex);
                 }
             }
 
             return allOf(futures)
-                  .thenApply(f -> {
-                      System.out.println("qqq tablesByIdVv finished creating all partitions, tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
-                      return tablesById;
-                  });
+                  .thenApply(f -> tablesById);
         });
     }
 
@@ -549,27 +540,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return failedFuture(e);
             }
 
-            System.out.println("qqq tablesByIdVv create table locally" + ", tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
-
             var val = new HashMap<>(previous);
 
             val.put(tblId, table);
 
-            tablesByIdVv.get(causalityToken).thenRun(() -> {
-                System.out.println("qqq completed table creation" + ", tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
-
-                completeApiCreateFuture(table);
-            });
+            tablesByIdVv.get(causalityToken).thenRun(() -> completeApiCreateFuture(table));
 
             return eventFut
                 .thenCompose(v -> schemaManager.schemaRegistry(causalityToken, tblId))
-                .thenAccept(schemaRegistry -> {
-                    table.schemaView(schemaRegistry);
-                })
-                .thenApply(v -> {
-                    System.out.println("qqq tablesByIdVv finished creating table locally" + ", tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
-                    return val;
-                });
+                .thenAccept(table::schemaView)
+                .thenApply(v -> val);
         });
     }
 
