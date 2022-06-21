@@ -197,7 +197,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals("ID", columns.get(1).origin().columnName());
         assertEquals("PUBLIC", columns.get(1).origin().schemaName());
         assertEquals("TESTEXECUTEDDLDML", columns.get(1).origin().tableName());
-        assertFalse(columns.get(1).nullable());
+        assertFalse(columns.get(1).nullable()); // TODO: IGNITE-17094 should be merged soon!
 
         assertEquals("ID + 1", columns.get(2).name());
         assertNull(columns.get(2).origin());
