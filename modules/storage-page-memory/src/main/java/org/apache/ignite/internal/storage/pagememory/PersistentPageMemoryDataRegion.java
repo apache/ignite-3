@@ -21,10 +21,10 @@ import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.Arrays;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 
@@ -46,7 +46,7 @@ class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion {
      * @param pageSize Page size in bytes.
      */
     public PersistentPageMemoryDataRegion(
-            PageMemoryDataRegionConfiguration cfg,
+            PersistentPageMemoryDataRegionConfiguration cfg,
             PageIoRegistry ioRegistry,
             FilePageStoreManager filePageStoreManager,
             CheckpointManager checkpointManager,
@@ -61,12 +61,10 @@ class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        PageMemoryDataRegionView dataRegionConfigView = cfg.value();
+        PersistentPageMemoryDataRegionView dataRegionConfigView = (PersistentPageMemoryDataRegionView) cfg.value();
 
-        assert persistent() : dataRegionConfigView.name();
-
-        PageMemoryImpl pageMemoryImpl = new PageMemoryImpl(
-                cfg,
+        PersistentPageMemory pageMemoryImpl = new PersistentPageMemory(
+                (PersistentPageMemoryDataRegionConfiguration) cfg,
                 ioRegistry,
                 calculateSegmentSizes(dataRegionConfigView, Runtime.getRuntime().availableProcessors()),
                 calculateCheckpointBufferSize(dataRegionConfigView),
@@ -106,10 +104,10 @@ class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion {
      * @param concurrencyLevel Number of concurrent segments in Ignite internal page mapping tables, must be greater than 0.
      */
     // TODO: IGNITE-16350 Add more and more detailed description
-    static long[] calculateSegmentSizes(PageMemoryDataRegionView dataRegionConfigView, int concurrencyLevel) {
+    static long[] calculateSegmentSizes(PersistentPageMemoryDataRegionView dataRegionConfigView, int concurrencyLevel) {
         assert concurrencyLevel > 0 : concurrencyLevel;
 
-        long maxSize = dataRegionConfigView.maxSize();
+        long maxSize = dataRegionConfigView.size();
 
         long fragmentSize = Math.max(maxSize / concurrencyLevel, MiB);
 
@@ -126,8 +124,8 @@ class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion {
      * @param dataRegionConfigView Data region configuration.
      */
     // TODO: IGNITE-16350 Add more and more detailed description
-    static long calculateCheckpointBufferSize(PageMemoryDataRegionView dataRegionConfigView) {
-        long maxSize = dataRegionConfigView.maxSize();
+    static long calculateCheckpointBufferSize(PersistentPageMemoryDataRegionView dataRegionConfigView) {
+        long maxSize = dataRegionConfigView.size();
 
         if (maxSize < GiB) {
             return Math.min(GiB / 4L, maxSize);

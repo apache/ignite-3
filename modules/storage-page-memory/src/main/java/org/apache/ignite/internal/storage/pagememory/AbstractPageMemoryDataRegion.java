@@ -17,24 +17,24 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import java.util.Objects;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.BasePageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.storage.StorageException;
 
 /**
  * Abstract data region for {@link PageMemoryStorageEngine}. Based on a {@link PageMemory}.
  */
 abstract class AbstractPageMemoryDataRegion implements PageMemoryDataRegion, IgniteComponent {
-    protected final PageMemoryDataRegionConfiguration cfg;
+    protected final BasePageMemoryDataRegionConfiguration<?, ?> cfg;
 
     protected final PageIoRegistry ioRegistry;
 
     protected final int pageSize;
 
-    protected PageMemory pageMemory;
+    protected volatile PageMemory pageMemory;
 
     /**
      * Constructor.
@@ -43,7 +43,7 @@ abstract class AbstractPageMemoryDataRegion implements PageMemoryDataRegion, Ign
      * @param ioRegistry IO registry.
      * @param pageSize Page size in bytes.
      */
-    public AbstractPageMemoryDataRegion(PageMemoryDataRegionConfiguration cfg, PageIoRegistry ioRegistry, int pageSize) {
+    public AbstractPageMemoryDataRegion(BasePageMemoryDataRegionConfiguration<?, ?> cfg, PageIoRegistry ioRegistry, int pageSize) {
         this.cfg = cfg;
         this.ioRegistry = ioRegistry;
         this.pageSize = pageSize;
@@ -51,23 +51,28 @@ abstract class AbstractPageMemoryDataRegion implements PageMemoryDataRegion, Ign
 
     /** {@inheritDoc} */
     @Override
-    public void stop() {
+    public PageMemory pageMemory() {
+        checkDataRegionStarted();
+
+        return pageMemory;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void stop() throws Exception {
         if (pageMemory != null) {
             pageMemory.stop(true);
         }
     }
 
     /**
-     * Returns {@link true} if the date region is persistent.
+     * Checks that the data region has started.
+     *
+     * @throws StorageException If the data region did not start.
      */
-    public boolean persistent() {
-        return cfg.value().persistent();
-    }
-
-    /**
-     * Returns page memory, {@code null} if not {@link #start started}.
-     */
-    public PageMemory pageMemory() {
-        return Objects.requireNonNull(pageMemory);
+    protected void checkDataRegionStarted() {
+        if (pageMemory == null) {
+            throw new StorageException("Data region not started");
+        }
     }
 }

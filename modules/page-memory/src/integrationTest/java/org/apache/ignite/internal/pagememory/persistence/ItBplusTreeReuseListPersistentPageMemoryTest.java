@@ -27,9 +27,9 @@ import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.tree.ItBplusTreeReuseSelfTest;
 
 /**
- * Test with reuse list and {@link PageMemoryImpl}.
+ * Test with reuse list and {@link PersistentPageMemory}.
  */
-public class ItBplusTreeReuseListPageMemoryImplTest extends ItBplusTreeReuseSelfTest {
+public class ItBplusTreeReuseListPersistentPageMemoryTest extends ItBplusTreeReuseSelfTest {
     /** {@inheritDoc} */
     @Override
     protected PageMemory createPageMemory() throws Exception {
@@ -39,7 +39,7 @@ public class ItBplusTreeReuseListPageMemoryImplTest extends ItBplusTreeReuseSelf
 
         ioRegistry.loadFromServiceLoader();
 
-        return new PageMemoryImpl(
+        return new PersistentPageMemory(
                 dataRegionCfg,
                 ioRegistry,
                 LongStream.range(0, CPUS).map(i -> MAX_MEMORY_SIZE / CPUS).toArray(),
@@ -57,6 +57,6 @@ public class ItBplusTreeReuseListPageMemoryImplTest extends ItBplusTreeReuseSelf
     /** {@inheritDoc} */
     @Override
     protected long acquiredPages() {
-        return ((PageMemoryImpl) pageMem).acquiredPages();
+        return ((PersistentPageMemory) pageMem).acquiredPages();
     }
 }

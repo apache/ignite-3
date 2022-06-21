@@ -25,7 +25,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
@@ -194,11 +194,11 @@ public class CheckpointManager implements IgniteComponent {
      * Returns {@link true} if it is safe for all {@link PageMemoryDataRegion data regions} to update their {@link PageMemory}.
      *
      * @param dataRegions Data regions.
-     * @see PageMemoryImpl#safeToUpdate()
+     * @see PersistentPageMemory#safeToUpdate()
      */
     static boolean safeToUpdateAllPageMemories(Collection<? extends PageMemoryDataRegion> dataRegions) {
         for (PageMemoryDataRegion dataRegion : dataRegions) {
-            if (dataRegion.persistent() && !((PageMemoryImpl) dataRegion.pageMemory()).safeToUpdate()) {
+            if (dataRegion.persistent() && !((PersistentPageMemory) dataRegion.pageMemory()).safeToUpdate()) {
                 return false;
             }
         }

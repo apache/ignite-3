@@ -33,8 +33,8 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
-import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -55,7 +55,7 @@ public class CheckpointManagerTest {
 
     @Test
     void testSimple() throws Exception {
-        PageMemoryDataRegion dataRegion = newDataRegion(true, mock(PageMemoryImpl.class));
+        PageMemoryDataRegion dataRegion = newDataRegion(true, mock(PersistentPageMemory.class));
 
         CheckpointManager checkpointManager = new CheckpointManager(
                 "test",
@@ -86,13 +86,13 @@ public class CheckpointManagerTest {
 
     @Test
     void testSafeToUpdateAllPageMemories() {
-        PageMemoryDataRegion dataRegion0 = newDataRegion(false, mock(PageMemoryNoStoreImpl.class));
+        PageMemoryDataRegion dataRegion0 = newDataRegion(false, mock(VolatilePageMemory.class));
 
         assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion0)));
 
         AtomicBoolean safeToUpdate = new AtomicBoolean();
 
-        PageMemoryImpl pageMemoryImpl = mock(PageMemoryImpl.class);
+        PersistentPageMemory pageMemoryImpl = mock(PersistentPageMemory.class);
 
         when(pageMemoryImpl.safeToUpdate()).then(answer -> safeToUpdate.get());
 

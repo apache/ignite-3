@@ -81,7 +81,7 @@ import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
-import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
+import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowClosure;
@@ -2743,7 +2743,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
 
         ioRegistry.loadFromServiceLoader();
 
-        return new PageMemoryNoStoreImpl(
+        return new VolatilePageMemory(
                 dataRegionCfg,
                 ioRegistry,
                 PAGE_SIZE
@@ -2754,7 +2754,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
      * Returns number of acquired pages.
      */
     protected long acquiredPages() {
-        return ((PageMemoryNoStoreImpl) pageMem).acquiredPages();
+        return ((VolatilePageMemory) pageMem).acquiredPages();
     }
 
     /**

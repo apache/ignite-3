@@ -44,7 +44,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -364,7 +364,7 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
      */
     boolean writePages(
             CheckpointMetricsTracker tracker,
-            IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> checkpointPages,
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> checkpointPages,
             CheckpointProgressImpl currentCheckpointProgress,
             WorkProgressDispatcher workProgressDispatcher,
             BooleanSupplier shutdownNow

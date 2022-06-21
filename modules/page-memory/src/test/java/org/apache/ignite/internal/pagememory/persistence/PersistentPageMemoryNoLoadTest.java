@@ -19,7 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.PageMemoryTestUtils.newDataRegion;
-import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.PAGE_OVERHEAD;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
 import static org.apache.ignite.internal.util.Constants.MiB;
@@ -43,7 +43,7 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
-import org.apache.ignite.internal.pagememory.impl.PageMemoryNoLoadSelfTest;
+import org.apache.ignite.internal.pagememory.inmemory.PageMemoryNoLoadSelfTest;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
@@ -56,10 +56,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Tests {@link PageMemoryImpl}.
+ * Tests {@link PersistentPageMemory}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
+public class PersistentPageMemoryNoLoadTest extends PageMemoryNoLoadSelfTest {
     @BeforeEach
     void setUp() throws Exception {
         dataRegionCfg.change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, SECONDS);
@@ -89,7 +89,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
 
         CheckpointManager checkpointManager = createCheckpointManager(checkpointConfig, workDir, filePageStoreManager, dataRegions);
 
-        PageMemoryImpl pageMemoryImpl = createPageMemoryImpl(
+        PersistentPageMemory pageMemoryImpl = createPageMemoryImpl(
                 defaultSegmentSizes(),
                 defaultCheckpointBufferSize(),
                 filePageStoreManager,
@@ -147,7 +147,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
 
         dataRegionCfg.change(c -> c.changeInitSize(128 * systemPageSize).changeMaxSize(128 * systemPageSize)).get(1, SECONDS);
 
-        PageMemoryImpl pageMemoryImpl = createPageMemoryImpl(
+        PersistentPageMemory pageMemoryImpl = createPageMemoryImpl(
                 new long[]{100 * systemPageSize},
                 28 * systemPageSize,
                 filePageStoreManager,
@@ -204,7 +204,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
         }
     }
 
-    protected PageMemoryImpl createPageMemoryImpl(
+    protected PersistentPageMemory createPageMemoryImpl(
             long[] segmentSizes,
             long checkpointBufferSize,
             @Nullable FilePageStoreManager filePageStoreManager,
@@ -214,7 +214,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
 
         ioRegistry.loadFromServiceLoader();
 
-        return new PageMemoryImpl(
+        return new PersistentPageMemory(
                 dataRegionCfg,
                 ioRegistry,
                 segmentSizes,
@@ -227,7 +227,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
         );
     }
 
-    protected FullPageId createDirtyPage(PageMemoryImpl pageMemoryImpl) throws Exception {
+    protected FullPageId createDirtyPage(PersistentPageMemory pageMemoryImpl) throws Exception {
         FullPageId fullPageId = allocatePage(pageMemoryImpl);
 
         long page = pageMemoryImpl.acquirePage(fullPageId.groupId(), fullPageId.pageId());

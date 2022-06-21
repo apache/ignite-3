@@ -26,7 +26,7 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
@@ -141,7 +141,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             int partId,
             FilePageStore filePageStore
     ) throws StorageException {
-        PageMemoryImpl pageMemoryImpl = (PageMemoryImpl) dataRegion.pageMemory();
+        PersistentPageMemory pageMemoryImpl = (PersistentPageMemory) dataRegion.pageMemory();
 
         int grpId = groupId(tableView);
 

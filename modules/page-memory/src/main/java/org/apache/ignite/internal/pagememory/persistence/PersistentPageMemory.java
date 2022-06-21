@@ -76,8 +76,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
@@ -130,9 +130,9 @@ import org.jetbrains.annotations.TestOnly;
  * in use or not.
  */
 @SuppressWarnings({"LockAcquiredButNotSafelyReleased"})
-public class PageMemoryImpl implements PageMemory {
+public class PersistentPageMemory implements PageMemory {
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(PageMemoryImpl.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(PersistentPageMemory.class);
 
     /** Full relative pointer mask. */
     public static final long RELATIVE_PTR_MASK = 0xFFFFFFFFFFFFFFL;
@@ -153,7 +153,7 @@ public class PageMemoryImpl implements PageMemory {
     public static final int TRY_AGAIN_TAG = -1;
 
     /** Data region configuration view. */
-    private final PageMemoryDataRegionView dataRegionConfigView;
+    private final PersistentPageMemoryDataRegionView dataRegionConfigView;
 
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
@@ -185,8 +185,8 @@ public class PageMemoryImpl implements PageMemory {
     private final PageChangeTracker changeTracker;
 
     /** Field updater. */
-    private static final AtomicIntegerFieldUpdater<PageMemoryImpl> pageReplacementWarnedFieldUpdater =
-            AtomicIntegerFieldUpdater.newUpdater(PageMemoryImpl.class, "pageReplacementWarned");
+    private static final AtomicIntegerFieldUpdater<PersistentPageMemory> pageReplacementWarnedFieldUpdater =
+            AtomicIntegerFieldUpdater.newUpdater(PersistentPageMemory.class, "pageReplacementWarned");
 
     /** Flag indicating page replacement started (rotation with disk), allocating new page requires freeing old one. */
     private volatile int pageReplacementWarned;
@@ -231,8 +231,8 @@ public class PageMemoryImpl implements PageMemory {
      * @param checkpointTimeoutLock Checkpoint timeout lock.
      * @param pageSize Page size in bytes.
      */
-    public PageMemoryImpl(
-            PageMemoryDataRegionConfiguration dataRegionConfig,
+    public PersistentPageMemory(
+            PersistentPageMemoryDataRegionConfiguration dataRegionConfig,
             PageIoRegistry ioRegistry,
             long[] segmentSizes,
             long checkpointBufferSize,
@@ -574,10 +574,10 @@ public class PageMemoryImpl implements PageMemory {
         } catch (IgniteOutOfMemoryException oom) {
             IgniteOutOfMemoryException e = new IgniteOutOfMemoryException("Out of memory in data region ["
                     + "name=" + dataRegionConfigView.name()
-                    + ", initSize=" + readableSize(dataRegionConfigView.initSize(), false)
-                    + ", maxSize=" + readableSize(dataRegionConfigView.maxSize(), false)
-                    + ", persistenceEnabled=" + dataRegionConfigView.persistent() + "] Try the following:" + lineSeparator()
-                    + "  ^-- Increase maximum off-heap memory size (PageMemoryDataRegionConfiguration.maxSize)" + lineSeparator()
+                    + ", size=" + readableSize(dataRegionConfigView.size(), false)
+                    + ", persistence=true] Try the following:" + lineSeparator()
+                    + "  ^-- Increase maximum off-heap memory size (PersistentPageMemoryDataRegionConfigurationSchema.size)"
+                    + lineSeparator()
                     + "  ^-- Enable eviction or expiration policies"
             );
 
@@ -1592,7 +1592,7 @@ public class PageMemoryImpl implements PageMemory {
             assert getWriteHoldCount() > 0;
 
             if (pageReplacementWarned == 0) {
-                if (pageReplacementWarnedFieldUpdater.compareAndSet(PageMemoryImpl.this, 0, 1)) {
+                if (pageReplacementWarnedFieldUpdater.compareAndSet(PersistentPageMemory.this, 0, 1)) {
                     String msg = "Page replacements started, pages will be rotated with disk, this will affect "
                             + "storage performance (consider increasing PageMemoryDataRegionConfiguration#setMaxSize for "
                             + "data region): " + dataRegionConfigView.name();
@@ -1622,11 +1622,9 @@ public class PageMemoryImpl implements PageMemory {
                     + ", pinned=" + acquiredPages()
                     + ']' + lineSeparator() + "Out of memory in data region ["
                     + "name=" + dataRegionConfigView.name()
-                    + ", initSize=" + readableSize(dataRegionConfigView.initSize(), false)
-                    + ", maxSize=" + readableSize(dataRegionConfigView.maxSize(), false)
-                    + ", persistenceEnabled=" + dataRegionConfigView.persistent() + "] Try the following:" + lineSeparator()
-                    + "  ^-- Increase maximum off-heap memory size (PageMemoryDataRegionConfiguration.maxSize)" + lineSeparator()
-                    + "  ^-- Enable eviction or expiration policies"
+                    + ", size=" + readableSize(dataRegionConfigView.size(), false)
+                    + ", persistence=true] Try the following:" + lineSeparator()
+                    + "  ^-- Increase off-heap memory size (PersistentPageMemoryDataRegionConfigurationSchema.size)" + lineSeparator()
             );
         }
 
@@ -1784,7 +1782,7 @@ public class PageMemoryImpl implements PageMemory {
          * @param fullPageId Full page ID.
          * @param pageMemoryImpl Page memory.
          */
-        void apply(long page, FullPageId fullPageId, PageMemoryImpl pageMemoryImpl);
+        void apply(long page, FullPageId fullPageId, PersistentPageMemory pageMemoryImpl);
     }
 
     /**

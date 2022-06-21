@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
-import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.segmentIndex;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.segmentIndex;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;

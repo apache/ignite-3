@@ -26,7 +26,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -40,8 +40,8 @@ public class CheckpointTimeoutLock implements IgniteComponent {
     protected final IgniteLogger log;
 
     /**
-     * {@link PageMemoryImpl#safeToUpdate() Safe update check} for all page memories, should return {@code false} if there are many dirty
-     * pages and a checkpoint is needed.
+     * {@link PersistentPageMemory#safeToUpdate() Safe update check} for all page memories, should return {@code false} if there are many
+     * dirty pages and a checkpoint is needed.
      */
     private final BooleanSupplier safeToUpdateAllPageMemories;
 
@@ -63,7 +63,7 @@ public class CheckpointTimeoutLock implements IgniteComponent {
      * @param log Logger.
      * @param checkpointReadWriteLock Checkpoint read-write lock.
      * @param checkpointReadLockTimeout Timeout for checkpoint read lock acquisition in milliseconds.
-     * @param safeToUpdateAllPageMemories {@link PageMemoryImpl#safeToUpdate() Safe update check} for all page memories, should return
+     * @param safeToUpdateAllPageMemories {@link PersistentPageMemory#safeToUpdate() Safe update check} for all page memories, should return
      *      {@code false} if there are many dirty pages and a checkpoint is needed.
      * @param checkpointer Service for triggering the checkpoint.
      */

@@ -40,7 +40,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -345,7 +345,7 @@ public class CheckpointTimeoutLockTest {
 
         when(dataRegion.persistent()).thenReturn(persistent);
 
-        PageMemoryImpl pageMemory = mock(PageMemoryImpl.class);
+        PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
 
         when(pageMemory.safeToUpdate()).then(a -> safeToUpdate.get());
 

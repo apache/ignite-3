@@ -44,7 +44,7 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -190,7 +190,7 @@ class CheckpointWorkflow implements IgniteComponent {
 
             tracker.onSplitAndSortCheckpointPagesStart();
 
-            IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> dirtyPages0 = splitAndSortCheckpointPagesIfNeeded(dirtyPages);
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPages0 = splitAndSortCheckpointPagesIfNeeded(dirtyPages);
 
             tracker.onSplitAndSortCheckpointPagesEnd();
 
@@ -213,7 +213,7 @@ class CheckpointWorkflow implements IgniteComponent {
             for (PageMemoryDataRegion dataRegion : dataRegions) {
                 assert dataRegion.persistent() : dataRegion;
 
-                ((PageMemoryImpl) dataRegion.pageMemory()).finishCheckpoint();
+                ((PersistentPageMemory) dataRegion.pageMemory()).finishCheckpoint();
             }
         }
 
@@ -271,18 +271,18 @@ class CheckpointWorkflow implements IgniteComponent {
             Collection<? extends PageMemoryDataRegion> dataRegions,
             CompletableFuture<?> allowToReplace
     ) {
-        Collection<IgniteBiTuple<PageMemoryImpl, Collection<FullPageId>>> pages = new ArrayList<>(dataRegions.size());
+        Collection<IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>>> pages = new ArrayList<>(dataRegions.size());
 
         int pageCount = 0;
 
         for (PageMemoryDataRegion dataRegion : dataRegions) {
             assert dataRegion.persistent() : dataRegion;
 
-            Collection<FullPageId> dirtyPages = ((PageMemoryImpl) dataRegion.pageMemory()).beginCheckpoint(allowToReplace);
+            Collection<FullPageId> dirtyPages = ((PersistentPageMemory) dataRegion.pageMemory()).beginCheckpoint(allowToReplace);
 
             pageCount += dirtyPages.size();
 
-            pages.add(new IgniteBiTuple<>((PageMemoryImpl) dataRegion.pageMemory(), dirtyPages));
+            pages.add(new IgniteBiTuple<>((PersistentPageMemory) dataRegion.pageMemory(), dirtyPages));
         }
 
         return new CheckpointDirtyPagesInfoHolder(pages, pageCount);
@@ -317,14 +317,14 @@ class CheckpointWorkflow implements IgniteComponent {
         return execPool;
     }
 
-    private IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> splitAndSortCheckpointPagesIfNeeded(
+    private IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> splitAndSortCheckpointPagesIfNeeded(
             CheckpointDirtyPagesInfoHolder dirtyPages
     ) throws IgniteInternalCheckedException {
-        Set<IgniteBiTuple<PageMemoryImpl, FullPageId[]>> cpPagesPerRegion = new HashSet<>();
+        Set<IgniteBiTuple<PersistentPageMemory, FullPageId[]>> cpPagesPerRegion = new HashSet<>();
 
         int realPagesArrSize = 0;
 
-        for (IgniteBiTuple<PageMemoryImpl, Collection<FullPageId>> regPages : dirtyPages.dirtyPages) {
+        for (IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>> regPages : dirtyPages.dirtyPages) {
             FullPageId[] pages = new FullPageId[regPages.getValue().size()];
 
             int pagePos = 0;
@@ -349,7 +349,7 @@ class CheckpointWorkflow implements IgniteComponent {
 
             ForkJoinPool pool = null;
 
-            for (IgniteBiTuple<PageMemoryImpl, FullPageId[]> pagesPerReg : cpPagesPerRegion) {
+            for (IgniteBiTuple<PersistentPageMemory, FullPageId[]> pagesPerReg : cpPagesPerRegion) {
                 if (pagesPerReg.getValue().length >= parallelSortThreshold) {
                     pool = parallelSortInIsolatedPool(pagesPerReg.get2(), cmp, pool);
                 } else {

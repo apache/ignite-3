@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.impl;
+package org.apache.ignite.internal.pagememory.inmemory;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -48,7 +48,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Tests {@link PageMemoryNoStoreImpl}.
+ * Tests {@link VolatilePageMemory}.
  */
 @ExtendWith(ConfigurationExtension.class)
 public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
@@ -313,7 +313,7 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
 
         ioRegistry.loadFromServiceLoader();
 
-        return new PageMemoryNoStoreImpl(
+        return new VolatilePageMemory(
                 dataRegionCfg,
                 ioRegistry,
                 PAGE_SIZE

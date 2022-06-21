@@ -63,7 +63,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.Result;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -96,9 +96,9 @@ public class CheckpointWorkflowTest {
 
     @Test
     void testListeners() {
-        PageMemoryDataRegion dataRegion0 = newDataRegion(true, mock(PageMemoryImpl.class));
-        PageMemoryDataRegion dataRegion1 = newDataRegion(true, mock(PageMemoryImpl.class));
-        PageMemoryDataRegion dataRegion2 = newDataRegion(true, mock(PageMemoryImpl.class));
+        PageMemoryDataRegion dataRegion0 = newDataRegion(true, mock(PersistentPageMemory.class));
+        PageMemoryDataRegion dataRegion1 = newDataRegion(true, mock(PersistentPageMemory.class));
+        PageMemoryDataRegion dataRegion2 = newDataRegion(true, mock(PersistentPageMemory.class));
 
         workflow = new CheckpointWorkflow(
                 checkpointConfig,
@@ -283,7 +283,7 @@ public class CheckpointWorkflowTest {
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesStart();
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesEnd();
 
-        List<IgniteBiTuple<PageMemoryImpl, FullPageId>> pairs = collect(checkpoint.dirtyPages);
+        List<IgniteBiTuple<PersistentPageMemory, FullPageId>> pairs = collect(checkpoint.dirtyPages);
 
         assertThat(
                 pairs.stream().map(IgniteBiTuple::getKey).collect(toSet()),
@@ -376,7 +376,7 @@ public class CheckpointWorkflowTest {
 
         CheckpointReadWriteLock readWriteLock = newReadWriteLock(log);
 
-        PageMemoryImpl pageMemory = mock(PageMemoryImpl.class);
+        PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
 
         PageMemoryDataRegion dataRegion = newDataRegion(true, pageMemory);
 
@@ -438,10 +438,12 @@ public class CheckpointWorkflowTest {
         verify(markersStorage, times(1)).onCheckpointEnd(checkpointId);
     }
 
-    private List<IgniteBiTuple<PageMemoryImpl, FullPageId>> collect(IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> queue) {
-        List<IgniteBiTuple<PageMemoryImpl, FullPageId>> res = new ArrayList<>();
+    private List<IgniteBiTuple<PersistentPageMemory, FullPageId>> collect(
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> queue
+    ) {
+        List<IgniteBiTuple<PersistentPageMemory, FullPageId>> res = new ArrayList<>();
 
-        Result<PageMemoryImpl, FullPageId> result = new Result<>();
+        Result<PersistentPageMemory, FullPageId> result = new Result<>();
 
         while (queue.next(result)) {
             res.add(new IgniteBiTuple<>(result.getKey(), result.getValue()));
@@ -450,8 +452,8 @@ public class CheckpointWorkflowTest {
         return res;
     }
 
-    private PageMemoryImpl newPageMemoryImpl(Collection<FullPageId> dirtyPages) {
-        PageMemoryImpl mock = mock(PageMemoryImpl.class);
+    private PersistentPageMemory newPageMemoryImpl(Collection<FullPageId> dirtyPages) {
+        PersistentPageMemory mock = mock(PersistentPageMemory.class);
 
         when(mock.beginCheckpoint(any(CompletableFuture.class))).thenReturn(dirtyPages);
 
