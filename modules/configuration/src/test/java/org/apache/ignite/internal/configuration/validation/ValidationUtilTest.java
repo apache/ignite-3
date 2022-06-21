@@ -358,7 +358,7 @@ public class ValidationUtilTest {
                 @Nullable Object oldVal,
                 Object newVal
         ) {
-            super(message);
+            super(currentKey, message);
             this.currentKey = currentKey;
             this.oldVal = oldVal;
             this.newVal = newVal;

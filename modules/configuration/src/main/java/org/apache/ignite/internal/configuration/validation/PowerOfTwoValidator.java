@@ -33,6 +33,7 @@ public class PowerOfTwoValidator implements Validator<PowerOfTwo, Number> {
     public void validate(PowerOfTwo annotation, ValidationContext<Number> ctx) {
         if (!isPow2(ctx.getNewValue().longValue())) {
             ctx.addIssue(new ValidationIssue(
+                    ctx.currentKey(),
                     "Configuration value '" + ctx.currentKey() + "' must not be power of two"
             ));
         }

@@ -22,9 +22,14 @@ import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
+import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
+import org.apache.ignite.internal.rest.api.ValidationProblem;
+import org.apache.ignite.internal.rest.constants.HttpCode;
+import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -35,27 +40,31 @@ import org.apache.ignite.lang.IgniteException;
 public class IgniteExceptionHandler implements ExceptionHandler<IgniteException, HttpResponse<? extends Problem>> {
 
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteException exception) { // todo: refactor and add unit test
+    public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteException exception) {
         if (exception.getCause() instanceof IllegalArgumentException) {
             return HttpProblemResponse.from(
-                    Problem.builder()
-                            .status(400)
-                            .detail(exception.getCause().getMessage())
+                    Problem.fromHttpCode(HttpCode.BAD_REQUEST).detail(exception.getCause().getMessage())
             );
         }
 
         if (exception.getCause() instanceof ConfigurationValidationException) {
             return HttpProblemResponse.from(
-                    Problem.builder()
-                            .status(400)
-                            .detail(exception.getCause().getMessage())
+                    ValidationProblem.fromHttpCode(HttpCode.BAD_REQUEST)
+                            .detail("Validation did not pass")
+                            .invalidParams(mapValidationIssuesToRestFormat((ConfigurationValidationException) exception.getCause()))
             );
         }
 
         return HttpProblemResponse.from(
-                Problem.builder()
-                        .status(500)
-                        .detail(exception.getMessage())
+                Problem.fromHttpCode(HttpCode.INTERNAL_ERROR).detail(exception.getMessage())
         );
     }
+
+    private List<InvalidParam> mapValidationIssuesToRestFormat(ConfigurationValidationException exception) {
+        return exception.getIssues()
+                .stream()
+                .map(validationIssue -> new InvalidParam(validationIssue.key(), validationIssue.message()))
+                .collect(Collectors.toList());
+    }
+
 }

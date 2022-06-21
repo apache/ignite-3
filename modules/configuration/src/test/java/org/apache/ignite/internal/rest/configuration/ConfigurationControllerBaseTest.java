@@ -136,7 +136,7 @@ public abstract class ConfigurationControllerBaseTest {
 
         var problem = getValidationProblem(thrown);
         assertEquals(400, problem.status());
-        assertEquals("Parameters validation did not pass", problem.detail());
+        assertEquals("Validation did not pass", problem.detail());
         assertEquals("Error word", problem.invalidParams().stream().findFirst().get().reason()); // todo: check name and reason
     }
 

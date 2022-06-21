@@ -23,8 +23,9 @@ import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cluster.management.rest.exception.InvalidArgumentClusterInitializationException;
-import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 import org.apache.ignite.internal.rest.api.Problem;
+import org.apache.ignite.internal.rest.constants.HttpCode;
+import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 
 /**
  * Handles {@link InvalidArgumentClusterInitializationException} and represents it as a rest response.
@@ -37,7 +38,7 @@ public class InvalidArgumentClusterInitializationExceptionHandler implements
     @Override
     public HttpResponse<? extends Problem> handle(HttpRequest request, InvalidArgumentClusterInitializationException exception) {
         return HttpProblemResponse.from(
-                Problem.builder().status(400).detail(exception.getCause().getMessage())
+                Problem.fromHttpCode(HttpCode.BAD_REQUEST).detail(exception.getCause().getMessage())
         );
     }
 }

@@ -67,10 +67,9 @@ public abstract class AbstractConfigurationController {
                 .exceptionally(ex -> {
                     if (ex instanceof CompletionException) {
                         var cause = ex.getCause();
-                        if (cause instanceof IllegalArgumentException) {
+                        if (cause instanceof IllegalArgumentException
+                                || cause instanceof ConfigurationValidationException) {
                             throw new IgniteException(cause);
-                        } else if (cause instanceof ConfigurationValidationException) {
-                            throw (ConfigurationValidationException) cause;
                         }
                     }
                     throw new IgniteException(ex);

@@ -21,7 +21,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.rest.constants.HttpCode;
 
 /**
  * Validation problem that adds one more property (invalidParams) to the standard problem.
@@ -55,8 +57,49 @@ public class ValidationProblem extends Problem {
         return invalidParams;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+        ValidationProblem that = (ValidationProblem) o;
+        return Objects.equals(invalidParams, that.invalidParams);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), invalidParams);
+    }
+
+    @Override
+    public String toString() {
+        return "ValidationProblem{"
+                + "invalidParams=" + invalidParams
+                + "} " + super.toString();
+    }
+
+    /**
+     * Returns {@link ValidationProblemBuilder}.
+     */
     public static ValidationProblemBuilder builder() {
         return new ValidationProblemBuilder();
+    }
+
+    /**
+     * Returns {@link ValidationProblemBuilder} with http status and title.
+     */
+    public static ValidationProblemBuilder fromHttpCode(HttpCode httpCode) {
+        ValidationProblemBuilder builder = new ValidationProblemBuilder();
+        builder.status(httpCode.code());
+        builder.title(httpCode.message());
+
+        return builder;
     }
 
     /**

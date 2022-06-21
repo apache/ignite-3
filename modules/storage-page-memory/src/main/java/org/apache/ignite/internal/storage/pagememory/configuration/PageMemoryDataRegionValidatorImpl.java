@@ -64,7 +64,7 @@ public class PageMemoryDataRegionValidatorImpl implements Validator<PageMemoryDa
                 ctx.addIssue(unableToFindDataRegionIssue(dataRegionName, PersistentPageMemoryStorageEngineConfiguration.KEY));
             }
         } else {
-            ctx.addIssue(new ValidationIssue(String.format("Unknown data storage '%s'", newOwner)));
+            ctx.addIssue(new ValidationIssue(ctx.currentKey(), String.format("Unknown data storage '%s'", newOwner)));
         }
     }
 

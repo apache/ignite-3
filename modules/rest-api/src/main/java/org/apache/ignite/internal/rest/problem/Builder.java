@@ -17,6 +17,12 @@
 
 package org.apache.ignite.internal.rest.problem;
 
+/**
+ * Generic interface for builders.
+ *
+ * @param <T> built type.
+ * @param <B> builder type.
+ */
 public interface Builder<T, B extends Builder<T, B>> {
     T build();
 }

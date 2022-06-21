@@ -33,7 +33,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.rest.exception.InvalidArgumentClusterInitializationException;
 import org.apache.ignite.internal.rest.api.Problem;
-import org.apache.ignite.internal.rest.constants.RestApiMediaType;
+import org.apache.ignite.internal.rest.constants.MediaType;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -67,12 +67,12 @@ public class ClusterManagementController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Cluster initialized"),
             @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = RestApiMediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
+                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
             @ApiResponse(responseCode = "400", description = "Incorrect configuration",
-                    content = @Content(mediaType = RestApiMediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
 
     })
-    @Consumes(RestApiMediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
     public CompletableFuture<Void> init(@Body InitCommand initCommand) throws ExecutionException, InterruptedException {
         if (log.isInfoEnabled()) {
             log.info("Received init command:\n\tMeta Storage nodes: {}\n\tCMG nodes: {}", initCommand.metaStorageNodes(),

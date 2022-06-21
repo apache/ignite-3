@@ -20,7 +20,9 @@ package org.apache.ignite.internal.rest.api;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.Builder;
 
 /**
@@ -83,6 +85,24 @@ public class Problem {
         this.traceId = traceId;
     }
 
+    /**
+     * Returns {@link ProblemBuilder}.
+     */
+    public static <T extends Problem, B extends ProblemBuilder<T, B>> ProblemBuilder<T, B> builder() {
+        return new ProblemBuilder<>();
+    }
+
+    /**
+     * Returns {@link ProblemBuilder} with http status and title.
+     */
+    public static <T extends Problem, B extends ProblemBuilder<T, B>> ProblemBuilder<T, B> fromHttpCode(HttpCode httpCode) {
+        ProblemBuilder<T, B> builder = new ProblemBuilder<>();
+        builder.status(httpCode.code());
+        builder.title(httpCode.message());
+
+        return builder;
+    }
+
     @JsonGetter("title")
     public String title() {
         return title;
@@ -118,8 +138,36 @@ public class Problem {
         return traceId;
     }
 
-    public static <T extends Problem, B extends ProblemBuilder<T,B>> ProblemBuilder<T, B> builder() {
-        return new ProblemBuilder<>();
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Problem problem = (Problem) o;
+        return status == problem.status && Objects.equals(title, problem.title) && Objects.equals(code, problem.code)
+                && Objects.equals(type, problem.type) && Objects.equals(detail, problem.detail) && Objects.equals(
+                node, problem.node) && Objects.equals(traceId, problem.traceId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(title, status, code, type, detail, node, traceId);
+    }
+
+    @Override
+    public String toString() {
+        return "Problem{"
+                + "title='" + title + '\''
+                + ", status=" + status
+                + ", code='" + code + '\''
+                + ", type='" + type + '\''
+                + ", detail='" + detail + '\''
+                + ", node='" + node + '\''
+                + ", traceId=" + traceId
+                + '}';
     }
 
     /**

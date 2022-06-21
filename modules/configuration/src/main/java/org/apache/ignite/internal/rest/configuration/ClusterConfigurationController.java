@@ -35,7 +35,7 @@ import jakarta.inject.Named;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.rest.api.Problem;
-import org.apache.ignite.internal.rest.constants.RestApiMediaType;
+import org.apache.ignite.internal.rest.constants.MediaType;
 import org.apache.ignite.internal.rest.exception.handler.IgniteExceptionHandler;
 
 /**
@@ -59,16 +59,16 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
     @ApiResponses({
             @ApiResponse(
                     responseCode = "200",
-                    content = @Content(mediaType = RestApiMediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
+                    content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
                     description = "Get cluster configuration"),
             @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = RestApiMediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
+                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
             @ApiResponse(responseCode = "400", description = "Incorrect configuration",
-                    content = @Content(mediaType = RestApiMediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     })
     @Produces({
-            RestApiMediaType.TEXT_PLAIN, // todo: IGNITE-17082
-            RestApiMediaType.PROBLEM_JSON
+            MediaType.TEXT_PLAIN, // todo: IGNITE-17082
+            MediaType.PROBLEM_JSON
     })
     @Get
     @Override
@@ -85,16 +85,16 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
     @Operation(operationId = "getClusterConfigurationByPath")
     @ApiResponses({
             @ApiResponse(responseCode = "200",
-                    content = @Content(mediaType = RestApiMediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
+                    content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
                     description = "Configuration represented by path"),
             @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = RestApiMediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
+                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
             @ApiResponse(responseCode = "400", description = "Incorrect configuration",
-                    content = @Content(mediaType = RestApiMediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     })
     @Produces({
-            RestApiMediaType.TEXT_PLAIN, // todo: IGNITE-17082
-            RestApiMediaType.PROBLEM_JSON
+            MediaType.TEXT_PLAIN, // todo: IGNITE-17082
+            MediaType.PROBLEM_JSON
     })
     @Get("/{path}")
     @Override
@@ -111,12 +111,12 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Configuration updated"),
             @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = RestApiMediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
+                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
             @ApiResponse(responseCode = "400", description = "Incorrect configuration",
-                    content = @Content(mediaType = RestApiMediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     })
-    @Consumes(RestApiMediaType.TEXT_PLAIN) // todo: IGNITE-17082
-    @Produces(RestApiMediaType.PROBLEM_JSON)
+    @Consumes(MediaType.TEXT_PLAIN) // todo: IGNITE-17082
+    @Produces(MediaType.PROBLEM_JSON)
     @Patch
     @Override
     public CompletableFuture<Void> updateConfiguration(@Body String updatedConfiguration) throws Throwable {
