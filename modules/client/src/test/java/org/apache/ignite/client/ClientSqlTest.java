@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
@@ -26,7 +27,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlColumnType;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -117,8 +120,19 @@ public class ClientSqlTest extends AbstractClientTableTest {
 
     @Test
     public void testMetadata() {
+        Session session = client.sql().createSession();
+        ResultSet resultSet = session.execute(null, "SELECT META");
+        ResultSetMetadata meta = resultSet.metadata();
+        SqlRow row = resultSet.next();
+
+        assertNotNull(meta);
+
+        assertTrue((boolean)row.value(0));
+        assertTrue((boolean)row.value("bool"));
+        assertEquals(SqlColumnType.BOOLEAN, meta.columns().get(0).type());
+        assertEquals(0, row.columnIndex("bool"));
+
         // TODO: Test meta in cursor and in row - all properties and methods, all column types.
-        // SELECT META
         assertEquals(0, 1);
     }
 }
