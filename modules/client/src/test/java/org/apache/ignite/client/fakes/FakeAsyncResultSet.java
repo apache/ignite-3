@@ -37,6 +37,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.ignite.internal.client.sql.ClientColumnOrigin;
 import org.apache.ignite.internal.client.sql.ClientSqlRow;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -111,7 +112,8 @@ public class FakeAsyncResultSet implements AsyncResultSet {
             columns.add(new FakeColumnMetadata("int64", SqlColumnType.INT64));
             columns.add(new FakeColumnMetadata("float", SqlColumnType.FLOAT));
             columns.add(new FakeColumnMetadata("double", SqlColumnType.DOUBLE));
-            columns.add(new FakeColumnMetadata("decimal", SqlColumnType.DECIMAL));
+            columns.add(new FakeColumnMetadata("decimal", SqlColumnType.DECIMAL, 1, 2,
+                    true, new ColumnOrigin("SCHEMA1", "TBL2", "BIG_DECIMAL")));
             columns.add(new FakeColumnMetadata("date", SqlColumnType.DATE));
             columns.add(new FakeColumnMetadata("time", SqlColumnType.TIME));
             columns.add(new FakeColumnMetadata("datetime", SqlColumnType.DATETIME));
@@ -217,5 +219,32 @@ public class FakeAsyncResultSet implements AsyncResultSet {
     @NotNull
     private SqlRow getRow(Object... vals) {
         return new ClientSqlRow(List.of(vals), metadata());
+    }
+
+    private static class ColumnOrigin implements ColumnMetadata.ColumnOrigin {
+        private final String schemaName;
+        private final String tableName;
+        private final String columnName;
+
+        public ColumnOrigin(String schemaName, String tableName, String columnName) {
+            this.schemaName = schemaName;
+            this.tableName = tableName;
+            this.columnName = columnName;
+        }
+
+        @Override
+        public String schemaName() {
+            return schemaName;
+        }
+
+        @Override
+        public String tableName() {
+            return tableName;
+        }
+
+        @Override
+        public String columnName() {
+            return columnName;
+        }
     }
 }

@@ -40,7 +40,7 @@ class FakeColumnMetadata implements ColumnMetadata {
         this(name, type, -1, -1, false, null);
     }
 
-    public FakeColumnMetadata(
+    FakeColumnMetadata(
             String name,
             SqlColumnType type,
             int precision,
