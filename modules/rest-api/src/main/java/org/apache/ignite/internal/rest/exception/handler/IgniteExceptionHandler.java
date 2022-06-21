@@ -41,6 +41,8 @@ public class IgniteExceptionHandler implements ExceptionHandler<IgniteException,
 
     @Override
     public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteException exception) {
+        //TODO: set code, traceId when https://issues.apache.org/jira/browse/IGNITE-14611 is done
+
         if (exception.getCause() instanceof IllegalArgumentException) {
             return HttpProblemResponse.from(
                     Problem.fromHttpCode(HttpCode.BAD_REQUEST).detail(exception.getCause().getMessage())
