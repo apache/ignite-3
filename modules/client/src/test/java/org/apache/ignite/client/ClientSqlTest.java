@@ -67,8 +67,8 @@ public class ClientSqlTest extends AbstractClientTableTest {
                 .defaultSchema("SCHEMA1")
                 .defaultTimeout(123, TimeUnit.SECONDS)
                 .defaultPageSize(234)
-                .property("prop1", 1)
-                .property("prop2", 2)
+                .property("prop1", "1")
+                .property("prop2", "2")
                 .build();
 
         AsyncResultSet resultSet = session.executeAsync(null, "SELECT PROPS").join();
@@ -77,10 +77,10 @@ public class ClientSqlTest extends AbstractClientTableTest {
                 .collect(Collectors.toMap(x -> x.stringValue(0), x -> x.value(1)));
 
         assertEquals("SCHEMA1", props.get("schema"));
-        assertEquals(123000L, props.get("timeout"));
-        assertEquals(234, props.get("pageSize"));
-        assertEquals(1, props.get("prop1"));
-        assertEquals(2, props.get("prop2"));
+        assertEquals("123000", props.get("timeout"));
+        assertEquals("234", props.get("pageSize"));
+        assertEquals("1", props.get("prop1"));
+        assertEquals("2", props.get("prop2"));
     }
 
     @Test
@@ -89,8 +89,8 @@ public class ClientSqlTest extends AbstractClientTableTest {
                 .defaultSchema("SCHEMA1")
                 .defaultTimeout(123, TimeUnit.SECONDS)
                 .defaultPageSize(234)
-                .property("prop1", 1)
-                .property("prop2", 2)
+                .property("prop1", "1")
+                .property("prop2", "2")
                 .build();
 
         Statement statement = client.sql().statementBuilder()
@@ -98,8 +98,8 @@ public class ClientSqlTest extends AbstractClientTableTest {
                 .defaultSchema("SCHEMA2")
                 .queryTimeout(124, TimeUnit.SECONDS)
                 .pageSize(235)
-                .property("prop2", 22)
-                .property("prop3", 3)
+                .property("prop2", "22")
+                .property("prop3", "3")
                 .build();
 
         AsyncResultSet resultSet = session.executeAsync(null, statement).join();
@@ -108,11 +108,11 @@ public class ClientSqlTest extends AbstractClientTableTest {
                 .collect(Collectors.toMap(x -> x.stringValue(0), x -> x.value(1)));
 
         assertEquals("SCHEMA2", props.get("schema"));
-        assertEquals(124000L, props.get("timeout"));
-        assertEquals(235, props.get("pageSize"));
-        assertEquals(1, props.get("prop1"));
-        assertEquals(22, props.get("prop2"));
-        assertEquals(3, props.get("prop3"));
+        assertEquals("124000", props.get("timeout"));
+        assertEquals("235", props.get("pageSize"));
+        assertEquals("1", props.get("prop1"));
+        assertEquals("22", props.get("prop2"));
+        assertEquals("3", props.get("prop3"));
     }
 
     @Test
