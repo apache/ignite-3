@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.schema;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,6 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -126,6 +129,8 @@ public class SqlSchemaManagerTest {
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
 
+        when(schemaManager.schemaRegistry(any())).thenReturn(schemaRegistry);
+
         IgniteTable actTable = sqlSchemaManager.tableById(tableId, tableVer);
 
         assertEquals(tableId, actTable.id());
@@ -137,7 +142,6 @@ public class SqlSchemaManagerTest {
 
     @Test
     public void testTableEventIsProcessedRequiredVersionIsSame() {
-        when(table.schemaView()).thenReturn(schemaRegistry);
         when(table.name()).thenReturn("TEST_SCHEMA.T");
 
         InternalTable mock = mock(InternalTable.class);
@@ -146,6 +150,8 @@ public class SqlSchemaManagerTest {
         when(table.internalTable()).thenReturn(mock);
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
+
+        when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaRegistry));
 
         sqlSchemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
@@ -159,7 +165,6 @@ public class SqlSchemaManagerTest {
 
     @Test
     public void testTableEventIsProcessedRequiredVersionIsLess() {
-        when(table.schemaView()).thenReturn(schemaRegistry);
         when(table.name()).thenReturn("TEST_SCHEMA.T");
 
         InternalTable mock = mock(InternalTable.class);
@@ -168,6 +173,8 @@ public class SqlSchemaManagerTest {
         when(table.internalTable()).thenReturn(mock);
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
+
+        when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaRegistry));
 
         sqlSchemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
@@ -190,6 +197,8 @@ public class SqlSchemaManagerTest {
         when(table.internalTable()).thenReturn(mock);
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(tableVer - 1);
+        when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaRegistry));
+        when(schemaManager.schemaRegistry(any())).thenReturn(schemaRegistry);
 
         sqlSchemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
@@ -210,7 +219,6 @@ public class SqlSchemaManagerTest {
 
     @Test
     public void testOnTableDroppedHandler() {
-        when(table.schemaView()).thenReturn(schemaRegistry);
         when(table.name()).thenReturn("TEST_SCHEMA.T");
 
         InternalTable mock = mock(InternalTable.class);
@@ -219,6 +227,8 @@ public class SqlSchemaManagerTest {
         when(table.internalTable()).thenReturn(mock);
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
+
+        when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaRegistry));
 
         sqlSchemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
