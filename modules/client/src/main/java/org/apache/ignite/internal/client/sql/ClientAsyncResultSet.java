@@ -192,7 +192,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
                 row.add(in.unpackObjectWithType());
             }
 
-            res.add(new ClientSqlRow(row));
+            res.add(new ClientSqlRow(row, metadata));
         }
 
         rows = Collections.unmodifiableList(res);
