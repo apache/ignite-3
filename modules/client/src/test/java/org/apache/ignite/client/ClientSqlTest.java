@@ -160,7 +160,15 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals(SqlColumnType.DOUBLE, meta.columns().get(6).type());
 
         assertEquals(BigDecimal.valueOf(145), row.value(7));
-        assertEquals(SqlColumnType.DECIMAL, meta.columns().get(7).type());
+        ColumnMetadata decimalCol = meta.columns().get(7);
+        assertEquals(SqlColumnType.DECIMAL, decimalCol.type());
+        assertEquals(1, decimalCol.precision());
+        assertEquals(2, decimalCol.scale());
+        assertTrue(decimalCol.nullable());
+        assertNotNull(decimalCol.origin());
+        assertEquals("SCHEMA1", decimalCol.origin().schemaName());
+        assertEquals("TBL2", decimalCol.origin().tableName());
+        assertEquals("BIG_DECIMAL", decimalCol.origin().columnName());
 
         // TODO: Test meta in cursor and in row - all properties and methods, all column types.
         // TODO: Precision, scale, nullable, origin.
