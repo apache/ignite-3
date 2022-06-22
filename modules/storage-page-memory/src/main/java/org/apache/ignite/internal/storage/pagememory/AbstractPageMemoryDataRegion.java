@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.BasePageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.StorageException;
@@ -27,14 +27,14 @@ import org.apache.ignite.internal.storage.StorageException;
 /**
  * Abstract data region for {@link PageMemoryStorageEngine}. Based on a {@link PageMemory}.
  */
-abstract class AbstractPageMemoryDataRegion implements PageMemoryDataRegion, IgniteComponent {
+abstract class AbstractPageMemoryDataRegion<T extends PageMemory> implements DataRegion<T>, IgniteComponent {
     protected final BasePageMemoryDataRegionConfiguration<?, ?> cfg;
 
     protected final PageIoRegistry ioRegistry;
 
     protected final int pageSize;
 
-    protected volatile PageMemory pageMemory;
+    protected volatile T pageMemory;
 
     /**
      * Constructor.
@@ -51,7 +51,7 @@ abstract class AbstractPageMemoryDataRegion implements PageMemoryDataRegion, Ign
 
     /** {@inheritDoc} */
     @Override
-    public PageMemory pageMemory() {
+    public T pageMemory() {
         checkDataRegionStarted();
 
         return pageMemory;

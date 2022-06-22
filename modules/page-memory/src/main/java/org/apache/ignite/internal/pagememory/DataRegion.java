@@ -22,11 +22,11 @@ import org.apache.ignite.internal.configuration.storage.StorageException;
 /**
  * Data region based on {@link PageMemory}.
  */
-public interface PageMemoryDataRegion {
+public interface DataRegion<T extends PageMemory> {
     /**
      * Returns page memory.
      *
      * @throws StorageException If the data region did not start.
      */
-    PageMemory pageMemory();
+    T pageMemory();
 }

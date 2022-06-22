@@ -27,7 +27,7 @@ import org.apache.ignite.configuration.validation.OneOf;
  * Data region configuration for Page Memory storage engine.
  */
 @Config
-// TODO: IGNITE-17149 Избавитья от него
+// TODO: IGNITE-17149 удалить
 public class PageMemoryDataRegionConfigurationSchema {
     /** Default initial size. */
     public static final long DFLT_DATA_REGION_INITIAL_SIZE = 256 * 1024 * 1024;

@@ -31,7 +31,7 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreMana
 /**
  * Implementation of {@link AbstractPageMemoryDataRegion} for persistent case.
  */
-class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion {
+class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion<PersistentPageMemory> {
     private final FilePageStoreManager filePageStoreManager;
 
     private final CheckpointManager checkpointManager;

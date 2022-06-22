@@ -60,8 +60,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.Result;
@@ -96,9 +96,9 @@ public class CheckpointWorkflowTest {
 
     @Test
     void testListeners() {
-        PageMemoryDataRegion dataRegion0 = newDataRegion(true, mock(PersistentPageMemory.class));
-        PageMemoryDataRegion dataRegion1 = newDataRegion(true, mock(PersistentPageMemory.class));
-        PageMemoryDataRegion dataRegion2 = newDataRegion(true, mock(PersistentPageMemory.class));
+        DataRegion<PersistentPageMemory> dataRegion0 = newDataRegion(mock(PersistentPageMemory.class));
+        DataRegion<PersistentPageMemory> dataRegion1 = newDataRegion(mock(PersistentPageMemory.class));
+        DataRegion<PersistentPageMemory> dataRegion2 = newDataRegion(mock(PersistentPageMemory.class));
 
         workflow = new CheckpointWorkflow(
                 checkpointConfig,
@@ -179,7 +179,7 @@ public class CheckpointWorkflowTest {
 
         List<FullPageId> dirtyPages = List.of(new FullPageId(0, 0), new FullPageId(1, 0), new FullPageId(2, 0));
 
-        PageMemoryDataRegion dataRegion = newDataRegion(true, newPageMemoryImpl(dirtyPages));
+        DataRegion<PersistentPageMemory> dataRegion = newDataRegion(newPageMemory(dirtyPages));
 
         workflow = new CheckpointWorkflow(checkpointConfig, markersStorage, readWriteLock, List.of(dataRegion));
 
@@ -314,7 +314,7 @@ public class CheckpointWorkflowTest {
 
         List<FullPageId> dirtyPages = List.of(new FullPageId(1, 0), new FullPageId(0, 0), new FullPageId(2, 0));
 
-        PageMemoryDataRegion dataRegion = newDataRegion(true, newPageMemoryImpl(dirtyPages));
+        DataRegion<PersistentPageMemory> dataRegion = newDataRegion(newPageMemory(dirtyPages));
 
         workflow = new CheckpointWorkflow(
                 checkpointConfig,
@@ -345,7 +345,7 @@ public class CheckpointWorkflowTest {
     void testMarkCheckpointBeginSequential() throws Exception {
         List<FullPageId> dirtyPages = List.of(new FullPageId(1, 0), new FullPageId(0, 0), new FullPageId(2, 0));
 
-        PageMemoryDataRegion dataRegion = newDataRegion(true, newPageMemoryImpl(dirtyPages));
+        DataRegion<PersistentPageMemory> dataRegion = newDataRegion(newPageMemory(dirtyPages));
 
         workflow = new CheckpointWorkflow(
                 checkpointConfig,
@@ -378,7 +378,7 @@ public class CheckpointWorkflowTest {
 
         PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
 
-        PageMemoryDataRegion dataRegion = newDataRegion(true, pageMemory);
+        DataRegion<PersistentPageMemory> dataRegion = newDataRegion(pageMemory);
 
         workflow = new CheckpointWorkflow(checkpointConfig, markersStorage, readWriteLock, List.of(dataRegion));
 
@@ -452,7 +452,7 @@ public class CheckpointWorkflowTest {
         return res;
     }
 
-    private PersistentPageMemory newPageMemoryImpl(Collection<FullPageId> dirtyPages) {
+    private PersistentPageMemory newPageMemory(Collection<FullPageId> dirtyPages) {
         PersistentPageMemory mock = mock(PersistentPageMemory.class);
 
         when(mock.beginCheckpoint(any(CompletableFuture.class))).thenReturn(dirtyPages);

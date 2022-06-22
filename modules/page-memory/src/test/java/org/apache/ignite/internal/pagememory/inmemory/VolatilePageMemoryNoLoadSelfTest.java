@@ -34,8 +34,8 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestPageIo;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
@@ -51,7 +51,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests {@link VolatilePageMemory}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
+public class VolatilePageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
     protected static final int PAGE_SIZE = 8 * 1024;
 
     protected static final int MAX_MEMORY_SIZE = 10 * 1024 * 1024;
@@ -63,7 +63,7 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
     protected static final int PARTITION_ID = 1;
 
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
-    protected PageMemoryDataRegionConfiguration dataRegionCfg;
+    private VolatilePageMemoryDataRegionConfiguration dataRegionCfg;
 
     @BeforeEach
     void setUp() throws Exception {

@@ -25,15 +25,12 @@ import static org.mockito.Mockito.when;
  */
 public class PageMemoryTestUtils {
     /**
-     * Returns mocked instance of {@link PageMemoryDataRegion}.
+     * Returns mocked instance of {@link DataRegion}.
      *
-     * @param persistent Data region.
      * @param pageMemory Page memory.
      */
-    public static PageMemoryDataRegion newDataRegion(boolean persistent, PageMemory pageMemory) {
-        PageMemoryDataRegion mock = mock(PageMemoryDataRegion.class);
-
-        when(mock.persistent()).thenReturn(persistent);
+    public static <T extends PageMemory> DataRegion<T> newDataRegion(T pageMemory) {
+        DataRegion<T> mock = mock(DataRegion.class);
 
         when(mock.pageMemory()).thenReturn(pageMemory);
 

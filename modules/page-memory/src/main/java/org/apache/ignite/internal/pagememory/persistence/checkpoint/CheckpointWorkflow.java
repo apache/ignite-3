@@ -40,8 +40,8 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.Future;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -80,13 +80,13 @@ class CheckpointWorkflow implements IgniteComponent {
     private final CheckpointReadWriteLock checkpointReadWriteLock;
 
     /** Persistent data regions for the checkpointing. */
-    private final Collection<? extends PageMemoryDataRegion> dataRegions;
+    private final Collection<? extends DataRegion<PersistentPageMemory>> dataRegions;
 
     /** Checkpoint write order configuration. */
     private final CheckpointWriteOrder checkpointWriteOrder;
 
     /** Collections of checkpoint listeners. */
-    private final List<IgniteBiTuple<CheckpointListener, PageMemoryDataRegion>> listeners = new CopyOnWriteArrayList<>();
+    private final List<IgniteBiTuple<CheckpointListener, DataRegion>> listeners = new CopyOnWriteArrayList<>();
 
     /**
      * Constructor.
@@ -100,7 +100,7 @@ class CheckpointWorkflow implements IgniteComponent {
             PageMemoryCheckpointConfiguration checkpointConfig,
             CheckpointMarkersStorage checkpointMarkersStorage,
             CheckpointReadWriteLock checkpointReadWriteLock,
-            Collection<? extends PageMemoryDataRegion> dataRegions
+            Collection<? extends DataRegion<PersistentPageMemory>> dataRegions
     ) {
         PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
 
@@ -210,10 +210,8 @@ class CheckpointWorkflow implements IgniteComponent {
         synchronized (this) {
             chp.progress.clearCounters();
 
-            for (PageMemoryDataRegion dataRegion : dataRegions) {
-                assert dataRegion.persistent() : dataRegion;
-
-                ((PersistentPageMemory) dataRegion.pageMemory()).finishCheckpoint();
+            for (DataRegion<PersistentPageMemory> dataRegion : dataRegions) {
+                dataRegion.pageMemory().finishCheckpoint();
             }
         }
 
@@ -234,8 +232,8 @@ class CheckpointWorkflow implements IgniteComponent {
      * @param listener Listener.
      * @param dataRegion Persistent data region for which listener is corresponded to, {@code null} for all regions.
      */
-    public void addCheckpointListener(CheckpointListener listener, @Nullable PageMemoryDataRegion dataRegion) {
-        assert dataRegion == null || (dataRegion.persistent() && dataRegions.contains(dataRegion)) : dataRegion;
+    public void addCheckpointListener(CheckpointListener listener, @Nullable DataRegion<PersistentPageMemory> dataRegion) {
+        assert dataRegion == null || dataRegions.contains(dataRegion) : dataRegion;
 
         listeners.add(new IgniteBiTuple<>(listener, dataRegion));
     }
@@ -246,7 +244,7 @@ class CheckpointWorkflow implements IgniteComponent {
      * @param listener Listener.
      */
     public void removeCheckpointListener(CheckpointListener listener) {
-        listeners.remove(new IgniteBiTuple<CheckpointListener, PageMemoryDataRegion>() {
+        listeners.remove(new IgniteBiTuple<CheckpointListener, DataRegion>() {
             /** {@inheritDoc} */
             @Override
             public boolean equals(Object o) {
@@ -260,7 +258,7 @@ class CheckpointWorkflow implements IgniteComponent {
      *
      * @param dataRegions Data regions.
      */
-    public List<CheckpointListener> collectCheckpointListeners(Collection<? extends PageMemoryDataRegion> dataRegions) {
+    public List<CheckpointListener> collectCheckpointListeners(Collection<? extends DataRegion> dataRegions) {
         return listeners.stream()
                 .filter(tuple -> tuple.getValue() == null || dataRegions.contains(tuple.getValue()))
                 .map(IgniteBiTuple::getKey)
@@ -268,21 +266,19 @@ class CheckpointWorkflow implements IgniteComponent {
     }
 
     private CheckpointDirtyPagesInfoHolder beginCheckpoint(
-            Collection<? extends PageMemoryDataRegion> dataRegions,
+            Collection<? extends DataRegion> dataRegions,
             CompletableFuture<?> allowToReplace
     ) {
         Collection<IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>>> pages = new ArrayList<>(dataRegions.size());
 
         int pageCount = 0;
 
-        for (PageMemoryDataRegion dataRegion : dataRegions) {
-            assert dataRegion.persistent() : dataRegion;
-
-            Collection<FullPageId> dirtyPages = ((PersistentPageMemory) dataRegion.pageMemory()).beginCheckpoint(allowToReplace);
+        for (DataRegion<PersistentPageMemory> dataRegion : dataRegions) {
+            Collection<FullPageId> dirtyPages = dataRegion.pageMemory().beginCheckpoint(allowToReplace);
 
             pageCount += dirtyPages.size();
 
-            pages.add(new IgniteBiTuple<>((PersistentPageMemory) dataRegion.pageMemory(), dirtyPages));
+            pages.add(new IgniteBiTuple<>(dataRegion.pageMemory(), dirtyPages));
         }
 
         return new CheckpointDirtyPagesInfoHolder(pages, pageCount);

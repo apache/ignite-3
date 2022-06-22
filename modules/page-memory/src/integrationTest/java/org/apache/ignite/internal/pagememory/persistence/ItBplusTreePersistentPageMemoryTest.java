@@ -22,8 +22,11 @@ import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.concurrent.TimeUnit;
 import java.util.stream.LongStream;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.ItBplusTreeSelfTest;
 
@@ -31,10 +34,13 @@ import org.apache.ignite.internal.pagememory.tree.ItBplusTreeSelfTest;
  * Class to test the {@link BplusTree} with {@link PersistentPageMemory}.
  */
 public class ItBplusTreePersistentPageMemoryTest extends ItBplusTreeSelfTest {
+    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    private PersistentPageMemoryDataRegionConfiguration dataRegionCfg;
+
     /** {@inheritDoc} */
     @Override
     protected PageMemory createPageMemory() throws Exception {
-        dataRegionCfg.change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, TimeUnit.SECONDS);
+        dataRegionCfg.change(c -> c.changeSize(MAX_MEMORY_SIZE)).get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 

@@ -40,7 +40,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 // TODO: IGNITE-16642 Support indexes.
 public abstract class AbstractPageMemoryTableStorage implements TableStorage {
-    protected final AbstractPageMemoryDataRegion dataRegion;
+    protected final AbstractPageMemoryDataRegion<?> dataRegion;
 
     protected final TableConfiguration tableCfg;
 
@@ -57,7 +57,7 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage {
      * @param tableCfg – Table configuration.
      * @param dataRegion – Data region for the table.
      */
-    public AbstractPageMemoryTableStorage(TableConfiguration tableCfg, AbstractPageMemoryDataRegion dataRegion) {
+    public AbstractPageMemoryTableStorage(TableConfiguration tableCfg, AbstractPageMemoryDataRegion<?> dataRegion) {
         this.dataRegion = dataRegion;
         this.tableCfg = tableCfg;
     }

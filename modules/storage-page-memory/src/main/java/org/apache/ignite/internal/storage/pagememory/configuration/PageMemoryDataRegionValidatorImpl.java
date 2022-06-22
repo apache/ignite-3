@@ -35,6 +35,8 @@ public class PageMemoryDataRegionValidatorImpl implements Validator<PageMemoryDa
     public void validate(PageMemoryDataRegionName annotation, ValidationContext<String> ctx) {
         String dataRegion = ctx.getNewValue();
 
+        // TODO: IGNITE-17149 поменять логику и покрыть тестами
+
         PageMemoryStorageEngineView engineConfig = ctx.getNewRoot(PageMemoryStorageEngineConfiguration.KEY);
 
         assert engineConfig != null;

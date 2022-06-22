@@ -34,8 +34,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
@@ -67,7 +67,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
     private static final int GROUP_ID = 100500;
 
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
-    private PageMemoryDataRegionConfiguration dataRegionCfg;
+    private VolatilePageMemoryDataRegionConfiguration dataRegionCfg;
 
     @Nullable
     protected PageMemory pageMem;

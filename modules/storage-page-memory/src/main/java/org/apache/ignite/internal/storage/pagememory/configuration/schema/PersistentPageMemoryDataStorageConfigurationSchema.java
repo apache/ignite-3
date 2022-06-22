@@ -17,19 +17,20 @@
 
 package org.apache.ignite.internal.storage.pagememory.configuration.schema;
 
+import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryDataRegionName;
 
 /**
- * Data storage configuration for engine.
+ * Data storage configuration for {@link PersistentPageMemoryStorageEngine}.
  */
-// TODO: IGNITE-17149 удалить
-@PolymorphicConfigInstance("pagememory")
-public class PageMemoryDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
+@PolymorphicConfigInstance(ENGINE_NAME)
+public class PersistentPageMemoryDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
     /** Data region. */
     @Value(hasDefault = true)
     @PageMemoryDataRegionName

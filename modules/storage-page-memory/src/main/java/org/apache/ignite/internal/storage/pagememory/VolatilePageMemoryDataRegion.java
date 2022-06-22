@@ -37,7 +37,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * Implementation of {@link AbstractPageMemoryDataRegion} for in-memory case.
  */
-class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
+class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion<VolatilePageMemory> {
     private static final int FREE_LIST_GROUP_ID = 0;
 
     /** Must be one for the in-memory data region. */
@@ -68,7 +68,7 @@ class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        PageMemory pageMemory = new VolatilePageMemory(
+        VolatilePageMemory pageMemory = new VolatilePageMemory(
                 (VolatilePageMemoryDataRegionConfiguration) cfg,
                 ioRegistry,
                 pageSize

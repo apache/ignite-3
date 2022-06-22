@@ -21,8 +21,8 @@ import java.nio.file.Path;
 import java.util.Collection;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -85,7 +85,7 @@ public class CheckpointManager implements IgniteComponent {
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             PageMemoryCheckpointConfiguration checkpointConfig,
             FilePageStoreManager filePageStoreManager,
-            Collection<? extends PageMemoryDataRegion> dataRegions,
+            Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
             Path storagePath,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
@@ -167,7 +167,7 @@ public class CheckpointManager implements IgniteComponent {
      * @param listener Listener.
      * @param dataRegion Persistent data region for which listener is corresponded to, {@code null} for all regions.
      */
-    public void addCheckpointListener(CheckpointListener listener, PageMemoryDataRegion dataRegion) {
+    public void addCheckpointListener(CheckpointListener listener, DataRegion dataRegion) {
         checkpointWorkflow.addCheckpointListener(listener, dataRegion);
     }
 
@@ -191,14 +191,14 @@ public class CheckpointManager implements IgniteComponent {
     }
 
     /**
-     * Returns {@link true} if it is safe for all {@link PageMemoryDataRegion data regions} to update their {@link PageMemory}.
+     * Returns {@link true} if it is safe for all {@link DataRegion data regions} to update their {@link PageMemory}.
      *
      * @param dataRegions Data regions.
      * @see PersistentPageMemory#safeToUpdate()
      */
-    static boolean safeToUpdateAllPageMemories(Collection<? extends PageMemoryDataRegion> dataRegions) {
-        for (PageMemoryDataRegion dataRegion : dataRegions) {
-            if (dataRegion.persistent() && !((PersistentPageMemory) dataRegion.pageMemory()).safeToUpdate()) {
+    static boolean safeToUpdateAllPageMemories(Collection<? extends DataRegion<PersistentPageMemory>> dataRegions) {
+        for (DataRegion<PersistentPageMemory> dataRegion : dataRegions) {
+            if (dataRegion.pageMemory().safeToUpdate()) {
                 return false;
             }
         }

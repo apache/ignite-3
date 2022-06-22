@@ -31,9 +31,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
+import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
-import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -55,7 +54,7 @@ public class CheckpointManagerTest {
 
     @Test
     void testSimple() throws Exception {
-        PageMemoryDataRegion dataRegion = newDataRegion(true, mock(PersistentPageMemory.class));
+        DataRegion<PersistentPageMemory> dataRegion = newDataRegion(mock(PersistentPageMemory.class));
 
         CheckpointManager checkpointManager = new CheckpointManager(
                 "test",
@@ -86,17 +85,17 @@ public class CheckpointManagerTest {
 
     @Test
     void testSafeToUpdateAllPageMemories() {
-        PageMemoryDataRegion dataRegion0 = newDataRegion(false, mock(VolatilePageMemory.class));
+        DataRegion<PersistentPageMemory> dataRegion0 = newDataRegion(mock(PersistentPageMemory.class));
 
         assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion0)));
 
         AtomicBoolean safeToUpdate = new AtomicBoolean();
 
-        PersistentPageMemory pageMemoryImpl = mock(PersistentPageMemory.class);
+        PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
 
-        when(pageMemoryImpl.safeToUpdate()).then(answer -> safeToUpdate.get());
+        when(pageMemory.safeToUpdate()).then(answer -> safeToUpdate.get());
 
-        PageMemoryDataRegion dataRegion1 = newDataRegion(true, pageMemoryImpl);
+        DataRegion<PersistentPageMemory> dataRegion1 = newDataRegion(pageMemory);
 
         assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion1)));
         assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion0, dataRegion1)));
