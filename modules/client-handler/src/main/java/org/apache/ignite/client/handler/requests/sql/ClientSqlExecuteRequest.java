@@ -20,7 +20,9 @@ package org.apache.ignite.client.handler.requests.sql;
 import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
@@ -28,11 +30,14 @@ import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ClientSqlColumnTypeConverter;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.Statement;
@@ -93,24 +98,7 @@ public class ClientSqlExecuteRequest {
         out.packBoolean(asyncResultSet.wasApplied());
         out.packLong(asyncResultSet.affectedRows());
 
-        // Pack metadata.
-        if (asyncResultSet.metadata() == null || asyncResultSet.metadata().columns() == null) {
-            out.packArrayHeader(0);
-        } else {
-            List<ColumnMetadata> cols = asyncResultSet.metadata().columns();
-            out.packArrayHeader(cols.size());
-
-            for (int i = 0; i < cols.size(); i++) {
-                ColumnMetadata col = cols.get(i);
-                out.packString(col.name());
-                out.packBoolean(col.nullable());
-
-                // TODO: IGNITE-17052 Implement query metadata.
-                // Ideally we only need the type code here.
-                out.packString(col.valueClass().getName());
-                out.packObjectWithType(null /*col.type()*/);
-            }
-        }
+        packMeta(out, asyncResultSet.metadata());
 
         // Pack first page.
         if (asyncResultSet.hasRowSet()) {
@@ -155,6 +143,10 @@ public class ClientSqlExecuteRequest {
     }
 
     private static Object[] readArguments(ClientMessageUnpacker in) {
+        if (in.tryUnpackNil()) {
+            return null;
+        }
+
         int size = in.unpackArrayHeader();
 
         if (size == 0) {
@@ -168,5 +160,65 @@ public class ClientSqlExecuteRequest {
         }
 
         return res;
+    }
+
+    private static void packMeta(ClientMessagePacker out, ResultSetMetadata meta) {
+        // TODO IGNITE-17179 metadata caching - avoid sending same meta over and over.
+        if (meta == null || meta.columns() == null) {
+            out.packArrayHeader(0);
+            return;
+        }
+
+        List<ColumnMetadata> cols = meta.columns();
+        out.packArrayHeader(cols.size());
+
+        // In many cases there are multiple columns from the same table.
+        // Schema is the same for all columns in most cases.
+        // When table or schema name was packed before, pack index instead of string.
+        Map<String, Integer> schemas = new HashMap<>();
+        Map<String, Integer> tables = new HashMap<>();
+
+        for (int i = 0; i < cols.size(); i++) {
+            ColumnMetadata col = cols.get(i);
+
+            out.packString(col.name());
+            out.packBoolean(col.nullable());
+            out.packInt(ClientSqlColumnTypeConverter.columnTypeToOrdinal(col.type()));
+            out.packInt(col.scale());
+            out.packInt(col.precision());
+
+            ColumnOrigin origin = col.origin();
+
+            if (origin == null) {
+                out.packBoolean(false);
+                continue;
+            }
+
+            out.packBoolean(true);
+
+            if (col.name().equals(origin.columnName())) {
+                out.packNil();
+            } else {
+                out.packString(origin.columnName());
+            }
+
+            Integer schemaIdx = schemas.get(origin.schemaName());
+
+            if (schemaIdx == null) {
+                schemas.put(origin.schemaName(), i);
+                out.packString(origin.schemaName());
+            } else {
+                out.packInt(schemaIdx);
+            }
+
+            Integer tableIdx = tables.get(origin.tableName());
+
+            if (tableIdx == null) {
+                tables.put(origin.tableName(), i);
+                out.packString(origin.tableName());
+            } else {
+                out.packInt(tableIdx);
+            }
+        }
     }
 }

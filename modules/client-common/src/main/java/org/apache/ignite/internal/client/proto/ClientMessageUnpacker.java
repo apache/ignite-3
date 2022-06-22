@@ -146,6 +146,45 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
+     * Reads an int.
+     *
+     * @param defaultValue Default value to return when type is not from int family.
+     * @return the int value.
+     * @throws MessageTypeException when value is not MessagePack Integer type.
+     */
+    public int tryUnpackInt(int defaultValue) {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        byte code = buf.readByte();
+
+        if (Code.isFixInt(code)) {
+            return code;
+        }
+
+        switch (code) {
+            case Code.UINT8:
+                return buf.readUnsignedByte();
+
+            case Code.INT8:
+                return buf.readByte();
+
+            case Code.UINT16:
+                return buf.readUnsignedShort();
+
+            case Code.INT16:
+                return buf.readShort();
+
+            case Code.UINT32:
+            case Code.INT32:
+                return buf.readInt();
+
+            default:
+                buf.readerIndex(buf.readerIndex() - 1);
+                return defaultValue;
+        }
+    }
+
+    /**
      * Reads a string.
      *
      * @return String value.
