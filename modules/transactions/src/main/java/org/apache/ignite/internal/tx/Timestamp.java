@@ -72,6 +72,16 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         this.nodeId = nodeId;
     }
 
+    /**
+     * The constructor.
+     *
+     * @param txId Transaction id.
+     */
+    public Timestamp(UUID txId) {
+        this.timestamp = txId.getMostSignificantBits();
+        this.nodeId = txId.getLeastSignificantBits();
+    }
+
     /** {@inheritDoc} */
     @Override
     public int compareTo(@NotNull Timestamp other) {
@@ -149,6 +159,15 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
 
         // Will overflow in a late future.
         return new Timestamp(newTime << 16 | cntr, localNodeId);
+    }
+
+    /**
+     * Converts to {@link UUID}.
+     *
+     * @return Id.
+     */
+    public UUID toUuid() {
+        return new UUID(timestamp, nodeId);
     }
 
     /**

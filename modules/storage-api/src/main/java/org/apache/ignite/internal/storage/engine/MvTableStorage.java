@@ -27,14 +27,14 @@ import org.apache.ignite.internal.storage.StorageException;
  */
 public interface MvTableStorage {
     /**
-     * Creates a partition for the current table. Not expected to be called concurrently with the same partition id.
+     * Retrieves or creates a partition for the current table. Not expected to be called concurrently with the same partition id.
      *
      * @param partitionId Partition id.
      * @return Partition storage.
      * @throws IllegalArgumentException If partition id is out of bounds.
      * @throws StorageException         If an error has occurred during the partition creation.
      */
-    MvPartitionStorage createPartition(int partitionId) throws StorageException;
+    MvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException;
 
     /**
      * Returns the partition storage or {@code null} if the requested storage doesn't exist.
@@ -44,7 +44,7 @@ public interface MvTableStorage {
      * @throws IllegalArgumentException If partition id is out of bounds.
      * @throws NullPointerException If partition doesn't exist.
      */
-    MvPartitionStorage partition(int partitionId);
+    MvPartitionStorage getMvPartition(int partitionId);
 
     /**
      * Destroys a partition if it exists.

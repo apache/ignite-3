@@ -33,7 +33,8 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
+import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -693,12 +694,14 @@ public class RecordBinaryViewOperationsTest {
 
         TxManager txManager = new TxManagerImpl(clusterService, lockManager);
 
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager);
-        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
-
         DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestConcurrentHashMapPartitionStorage(0), txManager),
+                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
                 txManager);
+
+        List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
+
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners);
+        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
         return new TableImpl(table, new DummySchemaManagerImpl(schema));
     }

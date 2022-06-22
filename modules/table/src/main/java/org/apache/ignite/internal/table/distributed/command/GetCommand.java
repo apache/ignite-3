@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -29,12 +29,12 @@ public class GetCommand extends SingleKeyCommand implements ReadCommand {
     /**
      * Creates a new instance of GetCommand with the given key to be got. The {@code keyRow} should not be {@code null}.
      *
-     * @param keyRow    Binary key row.
-     * @param timestamp The timestamp.
+     * @param keyRow Binary key row.
+     * @param txId Transaction id.
      *
      * @see TransactionalCommand
      */
-    public GetCommand(@NotNull BinaryRow keyRow, @NotNull Timestamp timestamp) {
-        super(keyRow, timestamp);
+    public GetCommand(@NotNull BinaryRow keyRow, @NotNull UUID txId) {
+        super(keyRow, txId);
     }
 }

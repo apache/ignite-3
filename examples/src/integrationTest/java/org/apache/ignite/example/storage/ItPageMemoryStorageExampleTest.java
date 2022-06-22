@@ -23,11 +23,13 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.example.AbstractExamplesTest;
 import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * For testing examples demonstrating work with {@link PageMemoryStorageEngine}.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-17197")
 public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
     @Test
     public void testPersistentExample() throws Exception {

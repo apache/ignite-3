@@ -20,8 +20,8 @@ package org.apache.ignite.distributed;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.UUID;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.TransactionImpl;
 import org.apache.ignite.raft.jraft.test.TestUtils;
@@ -59,7 +59,7 @@ public class ItTxDistributedTestThreeNodesThreeReplicasCollocated extends ItTxDi
     public void testTxStateReplication() {
         TransactionImpl tx = (TransactionImpl) igniteTransactions.begin();
 
-        Timestamp txTimestamp = tx.timestamp();
+        UUID txId = tx.id();
 
         accounts.recordView().upsert(tx, makeValue(1, 200.));
 
@@ -67,7 +67,7 @@ public class ItTxDistributedTestThreeNodesThreeReplicasCollocated extends ItTxDi
 
         assertTrue(TestUtils.waitForCondition(
                 () -> txManagers.values().stream()
-                        .filter(txManager -> txManager.state(txTimestamp) != null && txManager.state(txTimestamp)
+                        .filter(txManager -> txManager.state(txId) != null && txManager.state(txId)
                                 .equals(TxState.COMMITED))
                         .collect(Collectors.toList())
                         .size() >= 2,

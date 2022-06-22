@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.Collection;
+import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -30,12 +30,12 @@ public class GetAllCommand extends MultiKeyCommand implements ReadCommand {
     /**
      * Creates a new instance of GetAllCommand with the given keys to be got. The {@code keyRows} should not be {@code null} or empty.
      *
-     * @param keyRows   Binary key rows.
-     * @param timestamp The timestamp.
+     * @param keyRows Binary key rows.
+     * @param txId Transaction id.
      *
      * @see TransactionalCommand
      */
-    public GetAllCommand(@NotNull Collection<BinaryRow> keyRows, @NotNull Timestamp timestamp) {
-        super(keyRows, timestamp);
+    public GetAllCommand(@NotNull Collection<BinaryRow> keyRows, @NotNull UUID txId) {
+        super(keyRows, txId);
     }
 }

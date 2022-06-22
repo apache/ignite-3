@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -61,7 +62,6 @@ import org.apache.ignite.internal.table.distributed.command.scan.ScanCloseComman
 import org.apache.ignite.internal.table.distributed.command.scan.ScanInitCommand;
 import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBatchCommand;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -188,9 +188,9 @@ public class PartitionListener implements RaftGroupListener {
      */
     private boolean tryEnlistIntoTransaction(Command command, CommandClosure<?> clo) {
         if (command instanceof TransactionalCommand) {
-            Timestamp ts = ((TransactionalCommand) command).getTimestamp();
+            UUID txId = ((TransactionalCommand) command).getTxId();
 
-            TxState state = txManager.getOrCreateTransaction(ts);
+            TxState state = txManager.getOrCreateTransaction(txId);
 
             if (state != null && state != TxState.PENDING) {
                 clo.result(new TransactionException(format("Failed to enlist a key into a transaction, state={}", state)));
@@ -209,7 +209,7 @@ public class PartitionListener implements RaftGroupListener {
      * @return Result.
      */
     private SingleRowResponse handleGetCommand(GetCommand cmd) {
-        return new SingleRowResponse(storage.get(cmd.getRow(), cmd.getTimestamp()));
+        return new SingleRowResponse(storage.get(cmd.getRow(), cmd.getTxId()));
     }
 
     /**
@@ -224,7 +224,7 @@ public class PartitionListener implements RaftGroupListener {
         assert keyRows != null && !keyRows.isEmpty();
 
         // TODO asch IGNITE-15934 all reads are sequential, can be parallelized ?
-        return new MultiRowsResponse(storage.getAll(keyRows, cmd.getTimestamp()));
+        return new MultiRowsResponse(storage.getAll(keyRows, cmd.getTxId()));
     }
 
     /**
@@ -234,7 +234,7 @@ public class PartitionListener implements RaftGroupListener {
      * @return Result.
      */
     private boolean handleInsertCommand(InsertCommand cmd) {
-        return storage.insert(cmd.getRow(), cmd.getTimestamp());
+        return storage.insert(cmd.getRow(), cmd.getTxId());
     }
 
     /**
@@ -244,7 +244,7 @@ public class PartitionListener implements RaftGroupListener {
      * @return Result.
      */
     private boolean handleDeleteCommand(DeleteCommand cmd) {
-        return storage.delete(cmd.getRow(), cmd.getTimestamp());
+        return storage.delete(cmd.getRow(), cmd.getTxId());
     }
 
     /**
@@ -254,7 +254,7 @@ public class PartitionListener implements RaftGroupListener {
      * @return Result.
      */
     private boolean handleReplaceCommand(ReplaceCommand cmd) {
-        return storage.replace(cmd.getOldRow(), cmd.getRow(), cmd.getTimestamp());
+        return storage.replace(cmd.getOldRow(), cmd.getRow(), cmd.getTxId());
     }
 
     /**
@@ -263,7 +263,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param cmd Command.
      */
     private void handleUpsertCommand(UpsertCommand cmd) {
-        storage.upsert(cmd.getRow(), cmd.getTimestamp());
+        storage.upsert(cmd.getRow(), cmd.getTxId());
     }
 
     /**
@@ -277,7 +277,7 @@ public class PartitionListener implements RaftGroupListener {
 
         assert rows != null && !rows.isEmpty();
 
-        return new MultiRowsResponse(storage.insertAll(rows, cmd.getTimestamp()));
+        return new MultiRowsResponse(storage.insertAll(rows, cmd.getTxId()));
     }
 
     /**
@@ -291,7 +291,7 @@ public class PartitionListener implements RaftGroupListener {
 
         assert rows != null && !rows.isEmpty();
 
-        storage.upsertAll(rows, cmd.getTimestamp());
+        storage.upsertAll(rows, cmd.getTxId());
     }
 
     /**
@@ -305,7 +305,7 @@ public class PartitionListener implements RaftGroupListener {
 
         assert rows != null && !rows.isEmpty();
 
-        return new MultiRowsResponse(storage.deleteAll(rows, cmd.getTimestamp()));
+        return new MultiRowsResponse(storage.deleteAll(rows, cmd.getTxId()));
     }
 
     /**
@@ -320,7 +320,7 @@ public class PartitionListener implements RaftGroupListener {
         assert row != null;
         assert row.hasValue();
 
-        return storage.deleteExact(row, cmd.getTimestamp());
+        return storage.deleteExact(row, cmd.getTxId());
     }
 
     /**
@@ -334,7 +334,7 @@ public class PartitionListener implements RaftGroupListener {
 
         assert rows != null && !rows.isEmpty();
 
-        return new MultiRowsResponse(storage.deleteAllExact(rows, cmd.getTimestamp()));
+        return new MultiRowsResponse(storage.deleteAllExact(rows, cmd.getTxId()));
     }
 
     /**
@@ -348,7 +348,7 @@ public class PartitionListener implements RaftGroupListener {
 
         assert row != null;
 
-        return storage.replace(row, cmd.getTimestamp());
+        return storage.replace(row, cmd.getTxId());
     }
 
     /**
@@ -362,7 +362,7 @@ public class PartitionListener implements RaftGroupListener {
 
         assert row != null;
 
-        return new SingleRowResponse(storage.getAndDelete(row, cmd.getTimestamp()));
+        return new SingleRowResponse(storage.getAndDelete(row, cmd.getTxId()));
     }
 
     /**
@@ -376,7 +376,7 @@ public class PartitionListener implements RaftGroupListener {
 
         assert row != null && row.hasValue();
 
-        return new SingleRowResponse(storage.getAndReplace(row, cmd.getTimestamp()));
+        return new SingleRowResponse(storage.getAndReplace(row, cmd.getTxId()));
     }
 
     /**
@@ -390,7 +390,7 @@ public class PartitionListener implements RaftGroupListener {
 
         assert row != null && row.hasValue();
 
-        return new SingleRowResponse(storage.getAndUpsert(row, cmd.getTimestamp()));
+        return new SingleRowResponse(storage.getAndUpsert(row, cmd.getTxId()));
     }
 
     /**
@@ -400,10 +400,21 @@ public class PartitionListener implements RaftGroupListener {
      * @return Result.
      */
     private boolean handleFinishTxCommand(FinishTxCommand cmd) {
-        Timestamp ts = cmd.timestamp();
-        boolean commit = cmd.finish();
+        UUID txId = cmd.txId();
 
-        return txManager.changeState(ts, TxState.PENDING, commit ? TxState.COMMITED : TxState.ABORTED);
+        boolean stateChanged = txManager.changeState(txId, TxState.PENDING, cmd.finish() ? TxState.COMMITED : TxState.ABORTED);
+
+        if (txManager.state(txId) == TxState.COMMITED) {
+            cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(key -> {
+                storage.commitWrite(ByteBuffer.wrap(key), txId);
+            });
+        } else if (txManager.state(txId) == TxState.ABORTED) {
+            cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(key -> {
+                storage.abortWrite(ByteBuffer.wrap(key));
+            });
+        }
+
+        return stateChanged;
     }
 
     /**
@@ -534,8 +545,9 @@ public class PartitionListener implements RaftGroupListener {
         if (command instanceof SingleKeyCommand) {
             SingleKeyCommand cmd0 = (SingleKeyCommand) command;
 
-            return cmd0 instanceof ReadCommand ? txManager.readLock(lockId, cmd0.getRow().keySlice(), cmd0.getTimestamp()) :
-                    txManager.writeLock(lockId, cmd0.getRow().keySlice(), cmd0.getTimestamp());
+            return cmd0 instanceof ReadCommand
+                    ? txManager.readLock(lockId, cmd0.getRow().keySlice(), cmd0.getTxId()) :
+                    txManager.writeLock(lockId, cmd0.getRow().keySlice(), cmd0.getTxId());
         } else if (command instanceof MultiKeyCommand) {
             MultiKeyCommand cmd0 = (MultiKeyCommand) command;
 
@@ -547,8 +559,8 @@ public class PartitionListener implements RaftGroupListener {
             boolean read = cmd0 instanceof ReadCommand;
 
             for (BinaryRow row : rows) {
-                futs[i++] = read ? txManager.readLock(lockId, row.keySlice(), cmd0.getTimestamp()) :
-                        txManager.writeLock(lockId, row.keySlice(), cmd0.getTimestamp());
+                futs[i++] = read ? txManager.readLock(lockId, row.keySlice(), cmd0.getTxId()) :
+                        txManager.writeLock(lockId, row.keySlice(), cmd0.getTxId());
             }
 
             return CompletableFuture.allOf(futs);
