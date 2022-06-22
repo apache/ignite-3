@@ -69,9 +69,8 @@ public class SchemaValidationTest {
 
         List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
 
-        MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners);
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
-        MessagingServiceTestUtils.mockMessagingServiceInvoke(messagingService, txManager, partitionListeners);
 
         return table;
     }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
@@ -35,27 +36,28 @@ import org.apache.ignite.internal.tx.message.TxFinishRequest;
 import org.apache.ignite.internal.tx.message.TxFinishResponse;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.jetbrains.annotations.Nullable;
+import org.mockito.Mockito;
 
 /**
- * Test utils for adding mock logic to messaging service.
+ * Test utils for mocking messaging service.
  */
 public class MessagingServiceTestUtils {
     /**
-     * Mocking of {@link MessagingService#invoke(NetworkAddress, NetworkMessage, long)}.
+     * Prepares messaging service mock.
      *
-     * @param messagingService Messaging service.
      * @param txManager Transaction manager.
      * @param partitionListeners Partition listeners.
+     * @return Messaging service mock.
      */
-    public static void mockMessagingServiceInvoke(
-            MessagingService messagingService,
+    public static MessagingService mockMessagingService(
             TxManager txManager,
             List<PartitionListener> partitionListeners
     ) {
+        MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
+
         doAnswer(
                 invocationClose -> {
                     assert invocationClose.getArgument(1) instanceof TxFinishRequest;
@@ -82,6 +84,8 @@ public class MessagingServiceTestUtils {
                 }
         ).when(messagingService)
                 .invoke(any(NetworkAddress.class), any(TxFinishRequest.class), anyLong());
+
+        return messagingService;
     }
 
     private static <T extends Command> Iterator<CommandClosure<T>> iterator(T obj) {

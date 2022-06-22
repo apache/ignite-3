@@ -35,9 +35,9 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.TxUtils;
 import org.apache.ignite.internal.tx.message.TxFinishRequest;
 import org.apache.ignite.internal.tx.message.TxFinishResponse;
 import org.apache.ignite.internal.tx.message.TxFinishResponseBuilder;
@@ -98,7 +98,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** {@inheritDoc} */
     @Override
     public InternalTransaction begin() {
-        UUID txId = TxUtils.newTxId();
+        UUID txId = Timestamp.nextVersion().toUuid();
 
         states.put(txId, TxState.PENDING);
 

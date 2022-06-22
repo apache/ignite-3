@@ -34,7 +34,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -51,7 +50,7 @@ public class VersionedRowStore {
     /** Transaction manager. */
     private TxManager txManager;
 
-    //TODO: Temporary solution until the implementation of the primary index is done.
+    //TODO: https://issues.apache.org/jira/browse/IGNITE-17205 Temporary solution until the implementation of the primary index is done.
     /** Dummy primary index. */
     private ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
@@ -501,6 +500,7 @@ public class VersionedRowStore {
      * @param path The path.
      * @return Snapshot future.
      */
+    // TODO: IGNITE-16644 Support snapshots.
     public CompletionStage<Void> snapshot(Path path) {
         throw new UnsupportedOperationException("Snapshots are not supported yet.");
     }
@@ -510,6 +510,7 @@ public class VersionedRowStore {
      *
      * @param path The path.
      */
+    // TODO: IGNITE-16644 Support snapshots.
     public void restoreSnapshot(Path path) {
         throw new UnsupportedOperationException("Snapshots are not supported yet.");
     }
@@ -521,7 +522,7 @@ public class VersionedRowStore {
      * @return The cursor.
      */
     public Cursor<BinaryRow> scan(Predicate<BinaryRow> pred) {
-        Cursor<BinaryRow> delegate = storage.scan(pred, new Timestamp(TxUtils.newTxId()));
+        Cursor<BinaryRow> delegate = storage.scan(pred, Timestamp.nextVersion());
 
         // TODO asch add tx support IGNITE-15087.
         return new Cursor<BinaryRow>() {

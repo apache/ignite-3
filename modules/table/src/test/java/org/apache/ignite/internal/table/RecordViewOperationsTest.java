@@ -309,9 +309,8 @@ public class RecordViewOperationsTest {
 
         List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
 
-        MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners);
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
-        MessagingServiceTestUtils.mockMessagingServiceInvoke(messagingService, txManager, partitionListeners);
 
         Mapper<TestObjectWithAllTypes> recMapper = Mapper.of(TestObjectWithAllTypes.class);
 

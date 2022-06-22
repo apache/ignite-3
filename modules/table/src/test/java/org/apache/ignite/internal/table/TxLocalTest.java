@@ -76,9 +76,8 @@ public class TxLocalTest extends TxAbstractTest {
 
         List<PartitionListener> partitionListeners = List.of(table.getPartitionListener(), table2.getPartitionListener());
 
-        MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners);
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
-        MessagingServiceTestUtils.mockMessagingServiceInvoke(messagingService, txManager, partitionListeners);
     }
 
     @Disabled

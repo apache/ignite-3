@@ -46,7 +46,6 @@ import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexMvStorage.IndexRowEx;
 import org.apache.ignite.internal.tx.Timestamp;
-import org.apache.ignite.internal.tx.TxUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
@@ -112,7 +111,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         SortedIndexMvStorage index1 = createIndexStorage(INDEX1, tableCfg.value());
         SortedIndexMvStorage index2 = createIndexStorage(INDEX2, tableCfg.value());
 
-        assertEquals(List.of(), convert(index1.scan(null, null, (byte) 0, new Timestamp(TxUtils.newTxId()), null)));
+        assertEquals(List.of(), convert(index1.scan(null, null, (byte) 0, Timestamp.nextVersion(), null)));
 
         assertEquals(List.of(), convert(index2.scan(null, null, (byte) 0, UUID.randomUUID(), null)));
     }
@@ -132,7 +131,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         insert(new TestKey(3, "3"), val9020, null);
         insert(new TestKey(4, "4"), val8020, null);
 
-        Timestamp ts = new Timestamp(TxUtils.newTxId());
+        Timestamp ts = Timestamp.nextVersion();
 
         // Test without bounds.
         assertEquals(List.of(val8010, val9010, val8020, val9020), convert(index1.scan(
@@ -237,7 +236,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         assertEquals(List.of(val), convert(index.scan(null, null, 0, txId, null)));
 
         // Using timestamp.
-        assertEquals(List.of(), convert(index.scan(null, null, 0, new Timestamp(TxUtils.newTxId()), null)));
+        assertEquals(List.of(), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
 
         // Abort write.
         pk.abortWrite(rowId);
@@ -246,7 +245,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         assertEquals(List.of(), convert(index.scan(null, null, 0, txId, null)));
 
         // Using timestamp.
-        assertEquals(List.of(), convert(index.scan(null, null, 0, new Timestamp(TxUtils.newTxId()), null)));
+        assertEquals(List.of(), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
     }
 
     @Test
@@ -258,7 +257,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
 
-        Timestamp insertTs = new Timestamp(TxUtils.newTxId());
+        Timestamp insertTs = Timestamp.nextVersion();
 
         RowId rowId = pk.insert(binaryRow(key, val), UUID.randomUUID());
 
@@ -274,7 +273,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         // Using timestamp.
         assertEquals(List.of(val), convert(index.scan(null, null, 0, insertTs, null)));
-        assertEquals(List.of(val), convert(index.scan(null, null, 0, new Timestamp(TxUtils.newTxId()), null)));
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
 
         // Abort remove.
         pk.abortWrite(rowId);
@@ -284,7 +283,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         // Using timestamp.
         assertEquals(List.of(val), convert(index.scan(null, null, 0, insertTs, null)));
-        assertEquals(List.of(val), convert(index.scan(null, null, 0, new Timestamp(TxUtils.newTxId()), null)));
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
     }
 
     @Test
@@ -304,10 +303,10 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         assertEquals(List.of(val), convert(index.scan(null, null, 0, txId, null)));
 
         // Using timestamp.
-        assertEquals(List.of(), convert(index.scan(null, null, 0, new Timestamp(TxUtils.newTxId()), null)));
+        assertEquals(List.of(), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
 
         // Commit write.
-        Timestamp commitTs = new Timestamp(TxUtils.newTxId());
+        Timestamp commitTs = Timestamp.nextVersion();
         pk.commitWrite(rowId, commitTs);
 
         // Using transaction id.
@@ -315,7 +314,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         // Using timestamp.
         assertEquals(List.of(val), convert(index.scan(null, null, 0, commitTs, null)));
-        assertEquals(List.of(val), convert(index.scan(null, null, 0, new Timestamp(TxUtils.newTxId()), null)));
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
     }
 
     @Test
@@ -327,7 +326,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
 
-        Timestamp insertTs = new Timestamp(TxUtils.newTxId());
+        Timestamp insertTs = Timestamp.nextVersion();
 
         RowId rowId = pk.insert(binaryRow(key, val), UUID.randomUUID());
 
@@ -343,10 +342,10 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         // Using timestamp.
         assertEquals(List.of(val), convert(index.scan(null, null, 0, insertTs, null)));
-        assertEquals(List.of(val), convert(index.scan(null, null, 0, new Timestamp(TxUtils.newTxId()), null)));
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
 
         // Commit remove.
-        Timestamp removeTs = new Timestamp(TxUtils.newTxId());
+        Timestamp removeTs = Timestamp.nextVersion();
         pk.commitWrite(rowId, removeTs);
 
         // Using transaction id.
@@ -356,7 +355,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         assertEquals(List.of(val), convert(index.scan(null, null, 0, insertTs, null)));
 
         assertEquals(List.of(), convert(index.scan(null, null, 0, removeTs, null)));
-        assertEquals(List.of(), convert(index.scan(null, null, 0, new Timestamp(TxUtils.newTxId()), null)));
+        assertEquals(List.of(), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
     }
 
     @Test
@@ -369,11 +368,11 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         TestKey key = new TestKey(1, "1");
 
         // Insert a row that goes into ["10", "11") interval in index. Scan over it will be used in the final assertion.
-        RowId rowId = insert(key, new TestValue(10, "10"), new Timestamp(TxUtils.newTxId()));
+        RowId rowId = insert(key, new TestValue(10, "10"), Timestamp.nextVersion());
 
         // Change indexed columns to move row outside of the interval. Commit.
         pk.addWrite(rowId, binaryRow(key, new TestValue(20, "20")), UUID.randomUUID());
-        pk.commitWrite(rowId, new Timestamp(TxUtils.newTxId()));
+        pk.commitWrite(rowId, Timestamp.nextVersion());
 
         // In this scenario, scan over the range of ["10", "11") should return empty cursor.
         assertEquals(
@@ -402,7 +401,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         RowId rowId = pk.insert(binaryRow, UUID.randomUUID());
 
-        pk.commitWrite(rowId, ts == null ? new Timestamp(TxUtils.newTxId()) : ts);
+        pk.commitWrite(rowId, ts == null ? Timestamp.nextVersion() : ts);
 
         return rowId;
     }

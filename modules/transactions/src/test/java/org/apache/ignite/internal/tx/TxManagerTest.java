@@ -127,13 +127,13 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testId() throws InterruptedException {
-        UUID txId1 = TxUtils.newTxId();
-        UUID txId2 = TxUtils.newTxId();
-        UUID txId3 = TxUtils.newTxId();
+        UUID txId1 = Timestamp.nextVersion().toUuid();
+        UUID txId2 = Timestamp.nextVersion().toUuid();
+        UUID txId3 = Timestamp.nextVersion().toUuid();
 
         Thread.sleep(1);
 
-        UUID txId4 = TxUtils.newTxId();
+        UUID txId4 = Timestamp.nextVersion().toUuid();
 
         assertTrue(txId2.compareTo(txId1) > 0);
         assertTrue(txId3.compareTo(txId2) > 0);

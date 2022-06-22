@@ -44,7 +44,6 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMe
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.Timestamp;
-import org.apache.ignite.internal.tx.TxUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -141,7 +140,7 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
         RowId rowId = storage.insert(binaryRow, newTransactionId());
         storage.abortWrite(rowId);
 
-        assertThrows(RowIdIsInvalidForModificationsException.class, () -> storage.commitWrite(rowId, new Timestamp(TxUtils.newTxId())));
+        assertThrows(RowIdIsInvalidForModificationsException.class, () -> storage.commitWrite(rowId, Timestamp.nextVersion()));
     }
 
     @Test
@@ -180,9 +179,9 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
         BinaryRow longRow = rowStoredInFragments();
 
         LinkRowId rowId = storage.insert(longRow, txId);
-        storage.commitWrite(rowId, new Timestamp(TxUtils.newTxId()));
+        storage.commitWrite(rowId, Timestamp.nextVersion());
 
-        BinaryRow foundRow = storage.read(rowId, new Timestamp(TxUtils.newTxId()));
+        BinaryRow foundRow = storage.read(rowId, Timestamp.nextVersion());
 
         assertRowMatches(foundRow, longRow);
     }
@@ -204,7 +203,7 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
         BinaryRow longRow = rowStoredInFragments();
 
         LinkRowId rowId = storage.insert(longRow, txId);
-        storage.commitWrite(rowId, new Timestamp(TxUtils.newTxId()));
+        storage.commitWrite(rowId, Timestamp.nextVersion());
 
         try (Cursor<BinaryRow> cursor = storage.scan(row -> true, txId)) {
             BinaryRow foundRow = cursor.next();
