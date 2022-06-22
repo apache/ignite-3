@@ -21,6 +21,7 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
@@ -41,6 +42,10 @@ public class PageMemoryDataRegionValidatorImpl implements Validator<PageMemoryDa
         String dataRegionName = ctx.getNewValue();
 
         Object newOwner = ctx.getNewOwner();
+
+        if (newOwner instanceof InnerNode) {
+            newOwner = ((InnerNode) newOwner).specificNode();
+        }
 
         if (newOwner instanceof VolatilePageMemoryDataStorageView) {
             VolatilePageMemoryStorageEngineView engineConfig = ctx.getNewRoot(VolatilePageMemoryStorageEngineConfiguration.KEY);
