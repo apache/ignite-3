@@ -54,6 +54,6 @@ public class VolatilePageMemoryStorageExample {
      * @throws Exception If failed.
      */
     public static void main(String[] args) throws Exception {
-        new StorageEngineExample("pagememory", "in-memory").run();
+        new StorageEngineExample("aimem", "in-memory").run();
     }
 }

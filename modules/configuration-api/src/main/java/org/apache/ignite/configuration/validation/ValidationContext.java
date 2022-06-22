@@ -55,7 +55,7 @@ public interface ValidationContext<VIEWT> {
      * @param rootKey Root key.
      * @param <ROOT>  Root view type derived from the root key.
      */
-    @Nullable <ROOT> ROOT getOldRoot(RootKey<?, ROOT> rootKey);
+    <ROOT> @Nullable ROOT getOldRoot(RootKey<?, ROOT> rootKey);
 
     /**
      * Returns updated value of the configuration root.
@@ -63,7 +63,7 @@ public interface ValidationContext<VIEWT> {
      * @param rootKey Root key.
      * @param <ROOT>  Root view type derived from the root key.
      */
-    @Nullable <ROOT> ROOT getNewRoot(RootKey<?, ROOT> rootKey);
+    <ROOT> @Nullable ROOT getNewRoot(RootKey<?, ROOT> rootKey);
 
     /**
      * Signifies that there's something wrong. Values will be accumulated and passed to the user later.
@@ -72,4 +72,18 @@ public interface ValidationContext<VIEWT> {
      * @see ConfigurationValidationException
      */
     void addIssue(ValidationIssue issue);
+
+    /**
+     * Returns the previous owner view of the current value.
+     *
+     * @param <T> Owner view type.
+     */
+    <T> @Nullable T getOldOwner();
+
+    /**
+     * Returns the updated owner view of the current value.
+     *
+     * @param <T> Owner view type.
+     */
+    <T> @Nullable T getNewOwner();
 }

@@ -54,6 +54,6 @@ public class PersistentPageMemoryStorageExample {
      * @throws Exception If failed.
      */
     public static void main(String[] args) throws Exception {
-        new StorageEngineExample("pagememory", "persistent").run();
+        new StorageEngineExample("aipersist", "persistent").run();
     }
 }

@@ -21,17 +21,19 @@ import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputCont
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.example.AbstractExamplesTest;
-import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.junit.jupiter.api.Test;
 
 /**
- * For testing examples demonstrating work with {@link PageMemoryStorageEngine}.
+ * For testing examples demonstrating work with {@link VolatilePageMemoryStorageEngine} and {@link PersistentPageMemoryStorageEngine}.
  */
 public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
     @Test
     public void testPersistentExample() throws Exception {
-        addDataRegionConfig("persistent", true);
+        addPersistentDataRegionConfig("persistent");
 
         assertConsoleOutputContains(PersistentPageMemoryStorageExample::main, EMPTY_ARGS,
                 "\nAll accounts:\n"
@@ -44,7 +46,7 @@ public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
 
     @Test
     public void testInMemoryExample() throws Exception {
-        addDataRegionConfig("in-memory", false);
+        addVolatileDataRegionConfig("in-memory");
 
         assertConsoleOutputContains(VolatilePageMemoryStorageExample::main, EMPTY_ARGS,
                 "\nAll accounts:\n"
@@ -55,10 +57,19 @@ public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
         );
     }
 
-    private void addDataRegionConfig(String name, boolean persistent) throws Exception {
-        ignite.clusterConfiguration().getConfiguration(PageMemoryStorageEngineConfiguration.KEY)
+    private void addVolatileDataRegionConfig(String name) throws Exception {
+        ignite.clusterConfiguration().getConfiguration(VolatilePageMemoryStorageEngineConfiguration.KEY)
                 .regions()
-                .change(regionsChange -> regionsChange.create(name, regionChange -> regionChange.changePersistent(persistent)))
+                .change(regionsChange -> regionsChange.create(name, regionChange -> {
+                }))
+                .get(1, TimeUnit.SECONDS);
+    }
+
+    private void addPersistentDataRegionConfig(String name) throws Exception {
+        ignite.clusterConfiguration().getConfiguration(PersistentPageMemoryStorageEngineConfiguration.KEY)
+                .regions()
+                .change(regionsChange -> regionsChange.create(name, regionChange -> {
+                }))
                 .get(1, TimeUnit.SECONDS);
     }
 }

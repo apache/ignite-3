@@ -89,11 +89,11 @@ import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConver
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
-import org.apache.ignite.internal.storage.pagememory.PageMemoryDataStorageModule;
-import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageChange;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -206,13 +206,13 @@ public class TableManagerTest extends IgniteAbstractTest {
                     SortedIndexConfigurationSchema.class,
                     PartialIndexConfigurationSchema.class,
                     UnknownDataStorageConfigurationSchema.class,
-                    PageMemoryDataStorageConfigurationSchema.class
+                    VolatilePageMemoryDataStorageConfigurationSchema.class
             }
     )
     private TablesConfiguration tblsCfg;
 
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
-    private PageMemoryStorageEngineConfiguration pageMemoryEngineConfig;
+    private VolatilePageMemoryStorageEngineConfiguration pageMemoryEngineConfig;
 
     @Mock
     private ConfigurationRegistry configRegistry;
@@ -315,7 +315,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertNotNull(tableManager.table(scmTbl.canonicalName()));
 
-        checkTableDataStorage(tblsCfg.tables().value(), PageMemoryStorageEngine.ENGINE_NAME);
+        checkTableDataStorage(tblsCfg.tables().value(), VolatilePageMemoryStorageEngine.ENGINE_NAME);
     }
 
     /**
@@ -336,7 +336,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertSame(table, tblManagerFut.join().table(scmTbl.canonicalName()));
 
-        checkTableDataStorage(tblsCfg.tables().value(), PageMemoryStorageEngine.ENGINE_NAME);
+        checkTableDataStorage(tblsCfg.tables().value(), VolatilePageMemoryStorageEngine.ENGINE_NAME);
     }
 
     /**
@@ -790,11 +790,11 @@ public class TableManagerTest extends IgniteAbstractTest {
     private DataStorageManager createDataStorageManager(
             ConfigurationRegistry mockedRegistry,
             Path storagePath,
-            PageMemoryStorageEngineConfiguration config
+            VolatilePageMemoryStorageEngineConfiguration config
     ) {
-        when(mockedRegistry.getConfiguration(PageMemoryStorageEngineConfiguration.KEY)).thenReturn(config);
+        when(mockedRegistry.getConfiguration(VolatilePageMemoryStorageEngineConfiguration.KEY)).thenReturn(config);
 
-        DataStorageModules dataStorageModules = new DataStorageModules(List.of(new PageMemoryDataStorageModule()));
+        DataStorageModules dataStorageModules = new DataStorageModules(List.of(new VolatilePageMemoryDataStorageModule()));
 
         DataStorageManager manager = new DataStorageManager(
                 tblsCfg,
