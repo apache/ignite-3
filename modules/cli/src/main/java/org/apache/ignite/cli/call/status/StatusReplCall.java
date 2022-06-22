@@ -35,7 +35,6 @@ import org.apache.ignite.rest.client.invoker.Configuration;
  * Call to get cluster status.
  */
 @Singleton
-//TODO: https://issues.apache.org/jira/browse/IGNITE-17093
 public class StatusReplCall implements Call<EmptyCallInput, Status> {
 
     private final NodeManager nodeManager;

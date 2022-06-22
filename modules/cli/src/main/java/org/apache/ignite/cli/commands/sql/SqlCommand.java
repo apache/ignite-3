@@ -50,7 +50,7 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
     private ExecOptions execOptions;
 
     private static class ExecOptions {
-        @Option(names = {"-e", "--execute", "--exec"}) //todo: can be passed as parameter, not option (see IEP-88)
+        @Option(names = {"-e", "--execute", "--exec"}) //todo: can be passed as parameter, not option (see IGNITE-17209)
         private String command;
 
         @Option(names = {"-f", "--script-file"})
