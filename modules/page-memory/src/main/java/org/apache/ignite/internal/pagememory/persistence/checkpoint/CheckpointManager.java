@@ -198,7 +198,7 @@ public class CheckpointManager implements IgniteComponent {
      */
     static boolean safeToUpdateAllPageMemories(Collection<? extends DataRegion<PersistentPageMemory>> dataRegions) {
         for (DataRegion<PersistentPageMemory> dataRegion : dataRegions) {
-            if (dataRegion.pageMemory().safeToUpdate()) {
+            if (!dataRegion.pageMemory().safeToUpdate()) {
                 return false;
             }
         }
