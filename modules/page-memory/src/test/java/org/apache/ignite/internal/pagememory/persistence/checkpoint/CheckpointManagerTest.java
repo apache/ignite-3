@@ -85,23 +85,33 @@ public class CheckpointManagerTest {
 
     @Test
     void testSafeToUpdateAllPageMemories() {
-        DataRegion<PersistentPageMemory> dataRegion0 = newDataRegion(mock(PersistentPageMemory.class));
+        assertTrue(safeToUpdateAllPageMemories(List.of()));
 
-        assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion0)));
+        AtomicBoolean safeToUpdate0 = new AtomicBoolean();
+        AtomicBoolean safeToUpdate1 = new AtomicBoolean();
 
-        AtomicBoolean safeToUpdate = new AtomicBoolean();
+        PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
+        PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
-        PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
+        when(pageMemory0.safeToUpdate()).then(answer -> safeToUpdate0.get());
+        when(pageMemory1.safeToUpdate()).then(answer -> safeToUpdate1.get());
 
-        when(pageMemory.safeToUpdate()).then(answer -> safeToUpdate.get());
+        DataRegion<PersistentPageMemory> dataRegion0 = newDataRegion(pageMemory0);
+        DataRegion<PersistentPageMemory> dataRegion1 = newDataRegion(pageMemory1);
 
-        DataRegion<PersistentPageMemory> dataRegion1 = newDataRegion(pageMemory);
-
+        assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion0)));
         assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion1)));
         assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion0, dataRegion1)));
 
-        safeToUpdate.set(true);
+        safeToUpdate0.set(true);
 
+        assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion0)));
+        assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion1)));
+        assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion0, dataRegion1)));
+
+        safeToUpdate1.set(true);
+
+        assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion0)));
         assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion1)));
         assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion0, dataRegion1)));
     }
