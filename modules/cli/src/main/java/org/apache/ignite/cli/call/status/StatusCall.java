@@ -39,6 +39,7 @@ import org.apache.ignite.rest.client.invoker.Configuration;
 public class StatusCall implements Call<StatusCallInput, Status> {
 
     private final NodeManager nodeManager;
+
     private final CliPathsConfigLoader cliPathsCfgLdr;
 
     /**

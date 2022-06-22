@@ -34,6 +34,7 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
     @Override
     public int handle(ExceptionWriter err, IgniteCliApiException e) {
         String message;
+
         if (e.getCause() instanceof ApiException) {
             ApiException cause = (ApiException) e.getCause();
             Throwable apiCause = cause.getCause();
@@ -49,8 +50,11 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
         } else {
             message = e.getCause() != e ? e.getCause().getMessage() : e.getMessage();
         }
+
         log.error(message, e);
+
         err.write(message);
+
         return 1;
     }
 

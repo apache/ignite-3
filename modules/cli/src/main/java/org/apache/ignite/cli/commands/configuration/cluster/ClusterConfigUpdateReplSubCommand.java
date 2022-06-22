@@ -57,6 +57,7 @@ public class ClusterConfigUpdateReplSubCommand extends BaseCommand implements Ru
     private Session session;
 
     /** {@inheritDoc} */
+    @Override
     public void run() {
         var input = ClusterConfigUpdateCallInput.builder().config(config);
         if (session.isConnectedToNode()) {

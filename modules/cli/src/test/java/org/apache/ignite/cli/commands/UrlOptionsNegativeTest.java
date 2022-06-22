@@ -54,8 +54,11 @@ public class UrlOptionsNegativeTest {
     private ApplicationContext context;
 
     private CommandLine cmd;
+
     private StringWriter sout;
+
     private StringWriter serr;
+
     private int exitCode = Integer.MIN_VALUE;
 
     private void setUp(Class<?> cmdClass) {

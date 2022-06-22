@@ -37,8 +37,11 @@ public abstract class CliCommandTestBase {
     private ApplicationContext context;
 
     private CommandLine cmd;
+
     private StringWriter sout;
+
     private StringWriter serr;
+
     private int exitCode = Integer.MIN_VALUE;
 
     @BeforeEach
