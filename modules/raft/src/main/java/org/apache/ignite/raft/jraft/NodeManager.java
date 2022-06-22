@@ -16,14 +16,23 @@
  */
 package org.apache.ignite.raft.jraft;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
+import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestProcessor.PeerPair;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 
 /**
@@ -32,6 +41,7 @@ import org.apache.ignite.raft.jraft.util.OnlyForTest;
 public class NodeManager {
     private final ConcurrentMap<NodeId, Node> nodeMap = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, List<Node>> groupMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<PeerPair, Queue<Object[]>> coalesced = new ConcurrentHashMap<>();
 
     /**
      * Adds a node.
@@ -95,5 +105,17 @@ public class NodeManager {
      */
     public List<Node> getAllNodes() {
         return this.groupMap.values().stream().flatMap(Collection::stream).collect(Collectors.toList());
+    }
+
+    public CompletableFuture<Message> enqueue(AppendEntriesRequest request) {
+        CompletableFuture<Message> fut = new CompletableFuture<>();
+
+        boolean added = coalesced.computeIfAbsent(new PeerPair(request.serverId(), request.peerId()), k -> new ConcurrentLinkedQueue<>()).add(new Object[]{request, fut});
+
+        return fut;
+    }
+
+    public ConcurrentMap<PeerPair, Queue<Object[]>> getCoalesced() {
+        return coalesced;
     }
 }

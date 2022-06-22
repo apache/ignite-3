@@ -94,9 +94,6 @@ public class JraftServerImpl implements RaftServer {
     /** Started groups. */
     private ConcurrentMap<String, RaftGroupService> groups = new ConcurrentHashMap<>();
 
-    /** Node manager. */
-    private final NodeManager nodeManager;
-
     /** Options. */
     private final NodeOptions opts;
 
@@ -123,7 +120,6 @@ public class JraftServerImpl implements RaftServer {
     public JraftServerImpl(ClusterService service, Path dataPath, NodeOptions opts) {
         this.service = service;
         this.dataPath = dataPath;
-        this.nodeManager = new NodeManager();
         this.logStorageFactory = new DefaultLogStorageFactory(dataPath.resolve("log"));
         this.opts = opts;
 
@@ -132,6 +128,7 @@ public class JraftServerImpl implements RaftServer {
         this.opts.setRpcDefaultTimeout(this.opts.getElectionTimeoutMs() / 2);
         this.opts.setSharedPools(true);
         this.opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageFactory));
+        this.opts.setNodeManager(new NodeManager());
 
         if (opts.getServerName() == null) {
             this.opts.setServerName(service.localConfiguration().getName());
@@ -192,7 +189,7 @@ public class JraftServerImpl implements RaftServer {
 
         rpcServer = new IgniteRpcServer(
                 service,
-                nodeManager,
+                opts.getNodeManager(),
                 opts.getRaftMessagesFactory(),
                 requestExecutor
         );
@@ -360,7 +357,7 @@ public class JraftServerImpl implements RaftServer {
 
         var peerId = new PeerId(addr.host(), addr.port(), 0, ElectionPriority.DISABLED);
 
-        var server = new RaftGroupService(groupId, peerId, nodeOptions, rpcServer, nodeManager);
+        var server = new RaftGroupService(groupId, peerId, nodeOptions, rpcServer);
 
         server.start();
 

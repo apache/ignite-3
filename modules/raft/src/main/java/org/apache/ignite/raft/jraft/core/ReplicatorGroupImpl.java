@@ -94,7 +94,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
             }
             return;
         }
-        Replicator.sendHeartbeat(rid, closure, this.commonOptions.getCommonExecutor());
+        Replicator.sendHeartbeat(rid, closure, this.commonOptions.getCommonExecutor(), true);
     }
 
     @Override

@@ -21,6 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
+import java.util.function.BiConsumer;
+import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RemotingException;
@@ -31,6 +33,7 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.GetFileResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
@@ -89,6 +92,33 @@ public class DefaultRaftClientService extends AbstractClientService implements R
         }
 
         return failedFuture(executor, request, done, endpoint);
+    }
+
+    @Override
+    public Future<Message> sendHeartbeat(Endpoint endpoint, AppendEntriesRequest request, boolean coalesce, int timeoutMs,
+            RpcResponseClosure<AppendEntriesResponse> done) {
+        if (!coalesce)
+            return appendEntries(endpoint, request, timeoutMs, done);
+
+        NodeManager nodeManager = this.nodeOptions.getNodeManager();
+
+        CompletableFuture<Message> fut = nodeManager.enqueue(request);
+
+        fut.whenComplete(new BiConsumer<Message, Throwable>() {
+            @Override
+            public void accept(Message resp, Throwable throwable) {
+                if (resp instanceof ErrorResponse) {
+                    ErrorResponse resp0 = (ErrorResponse) resp;
+                    done.run(new Status(resp0.errorCode(), resp0.errorMsg()));
+                }
+                else {
+                    done.setResponse((AppendEntriesResponse) resp);
+                    done.run(Status.OK());
+                }
+            }
+        });
+
+        return fut;
     }
 
     @Override

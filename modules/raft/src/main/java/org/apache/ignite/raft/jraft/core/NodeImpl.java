@@ -36,7 +36,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -649,7 +648,7 @@ public class NodeImpl implements Node, RaftServerService {
         electionRound++;
 
         if (electionRound > 1)
-            LOG.info("Unsuccessful election round number {}", electionRound);
+            LOG.info("Node {} election failed, round number {}", getNodeId(), electionRound);
 
         if (!electionAdjusted) {
             initialElectionTimeout = options.getElectionTimeoutMs();

@@ -19,6 +19,8 @@ package org.apache.ignite.raft.jraft.option;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.raft.jraft.NodeManager;
+import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
@@ -228,6 +230,11 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      * Striped disruptor for Log manager service.
      */
     private StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
+
+    /**
+     * Node manager.
+     */
+    private NodeManager nodeManager;
 
     /**
      * Amount of Disruptors that will handle the RAFT server.
@@ -573,6 +580,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.logManagerDisruptor = logManagerDisruptor;
     }
 
+    public NodeManager getNodeManager() {
+        return nodeManager;
+    }
+
+    public void setNodeManager(NodeManager nodeManager) {
+        this.nodeManager = nodeManager;
+    }
+
     @Override
     public NodeOptions copy() {
         final NodeOptions nodeOptions = new NodeOptions();
@@ -609,22 +624,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setRpcConnectTimeoutMs(this.getRpcConnectTimeoutMs());
         nodeOptions.setElectionTimeoutStrategy(this.getElectionTimeoutStrategy());
         nodeOptions.setServiceFactory(this.getServiceFactory());
+        nodeOptions.setNodeManager(this.getNodeManager());
 
         return nodeOptions;
-    }
-
-    @Override
-    public String toString() {
-        return "NodeOptions{" + "electionTimeoutMs=" + electionTimeoutMs + ", electionPriority=" + electionPriority
-            + ", decayPriorityGap=" + decayPriorityGap + ", leaderLeaseTimeRatio=" + leaderLeaseTimeRatio
-            + ", snapshotIntervalSecs=" + snapshotIntervalSecs + ", snapshotLogIndexMargin="
-            + snapshotLogIndexMargin + ", catchupMargin=" + catchupMargin + ", initialConf=" + initialConf
-            + ", fsm=" + fsm + ", raftMetaUri='" + raftMetaUri + '\''
-            + ", snapshotUri='" + snapshotUri + '\'' + ", filterBeforeCopyRemote=" + filterBeforeCopyRemote
-            + ", disableCli=" + disableCli + ", timerPoolSize="
-            + timerPoolSize + ", cliRpcThreadPoolSize=" + cliRpcThreadPoolSize + ", raftRpcThreadPoolSize="
-            + raftRpcThreadPoolSize + ", enableMetrics=" + enableMetrics + ", snapshotThrottle=" + snapshotThrottle
-            + ", serviceFactory=" + serviceFactory + ", raftOptions=" + raftOptions + "} " + super.toString();
     }
 
     /**
@@ -647,5 +649,19 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setElectionTimeoutStrategy(TimeoutStrategy electionTimeoutStrategy) {
         this.electionTimeoutStrategy = electionTimeoutStrategy;
+    }
+
+    @Override
+    public String toString() {
+        return "NodeOptions{" + "electionTimeoutMs=" + electionTimeoutMs + ", electionPriority=" + electionPriority
+                + ", decayPriorityGap=" + decayPriorityGap + ", leaderLeaseTimeRatio=" + leaderLeaseTimeRatio
+                + ", snapshotIntervalSecs=" + snapshotIntervalSecs + ", snapshotLogIndexMargin="
+                + snapshotLogIndexMargin + ", catchupMargin=" + catchupMargin + ", initialConf=" + initialConf
+                + ", fsm=" + fsm + ", raftMetaUri='" + raftMetaUri + '\''
+                + ", snapshotUri='" + snapshotUri + '\'' + ", filterBeforeCopyRemote=" + filterBeforeCopyRemote
+                + ", disableCli=" + disableCli + ", timerPoolSize="
+                + timerPoolSize + ", cliRpcThreadPoolSize=" + cliRpcThreadPoolSize + ", raftRpcThreadPoolSize="
+                + raftRpcThreadPoolSize + ", enableMetrics=" + enableMetrics + ", snapshotThrottle=" + snapshotThrottle
+                + ", serviceFactory=" + serviceFactory + ", raftOptions=" + raftOptions + "} " + super.toString();
     }
 }

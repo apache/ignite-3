@@ -37,7 +37,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -45,6 +49,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -53,6 +58,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -66,14 +72,27 @@ import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.raft.jraft.ReplicatorGroup;
+import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.core.ElectionPriority;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
-import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.rpc.CoalescedHeartbeatRequestBuilder;
+import org.apache.ignite.raft.jraft.rpc.InvokeCallback;
+import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.CoalescedHeartbeatResponse;
+import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
+import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
+import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestProcessor.PeerPair;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -694,7 +713,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
         for (int i = 0; i < groupsCnt; i++) {
             String grp = "counter" + i;
 
-            assertTrue(waitForCondition(() -> hasLeader(grp), 30_000));
+            assertTrue(waitForCondition(() -> getLeader(grp) != null, 30_000));
         }
 
         Set<Thread> threads = Thread.getAllStackTraces().keySet();
@@ -705,6 +724,122 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
 
         assertTrue(timerThreads.size() <= 15, // This is a maximum possible number of a timer threads for 3 nodes in this test.
                 "All timer threads: " + timerThreads.toString());
+    }
+
+    /** Tests if a starting a new group in shared pools mode doesn't increases timer threads count. */
+    @Test
+    public void testTimerThreadsCount2() throws Exception {
+        JraftServerImpl srv0 = startServer(0, x -> {}, opts -> {});
+        JraftServerImpl srv1 = startServer(1, x -> {}, opts -> opts.setElectionPriority(ElectionPriority.NotElected));
+        JraftServerImpl srv2 = startServer(2, x -> {}, opts -> opts.setElectionPriority(ElectionPriority.NotElected));
+
+        waitForTopology(srv0.clusterService(), 3, 5_000);
+
+        final int grps = 2;
+
+        for (int i = 0; i < grps; i++) {
+            String grp = "testGrp" + i;
+            srv0.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF);
+            srv1.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF);
+            srv2.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF);
+        }
+
+        // Allow the parallel start.
+        for (int i = 0; i < grps; i++) {
+            final String grp = "testGrp" + i;
+            assertTrue(waitForCondition(() -> getLeader(grp) != null, 30_000));
+        }
+
+        // Allow the parallel start.
+        for (int i = 0; i < grps; i++) {
+            final String grp = "testGrp" + i;
+
+            NodeImpl leader = getLeader(grp);
+            ReplicatorGroup replicatorGroup = IgniteTestUtils.getFieldValue(leader, "replicatorGroup");
+            List<PeerId> peers = leader.getCurrentConf().getPeers();
+
+            CountDownLatch l = new CountDownLatch(2);
+
+            for (PeerId peer : peers) {
+                if (peer.equals(leader.getServerId()))
+                    continue;
+
+                replicatorGroup.sendHeartbeat(peer, new RpcResponseClosureAdapter<AppendEntriesResponse>() {
+                    @Override
+                    public void run(Status status) {
+                        AppendEntriesResponse response = getResponse();
+
+                        assertNotNull(response);
+
+                        l.countDown();
+                    }
+                });
+            }
+        }
+
+        RaftGroupService service = startClient("testGrp0");
+        service.refreshLeader().get();
+
+        // TODO iterate over all leaders per server
+        NodeImpl leader = getLeader("testGrp0");
+
+        service.run(new IncrementAndGetCommand(1)).get();
+
+        ConcurrentMap<PeerPair, Queue<Object[]>> coalesced = leader.getOptions().getNodeManager().getCoalesced();
+
+        assertEquals(grps, coalesced.size());
+
+        IgniteRpcClient sender = new IgniteRpcClient(srv0.clusterService());
+
+        for (PeerPair peerPair : coalesced.keySet()) {
+            coalesced.compute(peerPair, new BiFunction<PeerPair, Queue<Object[]>, Queue<Object[]>>() {
+                @Override
+                public Queue<Object[]> apply(PeerPair peerPair, Queue<Object[]> queue) {
+                    if (!queue.isEmpty()) {
+                        CoalescedHeartbeatRequestBuilder builder = leader.getOptions().getRaftMessagesFactory().coalescedHeartbeatRequest();
+                        builder.messages(new ArrayList<>());
+
+                        Object[] req;
+
+                        List<CompletableFuture<Message>> futs = new ArrayList<>();
+
+                        while((req = queue.poll()) != null) {
+                            builder.messages().add((AppendEntriesRequest) req[0]);
+
+                            futs.add((CompletableFuture<Message>) req[1]);
+                        }
+
+                        // TODO asch store parsed.
+                        PeerId peerId = PeerId.parsePeer(peerPair.remote);
+
+                        sender.invokeAsync(peerId.getEndpoint(), builder.build(), null, new InvokeCallback() {
+                            @Override
+                            public void complete(Object result, Throwable err) {
+                                CoalescedHeartbeatResponse resp = (CoalescedHeartbeatResponse) result;
+
+                                assert resp.messages().size() == futs.size();
+
+                                // TODO asch complete futures in parallel
+                                int i = 0;
+                                for (Message message : resp.messages()) {
+                                    futs.get(i++).complete(message);
+                                }
+                            }
+                        }, 5_000);
+                    }
+
+                    // TODO asch return null
+                    return queue;
+                }
+            });
+        }
+
+        Thread.sleep(2000);
+
+        System.out.println();
+
+
+        //assertTrue(l.await(5_000, TimeUnit.MILLISECONDS));
     }
 
     /**
@@ -724,16 +859,12 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
      * Returns {@code true} if a raft group has elected a leader for a some term.
      *
      * @param grpId Group id.
-     * @return {@code True} if a leader is elected.
+     * @return The leader or null.
      */
-    private boolean hasLeader(String grpId) {
-        return servers.stream().anyMatch(s -> {
-            NodeImpl node = (NodeImpl) s.raftGroupService(grpId).getRaftNode();
-
-            StateMachineAdapter fsm = (StateMachineAdapter) node.getOptions().getFsm();
-
-            return node.isLeader() && fsm.getLeaderTerm() == node.getCurrentTerm();
-        });
+    private @Nullable NodeImpl getLeader(String grpId) {
+        return servers.stream().map(s -> (NodeImpl) s.raftGroupService(grpId).getRaftNode()).filter(node -> {
+            return node.isLeader();
+        }).findFirst().orElse(null);
     }
 
     /**

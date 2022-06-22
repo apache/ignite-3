@@ -62,7 +62,6 @@ import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
@@ -252,17 +251,16 @@ public class TestCluster {
                     .map(JRaftUtils::addressFromEndpoint)
                     .collect(toList());
 
-            NodeManager nodeManager = new NodeManager();
-
             ClusterService clusterService = clusterService(testInfo, listenAddr.getPort(), new StaticNodeFinder(addressList));
 
             var rpcClient = new IgniteRpcClient(clusterService);
 
             nodeOptions.setRpcClient(rpcClient);
+            nodeOptions.setNodeManager(new NodeManager());
 
             ExecutorService requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
 
-            var rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
+            var rpcServer = new TestIgniteRpcServer(clusterService, nodeOptions, requestExecutor);
 
             clusterService.start();
 
@@ -270,7 +268,7 @@ public class TestCluster {
                 optsClo.accept(nodeOptions);
 
             RaftGroupService server = new RaftGroupService(this.name, new PeerId(listenAddr, 0, priority),
-                nodeOptions, rpcServer, nodeManager) {
+                nodeOptions, rpcServer) {
                 @Override public synchronized void shutdown() {
                     // This stop order is consistent with JRaftServerImpl
                     rpcServer.shutdown();

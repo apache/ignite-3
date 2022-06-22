@@ -61,25 +61,18 @@ public class RaftGroupService {
     private Node node;
 
     /**
-     * The node manager.
-     */
-    private NodeManager nodeManager;
-
-    /**
      * @param groupId Group Id.
      * @param serverId Server id.
      * @param nodeOptions Node options.
      * @param rpcServer RPC server.
-     * @param nodeManager Node manager.
      */
     public RaftGroupService(final String groupId, final PeerId serverId, final NodeOptions nodeOptions,
-        final RpcServer rpcServer, final NodeManager nodeManager) {
+        final RpcServer rpcServer) {
         super();
         this.groupId = groupId;
         this.serverId = serverId;
         this.nodeOptions = nodeOptions;
         this.rpcServer = rpcServer;
-        this.nodeManager = nodeManager;
     }
 
     public synchronized Node getRaftNode() {
@@ -119,7 +112,7 @@ public class RaftGroupService {
             throw new IgniteInternalException("Fail to init node, please see the logs to find the reason.");
         }
 
-        this.nodeManager.add(this.node);
+        this.nodeOptions.getNodeManager().add(this.node);
         this.started = true;
         LOG.info("Start the RaftGroupService successfully {}", this.node.getNodeId());
         return this.node;
@@ -139,7 +132,7 @@ public class RaftGroupService {
             LOG.error("Interrupted while waiting for the node to shutdown");
         }
 
-        nodeManager.remove(this.node);
+        this.nodeOptions.getNodeManager().remove(this.node);
         this.started = false;
         LOG.info("Stop the RaftGroupService successfully.");
     }

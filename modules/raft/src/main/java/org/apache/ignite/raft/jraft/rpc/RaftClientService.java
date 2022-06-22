@@ -23,7 +23,6 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
  * Raft client RPC service.
  */
 public interface RaftClientService extends ClientService {
-
     /**
      * Sends a pre-vote request and handle the response with done.
      *
@@ -51,11 +50,25 @@ public interface RaftClientService extends ClientService {
      *
      * @param endpoint destination address (ip, port)
      * @param request request data
+     * @param timeoutMs timeout
      * @param done callback
      * @return a future with result
      */
     Future<Message> appendEntries(final Endpoint endpoint, final RpcRequests.AppendEntriesRequest request,
         final int timeoutMs, final RpcResponseClosure<RpcRequests.AppendEntriesResponse> done);
+
+    /**
+     * Sends a heartbeat request and handle the response with done.
+     *
+     * @param endpoint destination address (ip, port)
+     * @param request request data
+     * @param coalesce {@code true} to coalesce heartbeats
+     * @param timeoutMs timeout
+     * @param done callback
+     * @return a future with result
+     */
+    Future<Message> sendHeartbeat(final Endpoint endpoint, final RpcRequests.AppendEntriesRequest request, boolean coalesce,
+            final int timeoutMs, final RpcResponseClosure<RpcRequests.AppendEntriesResponse> done);
 
     /**
      * Sends a install-snapshot request and handle the response with done.

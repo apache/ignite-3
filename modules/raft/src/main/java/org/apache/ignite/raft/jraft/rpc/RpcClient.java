@@ -33,7 +33,7 @@ public interface RpcClient extends Lifecycle<RpcOptions> {
      *
      * @param endpoint target address
      * @return true if there is a connection and the connection is active and writable.
-     * @deprecated // TODO asch remove IGNITE-14832
+     * @deprecated // TODO asch not used, remove IGNITE-14832
      */
     boolean checkConnection(Endpoint endpoint);
 

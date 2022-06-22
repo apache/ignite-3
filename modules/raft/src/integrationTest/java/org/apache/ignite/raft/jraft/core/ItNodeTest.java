@@ -3776,6 +3776,7 @@ public class ItNodeTest {
         log.start();
 
         options.setServiceFactory(new DefaultJRaftServiceFactory(log));
+        options.setNodeManager(new NodeManager());
 
         return options;
     }
@@ -3864,8 +3865,6 @@ public class ItNodeTest {
             .map(JRaftUtils::addressFromEndpoint)
             .collect(toList());
 
-        var nodeManager = new NodeManager();
-
         ClusterService clusterService = ClusterServiceTestUtils.clusterService(
                 testInfo,
                 peerId.getEndpoint().getPort(),
@@ -3876,13 +3875,13 @@ public class ItNodeTest {
 
         executors.add(requestExecutor);
 
-        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
+        IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeOptions, requestExecutor);
 
         nodeOptions.setRpcClient(new IgniteRpcClient(clusterService));
 
         clusterService.start();
 
-        var service = new RaftGroupService(groupId, peerId, nodeOptions, rpcServer, nodeManager) {
+        var service = new RaftGroupService(groupId, peerId, nodeOptions, rpcServer) {
             @Override public synchronized void shutdown() {
                 rpcServer.shutdown();
 

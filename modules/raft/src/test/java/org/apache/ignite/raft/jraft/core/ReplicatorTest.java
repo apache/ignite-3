@@ -595,7 +595,10 @@ public class ReplicatorTest {
         assertNull(r.getHeartbeatInFly());
         final RpcRequests.AppendEntriesRequest request = createEmptyEntriesRequest(true);
         Mockito.when(
-            this.rpcService.appendEntries(eq(this.peerId.getEndpoint()), eq(request),
+            this.rpcService.sendHeartbeat(
+                    eq(this.peerId.getEndpoint()),
+                    eq(request),
+                    Mockito.anyBoolean(),
                 eq(this.opts.getElectionTimeoutMs() / 2), Mockito.any())).thenAnswer(new Answer<Future>() {
             @Override public Future answer(InvocationOnMock invocation) throws Throwable {
                 return new CompletableFuture<>();
@@ -606,7 +609,7 @@ public class ReplicatorTest {
             public void run(final Status status) {
                 assertTrue(status.isOk());
             }
-        }, node.getOptions().getCommonExecutor());
+        }, node.getOptions().getCommonExecutor(), false);
 
         assertNotNull(r.getHeartbeatInFly());
 

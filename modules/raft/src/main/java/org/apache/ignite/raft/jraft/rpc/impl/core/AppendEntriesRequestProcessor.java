@@ -152,13 +152,13 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
     /**
      * A peer pair
      */
-    static class PeerPair {
+    public static class PeerPair {
         // peer in local node
-        final String local;
+        public final String local;
         // peer in remote node
-        final String remote;
+        public final String remote;
 
-        PeerPair(final String local, final String remote) {
+        public PeerPair(final String local, final String remote) {
             super();
             this.local = local;
             this.remote = remote;

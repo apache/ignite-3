@@ -511,8 +511,7 @@ public class Replicator implements ThreadId.OnError {
     private void startHeartbeatTimer(final long startMs) {
         final long dueTime = startMs + this.options.getDynamicHeartBeatTimeoutMs();
         try {
-            this.heartbeatTimer = this.timerManager.schedule(() -> onTimeout(this.id), dueTime - Utils.nowMs(),
-                TimeUnit.MILLISECONDS);
+            this.heartbeatTimer = this.timerManager.schedule(() -> onTimeout(this.id), dueTime - Utils.nowMs(), TimeUnit.MILLISECONDS);
         }
         catch (final Exception e) {
             LOG.error("Fail to schedule heartbeat timer", e);
@@ -657,7 +656,7 @@ public class Replicator implements ThreadId.OnError {
     }
 
     private void sendEmptyEntries(final boolean isHeartbeat) {
-        sendEmptyEntries(isHeartbeat, null);
+        sendEmptyEntries(isHeartbeat, null, false);
     }
 
     /**
@@ -665,10 +664,11 @@ public class Replicator implements ThreadId.OnError {
      *
      * @param isHeartbeat if current entries is heartbeat
      * @param heartBeatClosure heartbeat callback
+     * @param coalesce {@code True} to coalesce heartbeats.
      */
     @SuppressWarnings("NonAtomicOperationOnVolatileField")
-    private void sendEmptyEntries(final boolean isHeartbeat,
-        final RpcResponseClosure<AppendEntriesResponse> heartBeatClosure) {
+    private void sendEmptyEntries(final boolean isHeartbeat, final RpcResponseClosure<AppendEntriesResponse> heartBeatClosure,
+            boolean coalesce) {
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory().appendEntriesRequest();
         if (!fillCommonFields(rb, this.nextIndex - 1, isHeartbeat)) {
             // id is unlock in installSnapshot
@@ -700,8 +700,8 @@ public class Replicator implements ThreadId.OnError {
                         }
                     };
                 }
-                this.heartbeatInFly = this.rpcService.appendEntries(this.options.getPeerId().getEndpoint(), request,
-                    this.options.getElectionTimeoutMs() / 2, heartbeatDone);
+                this.heartbeatInFly = this.rpcService.sendHeartbeat(this.options.getPeerId().getEndpoint(), request, coalesce,
+                        this.options.getElectionTimeoutMs() / 2, heartbeatDone);
             }
             else {
                 // No entries and has empty data means a probe request.
@@ -813,7 +813,7 @@ public class Replicator implements ThreadId.OnError {
         LOG.info("Replicator={}@{} is started", r.id, r.options.getPeerId());
         r.catchUpClosure = null;
         r.lastRpcSendTimestamp = Utils.monotonicMs();
-        r.startHeartbeatTimer(Utils.nowMs());
+        //r.startHeartbeatTimer(Utils.nowMs());
         // id.unlock in sendEmptyEntries
         r.sendEmptyEntries(false);
         return r.id;
@@ -953,7 +953,7 @@ public class Replicator implements ThreadId.OnError {
             try {
                 for (final Inflight inflight : r.inflights) {
                     if (inflight != r.rpcInFly) {
-                        inflight.rpcFuture.cancel(true); // TODO asch makes sense to cancel scalecube future ?
+                        inflight.rpcFuture.cancel(true);
                     }
                 }
                 if (r.rpcInFly != null) {
@@ -1111,7 +1111,7 @@ public class Replicator implements ThreadId.OnError {
                 r.state = State.Probe;
                 notifyReplicatorStatusListener(r, ReplicatorEvent.ERROR, status);
                 if (++r.consecutiveErrorTimes % 10 == 0) {
-                    LOG.warn("Fail to issue RPC to {}, consecutiveErrorTimes={}, error={}", r.options.getPeerId(),
+                    LOG.warn("QQQQ Fail to issue RPC to {}, consecutiveErrorTimes={}, error={}", r.options.getPeerId(),
                         r.consecutiveErrorTimes, status);
                 }
                 r.startHeartbeatTimer(startTimeMs); // TODO asch use discovery instead of constant probing IGNITE-14843
@@ -1444,11 +1444,11 @@ public class Replicator implements ThreadId.OnError {
         if (r.timeoutNowIndex > 0 && r.timeoutNowIndex < r.nextIndex) {
             r.sendTimeoutNow(false, false);
         }
+        r.startHeartbeatTimer(Utils.nowMs()); // Start hearbeating after successful log reconciliation.
         return true;
     }
 
-    private boolean fillCommonFields(final AppendEntriesRequestBuilder rb, long prevLogIndex,
-        final boolean isHeartbeat) {
+    private boolean fillCommonFields(final AppendEntriesRequestBuilder rb, long prevLogIndex, final boolean isHeartbeat) {
         final long prevLogTerm = this.options.getLogManager().getTerm(prevLogIndex);
         if (prevLogTerm == 0 && prevLogIndex != 0) {
             if (!isHeartbeat) {
@@ -1623,15 +1623,18 @@ public class Replicator implements ThreadId.OnError {
     public static void sendHeartbeat(
         final ThreadId id,
         final RpcResponseClosure<AppendEntriesResponse> closure,
-        ExecutorService executor
+        ExecutorService executor, boolean coalesce
     ) {
         final Replicator r = (Replicator) id.lock();
         if (r == null) {
             Utils.runClosureInThread(executor, closure, new Status(RaftError.EHOSTDOWN, "Peer %s is not connected", id));
             return;
         }
+//        if (r.getOpts().getPeerId().getPort() == 5005)
+//            LOG.info("sendHeartbeat {}", id);
+
         //id unlock in send empty entries.
-        r.sendEmptyEntries(true, closure);
+        r.sendEmptyEntries(true, closure, coalesce);
     }
 
     private static void sendHeartbeat(final ThreadId id) {
@@ -1640,7 +1643,10 @@ public class Replicator implements ThreadId.OnError {
             return;
         }
         // unlock in sendEmptyEntries
-        r.sendEmptyEntries(true);
+//        if (r.getOpts().getPeerId().getPort() == 5005)
+//            LOG.info("sendHeartbeat 2 {}", id);
+
+        r.sendEmptyEntries(true, null, false);
     }
 
     @SuppressWarnings("SameParameterValue")
