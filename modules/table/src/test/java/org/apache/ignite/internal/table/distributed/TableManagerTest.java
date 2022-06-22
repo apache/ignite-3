@@ -91,7 +91,7 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageChange;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageChange;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
@@ -287,7 +287,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS);
 
-                tableChange.changeDataStorage(c -> c.convert(PageMemoryDataStorageChange.class));
+                tableChange.changeDataStorage(c -> c.convert(VolatilePageMemoryDataStorageChange.class));
 
                 var extConfCh = ((ExtendedTableChange) tableChange);
 

@@ -33,8 +33,6 @@ Below is the list of properties for link:https://rocksdb.org/[RocksDB,window=_bl
 |numShardBits| `-1` | The number of parts the cache is sharded to.
 |===
 
-TODO: IGNITE-17149 не забудь изменить VVV
-
 == Page Memory Region Configuration
 
 Page memory keeps data in B+Tree format. You can set up the following configuration parameters:

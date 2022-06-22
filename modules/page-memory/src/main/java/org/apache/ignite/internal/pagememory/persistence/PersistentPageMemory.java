@@ -19,9 +19,9 @@ package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.lang.System.lineSeparator;
 import static org.apache.ignite.internal.pagememory.FullPageId.NULL_PAGE;
-import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema.CLOCK_REPLACEMENT_MODE;
-import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
-import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema.SEGMENTED_LRU_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema.CLOCK_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema.SEGMENTED_LRU_REPLACEMENT_MODE;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getCrc;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
