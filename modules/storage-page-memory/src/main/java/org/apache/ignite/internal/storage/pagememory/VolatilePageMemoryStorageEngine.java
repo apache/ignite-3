@@ -66,8 +66,6 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
     /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
-        int pageSize = engineConfig.pageSize().value();
-
         addDataRegion(engineConfig.defaultRegion());
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
