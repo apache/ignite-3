@@ -18,7 +18,6 @@
 package org.apache.ignite.cli.commands.cliconfig;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertThat;
 
 import org.apache.ignite.cli.commands.CliCommandTestBase;
 import org.junit.jupiter.api.DisplayName;
@@ -36,13 +35,10 @@ class CliConfigSubCommandTest extends CliCommandTestBase {
     void noKey() {
         execute();
 
-        String expectedResult1 = "ignite.cluster-url=test_cluster_url" + System.lineSeparator()
-                + "ignite.jdbc-url=test_jdbc_url" + System.lineSeparator();
-	String expectedResult2 = "ignite.jdbc-url=test_jdbc_url" + System.lineSeparator()
-		+ "ignite.cluster-url=test_cluster_url" + System.lineSeparator();
         assertAll(
                 this::assertExitCodeIsZero,
-                () -> assertThat(out.toString().equals(expectedResult1) || out.toString().equals(expectedResult2)),
+                () -> assertOutputContains("ignite.cluster-url=test_cluster_url"),
+		() -> assertOutputContains("ignite.jdbc-url=test_jdbc_url"),
                 this::assertErrOutputIsEmpty
         );
     }
