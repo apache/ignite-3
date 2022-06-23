@@ -15,31 +15,41 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.cluster;
+package org.apache.ignite.cli.commands.cluster.status;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.apache.ignite.cli.commands.CliCommandTestIntegrationBase;
-import org.apache.ignite.cli.commands.cluster.status.ClusterStatusReplSubCommand;
-import org.junit.jupiter.api.Disabled;
+import org.apache.ignite.cli.commands.CliCommandTestInitializedIntegrationBase;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 /**
- * Tests for {@link ClusterStatusReplSubCommand}.
+ * Tests for {@link ClusterStatusReplSubCommand} for the cluster that is initialized.
  */
-class ItClusterStatusReplCommandTest extends CliCommandTestIntegrationBase {
+class ItClusterStatusReplCommandInitializedTest extends CliCommandTestInitializedIntegrationBase {
+
+    String metaStorageNodeName;
+
+    @BeforeAll
+    void setUpMsNodeName(TestInfo testInfo) {
+        metaStorageNodeName = metaStorageNodeName(testInfo);
+    }
 
     @Test
-    @DisplayName("Should print status when valid cluster url is given")
-    @Disabled("Use topology call to get the number of nodes https://issues.apache.org/jira/browse/IGNITE-17092")
+    @DisplayName("Should print status when valid cluster url is given but cluster is initialized")
     void printStatus() {
         execute("cluster", "status", "--cluster-url", NODE_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Cluster status:")
+                () -> assertOutputContains("name: cluster"),
+                () -> assertOutputContains("nodes: 3"),
+                () -> assertOutputContains("status: active"),
+                () -> assertOutputContains("cmgNodes: [" + metaStorageNodeName + "]"),
+                () -> assertOutputContains("msNodes: [" + metaStorageNodeName + "]")
         );
     }
 }

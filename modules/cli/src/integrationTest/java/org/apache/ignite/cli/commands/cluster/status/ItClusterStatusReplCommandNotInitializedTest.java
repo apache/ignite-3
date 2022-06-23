@@ -15,27 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.version;
+package org.apache.ignite.cli.commands.cluster.status;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.apache.ignite.cli.commands.CliCommandTestInitializedIntegrationBase;
+import org.apache.ignite.cli.commands.CliCommandTestNotInitializedIntegrationBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class ItVersionCommandTest extends CliCommandTestInitializedIntegrationBase {
+/**
+ * Tests for {@link ClusterStatusReplSubCommand} for the cluster that is not initialized.
+ */
+class ItClusterStatusReplCommandNotInitializedTest extends CliCommandTestNotInitializedIntegrationBase {
 
     @Test
-    @DisplayName("Should print cli version that is got from pom.xml")
-    void printVersion() {
-        // When
-        execute("--version");
+    @DisplayName("Should print status when valid cluster url is given but cluster is not initialized")
+    void printStatus() {
+        execute("cluster", "status", "--cluster-url", NODE_URL);
 
-        // Then
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Apache Ignite CLI ver")
+                () -> assertOutputContains("[nodes: 3, status: not initialized]")
         );
     }
 }
