@@ -54,7 +54,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Test is based on {@link ItBplusTreeSelfTest} and has a partial copy of its code.
+ * Test is based on {@link ItBplusTreePageMemoryTest} and has a partial copy of its code.
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {

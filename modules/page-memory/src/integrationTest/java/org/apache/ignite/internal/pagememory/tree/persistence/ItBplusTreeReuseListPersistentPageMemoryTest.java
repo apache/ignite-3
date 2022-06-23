@@ -15,24 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.pagememory.tree.persistence;
 
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.concurrent.TimeUnit;
 import java.util.stream.LongStream;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
-import org.apache.ignite.internal.pagememory.tree.ItBplusTreeReuseSelfTest;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManager;
+import org.apache.ignite.internal.pagememory.tree.ItBplusTreeReusePageMemoryTest;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test with reuse list and {@link PersistentPageMemory}.
  */
-public class ItBplusTreeReuseListPersistentPageMemoryTest extends ItBplusTreeReuseSelfTest {
+@ExtendWith(ConfigurationExtension.class)
+public class ItBplusTreeReuseListPersistentPageMemoryTest extends ItBplusTreeReusePageMemoryTest {
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
     private PersistentPageMemoryDataRegionConfiguration dataRegionCfg;
 

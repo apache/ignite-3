@@ -15,48 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
-
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
-import static org.apache.ignite.internal.util.Constants.MiB;
+package org.apache.ignite.internal.pagememory.tree.inmemory;
 
 import java.util.concurrent.TimeUnit;
-import java.util.stream.LongStream;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
-import org.apache.ignite.internal.pagememory.tree.ItBplusTreeSelfTest;
+import org.apache.ignite.internal.pagememory.tree.ItBplusTreePageMemoryTest;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Class to test the {@link BplusTree} with {@link PersistentPageMemory}.
+ * Class to test the {@link BplusTree} with {@link VolatilePageMemory}.
  */
-public class ItBplusTreePersistentPageMemoryTest extends ItBplusTreeSelfTest {
+@ExtendWith(ConfigurationExtension.class)
+public class ItBplusTreeVolatilePageMemoryTest extends ItBplusTreePageMemoryTest {
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
-    private PersistentPageMemoryDataRegionConfiguration dataRegionCfg;
+    private VolatilePageMemoryDataRegionConfiguration dataRegionCfg;
 
     /** {@inheritDoc} */
     @Override
     protected PageMemory createPageMemory() throws Exception {
-        dataRegionCfg.change(c -> c.changeSize(MAX_MEMORY_SIZE)).get(1, TimeUnit.SECONDS);
+        dataRegionCfg.change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        return new PersistentPageMemory(
+        return new VolatilePageMemory(
                 dataRegionCfg,
                 ioRegistry,
-                LongStream.range(0, CPUS).map(i -> MAX_MEMORY_SIZE / CPUS).toArray(),
-                10 * MiB,
-                new TestPageReadWriteManager(),
-                (page, fullPageId, pageMemoryImpl) -> {
-                },
-                (fullPageId, buf, tag) -> {
-                },
-                mockCheckpointTimeoutLock(log, true),
                 PAGE_SIZE
         );
     }
@@ -64,6 +56,6 @@ public class ItBplusTreePersistentPageMemoryTest extends ItBplusTreeSelfTest {
     /** {@inheritDoc} */
     @Override
     protected long acquiredPages() {
-        return ((PersistentPageMemory) pageMem).acquiredPages();
+        return ((VolatilePageMemory) pageMem).acquiredPages();
     }
 }

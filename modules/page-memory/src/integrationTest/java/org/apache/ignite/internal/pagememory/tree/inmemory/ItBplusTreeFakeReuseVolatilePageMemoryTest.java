@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.tree;
+package org.apache.ignite.internal.pagememory.tree.inmemory;
 
 import java.util.concurrent.ConcurrentLinkedDeque;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Test with fake reuse list.
  */
-public class ItBplusTreeFakeReuseSelfTest extends ItBplusTreeSelfTest {
+public class ItBplusTreeFakeReuseVolatilePageMemoryTest extends ItBplusTreeVolatilePageMemoryTest {
     /** {@inheritDoc} */
     @Override
     protected ReuseList createReuseList(
@@ -35,7 +34,7 @@ public class ItBplusTreeFakeReuseSelfTest extends ItBplusTreeSelfTest {
             PageMemory pageMem,
             long rootId,
             boolean initNew
-    ) throws IgniteInternalCheckedException {
+    ) {
         return new FakeReuseList();
     }
 
