@@ -50,7 +50,7 @@ public class SqlSchemaLoader {
                 tables.put(tableName, loadColumns(tableSchema, tableName));
             }
         } catch (SQLException e) {
-            //TODO: https://issues.apache.org/jira/browse/IGNITE-17093
+            //TODO: https://issues.apache.org/jira/browse/IGNITE-17090
         }
         return new SqlSchema(schema);
     }
@@ -64,7 +64,7 @@ public class SqlSchemaLoader {
                 columns.add(rs.getString("COLUMN_NAME"));
             }
         } catch (SQLException e) {
-            //TODO: https://issues.apache.org/jira/browse/IGNITE-17093
+            //TODO: https://issues.apache.org/jira/browse/IGNITE-17090
         }
         return columns;
     }

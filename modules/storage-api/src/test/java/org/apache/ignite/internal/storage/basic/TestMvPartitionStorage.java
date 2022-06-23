@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.NoUncommittedVersionException;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
@@ -68,6 +67,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         public static VersionChain createCommitted(Timestamp timestamp, VersionChain uncommittedVersionChain) {
             return new VersionChain(uncommittedVersionChain.row, timestamp, null, uncommittedVersionChain.next);
+        }
+
+        public boolean notContainsWriteIntent() {
+            return begin != null && txId == null;
         }
     }
 
@@ -117,8 +120,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         BinaryRow[] res = {null};
 
         map.computeIfPresent(rowId, (ignored, versionChain) -> {
-            if (versionChain.txId == null) {
-                throw new NoUncommittedVersionException();
+            if (versionChain.notContainsWriteIntent()) {
+                return versionChain;
             }
 
             assert versionChain.begin == null;
@@ -156,7 +159,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     public void commitWrite(RowId rowId, Timestamp timestamp) {
         map.compute(rowId, (ignored, versionChain) -> {
             assert versionChain != null;
-            assert versionChain.begin == null && versionChain.txId != null;
+
+            if (versionChain.notContainsWriteIntent()) {
+                return versionChain;
+            }
 
             return VersionChain.createCommitted(timestamp, versionChain);
         });

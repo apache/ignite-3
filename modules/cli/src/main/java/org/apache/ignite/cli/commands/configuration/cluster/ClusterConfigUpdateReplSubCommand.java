@@ -34,7 +34,7 @@ import picocli.CommandLine.Parameters;
 @Command(name = "update",
         description = "Updates cluster configuration.")
 @Singleton
-public class ClusterConfigUpdateReplSubCommand extends BaseCommand {
+public class ClusterConfigUpdateReplSubCommand extends BaseCommand implements Runnable {
     /**
      * Cluster url option.
      */
@@ -69,7 +69,7 @@ public class ClusterConfigUpdateReplSubCommand extends BaseCommand {
             return;
         }
 
-        CallExecutionPipeline.builder(this.call)
+        CallExecutionPipeline.builder(call)
                 .inputProvider(input::build)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())

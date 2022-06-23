@@ -15,12 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
-
-import org.apache.ignite.lang.IgniteInternalException;
+package org.apache.ignite.cli.core.exception;
 
 /**
- * Thrown when an operation is invoked that requires an uncommitted version to exist, but no such version exists in reality.
+ * Top level runtime exception for throwing the error message from REST API to user.
  */
-public class NoUncommittedVersionException extends IgniteInternalException {
+public class IgniteCliApiException extends RuntimeException {
+
+    private final String url;
+
+    /**
+     * Creates a new instance of {@code IgniteCliApiException}.
+     *
+     * @param cause the cause.
+     * @param url endpoint URL.
+     */
+    public IgniteCliApiException(Throwable cause, String url) {
+        super(cause);
+        this.url = url;
+    }
+
+    /**
+     * Gets the endpoint URL.
+     *
+     * @return endpoint URL.
+     */
+    public String getUrl() {
+        return url;
+    }
 }

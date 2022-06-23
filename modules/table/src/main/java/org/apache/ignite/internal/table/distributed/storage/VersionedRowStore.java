@@ -20,24 +20,21 @@ package org.apache.ignite.internal.table.distributed.storage;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.storage.DataRow;
-import org.apache.ignite.internal.storage.PartitionStorage;
-import org.apache.ignite.internal.storage.SearchRow;
-import org.apache.ignite.internal.storage.basic.BinarySearchRow;
-import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,10 +45,20 @@ import org.jetbrains.annotations.Nullable;
  */
 public class VersionedRowStore {
     /** Storage delegate. */
-    private final PartitionStorage storage;
+    private final MvPartitionStorage storage;
 
     /** Transaction manager. */
     private TxManager txManager;
+
+    //TODO: https://issues.apache.org/jira/browse/IGNITE-17205 Temporary solution until the implementation of the primary index is done.
+    /** Dummy primary index. */
+    private ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
+
+    /** Keys that were inserted by the transaction. */
+    private ConcurrentHashMap<UUID, List<ByteBuffer>> txsInsertedKeys = new ConcurrentHashMap<>();
+
+    /** Keys that were removed by the transaction. */
+    private ConcurrentHashMap<UUID, List<ByteBuffer>> txsRemovedKeys = new ConcurrentHashMap<>();
 
     /**
      * The constructor.
@@ -59,54 +66,46 @@ public class VersionedRowStore {
      * @param storage The storage.
      * @param txManager The TX manager.
      */
-    public VersionedRowStore(@NotNull PartitionStorage storage, @NotNull TxManager txManager) {
+    public VersionedRowStore(@NotNull MvPartitionStorage storage, @NotNull TxManager txManager) {
         this.storage = Objects.requireNonNull(storage);
         this.txManager = Objects.requireNonNull(txManager);
-    }
-
-    /**
-     * Decodes a storage row to a pair where the first is an actual value (visible to a current transaction) and the second is an old value
-     * used for rollback.
-     *
-     * @param row       The row.
-     * @param timestamp Timestamp timestamp.
-     * @return Actual value.
-     */
-    protected Pair<BinaryRow, BinaryRow> versionedRow(@Nullable DataRow row, Timestamp timestamp) {
-        return resolve(unpack(row), timestamp);
     }
 
     /**
      * Gets a row.
      *
      * @param row The search row.
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return The result row.
      */
-    public BinaryRow get(@NotNull BinaryRow row, Timestamp ts) {
+    public BinaryRow get(@NotNull BinaryRow row, UUID txId) {
         assert row != null;
 
-        var key = new BinarySearchRow(row);
+        RowId rowId = primaryIndex.get(row.keySlice());
 
-        DataRow readValue = storage.read(key);
+        if (rowId == null) {
+            return null;
+        }
 
-        return versionedRow(readValue, ts).getFirst();
+        BinaryRow result = storage.read(rowId, txId);
+
+        return result;
     }
 
     /**
      * Gets multiple rows.
      *
      * @param keyRows Search rows.
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return The result rows.
      */
-    public List<BinaryRow> getAll(Collection<BinaryRow> keyRows, Timestamp ts) {
+    public List<BinaryRow> getAll(Collection<BinaryRow> keyRows, UUID txId) {
         assert keyRows != null && !keyRows.isEmpty();
 
         List<BinaryRow> res = new ArrayList<>(keyRows.size());
 
         for (BinaryRow keyRow : keyRows) {
-            res.add(get(keyRow, ts));
+            res.add(get(keyRow, txId));
         }
 
         return res;
@@ -116,32 +115,40 @@ public class VersionedRowStore {
      * Upserts a row.
      *
      * @param row The row.
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      */
-    public void upsert(@NotNull BinaryRow row, Timestamp ts) {
+    public void upsert(@NotNull BinaryRow row, UUID txId) {
         assert row != null;
 
-        var key = new BinarySearchRow(row);
+        ByteBuffer key = row.keySlice();
 
-        Pair<BinaryRow, BinaryRow> pair = resolve(unpack(storage.read(key)), ts);
+        RowId rowId = primaryIndex.get(key);
 
-        storage.write(pack(key, new Value(row, pair.getSecond(), ts)));
+        if (rowId == null) {
+            rowId = storage.insert(row, txId);
+
+            primaryIndex.put(key, rowId);
+
+            txsInsertedKeys.computeIfAbsent(txId, entry -> new CopyOnWriteArrayList<ByteBuffer>()).add(key);
+        } else {
+            storage.addWrite(rowId, row,  txId);
+        }
     }
 
     /**
      * Upserts a row and returns previous value.
      *
      * @param row The row.
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return Previous row.
      */
     @Nullable
-    public BinaryRow getAndUpsert(@NotNull BinaryRow row, Timestamp ts) {
+    public BinaryRow getAndUpsert(@NotNull BinaryRow row, UUID txId) {
         assert row != null;
 
-        BinaryRow oldRow = get(row, ts);
+        BinaryRow oldRow = get(row, txId);
 
-        upsert(row, ts);
+        upsert(row, txId);
 
         return oldRow != null ? oldRow : null;
     }
@@ -150,22 +157,27 @@ public class VersionedRowStore {
      * Deletes a row.
      *
      * @param row The row.
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return {@code True} if was deleted.
      */
-    public boolean delete(BinaryRow row, Timestamp ts) {
+    public boolean delete(BinaryRow row, UUID txId) {
         assert row != null;
 
-        var key = new BinarySearchRow(row);
+        RowId rowId = primaryIndex.get(row.keySlice());
 
-        Pair<BinaryRow, BinaryRow> pair = resolve(unpack(storage.read(key)), ts);
-
-        if (pair.getFirst() == null) {
+        if (rowId == null) {
             return false;
         }
 
-        // Write a tombstone.
-        storage.write(pack(key, new Value(null, pair.getSecond(), ts)));
+        BinaryRow prevRow = storage.read(primaryIndex.get(row.keySlice()), txId);
+
+        if (prevRow == null) {
+            return false;
+        }
+
+        storage.addWrite(primaryIndex.get(row.keySlice()), null, txId);
+
+        txsRemovedKeys.computeIfAbsent(txId, entry -> new CopyOnWriteArrayList<>()).add(row.keySlice());
 
         return true;
     }
@@ -174,13 +186,13 @@ public class VersionedRowStore {
      * Upserts multiple rows.
      *
      * @param rows Search rows.
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      */
-    public void upsertAll(Collection<BinaryRow> rows, Timestamp ts) {
+    public void upsertAll(Collection<BinaryRow> rows, UUID txId) {
         assert rows != null && !rows.isEmpty();
 
         for (BinaryRow row : rows) {
-            upsert(row, ts);
+            upsert(row, txId);
         }
     }
 
@@ -188,39 +200,44 @@ public class VersionedRowStore {
      * Inserts a row.
      *
      * @param row The row.
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return {@code true} if was inserted.
      */
-    public boolean insert(BinaryRow row, Timestamp ts) {
+    public boolean insert(BinaryRow row, UUID txId) {
         assert row != null && row.hasValue() : row;
 
-        var key = new BinarySearchRow(row);
+        ByteBuffer key = row.keySlice();
 
-        Pair<BinaryRow, BinaryRow> pair = resolve(unpack(storage.read(key)), ts);
+        RowId rowId = primaryIndex.get(key);
 
-        if (pair.getFirst() != null) {
+        if (rowId != null) {
             return false;
+        } else {
+            rowId = storage.insert(row, txId);
+
+            primaryIndex.put(key, rowId);
+
+            txsInsertedKeys.computeIfAbsent(txId, entry -> new CopyOnWriteArrayList<ByteBuffer>()).add(key);
+
+            return true;
         }
 
-        storage.write(pack(key, new Value(row, null, ts)));
-
-        return true;
     }
 
     /**
      * Inserts multiple rows.
      *
      * @param rows Rows.
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return List of not inserted rows.
      */
-    public List<BinaryRow> insertAll(Collection<BinaryRow> rows, Timestamp ts) {
+    public List<BinaryRow> insertAll(Collection<BinaryRow> rows, UUID txId) {
         assert rows != null && !rows.isEmpty();
 
         List<BinaryRow> inserted = new ArrayList<>(rows.size());
 
         for (BinaryRow row : rows) {
-            if (!insert(row, ts)) {
+            if (!insert(row, txId)) {
                 inserted.add(row);
             }
         }
@@ -232,16 +249,16 @@ public class VersionedRowStore {
      * Replaces an existing row.
      *
      * @param row The row.
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return {@code True} if was replaced.
      */
-    public boolean replace(BinaryRow row, Timestamp ts) {
+    public boolean replace(BinaryRow row, UUID txId) {
         assert row != null;
 
-        BinaryRow oldRow = get(row, ts);
+        BinaryRow oldRow = get(row, txId);
 
         if (oldRow != null) {
-            upsert(row, ts);
+            upsert(row, txId);
 
             return true;
         } else {
@@ -254,17 +271,17 @@ public class VersionedRowStore {
      *
      * @param oldRow Old row.
      * @param newRow New row.
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return {@code True} if was replaced.
      */
-    public boolean replace(BinaryRow oldRow, BinaryRow newRow, Timestamp ts) {
+    public boolean replace(BinaryRow oldRow, BinaryRow newRow, UUID txId) {
         assert oldRow != null;
         assert newRow != null;
 
-        BinaryRow oldRow0 = get(oldRow, ts);
+        BinaryRow oldRow0 = get(oldRow, txId);
 
         if (oldRow0 != null && equalValues(oldRow0, oldRow)) {
-            upsert(newRow, ts);
+            upsert(newRow, txId);
 
             return true;
         } else {
@@ -276,14 +293,14 @@ public class VersionedRowStore {
      * Replaces existing row and returns a previous value.
      *
      * @param row The row.
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return Replaced row.
      */
-    public BinaryRow getAndReplace(BinaryRow row, Timestamp ts) {
-        BinaryRow oldRow = get(row, ts);
+    public BinaryRow getAndReplace(BinaryRow row, UUID txId) {
+        BinaryRow oldRow = get(row, txId);
 
         if (oldRow != null) {
-            upsert(row, ts);
+            upsert(row, txId);
 
             return oldRow;
         } else {
@@ -295,17 +312,17 @@ public class VersionedRowStore {
      * Deletes a row by exact match.
      *
      * @param row The row.
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return {@code True} if was deleted.
      */
-    public boolean deleteExact(BinaryRow row, Timestamp ts) {
+    public boolean deleteExact(BinaryRow row, UUID txId) {
         assert row != null;
         assert row.hasValue();
 
-        BinaryRow oldRow = get(row, ts);
+        BinaryRow oldRow = get(row, txId);
 
         if (oldRow != null && equalValues(oldRow, row)) {
-            delete(oldRow, ts);
+            delete(oldRow, txId);
 
             return true;
         } else {
@@ -317,14 +334,14 @@ public class VersionedRowStore {
      * Delets a row and returns a previous value.
      *
      * @param row The row.
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return Deleted row.
      */
-    public BinaryRow getAndDelete(BinaryRow row, Timestamp ts) {
-        BinaryRow oldRow = get(row, ts);
+    public BinaryRow getAndDelete(BinaryRow row, UUID txId) {
+        BinaryRow oldRow = get(row, txId);
 
         if (oldRow != null) {
-            delete(oldRow, ts);
+            delete(oldRow, txId);
 
             return oldRow;
         } else {
@@ -336,14 +353,14 @@ public class VersionedRowStore {
      * Deletes multiple rows.
      *
      * @param keyRows Search rows.
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return Not deleted rows.
      */
-    public List<BinaryRow> deleteAll(Collection<BinaryRow> keyRows, Timestamp ts) {
+    public List<BinaryRow> deleteAll(Collection<BinaryRow> keyRows, UUID txId) {
         var notDeleted = new ArrayList<BinaryRow>();
 
         for (BinaryRow keyRow : keyRows) {
-            if (!delete(keyRow, ts)) {
+            if (!delete(keyRow, txId)) {
                 notDeleted.add(keyRow);
             }
         }
@@ -355,16 +372,16 @@ public class VersionedRowStore {
      * Deletes multiple rows by exact match.
      *
      * @param rows Search rows.
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return Not deleted rows.
      */
-    public List<BinaryRow> deleteAllExact(Collection<BinaryRow> rows, Timestamp ts) {
+    public List<BinaryRow> deleteAllExact(Collection<BinaryRow> rows, UUID txId) {
         assert rows != null && !rows.isEmpty();
 
         var notDeleted = new ArrayList<BinaryRow>(rows.size());
 
         for (BinaryRow row : rows) {
-            if (!deleteExact(row, ts)) {
+            if (!deleteExact(row, txId)) {
                 notDeleted.add(row);
             }
         }
@@ -373,9 +390,91 @@ public class VersionedRowStore {
     }
 
     /**
+     * Commits a pending update of the ongoing transaction.
+     *
+     * @param key Row key.
+     * @param txId Transaction id.
+     */
+    public void commitWrite(ByteBuffer key, UUID txId) {
+        RowId rowId = primaryIndex.get(key);
+
+        if (rowId == null) {
+            return;
+        }
+
+        List<ByteBuffer> keys = txsRemovedKeys.get(txId);
+
+        if (keys != null) {
+            boolean removed = keys.remove(key);
+
+            if (removed) {
+                primaryIndex.remove(key);
+            }
+
+            if (keys.size() == 0) {
+                txsRemovedKeys.remove(txId);
+            }
+        }
+
+        keys = txsInsertedKeys.get(txId);
+
+        if (keys != null) {
+            keys.remove(key);
+
+            if (keys.size() == 0) {
+                txsInsertedKeys.remove(txId);
+            }
+        }
+
+        storage.commitWrite(rowId, new Timestamp(txId));
+    }
+
+    /**
+     * Aborts a pending update of the ongoing uncommitted transaction.
+     *
+     * @param key Row key.
+     */
+    public void abortWrite(ByteBuffer key) {
+        RowId rowId = primaryIndex.get(key);
+
+        if (rowId == null) {
+            return;
+        }
+
+        AtomicReference<UUID> txId = new AtomicReference<>();
+
+        txsInsertedKeys.entrySet().forEach(entry -> {
+            if (entry.getValue().contains(key)) {
+                txId.set(entry.getKey());
+            }
+        });
+
+        if (txId.get() != null) {
+            List<ByteBuffer> keys = txsInsertedKeys.get(txId.get());
+
+            if (keys != null) {
+                boolean removed = keys.remove(key);
+
+                if (removed) {
+                    primaryIndex.remove(key);
+                }
+
+                if (keys.size() == 0) {
+                    txsInsertedKeys.remove(txId.get());
+                }
+            }
+
+            txsRemovedKeys.remove(txId.get());
+        }
+
+        storage.abortWrite(rowId);
+    }
+
+    /**
      * Tests row values for equality.
      *
      * @param row Row.
+     * @param row2 Row.
      * @return Extracted key.
      */
     private boolean equalValues(@NotNull BinaryRow row, @NotNull BinaryRow row2) {
@@ -396,145 +495,14 @@ public class VersionedRowStore {
     }
 
     /**
-     * Unpacks a raw value into (cur, old, ts) triplet. TODO asch IGNITE-15934 not very efficient.
-     *
-     * @param row The row.
-     * @return The value.
-     */
-    private static Value unpack(@Nullable DataRow row) {
-        if (row == null) {
-            return new Value(null, null, null);
-        }
-
-        ByteBuffer buf = row.value();
-
-        BinaryRow newVal = null;
-        BinaryRow oldVal = null;
-
-        int l1 = buf.asIntBuffer().get();
-
-        int pos = 4;
-
-        buf.position(pos);
-
-        if (l1 != 0) {
-            // TODO asch IGNITE-15934 get rid of copying
-            byte[] tmp = new byte[l1];
-
-            buf.get(tmp);
-
-            newVal = new ByteBufferRow(tmp);
-
-            pos += l1;
-        }
-
-        buf.position(pos);
-
-        int l2 = buf.asIntBuffer().get();
-
-        pos += 4;
-
-        buf.position(pos);
-
-        if (l2 != 0) {
-            // TODO asch get rid of copying
-            byte[] tmp = new byte[l2];
-
-            buf.get(tmp);
-
-            oldVal = new ByteBufferRow(tmp);
-
-            pos += l2;
-        }
-
-        buf.position(pos);
-
-        long ts = buf.getLong();
-        long nodeId = buf.getLong();
-
-        return new Value(newVal, oldVal, new Timestamp(ts, nodeId));
-    }
-
-    /**
-     * Packs a multi-versioned value.
-     *
-     * @param key The key.
-     * @param value The value.
-     * @return Data row.
-     */
-    private static DataRow pack(SearchRow key, Value value) {
-        byte[] b1 = null;
-        byte[] b2 = null;
-
-        int l1 = value.newRow == null ? 0 : (b1 = value.newRow.bytes()).length;
-        int l2 = value.oldRow == null ? 0 : (b2 = value.oldRow.bytes()).length;
-
-        // TODO asch write only values.
-        ByteBuffer buf = ByteBuffer.allocate(4 + l1 + 4 + l2 + 16);
-
-        buf.asIntBuffer().put(l1);
-
-        buf.position(4);
-
-        if (l1 > 0) {
-            buf.put(b1);
-        }
-
-        buf.asIntBuffer().put(l2);
-
-        buf.position(buf.position() + 4);
-
-        if (l2 > 0) {
-            buf.put(b2);
-        }
-
-        buf.putLong(value.timestamp.getTimestamp());
-        buf.putLong(value.timestamp.getNodeId());
-
-        return new DelegatingDataRow(key, buf.array());
-    }
-
-    /**
-     * Resolves a multi-versioned value depending on a viewer's timestamp.
-     *
-     * @param val        The value.
-     * @param timestamp  The timestamp
-     * @return New and old rows pair.
-     * @see #versionedRow
-     */
-    private Pair<BinaryRow, BinaryRow> resolve(Value val, Timestamp timestamp) {
-        if (val.timestamp == null) { // New or after reset.
-            assert val.oldRow == null : val;
-
-            return new Pair<>(val.newRow, null);
-        }
-
-        // Checks "inTx" condition. Will be false if this is a first transactional op.
-        if (val.timestamp.equals(timestamp)) {
-            return new Pair<>(val.newRow, val.oldRow);
-        }
-
-        TxState state = txManager.state(val.timestamp);
-
-        BinaryRow cur;
-
-        if (state == TxState.ABORTED) { // Was aborted and had written a temp value.
-            cur = val.oldRow;
-        } else {
-            cur = val.newRow;
-        }
-
-        return new Pair<>(cur, cur);
-    }
-
-    /**
      * Takes a snapshot.
      *
      * @param path The path.
      * @return Snapshot future.
      */
+    // TODO: IGNITE-16644 Support snapshots.
     public CompletionStage<Void> snapshot(Path path) {
-        return storage.snapshot(path);
+        throw new UnsupportedOperationException("Snapshots are not supported yet.");
     }
 
     /**
@@ -542,8 +510,9 @@ public class VersionedRowStore {
      *
      * @param path The path.
      */
+    // TODO: IGNITE-16644 Support snapshots.
     public void restoreSnapshot(Path path) {
-        storage.restoreSnapshot(path);
+        throw new UnsupportedOperationException("Snapshots are not supported yet.");
     }
 
     /**
@@ -552,8 +521,8 @@ public class VersionedRowStore {
      * @param pred The predicate.
      * @return The cursor.
      */
-    public Cursor<BinaryRow> scan(Predicate<SearchRow> pred) {
-        Cursor<DataRow> delegate = storage.scan(pred);
+    public Cursor<BinaryRow> scan(Predicate<BinaryRow> pred) {
+        Cursor<BinaryRow> delegate = storage.scan(pred, Timestamp.nextVersion());
 
         // TODO asch add tx support IGNITE-15087.
         return new Cursor<BinaryRow>() {
@@ -571,9 +540,7 @@ public class VersionedRowStore {
                 }
 
                 if (delegate.hasNext()) {
-                    DataRow row = delegate.next();
-
-                    cur = versionedRow(row, null).getFirst();
+                    cur = delegate.next();
 
                     return cur != null ? true : hasNext(); // Skip tombstones.
                 }
@@ -592,6 +559,7 @@ public class VersionedRowStore {
                 return next;
             }
         };
+
     }
 
     /**
@@ -604,64 +572,20 @@ public class VersionedRowStore {
         /** The value for rollback. */
         @Nullable BinaryRow oldRow;
 
-        /** Transaction's timestamp. */
-        Timestamp timestamp;
+        /** Transaction id. */
+        UUID txId;
 
         /**
          * The constructor.
          *
          * @param newRow New row.
          * @param oldRow Old row.
-         * @param timestamp The timestamp.
+         * @param txId The transaction id.
          */
-        Value(@Nullable BinaryRow newRow, @Nullable BinaryRow oldRow, Timestamp timestamp) {
+        Value(@Nullable BinaryRow newRow, @Nullable BinaryRow oldRow, UUID txId) {
             this.newRow = newRow;
             this.oldRow = oldRow;
-            this.timestamp = timestamp;
-        }
-    }
-
-    /**
-     * Wrapper provides correct byte[] comparison.
-     */
-    public static class KeyWrapper {
-        /** Data. */
-        private final byte[] data;
-
-        /** Hash. */
-        private final int hash;
-
-        /**
-         * The constructor.
-         *
-         * @param data Wrapped data.
-         */
-        public KeyWrapper(byte[] data, int hash) {
-            assert data != null;
-
-            this.data = data;
-            this.hash = hash;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            KeyWrapper wrapper = (KeyWrapper) o;
-            return Arrays.equals(data, wrapper.data);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int hashCode() {
-            return hash;
+            this.txId = txId;
         }
     }
 
@@ -670,7 +594,7 @@ public class VersionedRowStore {
      *
      * @return The delegate.
      */
-    public PartitionStorage delegate() {
+    public MvPartitionStorage delegate() {
         return storage;
     }
 

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import java.time.Duration;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -28,6 +30,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlColumnType;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
@@ -188,13 +191,81 @@ class ClientAsyncResultSet implements AsyncResultSet {
             var row = new ArrayList<>(rowSize);
 
             for (int j = 0; j < rowSize; j++) {
-                // TODO: IGNITE-17052 Unpack according to metadata type.
-                row.add(in.unpackObjectWithType());
+                var col = metadata.columns().get(j);
+                row.add(readValue(in, col.type()));
             }
 
-            res.add(new ClientSqlRow(row));
+            res.add(new ClientSqlRow(row, metadata));
         }
 
         rows = Collections.unmodifiableList(res);
+    }
+
+    private static Object readValue(ClientMessageUnpacker in, SqlColumnType colType) {
+        if (in.tryUnpackNil()) {
+            return null;
+        }
+
+        switch (colType) {
+            case BOOLEAN:
+                return in.unpackBoolean();
+
+            case INT8:
+                return in.unpackByte();
+
+            case INT16:
+                return in.unpackShort();
+
+            case INT32:
+                return in.unpackInt();
+
+            case INT64:
+                return in.unpackLong();
+
+            case FLOAT:
+                return in.unpackFloat();
+
+            case DOUBLE:
+                return in.unpackDouble();
+
+            case DECIMAL:
+                return in.unpackDecimal();
+
+            case DATE:
+                return in.unpackDate();
+
+            case TIME:
+                return in.unpackTime();
+
+            case DATETIME:
+                return in.unpackDateTime();
+
+            case TIMESTAMP:
+                return in.unpackTimestamp();
+
+            case UUID:
+                return in.unpackUuid();
+
+            case BITMASK:
+                return in.unpackBitSet();
+
+            case STRING:
+                return in.unpackString();
+
+            case BYTE_ARRAY:
+                return in.readPayload(in.unpackBinaryHeader());
+
+            case PERIOD:
+                return Period.of(in.unpackInt(), in.unpackInt(), in.unpackInt());
+
+            case DURATION:
+                return Duration.ofSeconds(in.unpackLong(), in.unpackInt());
+
+            case NUMBER:
+                return in.unpackBigInteger();
+
+            default:
+                throw new UnsupportedOperationException("Unsupported column type: " + colType);
+        }
     }
 }

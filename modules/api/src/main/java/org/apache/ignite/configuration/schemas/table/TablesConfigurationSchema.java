@@ -37,5 +37,6 @@ public class TablesConfigurationSchema {
     /** Default data storage for tables. */
     @ExistingDataStorage
     @Value(hasDefault = true)
-    public String defaultDataStorage = "aimem";
+    // TODO: IGNITE-17197 Set "aimem" after the ticket is resolved.
+    public String defaultDataStorage = "rocksdb";
 }

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx.message;
 
 import java.io.Serializable;
 import java.util.Set;
-import org.apache.ignite.internal.tx.Timestamp;
+import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
@@ -35,7 +35,7 @@ public interface TxFinishRequest extends NetworkMessage, Serializable {
      * @return The timestamp.
      */
     @Marshallable
-    Timestamp timestamp();
+    UUID txId();
 
     /**
      * Returns {@code True} if a commit request.

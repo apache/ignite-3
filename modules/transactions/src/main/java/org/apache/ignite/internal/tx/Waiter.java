@@ -17,14 +17,18 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.util.UUID;
+
 /**
  * The lock waiter.
  */
 public interface Waiter {
     /**
-     * Returns associated timestamp.
+     * Associated transaction id.
+     *
+     * @return Associated transaction id.
      */
-    Timestamp timestamp();
+    UUID txId();
 
     /**
      * Returns lock state.

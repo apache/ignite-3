@@ -44,7 +44,8 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshallerTest;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
+import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -75,7 +76,7 @@ public class InteropOperationsTest {
     private static final TableImpl TABLE;
 
     /** Dummy internal table for tests. */
-    private static final InternalTable INT_TABLE;
+    private static final DummyInternalTableImpl INT_TABLE;
 
     /** Key value binary view for test. */
     private static final KeyValueView<Tuple, Tuple> KV_BIN_VIEW;
@@ -117,11 +118,13 @@ public class InteropOperationsTest {
         TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager());
         txManager.start();
 
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager);
-        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
-
-        INT_TABLE = new DummyInternalTableImpl(new VersionedRowStore(new TestConcurrentHashMapPartitionStorage(0), txManager), txManager);
+        INT_TABLE = new DummyInternalTableImpl(new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager), txManager);
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(SCHEMA);
+
+        List<PartitionListener> partitionListeners = List.of(INT_TABLE.getPartitionListener());
+
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners);
+        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
         TABLE = new TableImpl(INT_TABLE, schemaRegistry);
         KV_BIN_VIEW =  new KeyValueBinaryViewImpl(INT_TABLE, schemaRegistry);

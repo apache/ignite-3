@@ -41,7 +41,7 @@ public class ClusterReplCommandSpec {
      * Initializes an Ignite cluster.
      */
     @CommandLine.Command(name = "init", description = "Initializes an Ignite cluster.")
-    public static class InitClusterCommandSpec extends BaseCommand {
+    public static class InitClusterCommandSpec extends BaseCommand implements Runnable {
 
         @Inject
         private ClusterApiClient clusterApiClient;

@@ -29,9 +29,10 @@ public class TimeoutExceptionHandler implements ExceptionHandler<TimeoutExceptio
     private static final IgniteLogger log = IgniteLogger.forClass(TimeoutExceptionHandler.class);
 
     @Override
-    public void handle(ExceptionWriter err, TimeoutException e) {
+    public int handle(ExceptionWriter err, TimeoutException e) {
         log.error("Timeout exception ", e);
         err.write("Command failed with timeout.");
+        return 1;
     }
 
     @Override

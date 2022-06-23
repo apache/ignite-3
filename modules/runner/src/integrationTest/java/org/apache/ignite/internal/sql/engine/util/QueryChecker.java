@@ -35,6 +35,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -370,7 +371,7 @@ public abstract class QueryChecker {
         if (expectedColumnTypes != null) {
             List<Type> colTypes = cur.metadata().columns().stream()
                     .map(ColumnMetadata::type)
-                    .map(Commons::columnTypeToClass)
+                    .map(SqlColumnTypeConverter::columnTypeToClass)
                     .collect(Collectors.toList());
 
             assertThat("Column types don't match", colTypes, equalTo(expectedColumnTypes));

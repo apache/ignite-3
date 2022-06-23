@@ -54,11 +54,12 @@ public class Main {
     public static void main(String[] args) {
         initJavaLoggerProps();
 
+        int exitCode = 0;
         try (MicronautFactory micronautFactory = new MicronautFactory()) {
             AnsiConsole.systemInstall();
             if (args.length != 0 || !isatty()) { // do not enter REPL if input or output is redirected
                 try {
-                    executeCommand(args, micronautFactory);
+                    exitCode = executeCommand(args, micronautFactory);
                 } catch (Exception e) {
                     System.err.println("Error occurred during command execution");
                 }
@@ -72,6 +73,7 @@ public class Main {
         } finally {
             AnsiConsole.systemUninstall();
         }
+        System.exit(exitCode);
     }
 
     private static boolean isatty() {
@@ -108,12 +110,12 @@ public class Main {
                 .build());
     }
 
-    private static void executeCommand(String[] args, MicronautFactory micronautFactory) throws Exception {
+    private static int executeCommand(String[] args, MicronautFactory micronautFactory) throws Exception {
         CommandLine cmd = new CommandLine(TopLevelCliCommand.class, micronautFactory);
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
         Config config = micronautFactory.create(Config.class);
         cmd.setDefaultValueProvider(new CommandLine.PropertiesDefaultProvider(config.getProperties()));
-        cmd.execute(args);
+        return cmd.execute(args);
     }
 
     private static final String[] BANNER = new String[]{

@@ -17,26 +17,34 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import org.apache.ignite.internal.tx.Timestamp;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.WriteCommand;
 
 /** State machine command to finish a transaction. */
 public class FinishTxCommand implements WriteCommand {
-    /** The timestamp. */
-    private final Timestamp timestamp;
+    /** Transaction id. */
+    private final UUID txId;
 
     /** Commit or rollback state. */
     private final boolean finish;
 
+    /** Keys that are locked by the transaction. */
+    private Map<IgniteUuid, List<byte[]>> lockedKeys;
+
     /**
      * The constructor.
      *
-     * @param timestamp The timestamp.
-     * @param finish    Commit or rollback state {@code True} to commit.
+     * @param txId          The txId.
+     * @param finish        Commit or rollback state {@code True} to commit.
+     * @param lockedKeys    Keys that are locked by the transaction. Mapping: lockId (tableId) -> keys.
      */
-    public FinishTxCommand(Timestamp timestamp, boolean finish) {
-        this.timestamp = timestamp;
+    public FinishTxCommand(UUID txId, boolean finish, Map<IgniteUuid, List<byte[]>> lockedKeys) {
+        this.txId = txId;
         this.finish = finish;
+        this.lockedKeys = lockedKeys;
     }
 
     /**
@@ -44,8 +52,8 @@ public class FinishTxCommand implements WriteCommand {
      *
      * @return The timestamp.
      */
-    public Timestamp timestamp() {
-        return timestamp;
+    public UUID txId() {
+        return txId;
     }
 
     /**
@@ -55,5 +63,14 @@ public class FinishTxCommand implements WriteCommand {
      */
     public boolean finish() {
         return finish;
+    }
+
+    /**
+     * Returns keys that are locked by the transaction.
+     *
+     * @return Keys that are locked by the transaction.
+     */
+    public Map<IgniteUuid, List<byte[]>> lockedKeys() {
+        return lockedKeys;
     }
 }

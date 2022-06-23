@@ -15,23 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.exception.handler;
+package org.apache.ignite.internal.client.proto;
 
-import org.apache.ignite.cli.core.exception.ConnectCommandException;
-import org.apache.ignite.cli.core.exception.ExceptionHandler;
-import org.apache.ignite.cli.core.exception.ExceptionWriter;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.apache.ignite.sql.SqlColumnType;
+import org.junit.jupiter.api.Test;
 
 /**
- * Exception handler for {@link ConnectCommandException}.
+ * Tests column type converter.
  */
-public class ConnectCommandExceptionHandler implements ExceptionHandler<ConnectCommandException> {
-    @Override
-    public void handle(ExceptionWriter err, ConnectCommandException e) {
-        err.write(e.getReason());
-    }
+public class ClientSqlColumnTypeConverterTest {
+    @Test
+    public void testConvertAllTypes() {
+        for (SqlColumnType columnType : SqlColumnType.values()) {
+            int ordinal = ClientSqlColumnTypeConverter.columnTypeToOrdinal(columnType);
+            SqlColumnType resColumnType = ClientSqlColumnTypeConverter.ordinalToColumnType(ordinal);
 
-    @Override
-    public Class<ConnectCommandException> applicableException() {
-        return ConnectCommandException.class;
+            assertEquals(columnType, resColumnType);
+        }
     }
 }
