@@ -38,7 +38,7 @@ class CliConfigSubCommandTest extends CliCommandTestBase {
         assertAll(
                 this::assertExitCodeIsZero,
                 () -> assertOutputContains("ignite.cluster-url=test_cluster_url"),
-		() -> assertOutputContains("ignite.jdbc-url=test_jdbc_url"),
+                () -> assertOutputContains("ignite.jdbc-url=test_jdbc_url"),
                 this::assertErrOutputIsEmpty
         );
     }
