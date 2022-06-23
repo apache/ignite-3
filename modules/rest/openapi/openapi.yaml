@@ -39,6 +39,25 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+  /management/v1/cluster/state:
+    get:
+      tags:
+      - clusterManagement
+      operationId: clusterState
+      parameters: []
+      responses:
+        "200":
+          description: Return cluster state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterState'
+        "500":
+          description: Internal error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /management/v1/configuration/cluster:
     get:
       tags:
@@ -211,6 +230,45 @@ paths:
                 $ref: '#/components/schemas/Problem'
 components:
   schemas:
+    ClusterState:
+      required:
+      - clusterTag
+      - cmgNodes
+      - igniteVersion
+      type: object
+      properties:
+        cmgNodes:
+          type: array
+          items:
+            type: string
+        igniteVersion:
+          $ref: '#/components/schemas/IgniteProductVersion'
+        clusterTag:
+          $ref: '#/components/schemas/ClusterTag'
+    ClusterTag:
+      required:
+      - clusterName
+      type: object
+      properties:
+        clusterId:
+          type: string
+          format: uuid
+        clusterName:
+          type: string
+    IgniteProductVersion:
+      type: object
+      properties:
+        major:
+          type: string
+          format: byte
+        minor:
+          type: string
+          format: byte
+        maintenance:
+          type: string
+          format: byte
+        alphaVersion:
+          type: string
     InitCommand:
       required:
       - clusterName

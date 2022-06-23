@@ -190,6 +190,10 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         );
     }
 
+    public CompletableFuture<ClusterState> clusterState() throws ExecutionException, InterruptedException {
+        return raftService.get().readClusterState();
+    }
+
     /**
      * Extracts the local state (if any) and starts the CMG.
      *

@@ -228,6 +228,7 @@ public class ItGeneratedRestClientTest {
         assertDoesNotThrow(() -> {
             String nodeName = clusterNodes.get(0).name();
             clusterManagementApi.init(new InitCommand().clusterName("cluster").metaStorageNodes(List.of(nodeName)).cmgNodes(List.of()));
+            clusterManagementApi.clusterState();
         });
     }
 

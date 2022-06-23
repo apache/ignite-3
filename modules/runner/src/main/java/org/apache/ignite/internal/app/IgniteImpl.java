@@ -277,7 +277,7 @@ public class IgniteImpl implements Ignite {
         );
 
         RestFactory factory = new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
-        RestFactory clusterManagementRestFactory = new ClusterManagementRestFactory(clusterSvc);
+        RestFactory clusterManagementRestFactory = new ClusterManagementRestFactory(clusterSvc, cmgRaftService);
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
         restComponent = new RestComponent(List.of(factory, clusterManagementRestFactory), restConfiguration);
 

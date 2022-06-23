@@ -40,8 +40,11 @@ import jakarta.inject.Inject;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.MockNode;
+import org.apache.ignite.internal.cluster.management.raft.CmgRaftService;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -67,6 +70,8 @@ public class ItClusterManagementControllerTest {
 
     static ClusterService clusterService;
 
+    static ClusterManagementGroupManager clusterManager;
+
     @WorkDirectory
     private static Path workDir;
 
@@ -74,7 +79,7 @@ public class ItClusterManagementControllerTest {
     private EmbeddedServer server;
 
     @Inject
-    @Client("/management/v1/cluster/init/")
+    @Client("/management/v1/cluster")
     private HttpClient client;
 
     @BeforeAll
@@ -92,6 +97,7 @@ public class ItClusterManagementControllerTest {
         }
 
         clusterService = cluster.get(0).clusterService();
+        clusterManager = cluster.get(0).clusterManager();
     }
 
     @AfterAll
@@ -118,7 +124,7 @@ public class ItClusterManagementControllerTest {
         // When
         var thrown = assertThrows(
                 HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(HttpRequest.POST("", givenInvalidBody))
+                () -> client.toBlocking().exchange(HttpRequest.POST("init", givenInvalidBody))
         );
 
         // Then
@@ -137,12 +143,21 @@ public class ItClusterManagementControllerTest {
                         + "\"clusterName\": \"cluster\"}";
 
         // When
-        HttpResponse<Object> response = client.toBlocking().exchange(HttpRequest.POST("", givenFirstRequestBody));
+        HttpResponse<Object> response = client.toBlocking().exchange(HttpRequest.POST("init", givenFirstRequestBody));
 
         // Then
         assertThat(response.getStatus(), is(equalTo((HttpStatus.OK))));
         // And
         assertThat(cluster.get(0).startFuture(), willCompleteSuccessfully());
+
+        // When get cluster state
+        org.apache.ignite.internal.cluster.management.rest.ClusterState state =
+                client.toBlocking().retrieve("state", org.apache.ignite.internal.cluster.management.rest.ClusterState.class);
+
+        // Then cluster state is valid
+        assertThat(state.metaStorageNodes(), is(equalTo(List.of(cluster.get(0).clusterService().localConfiguration().getName()))));
+        assertThat(state.cmgNodes(), is(equalTo(List.of(cluster.get(0).clusterService().localConfiguration().getName()))));
+        assertThat(state.clusterTag().clusterName(), is(equalTo("cluster")));
 
         // Given second request with different node name
         String givenSecondRequestBody =
@@ -152,7 +167,7 @@ public class ItClusterManagementControllerTest {
         // When
         var thrown = assertThrows(
                 HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(HttpRequest.POST("", givenSecondRequestBody))
+                () -> client.toBlocking().exchange(HttpRequest.POST("init", givenSecondRequestBody))
         );
 
         // Then
@@ -167,7 +182,7 @@ public class ItClusterManagementControllerTest {
     @Bean
     @Replaces(ClusterManagementRestFactory.class)
     public ClusterManagementRestFactory clusterManagementRestFactory() {
-        return new ClusterManagementRestFactory(clusterService);
+        return new ClusterManagementRestFactory(clusterService, clusterManager);
     }
 
     private Problem getProblem(HttpClientResponseException exception) {
