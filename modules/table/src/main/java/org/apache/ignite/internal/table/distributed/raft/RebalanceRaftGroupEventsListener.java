@@ -140,8 +140,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     if (!pendingEntry.empty()) {
                         List<ClusterNode> pendingNodes = (List<ClusterNode>) ByteUtils.fromBytes(pendingEntry.value());
 
-                        LOG.info("New leader elected for the raft group={} "
-                                        + "of partition={}, table={} and pending reconfiguration to peers={} discovered",
+                        LOG.info("New leader was elected for the raft group={} "
+                                        + "of partition={}, table={} and pending reconfiguration to peers={} was discovered",
                                 partId, partNum, tblConfiguration.name().value(), pendingNodes);
 
                         movePartitionFn.apply(clusterNodesToPeers(pendingNodes), term).join();
