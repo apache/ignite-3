@@ -24,16 +24,14 @@ import org.apache.ignite.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Parameters;
-import picocli.CommandLine.Spec;
 
 /**
  * Connects to the Ignite 3 node.
  */
 @Command(name = "connect", description = "Connect to Ignite 3 node.")
 @Singleton
-public class ConnectCommand extends BaseCommand {
+public class ConnectCommand extends BaseCommand implements Runnable {
 
     /**
      * Cluster url option.
@@ -44,9 +42,6 @@ public class ConnectCommand extends BaseCommand {
     )
     private String nodeUrl;
 
-    @Spec
-    private CommandSpec spec;
-
     @Inject
     private ConnectCall connectCall;
 
@@ -54,10 +49,16 @@ public class ConnectCommand extends BaseCommand {
     @Override
     public void run() {
         CallExecutionPipeline.builder(connectCall)
-                .inputProvider(() -> ConnectCallInput.builder().nodeUrl(nodeUrl).build())
+                .inputProvider(this::buildCallInput)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .build()
                 .runPipeline();
+    }
+
+    private ConnectCallInput buildCallInput() {
+        return ConnectCallInput.builder()
+                .nodeUrl(nodeUrl)
+                .build();
     }
 }

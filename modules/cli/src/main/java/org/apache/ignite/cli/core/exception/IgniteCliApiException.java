@@ -15,23 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.exception.handler;
-
-import org.apache.ignite.cli.core.exception.ConnectCommandException;
-import org.apache.ignite.cli.core.exception.ExceptionHandler;
-import org.apache.ignite.cli.core.exception.ExceptionWriter;
+package org.apache.ignite.cli.core.exception;
 
 /**
- * Exception handler for {@link ConnectCommandException}.
+ * Top level runtime exception for throwing the error message from REST API to user.
  */
-public class ConnectCommandExceptionHandler implements ExceptionHandler<ConnectCommandException> {
-    @Override
-    public void handle(ExceptionWriter err, ConnectCommandException e) {
-        err.write(e.getReason());
+public class IgniteCliApiException extends RuntimeException {
+
+    private final String url;
+
+    /**
+     * Creates a new instance of {@code IgniteCliApiException}.
+     *
+     * @param cause the cause.
+     * @param url endpoint URL.
+     */
+    public IgniteCliApiException(Throwable cause, String url) {
+        super(cause);
+        this.url = url;
     }
 
-    @Override
-    public Class<ConnectCommandException> applicableException() {
-        return ConnectCommandException.class;
+    /**
+     * Gets the endpoint URL.
+     *
+     * @return endpoint URL.
+     */
+    public String getUrl() {
+        return url;
     }
 }

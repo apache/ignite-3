@@ -24,7 +24,6 @@ import jakarta.inject.Inject;
 import org.apache.ignite.cli.commands.CliCommandTestIntegrationBase;
 import org.apache.ignite.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.cli.core.repl.prompt.PromptProvider;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine.Help.Ansi;
@@ -34,7 +33,7 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
     PromptProvider promptProvider;
 
     @Override
-    protected @NotNull Class<?> getCommandClass() {
+    protected Class<?> getCommandClass() {
         return TopLevelCliReplCommand.class;
     }
 
@@ -50,7 +49,6 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
 
         // Then
         assertAll(
-                this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Connected to http://localhost:10300")
         );
@@ -67,7 +65,6 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
 
         // Then
         assertAll(
-                this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Connected to http://localhost:10301")
         );
@@ -81,7 +78,7 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
 
         // Then
         assertAll(
-                () -> assertErrOutputIs("Can not connect to http://localhost:11111" + System.lineSeparator())
+                () -> assertErrOutputIs("Could not connect to URL: http://localhost:11111" + System.lineSeparator())
         );
         // And prompt is
         String prompt = Ansi.OFF.string(promptProvider.getPrompt());
@@ -101,7 +98,6 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
         execute("disconnect");
         // Then
         assertAll(
-                this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Disconnected from http://localhost:10300")
         );

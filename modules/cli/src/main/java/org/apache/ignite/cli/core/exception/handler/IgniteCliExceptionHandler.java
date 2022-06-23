@@ -26,8 +26,9 @@ import org.apache.ignite.cli.deprecated.IgniteCliException;
  */
 public class IgniteCliExceptionHandler implements ExceptionHandler<IgniteCliException> {
     @Override
-    public void handle(ExceptionWriter err, IgniteCliException e) {
+    public int handle(ExceptionWriter err, IgniteCliException e) {
         err.write(e.getMessage());
+        return 1;
     }
 
     @Override

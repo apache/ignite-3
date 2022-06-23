@@ -20,12 +20,11 @@ package org.apache.ignite.cli.call.configuration;
 import jakarta.inject.Singleton;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.exception.CommandExecutionException;
+import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Updates configuration for node.
@@ -34,21 +33,13 @@ import org.jetbrains.annotations.NotNull;
 public class NodeConfigUpdateCall implements Call<NodeConfigUpdateCallInput, String> {
     /** {@inheritDoc} */
     @Override
-    public DefaultCallOutput<String> execute(NodeConfigUpdateCallInput nodeConfigUpdateCallInput) {
-        NodeConfigurationApi client = createApiClient(nodeConfigUpdateCallInput);
+    public DefaultCallOutput<String> execute(NodeConfigUpdateCallInput input) {
+        NodeConfigurationApi client = createApiClient(input);
 
         try {
-            return updateNodeConfig(client, nodeConfigUpdateCallInput);
-        } catch (ApiException e) {
-            if (e.getCode() == 400) {
-                return DefaultCallOutput.failure(
-                        new CommandExecutionException(
-                                "node config update",
-                                "Got error while updating the node configuration. " + System.lineSeparator()
-                                        + "Code:  " + e.getCode() + ", response:  " + e.getResponseBody()
-                        ));
-            }
-            return DefaultCallOutput.failure(new CommandExecutionException("node config update", "Ignite api return " + e.getCode()));
+            return updateNodeConfig(client, input);
+        } catch (ApiException | IllegalArgumentException e) {
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getNodeUrl()));
         }
     }
 
@@ -58,7 +49,6 @@ public class NodeConfigUpdateCall implements Call<NodeConfigUpdateCallInput, Str
         return DefaultCallOutput.success("Node configuration was updated successfully.");
     }
 
-    @NotNull
     private NodeConfigurationApi createApiClient(NodeConfigUpdateCallInput input) {
         ApiClient client = Configuration.getDefaultApiClient();
         client.setBasePath(input.getNodeUrl());

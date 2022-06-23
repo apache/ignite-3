@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.repl.executor;
+package org.apache.ignite.cli.call.sql;
 
 import java.sql.SQLException;
 import org.apache.ignite.cli.core.call.Call;
