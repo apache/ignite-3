@@ -24,6 +24,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -48,6 +49,7 @@ import org.apache.ignite.rest.client.api.ClusterConfigurationApi;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
+import org.apache.ignite.rest.client.api.TopologyApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
@@ -88,6 +90,8 @@ public class ItGeneratedRestClientTest {
     private ClusterManagementApi clusterManagementApi;
 
     private NodeManagementApi nodeManagementApi;
+
+    private TopologyApi topologyApi;
 
     private ObjectMapper objectMapper;
 
@@ -130,6 +134,7 @@ public class ItGeneratedRestClientTest {
         nodeConfigurationApi = new NodeConfigurationApi(client);
         clusterManagementApi = new ClusterManagementApi(client);
         nodeManagementApi = new NodeManagementApi(client);
+        topologyApi = new TopologyApi(client);
 
         objectMapper = new ObjectMapper();
     }
@@ -288,6 +293,20 @@ public class ItGeneratedRestClientTest {
             assertThat(nodeState, is(notNullValue()));
             assertThat(nodeState.getState(), is(notNullValue()));
             assertThat(nodeState.getName(), is(firstNodeName));
+        });
+    }
+
+    @Test
+    void logicalTopology() {
+        assertDoesNotThrow(() -> {
+            assertThat(topologyApi.logical(), hasSize(3));
+        });
+    }
+
+    @Test
+    void physicalTopology() {
+        assertDoesNotThrow(() -> {
+            assertThat(topologyApi.physical(), hasSize(3));
         });
     }
 
