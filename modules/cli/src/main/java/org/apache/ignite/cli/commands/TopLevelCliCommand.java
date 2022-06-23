@@ -20,7 +20,7 @@ package org.apache.ignite.cli.commands;
 import jakarta.inject.Singleton;
 import org.apache.ignite.cli.VersionProvider;
 import org.apache.ignite.cli.commands.cliconfig.CliCommand;
-import org.apache.ignite.cli.commands.configuration.cluster.ClusterCommand;
+import org.apache.ignite.cli.commands.cluster.ClusterCommand;
 import org.apache.ignite.cli.commands.configuration.node.NodeCommand;
 import org.apache.ignite.cli.commands.sql.SqlCommand;
 import org.apache.ignite.cli.commands.status.StatusCommand;
