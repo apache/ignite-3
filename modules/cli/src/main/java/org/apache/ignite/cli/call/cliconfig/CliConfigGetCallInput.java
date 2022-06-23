@@ -15,21 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.call.cliconfig;
 
-import java.util.stream.Collectors;
-import org.apache.ignite.cli.commands.decorators.core.Decorator;
-import org.apache.ignite.cli.commands.decorators.core.TerminalOutput;
-import org.apache.ignite.cli.config.Profile;
+import org.apache.ignite.cli.core.call.CallInput;
 
 /**
- * Decorator for printing {@link Profile}.
+ * Get config property parameters.
  */
-public class ConfigDecorator implements Decorator<Profile, TerminalOutput> {
-    @Override
-    public TerminalOutput decorate(Profile data) {
-        return () -> data.getAll().entrySet().stream()
-                .map(entry -> entry.getKey() + "=" + entry.getValue())
-                .collect(Collectors.joining(System.lineSeparator()));
+public class CliConfigGetCallInput implements CallInput {
+    private final String key;
+
+    private final String profileName;
+
+    public CliConfigGetCallInput(String key, String profileName) {
+        this.key = key;
+        this.profileName = profileName;
+    }
+
+    public String getKey() {
+        return key;
+    }
+
+    public String getProfileName() {
+        return profileName;
     }
 }

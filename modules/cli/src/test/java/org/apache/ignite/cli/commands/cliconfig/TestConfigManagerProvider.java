@@ -17,22 +17,19 @@
 
 package org.apache.ignite.cli.commands.cliconfig;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import io.micronaut.context.annotation.Replaces;
+import jakarta.inject.Singleton;
+import org.apache.ignite.cli.config.ConfigManager;
+import org.apache.ignite.cli.config.ConfigManagerProvider;
 
-import java.io.File;
-import java.io.IOException;
-import org.apache.ignite.cli.config.Config;
-import org.junit.jupiter.api.Test;
+@Singleton
+@Replaces(ConfigManagerProvider.class)
+class TestConfigManagerProvider implements ConfigManagerProvider {
 
-class ConfigTest {
-    @Test
-    public void testSaveLoadConfig() throws IOException {
-        File tempFile = File.createTempFile("cli", null);
-        Config config = new Config(tempFile);
-        config.setProperty("ignite.cluster-url", "test");
-        config.saveConfig();
+    public ConfigManager configManager;
 
-        Config configAfterSave = new Config(tempFile);
-        assertThat(configAfterSave.getProperty("ignite.cluster-url")).isEqualTo("test");
+    @Override
+    public ConfigManager get() {
+        return configManager;
     }
 }

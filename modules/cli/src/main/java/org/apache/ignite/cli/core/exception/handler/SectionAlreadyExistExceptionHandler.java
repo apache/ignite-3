@@ -15,21 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.core.exception.handler;
 
-import java.util.stream.Collectors;
-import org.apache.ignite.cli.commands.decorators.core.Decorator;
-import org.apache.ignite.cli.commands.decorators.core.TerminalOutput;
-import org.apache.ignite.cli.config.Profile;
+import org.apache.ignite.cli.config.ini.SectionAlreadyExistException;
+import org.apache.ignite.cli.core.exception.ExceptionHandler;
+import org.apache.ignite.cli.core.exception.ExceptionWriter;
 
 /**
- * Decorator for printing {@link Profile}.
+ * Handler for {@link SectionAlreadyExistException}.
  */
-public class ConfigDecorator implements Decorator<Profile, TerminalOutput> {
+public class SectionAlreadyExistExceptionHandler implements ExceptionHandler<SectionAlreadyExistException> {
     @Override
-    public TerminalOutput decorate(Profile data) {
-        return () -> data.getAll().entrySet().stream()
-                .map(entry -> entry.getKey() + "=" + entry.getValue())
-                .collect(Collectors.joining(System.lineSeparator()));
+    public int handle(ExceptionWriter err, SectionAlreadyExistException e) {
+        err.write(e.getMessage());
+        return 1;
+    }
+
+    @Override
+    public Class<SectionAlreadyExistException> applicableException() {
+        return SectionAlreadyExistException.class;
     }
 }

@@ -24,18 +24,23 @@ import org.apache.ignite.cli.call.cliconfig.CliConfigCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.decorators.ConfigDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.call.EmptyCallInput;
+import org.apache.ignite.cli.core.call.StringCallInput;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 
 /**
  * Parent command for CLI configuration commands.
  */
 @Command(name = "config", subcommands = {
         CliConfigGetSubCommand.class,
-        CliConfigSetSubCommand.class
+        CliConfigSetSubCommand.class,
+        CliConfigCreateProfileCommand.class
 })
 @Singleton
 public class CliConfigSubCommand extends BaseCommand implements Callable<Integer> {
+
+    @Option(names = {"--profile", "-p"})
+    private String profileName;
 
     @Inject
     private CliConfigCall call;
@@ -43,7 +48,7 @@ public class CliConfigSubCommand extends BaseCommand implements Callable<Integer
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(EmptyCallInput::new)
+                .inputProvider(() -> new StringCallInput(profileName))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new ConfigDecorator())

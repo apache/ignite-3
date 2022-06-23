@@ -160,7 +160,6 @@
 
     <dependencyManagement>
         <dependencies>
-
             <dependency>
                 <groupId>io.micronaut.test</groupId>
                 <artifactId>micronaut-test-core</artifactId>

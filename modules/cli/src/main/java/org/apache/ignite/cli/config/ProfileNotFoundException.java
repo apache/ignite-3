@@ -15,21 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
-
-import java.util.stream.Collectors;
-import org.apache.ignite.cli.commands.decorators.core.Decorator;
-import org.apache.ignite.cli.commands.decorators.core.TerminalOutput;
-import org.apache.ignite.cli.config.Profile;
+package org.apache.ignite.cli.config;
 
 /**
- * Decorator for printing {@link Profile}.
+ * CLI profile not found.
  */
-public class ConfigDecorator implements Decorator<Profile, TerminalOutput> {
-    @Override
-    public TerminalOutput decorate(Profile data) {
-        return () -> data.getAll().entrySet().stream()
-                .map(entry -> entry.getKey() + "=" + entry.getValue())
-                .collect(Collectors.joining(System.lineSeparator()));
+public class ProfileNotFoundException extends RuntimeException {
+    public ProfileNotFoundException(String profileName) {
+        super("Profile " + profileName + " not found.");
     }
 }

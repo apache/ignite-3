@@ -18,37 +18,31 @@
 package org.apache.ignite.cli.commands.cliconfig;
 
 import jakarta.inject.Inject;
-import java.util.Map;
 import java.util.concurrent.Callable;
-import org.apache.ignite.cli.call.cliconfig.CliConfigSetCall;
-import org.apache.ignite.cli.call.cliconfig.CliConfigSetCallInput;
+import org.apache.ignite.cli.call.cliconfig.CliConfigActivateCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.cli.core.call.StringCallInput;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Parameters;
 
 /**
- * Command to set CLI configuration parameters.
+ * Command for activate profile as current.
  */
-@Command(name = "set")
-public class CliConfigSetSubCommand extends BaseCommand implements Callable<Integer> {
-    @Parameters(arity = "1..*")
-    private Map<String, String> parameters;
-
-    @Option(names = {"--profile", "-p"}, description = "Set property in specified profile.")
+@Command(name = "activate")
+public class CliConfigActivateCommand extends BaseCommand implements Callable<Integer> {
+    @Option(names = {"--profile, -p"})
     private String profileName;
 
     @Inject
-    private CliConfigSetCall call;
+    private CliConfigActivateCall call;
 
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new CliConfigSetCallInput(parameters, profileName))
-                .output(spec.commandLine().getOut())
+                .inputProvider(() -> new StringCallInput(profileName))
                 .errOutput(spec.commandLine().getErr())
-                .build()
-                .runPipeline();
+                .output(spec.commandLine().getOut())
+                .build().runPipeline();
     }
 }

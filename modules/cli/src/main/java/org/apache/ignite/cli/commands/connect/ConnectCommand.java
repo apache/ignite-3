@@ -22,6 +22,7 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.cli.call.connect.ConnectCall;
 import org.apache.ignite.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
+import org.apache.ignite.cli.config.ConfigConstants;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
@@ -38,7 +39,7 @@ public class ConnectCommand extends BaseCommand implements Runnable {
      */
     @Parameters(
             description = "Ignite node url.",
-            descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
+            descriptionKey = ConfigConstants.CLUSTER_URL
     )
     private String nodeUrl;
 

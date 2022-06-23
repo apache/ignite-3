@@ -19,10 +19,10 @@ package org.apache.ignite.cli.core.repl;
 
 import jakarta.inject.Singleton;
 import java.util.Objects;
-import org.apache.ignite.cli.config.Config;
+import org.apache.ignite.cli.config.ConfigConstants;
+import org.apache.ignite.cli.config.ConfigDefaultValueProvider;
 import picocli.CommandLine.IDefaultValueProvider;
 import picocli.CommandLine.Model.ArgSpec;
-import picocli.CommandLine.PropertiesDefaultProvider;
 
 /**
  * Implementation of {@link IDefaultValueProvider} based on {@link Session}.
@@ -32,23 +32,23 @@ public class SessionDefaultValueProvider implements IDefaultValueProvider {
 
     private final Session session;
 
-    private final IDefaultValueProvider defaultValueProvider;
+    private final ConfigDefaultValueProvider defaultValueProvider;
 
     /**
      * Constructor.
      *
      * @param session session instance.
-     * @param config config instance.
+     * @param defaultValueProvider defaults value provider.
      */
-    public SessionDefaultValueProvider(Session session, Config config) {
+    public SessionDefaultValueProvider(Session session, ConfigDefaultValueProvider defaultValueProvider) {
         this.session = session;
-        this.defaultValueProvider = new PropertiesDefaultProvider(config.getProperties());
+        this.defaultValueProvider = defaultValueProvider;
     }
 
     @Override
     public String defaultValue(ArgSpec argSpec) throws Exception {
         if (session.isConnectedToNode()) {
-            if (Objects.equals(argSpec.descriptionKey(), "ignite.jdbc-url")) {
+            if (Objects.equals(argSpec.descriptionKey(), ConfigConstants.JDBC_URL)) {
                 return session.getJdbcUrl();
             }
         }

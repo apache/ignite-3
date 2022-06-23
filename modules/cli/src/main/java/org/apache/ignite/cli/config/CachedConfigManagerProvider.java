@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.config;
 
-import java.util.stream.Collectors;
-import org.apache.ignite.cli.commands.decorators.core.Decorator;
-import org.apache.ignite.cli.commands.decorators.core.TerminalOutput;
-import org.apache.ignite.cli.config.Profile;
+import jakarta.inject.Singleton;
+import org.apache.ignite.cli.config.ini.IniConfigManager;
 
 /**
- * Decorator for printing {@link Profile}.
+ * Provider for {@link ConfigManager}.
  */
-public class ConfigDecorator implements Decorator<Profile, TerminalOutput> {
+@Singleton
+public class CachedConfigManagerProvider implements ConfigManagerProvider {
+    private final ConfigManager configManager = new IniConfigManager(ConfigConstants.getConfigFile());
+
     @Override
-    public TerminalOutput decorate(Profile data) {
-        return () -> data.getAll().entrySet().stream()
-                .map(entry -> entry.getKey() + "=" + entry.getValue())
-                .collect(Collectors.joining(System.lineSeparator()));
+    public ConfigManager get() {
+        return configManager;
     }
 }

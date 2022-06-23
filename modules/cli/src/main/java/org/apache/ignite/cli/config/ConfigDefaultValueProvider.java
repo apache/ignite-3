@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.config;
 
-import java.util.stream.Collectors;
-import org.apache.ignite.cli.commands.decorators.core.Decorator;
-import org.apache.ignite.cli.commands.decorators.core.TerminalOutput;
-import org.apache.ignite.cli.config.Profile;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import picocli.CommandLine;
 
 /**
- * Decorator for printing {@link Profile}.
+ * Implementation of {@link CommandLine.IDefaultValueProvider} based on CLI config API.
  */
-public class ConfigDecorator implements Decorator<Profile, TerminalOutput> {
+@Singleton
+public class ConfigDefaultValueProvider implements CommandLine.IDefaultValueProvider {
+    @Inject
+    private ConfigManagerProvider configManagerProvider;
+
     @Override
-    public TerminalOutput decorate(Profile data) {
-        return () -> data.getAll().entrySet().stream()
-                .map(entry -> entry.getKey() + "=" + entry.getValue())
-                .collect(Collectors.joining(System.lineSeparator()));
+    public String defaultValue(CommandLine.Model.ArgSpec argSpec) throws Exception {
+        return configManagerProvider.get().getCurrentProperty(argSpec.descriptionKey());
     }
 }

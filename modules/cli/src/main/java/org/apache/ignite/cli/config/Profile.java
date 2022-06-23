@@ -15,21 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.config;
 
-import java.util.stream.Collectors;
-import org.apache.ignite.cli.commands.decorators.core.Decorator;
-import org.apache.ignite.cli.commands.decorators.core.TerminalOutput;
-import org.apache.ignite.cli.config.Profile;
+import java.util.Map;
 
 /**
- * Decorator for printing {@link Profile}.
+ * Ignite CLI Profile.
  */
-public class ConfigDecorator implements Decorator<Profile, TerminalOutput> {
-    @Override
-    public TerminalOutput decorate(Profile data) {
-        return () -> data.getAll().entrySet().stream()
-                .map(entry -> entry.getKey() + "=" + entry.getValue())
-                .collect(Collectors.joining(System.lineSeparator()));
-    }
+public interface Profile {
+    String getName();
+
+    Map<String, String> getAll();
+
+    String getProperty(String key);
+
+    String getProperty(String key, String defaultValue);
+
+    void setProperty(String key, String value);
+
+    void setProperties(Map<String, String> values);
+
+    void setProperties(Profile copyFrom);
 }

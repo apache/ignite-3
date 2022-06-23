@@ -20,10 +20,11 @@ package org.apache.ignite.cli.commands.cliconfig;
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cliconfig.CliConfigGetCall;
+import org.apache.ignite.cli.call.cliconfig.CliConfigGetCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.call.StringCallInput;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 /**
@@ -34,13 +35,16 @@ public class CliConfigGetSubCommand extends BaseCommand implements Callable<Inte
     @Parameters
     private String key;
 
+    @Option(names = {"--profile", "-p"}, description = "Get property from specified profile.")
+    private String profileName;
+
     @Inject
     private CliConfigGetCall call;
 
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new StringCallInput(key))
+                .inputProvider(() -> new CliConfigGetCallInput(key, profileName))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .build()

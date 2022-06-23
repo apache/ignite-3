@@ -17,25 +17,26 @@
 
 package org.apache.ignite.cli.core.exception.handler;
 
-import org.apache.ignite.cli.core.exception.ExceptionHandlers;
+import org.apache.ignite.cli.config.ConfigStoringException;
+import org.apache.ignite.cli.core.exception.ExceptionHandler;
+import org.apache.ignite.cli.core.exception.ExceptionWriter;
+import org.apache.ignite.lang.IgniteLogger;
 
 /**
- * Default collection of exception handlers.
+ * Handler for {@link ConfigStoringException}.
  */
-public class DefaultExceptionHandlers extends ExceptionHandlers {
+public class ConfigStoringExceptionHandler implements ExceptionHandler<ConfigStoringException> {
+    private static final IgniteLogger log = IgniteLogger.forClass(ConfigStoringExceptionHandler.class);
 
-    /**
-     * Constructor.
-     */
-    public DefaultExceptionHandlers() {
-        addExceptionHandler(new SqlExceptionHandler());
-        addExceptionHandler(new TimeoutExceptionHandler());
-        addExceptionHandler(new IgniteClientExceptionHandler());
-        addExceptionHandler(new IgniteCliExceptionHandler());
-        addExceptionHandler(new IgniteCliApiExceptionHandler());
-        addExceptionHandler(new UnknownCommandExceptionHandler());
-        addExceptionHandler(new ConfigStoringExceptionHandler());
-        addExceptionHandler(new ProfileNotFoundExceptionHandler());
-        addExceptionHandler(new SectionAlreadyExistExceptionHandler());
+    @Override
+    public int handle(ExceptionWriter err, ConfigStoringException e) {
+        log.error("CLI config storing error: ", e);
+        err.write("Error happen while saving CLI config " + e.getMessage());
+        return 1;
+    }
+
+    @Override
+    public Class<ConfigStoringException> applicableException() {
+        return ConfigStoringException.class;
     }
 }
