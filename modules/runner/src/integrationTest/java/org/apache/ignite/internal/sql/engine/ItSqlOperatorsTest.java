@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -37,7 +36,6 @@ import org.junit.jupiter.api.Test;
  *
  * @see IgniteSqlOperatorTable
  */
-@WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
 public class ItSqlOperatorsTest extends AbstractBasicIntegrationTest {
     /** {@inheritDoc} */
     @Override
@@ -47,8 +45,8 @@ public class ItSqlOperatorsTest extends AbstractBasicIntegrationTest {
 
     @BeforeAll
     public static void initTable() {
-        sql("CREATE TABLE t(val INT)");
-        sql("INSERT INTO t VALUES (1)");
+        sql("CREATE TABLE t(id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO t VALUES (1, 1)");
     }
 
     @Test

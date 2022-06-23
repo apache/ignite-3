@@ -406,9 +406,6 @@ public class RexImpTable {
                         false);
         map.put(IS_EMPTY, isEmptyImplementor);
         map.put(IS_NOT_EMPTY, NotImplementor.of(isEmptyImplementor));
-        final MethodImplementor isSetImplementor =
-                new MethodImplementor(BuiltInMethod.IS_A_SET.method, NullPolicy.NONE,
-                        false);
 
         map.put(COALESCE, new CoalesceImplementor());
         map.put(CAST, new CastImplementor());
