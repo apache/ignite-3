@@ -18,6 +18,7 @@
 package org.apache.ignite.cli.commands.configuration.node;
 
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
@@ -31,7 +32,7 @@ import picocli.CommandLine.Option;
  */
 @Command(name = "show",
         description = "Shows node configuration.")
-public class NodeConfigShowSubCommand extends BaseCommand {
+public class NodeConfigShowSubCommand extends BaseCommand implements Callable<Integer> {
 
     /**
      * Configuration selector option.
@@ -53,8 +54,8 @@ public class NodeConfigShowSubCommand extends BaseCommand {
 
     /** {@inheritDoc} */
     @Override
-    public void run() {
-        CallExecutionPipeline.builder(call)
+    public Integer call() {
+        return CallExecutionPipeline.builder(call)
                 .inputProvider(this::buildCallInput)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())

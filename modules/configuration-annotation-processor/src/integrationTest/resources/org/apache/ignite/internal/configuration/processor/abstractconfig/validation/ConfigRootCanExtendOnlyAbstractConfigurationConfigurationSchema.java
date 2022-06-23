@@ -15,23 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.exception.handler;
+package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
-import java.net.ConnectException;
-import org.apache.ignite.cli.core.exception.ExceptionHandler;
-import org.apache.ignite.cli.core.exception.ExceptionWriter;
+import java.util.ArrayList;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 
 /**
- * Exception handler for {@link ConnectException}.
+ * Checks that {@link ConfigurationRoot} can only extend schema with {@link AbstractConfiguration}.
  */
-public class ConnectExceptionHandler implements ExceptionHandler<ConnectException> {
-    @Override
-    public void handle(ExceptionWriter err, ConnectException e) {
-        err.write("Connection failed " + e.getMessage());
-    }
-
-    @Override
-    public Class<ConnectException> applicableException() {
-        return ConnectException.class;
-    }
+@ConfigurationRoot(rootName = "test")
+public class ConfigRootCanExtendOnlyAbstractConfigurationConfigurationSchema extends ArrayList {
 }

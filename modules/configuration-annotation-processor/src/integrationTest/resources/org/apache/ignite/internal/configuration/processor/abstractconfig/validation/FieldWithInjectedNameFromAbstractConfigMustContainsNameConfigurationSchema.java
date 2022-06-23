@@ -15,29 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor;
+package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
-import static org.apache.ignite.internal.configuration.processor.Utils.joinSimpleName;
-import static org.apache.ignite.internal.configuration.processor.Utils.simpleName;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.junit.jupiter.api.Test;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.Name;
+import org.apache.ignite.internal.configuration.processor.abstractconfig.SimpleConfigConfigurationSchema;
 
 /**
- * Class for testing the {@link Utils}.
+ * Field whose configuration schema (extends abstract configuration) contains {@link InjectedName} must contain {@link Name}.
  */
-public class UtilsTest {
-    @Test
-    void testSimpleName() {
-        assertEquals("@Config", simpleName(Config.class));
-    }
-
-    @Test
-    void testJoinSimpleName() {
-        assertEquals("@Config", joinSimpleName(" and ", Config.class));
-        assertEquals("@Config or @ConfigurationRoot", joinSimpleName(" or ", Config.class, ConfigurationRoot.class));
-        assertEquals("", joinSimpleName(" or "));
-    }
+@ConfigurationRoot(rootName = "test")
+public class FieldWithInjectedNameFromAbstractConfigMustContainsNameConfigurationSchema {
+    @ConfigValue
+    public SimpleConfigConfigurationSchema config;
 }

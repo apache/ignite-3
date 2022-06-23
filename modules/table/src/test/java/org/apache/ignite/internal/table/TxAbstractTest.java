@@ -141,9 +141,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         InternalTransaction tx3 = (InternalTransaction) igniteTransactions.begin();
         InternalTransaction tx4 = (InternalTransaction) igniteTransactions.begin();
 
-        assertTrue(tx2.timestamp().compareTo(tx.timestamp()) > 0);
-        assertTrue(tx3.timestamp().compareTo(tx2.timestamp()) > 0);
-        assertTrue(tx4.timestamp().compareTo(tx3.timestamp()) > 0);
+        assertTrue(tx2.id().compareTo(tx.id()) > 0);
+        assertTrue(tx3.id().compareTo(tx2.id()) > 0);
+        assertTrue(tx4.id().compareTo(tx3.id()) > 0);
 
         RecordView<Tuple> acc0 = accounts.recordView();
         RecordView<Tuple> acc2 = accounts.recordView();
@@ -325,7 +325,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         assertEquals(200., accounts.recordView().get(null, key).doubleValue("balance"));
 
-        assertEquals(COMMITED, txManager(accounts).state(tx.timestamp()));
+        assertEquals(COMMITED, txManager(accounts).state(tx.id()));
     }
 
     @Test
@@ -348,7 +348,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         assertNull(accounts.recordView().get(null, key));
 
-        assertEquals(ABORTED, txManager(accounts).state(tx.timestamp()));
+        assertEquals(ABORTED, txManager(accounts).state(tx.id()));
     }
 
     @Test
@@ -1338,7 +1338,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                             double amount = 100 + r.nextInt(500);
 
                             if (verbose) {
-                                log.info("op=tryGet ts={} id={}", tx.timestamp(), acc1);
+                                log.info("op=tryGet ts={} id={}", tx.id(), acc1);
                             }
 
                             double val0 = table.get(tx, makeKey(acc1)).doubleValue("balance");
@@ -1350,26 +1350,26 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                             }
 
                             if (verbose) {
-                                log.info("op=tryGet ts={} id={}", tx.timestamp(), acc2);
+                                log.info("op=tryGet ts={} id={}", tx.id(), acc2);
                             }
 
                             double val1 = table.get(tx, makeKey(acc2)).doubleValue("balance");
 
                             if (verbose) {
-                                log.info("op=tryPut ts={} id={}", tx.timestamp(), acc1);
+                                log.info("op=tryPut ts={} id={}", tx.id(), acc1);
                             }
 
                             table.upsert(tx, makeValue(acc1, val0 - amount));
 
                             if (verbose) {
-                                log.info("op=tryPut ts={} id={}", tx.timestamp(), acc2);
+                                log.info("op=tryPut ts={} id={}", tx.id(), acc2);
                             }
 
                             table.upsert(tx, makeValue(acc2, val1 + amount));
 
                             tx.commit();
 
-                            assertTrue(txManager(accounts).state(tx.timestamp()) == COMMITED);
+                            assertTrue(txManager(accounts).state(tx.id()) == COMMITED);
 
                             ops.increment();
                         } catch (Exception e) {

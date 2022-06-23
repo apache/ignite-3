@@ -86,6 +86,7 @@ import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
@@ -456,6 +457,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 InternalTable internalTbl = tablesById.get(tblId).internalTable();
 
                 try {
+                    // TODO: IGNITE-17197 Remove assert after the ticket is resolved.
+                    assert internalTbl.storage() instanceof MvTableStorage :
+                            "Only multi version storages are supported. Current storage is a " + internalTbl.storage().getClass().getName();
+
                     futures[partId] = raftMgr.updateRaftGroup(
                             partitionRaftGroupName(tblId, partId),
                             newPartAssignment,
@@ -463,7 +468,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             // other cases will be covered by rebalance logic
                             (oldPartAssignment.isEmpty()) ? newPartAssignment : Collections.emptyList(),
                             () -> new PartitionListener(tblId,
-                                    new VersionedRowStore(internalTbl.storage().getOrCreatePartition(partId), txManager)),
+                                    new VersionedRowStore(((MvTableStorage) internalTbl.storage()).getOrCreateMvPartition(partId),
+                                            txManager)),
                             () -> new RebalanceRaftGroupEventsListener(
                                     metaStorageMgr,
                                     tablesCfg.tables().get(tablesById.get(tblId).name()),
@@ -1244,9 +1250,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
 
+                    // TODO: IGNITE-17197 Remove assert after the ticket is resolved.
+                    assert tbl.internalTable().storage() instanceof MvTableStorage :
+                            "Only multi version storages are supported. Current storage is a "
+                                    + tbl.internalTable().storage().getClass().getName();
+
                     Supplier<RaftGroupListener> raftGrpLsnrSupplier = () -> new PartitionListener(tblId,
                             new VersionedRowStore(
-                                    tbl.internalTable().storage().getOrCreatePartition(part), txManager));
+                                    ((MvTableStorage) tbl.internalTable().storage()).getOrCreateMvPartition(part), txManager));
 
                     Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier = () -> new RebalanceRaftGroupEventsListener(
                             metaStorageMgr,

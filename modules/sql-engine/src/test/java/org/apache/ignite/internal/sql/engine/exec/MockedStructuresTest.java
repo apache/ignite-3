@@ -479,6 +479,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         awaitFirst(queryProc.queryAsync("PUBLIC", String.format("DROP INDEX IF EXISTS index4 ON %s", curMethodName)));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17197")
     @Test
     void createTableWithEngine() throws Exception {
         String method = getCurrentMethodName();

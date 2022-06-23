@@ -141,6 +141,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         partitionListener = new PartitionListener(UUID.randomUUID(), store);
     }
 
+    /**
+     * Partition listener.
+     *
+     * @return Partition listener.
+     */
+    public PartitionListener getPartitionListener() {
+        return partitionListener;
+    }
+
     /** {@inheritDoc} */
     @Override
     public @NotNull UUID tableId() {

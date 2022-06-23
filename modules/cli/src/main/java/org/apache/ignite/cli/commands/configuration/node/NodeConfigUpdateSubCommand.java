@@ -19,6 +19,7 @@ package org.apache.ignite.cli.commands.configuration.node;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.configuration.NodeConfigUpdateCall;
 import org.apache.ignite.cli.call.configuration.NodeConfigUpdateCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
@@ -33,9 +34,7 @@ import picocli.CommandLine.Parameters;
 @Command(name = "update",
         description = "Updates node configuration.")
 @Singleton
-public class NodeConfigUpdateSubCommand extends BaseCommand {
-    @Inject
-    NodeConfigUpdateCall call;
+public class NodeConfigUpdateSubCommand extends BaseCommand implements Callable<Integer> {
     /**
      * Node url option.
      */
@@ -44,16 +43,20 @@ public class NodeConfigUpdateSubCommand extends BaseCommand {
             descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
     )
     private String nodeUrl;
+
     /**
      * Configuration that will be updated.
      */
     @Parameters(index = "0")
     private String config;
 
+    @Inject
+    private NodeConfigUpdateCall call;
+
     /** {@inheritDoc} */
     @Override
-    public void run() {
-        CallExecutionPipeline.builder(call)
+    public Integer call() {
+        return CallExecutionPipeline.builder(call)
                 .inputProvider(this::buildCallInput)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())

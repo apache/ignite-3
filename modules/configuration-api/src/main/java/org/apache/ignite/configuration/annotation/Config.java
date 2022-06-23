@@ -56,7 +56,7 @@ import java.lang.annotation.Target;
  *
  * @see ConfigurationRoot
  */
-@Target({TYPE})
+@Target(TYPE)
 @Retention(RUNTIME)
 @Documented
 public @interface Config {

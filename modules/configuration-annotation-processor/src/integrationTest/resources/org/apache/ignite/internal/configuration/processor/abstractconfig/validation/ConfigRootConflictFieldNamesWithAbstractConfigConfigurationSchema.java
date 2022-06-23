@@ -15,12 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigConfigurationSchema;
 
 /**
- * Thrown when an operation is invoked that requires an uncommitted version to exist, but no such version exists in reality.
+ * Checks if the {@link ConfigurationRoot} conflicts in field names with {@link AbstractConfiguration}.
  */
-public class NoUncommittedVersionException extends IgniteInternalException {
+@ConfigurationRoot(rootName = "test")
+public class ConfigRootConflictFieldNamesWithAbstractConfigConfigurationSchema extends AbstractConfigConfigurationSchema {
+    @Value
+    public String name;
 }

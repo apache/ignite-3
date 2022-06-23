@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.tree;
 
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.InternalId;
@@ -243,6 +244,13 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * Returns {@code true} if the configuration is {@link PolymorphicConfig polymorphic}.
      */
     public boolean isPolymorphic() {
+        return false;
+    }
+
+    /**
+     * Returns {@code true} if the config schema extends {@link AbstractConfiguration}.
+     */
+    public boolean extendsAbstractConfiguration() {
         return false;
     }
 }

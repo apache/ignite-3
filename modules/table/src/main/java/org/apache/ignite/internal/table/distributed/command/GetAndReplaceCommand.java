@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -30,12 +30,12 @@ public class GetAndReplaceCommand extends SingleKeyCommand implements WriteComma
      * Creates a new instance of GetAndReplaceCommand with the given row to be got and replaced. The {@code row} should not be {@code
      * null}.
      *
-     * @param row       Binary row.
-     * @param timestamp The timestamp.
+     * @param row Binary row.
+     * @param txId Transaction id.
      *
      * @see TransactionalCommand
      */
-    public GetAndReplaceCommand(@NotNull BinaryRow row, @NotNull Timestamp timestamp) {
-        super(row, timestamp);
+    public GetAndReplaceCommand(@NotNull BinaryRow row, @NotNull UUID txId) {
+        super(row, txId);
     }
 }

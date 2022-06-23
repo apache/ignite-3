@@ -20,6 +20,7 @@ package org.apache.ignite.cli.deprecated.spec;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.deprecated.builtins.cluster.ClusterApiClient;
 import picocli.CommandLine;
@@ -40,7 +41,7 @@ public class ClusterCommandSpec {
      * Initializes an Ignite cluster.
      */
     @CommandLine.Command(name = "init", description = "Initializes an Ignite cluster.")
-    public static class InitClusterCommandSpec extends BaseCommand {
+    public static class InitClusterCommandSpec extends BaseCommand implements Callable<Integer> {
 
         @Inject
         private ClusterApiClient clusterApiClient;
@@ -80,7 +81,7 @@ public class ClusterCommandSpec {
 
         /** {@inheritDoc} */
         @Override
-        public void run() {
+        public Integer call() {
             clusterApiClient.init(
                     nodeEndpoint,
                     metaStorageNodes,
@@ -88,6 +89,7 @@ public class ClusterCommandSpec {
                     clusterName,
                     spec.commandLine().getOut()
             );
+            return 0;
         }
     }
 }

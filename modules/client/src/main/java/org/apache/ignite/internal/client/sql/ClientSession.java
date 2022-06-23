@@ -114,15 +114,7 @@ public class ClientSession implements Session {
             w.out().packObject(clientStatement.query());
             w.out().packBoolean(clientStatement.prepared());
 
-            if (arguments == null) {
-                w.out().packArrayHeader(0);
-            } else {
-                w.out().packArrayHeader(arguments.length);
-
-                for (int i = 0; i < arguments.length; i++) {
-                    w.out().packObjectWithType(arguments[i]);
-                }
-            }
+            w.out().packObjectArray(arguments);
         }, r -> new ClientAsyncResultSet(r.clientChannel(), r.in()));
     }
 

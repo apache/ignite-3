@@ -15,23 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.exception.handler;
+package org.apache.ignite.internal.configuration.processor.abstractconfig;
 
-import org.apache.ignite.cli.core.exception.ExceptionHandler;
-import org.apache.ignite.cli.core.exception.ExceptionWriter;
-import org.apache.ignite.rest.client.invoker.ApiException;
+import java.util.UUID;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.InternalId;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Exception handler for {@link ApiException}.
+ * An example of an abstract configuration.
  */
-public class ApiExceptionHandler implements ExceptionHandler<ApiException> {
-    @Override
-    public void handle(ExceptionWriter err, ApiException e) {
-        err.write("Api error: " + e.getCause());
-    }
+@AbstractConfiguration
+public class AbstractConfigConfigurationSchema {
+    @InjectedName
+    public String name;
 
-    @Override
-    public Class<ApiException> applicableException() {
-        return ApiException.class;
-    }
+    @InternalId
+    public UUID id;
+
+    @Value
+    public String strVal;
+
+    @Value
+    public int intVal;
 }

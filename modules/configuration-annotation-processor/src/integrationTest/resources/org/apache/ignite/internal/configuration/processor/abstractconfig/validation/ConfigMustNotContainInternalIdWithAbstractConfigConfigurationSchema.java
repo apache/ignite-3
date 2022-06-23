@@ -15,23 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.exception.handler;
+package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
-import org.apache.ignite.cli.core.exception.ConnectCommandException;
-import org.apache.ignite.cli.core.exception.ExceptionHandler;
-import org.apache.ignite.cli.core.exception.ExceptionWriter;
+import java.util.UUID;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InternalId;
+import org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigConfigurationSchema;
 
 /**
- * Exception handler for {@link ConnectCommandException}.
+ * Checks that {@link Config} must not contain a field with {@link InternalId} if {@link AbstractConfiguration} already has a field with
+ * {@link InternalId}.
  */
-public class ConnectCommandExceptionHandler implements ExceptionHandler<ConnectCommandException> {
-    @Override
-    public void handle(ExceptionWriter err, ConnectCommandException e) {
-        err.write(e.getReason());
-    }
-
-    @Override
-    public Class<ConnectCommandException> applicableException() {
-        return ConnectCommandException.class;
-    }
+@Config
+public class ConfigMustNotContainInternalIdWithAbstractConfigConfigurationSchema extends AbstractConfigConfigurationSchema {
+    @InternalId
+    public UUID id0;
 }

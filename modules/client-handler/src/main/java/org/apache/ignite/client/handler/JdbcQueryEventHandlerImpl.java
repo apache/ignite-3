@@ -57,6 +57,7 @@ import org.apache.ignite.internal.jdbc.proto.event.QueryFetchRequest;
 import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.QuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -64,7 +65,6 @@ import org.apache.ignite.internal.sql.engine.QueryValidator;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
@@ -336,7 +336,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 schemaName,
                 tblName,
                 colName,
-                Commons.columnTypeToClass(fldMeta.type()),
+                SqlColumnTypeConverter.columnTypeToClass(fldMeta.type()),
                 fldMeta.precision(),
                 fldMeta.scale(),
                 fldMeta.nullable()

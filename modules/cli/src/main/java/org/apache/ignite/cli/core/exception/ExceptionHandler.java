@@ -30,9 +30,10 @@ public interface ExceptionHandler<T extends Throwable> {
 
     ExceptionHandler<Throwable> DEFAULT = new ExceptionHandler<>() {
         @Override
-        public void handle(ExceptionWriter err, Throwable e) {
+        public int handle(ExceptionWriter err, Throwable e) {
             logger.error("Unhandled exception ", e);
             err.write("Internal error!");
+            return 1;
         }
 
         @Override
@@ -42,12 +43,13 @@ public interface ExceptionHandler<T extends Throwable> {
     };
 
     /**
-     * Handler method.
+     * Handles an exception.
      *
      * @param err writer instance for any error messages.
      * @param e exception instance.
+     * @return exit code.
      */
-    void handle(ExceptionWriter err, T e);
+    int handle(ExceptionWriter err, T e);
 
     /**
      * Exception class getter.

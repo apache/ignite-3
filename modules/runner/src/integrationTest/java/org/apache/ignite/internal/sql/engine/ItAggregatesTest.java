@@ -23,13 +23,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Group of tests to verify aggregation functions.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItAggregatesTest extends AbstractBasicIntegrationTest {
     /**
      * Before all.

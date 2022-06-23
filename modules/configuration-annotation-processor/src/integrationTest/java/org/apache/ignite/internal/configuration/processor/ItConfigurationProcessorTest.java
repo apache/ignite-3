@@ -18,8 +18,12 @@
 package org.apache.ignite.internal.configuration.processor;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
+import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getChangeName;
+import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getConfigurationInterfaceName;
+import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getViewName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.matchesRegex;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -29,6 +33,7 @@ import com.google.testing.compile.Compilation;
 import com.squareup.javapoet.ClassName;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.Name;
@@ -41,7 +46,7 @@ import org.opentest4j.AssertionFailedError;
 /**
  * Test for basic code generation scenarios.
  */
-public class ItProcessorTest extends AbstractProcessorTest {
+public class ItConfigurationProcessorTest extends AbstractProcessorTest {
     /**
      * The simplest test for code generation.
      */
@@ -255,9 +260,9 @@ public class ItProcessorTest extends AbstractProcessorTest {
         assertThat(compilation).succeededWithoutWarnings();
 
         var generatedClasses = List.of(
-                Utils.getViewName(schema).toString(),
-                Utils.getChangeName(schema).toString(),
-                Utils.getConfigurationInterfaceName(schema).toString()
+                getViewName(schema).toString(),
+                getChangeName(schema).toString(),
+                getConfigurationInterfaceName(schema).toString()
         );
 
         for (String generatedClass : generatedClasses) {
@@ -427,11 +432,186 @@ public class ItProcessorTest extends AbstractProcessorTest {
         assertTrue(batchCompile.getBySchema(cls).allGenerated());
     }
 
+    @Test
+    void testFailValidationForAbstractConfiguration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.abstractconfig.validation";
+
+        // Let's check the incompatible configuration schema annotations.
+
+        Pattern incompatibleAnotationsPattern = Pattern.compile(
+                ".*ConfigurationProcessorException: Class with @.* is not allowed with @.*"
+        );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "IncompatibleSchemaAnnotations0ConfigurationSchema"),
+                incompatibleAnotationsPattern
+        );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "IncompatibleSchemaAnnotations1ConfigurationSchema"),
+                incompatibleAnotationsPattern
+        );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "IncompatibleSchemaAnnotations2ConfigurationSchema"),
+                incompatibleAnotationsPattern
+        );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "IncompatibleSchemaAnnotations3ConfigurationSchema"),
+                incompatibleAnotationsPattern
+        );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "IncompatibleSchemaAnnotations4ConfigurationSchema"),
+                incompatibleAnotationsPattern
+        );
+
+        // Let's check other validations for abstract configuration.
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "MustNotBeSuperClassConfigurationSchema"),
+                "Class with @AbstractConfiguration should not have a superclass"
+        );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "MustNotContainPolymorphicIdConfigurationSchema"),
+                "Class with @AbstractConfiguration cannot have a field with @PolymorphicId"
+        );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "FieldWithInjectedNameFromAbstractConfigMustContainsNameConfigurationSchema"),
+                "Missing @Name for field"
+        );
+
+        // Let's check the validation of the abstract configuration descendants.
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "ConfigRootCanExtendOnlyAbstractConfigurationConfigurationSchema"),
+                "Superclass must have @AbstractConfiguration"
+        );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "ConfigCanExtendOnlyAbstractConfigurationConfigurationSchema"),
+                "Superclass must have @AbstractConfiguration"
+        );
+
+        // Let's check the search for a conflict of field names.
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "ConfigRootConflictFieldNamesWithAbstractConfigConfigurationSchema"),
+                "Duplicate field names are not allowed"
+        );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "ConfigConflictFieldNamesWithAbstractConfigConfigurationSchema"),
+                "Duplicate field names are not allowed"
+        );
+
+        // Let's check @InjectedName for descendants of abstract configuration.
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "ConfigRootMustNotContainInjectedNameInAbstractConfigConfigurationSchema"),
+                "Field with @InjectedName in superclass are not allowed"
+        );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "ConfigMustNotContainInjectedNameWithAbstractConfigConfigurationSchema"),
+                "Field with @InjectedName is already present in the superclass"
+        );
+
+        // Let's check @InternalId for descendants of abstract configuration.
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "ConfigRootMustNotContainInternalIdInAbstractConfigConfigurationSchema"),
+                "Field with @InternalId in superclass are not allowed"
+        );
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(packageName, "ConfigMustNotContainInternalIdWithAbstractConfigConfigurationSchema"),
+                "Field with @InternalId is already present in the superclass"
+        );
+    }
+
+    @Test
+    void testSuccessfulCodeGenerationAbstractConfigurationAndItsDescendants() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.abstractconfig";
+
+        ClassName abstractConfigSchema = ClassName.get(packageName, "AbstractConfigConfigurationSchema");
+        ClassName abstractRootConfigSchema = ClassName.get(packageName, "AbstractRootConfigConfigurationSchema");
+
+        ClassName configSchema = ClassName.get(packageName, "SimpleConfigConfigurationSchema");
+        ClassName configRootSchema = ClassName.get(packageName, "SimpleConfigRootConfigurationSchema");
+
+        BatchCompilation batchCompile = batchCompile(abstractConfigSchema, abstractRootConfigSchema, configSchema, configRootSchema);
+
+        assertThat(batchCompile.getCompilationStatus()).succeededWithoutWarnings();
+
+        assertEquals(4 * 3, batchCompile.generated().size());
+
+        assertTrue(batchCompile.getBySchema(abstractConfigSchema).allGenerated());
+        assertTrue(batchCompile.getBySchema(abstractRootConfigSchema).allGenerated());
+        assertTrue(batchCompile.getBySchema(configSchema).allGenerated());
+        assertTrue(batchCompile.getBySchema(configRootSchema).allGenerated());
+
+        StringSubject configViewInterfaceContent = assertThat(batchCompile.getCompilationStatus())
+                .generatedSourceFile(getViewName(configSchema).toString())
+                .contentsAsUtf8String();
+
+        StringSubject configRootViewInterfaceContent = assertThat(batchCompile.getCompilationStatus())
+                .generatedSourceFile(getViewName(configRootSchema).toString())
+                .contentsAsUtf8String();
+
+        configViewInterfaceContent.contains("extends " + getViewName(abstractConfigSchema).simpleName());
+        configRootViewInterfaceContent.contains("extends " + getViewName(abstractRootConfigSchema).simpleName());
+
+        StringSubject configChangeInterfaceContent = assertThat(batchCompile.getCompilationStatus())
+                .generatedSourceFile(getChangeName(configSchema).toString())
+                .contentsAsUtf8String();
+
+        StringSubject configRootChangeInterfaceContent = assertThat(batchCompile.getCompilationStatus())
+                .generatedSourceFile(getChangeName(configRootSchema).toString())
+                .contentsAsUtf8String();
+
+        configChangeInterfaceContent.contains("extends " + getViewName(configSchema).simpleName()
+                + ", " + getChangeName(abstractConfigSchema).simpleName());
+
+        configRootChangeInterfaceContent.contains("extends " + getViewName(configRootSchema).simpleName()
+                + ", " + getChangeName(abstractRootConfigSchema).simpleName());
+
+        StringSubject configConfigurationInterfaceContent = assertThat(batchCompile.getCompilationStatus())
+                .generatedSourceFile(getConfigurationInterfaceName(configSchema).toString())
+                .contentsAsUtf8String();
+
+        StringSubject configRootConfigurationInterfaceContent = assertThat(batchCompile.getCompilationStatus())
+                .generatedSourceFile(getConfigurationInterfaceName(configRootSchema).toString())
+                .contentsAsUtf8String();
+
+        configConfigurationInterfaceContent.contains("extends " + getConfigurationInterfaceName(abstractConfigSchema).simpleName());
+        configRootConfigurationInterfaceContent.contains("extends " + getConfigurationInterfaceName(abstractRootConfigSchema).simpleName());
+    }
+
     /**
      * Compile set of classes.
      *
      * @param packageName Package names.
-     * @param classNames  Simple class names.
+     * @param classNames Simple class names.
      * @return Result of batch compilation.
      */
     private static BatchCompilation batchCompile(String packageName, String... classNames) {
@@ -456,5 +636,19 @@ public class ItProcessorTest extends AbstractProcessorTest {
         if (expSubStr != null) {
             assertThat(t.getMessage(), containsString(expSubStr));
         }
+    }
+
+    /**
+     * Extends {@link Assertions#assertThrows(Class, Executable)} to validate an error message against a pattern.
+     *
+     * @param expErrCls Expected error class.
+     * @param exec Supplier.
+     * @param pattern Error message pattern.
+     * @throws AssertionFailedError If failed.
+     */
+    private void assertThrowsEx(Class<? extends Throwable> expErrCls, Executable exec, Pattern pattern) {
+        Throwable t = assertThrows(expErrCls, exec);
+
+        assertThat(t.getMessage().replaceAll("[\\r\\n]", " "), matchesRegex(pattern));
     }
 }

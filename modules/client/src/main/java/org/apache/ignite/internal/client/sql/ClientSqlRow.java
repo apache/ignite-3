@@ -34,18 +34,27 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Client SQL row.
  */
+@SuppressWarnings("unchecked")
 public class ClientSqlRow implements SqlRow {
     /** Row. */
     private final List<Object> row;
+
+    /** Meta. */
+    private final ResultSetMetadata metadata;
 
     /**
      * Constructor.
      *
      * @param row Row.
+     * @param meta Meta.
      */
-    ClientSqlRow(List<Object> row) {
+    public ClientSqlRow(List<Object> row, ResultSetMetadata meta) {
+        assert row != null;
+        assert meta != null;
+
         //noinspection AssignmentOrReturnOfFieldWithMutableType
         this.row = row;
+        this.metadata = meta;
     }
 
     /** {@inheritDoc} */
@@ -57,15 +66,13 @@ public class ClientSqlRow implements SqlRow {
     /** {@inheritDoc} */
     @Override
     public String columnName(int columnIndex) {
-        // TODO: IGNITE-17052
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return metadata.columns().get(columnIndex).name();
     }
 
     /** {@inheritDoc} */
     @Override
     public int columnIndex(@NotNull String columnName) {
-        // TODO: IGNITE-17052
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return metadata.indexOf(columnName);
     }
 
     private int columnIndexChecked(@NotNull String columnName) {
@@ -282,7 +289,6 @@ public class ClientSqlRow implements SqlRow {
     /** {@inheritDoc} */
     @Override
     public ResultSetMetadata metadata() {
-        // TODO: IGNITE-17052
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return metadata;
     }
 }

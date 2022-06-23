@@ -19,20 +19,18 @@ package org.apache.ignite.cli.call.connect;
 
 import com.google.gson.Gson;
 import jakarta.inject.Singleton;
-import java.net.ConnectException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.CallOutput;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.exception.ConnectCommandException;
+import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.cli.core.repl.Session;
 import org.apache.ignite.cli.core.repl.config.RootConfig;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
-import org.jetbrains.annotations.NotNull;
 
 
 /**
@@ -54,12 +52,9 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
         try {
             String configuration = api.getNodeConfiguration();
             setJdbcUrl(configuration, nodeUrl);
-        } catch (ApiException e) {
+        } catch (ApiException | IllegalArgumentException e) {
             session.setConnectedToNode(false);
-            if (e.getCause() instanceof ConnectException) {
-                return DefaultCallOutput.failure(new ConnectCommandException("Can not connect to " + input.getNodeUrl()));
-            }
-            return DefaultCallOutput.failure(e);
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, nodeUrl));
         }
 
         session.setNodeUrl(nodeUrl);
@@ -67,7 +62,6 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
         return DefaultCallOutput.success("Connected to " + nodeUrl);
     }
 
-    @NotNull
     private NodeConfigurationApi createApiClient(ConnectCallInput input) {
         ApiClient client = Configuration.getDefaultApiClient();
         client.setBasePath(input.getNodeUrl());

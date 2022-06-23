@@ -23,8 +23,9 @@ import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.decorators.JsonDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
+import org.apache.ignite.cli.core.exception.IgniteCliApiException;
+import org.apache.ignite.cli.core.exception.handler.IgniteCliApiExceptionHandler;
 import org.apache.ignite.cli.core.repl.Session;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import picocli.CommandLine.Command;
@@ -35,7 +36,7 @@ import picocli.CommandLine.Option;
  */
 @Command(name = "show",
         description = "Shows cluster configuration.")
-public class ClusterConfigShowReplSubCommand extends BaseCommand {
+public class ClusterConfigShowReplSubCommand extends BaseCommand implements Runnable {
 
     /**
      * Configuration selector option.
@@ -57,7 +58,6 @@ public class ClusterConfigShowReplSubCommand extends BaseCommand {
     @Inject
     private Session session;
 
-    /** {@inheritDoc} */
     @Override
     public void run() {
         var input = ClusterConfigShowCallInput.builder().selector(selector);
@@ -80,21 +80,18 @@ public class ClusterConfigShowReplSubCommand extends BaseCommand {
                 .runPipeline();
     }
 
-    private static class ShowConfigReplExceptionHandler implements ExceptionHandler<ApiException> {
+    private static class ShowConfigReplExceptionHandler extends IgniteCliApiExceptionHandler {
         @Override
-        public void handle(ExceptionWriter err, ApiException e) {
-            if (e.getCode() == 500) { //TODO: https://issues.apache.org/jira/browse/IGNITE-17091
-                err.write("Cannot show cluster config, probably you have not initialized the cluster. "
-                        + "Try to run 'cluster init' command.");
-                return;
+        public int handle(ExceptionWriter err, IgniteCliApiException e) {
+            if (e.getCause() instanceof ApiException) {
+                ApiException apiException = (ApiException) e.getCause();
+                if (apiException.getCode() == 500) { //TODO: https://issues.apache.org/jira/browse/IGNITE-17091
+                    err.write("Cannot show cluster config, probably you have not initialized the cluster. "
+                            + "Try to run 'cluster init' command.");
+                    return 1;
+                }
             }
-
-            err.write(e.getResponseBody());
-        }
-
-        @Override
-        public Class<ApiException> applicableException() {
-            return ApiException.class;
+            return super.handle(err, e);
         }
     }
 }

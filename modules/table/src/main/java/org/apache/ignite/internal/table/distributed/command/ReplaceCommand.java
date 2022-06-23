@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -40,14 +40,14 @@ public class ReplaceCommand extends SingleKeyCommand implements WriteCommand {
      * Creates a new instance of ReplaceCommand with the given two rows to be replaced each other.
      * Both rows should not be {@code null}.
      *
-     * @param oldRow        Old Binary row.
-     * @param row           Binary row.
-     * @param timestamp     The timestamp.
+     * @param oldRow Old Binary row.
+     * @param row Binary row.
+     * @param txId Transaction id.
      *
      * @see TransactionalCommand
      */
-    public ReplaceCommand(@NotNull BinaryRow oldRow, @NotNull BinaryRow row, @NotNull Timestamp timestamp) {
-        super(row, timestamp);
+    public ReplaceCommand(@NotNull BinaryRow oldRow, @NotNull BinaryRow row, @NotNull UUID txId) {
+        super(row, txId);
         assert oldRow != null;
 
         oldRowBytes = CommandUtils.rowToBytes(oldRow);

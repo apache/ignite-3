@@ -63,7 +63,6 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -71,7 +70,6 @@ import org.junit.jupiter.api.TestInfo;
  * Tests for asynchronous SQL API.
  */
 @SuppressWarnings("ThrowableNotThrown")
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     private static final int ROW_COUNT = 16;
 
@@ -218,7 +216,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         AsyncResultSet rs = ses.executeAsync(null, "SELECT COL1, COL0 FROM TEST").get();
 
-        // Validata columns metadata.
+        // Validate columns metadata.
         ResultSetMetadata meta = rs.metadata();
 
         assertNotNull(meta);
@@ -226,10 +224,9 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertEquals(0, meta.indexOf("COL1"));
         assertEquals(1, meta.indexOf("COL0"));
 
-        //TODO: IGNITE-17094: ColumnMetadata.nullable() must return false for non-null column.
-        checkMetadata(new ColumnMetadataImpl("COL1", SqlColumnType.STRING, 0, 0, true, new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
+        checkMetadata(new ColumnMetadataImpl("COL1", SqlColumnType.STRING, 0, 0, false, new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
                 meta.columns().get(0));
-        checkMetadata(new ColumnMetadataImpl("COL0", SqlColumnType.INT64, 0, 0, true, new ColumnOriginImpl("PUBLIC", "TEST", "COL0")),
+        checkMetadata(new ColumnMetadataImpl("COL0", SqlColumnType.INT64, 0, 0, false, new ColumnOriginImpl("PUBLIC", "TEST", "COL0")),
                 meta.columns().get(1));
 
         // Validate result columns types.

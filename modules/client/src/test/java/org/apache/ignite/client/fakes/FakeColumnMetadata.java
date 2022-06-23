@@ -26,13 +26,36 @@ import org.apache.ignite.sql.SqlColumnType;
 class FakeColumnMetadata implements ColumnMetadata {
     private final String name;
 
-    /**
-     * Constructor.
-     *
-     * @param name Column name.
-     */
-    FakeColumnMetadata(String name) {
+    private final SqlColumnType type;
+
+    private final int precision;
+
+    private final int scale;
+
+    private final boolean nullable;
+
+    private final ColumnOrigin origin;
+
+    FakeColumnMetadata(String name, SqlColumnType type) {
+        this(name, type, -1, -1, false, null);
+    }
+
+    FakeColumnMetadata(
+            String name,
+            SqlColumnType type,
+            int precision,
+            int scale,
+            boolean nullable,
+            ColumnOrigin origin) {
+        assert name != null;
+        assert type != null;
+
         this.name = name;
+        this.type = type;
+        this.precision = precision;
+        this.scale = scale;
+        this.nullable = nullable;
+        this.origin = origin;
     }
 
     /** {@inheritDoc} */
@@ -50,30 +73,30 @@ class FakeColumnMetadata implements ColumnMetadata {
     /** {@inheritDoc} */
     @Override
     public SqlColumnType type() {
-        return null;
+        return type;
     }
 
     /** {@inheritDoc} */
     @Override
     public int precision() {
-        return -1;
+        return precision;
     }
 
     /** {@inheritDoc} */
     @Override
     public int scale() {
-        return -1;
+        return scale;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean nullable() {
-        return false;
+        return nullable;
     }
 
     /** {@inheritDoc} */
     @Override
     public ColumnOrigin origin() {
-        return null;
+        return origin;
     }
 }

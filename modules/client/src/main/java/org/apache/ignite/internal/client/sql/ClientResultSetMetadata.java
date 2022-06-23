@@ -43,12 +43,13 @@ class ClientResultSetMetadata implements ResultSetMetadata {
      */
     public ClientResultSetMetadata(ClientMessageUnpacker unpacker) {
         var size = unpacker.unpackArrayHeader();
+        assert size > 0 : "ResultSetMetadata should not be empty.";
 
         var columns = new ArrayList<ColumnMetadata>(size);
         columnIndices =  new HashMap<>(size);
 
         for (int i = 0; i < size; i++) {
-            ClientColumnMetadata column = new ClientColumnMetadata(unpacker);
+            ClientColumnMetadata column = new ClientColumnMetadata(unpacker, columns);
             columns.add(column);
             columnIndices.put(column.name(), i);
         }

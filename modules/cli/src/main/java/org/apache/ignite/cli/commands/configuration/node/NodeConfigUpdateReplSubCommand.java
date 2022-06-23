@@ -34,7 +34,7 @@ import picocli.CommandLine.Parameters;
 @Command(name = "update",
         description = "Updates node configuration.")
 @Singleton
-public class NodeConfigUpdateReplSubCommand extends BaseCommand {
+public class NodeConfigUpdateReplSubCommand extends BaseCommand implements Runnable {
     /**
      * Node url option.
      */
@@ -69,7 +69,7 @@ public class NodeConfigUpdateReplSubCommand extends BaseCommand {
             return;
         }
 
-        CallExecutionPipeline.builder(this.call)
+        CallExecutionPipeline.builder(call)
                 .inputProvider(input::build)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())

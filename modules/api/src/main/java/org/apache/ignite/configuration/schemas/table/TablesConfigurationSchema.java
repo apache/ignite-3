@@ -37,5 +37,6 @@ public class TablesConfigurationSchema {
     /** Default data storage for tables. */
     @ExistingDataStorage
     @Value(hasDefault = true)
-    public String defaultDataStorage = "pagememory";
+    // TODO: IGNITE-17197 Set "pagememory" after the ticket is resolved.
+    public String defaultDataStorage = "rocksdb";
 }

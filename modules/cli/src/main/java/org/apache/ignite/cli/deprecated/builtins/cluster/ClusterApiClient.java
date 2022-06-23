@@ -32,6 +32,7 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.util.List;
+import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.cli.deprecated.IgniteCliException;
 
 /**
@@ -81,7 +82,7 @@ public class ClusterApiClient {
         try {
             httpResponse = httpClient.send(httpRequest, BodyHandlers.ofString());
         } catch (IOException | InterruptedException e) {
-            throw new IgniteCliException("Connection issues while trying to send http request", e);
+            throw new IgniteCliApiException(e, nodeEndpoint);
         }
 
         if (httpResponse.statusCode() == HttpURLConnection.HTTP_OK) {

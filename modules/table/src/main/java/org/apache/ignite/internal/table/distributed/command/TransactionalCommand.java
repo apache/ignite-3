@@ -17,22 +17,23 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.UUID;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * A marker interface for a transactional command.
  *
- * <p>Each transactional command contains a timestamp, bounding it to a specific transaction.
+ * <p>Each transactional command contains a transaction id.
  *
  * @see Timestamp
  */
 public interface TransactionalCommand {
     /**
-     * Returns a timestamp.
+     * Returns a transaction id.
      *
-     * @return The timestamp.
+     * @return The transaction id.
      */
     @NotNull
-    public Timestamp getTimestamp();
+    public UUID getTxId();
 }
