@@ -77,7 +77,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     public PageMemoryMvPartitionStorage(
             int partitionId,
             TableView tableConfig,
-            DataRegion dataRegion,
+            DataRegion<?> dataRegion,
             VersionChainFreeList versionChainFreeList,
             RowVersionFreeList rowVersionFreeList
     ) {
@@ -101,7 +101,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     private VersionChainTree createVersionChainTree(
             int partitionId,
             TableView tableConfig,
-            DataRegion dataRegion,
+            DataRegion<?> dataRegion,
             VersionChainFreeList versionChainFreeList1
     ) throws IgniteInternalCheckedException {
         // TODO: IGNITE-17085 It is necessary to do getting the tree root for the persistent case.

@@ -86,7 +86,7 @@ class CheckpointWorkflow implements IgniteComponent {
     private final CheckpointWriteOrder checkpointWriteOrder;
 
     /** Collections of checkpoint listeners. */
-    private final List<IgniteBiTuple<CheckpointListener, DataRegion>> listeners = new CopyOnWriteArrayList<>();
+    private final List<IgniteBiTuple<CheckpointListener, DataRegion<PersistentPageMemory>>> listeners = new CopyOnWriteArrayList<>();
 
     /**
      * Constructor.
@@ -244,7 +244,7 @@ class CheckpointWorkflow implements IgniteComponent {
      * @param listener Listener.
      */
     public void removeCheckpointListener(CheckpointListener listener) {
-        listeners.remove(new IgniteBiTuple<CheckpointListener, DataRegion>() {
+        listeners.remove(new IgniteBiTuple<CheckpointListener, DataRegion<PersistentPageMemory>>() {
             /** {@inheritDoc} */
             @Override
             public boolean equals(Object o) {
@@ -258,7 +258,7 @@ class CheckpointWorkflow implements IgniteComponent {
      *
      * @param dataRegions Data regions.
      */
-    public List<CheckpointListener> collectCheckpointListeners(Collection<? extends DataRegion> dataRegions) {
+    public List<CheckpointListener> collectCheckpointListeners(Collection<? extends DataRegion<PersistentPageMemory>> dataRegions) {
         return listeners.stream()
                 .filter(tuple -> tuple.getValue() == null || dataRegions.contains(tuple.getValue()))
                 .map(IgniteBiTuple::getKey)
@@ -266,7 +266,7 @@ class CheckpointWorkflow implements IgniteComponent {
     }
 
     private CheckpointDirtyPagesInfoHolder beginCheckpoint(
-            Collection<? extends DataRegion> dataRegions,
+            Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
             CompletableFuture<?> allowToReplace
     ) {
         Collection<IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>>> pages = new ArrayList<>(dataRegions.size());
