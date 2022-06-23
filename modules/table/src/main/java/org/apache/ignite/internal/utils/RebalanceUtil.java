@@ -43,24 +43,24 @@ import org.jetbrains.annotations.NotNull;
 public class RebalanceUtil {
 
     /** Logger. */
-    private static IgniteLogger LOG = IgniteLogger.forClass(RebalanceUtil.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(RebalanceUtil.class);
 
-    /** Return code of metastore multi-invoke which identify,
+    /** Return code of metastore multi-invoke which identifies,
      * that pending key was updated to new value (i.e. there is no active rebalance at the moment of call).
      */
     private static final int PENDING_KEY_UPDATED = 0;
 
-    /** Return code of metastore multi-invoke which identify,
+    /** Return code of metastore multi-invoke which identifies,
      * that planned key was updated to new value (i.e. there is an active rebalance at the moment of call).
      */
     private static final int PLANNED_KEY_UPDATED = 1;
 
-    /** Return code of metastore multi-invoke which identify,
+    /** Return code of metastore multi-invoke which identifies,
      * that planned key was removed, because current rebalance is already have the same target.
      */
     private static final int PLANNED_KEY_REMOVED = 2;
 
-    /** Return code of metastore multi-invoke which identify,
+    /** Return code of metastore multi-invoke which identifies,
      * that this trigger event was already processed by another node and must be skipped.
      */
     private static final int OUTDATED_UPDATE_RECEIVED = 3;
