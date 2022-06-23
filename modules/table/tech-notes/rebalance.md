@@ -73,7 +73,7 @@ metastoreInvoke: // atomic metastore call through multi-invoke api
 - New needed raft nodes started
 - Change peers state initiated for every raft group
 
-## When RaftGroupService#changePeersAsync done inside the raft group - update stable key and stop all redundant nodes
+## When RaftGroupService#changePeersAsync done inside the raft group – update assignments, stable key and stop all redundant nodes
 **Trigger**: When leader applied new Configuration with list of resulting peers `<applied peer>`, it calls `RebalanceRaftGroupEventsListener.onNewPeersConfigurationApplied(<applied peers>)`
 
 **Pseudocode**:
@@ -86,6 +86,8 @@ metastoreInvoke: \\ atomic
         partition.assignments.pending = partition.assignments.planned
         remove(partition.assignments.planned)
 ```
+`RebalanceRaftGroupEventsListener.onNewPeersConfigurationApplied(<applied peers>)` also is responsible for the updating of assignments of the table.
+When assignments are updated, corresponding listener for its updates will be triggered (see `org.apache.ignite.internal.table.distributed.TableManager.onUpdateAssignments`), so raft clients will be updated. 
 
 After stable key is updated, corresponding listener for that change is called, so redundant raft nodes may be stopped (see corresponding listener for stable key in `org.apache.ignite.internal.table.distributed.TableManager.registerRebalanceListeners`)
 
