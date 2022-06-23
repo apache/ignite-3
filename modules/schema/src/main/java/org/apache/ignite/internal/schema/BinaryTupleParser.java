@@ -22,13 +22,13 @@ import java.nio.ByteOrder;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * Binary tuple parser.
+ * Binary tuple parser allows to extract individual elements from tuple bytes.
  */
 public class BinaryTupleParser {
     /**
      * Receiver of parsed data.
      */
-    interface Sink {
+    public interface Sink {
         /**
          * Provides the location of the next tuple value.
          *
@@ -60,7 +60,7 @@ public class BinaryTupleParser {
      * @param numElements Number of tuple elements.
      * @param buffer Buffer with a binary tuple.
      */
-    BinaryTupleParser(int numElements, ByteBuffer buffer) {
+    public BinaryTupleParser(int numElements, ByteBuffer buffer) {
         this.numElements = numElements;
 
         assert buffer.order() == ByteOrder.LITTLE_ENDIAN;
@@ -82,21 +82,21 @@ public class BinaryTupleParser {
     /**
      * Returns the binary tuple size in bytes.
      */
-    int size() {
+    public int size() {
         return valueBase + getOffset(valueBase - entrySize);
     }
 
     /**
      * Returns the number of elements in the tuple.
      */
-    int elementCount() {
+    public int elementCount() {
         return numElements;
     }
 
     /**
      * Check if the binary tuple contains a null map.
      */
-    boolean hasNullMap() {
+    public boolean hasNullMap() {
         return entryBase > BinaryTupleSchema.HEADER_SIZE;
     }
 
@@ -108,7 +108,7 @@ public class BinaryTupleParser {
      * @param index Index of the element.
      * @return ByteBuffer with element bytes between current position and limit or null.
      */
-    ByteBuffer element(int index) {
+    public ByteBuffer element(int index) {
         var sink = new Sink() {
             int begin, end;
 
@@ -133,7 +133,7 @@ public class BinaryTupleParser {
      * @param index Index of the element.
      * @param sink Receiver.
      */
-    void fetch(int index, Sink sink) {
+    public void fetch(int index, Sink sink) {
         assert index >= 0;
         assert index < numElements;
 
@@ -164,7 +164,7 @@ public class BinaryTupleParser {
      *
      * @param sink Receiver.
      */
-    void parse(Sink sink) {
+    public void parse(Sink sink) {
         int entry = entryBase;
         int offset = valueBase;
 
