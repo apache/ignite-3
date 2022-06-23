@@ -32,7 +32,7 @@ public class ThreadId {
 
     private final Object data;
     private final NonReentrantLock lock = new NonReentrantLock();
-    private final List<Integer> pendingErrors = new ArrayList<>();
+    private final List<Integer> pendingErrors = new ArrayList<>(); // TODO asch move to hash to avoid duplicate errors
     private final OnError onError;
     private volatile boolean destroyed;
 

@@ -511,7 +511,8 @@ public class Replicator implements ThreadId.OnError {
     private void startHeartbeatTimer(final long startMs) {
         final long dueTime = startMs + this.options.getDynamicHeartBeatTimeoutMs();
         try {
-            this.heartbeatTimer = this.timerManager.schedule(() -> onTimeout(this.id), dueTime - Utils.nowMs(), TimeUnit.MILLISECONDS);
+            this.heartbeatTimer = this.timerManager.schedule(() -> onTimeout(this.id), dueTime - Utils.nowMs(),
+                TimeUnit.MILLISECONDS);
         }
         catch (final Exception e) {
             LOG.error("Fail to schedule heartbeat timer", e);
@@ -953,7 +954,7 @@ public class Replicator implements ThreadId.OnError {
             try {
                 for (final Inflight inflight : r.inflights) {
                     if (inflight != r.rpcInFly) {
-                        inflight.rpcFuture.cancel(true);
+                        inflight.rpcFuture.cancel(true); // TODO asch makes sense to cancel scalecube future ?
                     }
                 }
                 if (r.rpcInFly != null) {
@@ -1075,8 +1076,13 @@ public class Replicator implements ThreadId.OnError {
         }
     }
 
-    static void onHeartbeatReturned(final ThreadId id, final Status status, final AppendEntriesRequest request,
-        final AppendEntriesResponse response, final long rpcSendTime) {
+    public static void onHeartbeatReturned(final ThreadId id, final Status status, final AppendEntriesRequest request,
+            final AppendEntriesResponse response, final long rpcSendTime) {
+        onHeartbeatReturned(id, status, request, response, rpcSendTime, true);
+    }
+
+    public static void onHeartbeatReturned(final ThreadId id, final Status status, final AppendEntriesRequest request,
+        final AppendEntriesResponse response, final long rpcSendTime, boolean reschedule) {
         if (id == null) {
             // replicator already was destroyed.
             return;
@@ -1096,11 +1102,11 @@ public class Replicator implements ThreadId.OnError {
                     .append(':') //
                     .append(r.options.getServerId()) //
                     .append(" received HeartbeatResponse from ") //
-                    .append(r.options.getPeerId()) //
-                    .append(" prevLogIndex=") //
-                    .append(request.prevLogIndex()) //
-                    .append(" prevLogTerm=") //
-                    .append(request.prevLogTerm());
+                    .append(r.options.getPeerId()); //
+//                    .append(" prevLogIndex=") //
+//                    .append(request.prevLogIndex()) //
+//                    .append(" prevLogTerm=") //
+//                    .append(request.prevLogTerm());
             }
             if (!status.isOk()) {
                 if (isLogDebugEnabled) {
@@ -1153,7 +1159,8 @@ public class Replicator implements ThreadId.OnError {
             if (rpcSendTime > r.lastRpcSendTimestamp) {
                 r.lastRpcSendTimestamp = rpcSendTime;
             }
-            r.startHeartbeatTimer(startTimeMs);
+            if (reschedule)
+                r.startHeartbeatTimer(startTimeMs);
         }
         finally {
             if (doUnlock) {
@@ -1444,7 +1451,8 @@ public class Replicator implements ThreadId.OnError {
         if (r.timeoutNowIndex > 0 && r.timeoutNowIndex < r.nextIndex) {
             r.sendTimeoutNow(false, false);
         }
-        r.startHeartbeatTimer(Utils.nowMs()); // Start hearbeating after successful log reconciliation.
+        if (entriesSize == 0) // Start hearbeating after successful log reconciliation (after probe request)
+            r.startHeartbeatTimer(Utils.nowMs());
         return true;
     }
 

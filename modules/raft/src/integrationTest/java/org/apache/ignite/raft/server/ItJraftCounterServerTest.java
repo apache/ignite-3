@@ -750,15 +750,21 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
             assertTrue(waitForCondition(() -> getLeader(grp) != null, 30_000));
         }
 
-        // Allow the parallel start.
+        final String grp0 = "testGrp0";
+
+        // Move committed index for a first group.
+        RaftGroupService service = startClient(grp0);
+        service.refreshLeader().get();
+        service.run(new IncrementAndGetCommand(1)).get();
+
+        CountDownLatch l = new CountDownLatch(4);
+
         for (int i = 0; i < grps; i++) {
             final String grp = "testGrp" + i;
 
             NodeImpl leader = getLeader(grp);
             ReplicatorGroup replicatorGroup = IgniteTestUtils.getFieldValue(leader, "replicatorGroup");
             List<PeerId> peers = leader.getCurrentConf().getPeers();
-
-            CountDownLatch l = new CountDownLatch(2);
 
             for (PeerId peer : peers) {
                 if (peer.equals(leader.getServerId()))
@@ -777,14 +783,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
             }
         }
 
-        RaftGroupService service = startClient("testGrp0");
-        service.refreshLeader().get();
-
-        // TODO iterate over all leaders per server
-        NodeImpl leader = getLeader("testGrp0");
-
-        service.run(new IncrementAndGetCommand(1)).get();
-
+        NodeImpl leader = getLeader(grp0);
         ConcurrentMap<PeerPair, Queue<Object[]>> coalesced = leader.getOptions().getNodeManager().getCoalesced();
 
         assertEquals(grps, coalesced.size());
@@ -797,7 +796,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
                 public Queue<Object[]> apply(PeerPair peerPair, Queue<Object[]> queue) {
                     if (!queue.isEmpty()) {
                         CoalescedHeartbeatRequestBuilder builder = leader.getOptions().getRaftMessagesFactory().coalescedHeartbeatRequest();
-                        builder.messages(new ArrayList<>());
+                        ArrayList<AppendEntriesRequest> list = new ArrayList<>();
+                        builder.messages(list);
 
                         Object[] req;
 
@@ -822,7 +822,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
                                 // TODO asch complete futures in parallel
                                 int i = 0;
                                 for (Message message : resp.messages()) {
-                                    futs.get(i++).complete(message);
+                                    futs.get(i++).complete(message); // Future completion will trigger callbacks.
                                 }
                             }
                         }, 5_000);
@@ -834,12 +834,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
             });
         }
 
-        Thread.sleep(2000);
-
-        System.out.println();
-
-
-        //assertTrue(l.await(5_000, TimeUnit.MILLISECONDS));
+        assertTrue(l.await(5_000, TimeUnit.MILLISECONDS));
     }
 
     /**
