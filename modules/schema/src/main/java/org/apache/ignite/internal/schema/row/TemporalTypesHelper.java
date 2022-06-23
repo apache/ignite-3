@@ -27,21 +27,29 @@ import org.apache.ignite.internal.schema.TemporalNativeType;
  * <p>Provides methods to encode/decode temporal types in a compact way for further writing to row. Conversion preserves natural type
  * order.
  *
- * <p>DATE is a fixed-length type which compacted representation keeps ordering, value is signed and fit into a 3-bytes. Thus, DATE value
- * canbe compared by bytes where first byte is signed and others - unsigned. Thus temporal functions, like YEAR(), can easily extracts
+ * <p>DATE is a fixed-length type which compact representation keeps ordering, value is signed and fit into a 3-bytes. Thus, DATE value
+ * can be compared by bytes where first byte is signed and others - unsigned. Thus temporal functions, like YEAR(), can easily extract
  * fields with a mask,
  *
- * <p>Date compact structure: ┌──────────────┬─────────┬────────┐ │ Year(signed) │ Month   │ Day    │ ├──────────────┼─────────┼────────┤ │
- * 15 bits      │ 4 bits  │ 5 bits │ └──────────────┴─────────┴────────┘
+ * <p>Date compact structure:<pre>
+ * ┌──────────────┬─────────┬────────┐
+ * │ Year(signed) │ Month   │ Day    │
+ * ├──────────────┼─────────┼────────┤
+ * │ 15 bits      │ 4 bits  │ 5 bits │
+ * └──────────────┴─────────┴────────┘</pre>
  *
- * <p>TIME is a fixed-length type supporting accuracy from 1 second up to 1 nanosecond. Compacted time representation keeps ordering,
- * values fits to 4-6 bytes value. The first 18 bits is used for hours, minutes and seconds, and the last bits for fractional seconds: 14
+ * <p>TIME is a fixed-length type supporting accuracy from 1 second up to 1 nanosecond. Compact time representation keeps ordering,
+ * values fits to 4-6 bytes value. The first 18 bits are used for hours, minutes and seconds, and the last bits for fractional seconds: 14
  * for millisecond precision and 30 for nanosecond. Values of a type of any intermediate precisions is normalized to the type, then stored
- * as shortest possible structure without a precision lost.
+ * as shortest possible structure without precision loss.
  *
- * <p>Time compact structure: ┌─────────┬─────────┬──────────┬─────────────┐ │ Hours   │ Minutes │ Seconds  │ Sub-seconds │
- * ├─────────┼─────────┼──────────┼─────────────┤ │ 6 bit   │ 6 bits  │ 6 bit    │ 14 bits     │ - 32-bits in total. │ 6 bit   │ 6 bits  │
- * 6 bit    │ 30 bits     │ - 48-bits in total. └─────────┴─────────┴──────────┴─────────────┘
+ * <p>Time compact structure:<pre>
+ * ┌─────────┬─────────┬──────────┬─────────────┐
+ * │ Hours   │ Minutes │ Seconds  │ Sub-seconds │
+ * ├─────────┼─────────┼──────────┼─────────────┤
+ * │ 6 bit   │ 6 bits  │ 6 bit    │ 14 bits     │ - 32-bits in total.
+ * │ 6 bit   │ 6 bits  │ 6 bit    │ 30 bits     │ - 48-bits in total.
+ * └─────────┴─────────┴──────────┴─────────────┘</pre>
  *
  * <p>DATETIME is just a concatenation of DATE and TIME values.
  *
@@ -50,8 +58,12 @@ import org.apache.ignite.internal.schema.TemporalNativeType;
  *
  * <p>Total value size is 8/12 bytes depending on the type precision.
  *
- * <p>Timestamp compact structure: ┌──────────────────────────┬─────────────┐ │ Seconds since the epoch  │ Sub-seconds │
- * ├──────────────────────────┼─────────────┤ │    64 bits               │ 0/32 bits   │ └──────────────────────────┴─────────────┘
+ * <p>Timestamp compact structure:<pre>
+ * ┌──────────────────────────┬─────────────┐
+ * │ Seconds since the epoch  │ Sub-seconds │
+ * ├──────────────────────────┼─────────────┤
+ * │    64 bits               │ 0/32 bits   │
+ * └──────────────────────────┴─────────────┘</pre>
  *
  * @see org.apache.ignite.internal.schema.row.Row
  * @see org.apache.ignite.internal.schema.row.RowAssembler
