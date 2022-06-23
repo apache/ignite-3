@@ -137,18 +137,18 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
     /** {@inheritDoc} */
     @Override
     public <T> @Nullable T getOldOwner() {
-        try {
-            return currentPath.size() <= 1 ? null : find(currentPath.subList(0, currentPath.size() - 1), oldRoots, true);
-        } catch (KeyNotFoundException ignore) {
-            return null;
-        }
+        return findOwner(oldRoots);
     }
 
     /** {@inheritDoc} */
     @Override
     public <T> @Nullable T getNewOwner() {
+        return findOwner(newRoots);
+    }
+
+    private <T> @Nullable T findOwner(SuperRoot superRoot) {
         try {
-            return currentPath.size() <= 1 ? null : find(currentPath.subList(0, currentPath.size() - 1), newRoots, true);
+            return currentPath.size() <= 1 ? null : find(currentPath.subList(0, currentPath.size() - 1), superRoot, true);
         } catch (KeyNotFoundException ignore) {
             return null;
         }

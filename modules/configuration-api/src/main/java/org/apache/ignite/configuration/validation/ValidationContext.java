@@ -74,14 +74,20 @@ public interface ValidationContext<VIEWT> {
     void addIssue(ValidationIssue issue);
 
     /**
-     * Returns the previous owner view of the current value.
+     * Returns a previous view of the owner of the current value.
+     *
+     * <p>For primitives/nested configuration/named list, the owner is the configuration in which they are declared, for example {@code
+     * TableView} will be returned for the string field, {@code null} will be returned for the root configuration.
      *
      * @param <T> Owner view type.
      */
     <T> @Nullable T getOldOwner();
 
     /**
-     * Returns the updated owner view of the current value.
+     * Returns the updated view of the owner of the current value.
+     *
+     * <p>For primitives/nested configuration/named list, the owner is the configuration in which they are declared, for example {@code
+     * TableView} will be returned for the string field, {@code null} will be returned for the root configuration.
      *
      * @param <T> Owner view type.
      */

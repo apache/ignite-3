@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.pagememory.PageMemoryTestUtils.newDataRegion;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
@@ -101,7 +100,7 @@ public class PersistentPageMemoryNoLoadTest extends VolatilePageMemoryNoLoadSelf
                 checkpointManager
         );
 
-        dataRegions.add(newDataRegion(pageMemory));
+        dataRegions.add(() -> pageMemory);
 
         filePageStoreManager.start();
 
@@ -159,7 +158,7 @@ public class PersistentPageMemoryNoLoadTest extends VolatilePageMemoryNoLoadSelf
                 checkpointManager
         );
 
-        dataRegions.add(newDataRegion(pageMemory));
+        dataRegions.add(() -> pageMemory);
 
         filePageStoreManager.start();
 

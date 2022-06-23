@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import static org.apache.ignite.internal.pagememory.PageMemoryTestUtils.newDataRegion;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager.safeToUpdateAllPageMemories;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -54,7 +53,9 @@ public class CheckpointManagerTest {
 
     @Test
     void testSimple() throws Exception {
-        DataRegion<PersistentPageMemory> dataRegion = newDataRegion(mock(PersistentPageMemory.class));
+        PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
+
+        DataRegion<PersistentPageMemory> dataRegion = () -> pageMemory;
 
         CheckpointManager checkpointManager = new CheckpointManager(
                 "test",
@@ -96,8 +97,8 @@ public class CheckpointManagerTest {
         when(pageMemory0.safeToUpdate()).then(answer -> safeToUpdate0.get());
         when(pageMemory1.safeToUpdate()).then(answer -> safeToUpdate1.get());
 
-        DataRegion<PersistentPageMemory> dataRegion0 = newDataRegion(pageMemory0);
-        DataRegion<PersistentPageMemory> dataRegion1 = newDataRegion(pageMemory1);
+        DataRegion<PersistentPageMemory> dataRegion0 = () -> pageMemory0;
+        DataRegion<PersistentPageMemory> dataRegion1 = () -> pageMemory1;
 
         assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion0)));
         assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion1)));
