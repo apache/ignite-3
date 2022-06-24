@@ -24,7 +24,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -40,9 +39,7 @@ import org.jetbrains.annotations.TestOnly;
  * Abstract table storage implementation based on {@link PageMemory}.
  */
 // TODO: IGNITE-16642 Support indexes.
-public abstract class AbstractPageMemoryTableStorage<T extends DataRegion<? extends PageMemory>> implements TableStorage {
-    protected final T dataRegion;
-
+public abstract class AbstractPageMemoryTableStorage implements TableStorage {
     protected final TableConfiguration tableCfg;
 
     /** List of objects to be closed on the {@link #stop}. */
@@ -55,11 +52,9 @@ public abstract class AbstractPageMemoryTableStorage<T extends DataRegion<? exte
     /**
      * Constructor.
      *
-     * @param tableCfg – Table configuration.
-     * @param dataRegion – Data region for the table.
+     * @param tableCfg Table configuration.
      */
-    public AbstractPageMemoryTableStorage(TableConfiguration tableCfg, T dataRegion) {
-        this.dataRegion = dataRegion;
+    public AbstractPageMemoryTableStorage(TableConfiguration tableCfg) {
         this.tableCfg = tableCfg;
     }
 
@@ -156,14 +151,7 @@ public abstract class AbstractPageMemoryTableStorage<T extends DataRegion<? exte
      * This API is not yet ready. But we need to test mv storages anyways.
      */
     @TestOnly
-    public PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        return new PageMemoryMvPartitionStorage(partitionId,
-                tableCfg.value(),
-                dataRegion,
-                ((VolatilePageMemoryDataRegion) dataRegion).versionChainFreeList(),
-                ((VolatilePageMemoryDataRegion) dataRegion).rowVersionFreeList()
-        );
-    }
+    public abstract PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId);
 
     /**
      * Closes all {@link #partitions} and {@link #autoCloseables}.

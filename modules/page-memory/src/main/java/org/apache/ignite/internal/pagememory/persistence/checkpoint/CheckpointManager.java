@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import java.nio.file.Path;
 import java.util.Collection;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
@@ -50,7 +49,7 @@ import org.jetbrains.annotations.Nullable;
  *     <li>Synchronizing collected pages with disk using {@link FilePageStoreManager}.</li>
  * </ul>
  */
-public class CheckpointManager implements IgniteComponent {
+public class CheckpointManager {
     /** Checkpoint worker. */
     private final Checkpointer checkpointer;
 
@@ -134,8 +133,9 @@ public class CheckpointManager implements IgniteComponent {
         );
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Starts a checkpoint manger.
+     */
     public void start() {
         checkpointWorkflow.start();
 
@@ -144,8 +144,9 @@ public class CheckpointManager implements IgniteComponent {
         checkpointTimeoutLock.start();
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Stops a checkpoint manger.
+     */
     public void stop() throws Exception {
         IgniteUtils.closeAll(
                 checkpointTimeoutLock::stop,

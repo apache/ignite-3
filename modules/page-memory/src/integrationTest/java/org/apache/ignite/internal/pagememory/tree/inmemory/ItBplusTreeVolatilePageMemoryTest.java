@@ -25,15 +25,15 @@ import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
+import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreePageMemoryTest;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
-import org.apache.ignite.internal.pagememory.tree.ItBplusTreePageMemoryTest;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Class to test the {@link BplusTree} with {@link VolatilePageMemory}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class ItBplusTreeVolatilePageMemoryTest extends ItBplusTreePageMemoryTest {
+public class ItBplusTreeVolatilePageMemoryTest extends AbstractBplusTreePageMemoryTest {
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
     private VolatilePageMemoryDataRegionConfiguration dataRegionCfg;
 

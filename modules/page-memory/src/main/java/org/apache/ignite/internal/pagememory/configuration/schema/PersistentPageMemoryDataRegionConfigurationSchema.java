@@ -48,11 +48,4 @@ public class PersistentPageMemoryDataRegionConfigurationSchema extends BasePageM
     @OneOf({RANDOM_LRU_REPLACEMENT_MODE, SEGMENTED_LRU_REPLACEMENT_MODE, CLOCK_REPLACEMENT_MODE})
     @Value(hasDefault = true)
     public String replacementMode = CLOCK_REPLACEMENT_MODE;
-
-    /**
-     * Write to the page store without holding the segment lock (with a delay). Because other thread may require exactly the same page to be
-     * loaded from page store, reads are protected by locking.
-     */
-    @Value(hasDefault = true)
-    public boolean delayedReplacedPageWrite = true;
 }

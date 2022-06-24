@@ -25,12 +25,15 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.pagememory.mv.PageMemoryMvPartitionStorage;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for in-memory case.
  */
-class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage<VolatilePageMemoryDataRegion> {
+class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+    private VolatilePageMemoryDataRegion dataRegion;
+
     /**
      * Constructor.
      *
@@ -38,7 +41,9 @@ class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage<Vola
      * @param dataRegion – Data region for the table.
      */
     public VolatilePageMemoryTableStorage(TableConfiguration tableCfg, VolatilePageMemoryDataRegion dataRegion) {
-        super(tableCfg, dataRegion);
+        super(tableCfg);
+
+        this.dataRegion = dataRegion;
     }
 
     /** {@inheritDoc} */
@@ -59,6 +64,17 @@ class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage<Vola
     @Override
     public void destroy() throws StorageException {
         stop();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
+        return new PageMemoryMvPartitionStorage(partitionId,
+                tableCfg.value(),
+                dataRegion,
+                dataRegion.versionChainFreeList(),
+                dataRegion.rowVersionFreeList()
+        );
     }
 
     /**

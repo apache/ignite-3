@@ -30,15 +30,15 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPage
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManager;
+import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreePageMemoryTest;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
-import org.apache.ignite.internal.pagememory.tree.ItBplusTreePageMemoryTest;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Class to test the {@link BplusTree} with {@link PersistentPageMemory}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class ItBplusTreePersistentPageMemoryTest extends ItBplusTreePageMemoryTest {
+public class ItBplusTreePersistentPageMemoryTest extends AbstractBplusTreePageMemoryTest {
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
     private PersistentPageMemoryDataRegionConfiguration dataRegionCfg;
 

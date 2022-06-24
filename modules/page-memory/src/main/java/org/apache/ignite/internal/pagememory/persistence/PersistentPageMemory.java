@@ -207,13 +207,9 @@ public class PersistentPageMemory implements PageMemory {
 
     /**
      * Delayed page replacement (rotation with disk) tracker. Because other thread may require exactly the same page to be loaded from
-     * store, reads are protected by locking, {@code null} if delayed write functionality is disabled.
+     * store, reads are protected by locking.
      */
-    @Nullable
     private final DelayedPageReplacementTracker delayedPageReplacementTracker;
-
-    /** Flush dirty page closure. */
-    private final PageStoreWriter flushDirtyPage;
 
     /** Checkpoint timeout lock. */
     private final CheckpointTimeoutLock checkpointTimeoutLock;
@@ -227,7 +223,7 @@ public class PersistentPageMemory implements PageMemory {
      * @param checkpointBufferSize Checkpoint buffer size in bytes.
      * @param pageStoreManager Page store manager.
      * @param changeTracker Callback invoked to track changes in pages.
-     * @param flushDirtyPage Write callback invoked when a dirty page is removed for replacement.
+     * @param flushDirtyPageForReplacement Write callback invoked when a dirty page is removed for replacement.
      * @param checkpointTimeoutLock Checkpoint timeout lock.
      * @param pageSize Page size in bytes.
      */
@@ -238,7 +234,7 @@ public class PersistentPageMemory implements PageMemory {
             long checkpointBufferSize,
             PageReadWriteManager pageStoreManager,
             @Nullable PageChangeTracker changeTracker,
-            PageStoreWriter flushDirtyPage,
+            PageStoreWriter flushDirtyPageForReplacement,
             CheckpointTimeoutLock checkpointTimeoutLock,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
@@ -248,7 +244,6 @@ public class PersistentPageMemory implements PageMemory {
         this.sizes = concat(segmentSizes, checkpointBufferSize);
         this.pageStoreManager = pageStoreManager;
         this.changeTracker = changeTracker;
-        this.flushDirtyPage = flushDirtyPage;
         this.checkpointTimeoutLock = checkpointTimeoutLock;
 
         if (!(dataRegionConfigView.memoryAllocator() instanceof UnsafeMemoryAllocatorView)) {
@@ -280,8 +275,7 @@ public class PersistentPageMemory implements PageMemory {
                 throw new IgniteInternalException("Unexpected page replacement mode: " + replacementMode);
         }
 
-        delayedPageReplacementTracker = dataRegionConfigView.delayedReplacedPageWrite()
-                ? new DelayedPageReplacementTracker(pageSize, flushDirtyPage, LOG, sizes.length - 1) : null;
+        delayedPageReplacementTracker = new DelayedPageReplacementTracker(pageSize, flushDirtyPageForReplacement, LOG, sizes.length - 1);
     }
 
     /** {@inheritDoc} */
@@ -1498,8 +1492,7 @@ public class PersistentPageMemory implements PageMemory {
                 if (checkpointPages != null && checkpointPages.allowToSave(fullPageId)) {
                     assert pageStoreManager != null;
 
-                    PageStoreWriter saveDirtyPage = delayedPageReplacementTracker != null
-                            ? delayedPageReplacementTracker.delayedPageWrite() : flushDirtyPage;
+                    PageStoreWriter saveDirtyPage = delayedPageReplacementTracker.delayedPageWrite();
 
                     saveDirtyPage.writePage(
                             fullPageId,

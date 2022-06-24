@@ -25,10 +25,10 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.pagememory.datastructure.DataStructure.rnd;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
+import static org.apache.ignite.internal.pagememory.tree.AbstractBplusTreePageMemoryTest.TestTree.threadId;
 import static org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType.NOOP;
 import static org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType.PUT;
 import static org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType.REMOVE;
-import static org.apache.ignite.internal.pagememory.tree.ItBplusTreePageMemoryTest.TestTree.threadId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.effectivePageId;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
@@ -103,7 +103,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * An abstract class for testing {@link BplusTree} using different implementations of {@link PageMemory}.
  */
-public abstract class ItBplusTreePageMemoryTest extends BaseIgniteAbstractTest {
+public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstractTest {
     private static final short LONG_INNER_IO = 30000;
 
     private static final short LONG_LEAF_IO = 30001;

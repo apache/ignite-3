@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -35,7 +34,7 @@ import org.apache.ignite.lang.NodeStoppingException;
  * Checkpoint lock for outer usage which should be used to protect data during writing to memory. It contains complex logic for the correct
  * taking of inside checkpoint lock(timeout, force checkpoint, etc.).
  */
-public class CheckpointTimeoutLock implements IgniteComponent {
+public class CheckpointTimeoutLock {
     /** Ignite logger. */
     protected final IgniteLogger log;
 
@@ -81,14 +80,16 @@ public class CheckpointTimeoutLock implements IgniteComponent {
         this.checkpointer = checkpointer;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Starts a checkpoint lock.
+     */
     public void start() {
         stop = false;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Stops a checkpoint lock.
+     */
     public void stop() {
         checkpointReadWriteLock.writeLock();
 

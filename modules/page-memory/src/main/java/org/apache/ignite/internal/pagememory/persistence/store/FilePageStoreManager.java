@@ -35,7 +35,6 @@ import java.util.Iterator;
 import java.util.List;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager;
 import org.apache.ignite.internal.util.IgniteStripedLock;
@@ -46,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * File page store manager.
  */
-public class FilePageStoreManager implements IgniteComponent, PageReadWriteManager {
+public class FilePageStoreManager implements PageReadWriteManager {
     /** File suffix. */
     public static final String FILE_SUFFIX = ".bin";
 
@@ -125,8 +124,9 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
         groupPageStoreHolders = new GroupPageStoreHolderMap<>(cleanupAsyncExecutor);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Starts the file page store manager.
+     */
     public void start() {
         if (log.isWarnEnabled()) {
             String tmpDir = System.getProperty("java.io.tmpdir");
@@ -139,8 +139,9 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Stops the file page store manager.
+     */
     public void stop() throws Exception {
         stopAllGroupFilePageStores(false);
 

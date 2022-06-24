@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.Arrays;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
@@ -34,7 +33,7 @@ import org.apache.ignite.internal.storage.StorageException;
 /**
  * Implementation of {@link DataRegion} for persistent case.
  */
-class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>, IgniteComponent {
+class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory> {
     private final PersistentPageMemoryDataRegionConfiguration cfg;
 
     private final PageIoRegistry ioRegistry;
@@ -71,8 +70,9 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         this.checkpointManager = checkpointManager;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Starts a persistent data region.
+     */
     public void start() {
         PersistentPageMemoryDataRegionView dataRegionConfigView = cfg.value();
 
@@ -96,8 +96,9 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         pageMemory = pageMemoryImpl;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Stops a persistent data region.
+     */
     public void stop() throws Exception {
         if (pageMemory != null) {
             pageMemory.stop(true);

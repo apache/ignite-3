@@ -40,7 +40,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
@@ -82,7 +81,7 @@ import org.jetbrains.annotations.Nullable;
  * <li>Finish the checkpoint.
  * </ul>
  */
-public class Checkpointer extends IgniteWorker implements IgniteComponent {
+public class Checkpointer extends IgniteWorker {
     private static final String CHECKPOINT_STARTED_LOG_FORMAT = "Checkpoint started ["
             + "checkpointId=%s, "
             + "checkpointBeforeWriteLockTime=%dms, "
@@ -611,8 +610,9 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Starts the checkpointer.
+     */
     public void start() {
         if (runner() != null) {
             return;
@@ -623,8 +623,9 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
         new IgniteThread(this).start();
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Stops the checkpointer.
+     */
     public void stop() throws Exception {
         // Let's write the data.
         shutdownCheckpointer(true);

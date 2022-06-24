@@ -32,12 +32,15 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.io.PartitionMetaIo;
+import org.apache.ignite.internal.storage.pagememory.mv.PageMemoryMvPartitionStorage;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for persistent case.
  */
-class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage<PersistentPageMemoryDataRegion> {
+class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+    private final PersistentPageMemoryDataRegion dataRegion;
+
     /**
      * Constructor.
      *
@@ -48,7 +51,9 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage<Pe
             TableConfiguration tableCfg,
             PersistentPageMemoryDataRegion dataRegion
     ) {
-        super(tableCfg, dataRegion);
+        super(tableCfg);
+
+        this.dataRegion = dataRegion;
     }
 
     /** {@inheritDoc} */
@@ -96,6 +101,12 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage<Pe
     @Override
     public void destroy() throws StorageException {
         close(true);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
+        throw new UnsupportedOperationException("Not supported yet");
     }
 
     /**

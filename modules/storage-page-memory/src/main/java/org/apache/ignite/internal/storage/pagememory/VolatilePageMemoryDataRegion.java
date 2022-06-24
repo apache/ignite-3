@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
@@ -39,7 +38,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * Implementation of {@link DataRegion} for in-memory case.
  */
-class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemory>, IgniteComponent {
+class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemory> {
     private static final int FREE_LIST_GROUP_ID = 0;
 
     private final VolatilePageMemoryDataRegionConfiguration cfg;
@@ -50,13 +49,10 @@ class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemory>, Ig
 
     private volatile VolatilePageMemory pageMemory;
 
-    /** Must be one for the in-memory data region. */
     private volatile TableFreeList tableFreeList;
 
-    /** Must be one for the in-memory data region. */
     private volatile VersionChainFreeList versionChainFreeList;
 
-    /** Must be one for the in-memory data region. */
     private volatile RowVersionFreeList rowVersionFreeList;
 
     /**
@@ -77,8 +73,9 @@ class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemory>, Ig
         this.pageSize = pageSize;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Starts the in-memory data region.
+     */
     public void start() {
         VolatilePageMemory pageMemory = new VolatilePageMemory(cfg, ioRegistry, pageSize);
 
@@ -154,8 +151,9 @@ class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemory>, Ig
         );
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Starts the in-memory data region.
+     */
     public void stop() throws Exception {
         closeAll(
                 pageMemory != null ? () -> pageMemory.stop(true) : null,

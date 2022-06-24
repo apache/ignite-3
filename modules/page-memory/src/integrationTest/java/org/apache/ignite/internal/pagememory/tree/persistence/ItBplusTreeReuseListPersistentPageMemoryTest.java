@@ -30,14 +30,14 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPage
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManager;
-import org.apache.ignite.internal.pagememory.tree.ItBplusTreeReusePageMemoryTest;
+import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreeReusePageMemoryTest;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test with reuse list and {@link PersistentPageMemory}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class ItBplusTreeReuseListPersistentPageMemoryTest extends ItBplusTreeReusePageMemoryTest {
+public class ItBplusTreeReuseListPersistentPageMemoryTest extends AbstractBplusTreeReusePageMemoryTest {
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
     private PersistentPageMemoryDataRegionConfiguration dataRegionCfg;
 

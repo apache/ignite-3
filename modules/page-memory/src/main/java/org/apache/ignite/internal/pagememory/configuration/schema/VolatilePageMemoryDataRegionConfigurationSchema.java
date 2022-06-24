@@ -63,10 +63,7 @@ public class VolatilePageMemoryDataRegionConfigurationSchema extends BasePageMem
     @Value(hasDefault = true)
     public double evictionThreshold = 0.9;
 
-    /**
-     * Number of empty pages to be present in reuse lists. This parameter ensures that Ignite will be able to successfully evict old data
-     * rows when the size of rows is slightly larger than page size / 2.
-     */
+    /** Maximum amount of empty pages to keep in memory. */
     @Value(hasDefault = true)
     public int emptyPagesPoolSize = 100;
 }

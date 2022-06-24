@@ -39,7 +39,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.Future;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
@@ -63,7 +62,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>{@link CheckpointWorkflow#markCheckpointEnd} - Finalization of last checkpoint.
  */
-class CheckpointWorkflow implements IgniteComponent {
+class CheckpointWorkflow {
     /**
      * Starting from this number of dirty pages in checkpoint, array will be sorted with {@link Arrays#parallelSort(Comparable[])} in case
      * of {@link CheckpointWriteOrder#SEQUENTIAL}.
@@ -111,13 +110,16 @@ class CheckpointWorkflow implements IgniteComponent {
         this.dataRegions = dataRegions;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Starts a checkpoint workflow.
+     */
     public void start() {
+        // No-op.
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Stops a checkpoint workflow.
+     */
     public void stop() {
         listeners.clear();
     }
