@@ -273,9 +273,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                                 remove(plannedPartAssignmentsKey(partId)))
                                 .yield(true),
                         ops().yield(false))).get().getAsBoolean()) {
-                    LOG.info("Finished rebalance of partition={}, table={} to peers={}, "
-                                    + "but planned key={} was changed during results CAS write to metastore, will try again",
-                            partNum, tblConfiguration.name(), appliedPeers, plannedPartAssignmentsKey(partId));
+                    LOG.info("Planned key={} was changed, while trying to update rebalance information about partition={}, table={} "
+                            + "to peers={}, another attempt will be made",
+                            plannedPartAssignmentsKey(partId), partNum, tblConfiguration.name(), appliedPeers);
 
                     doOnNewPeersConfigurationApplied(peers);
                 }
@@ -288,9 +288,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                         ops(put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(appliedPeers)),
                                 remove(pendingPartAssignmentsKey(partId))).yield(true),
                         ops().yield(false))).get().getAsBoolean()) {
-                    LOG.info("Finished rebalance of partition={}, table={} to peers={}, "
-                                    + "but planned key={} was changed during results CAS write to metastore, will try again",
-                            partNum, tblConfiguration.name(), appliedPeers, plannedPartAssignmentsKey(partId));
+                    LOG.info("Planned key={} was changed, while trying to update rebalance information about partition={}, table={} "
+                                    + "to peers={}, another attempt will be made",
+                            plannedPartAssignmentsKey(partId), partNum, tblConfiguration.name(), appliedPeers);
 
                     doOnNewPeersConfigurationApplied(peers);
                 }
