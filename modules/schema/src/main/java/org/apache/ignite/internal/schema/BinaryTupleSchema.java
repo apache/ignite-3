@@ -33,7 +33,7 @@ public class BinaryTupleSchema {
     public static int HEADER_SIZE = 1;
 
     /** Mask for size of entries in variable-length offset table. */
-    public static final int VARSIZE_MASK = 0x011;
+    public static final int VARSIZE_MASK = 0b011;
 
     /** Flag that indicates null map presence. */
     public static final int NULLMAP_FLAG = 0b100;
