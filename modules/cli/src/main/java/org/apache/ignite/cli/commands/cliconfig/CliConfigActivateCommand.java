@@ -24,14 +24,14 @@ import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
 /**
  * Command for activate profile as current.
  */
 @Command(name = "activate")
 public class CliConfigActivateCommand extends BaseCommand implements Callable<Integer> {
-    @Option(names = {"--profile, -p"})
+    @Parameters
     private String profileName;
 
     @Inject
