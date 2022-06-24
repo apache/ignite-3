@@ -1269,11 +1269,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             ? ((List<List<ClusterNode>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(part)
                             : (List<ClusterNode>) ByteUtils.fromBytes(stableAssignments);
 
+                    ClusterNode localMember = raftMgr.server().clusterService().topologyService().localMember();
+
                     var deltaPeers = newPeers.stream()
                             .filter(p -> !assignments.contains(p))
                             .collect(Collectors.toList());
 
                     try {
+                        LOG.info("Received update on pending key={} for partition={}, table={}, "
+                                        + "check if current node={} should start new raft group node for partition rebalance.",
+                                pendingAssignmentsWatchEvent.key(), part, tbl.name(), localMember.address());
+
                         raftMgr.startRaftGroupNode(partId, assignments, deltaPeers, raftGrpLsnrSupplier,
                                 raftGrpEvtsLsnrSupplier);
                     } catch (NodeStoppingException e) {
@@ -1292,10 +1298,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     IgniteBiTuple<Peer, Long> leaderWithTerm = partGrpSvc.refreshAndGetLeaderWithTerm().join();
 
-                    ClusterNode localMember = raftMgr.server().clusterService().topologyService().localMember();
-
                     // run update of raft configuration if this node is a leader
                     if (localMember.address().equals(leaderWithTerm.get1().address())) {
+                        LOG.info("Current node={} is the leader of partition raft group={}. "
+                                        + "Initiate rebalance process for partition={}, table={}",
+                                localMember.address(), partId, part, tbl.name());
+
                         partGrpSvc.changePeersAsync(newNodes, leaderWithTerm.get2()).join();
                     }
 

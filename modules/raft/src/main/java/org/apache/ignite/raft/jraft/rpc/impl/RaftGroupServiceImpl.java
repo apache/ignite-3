@@ -372,7 +372,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         CompletableFuture<ChangePeersAsyncResponse> fut = new CompletableFuture<>();
 
-        LOG.info("Sending request to changePeersAsync of group={} to peers={} with leader term={}",
+        LOG.info("Sending changePeersAsync request for group={} to peers={} with leader term={}",
                 groupId, peers, term);
 
         sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
