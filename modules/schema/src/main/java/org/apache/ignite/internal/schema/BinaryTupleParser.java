@@ -22,7 +22,7 @@ import java.nio.ByteOrder;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * Binary tuple parser allows to extract individual elements from tuple bytes.
+ * Binary tuple parser allows to get bytes of individual elements from entirety of tuple bytes.
  */
 public class BinaryTupleParser {
     /**
@@ -68,15 +68,15 @@ public class BinaryTupleParser {
         this.buffer = buffer;
 
         byte flags = buffer.get(0);
-        entrySize = 1 << (flags & BinaryTupleSchema.VARSIZE_MASK);
 
-        int nullMapSize = 0;
+        int base = BinaryTupleSchema.HEADER_SIZE;
         if ((flags & BinaryTupleSchema.NULLMAP_FLAG) != 0) {
-            nullMapSize = BinaryTupleSchema.getNullMapSize(numElements);
+            base += BinaryTupleSchema.nullMapSize(numElements);
         }
 
-        entryBase = BinaryTupleSchema.HEADER_SIZE + nullMapSize;
-        valueBase = entryBase + entrySize * numElements;
+        entryBase = base;
+        entrySize = 1 << (flags & BinaryTupleSchema.VARSIZE_MASK);
+        valueBase = base + entrySize * numElements;
     }
 
     /**
@@ -195,18 +195,18 @@ public class BinaryTupleParser {
      */
     private int getOffset(int index) {
         switch (entrySize) {
-            case 1:
+            case Byte.BYTES:
                 return Byte.toUnsignedInt(buffer.get(index));
-            case 2:
+            case Short.BYTES:
                 return Short.toUnsignedInt(buffer.getShort(index));
-            case 4: {
+            case Integer.BYTES: {
                 int offset = buffer.getInt(index);
                 if (offset < 0) {
                     throw new IgniteInternalException("Unsupported offset table size");
                 }
                 return offset;
             }
-            case 8:
+            case Long.BYTES:
                 throw new IgniteInternalException("Unsupported offset table size");
             default:
                 throw new IgniteInternalException("Invalid offset table size");
