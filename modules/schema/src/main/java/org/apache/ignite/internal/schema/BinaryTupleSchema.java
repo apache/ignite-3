@@ -56,11 +56,11 @@ public class BinaryTupleSchema {
     /**
      * Tuple element description used for tuple parsing and building.
      *
-     * For binary tuples encoding of values is determined by its basic type and the value itself. Parameters
+     * <p>For binary tuples encoding of values is determined by its basic type and the value itself. Parameters
      * like precision and scale defined for columns in schema are not taken into account. The only exception
      * is the Decimal type where the scale parameter is required for decoding.
      *
-     * To keep things simple we have the scale parameter everywhere but really use it only for Decimals.
+     * <p>To keep things simple we have the scale parameter everywhere but really use it only for Decimals.
      */
     public static final class Element {
         final NativeTypeSpec typeSpec;
@@ -69,6 +69,12 @@ public class BinaryTupleSchema {
 
         final boolean nullable;
 
+        /**
+         * Constructor.
+         *
+         * @param type Element data type.
+         * @param nullable True for nullable elements, false for non-nullable,
+         */
         public Element(NativeType type, boolean nullable) {
             typeSpec = type.spec();
 
@@ -179,16 +185,6 @@ public class BinaryTupleSchema {
     }
 
     /**
-     * Calculate the null map size.
-     *
-     * @param numElements Number of tuple elements.
-     * @return Null map size in bytes.
-     */
-    public static int nullMapSize(int numElements) {
-        return (numElements + 7) / 8;
-    }
-
-    /**
      * Calculate flags for a given size of variable-length area.
      *
      * @param size Variable-length area size.
@@ -218,6 +214,23 @@ public class BinaryTupleSchema {
     }
 
     /**
+     * Calculate the null map size.
+     *
+     * @param numElements Number of tuple elements.
+     * @return Null map size in bytes.
+     */
+    public static int nullMapSize(int numElements) {
+        return (numElements + 7) / 8;
+    }
+
+    /**
+     * Returns the null map size in bytes if there are nullable elements, zero otherwise.
+     */
+    public int nullMapSize() {
+        return hasNullableElements() ? nullMapSize(elementCount()) : 0;
+    }
+
+    /**
      * Returns the number of elements in the tuple.
      */
     public int elementCount() {
@@ -229,13 +242,6 @@ public class BinaryTupleSchema {
      */
     public boolean hasNullableElements() {
         return hasNullables;
-    }
-
-    /**
-     * Returns the null map size in bytes if there are nullable elements, zero otherwise.
-     */
-    public int nullMapSize() {
-        return hasNullableElements() ? nullMapSize(elementCount()) : 0;
     }
 
     /**

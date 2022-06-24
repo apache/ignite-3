@@ -103,14 +103,15 @@ public class BinaryTupleParser {
     /**
      * Get buffer positioned at the specified tuple element.
      *
-     * If the element has NULL value then null is returned.
+     * <p>If the element has NULL value then null is returned.
      *
      * @param index Index of the element.
      * @return ByteBuffer with element bytes between current position and limit or null.
      */
     public ByteBuffer element(int index) {
         var sink = new Sink() {
-            int begin, end;
+            int begin;
+            int end;
 
             @Override
             public void nextElement(int index, int begin, int end) {

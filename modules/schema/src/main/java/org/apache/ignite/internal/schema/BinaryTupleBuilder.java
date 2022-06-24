@@ -701,7 +701,7 @@ public class BinaryTupleBuilder {
     /**
      * Finalize tuple building.
      *
-     * NOTE: This should be called only once as it messes up with accumulated internal data.
+     * <p>NOTE: This should be called only once as it messes up with accumulated internal data.
      *
      * @return Buffer with tuple bytes.
      */
@@ -897,6 +897,8 @@ public class BinaryTupleBuilder {
             case Integer.BYTES:
                 buffer.putInt(entryBase + elementIndex * Integer.BYTES, offset);
                 break;
+            default:
+                assert false;
         }
 
         elementIndex++;
