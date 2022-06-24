@@ -18,7 +18,6 @@
 package org.apache.ignite.example.storage;
 
 import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputContains;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.doNothingConsumer;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.example.AbstractExamplesTest;
@@ -63,14 +62,14 @@ public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
     private void addVolatileDataRegionConfig(String name) throws Exception {
         ignite.clusterConfiguration().getConfiguration(VolatilePageMemoryStorageEngineConfiguration.KEY)
                 .regions()
-                .change(regionsChange -> regionsChange.create(name, doNothingConsumer()))
+                .change(regionsChange -> regionsChange.create(name, c -> {}))
                 .get(1, TimeUnit.SECONDS);
     }
 
     private void addPersistentDataRegionConfig(String name) throws Exception {
         ignite.clusterConfiguration().getConfiguration(PersistentPageMemoryStorageEngineConfiguration.KEY)
                 .regions()
-                .change(regionsChange -> regionsChange.create(name, doNothingConsumer()))
+                .change(regionsChange -> regionsChange.create(name, c -> {}))
                 .get(1, TimeUnit.SECONDS);
     }
 }

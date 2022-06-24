@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory.configuration;
 
 import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.doNothingConsumer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
@@ -117,9 +116,9 @@ public class PageMemoryDataRegionValidatorImplTest {
         String dataRegion0 = UUID.randomUUID().toString();
         String dataRegion1 = UUID.randomUUID().toString();
 
-        volatileEngineConfig.regions().change(c -> c.create(dataRegion0, doNothingConsumer())).get(1, TimeUnit.SECONDS);
+        volatileEngineConfig.regions().change(c -> c.create(dataRegion0, c1 -> {})).get(1, TimeUnit.SECONDS);
 
-        persistentEngineConfig.regions().change(c -> c.create(dataRegion1, doNothingConsumer())).get(1, TimeUnit.SECONDS);
+        persistentEngineConfig.regions().change(c -> c.create(dataRegion1, c1 -> {})).get(1, TimeUnit.SECONDS);
 
         ValidationContext<String> ctx0 = mockValidationContext(
                 dataRegion0,

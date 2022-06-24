@@ -39,7 +39,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -745,13 +744,5 @@ public final class IgniteTestUtils {
         assert false;
 
         return null;
-    }
-
-    /**
-     * Returns a consumer that does nothing.
-     */
-    public static <T> Consumer<T> doNothingConsumer() {
-        return t -> {
-        };
     }
 }
