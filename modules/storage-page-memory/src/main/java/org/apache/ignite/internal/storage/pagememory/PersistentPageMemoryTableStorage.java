@@ -37,7 +37,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for persistent case.
  */
-class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage<PersistentPageMemoryDataRegion> {
     /**
      * Constructor.
      *
@@ -60,9 +60,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
         try {
             // TODO: IGNITE-16665 Directory name needs to be corrected to support table renaming
-            ((PersistentPageMemoryDataRegion) dataRegion)
-                    .filePageStoreManager()
-                    .initialize(tableView.name(), groupId(tableView), tableView.partitions());
+            dataRegion.filePageStoreManager().initialize(tableView.name(), groupId(tableView), tableView.partitions());
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error initializing file page stores for table: " + tableView.name(), e);
         }
@@ -75,9 +73,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
         FilePageStore partitionFilePageStore = ensurePartitionFilePageStore(tableView, partId);
 
-        CheckpointTimeoutLock checkpointTimeoutLock = ((PersistentPageMemoryDataRegion) dataRegion)
-                .checkpointManager()
-                .checkpointTimeoutLock();
+        CheckpointTimeoutLock checkpointTimeoutLock = dataRegion.checkpointManager().checkpointTimeoutLock();
 
         checkpointTimeoutLock.checkpointReadLock();
 
@@ -112,9 +108,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      */
     FilePageStore ensurePartitionFilePageStore(TableView tableView, int partId) throws StorageException {
         try {
-            FilePageStore filePageStore = ((PersistentPageMemoryDataRegion) dataRegion)
-                    .filePageStoreManager()
-                    .getStore(groupId(tableView), partId);
+            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(groupId(tableView), partId);
 
             filePageStore.ensure();
 
@@ -141,7 +135,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             int partId,
             FilePageStore filePageStore
     ) throws StorageException {
-        PersistentPageMemory pageMemoryImpl = (PersistentPageMemory) dataRegion.pageMemory();
+        PersistentPageMemory pageMemoryImpl = dataRegion.pageMemory();
 
         int grpId = groupId(tableView);
 

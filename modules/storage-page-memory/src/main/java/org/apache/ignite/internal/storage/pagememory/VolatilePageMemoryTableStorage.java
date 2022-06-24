@@ -30,7 +30,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for in-memory case.
  */
-class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage<VolatilePageMemoryDataRegion> {
     /**
      * Constructor.
      *
@@ -44,7 +44,7 @@ class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     /** {@inheritDoc} */
     @Override
     protected VolatilePageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException {
-        TableFreeList tableFreeList = ((VolatilePageMemoryDataRegion) dataRegion).tableFreeList();
+        TableFreeList tableFreeList = dataRegion.tableFreeList();
 
         TableTree tableTree = createTableTree(tableCfg.value(), partId, tableFreeList);
 

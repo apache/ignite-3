@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
+import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
@@ -35,10 +37,18 @@ import org.apache.ignite.internal.storage.pagememory.mv.VersionChainFreeList;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Implementation of {@link AbstractPageMemoryDataRegion} for in-memory case.
+ * Implementation of {@link DataRegion} for in-memory case.
  */
-class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion<VolatilePageMemory> {
+class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemory>, IgniteComponent {
     private static final int FREE_LIST_GROUP_ID = 0;
+
+    private final VolatilePageMemoryDataRegionConfiguration cfg;
+
+    private final PageIoRegistry ioRegistry;
+
+    private final int pageSize;
+
+    private volatile VolatilePageMemory pageMemory;
 
     /** Must be one for the in-memory data region. */
     private volatile TableFreeList tableFreeList;
@@ -62,17 +72,15 @@ class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion<Volatile
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
-        super(cfg, ioRegistry, pageSize);
+        this.cfg = cfg;
+        this.ioRegistry = ioRegistry;
+        this.pageSize = pageSize;
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
-        VolatilePageMemory pageMemory = new VolatilePageMemory(
-                (VolatilePageMemoryDataRegionConfiguration) cfg,
-                ioRegistry,
-                pageSize
-        );
+        VolatilePageMemory pageMemory = new VolatilePageMemory(cfg, ioRegistry, pageSize);
 
         pageMemory.start();
 
@@ -150,11 +158,19 @@ class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion<Volatile
     @Override
     public void stop() throws Exception {
         closeAll(
-                super::stop,
+                pageMemory != null ? () -> pageMemory.stop(true) : null,
                 tableFreeList != null ? tableFreeList::close : null,
                 versionChainFreeList != null ? versionChainFreeList::close : null,
                 rowVersionFreeList != null ? rowVersionFreeList::close : null
         );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public VolatilePageMemory pageMemory() {
+        checkDataRegionStarted();
+
+        return pageMemory;
     }
 
     /**
@@ -188,5 +204,16 @@ class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion<Volatile
         checkDataRegionStarted();
 
         return rowVersionFreeList;
+    }
+
+    /**
+     * Checks that the data region has started.
+     *
+     * @throws StorageException If the data region did not start.
+     */
+    private void checkDataRegionStarted() {
+        if (pageMemory == null) {
+            throw new StorageException("Data region not started");
+        }
     }
 }

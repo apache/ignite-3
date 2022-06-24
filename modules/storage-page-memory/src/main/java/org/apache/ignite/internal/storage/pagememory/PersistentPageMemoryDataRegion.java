@@ -21,20 +21,31 @@ import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.Arrays;
+import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.storage.StorageException;
 
 /**
- * Implementation of {@link AbstractPageMemoryDataRegion} for persistent case.
+ * Implementation of {@link DataRegion} for persistent case.
  */
-class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion<PersistentPageMemory> {
+class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>, IgniteComponent {
+    private final PersistentPageMemoryDataRegionConfiguration cfg;
+
+    private final PageIoRegistry ioRegistry;
+
+    private final int pageSize;
+
     private final FilePageStoreManager filePageStoreManager;
 
     private final CheckpointManager checkpointManager;
+
+    private volatile PersistentPageMemory pageMemory;
 
     /**
      * Constructor.
@@ -52,7 +63,9 @@ class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion<Persis
             CheckpointManager checkpointManager,
             int pageSize
     ) {
-        super(cfg, ioRegistry, pageSize);
+        this.cfg = cfg;
+        this.ioRegistry = ioRegistry;
+        this.pageSize = pageSize;
 
         this.filePageStoreManager = filePageStoreManager;
         this.checkpointManager = checkpointManager;
@@ -61,10 +74,10 @@ class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion<Persis
     /** {@inheritDoc} */
     @Override
     public void start() {
-        PersistentPageMemoryDataRegionView dataRegionConfigView = (PersistentPageMemoryDataRegionView) cfg.value();
+        PersistentPageMemoryDataRegionView dataRegionConfigView = cfg.value();
 
         PersistentPageMemory pageMemoryImpl = new PersistentPageMemory(
-                (PersistentPageMemoryDataRegionConfiguration) cfg,
+                cfg,
                 ioRegistry,
                 calculateSegmentSizes(dataRegionConfigView, Runtime.getRuntime().availableProcessors()),
                 calculateCheckpointBufferSize(dataRegionConfigView),
@@ -81,6 +94,22 @@ class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion<Persis
         pageMemoryImpl.start();
 
         pageMemory = pageMemoryImpl;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void stop() throws Exception {
+        if (pageMemory != null) {
+            pageMemory.stop(true);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public PersistentPageMemory pageMemory() {
+        checkDataRegionStarted();
+
+        return pageMemory;
     }
 
     /**
@@ -136,5 +165,16 @@ class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion<Persis
         }
 
         return 2L * GiB;
+    }
+
+    /**
+     * Checks that the data region has started.
+     *
+     * @throws StorageException If the data region did not start.
+     */
+    private void checkDataRegionStarted() {
+        if (pageMemory == null) {
+            throw new StorageException("Data region not started");
+        }
     }
 }

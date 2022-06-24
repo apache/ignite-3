@@ -24,6 +24,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -39,8 +40,8 @@ import org.jetbrains.annotations.TestOnly;
  * Abstract table storage implementation based on {@link PageMemory}.
  */
 // TODO: IGNITE-16642 Support indexes.
-public abstract class AbstractPageMemoryTableStorage implements TableStorage {
-    protected final AbstractPageMemoryDataRegion<?> dataRegion;
+public abstract class AbstractPageMemoryTableStorage<T extends DataRegion<? extends PageMemory>> implements TableStorage {
+    protected final T dataRegion;
 
     protected final TableConfiguration tableCfg;
 
@@ -57,7 +58,7 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage {
      * @param tableCfg – Table configuration.
      * @param dataRegion – Data region for the table.
      */
-    public AbstractPageMemoryTableStorage(TableConfiguration tableCfg, AbstractPageMemoryDataRegion<?> dataRegion) {
+    public AbstractPageMemoryTableStorage(TableConfiguration tableCfg, T dataRegion) {
         this.dataRegion = dataRegion;
         this.tableCfg = tableCfg;
     }
