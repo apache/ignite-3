@@ -708,7 +708,7 @@ public class BinaryTupleBuilder {
     public ByteBuffer build() {
         int offset = 0;
 
-        int valueSize = buffer.limit() - valueBase;
+        int valueSize = buffer.position() - valueBase;
         byte flags = BinaryTupleSchema.valueSizeToFlags(valueSize);
         int desiredEntrySize = BinaryTupleSchema.flagsToEntrySize(flags);
 
@@ -740,7 +740,7 @@ public class BinaryTupleBuilder {
                 }
             }
 
-            offset = (desiredEntrySize - entrySize) * numElements;
+            offset = (entrySize - desiredEntrySize) * numElements;
         }
 
         // Drop or move null map if needed.
