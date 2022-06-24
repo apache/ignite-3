@@ -113,7 +113,7 @@ public class BinaryTupleSchema {
         Element[] elements = new Element[numCols];
 
         for (int i = 0; i < numCols; i++) {
-            Column column = descriptor.column(i);
+            Column column = descriptor.column(colBegin + i);
             elements[i] = new Element(column.type(), column.nullable());
         }
 
