@@ -40,7 +40,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class BinaryTupleBuilder {
     /** The buffer size allocated for values when we do not know anything better. */
-    private int DEFAULT_BUFFER_SIZE = 4000;
+    private static final int DEFAULT_BUFFER_SIZE = 4000;
 
     /** Current element. */
     private int elementIndex = 0;

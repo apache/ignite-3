@@ -16,7 +16,7 @@ public class BinaryTuple extends BinaryTupleReader implements InternalTuple {
      * Constructor.
      *
      * @param schema Tuple schema.
-     * @param bytes
+     * @param bytes Binary tuple.
      */
     public BinaryTuple(BinaryTupleSchema schema, byte[] bytes) {
         super(schema.elementCount(), bytes);
@@ -27,7 +27,7 @@ public class BinaryTuple extends BinaryTupleReader implements InternalTuple {
      * Constructor.
      *
      * @param schema Tuple schema.
-     * @param buffer
+     * @param buffer Buffer with a binary tuple.
      */
     public BinaryTuple(BinaryTupleSchema schema, ByteBuffer buffer) {
         super(schema.elementCount(), buffer);
