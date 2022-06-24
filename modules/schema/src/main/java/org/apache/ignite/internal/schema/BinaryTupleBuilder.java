@@ -569,7 +569,7 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendValue(BinaryTupleSchema schema, Object value) {
-        var element = schema.element(elementIndex);
+        BinaryTupleSchema.Element element = schema.element(elementIndex);
 
         if (value == null) {
             if (!element.nullable) {
