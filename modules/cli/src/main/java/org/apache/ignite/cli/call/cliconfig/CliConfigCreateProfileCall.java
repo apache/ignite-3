@@ -53,6 +53,6 @@ public class CliConfigCreateProfileCall implements Call<CliConfigCreateProfileCa
         if (input.isActivate()) {
             configManager.setCurrentProfile(profileName);
         }
-        return DefaultCallOutput.success("Profile " + profileName + " successfully created.");
+        return DefaultCallOutput.success("Profile " + profileName + " was successfully created.");
     }
 }

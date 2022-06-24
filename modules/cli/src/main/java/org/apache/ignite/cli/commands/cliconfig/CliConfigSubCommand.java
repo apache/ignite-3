@@ -34,7 +34,8 @@ import picocli.CommandLine.Option;
 @Command(name = "config", subcommands = {
         CliConfigGetSubCommand.class,
         CliConfigSetSubCommand.class,
-        CliConfigCreateProfileCommand.class
+        CliConfigCreateProfileCommand.class,
+        CliConfigActivateCommand.class
 })
 @Singleton
 public class CliConfigSubCommand extends BaseCommand implements Callable<Integer> {

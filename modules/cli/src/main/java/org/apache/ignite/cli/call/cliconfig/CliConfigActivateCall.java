@@ -37,6 +37,6 @@ public class CliConfigActivateCall implements Call<StringCallInput, String> {
     @Override
     public CallOutput<String> execute(StringCallInput input) {
         configManagerProvider.get().setCurrentProfile(input.getString());
-        return DefaultCallOutput.success("Profile " + input.getString() + " activated successful.");
+        return DefaultCallOutput.success("Profile " + input.getString() + " was activated successful.");
     }
 }
