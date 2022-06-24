@@ -27,7 +27,7 @@ import org.apache.ignite.internal.schema.TemporalNativeType;
  * <p>Provides methods to encode/decode temporal types in a compact way for further writing to row. Conversion preserves natural type
  * order.
  *
- * <p>DATE is a fixed-length type which compact representation keeps ordering, value is signed and fit into a 3-bytes. Thus, DATE value
+ * <p>DATE is a fixed-length type which compact representation keeps ordering, value is signed and fits into 3 bytes. Thus, DATE value
  * can be compared by bytes where first byte is signed and others - unsigned. Thus temporal functions, like YEAR(), can easily extract
  * fields with a mask,
  *
@@ -40,7 +40,7 @@ import org.apache.ignite.internal.schema.TemporalNativeType;
  *
  * <p>TIME is a fixed-length type supporting accuracy from 1 second up to 1 nanosecond. Compact time representation keeps ordering,
  * values fits to 4-6 bytes value. The first 18 bits are used for hours, minutes and seconds, and the last bits for fractional seconds: 14
- * for millisecond precision and 30 for nanosecond. Values of a type of any intermediate precisions is normalized to the type, then stored
+ * for millisecond precision and 30 for nanosecond. Values of a type with any intermediate precision are normalized to the type, then stored
  * as shortest possible structure without precision loss.
  *
  * <p>Time compact structure:<pre>
