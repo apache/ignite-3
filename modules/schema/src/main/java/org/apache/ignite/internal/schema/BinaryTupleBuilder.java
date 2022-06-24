@@ -139,52 +139,6 @@ public class BinaryTupleBuilder {
     }
 
     /**
-     * Creates a builder with direct buffer.
-     *
-     * @param schema Tuple schema.
-     * @return Tuple builder.
-     */
-    public BinaryTupleBuilder createWithDirectBuffer(BinaryTupleSchema schema) {
-        return createWithDirectBuffer(schema.elementCount(), schema.hasNullableElements());
-    }
-
-    /**
-     * Creates a builder with direct buffer.
-     *
-     * @param numElements Number of tuple elements.
-     * @param allowNulls True if NULL values are possible, false otherwise.
-     * @return Tuple builder.
-     */
-    public BinaryTupleBuilder createWithDirectBuffer(int numElements, boolean allowNulls) {
-        return createWithDirectBuffer(numElements, allowNulls, -1);
-    }
-
-    /**
-     * Creates a builder with direct buffer.
-     *
-     * @param schema Tuple schema.
-     * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
-     * @return Tuple builder.
-     */
-    public BinaryTupleBuilder createWithDirectBuffer(BinaryTupleSchema schema, int totalValueSize) {
-        return createWithDirectBuffer(schema.elementCount(), schema.hasNullableElements(), totalValueSize);
-    }
-
-    /**
-     * Creates a builder with direct buffer.
-     *
-     * @param numElements Number of tuple elements.
-     * @param allowNulls True if NULL values are possible, false otherwise.
-     * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
-     * @return Tuple builder.
-     */
-    public BinaryTupleBuilder createWithDirectBuffer(int numElements, boolean allowNulls, int totalValueSize) {
-        var builder = new BinaryTupleBuilder(numElements, allowNulls, totalValueSize);
-        builder.allocateDirect(totalValueSize);
-        return builder;
-    }
-
-    /**
      * Check if the binary tuple contains a null map.
      */
     public boolean hasNullMap() {
@@ -912,13 +866,6 @@ public class BinaryTupleBuilder {
         buffer.position(valueBase);
     }
 
-    /** Allocate a direct buffer for tuple. */
-    private void allocateDirect(int totalValueSize) {
-        buffer = ByteBuffer.allocateDirect(estimateBufferCapacity(totalValueSize));
-        buffer.order(ByteOrder.LITTLE_ENDIAN);
-        buffer.position(valueBase);
-    }
-
     /** Do our best to find initial buffer capacity. */
     private int estimateBufferCapacity(int totalValueSize) {
         if (totalValueSize < 0) {
@@ -944,12 +891,7 @@ public class BinaryTupleBuilder {
             }
         } while ((capacity - buffer.position()) < size);
 
-        ByteBuffer newBuffer;
-        if (buffer.isDirect()) {
-            newBuffer = ByteBuffer.allocateDirect(capacity);
-        } else {
-            newBuffer = ByteBuffer.allocate(capacity);
-        }
+        ByteBuffer newBuffer = ByteBuffer.allocate(capacity);
         newBuffer.order(ByteOrder.LITTLE_ENDIAN);
         newBuffer.put(buffer.flip());
 
