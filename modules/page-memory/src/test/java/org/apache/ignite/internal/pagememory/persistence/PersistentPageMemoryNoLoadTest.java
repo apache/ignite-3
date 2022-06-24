@@ -36,15 +36,16 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Set;
 import java.util.stream.LongStream;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
+import org.apache.ignite.internal.pagememory.AbstractPageMemoryNoLoadSelfTest;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
-import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemoryNoLoadSelfTest;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
@@ -60,7 +61,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests {@link PersistentPageMemory}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class PersistentPageMemoryNoLoadTest extends VolatilePageMemoryNoLoadSelfTest {
+@ExtendWith(ConfigurationExtension.class)
+public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelfTest {
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
     private PersistentPageMemoryDataRegionConfiguration dataRegionCfg;
 

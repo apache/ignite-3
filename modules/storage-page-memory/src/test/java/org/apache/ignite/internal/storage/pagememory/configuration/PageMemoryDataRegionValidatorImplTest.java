@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.configuration;
 
 import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.doNothingConsumer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
@@ -56,50 +57,39 @@ public class PageMemoryDataRegionValidatorImplTest {
     private PersistentPageMemoryStorageEngineConfiguration persistentEngineConfig;
 
     @Test
-    void testValidationFail() {
-        ValidationContext<String> ctx0 = mockValidationContext(
+    void testValidationFailForVolatilePageMemory() {
+        ValidationContext<String> ctx = mockValidationContext(
                 UUID.randomUUID().toString(),
                 VolatilePageMemoryStorageEngineConfiguration.KEY,
                 volatileEngineConfig.value(),
                 mock(VolatilePageMemoryDataStorageView.class)
         );
 
-        ValidationContext<String> ctx1 = mockValidationContext(
+        checkValidationFail(ctx, "Unable to find data region");
+    }
+
+    @Test
+    void testValidationFailForPersistentPageMemory() {
+        ValidationContext<String> ctx = mockValidationContext(
                 UUID.randomUUID().toString(),
                 PersistentPageMemoryStorageEngineConfiguration.KEY,
                 persistentEngineConfig.value(),
                 mock(PersistentPageMemoryDataStorageView.class)
         );
 
-        ValidationContext<String> ctx2 = mockValidationContext(
+        checkValidationFail(ctx, "Unable to find data region");
+    }
+
+    @Test
+    void testValidationFailUnknownDataStorage() {
+        ValidationContext<String> ctx = mockValidationContext(
                 UUID.randomUUID().toString(),
                 PersistentPageMemoryStorageEngineConfiguration.KEY,
                 persistentEngineConfig.value(),
                 new Object()
         );
 
-        ArgumentCaptor<ValidationIssue> validate0 = validate(ctx0);
-        ArgumentCaptor<ValidationIssue> validate1 = validate(ctx1);
-        ArgumentCaptor<ValidationIssue> validate2 = validate(ctx2);
-
-        assertThat(validate0.getAllValues(), hasSize(1));
-        assertThat(validate1.getAllValues(), hasSize(1));
-        assertThat(validate2.getAllValues(), hasSize(1));
-
-        assertThat(
-                validate0.getValue().message(),
-                is(startsWith("Unable to find data region"))
-        );
-
-        assertThat(
-                validate1.getValue().message(),
-                is(startsWith("Unable to find data region"))
-        );
-
-        assertThat(
-                validate2.getValue().message(),
-                is(startsWith("Unknown data storage"))
-        );
+        checkValidationFail(ctx, "Unknown data storage");
     }
 
     @Test
@@ -127,11 +117,9 @@ public class PageMemoryDataRegionValidatorImplTest {
         String dataRegion0 = UUID.randomUUID().toString();
         String dataRegion1 = UUID.randomUUID().toString();
 
-        volatileEngineConfig.regions().change(c -> c.create(dataRegion0, c1 -> {
-        })).get(1, TimeUnit.SECONDS);
+        volatileEngineConfig.regions().change(c -> c.create(dataRegion0, doNothingConsumer())).get(1, TimeUnit.SECONDS);
 
-        persistentEngineConfig.regions().change(c -> c.create(dataRegion1, c1 -> {
-        })).get(1, TimeUnit.SECONDS);
+        persistentEngineConfig.regions().change(c -> c.create(dataRegion1, doNothingConsumer())).get(1, TimeUnit.SECONDS);
 
         ValidationContext<String> ctx0 = mockValidationContext(
                 dataRegion0,
@@ -149,6 +137,17 @@ public class PageMemoryDataRegionValidatorImplTest {
 
         assertThat(validate(ctx0).getAllValues(), empty());
         assertThat(validate(ctx1).getAllValues(), empty());
+    }
+
+    private void checkValidationFail(ValidationContext<String> ctx, String prefixValidationMessage) {
+        ArgumentCaptor<ValidationIssue> validate = validate(ctx);
+
+        assertThat(validate.getAllValues(), hasSize(1));
+
+        assertThat(
+                validate.getValue().message(),
+                is(startsWith(prefixValidationMessage))
+        );
     }
 
     private static <T extends BasePageMemoryStorageEngineView> ValidationContext<String> mockValidationContext(

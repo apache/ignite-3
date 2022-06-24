@@ -2731,6 +2731,7 @@ public abstract class ItBplusTreePageMemoryTest extends BaseIgniteAbstractTest {
      * Returns number of acquired pages.
      */
     protected abstract long acquiredPages();
+
     /**
      * Long leaf.
      */

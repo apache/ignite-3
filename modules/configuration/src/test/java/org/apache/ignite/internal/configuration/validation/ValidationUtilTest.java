@@ -279,10 +279,12 @@ public class ValidationUtilTest {
                 Object oldOwner = ctx.getOldOwner();
                 Object newOwner = ctx.getOldOwner();
 
+                // Checks that the nested configuration owner is ValidatedRootView.
                 if (!(oldOwner instanceof ValidatedRootView)) {
                     ctx.addIssue(new ExValidationIssue("Wrong inner owner", ctx.currentKey(), null, oldOwner));
                 }
 
+                // Checks that the nested configuration owner is ValidatedRootView.
                 if (!(newOwner instanceof ValidatedRootView)) {
                     ctx.addIssue(new ExValidationIssue("Wrong inner owner", ctx.currentKey(), null, newOwner));
                 }
@@ -296,10 +298,12 @@ public class ValidationUtilTest {
                 Object oldOwner = ctx.getOldOwner();
                 Object newOwner = ctx.getOldOwner();
 
+                // Checks that the owner of the primitive (leaf) configuration is either ValidatedChildView or PolyValidatedChildView.
                 if (!(oldOwner instanceof ValidatedChildView) && !(oldOwner instanceof PolyValidatedChildView)) {
                     ctx.addIssue(new ExValidationIssue("Wrong leaf owner", ctx.currentKey(), null, oldOwner));
                 }
 
+                // Checks that the owner of the primitive (leaf) configuration is either ValidatedChildView or PolyValidatedChildView.
                 if (!(newOwner instanceof ValidatedChildView) && !(newOwner instanceof PolyValidatedChildView)) {
                     ctx.addIssue(new ExValidationIssue("Wrong leaf owner", ctx.currentKey(), null, newOwner));
                 }
@@ -313,10 +317,12 @@ public class ValidationUtilTest {
                 Object oldOwner = ctx.getOldOwner();
                 Object newOwner = ctx.getOldOwner();
 
+                // Checks that the named list configuration owner is ValidatedRootView.
                 if (!(oldOwner instanceof ValidatedRootView)) {
                     ctx.addIssue(new ExValidationIssue("Wrong list owner", ctx.currentKey(), null, oldOwner));
                 }
 
+                // Checks that the named list configuration owner is ValidatedRootView.
                 if (!(newOwner instanceof ValidatedRootView)) {
                     ctx.addIssue(new ExValidationIssue("Wrong list owner", ctx.currentKey(), null, newOwner));
                 }
@@ -331,6 +337,7 @@ public class ValidationUtilTest {
 
         List<ValidationIssue> validationIssues = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
 
+        // Checks that for a nested/leaf/named configuration their owners will be correctly returned.
         assertThat(validationIssues, empty());
     }
 

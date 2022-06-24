@@ -28,16 +28,16 @@ import org.apache.ignite.configuration.validation.OneOf;
  */
 @Config
 public class PersistentPageMemoryDataRegionConfigurationSchema extends BasePageMemoryDataRegionConfigurationSchema {
-    /** Default max size. */
+    /** Default size. */
     public static final long DFLT_DATA_REGION_SIZE = 256 * MiB;
 
-    /** Random-LRU algorithm. */
+    /** Random-LRU page replacement algorithm. */
     public static final String RANDOM_LRU_REPLACEMENT_MODE = "RANDOM_LRU";
 
-    /** Segmented-LRU algorithm. */
+    /** Segmented-LRU page replacement algorithm. */
     public static final String SEGMENTED_LRU_REPLACEMENT_MODE = "SEGMENTED_LRU";
 
-    /** CLOCK algorithm. */
+    /** CLOCK page replacement algorithm. */
     public static final String CLOCK_REPLACEMENT_MODE = "CLOCK";
 
     /** Memory region size in bytes. */
