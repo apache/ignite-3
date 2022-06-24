@@ -46,7 +46,7 @@ class CliConfigActivateCommandTest extends CliCommandTestBase {
 
         assertAll(
                 this::assertExitCodeIsZero,
-                () -> assertOutputContains("Profile owner activated successful."),
+                () -> assertOutputContains("Profile owner was activated successfully"),
                 this::assertErrOutputIsEmpty,
                 () -> assertThat(configManagerProvider.get().getCurrentConfig().getName()).isEqualTo("owner")
         );
