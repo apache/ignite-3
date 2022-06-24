@@ -17,8 +17,8 @@
 
 package org.apache.ignite.cli.commands.cliconfig;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.cli.commands.CliCommandTestBase;
@@ -26,7 +26,7 @@ import org.apache.ignite.cli.config.ini.IniConfigManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class CliConfigActivateCommandTest extends CliCommandTestBase {
+class CliConfigActivateCommandTest extends CliCommandTestBase {
     @Inject
     private TestConfigManagerProvider configManagerProvider;
 

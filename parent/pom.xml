@@ -1523,6 +1523,7 @@
                         <exclude>deliveries/deb/rules</exclude>
                         <exclude>deliveries/deb/control</exclude>
                         <exclude>**/*.bat</exclude> <!-- Files in bat format -->
+                        <exclude>**/*.ini</exclude> <!-- Files in ini format -->
                     </excludes>
                 </configuration>
             </plugin>

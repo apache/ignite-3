@@ -22,9 +22,12 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.cli.config.ConfigManager;
 import org.apache.ignite.cli.config.ConfigManagerProvider;
 
+/**
+ * Test implementation of {@link ConfigManagerProvider}.
+ */
 @Singleton
 @Replaces(ConfigManagerProvider.class)
-class TestConfigManagerProvider implements ConfigManagerProvider {
+public class TestConfigManagerProvider implements ConfigManagerProvider {
 
     public ConfigManager configManager;
 

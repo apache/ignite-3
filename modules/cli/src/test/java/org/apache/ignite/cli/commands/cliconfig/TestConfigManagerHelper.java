@@ -33,6 +33,7 @@ public class TestConfigManagerHelper {
     public static final String EMPTY = "empty.ini";
     public static final String TWO_SECTION_WITH_INTERNAL_PART = "two_section_with_internal.ini";
     public static final String TWO_SECTION_WITHOUT_INTERNAL_PART = "two_section_without_internal.ini";
+    public static final String INTEGRATION_TESTS = "integration_tests.ini";
 
     public static File createEmptyConfig() {
         return createIniFile(EMPTY);
@@ -44,6 +45,10 @@ public class TestConfigManagerHelper {
 
     public static File createSectionWithoutInternalPart() {
         return createIniFile(TWO_SECTION_WITHOUT_INTERNAL_PART);
+    }
+
+    public static File createIntegrationTests() {
+        return createIniFile(INTEGRATION_TESTS);
     }
 
     private static File createIniFile(String iniResource) {
