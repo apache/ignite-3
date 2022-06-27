@@ -84,12 +84,14 @@ public class BinaryTupleBuilder {
         entryBase = base;
 
         if (totalValueSize < 0) {
-            entrySize = 4;
+            entrySize = Integer.BYTES;
         } else {
             entrySize = BinaryTupleSchema.flagsToEntrySize(BinaryTupleSchema.valueSizeToFlags(totalValueSize));
         }
 
         valueBase = base + entrySize * numElements;
+
+        allocate(totalValueSize);
     }
 
     /**
@@ -98,8 +100,19 @@ public class BinaryTupleBuilder {
      * @param schema Tuple schema.
      * @return Tuple builder.
      */
-    public BinaryTupleBuilder create(BinaryTupleSchema schema) {
+    public static BinaryTupleBuilder create(BinaryTupleSchema schema) {
         return create(schema.elementCount(), schema.hasNullableElements());
+    }
+
+    /**
+     * Creates a builder.
+     *
+     * @param schema Tuple schema.
+     * @param allowNulls True if NULL values are possible, false otherwise.
+     * @return Tuple builder.
+     */
+    public static BinaryTupleBuilder create(BinaryTupleSchema schema, boolean allowNulls) {
+        return create(schema.elementCount(), schema.hasNullableElements() & allowNulls);
     }
 
     /**
@@ -109,7 +122,7 @@ public class BinaryTupleBuilder {
      * @param allowNulls True if NULL values are possible, false otherwise.
      * @return Tuple builder.
      */
-    public BinaryTupleBuilder create(int numElements, boolean allowNulls) {
+    public static BinaryTupleBuilder create(int numElements, boolean allowNulls) {
         return create(numElements, allowNulls, -1);
     }
 
@@ -120,8 +133,20 @@ public class BinaryTupleBuilder {
      * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
      * @return Tuple builder.
      */
-    public BinaryTupleBuilder create(BinaryTupleSchema schema, int totalValueSize) {
+    public static BinaryTupleBuilder create(BinaryTupleSchema schema, int totalValueSize) {
         return create(schema.elementCount(), schema.hasNullableElements(), totalValueSize);
+    }
+
+    /**
+     * Creates a builder.
+     *
+     * @param schema Tuple schema.
+     * @param allowNulls True if NULL values are possible, false otherwise.
+     * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
+     * @return Tuple builder.
+     */
+    public static BinaryTupleBuilder create(BinaryTupleSchema schema, boolean allowNulls, int totalValueSize) {
+        return create(schema.elementCount(), schema.hasNullableElements() & allowNulls, totalValueSize);
     }
 
     /**
@@ -132,10 +157,8 @@ public class BinaryTupleBuilder {
      * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
      * @return Tuple builder.
      */
-    public BinaryTupleBuilder create(int numElements, boolean allowNulls, int totalValueSize) {
-        var builder = new BinaryTupleBuilder(numElements, allowNulls, totalValueSize);
-        builder.allocate(totalValueSize);
-        return builder;
+    public static BinaryTupleBuilder create(int numElements, boolean allowNulls, int totalValueSize) {
+        return new BinaryTupleBuilder(numElements, allowNulls, totalValueSize);
     }
 
     /**
@@ -714,7 +737,7 @@ public class BinaryTupleBuilder {
 
         buffer.put(offset, flags);
 
-        return buffer.position(offset).slice();
+        return buffer.flip().position(offset).slice();
     }
 
     /** Put a byte value to the buffer extending it if needed. */
