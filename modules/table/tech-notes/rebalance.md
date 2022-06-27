@@ -1,16 +1,12 @@
 # How to read this doc
 Every algorithm phase has the following main sections:
-- Trigger - how current phase will be invoked
-- Steps/Pseudocode - the main logical steps of the current phase
-- Result (optional, if pseudocode provided) - events and system state changes, which this phase produces
+- Trigger – how current phase will be invoked
+- Steps/Pseudocode – the main logical steps of the current phase
+- Result (optional, if pseudocode provided) – events and system state changes, which this phase produces
 
 # Rebalance algorithm
 ## Short algorithm description
   - Operations, which can trigger rebalance occurred:
-    
-    Write new baseline to metastore (effectively from 1 node in cluster)
-
-    OR
     
     Write new replicas configuration number to table config (effectively from 1 node)
     
@@ -18,56 +14,48 @@ Every algorithm phase has the following main sections:
     
     Write new partitions configuration number to table config (effectively from 1 node)
 - Write new assignments' intention to metastore (effectively from 1 node in cluster)
-- Start new raft nodes. Initiate/update change peer request to raft group (effectively from 1 node per partition)
+- Start new raft nodes. Initiate/update asynchronous change peer request to raft group (effectively from 1 node per partition)
 - Stop all redundant nodes. Change stable partition assignment to the new one and finish rebalance process.
 
 ## New metastore keys
 For further steps, we should introduce some new metastore keys:
-- `partition.assignments.stable` - the list of peers, which process operations for partition at the current moment.
+- `partition.assignments.stable` - the list of peers, which process operations for a partition at the current moment.
 - `partition.assignments.pending` - the list of peers, where current rebalance move the partition.
 - `partition.assignments.planned` - the list of peers, which will be used for new rebalance, when current will be finished.
 
 Also, we will need the utility key:
-- `partition.assignments.change.trigger.revision` - the key, needed for processing the event about assignments' update trigger only once.
+- `partition.change.trigger.revision` - the key, needed for processing the event about assignments' update trigger only once.
 
 ## Operations, which can trigger rebalance
 Three types of events can trigger the rebalance:
-- Change of baseline metastore key (1 for all tables for now, but maybe it should be separate per table in future)
 - Configuration change through `org.apache.ignite.configuration.schemas.table.TableChange.changeReplicas` produce metastore update event
 - Configuration change through `org.apache.ignite.configuration.schemas.table.TableChange.changePartitions` produce metastore update event (IMPORTANT: this type of trigger has additional difficulties because of cross raft group data migration and it is out of scope of this document)
 
-**Result**: So, one of three metastore keys' changes will trigger rebalance:
+**Result**: So, one of two metastore keys' changes will trigger rebalance:
 ```
-<global>.baseline
 <tableScope>.replicas
 <tableScope>.partitions // out of scope
 ```
 ## Write new pending assignments (1)
 **Trigger**:
-- Metastore event about change in `<global>.baseline`
-- Metastore event about changes in `<tableScope>.replicas`
+- Metastore event about changes in `<tableScope>.replicas` (See `org.apache.ignite.internal.table.distributed.TableManager.onUpdateReplicas`)
 
 **Pseudocode**:
-```
-onBaselineEvent:
-    for table in tableCfg.tables():
-        for partition in table.partitions:
-            <inline metastoreInvoke>
-            
+```         
 onReplicaNumberChange:
     with table as event.table:
         for partitoin in table.partitions:
             <inline metastoreInvoke>
 
 metastoreInvoke: // atomic metastore call through multi-invoke api
-    if empty(partition.assignments.change.trigger.revision) || partition.assignments.change.trigger.revision < event.revision:
+    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
         if empty(partition.assignments.pending) && partition.assignments.stable != calcPartAssighments():
             partition.assignments.pending = calcPartAssignments() 
-            partition.assignments.change.trigger.revision = event.revision
+            partition.change.trigger.revision = event.revision
         else:
             if partition.assignments.pending != calcPartAssignments
                 partition.assignments.planned = calcPartAssignments()
-                partition.assignments.change.trigger.revision = event.revision
+                partition.change.trigger.revision = event.revision
             else
                 remove(partition.assignments.planned)
     else:
@@ -75,18 +63,18 @@ metastoreInvoke: // atomic metastore call through multi-invoke api
 ```
 
 ## Start new raft nodes and initiate change peers (2)
-**Trigger**: Metastore event about new `partition.assignments.pending` received
+**Trigger**: Metastore event about new `partition.assignments.pending` received (See corresponding listener for pending key in `org.apache.ignite.internal.table.distributed.TableManager.registerRebalanceListeners`)
 
 **Steps**:
 - Start all new needed nodes `partition.assignments.pending / partition.assignments.stable` 
-- After successful starts - check if current node is the leader of raft group (leader response must be updated by current term) and `changePeers(leaderTerm, peers)`. `changePeers` from old terms must be skipped.
+- After successful starts - check if current node is the leader of raft group (leader response must be updated by current term) and run `RaftGroupService#changePeersAsync(leaderTerm, peers)`. `RaftGroupService#changePeersAsync` from old terms must be skipped.
 
 **Result**:
 - New needed raft nodes started
 - Change peers state initiated for every raft group
 
-## When changePeers done inside the raft group - stop all redundant nodes
-**Trigger**: When leader applied new Configuration with list of resulting peers `<applied peer>`, it calls `onChangePeersCommitted(<applied peers>)`
+## When RaftGroupService#changePeersAsync done inside the raft group – update assignments, stable key and stop all redundant nodes
+**Trigger**: When leader applied new Configuration with list of resulting peers `<applied peer>`, it calls `RebalanceRaftGroupEventsListener.onNewPeersConfigurationApplied(<applied peers>)`
 
 **Pseudocode**:
 ```
@@ -98,13 +86,16 @@ metastoreInvoke: \\ atomic
         partition.assignments.pending = partition.assignments.planned
         remove(partition.assignments.planned)
 ```
+`RebalanceRaftGroupEventsListener.onNewPeersConfigurationApplied(<applied peers>)` also is responsible for the updating of assignments of the table.
+When assignments are updated, corresponding listener for its updates will be triggered (see `org.apache.ignite.internal.table.distributed.TableManager.onUpdateAssignments`), so raft clients will be updated. 
 
-Failover helpers (detailed failover scenarious must be developed in future)
-- `onLeaderElected()` - must be executed from the new leader when raft group elected the new leader. Maybe we actually need to also check if a new lease is received.
-- `onChangePeersError()` - must be executed when any errors during changePeers occurred.
-- `onChangePeersCommitted(peers)` - must be executed with the list of new peers when changePeers has successfully done.
+After stable key is updated, corresponding listener for that change is called, so redundant raft nodes may be stopped (see corresponding listener for stable key in `org.apache.ignite.internal.table.distributed.TableManager.registerRebalanceListeners`)
 
-At the moment, this set of listeners seems to enough for restart rebalance and/or notify node's failover mechanism about fatal issues. Failover scenarios will be explained with more details during first phase of implementation.
+
+Failover helpers 
+- `RebalanceRaftGroupEventsListener.onLeaderElected` - must be executed from the new leader when raft group elected the new leader. Maybe we actually need to also check if a new lease is received.
+- `RebalanceRaftGroupEventsListener.onReconfigurationError` - must be executed when any errors during `RaftGroupService#changePeersAsync` occurred. For more info about change peers process, and more specifically, catch up process, see `modules/raft/tech-notes/changePeers.md` and `modules/raft/tech-notes/nodeCatchUp.md`  
+- `RebalanceRaftGroupEventsListener.onNewPeersConfigurationApplied(peers)` - must be executed with the list of new peers when `RaftGroupService#changePeersAsync` has successfully done.
 
 ## Cleanup redundant raft nodes (3)
 **Trigger**: Node receive update about partition stable assignments
@@ -119,18 +110,18 @@ At the moment, this set of listeners seems to enough for restart rebalance and/o
 
 # Failover
 We need to provide Failover thread, which can handle the following cases:
-- `changePeers` can't start even catchup process, because of any new raft nodes wasn't started yet for instance.
-- `changePeers` failed to complete catchup due to catchup timeout, for example.
+- `RaftGroupService#changePeersAsync` can't start even catchup process, because of any new raft nodes wasn't started yet for instance.
+- `RaftGroupService#changePeersAsync` failed to complete catchup due to catchup timeout, for example. To check all possible error cases during catch up stage, check `modules/raft/tech-notes/nodeCatchUp.md`
 
 We have the following mechanisms for handling these cases:
-- `onChangerPeersError(errorContext)`, which must schedule retries, if needed
-- Separate special thread must process all needed retries on the current node
-- If current node is not the leader of partition raft group anymore - it will request `changePeers` with legacy term, receive appropriate answer from the leader and stop retries for this partition.
-- If leader changed, new node will receive `onLeaderElected()` invoke and start needed changePeers from the pending key. Also, it will create new failover thread for retry logic.
-- If failover exhaust maximum number for query retries - it must notify about the issue global node failover (details must be specified later)
+- `RebalanceRaftGroupEventsListener.onReconfigurationError`, which schedules retries, if needed
+- Separate special thread pool processes all needed retries on the current node
+- If a current node is not the leader of partition raft group anymore - it will request `RaftGroupService#changePeersAsync` with legacy term, receive appropriate answer from the leader and stop retries for this partition.
+- If a leader has been changed, new node receives `RebalanceRaftGroupEventsListener.onLeaderElected` invoke and start needed `RaftGroupService#changePeersAsync` from the pending key.
+- If failover exhaust maximum number for query retries - it must notify node's failure handler about the issue global (details must be specified later)
 
 
-# Metastore rebalance
+# Metastore rebalance (not implemented yet)
 It seems, that rebalance of metastore can be handled the same process, because:
 - during the any stage of `changePeers` raft group can handle any another entries
 - any rebalance failures must not end up by raft group unavailability (if majority is kept)
@@ -152,20 +143,20 @@ This approach can be addressed with different implemetation details, but let's d
 **Pseudocode**
 ```
 metastoreInvoke: // atomic metastore call through multi-invoke api
-    if empty(partition.assignments.change.trigger.revision) || partition.assignments.change.trigger.revision < event.revision:
+    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
         if empty(partition.assignments.pending):
             if partition.assignments.stable != calcPartAssignments():
                 partition.assignments.pending = calcPartAssignments() 
-                partition.assignments.change.trigger.revision = event.revision
+                partition.change.trigger.revision = event.revision
             else:
                 skip
         else:
             if empty(partition.assignments.pending.lock):
                 partition.assignments.pending = calcPartAssignments() 
-                partition.assignments.change.trigger.revision = event.revision
+                partition.change.trigger.revision = event.revision
             else:
                 partition.assignments.planned = calcPartAssignments() 
-                partition.assignments.change.trigger.revision = event.revision
+                partition.change.trigger.revision = event.revision
     else:
         skip
 ```
