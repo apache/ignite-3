@@ -21,7 +21,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.Arrays;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteInternalException;
 
@@ -89,6 +88,52 @@ public class BinaryTupleSchema {
         }
     }
 
+    /** Tuple schema corresponding to a set of row columns going in a contiguous range. */
+    private static final class DenseRowSchema extends BinaryTupleSchema {
+        int columnBaseIndex;
+
+        /**
+         * Constructor.
+         *
+         * @param elements Tuple elements.
+         * @param columnBaseIndex Row column matching the first tuple element.
+         * @param hasNullables True if there are any nullable tuple elements, false otherwise.
+         */
+        private DenseRowSchema(Element[] elements, int columnBaseIndex, boolean hasNullables) {
+            super(elements, hasNullables);
+            this.columnBaseIndex = columnBaseIndex;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public int columnIndex(int index) {
+            return index - columnBaseIndex;
+        }
+    }
+
+    /** Tuple schema corresponding to a set of row columns going in an arbitrary order. */
+    private static final class SparseRowSchema extends BinaryTupleSchema {
+        int[] columns;
+
+        /**
+         * Constructor.
+         *
+         * @param elements Tuple elements.
+         * @param columns Row column indexes.
+         * @param hasNullables True if there are any nullable tuple elements, false otherwise.
+         */
+        private SparseRowSchema(Element[] elements, int[] columns, boolean hasNullables) {
+            super(elements, hasNullables);
+            this.columns = columns;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public int columnIndex(int index) {
+            return columns[index];
+        }
+    }
+
     /** Descriptors of all tuple elements. */
     private final Element[] elements;
 
@@ -98,11 +143,12 @@ public class BinaryTupleSchema {
     /**
      * Constructor.
      *
-     * @param elements Tuple element descriptors.
+     * @param elements Tuple elements.
+     * @param hasNullables True if there are any nullable tuple elements, false otherwise.
      */
-    private BinaryTupleSchema(Element[] elements) {
+    private BinaryTupleSchema(Element[] elements, boolean hasNullables) {
         this.elements = elements;
-        this.hasNullables = Arrays.stream(elements).anyMatch(element -> element.nullable);
+        this.hasNullables = hasNullables;
     }
 
     /**
@@ -117,13 +163,16 @@ public class BinaryTupleSchema {
         int numCols = colEnd - colBegin;
 
         Element[] elements = new Element[numCols];
+        boolean hasNullables = false;
 
         for (int i = 0; i < numCols; i++) {
             Column column = descriptor.column(colBegin + i);
-            elements[i] = new Element(column.type(), column.nullable());
+            boolean nullable = column.nullable();
+            elements[i] = new Element(column.type(), nullable);
+            hasNullables |= nullable;
         }
 
-        return new BinaryTupleSchema(elements);
+        return new DenseRowSchema(elements, colBegin, hasNullables);
     }
 
     /**
@@ -133,7 +182,7 @@ public class BinaryTupleSchema {
      * @return Tuple schema.
      */
     public static BinaryTupleSchema create(Element[] elements) {
-        return new BinaryTupleSchema(elements.clone());
+        return new BinaryTupleSchema(elements.clone(), checkNullables(elements));
     }
 
     /**
@@ -170,18 +219,21 @@ public class BinaryTupleSchema {
      * Create a schema for binary tuples with selected row columns.
      *
      * @param descriptor Row schema.
-     * @param indexes List of columns.
+     * @param columns Row column indexes.
      * @return Tuple schema.
      */
-    public static BinaryTupleSchema createValueSchema(SchemaDescriptor descriptor, int[] indexes) {
-        Element[] elements = new Element[indexes.length];
+    public static BinaryTupleSchema createSchema(SchemaDescriptor descriptor, int[] columns) {
+        Element[] elements = new Element[columns.length];
+        boolean hasNullables = false;
 
-        for (int i : indexes) {
+        for (int i : columns) {
             Column column = descriptor.column(i);
-            elements[i] = new Element(column.type(), column.nullable());
+            boolean nullable = column.nullable();
+            elements[i] = new Element(column.type(), nullable);
+            hasNullables |= nullable;
         }
 
-        return new BinaryTupleSchema(elements);
+        return new SparseRowSchema(elements, columns.clone(), hasNullables);
     }
 
     /**
@@ -249,5 +301,24 @@ public class BinaryTupleSchema {
      */
     public Element element(int index) {
         return elements[index];
+    }
+
+    /**
+     * Map a tuple element index to a column index in a row.
+     *
+     * @return Column index if the schema is based on a SchemaDescriptor, -1 otherwise.
+     */
+    public int columnIndex(int index) {
+        return -1;
+    }
+
+    /** Check to see if there are any nullable elements in the array. */
+    private static boolean checkNullables(Element[] elements) {
+        for (Element element : elements) {
+            if (element.nullable) {
+                return true;
+            }
+        }
+        return false;
     }
 }
