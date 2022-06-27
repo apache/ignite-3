@@ -46,23 +46,23 @@ public class ClusterInitReplSubCommand extends BaseCommand implements Runnable {
     private String clusterUrl;
 
     /**
-     * List of names of the nodes (each represented by a separate command line argument) that will host the Metastorage Raft group. If the
-     * "--cmg-nodes" parameter is omitted, the same nodes will also host the Cluster Management Raft group.
+     * List of names of the nodes (each represented by a separate command line argument) that will host the Meta Storage. If the
+     * "--cmg-nodes" parameter is omitted, the same nodes will also host the Cluster Management Group.
      */
     @Option(names = "--meta-storage-node", required = true, description = {
             "Name of the node (repeat like '--meta-storage-node node1 --meta-storage-node node2' to specify more than one node)",
-            "that will host the Meta Storage Raft group.",
-            "If the --cmg-node parameter is omitted, the same nodes will also host the Cluster Management Raft group."
+            "that will host the Meta Storage.",
+            "If the --cmg-node parameter is omitted, the same nodes will also host the Cluster Management Group."
     })
     private List<String> metaStorageNodes;
 
     /**
-     * List of names of the nodes (each represented by a separate command line argument) that will host the Cluster Management Raft group.
+     * List of names of the nodes (each represented by a separate command line argument) that will host the Cluster Management Group.
      */
     @Option(names = "--cmg-node", description = {
             "Name of the node (repeat like '--cmg-node node1 --cmg-node node2' to specify more than one node)",
-            "that will host the Cluster Management Raft group.",
-            "If omitted, then --meta-storage-node values will also supply the nodes for the Cluster Management Raft group."
+            "that will host the Cluster Management Group.",
+            "If omitted, then --meta-storage-node values will also supply the nodes for the Cluster Management Group."
     })
     private List<String> cmgNodes = new ArrayList<>();
 

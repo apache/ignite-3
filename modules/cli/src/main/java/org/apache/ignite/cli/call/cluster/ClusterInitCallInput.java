@@ -58,7 +58,7 @@ public class ClusterInitCallInput implements CallInput {
     }
 
     /**
-     * Consistent IDs of the nodes that will host the Meta Storage Raft group.
+     * Consistent IDs of the nodes that will host the Meta Storage.
      *
      * @return Meta storage node ids.
      */
@@ -67,7 +67,7 @@ public class ClusterInitCallInput implements CallInput {
     }
 
     /**
-     * Consistent IDs of the nodes that will host the Cluster Management Raft Group; if empty,
+     * Consistent IDs of the nodes that will host the Cluster Management Group; if empty,
      * {@code metaStorageNodeIds} will be used to host the CMG as well.
      *
      * @return Cluster management node ids.
