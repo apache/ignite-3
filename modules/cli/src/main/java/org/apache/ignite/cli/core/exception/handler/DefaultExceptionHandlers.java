@@ -36,6 +36,6 @@ public class DefaultExceptionHandlers extends ExceptionHandlers {
         addExceptionHandler(new UnknownCommandExceptionHandler());
         addExceptionHandler(new ConfigStoringExceptionHandler());
         addExceptionHandler(new ProfileNotFoundExceptionHandler());
-        addExceptionHandler(new SectionAlreadyExistExceptionHandler());
+        addExceptionHandler(new SectionAlreadyExistsExceptionHandler());
     }
 }

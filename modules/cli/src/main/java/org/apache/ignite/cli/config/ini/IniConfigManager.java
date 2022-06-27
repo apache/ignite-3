@@ -69,11 +69,7 @@ public class IniConfigManager implements ConfigManager {
 
     @Override
     public Profile getCurrentConfig() {
-        IniSection section = configFile.getSection(currentProfileName);
-        if (section == null) {
-            throw new ProfileNotFoundException(INTERNAL_SECTION_NAME);
-        }
-        return new IniProfile(section, configFile::store);
+        return getConfig(currentProfileName);
     }
 
     @Override

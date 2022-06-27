@@ -24,19 +24,20 @@ import org.apache.ignite.cli.call.cliconfig.CliConfigCreateProfileCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine;
+import picocli.CommandLine.Option;
 
 /**
  * Command for create CLI profile.
  */
 @CommandLine.Command(name = "create-profile")
 public class CliConfigCreateProfileCommand extends BaseCommand implements Callable<Integer> {
-    @CommandLine.Option(names = {"--name", "-n"}, required = true, description = "Name of new profile.")
+    @Option(names = {"--name", "-n"}, required = true, description = "Name of new profile.")
     private String profileName;
 
-    @CommandLine.Option(names = {"--copy-from", "-c"}, description = "Profile whose content will be copied to new one.")
+    @Option(names = {"--copy-from", "-c"}, description = "Profile whose content will be copied to new one.")
     private String copyFrom;
 
-    @CommandLine.Option(names = {"--activate", "-a"}, description = "Activate new profile as current or not.")
+    @Option(names = {"--activate", "-a"}, description = "Activate new profile as current or not.")
     private boolean activate;
 
 

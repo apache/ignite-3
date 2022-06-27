@@ -89,7 +89,7 @@ public class IniFile {
      */
     public IniSection createSection(String name) {
         if (content.containsKey(name)) {
-            throw new SectionAlreadyExistException(name);
+            throw new SectionAlreadyExistsException(name);
         }
         IniSection iniSection = new IniSection(name);
         content.put(name, iniSection);

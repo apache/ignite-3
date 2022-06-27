@@ -15,13 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.config.ini;
+package org.apache.ignite.cli.core.exception.handler;
+
+import org.apache.ignite.cli.config.ini.SectionAlreadyExistsException;
+import org.apache.ignite.cli.core.exception.ExceptionHandler;
+import org.apache.ignite.cli.core.exception.ExceptionWriter;
 
 /**
- * Exception when already created INI section trying to create.
+ * Handler for {@link SectionAlreadyExistsException}.
  */
-public class SectionAlreadyExistException extends RuntimeException {
-    public SectionAlreadyExistException(String name) {
-        super("Section " + name + " already exist.");
+public class SectionAlreadyExistsExceptionHandler implements ExceptionHandler<SectionAlreadyExistsException> {
+    @Override
+    public int handle(ExceptionWriter err, SectionAlreadyExistsException e) {
+        err.write(e.getMessage());
+        return 1;
+    }
+
+    @Override
+    public Class<SectionAlreadyExistsException> applicableException() {
+        return SectionAlreadyExistsException.class;
     }
 }

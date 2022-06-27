@@ -31,7 +31,7 @@ public class ConfigStoringExceptionHandler implements ExceptionHandler<ConfigSto
     @Override
     public int handle(ExceptionWriter err, ConfigStoringException e) {
         log.error("CLI config storing error: ", e);
-        err.write("Error happen while saving CLI config " + e.getMessage());
+        err.write("Error happened while saving CLI config " + e.getMessage());
         return 1;
     }
 
