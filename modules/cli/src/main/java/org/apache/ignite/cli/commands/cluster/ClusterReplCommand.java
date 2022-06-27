@@ -15,8 +15,16 @@
  * limitations under the License.
  */
 
-/**
- * Contains classes for node/cluster configuration related operation.
- */
+package org.apache.ignite.cli.commands.cluster;
 
-package org.apache.ignite.cli.deprecated.builtins.config;
+import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigReplSubCommand;
+import picocli.CommandLine.Command;
+
+/**
+ * Cluster command in REPL mode.
+ */
+@Command(name = "cluster",
+        subcommands = {ClusterConfigReplSubCommand.class, ClusterInitReplSubCommand.class},
+        description = "Manages an Ignite cluster.")
+public class ClusterReplCommand {
+}

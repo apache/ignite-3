@@ -15,20 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.configuration.cluster;
+package org.apache.ignite.cli.commands.cluster;
 
-import org.apache.ignite.cli.deprecated.spec.ClusterCommandSpec;
+import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigSubCommand;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Mixin;
 
 /**
  * Node command.
  */
 @Command(name = "cluster",
-        subcommands = {ClusterConfigSubCommand.class},
-        description = "Cluster config operations.")
+        subcommands = {ClusterConfigSubCommand.class, ClusterInitSubCommand.class},
+        description = "Manages an Ignite cluster.")
 public class ClusterCommand {
-
-    @Mixin
-    ClusterCommandSpec clusterCommandSpec;
 }
