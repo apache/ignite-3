@@ -23,13 +23,13 @@ import org.apache.ignite.cli.call.cliconfig.CliConfigCreateProfileCall;
 import org.apache.ignite.cli.call.cliconfig.CliConfigCreateProfileCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import picocli.CommandLine;
+import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 /**
  * Command for create CLI profile.
  */
-@CommandLine.Command(name = "create-profile")
+@Command(name = "create-profile", description = "Create profile command.")
 public class CliConfigCreateProfileCommand extends BaseCommand implements Callable<Integer> {
     @Option(names = {"--name", "-n"}, required = true, description = "Name of new profile.")
     private String profileName;
