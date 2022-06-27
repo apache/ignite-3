@@ -63,11 +63,8 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.fun.SqlLibrary;
-import org.apache.calcite.sql.fun.SqlLibraryOperatorTableFactory;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
-import org.apache.calcite.sql.util.SqlOperatorTables;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
@@ -155,14 +152,7 @@ public final class Commons {
                     .withSqlConformance(IgniteSqlConformance.INSTANCE)
                     .withTypeCoercionFactory(IgniteTypeCoercion::new))
             // Dialects support.
-            .operatorTable(SqlOperatorTables.chain(
-                    SqlLibraryOperatorTableFactory.INSTANCE
-                            .getOperatorTable(
-                                    SqlLibrary.STANDARD,
-                                    SqlLibrary.POSTGRESQL,
-                                    SqlLibrary.ORACLE,
-                                    SqlLibrary.MYSQL),
-                    IgniteSqlOperatorTable.instance()))
+            .operatorTable(IgniteSqlOperatorTable.INSTANCE)
             // Context provides a way to store data within the planner session that can be accessed in planner rules.
             .context(Contexts.empty())
             // Custom cost factory to use during optimization
