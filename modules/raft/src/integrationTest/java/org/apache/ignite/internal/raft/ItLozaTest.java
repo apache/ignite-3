@@ -33,6 +33,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
@@ -66,7 +67,7 @@ public class ItLozaTest {
      */
     private RaftGroupService startClient(String groupId, ClusterNode node, Loza loza) throws Exception {
         return loza.prepareRaftGroup(groupId,
-                List.of(node), () -> mock(RaftGroupListener.class)
+                List.of(node), () -> mock(RaftGroupListener.class), RaftGroupOptions.defaults()
         ).get(10, TimeUnit.SECONDS);
     }
 

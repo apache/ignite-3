@@ -51,6 +51,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -266,8 +267,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     private void startCluster() throws Exception {
         for (int i = 0; i < 3; i++) {
             startServer(i, raftServer -> {
-                raftServer.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
-                raftServer.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
+                raftServer.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF, RaftGroupOptions.defaults());
+                raftServer.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF, RaftGroupOptions.defaults());
             }, opts -> {});
         }
 
@@ -281,7 +282,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     @Test
     public void testDisruptorThreadsCount() {
         startServer(0, raftServer -> {
-            raftServer.startRaftGroup("test_raft_group", listenerFactory.get(), INITIAL_CONF);
+            raftServer.startRaftGroup("test_raft_group", listenerFactory.get(), INITIAL_CONF, RaftGroupOptions.defaults());
         }, opts -> {});
 
         Set<Thread> threads = getAllDisruptorCurrentThreads();
@@ -294,7 +295,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
 
         servers.forEach(srv -> {
             for (int i = 0; i < 10; i++) {
-                srv.startRaftGroup("test_raft_group_" + i, listenerFactory.get(), INITIAL_CONF);
+                srv.startRaftGroup("test_raft_group_" + i, listenerFactory.get(), INITIAL_CONF, RaftGroupOptions.defaults());
             }
         });
 
@@ -673,9 +674,9 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
                     @Override public void run() {
                         String grp = "counter" + finalI;
 
-                        srv0.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF);
-                        srv1.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF);
-                        srv2.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF);
+                        srv0.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF, RaftGroupOptions.defaults());
+                        srv1.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF, RaftGroupOptions.defaults());
+                        srv2.startRaftGroup(grp, listenerFactory.get(), INITIAL_CONF, RaftGroupOptions.defaults());
                     }
                 }));
             }
@@ -803,8 +804,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
         }
 
         var svc2 = startServer(stopIdx, r -> {
-            r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
-            r.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
+            r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF, RaftGroupOptions.defaults());
+            r.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF, RaftGroupOptions.defaults());
         }, opts -> {});
 
         waitForCondition(() -> validateStateMachine(sum(20), svc2, COUNTER_GROUP_0), 5_000);
@@ -818,8 +819,8 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
         svc2.stop();
 
         var svc3 = startServer(stopIdx, r -> {
-            r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF);
-            r.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF);
+            r.startRaftGroup(COUNTER_GROUP_0, listenerFactory.get(), INITIAL_CONF, RaftGroupOptions.defaults());
+            r.startRaftGroup(COUNTER_GROUP_1, listenerFactory.get(), INITIAL_CONF, RaftGroupOptions.defaults());
         }, opts -> {});
 
         waitForCondition(() -> validateStateMachine(sum(20), svc3, COUNTER_GROUP_0), 5_000);

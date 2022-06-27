@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
@@ -100,7 +101,8 @@ public class ItRaftGroupServiceTest {
             CompletableFuture<RaftGroupService> raftGroupServiceFuture = raftSrvs.get(i).prepareRaftGroup(
                     RAFT_GROUP_NAME,
                     nodes,
-                    () -> mock(RaftGroupListener.class)
+                    () -> mock(RaftGroupListener.class),
+                    RaftGroupOptions.defaults()
             );
 
             svcFutures[i] = raftGroupServiceFuture;

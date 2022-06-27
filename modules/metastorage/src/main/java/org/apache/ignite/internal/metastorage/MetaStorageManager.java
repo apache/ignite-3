@@ -48,6 +48,7 @@ import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
 import org.apache.ignite.internal.metastorage.watch.KeyCriterion;
 import org.apache.ignite.internal.metastorage.watch.WatchAggregator;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -177,7 +178,8 @@ public class MetaStorageManager implements IgniteComponent {
             CompletableFuture<RaftGroupService> raftServiceFuture = raftMgr.prepareRaftGroup(
                     METASTORAGE_RAFT_GROUP_NAME,
                     metastorageNodes,
-                    () -> new MetaStorageListener(storage)
+                    () -> new MetaStorageListener(storage),
+                    RaftGroupOptions.defaults()
             );
 
             return raftServiceFuture.thenApply(service -> new MetaStorageServiceImpl(service, thisNode.id()));

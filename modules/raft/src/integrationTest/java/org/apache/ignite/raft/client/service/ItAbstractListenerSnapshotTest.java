@@ -32,6 +32,7 @@ import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -386,7 +387,8 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         server.startRaftGroup(
                 raftGroupId(),
                 createListener(service, listenerPersistencePath),
-                INITIAL_CONF
+                INITIAL_CONF,
+                RaftGroupOptions.defaults()
         );
 
         return server;

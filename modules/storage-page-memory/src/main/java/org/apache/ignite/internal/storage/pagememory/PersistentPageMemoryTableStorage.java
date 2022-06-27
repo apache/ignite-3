@@ -56,6 +56,11 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         this.dataRegion = dataRegion;
     }
 
+    @Override
+    public boolean isVolatile() {
+        return false;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {

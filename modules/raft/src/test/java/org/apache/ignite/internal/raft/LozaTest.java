@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
@@ -77,8 +78,14 @@ public class LozaTest extends IgniteAbstractTest {
 
         Supplier<RaftGroupListener> lsnrSupplier = () -> null;
 
-        assertThrows(NodeStoppingException.class, () -> loza.updateRaftGroup(raftGroupId, nodes, newNodes, lsnrSupplier, () -> null));
+        assertThrows(
+                NodeStoppingException.class,
+                () -> loza.updateRaftGroup(raftGroupId, nodes, newNodes, lsnrSupplier, () -> null, RaftGroupOptions.defaults())
+        );
         assertThrows(NodeStoppingException.class, () -> loza.stopRaftGroup(raftGroupId));
-        assertThrows(NodeStoppingException.class, () -> loza.prepareRaftGroup(raftGroupId, nodes, lsnrSupplier));
+        assertThrows(
+                NodeStoppingException.class,
+                () -> loza.prepareRaftGroup(raftGroupId, nodes, lsnrSupplier, RaftGroupOptions.defaults())
+        );
     }
 }
