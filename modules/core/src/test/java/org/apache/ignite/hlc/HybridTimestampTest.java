@@ -36,5 +36,11 @@ class HybridTimestampTest {
         assertEquals(new HybridTimestamp(20, 10),
                 max(new HybridTimestamp(10, 100), new HybridTimestamp(20, 10))
         );
+
+        assertEquals(new HybridTimestamp(20, 10),
+                max(new HybridTimestamp(20, 10))
+        );
+
+        assertEquals(null, max());
     }
 }
