@@ -152,30 +152,6 @@ public class BinaryTupleSchema {
     }
 
     /**
-     * Create a tuple schema based on a range of row columns.
-     *
-     * @param descriptor Row schema.
-     * @param colBegin First columns in the range.
-     * @param colEnd Last column in the range (exclusive).
-     * @return Tuple schema.
-     */
-    private static BinaryTupleSchema createSchema(SchemaDescriptor descriptor, int colBegin, int colEnd) {
-        int numCols = colEnd - colBegin;
-
-        Element[] elements = new Element[numCols];
-        boolean hasNullables = false;
-
-        for (int i = 0; i < numCols; i++) {
-            Column column = descriptor.column(colBegin + i);
-            boolean nullable = column.nullable();
-            elements[i] = new Element(column.type(), nullable);
-            hasNullables |= nullable;
-        }
-
-        return new DenseRowSchema(elements, colBegin, hasNullables);
-    }
-
-    /**
      * Create a tuple schema with specified elements.
      *
      * @param elements Tuple elements.
@@ -213,6 +189,30 @@ public class BinaryTupleSchema {
      */
     public static BinaryTupleSchema createValueSchema(SchemaDescriptor descriptor) {
         return createSchema(descriptor, descriptor.keyColumns().length(), descriptor.length());
+    }
+
+    /**
+     * Create a tuple schema based on a range of row columns.
+     *
+     * @param descriptor Row schema.
+     * @param colBegin First columns in the range.
+     * @param colEnd Last column in the range (exclusive).
+     * @return Tuple schema.
+     */
+    private static BinaryTupleSchema createSchema(SchemaDescriptor descriptor, int colBegin, int colEnd) {
+        int numCols = colEnd - colBegin;
+
+        Element[] elements = new Element[numCols];
+        boolean hasNullables = false;
+
+        for (int i = 0; i < numCols; i++) {
+            Column column = descriptor.column(colBegin + i);
+            boolean nullable = column.nullable();
+            elements[i] = new Element(column.type(), nullable);
+            hasNullables |= nullable;
+        }
+
+        return new DenseRowSchema(elements, colBegin, hasNullables);
     }
 
     /**
