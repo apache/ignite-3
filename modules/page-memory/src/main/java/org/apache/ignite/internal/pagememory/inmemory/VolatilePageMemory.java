@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.impl;
+package org.apache.ignite.internal.pagememory.inmemory;
 
+import static java.lang.System.lineSeparator;
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 
 import java.io.Closeable;
@@ -27,9 +28,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorView;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
@@ -70,9 +71,9 @@ import org.apache.ignite.lang.IgniteSystemProperties;
  * <p>Note that first 8 bytes of page header are used either for page marker or for next relative pointer depending
  * on whether the page is in use or not.
  */
-public class PageMemoryNoStoreImpl implements PageMemory {
+public class VolatilePageMemory implements PageMemory {
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(PageMemoryNoStoreImpl.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(VolatilePageMemory.class);
 
     /** Ignite page memory concurrency level. */
     private static final String IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL = "IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL";
@@ -129,7 +130,7 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     private final DirectMemoryProvider directMemoryProvider;
 
     /** Data region configuration view. */
-    private final PageMemoryDataRegionView dataRegionConfigView;
+    private final VolatilePageMemoryDataRegionView dataRegionConfigView;
 
     /** Head of the singly linked list of free pages. */
     private final AtomicLong freePageListHead = new AtomicLong(INVALID_REL_PTR);
@@ -173,8 +174,8 @@ public class PageMemoryNoStoreImpl implements PageMemory {
      * @param ioRegistry IO registry.
      * @param pageSize Page size in bytes.
      */
-    public PageMemoryNoStoreImpl(
-            PageMemoryDataRegionConfiguration dataRegionConfig,
+    public VolatilePageMemory(
+            VolatilePageMemoryDataRegionConfiguration dataRegionConfig,
             PageIoRegistry ioRegistry,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
@@ -310,9 +311,10 @@ public class PageMemoryNoStoreImpl implements PageMemory {
                     + "name=" + dataRegionConfigView.name()
                     + ", initSize=" + IgniteUtils.readableSize(dataRegionConfigView.initSize(), false)
                     + ", maxSize=" + IgniteUtils.readableSize(dataRegionConfigView.maxSize(), false)
-                    + ", persistenceEnabled=" + dataRegionConfigView.persistent() + "] Try the following:\n"
-                    + "  ^-- Increase maximum off-heap memory size (DataRegionConfiguration.maxSize)\n"
-                    + "  ^-- Enable Ignite persistence (DataRegionConfiguration.persistenceEnabled)\n"
+                    + ", persistence=false] Try the following:" + lineSeparator()
+                    + "  ^-- Increase maximum off-heap memory size (VolatilePageMemoryDataRegionConfigurationSchema.maxSize)"
+                    + lineSeparator()
+                    + "  ^-- Use persistence" + lineSeparator()
                     + "  ^-- Enable eviction or expiration policies"
             );
 

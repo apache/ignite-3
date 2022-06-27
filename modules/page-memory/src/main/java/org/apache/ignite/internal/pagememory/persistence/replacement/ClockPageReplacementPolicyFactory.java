@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.Segment;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.Segment;
 
 /**
  * {@link ClockPageReplacementPolicy} factory.

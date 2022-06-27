@@ -26,7 +26,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
+import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
@@ -77,7 +77,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     public PageMemoryMvPartitionStorage(
             int partitionId,
             TableView tableConfig,
-            PageMemoryDataRegion dataRegion,
+            DataRegion<?> dataRegion,
             VersionChainFreeList versionChainFreeList,
             RowVersionFreeList rowVersionFreeList
     ) {
@@ -101,7 +101,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     private VersionChainTree createVersionChainTree(
             int partitionId,
             TableView tableConfig,
-            PageMemoryDataRegion dataRegion,
+            DataRegion<?> dataRegion,
             VersionChainFreeList versionChainFreeList1
     ) throws IgniteInternalCheckedException {
         // TODO: IGNITE-17085 It is necessary to do getting the tree root for the persistent case.

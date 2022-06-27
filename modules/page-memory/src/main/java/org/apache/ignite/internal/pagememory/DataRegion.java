@@ -17,17 +17,16 @@
 
 package org.apache.ignite.internal.pagememory;
 
+import org.apache.ignite.internal.configuration.storage.StorageException;
+
 /**
  * Data region based on {@link PageMemory}.
  */
-public interface PageMemoryDataRegion {
+public interface DataRegion<T extends PageMemory> {
     /**
-     * Returns {@link true} if the date region is persistent.
+     * Returns page memory.
+     *
+     * @throws StorageException If the data region did not start.
      */
-    boolean persistent();
-
-    /**
-     * Returns page memory or throws an exception if not started.
-     */
-    PageMemory pageMemory();
+    T pageMemory();
 }

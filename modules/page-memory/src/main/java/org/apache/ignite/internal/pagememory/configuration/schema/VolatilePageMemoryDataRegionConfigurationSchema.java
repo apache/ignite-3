@@ -17,22 +17,22 @@
 
 package org.apache.ignite.internal.pagememory.configuration.schema;
 
+import static org.apache.ignite.internal.util.Constants.MiB;
+
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.OneOf;
 
 /**
- * Data region configuration for Page Memory storage engine.
+ * In-memory data region configuration schema.
  */
 @Config
-public class PageMemoryDataRegionConfigurationSchema {
+public class VolatilePageMemoryDataRegionConfigurationSchema extends BasePageMemoryDataRegionConfigurationSchema {
     /** Default initial size. */
-    public static final long DFLT_DATA_REGION_INITIAL_SIZE = 256 * 1024 * 1024;
+    public static final long DFLT_DATA_REGION_INITIAL_SIZE = 256 * MiB;
 
     /** Default max size. */
-    public static final long DFLT_DATA_REGION_MAX_SIZE = 256 * 1024 * 1024;
+    public static final long DFLT_DATA_REGION_MAX_SIZE = 256 * MiB;
 
     /** Eviction is disabled. */
     public static final String DISABLED_EVICTION_MODE = "DISABLED";
@@ -43,56 +43,27 @@ public class PageMemoryDataRegionConfigurationSchema {
     /** Random-2-LRU algorithm: scan-resistant version of Random-LRU. */
     public static final String RANDOM_2_LRU_EVICTION_MODE = "RANDOM_2_LRU";
 
-    /** Random-LRU algorithm. */
-    public static final String RANDOM_LRU_REPLACEMENT_MODE = "RANDOM_LRU";
-
-    /** Segmented-LRU algorithm. */
-    public static final String SEGMENTED_LRU_REPLACEMENT_MODE = "SEGMENTED_LRU";
-
-    /** CLOCK algorithm. */
-    public static final String CLOCK_REPLACEMENT_MODE = "CLOCK";
-
-    /** Name of the data region. */
-    @InjectedName
-    public String name;
-
-    @Value(hasDefault = true)
-    public boolean persistent = false;
-
+    /** Initial memory region size in bytes, when the used memory size exceeds this value, new chunks of memory will be allocated. */
     @Value(hasDefault = true)
     public long initSize = DFLT_DATA_REGION_INITIAL_SIZE;
 
+    /** Maximum memory region size in bytes. */
     @Value(hasDefault = true)
     public long maxSize = DFLT_DATA_REGION_MAX_SIZE;
 
-    @ConfigValue
-    public MemoryAllocatorConfigurationSchema memoryAllocator;
-
+    /** Memory pages eviction mode. */
     @OneOf({DISABLED_EVICTION_MODE, RANDOM_LRU_EVICTION_MODE, RANDOM_2_LRU_EVICTION_MODE})
     @Value(hasDefault = true)
     public String evictionMode = DISABLED_EVICTION_MODE;
 
-    @OneOf({RANDOM_LRU_REPLACEMENT_MODE, SEGMENTED_LRU_REPLACEMENT_MODE, CLOCK_REPLACEMENT_MODE})
-    @Value(hasDefault = true)
-    public String replacementMode = CLOCK_REPLACEMENT_MODE;
-
+    /**
+     * Threshold for memory pages eviction initiation. For instance, if the threshold is 0.9 it means that the page memory will start the
+     * eviction only after 90% of the data region is occupied.
+     */
     @Value(hasDefault = true)
     public double evictionThreshold = 0.9;
 
+    /** Maximum amount of empty pages to keep in memory. */
     @Value(hasDefault = true)
     public int emptyPagesPoolSize = 100;
-
-    @Value(hasDefault = true)
-    public long checkpointPageBufSize = 0;
-
-    @Value(hasDefault = true)
-    public boolean lazyMemoryAllocation = true;
-
-    /**
-     * Write to the page store without holding the segment lock (with a delay).
-     *
-     * <p>Because other thread may require exactly the same page to be loaded from page store, reads are protected by locking.
-     */
-    @Value(hasDefault = true)
-    public boolean delayedReplacedPageWrite = true;
 }

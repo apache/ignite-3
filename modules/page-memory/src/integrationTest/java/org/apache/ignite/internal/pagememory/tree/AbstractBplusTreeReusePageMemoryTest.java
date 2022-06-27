@@ -33,9 +33,9 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Test with reuse list.
+ * An abstract class for testing {@link BplusTree} with {@link ReuseList} using different implementations of {@link PageMemory}.
  */
-public class ItBplusTreeReuseSelfTest extends ItBplusTreeSelfTest {
+public abstract class AbstractBplusTreeReusePageMemoryTest extends AbstractBplusTreePageMemoryTest {
     /** {@inheritDoc} */
     @Override
     protected ReuseList createReuseList(int grpId,

@@ -25,10 +25,10 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.pagememory.datastructure.DataStructure.rnd;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
+import static org.apache.ignite.internal.pagememory.tree.AbstractBplusTreePageMemoryTest.TestTree.threadId;
 import static org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType.NOOP;
 import static org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType.PUT;
 import static org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType.REMOVE;
-import static org.apache.ignite.internal.pagememory.tree.ItBplusTreeSelfTest.TestTree.threadId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.effectivePageId;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
@@ -65,7 +65,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -73,15 +72,10 @@ import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
-import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowClosure;
@@ -105,13 +99,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Class to test the {@link BplusTree}.
+ * An abstract class for testing {@link BplusTree} using different implementations of {@link PageMemory}.
  */
-@ExtendWith(ConfigurationExtension.class)
-public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
+public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstractTest {
     private static final short LONG_INNER_IO = 30000;
 
     private static final short LONG_LEAF_IO = 30001;
@@ -138,9 +130,6 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
     private static boolean PRINT_LOCKS = false;
 
     private static final Collection<Long> rmvdIds = ConcurrentHashMap.newKeySet();
-
-    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
-    protected PageMemoryDataRegionConfiguration dataRegionCfg;
 
     @Nullable
     protected PageMemory pageMem;
@@ -2736,26 +2725,12 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
      *
      * @throws Exception If failed.
      */
-    protected PageMemory createPageMemory() throws Exception {
-        dataRegionCfg.change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, TimeUnit.SECONDS);
-
-        TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
-
-        ioRegistry.loadFromServiceLoader();
-
-        return new PageMemoryNoStoreImpl(
-                dataRegionCfg,
-                ioRegistry,
-                PAGE_SIZE
-        );
-    }
+    protected abstract PageMemory createPageMemory() throws Exception;
 
     /**
      * Returns number of acquired pages.
      */
-    protected long acquiredPages() {
-        return ((PageMemoryNoStoreImpl) pageMem).acquiredPages();
-    }
+    protected abstract long acquiredPages();
 
     /**
      * Long leaf.

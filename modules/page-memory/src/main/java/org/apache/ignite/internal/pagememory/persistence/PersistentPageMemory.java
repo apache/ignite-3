@@ -19,9 +19,9 @@ package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.lang.System.lineSeparator;
 import static org.apache.ignite.internal.pagememory.FullPageId.NULL_PAGE;
-import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema.CLOCK_REPLACEMENT_MODE;
-import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
-import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema.SEGMENTED_LRU_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema.CLOCK_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema.SEGMENTED_LRU_REPLACEMENT_MODE;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getCrc;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
@@ -76,8 +76,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
@@ -130,9 +130,9 @@ import org.jetbrains.annotations.TestOnly;
  * in use or not.
  */
 @SuppressWarnings({"LockAcquiredButNotSafelyReleased"})
-public class PageMemoryImpl implements PageMemory {
+public class PersistentPageMemory implements PageMemory {
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(PageMemoryImpl.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(PersistentPageMemory.class);
 
     /** Full relative pointer mask. */
     public static final long RELATIVE_PTR_MASK = 0xFFFFFFFFFFFFFFL;
@@ -153,7 +153,7 @@ public class PageMemoryImpl implements PageMemory {
     public static final int TRY_AGAIN_TAG = -1;
 
     /** Data region configuration view. */
-    private final PageMemoryDataRegionView dataRegionConfigView;
+    private final PersistentPageMemoryDataRegionView dataRegionConfigView;
 
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
@@ -185,8 +185,8 @@ public class PageMemoryImpl implements PageMemory {
     private final PageChangeTracker changeTracker;
 
     /** Field updater. */
-    private static final AtomicIntegerFieldUpdater<PageMemoryImpl> pageReplacementWarnedFieldUpdater =
-            AtomicIntegerFieldUpdater.newUpdater(PageMemoryImpl.class, "pageReplacementWarned");
+    private static final AtomicIntegerFieldUpdater<PersistentPageMemory> pageReplacementWarnedFieldUpdater =
+            AtomicIntegerFieldUpdater.newUpdater(PersistentPageMemory.class, "pageReplacementWarned");
 
     /** Flag indicating page replacement started (rotation with disk), allocating new page requires freeing old one. */
     private volatile int pageReplacementWarned;
@@ -207,13 +207,9 @@ public class PageMemoryImpl implements PageMemory {
 
     /**
      * Delayed page replacement (rotation with disk) tracker. Because other thread may require exactly the same page to be loaded from
-     * store, reads are protected by locking, {@code null} if delayed write functionality is disabled.
+     * store, reads are protected by locking.
      */
-    @Nullable
     private final DelayedPageReplacementTracker delayedPageReplacementTracker;
-
-    /** Flush dirty page closure. */
-    private final PageStoreWriter flushDirtyPage;
 
     /** Checkpoint timeout lock. */
     private final CheckpointTimeoutLock checkpointTimeoutLock;
@@ -227,18 +223,18 @@ public class PageMemoryImpl implements PageMemory {
      * @param checkpointBufferSize Checkpoint buffer size in bytes.
      * @param pageStoreManager Page store manager.
      * @param changeTracker Callback invoked to track changes in pages.
-     * @param flushDirtyPage Write callback invoked when a dirty page is removed for replacement.
+     * @param flushDirtyPageForReplacement Write callback invoked when a dirty page is removed for replacement.
      * @param checkpointTimeoutLock Checkpoint timeout lock.
      * @param pageSize Page size in bytes.
      */
-    public PageMemoryImpl(
-            PageMemoryDataRegionConfiguration dataRegionConfig,
+    public PersistentPageMemory(
+            PersistentPageMemoryDataRegionConfiguration dataRegionConfig,
             PageIoRegistry ioRegistry,
             long[] segmentSizes,
             long checkpointBufferSize,
             PageReadWriteManager pageStoreManager,
             @Nullable PageChangeTracker changeTracker,
-            PageStoreWriter flushDirtyPage,
+            PageStoreWriter flushDirtyPageForReplacement,
             CheckpointTimeoutLock checkpointTimeoutLock,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
@@ -248,7 +244,6 @@ public class PageMemoryImpl implements PageMemory {
         this.sizes = concat(segmentSizes, checkpointBufferSize);
         this.pageStoreManager = pageStoreManager;
         this.changeTracker = changeTracker;
-        this.flushDirtyPage = flushDirtyPage;
         this.checkpointTimeoutLock = checkpointTimeoutLock;
 
         if (!(dataRegionConfigView.memoryAllocator() instanceof UnsafeMemoryAllocatorView)) {
@@ -280,8 +275,7 @@ public class PageMemoryImpl implements PageMemory {
                 throw new IgniteInternalException("Unexpected page replacement mode: " + replacementMode);
         }
 
-        delayedPageReplacementTracker = dataRegionConfigView.delayedReplacedPageWrite()
-                ? new DelayedPageReplacementTracker(pageSize, flushDirtyPage, LOG, sizes.length - 1) : null;
+        delayedPageReplacementTracker = new DelayedPageReplacementTracker(pageSize, flushDirtyPageForReplacement, LOG, sizes.length - 1);
     }
 
     /** {@inheritDoc} */
@@ -574,10 +568,10 @@ public class PageMemoryImpl implements PageMemory {
         } catch (IgniteOutOfMemoryException oom) {
             IgniteOutOfMemoryException e = new IgniteOutOfMemoryException("Out of memory in data region ["
                     + "name=" + dataRegionConfigView.name()
-                    + ", initSize=" + readableSize(dataRegionConfigView.initSize(), false)
-                    + ", maxSize=" + readableSize(dataRegionConfigView.maxSize(), false)
-                    + ", persistenceEnabled=" + dataRegionConfigView.persistent() + "] Try the following:" + lineSeparator()
-                    + "  ^-- Increase maximum off-heap memory size (PageMemoryDataRegionConfiguration.maxSize)" + lineSeparator()
+                    + ", size=" + readableSize(dataRegionConfigView.size(), false)
+                    + ", persistence=true] Try the following:" + lineSeparator()
+                    + "  ^-- Increase maximum off-heap memory size (PersistentPageMemoryDataRegionConfigurationSchema.size)"
+                    + lineSeparator()
                     + "  ^-- Enable eviction or expiration policies"
             );
 
@@ -1498,8 +1492,7 @@ public class PageMemoryImpl implements PageMemory {
                 if (checkpointPages != null && checkpointPages.allowToSave(fullPageId)) {
                     assert pageStoreManager != null;
 
-                    PageStoreWriter saveDirtyPage = delayedPageReplacementTracker != null
-                            ? delayedPageReplacementTracker.delayedPageWrite() : flushDirtyPage;
+                    PageStoreWriter saveDirtyPage = delayedPageReplacementTracker.delayedPageWrite();
 
                     saveDirtyPage.writePage(
                             fullPageId,
@@ -1592,7 +1585,7 @@ public class PageMemoryImpl implements PageMemory {
             assert getWriteHoldCount() > 0;
 
             if (pageReplacementWarned == 0) {
-                if (pageReplacementWarnedFieldUpdater.compareAndSet(PageMemoryImpl.this, 0, 1)) {
+                if (pageReplacementWarnedFieldUpdater.compareAndSet(PersistentPageMemory.this, 0, 1)) {
                     String msg = "Page replacements started, pages will be rotated with disk, this will affect "
                             + "storage performance (consider increasing PageMemoryDataRegionConfiguration#setMaxSize for "
                             + "data region): " + dataRegionConfigView.name();
@@ -1622,11 +1615,9 @@ public class PageMemoryImpl implements PageMemory {
                     + ", pinned=" + acquiredPages()
                     + ']' + lineSeparator() + "Out of memory in data region ["
                     + "name=" + dataRegionConfigView.name()
-                    + ", initSize=" + readableSize(dataRegionConfigView.initSize(), false)
-                    + ", maxSize=" + readableSize(dataRegionConfigView.maxSize(), false)
-                    + ", persistenceEnabled=" + dataRegionConfigView.persistent() + "] Try the following:" + lineSeparator()
-                    + "  ^-- Increase maximum off-heap memory size (PageMemoryDataRegionConfiguration.maxSize)" + lineSeparator()
-                    + "  ^-- Enable eviction or expiration policies"
+                    + ", size=" + readableSize(dataRegionConfigView.size(), false)
+                    + ", persistence=true] Try the following:" + lineSeparator()
+                    + "  ^-- Increase off-heap memory size (PersistentPageMemoryDataRegionConfigurationSchema.size)" + lineSeparator()
             );
         }
 
@@ -1784,7 +1775,7 @@ public class PageMemoryImpl implements PageMemory {
          * @param fullPageId Full page ID.
          * @param pageMemoryImpl Page memory.
          */
-        void apply(long page, FullPageId fullPageId, PageMemoryImpl pageMemoryImpl);
+        void apply(long page, FullPageId fullPageId, PersistentPageMemory pageMemoryImpl);
     }
 
     /**

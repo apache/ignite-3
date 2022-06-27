@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.lang.IgniteLogger;
 
@@ -81,7 +81,7 @@ public class CheckpointPagesWriterFactory {
      */
     CheckpointPagesWriter build(
             CheckpointMetricsTracker tracker,
-            IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> cpPages,
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> cpPages,
             ConcurrentMap<PageStore, LongAdder> updStores,
             CompletableFuture<?> doneWriteFut,
             Runnable beforePageWrite,

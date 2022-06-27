@@ -15,28 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.pagememory.configuration.schema;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.InjectedName;
 
 /**
- * Useful class for testing a {@link PageMemory}.
+ * Basic data region configuration scheme for data storage based on Page Memory.
  */
-public class PageMemoryTestUtils {
-    /**
-     * Returns mocked instance of {@link PageMemoryDataRegion}.
-     *
-     * @param persistent Data region.
-     * @param pageMemory Page memory.
-     */
-    public static PageMemoryDataRegion newDataRegion(boolean persistent, PageMemory pageMemory) {
-        PageMemoryDataRegion mock = mock(PageMemoryDataRegion.class);
+@AbstractConfiguration
+public class BasePageMemoryDataRegionConfigurationSchema {
+    /** Name of the data region. */
+    @InjectedName
+    public String name;
 
-        when(mock.persistent()).thenReturn(persistent);
-
-        when(mock.pageMemory()).thenReturn(pageMemory);
-
-        return mock;
-    }
+    /** Memory allocator. */
+    @ConfigValue
+    public MemoryAllocatorConfigurationSchema memoryAllocator;
 }

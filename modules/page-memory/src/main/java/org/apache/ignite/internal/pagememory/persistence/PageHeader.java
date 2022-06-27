@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
-import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.INVALID_REL_PTR;
-import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.RELATIVE_PTR_MASK;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.INVALID_REL_PTR;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.RELATIVE_PTR_MASK;
 import static org.apache.ignite.internal.util.GridUnsafe.decrementAndGetInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getIntVolatile;
@@ -218,14 +218,15 @@ public class PageHeader {
      * Sets pointer to checkpoint buffer.
      *
      * @param absPtr Page absolute pointer.
-     * @param tmpRelPtr Temp buffer relative pointer or {@link PageMemoryImpl#INVALID_REL_PTR} if page is not copied to checkpoint buffer.
+     * @param tmpRelPtr Temp buffer relative pointer or {@link PersistentPageMemory#INVALID_REL_PTR} if page is not copied to checkpoint
+     *      buffer.
      */
     public static void tempBufferPointer(long absPtr, long tmpRelPtr) {
         putLong(absPtr + PAGE_TMP_BUF_OFFSET, tmpRelPtr);
     }
 
     /**
-     * Gets pointer to checkpoint buffer or {@link PageMemoryImpl#INVALID_REL_PTR} if page is not copied to checkpoint buffer.
+     * Gets pointer to checkpoint buffer or {@link PersistentPageMemory#INVALID_REL_PTR} if page is not copied to checkpoint buffer.
      *
      * @param absPtr Page absolute pointer.
      * @return Temp buffer relative pointer.

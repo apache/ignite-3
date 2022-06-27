@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.impl;
+package org.apache.ignite.internal.pagememory;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -28,30 +27,19 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.PageIdAllocator;
-import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestPageIo;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIo;
-import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Tests {@link PageMemoryNoStoreImpl}.
+ * Abstract class for non-load testing of {@link PageMemory} implementations.
  */
-@ExtendWith(ConfigurationExtension.class)
-public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
+public abstract class AbstractPageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
     protected static final int PAGE_SIZE = 8 * 1024;
 
     protected static final int MAX_MEMORY_SIZE = 10 * 1024 * 1024;
@@ -61,14 +49,6 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
     protected static final int GRP_ID = -1;
 
     protected static final int PARTITION_ID = 1;
-
-    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
-    protected PageMemoryDataRegionConfiguration dataRegionCfg;
-
-    @BeforeEach
-    void setUp() throws Exception {
-        dataRegionCfg.change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, SECONDS);
-    }
 
     @Test
     public void testPageTearingInner() throws Exception {
@@ -305,20 +285,8 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
 
     /**
      * Creates new page memory instance.
-     *
-     * @return Page memory implementation.
      */
-    protected PageMemory memory() {
-        PageIoRegistry ioRegistry = new PageIoRegistry();
-
-        ioRegistry.loadFromServiceLoader();
-
-        return new PageMemoryNoStoreImpl(
-                dataRegionCfg,
-                ioRegistry,
-                PAGE_SIZE
-        );
-    }
+    protected abstract PageMemory memory();
 
     /**
      * Fills page with passed value.
