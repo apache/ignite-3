@@ -24,14 +24,15 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockserver.matchers.MatchType;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 import static org.mockserver.model.HttpStatusCode.INTERNAL_SERVER_ERROR_500;
 import static org.mockserver.model.HttpStatusCode.OK_200;
+import static org.mockserver.model.JsonBody;
 
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.env.Environment;
@@ -415,9 +416,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     .when(request()
                             .withMethod("POST")
                             .withPath("/management/v1/cluster/init")
-                            .withBody(contains("\"metaStorageNodes\":[\"node1ConsistentId\",\"node2ConsistentId\"]"))
-                            .withBody(contains("\"cmgNodes\":[\"node2ConsistentId\",\"node3ConsistentId\"]"))
-                            .withBody(contains("\"clusterName\":\"cluster\""))
+                            .withBody(JsonBody.json(expectedSentContent, MatchType.ONLY_MATCHING_FIELDS)))
                             .withContentType(MediaType.APPLICATION_JSON_UTF_8)
                     )
                     .respond(response(null));
