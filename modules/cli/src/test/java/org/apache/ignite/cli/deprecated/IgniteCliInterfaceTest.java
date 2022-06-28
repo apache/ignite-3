@@ -416,7 +416,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     .when(request()
                             .withMethod("POST")
                             .withPath("/management/v1/cluster/init")
-                            .withBody(JsonBody.json(expectedSentContent, MatchType.ONLY_MATCHING_FIELDS)))
+                            .withBody(JsonBody.json(expectedSentContent, MatchType.ONLY_MATCHING_FIELDS))
                             .withContentType(MediaType.APPLICATION_JSON_UTF_8)
                     )
                     .respond(response(null));
