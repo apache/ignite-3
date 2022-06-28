@@ -17,6 +17,11 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.lang.CommonErrors.UNKNOWN_ERR;
+import static org.apache.ignite.lang.CommonErrors.UNKNOWN_ERR_GROUP;
+import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
+import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
+
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,9 +54,7 @@ public class IgniteException extends RuntimeException {
      */
     @Deprecated
     public IgniteException() {
-        groupName = "UNKNOWN";
-        code = 0;
-        traceId = null;
+        this(UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR);
     }
 
     /**
@@ -61,11 +64,7 @@ public class IgniteException extends RuntimeException {
      */
     @Deprecated
     public IgniteException(String msg) {
-        super(msg);
-
-        groupName = "UNKNOWN";
-        code = 0;
-        traceId = null;
+        this(UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR, msg);
     }
 
     /**
@@ -75,7 +74,7 @@ public class IgniteException extends RuntimeException {
      */
     @Deprecated
     public IgniteException(Throwable cause) {
-        this(cause.getMessage(), cause);
+        this(UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR, cause);
     }
 
     /**
@@ -86,11 +85,17 @@ public class IgniteException extends RuntimeException {
      */
     @Deprecated
     public IgniteException(String msg, @Nullable Throwable cause) {
-        super(msg, cause);
+        this(UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR, msg, cause);
+    }
 
-        groupName = "UNKNOWN";
-        code = 0;
-        traceId = null;
+    /**
+     * Creates a new exception with the given group and error code.
+     *
+     * @param groupName Group name.
+     * @param code Full error code.
+     */
+    public IgniteException(String groupName, int code) {
+        this(UUID.randomUUID(), groupName, code);
     }
 
     /**
@@ -101,9 +106,22 @@ public class IgniteException extends RuntimeException {
      * @param code Full error code.
      */
     public IgniteException(UUID traceId, String groupName, int code) {
+        super(errorMessage(traceId, groupName, code, null));
+
         this.traceId = traceId;
         this.groupName = groupName;
         this.code = code;
+    }
+
+    /**
+     * Creates a new exception with the given group, error code and detail message.
+     *
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param message Detail message.
+     */
+    public IgniteException(String groupName, int code, String message) {
+        this(UUID.randomUUID(), groupName, code, message);
     }
 
     /**
@@ -115,11 +133,22 @@ public class IgniteException extends RuntimeException {
      * @param message Detail message.
      */
     public IgniteException(UUID traceId, String groupName, int code, String message) {
-        super(message);
+        super(errorMessage(traceId, groupName, code, message));
 
         this.traceId = traceId;
         this.groupName = groupName;
         this.code = code;
+    }
+
+    /**
+     * Creates a new exception with the given group, error code and cause.
+     *
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public IgniteException(String groupName, int code, Throwable cause) {
+        this(UUID.randomUUID(), groupName, code, cause);
     }
 
     /**
@@ -131,11 +160,23 @@ public class IgniteException extends RuntimeException {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteException(UUID traceId, String groupName, int code, Throwable cause) {
-        super(cause);
+        super(errorMessage(traceId, groupName, code, null), cause);
 
         this.traceId = traceId;
         this.groupName = groupName;
         this.code = code;
+    }
+
+    /**
+     * Creates a new exception with the given group, error code, detail message and cause.
+     *
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public IgniteException(String groupName, int code, String message, Throwable cause) {
+        this(UUID.randomUUID(), groupName, code, message, cause);
     }
 
     /**
@@ -148,7 +189,7 @@ public class IgniteException extends RuntimeException {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteException(UUID traceId, String groupName, int code, String message, Throwable cause) {
-        super(message, cause);
+        super(errorMessage(traceId, groupName, code, message), cause);
 
         this.traceId = traceId;
         this.groupName = groupName;
@@ -184,7 +225,7 @@ public class IgniteException extends RuntimeException {
      * @return Error group.
      */
     public int groupCode() {
-        return code() >> 16;
+        return extractGroupCode(code);
     }
 
     /**
@@ -195,7 +236,7 @@ public class IgniteException extends RuntimeException {
      * @return Error code.
      */
     public int errorCode() {
-        return code() & 0xFFFF;
+        return extractErrorCode(code);
     }
 
     /**
@@ -207,9 +248,16 @@ public class IgniteException extends RuntimeException {
         return traceId;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return "IGN-" + groupName + '-' + errorCode() + " Trace ID:" + traceId() + ' ' + super.toString();
+    /**
+     * Creates a new error message with predefined prefix.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param message Original message.
+     * @return New error message with predefined prefix.
+     */
+    private static String errorMessage(UUID traceId, String groupName, int code, String message) {
+        return "IGN-" + groupName + '-' + extractErrorCode(code) + " Trace ID:" + traceId + ((message != null) ? message : "");
     }
 }

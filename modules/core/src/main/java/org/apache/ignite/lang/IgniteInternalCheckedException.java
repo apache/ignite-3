@@ -17,8 +17,10 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.lang.ErrorGroup.UNKNOWN_ERR;
-import static org.apache.ignite.lang.ErrorGroup.UNKNOWN_ERR_GROUP;
+import static org.apache.ignite.lang.CommonErrors.UNKNOWN_ERR;
+import static org.apache.ignite.lang.CommonErrors.UNKNOWN_ERR_GROUP;
+import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
+import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
 
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
@@ -30,8 +32,8 @@ public class IgniteInternalCheckedException extends Exception {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
-    /** Error group. */
-    private final ErrorGroup group;
+    /** Name of the error group. */
+    private final String groupName;
 
     /**
      * Error code which contains information about error group and code, where code is unique within the group.
@@ -50,62 +52,133 @@ public class IgniteInternalCheckedException extends Exception {
     /**
      * Creates a new exception with the given group and error code.
      *
-     * @param traceId Unique identifier of this exception.
-     * @param group Error group.
+     * @param groupName Group name.
      * @param code Full error code.
      */
-    public IgniteInternalCheckedException(UUID traceId, ErrorGroup group, int code) {
+    public IgniteInternalCheckedException(String groupName, int code) {
+        this(UUID.randomUUID(), groupName, code);
+    }
+
+    /**
+     * Creates a new exception with the given group and error code.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     */
+    public IgniteInternalCheckedException(UUID traceId, String groupName, int code) {
+        super(errorMessage(traceId, groupName, code, null));
+
         this.traceId = traceId;
-        this.group = group;
+        this.groupName = groupName;
         this.code = code;
     }
 
     /**
      * Creates a new exception with the given group, error code and detail message.
      *
-     * @param traceId Unique identifier of this exception.
-     * @param group Error group.
+     * @param groupName Group name.
      * @param code Full error code.
      * @param message Detail message.
      */
-    public IgniteInternalCheckedException(UUID traceId, ErrorGroup group, int code, String message) {
-        super(message);
+    public IgniteInternalCheckedException(String groupName, int code, String message) {
+        this(UUID.randomUUID(), groupName, code, message);
+    }
+
+    /**
+     * Creates a new exception with the given group, error code and detail message.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param message Detail message.
+     */
+    public IgniteInternalCheckedException(UUID traceId, String groupName, int code, String message) {
+        super(errorMessage(traceId, groupName, code, message));
 
         this.traceId = traceId;
-        this.group = group;
+        this.groupName = groupName;
         this.code = code;
     }
 
     /**
      * Creates a new exception with the given group, error code and cause.
      *
-     * @param traceId Unique identifier of this exception.
-     * @param group Error group.
+     * @param groupName Group name.
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteInternalCheckedException(UUID traceId, ErrorGroup group, int code, Throwable cause) {
-        super(cause);
+    public IgniteInternalCheckedException(String groupName, int code, Throwable cause) {
+        this(UUID.randomUUID(), groupName, code, cause);
+    }
+
+    /**
+     * Creates a new exception with the given group, error code and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public IgniteInternalCheckedException(UUID traceId, String groupName, int code, Throwable cause) {
+        super(errorMessage(traceId, groupName, code, null), cause);
 
         this.traceId = traceId;
-        this.group = group;
+        this.groupName = groupName;
         this.code = code;
     }
 
     /**
      * Creates a new exception with the given group, error code, detail message and cause.
      *
-     * @param traceId Unique identifier of this exception.
-     * @param group Error group.
+     * @param groupName Group name.
      * @param code Full error code.
      * @param message Detail message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteInternalCheckedException(UUID traceId, ErrorGroup group, int code, String message, Throwable cause) {
-        super(message, cause);
+    public IgniteInternalCheckedException(String groupName, int code, String message, Throwable cause) {
+        this(UUID.randomUUID(), groupName, code, message, cause);
+    }
+
+    /**
+     * Creates a new exception with the given group, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public IgniteInternalCheckedException(UUID traceId, String groupName, int code, String message, Throwable cause) {
+        super(errorMessage(traceId, groupName, code, message), cause);
 
         this.traceId = traceId;
-        this.group = group;
+        this.groupName = groupName;
+        this.code = code;
+    }
+
+    /**
+     * Creates a new exception with the given error message and optional nested exception.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param message Error message.
+     * @param cause Optional nested exception (can be {@code null}).
+     * @param writableStackTrace Whether or not the stack trace should be writable.
+     */
+    public IgniteInternalCheckedException(
+            UUID traceId,
+            String groupName,
+            int code,
+            String message,
+            @Nullable Throwable cause,
+            boolean writableStackTrace
+    ) {
+        super(errorMessage(traceId, groupName, code, message), cause, true, writableStackTrace);
+
+        this.traceId = traceId;
+        this.groupName = groupName;
         this.code = code;
     }
 
@@ -114,9 +187,7 @@ public class IgniteInternalCheckedException extends Exception {
      */
     @Deprecated
     public IgniteInternalCheckedException() {
-        this.traceId = null;
-        this.group = UNKNOWN_ERR_GROUP;
-        this.code = UNKNOWN_ERR;
+        this(UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR);
     }
 
     /**
@@ -126,11 +197,7 @@ public class IgniteInternalCheckedException extends Exception {
      */
     @Deprecated
     public IgniteInternalCheckedException(String msg) {
-        super(msg);
-
-        this.traceId = null;
-        this.group = UNKNOWN_ERR_GROUP;
-        this.code = UNKNOWN_ERR;
+        this(UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR, msg);
     }
 
     /**
@@ -140,7 +207,7 @@ public class IgniteInternalCheckedException extends Exception {
      */
     @Deprecated
     public IgniteInternalCheckedException(Throwable cause) {
-        this(cause.getMessage(), cause);
+        this(UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR, cause);
     }
 
     /**
@@ -152,11 +219,7 @@ public class IgniteInternalCheckedException extends Exception {
      */
     @Deprecated
     public IgniteInternalCheckedException(String msg, @Nullable Throwable cause, boolean writableStackTrace) {
-        super(msg, cause, true, writableStackTrace);
-
-        this.traceId = null;
-        this.group = UNKNOWN_ERR_GROUP;
-        this.code = UNKNOWN_ERR;
+        this(UUID.randomUUID(), UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR, msg, cause, writableStackTrace);
     }
 
     /**
@@ -167,20 +230,18 @@ public class IgniteInternalCheckedException extends Exception {
      */
     @Deprecated
     public IgniteInternalCheckedException(String msg, @Nullable Throwable cause) {
-        super(msg, cause);
-
-        this.traceId = null;
-        this.group = UNKNOWN_ERR_GROUP;
-        this.code = UNKNOWN_ERR;
+        this(UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR, msg, cause);
     }
 
     /**
      * Returns a group name of this error.
      *
+     * @see #groupCode()
+     * @see #code()
      * @return Group name.
      */
     public String groupName() {
-        return group.name();
+        return groupName;
     }
 
     /**
@@ -197,10 +258,11 @@ public class IgniteInternalCheckedException extends Exception {
     /**
      * Returns error group.
      *
+     * @see #code()
      * @return Error group.
      */
     public int groupCode() {
-        return group.code();
+        return extractGroupCode(code);
     }
 
     /**
@@ -211,7 +273,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @return Error code.
      */
     public int errorCode() {
-        return code() & 0xFFFF;
+        return extractErrorCode(code);
     }
 
     /**
@@ -223,9 +285,16 @@ public class IgniteInternalCheckedException extends Exception {
         return traceId;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return "IGN-" + group.name() + '-' + errorCode() + " Trace ID:" + traceId() + ' ' + super.toString();
+    /**
+     * Creates a new error message with predefined prefix.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param message Original message.
+     * @return New error message with predefined prefix.
+     */
+    private static String errorMessage(UUID traceId, String groupName, int code, String message) {
+        return "IGN-" + groupName + '-' + extractErrorCode(code) + " Trace ID:" + traceId + ((message != null) ? message : "");
     }
 }

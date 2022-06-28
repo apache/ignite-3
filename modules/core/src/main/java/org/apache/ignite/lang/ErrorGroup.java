@@ -29,12 +29,6 @@ import java.util.Set;
  * Each group can be identified by a name and an integer number that both must be unique across all error groups.
  */
 public class ErrorGroup {
-    /** Unknown error group. */
-    public static final ErrorGroup UNKNOWN_ERR_GROUP = ErrorGroup.newGroup("UNK", 1);
-
-    /** Unknown error. */
-    public static int UNKNOWN_ERR = UNKNOWN_ERR_GROUP.registerErrorCode(1);
-
     /** List of all registered error groups. */
     private static final List<ErrorGroup> registeredGroups = new ArrayList<>();
 

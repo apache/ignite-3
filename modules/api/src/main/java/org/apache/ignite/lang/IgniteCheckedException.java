@@ -17,6 +17,9 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
+import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
+
 import java.util.UUID;
 
 /**
@@ -46,14 +49,37 @@ public class IgniteCheckedException extends Exception {
     /**
      * Creates a new exception with the given group and error code.
      *
+     * @param groupName Group name.
+     * @param code Full error code.
+     */
+    public IgniteCheckedException(String groupName, int code) {
+        this(UUID.randomUUID(), groupName, code);
+    }
+
+    /**
+     * Creates a new exception with the given group and error code.
+     *
      * @param traceId Unique identifier of this exception.
      * @param groupName Group name.
      * @param code Full error code.
      */
     public IgniteCheckedException(UUID traceId, String groupName, int code) {
+        super(errorMessage(traceId, groupName, code, null));
+
         this.traceId = traceId;
         this.groupName = groupName;
         this.code = code;
+    }
+
+    /**
+     * Creates a new exception with the given group, error code and detail message.
+     *
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param message Detail message.
+     */
+    public IgniteCheckedException(String groupName, int code, String message) {
+        this(UUID.randomUUID(), groupName, code, message);
     }
 
     /**
@@ -65,11 +91,22 @@ public class IgniteCheckedException extends Exception {
      * @param message Detail message.
      */
     public IgniteCheckedException(UUID traceId, String groupName, int code, String message) {
-        super(message);
+        super(errorMessage(traceId, groupName, code, message));
 
         this.traceId = traceId;
         this.groupName = groupName;
         this.code = code;
+    }
+
+    /**
+     * Creates a new exception with the given group, error code and cause.
+     *
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public IgniteCheckedException(String groupName, int code, Throwable cause) {
+        this(UUID.randomUUID(), groupName, code, cause);
     }
 
     /**
@@ -81,11 +118,23 @@ public class IgniteCheckedException extends Exception {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteCheckedException(UUID traceId, String groupName, int code, Throwable cause) {
-        super(cause);
+        super(errorMessage(traceId, groupName, code, null), cause);
 
         this.traceId = traceId;
         this.groupName = groupName;
         this.code = code;
+    }
+
+    /**
+     * Creates a new exception with the given group, error code, detail message and cause.
+     *
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public IgniteCheckedException(String groupName, int code, String message, Throwable cause) {
+        this(UUID.randomUUID(), groupName, code, message, cause);
     }
 
     /**
@@ -98,7 +147,7 @@ public class IgniteCheckedException extends Exception {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteCheckedException(UUID traceId, String groupName, int code, String message, Throwable cause) {
-        super(message, cause);
+        super(errorMessage(traceId, groupName, code, message), cause);
 
         this.traceId = traceId;
         this.groupName = groupName;
@@ -134,7 +183,7 @@ public class IgniteCheckedException extends Exception {
      * @return Error group.
      */
     public int groupCode() {
-        return code() >> 16;
+        return extractGroupCode(code);
     }
 
     /**
@@ -145,7 +194,7 @@ public class IgniteCheckedException extends Exception {
      * @return Error code.
      */
     public int errorCode() {
-        return code() & 0xFFFF;
+        return extractErrorCode(code);
     }
 
     /**
@@ -157,9 +206,16 @@ public class IgniteCheckedException extends Exception {
         return traceId;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return "IGN-" + groupName + '-' + errorCode() + " Trace ID:" + traceId() + ' ' + super.toString();
+    /**
+     * Creates a new error message with predefined prefix.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param message Original message.
+     * @return New error message with predefined prefix.
+     */
+    private static String errorMessage(UUID traceId, String groupName, int code, String message) {
+        return "IGN-" + groupName + '-' + extractErrorCode(code) + " Trace ID:" + traceId + ((message != null) ? message : "");
     }
 }
