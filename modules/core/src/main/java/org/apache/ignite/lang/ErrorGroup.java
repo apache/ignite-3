@@ -20,6 +20,7 @@ package org.apache.ignite.lang;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -97,6 +98,16 @@ public class ErrorGroup {
         return (code() << 16) | (errorCode & 0xFFFF);
     }
 
+    /**
+     * Checks that the given {@code code} is registered for this error group.
+     *
+     * @param code Full error code to be tested.
+     * @return {@code true} If the given {@code code} is registered for this error group.
+     */
+    public boolean isRegistered(ErrorGroup group, int code) {
+        return group.codes.contains(code);
+    }
+
     @Override
     public String toString() {
         return "ErrorGroup [name=" + name() + ", code=" + code() + ']';
@@ -112,7 +123,9 @@ public class ErrorGroup {
      *      or {@code groupCode} is greater than 0xFFFF or less than or equal to 0.
      */
     public static ErrorGroup newGroup(String groupName, int groupCode) {
-        Optional<ErrorGroup> grp = registeredGroups.stream().filter(g -> g.name().equalsIgnoreCase(groupName)).findFirst();
+        String grpName = groupName.toUpperCase(Locale.ENGLISH);
+
+        Optional<ErrorGroup> grp = registeredGroups.stream().filter(g -> g.name().equalsIgnoreCase(grpName)).findFirst();
         if (grp.isPresent()) {
             throw new IllegalArgumentException(
                     "Error group already registered [groupName=" + groupName + ", registeredGroup=" + grp.get() + ']');
@@ -124,10 +137,30 @@ public class ErrorGroup {
                     "Error group already registered [groupCode=" + groupCode + ", registeredGroup=" + grp.get() + ']');
         }
 
-        ErrorGroup newGrp = new ErrorGroup(groupName, groupCode);
+        ErrorGroup newGrp = new ErrorGroup(grpName, groupCode);
 
         registeredGroups.add(newGrp);
 
         return newGrp;
+    }
+
+    /**
+     * Returns group code extracted from the given full error code.
+     *
+     * @param code Full error code.
+     * @return Group code.
+     */
+    public static int extractGroupCode(int code) {
+        return code >>> 16;
+    }
+
+    /**
+     * Returns error code extracted from the given full error code.
+     *
+     * @param code Full error code.
+     * @return Error code.
+     */
+    public static int extractErrorCode(int code) {
+        return code & 0xFFFF;
     }
 }
