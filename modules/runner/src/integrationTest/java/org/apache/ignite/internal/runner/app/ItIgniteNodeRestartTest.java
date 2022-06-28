@@ -1037,7 +1037,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         Table table = ignite.tables().createTable(
                 scmTbl1.canonicalName(),
-                tbl -> convert(scmTbl1, tbl).changePartitions(10).changeReplicas(replicas).changePartitions(partitions)
+                tbl -> convert(scmTbl1, tbl).changeReplicas(replicas).changePartitions(partitions)
         );
 
         for (int i = 0; i < 100; i++) {
