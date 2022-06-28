@@ -217,13 +217,10 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendShort(short value) {
-        if (value <= Byte.MAX_VALUE && value >= Byte.MIN_VALUE) {
-            if (value != 0) {
-                putByte((byte) value);
-            }
-        } else {
-            putShort(value);
+        if (Byte.MIN_VALUE <= value && value <= Byte.MAX_VALUE) {
+            return appendByte((byte) value);
         }
+        putShort(value);
         return proceed();
     }
 
@@ -244,16 +241,13 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendInt(int value) {
-        if (value <= Byte.MAX_VALUE && value >= Byte.MIN_VALUE) {
-            if (value != 0) {
-                putByte((byte) value);
-            }
+        if (Byte.MIN_VALUE <= value && value <= Byte.MAX_VALUE) {
+            return appendByte((byte) value);
+        }
+        if (Short.MIN_VALUE <= value && value <= Short.MAX_VALUE) {
+            putShort((short) value);
         } else {
-            if (value <= Short.MAX_VALUE && value >= Short.MIN_VALUE) {
-                putShort((short) value);
-            } else {
-                putInt(value);
-            }
+            putInt(value);
         }
         return proceed();
     }
@@ -275,18 +269,13 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendLong(long value) {
-        if (value <= Byte.MAX_VALUE && value >= Byte.MIN_VALUE) {
-            if (value != 0) {
-                putByte((byte) value);
-            }
+        if (Short.MIN_VALUE <= value && value <= Short.MAX_VALUE) {
+            return appendShort((short) value);
+        }
+        if (Integer.MIN_VALUE <= value && value <= Integer.MAX_VALUE) {
+            putInt((int) value);
         } else {
-            if (value <= Short.MAX_VALUE && value >= Short.MIN_VALUE) {
-                putShort((short) value);
-            } else if (value <= Integer.MAX_VALUE && value >= Integer.MIN_VALUE) {
-                putInt((int) value);
-            } else {
-                putLong(value);
-            }
+            putLong(value);
         }
         return proceed();
     }
@@ -332,12 +321,9 @@ public class BinaryTupleBuilder {
      */
     public BinaryTupleBuilder appendDouble(double value) {
         if (value == ((float) value)) {
-            if (value != 0.0) {
-                putFloat((float) value);
-            }
-        } else {
-            putDouble(value);
+            return appendFloat((float) value);
         }
+        putDouble(value);
         return proceed();
     }
 
@@ -598,81 +584,69 @@ public class BinaryTupleBuilder {
             if (!element.nullable) {
                 throw new SchemaMismatchException("NULL value for non-nullable column in binary tuple builder.");
             }
-
-            appendNull();
-            return this;
+            return appendNull();
         }
 
         switch (element.typeSpec) {
             case INT8:
-                appendByte((byte) value);
-                break;
-
+                return appendByte((byte) value);
             case INT16:
-                appendShort((short) value);
-                break;
-
+                return appendShort((short) value);
             case INT32:
-                appendInt((int) value);
-                break;
-
+                return appendInt((int) value);
             case INT64:
-                appendLong((long) value);
-                break;
-
+                return appendLong((long) value);
             case FLOAT:
-                appendFloat((float) value);
-                break;
-
+                return appendFloat((float) value);
             case DOUBLE:
-                appendDouble((double) value);
-                break;
-
+                return appendDouble((double) value);
             case NUMBER:
-                appendNumberNotNull((BigInteger) value);
-                break;
-
+                return appendNumberNotNull((BigInteger) value);
             case DECIMAL:
-                appendDecimalNotNull((BigDecimal) value);
-                break;
-
+                return appendDecimalNotNull((BigDecimal) value);
             case UUID:
-                appendUuidNotNull((UUID) value);
-                break;
-
+                return appendUuidNotNull((UUID) value);
             case BYTES:
-                appendBytesNotNull((byte[]) value);
-                break;
-
+                return appendBytesNotNull((byte[]) value);
             case STRING:
-                appendStringNotNull((String) value);
-                break;
-
+                return appendStringNotNull((String) value);
             case BITMASK:
-                appendBitmaskNotNull((BitSet) value);
-                break;
-
+                return appendBitmaskNotNull((BitSet) value);
             case DATE:
-                appendDateNotNull((LocalDate) value);
-                break;
-
+                return appendDateNotNull((LocalDate) value);
             case TIME:
-                appendTimeNotNull((LocalTime) value);
-                break;
-
+                return appendTimeNotNull((LocalTime) value);
             case DATETIME:
-                appendDateTimeNotNull((LocalDateTime) value);
-                break;
-
+                return appendDateTimeNotNull((LocalDateTime) value);
             case TIMESTAMP:
-                appendTimestampNotNull((Instant) value);
-                break;
-
-            default:
-                throw new InvalidTypeException("Unexpected value: " + element.typeSpec);
+                return appendTimestampNotNull((Instant) value);
         }
 
-        return this;
+        throw new InvalidTypeException("Unexpected type value: " + element.typeSpec);
+    }
+
+    /**
+     * Append some arbitrary content as the current element.
+     *
+     * @param bytes Buffer with element raw bytes.
+     * @return {@code this} for chaining.
+     */
+    public BinaryTupleBuilder appendElementBytes(@NotNull ByteBuffer bytes) {
+        putElement(bytes);
+        return proceed();
+    }
+
+    /**
+     * Append some arbitrary content as the current element.
+     *
+     * @param bytes Buffer with element raw bytes.
+     * @param offset Offset of the element in the buffer.
+     * @param length Length of the element in the buffer.
+     * @return {@code this} for chaining.
+     */
+    public BinaryTupleBuilder appendElementBytes(@NotNull ByteBuffer bytes, int offset, int length) {
+        putElement(bytes, offset, length);
+        return proceed();
     }
 
     /**
@@ -782,26 +756,6 @@ public class BinaryTupleBuilder {
         buffer.put(bytes);
     }
 
-    /** Put bytes to the buffer extending it if needed. */
-    private void putBytes(byte[] bytes, int offset, int length) {
-        assert bytes.length <= (offset + length);
-        ensure(length);
-        buffer.put(bytes, offset, length);
-    }
-
-    /** Put bytes to the buffer extending it if needed. */
-    private void putBytes(ByteBuffer bytes) {
-        ensure(bytes.remaining());
-        buffer.put(bytes);
-    }
-
-    /** Put bytes to the buffer extending it if needed. */
-    private void putBytes(ByteBuffer bytes, int offset, int length) {
-        assert bytes.limit() <= (offset + length);
-        ensure(length);
-        buffer.put(bytes.asReadOnlyBuffer().position(offset).limit(offset + length));
-    }
-
     /** Put a string to the buffer extending it if needed. */
     private void putString(String value) throws CharacterCodingException {
         CharsetEncoder coder = encoder().reset();
@@ -857,6 +811,19 @@ public class BinaryTupleBuilder {
             long time = (hour << 22) | (minute << 16) | (second << 10) | (nanos / 1000000);
             putInt((int) time);
         }
+    }
+
+    /** Put element bytes to the buffer extending it if needed. */
+    private void putElement(ByteBuffer bytes) {
+        ensure(bytes.remaining());
+        buffer.put(bytes);
+    }
+
+    /** Put element bytes to the buffer extending it if needed. */
+    private void putElement(ByteBuffer bytes, int offset, int length) {
+        assert bytes.limit() <= (offset + length);
+        ensure(length);
+        buffer.put(bytes.asReadOnlyBuffer().position(offset).limit(offset + length));
     }
 
     /** Proceed to the next tuple element. */

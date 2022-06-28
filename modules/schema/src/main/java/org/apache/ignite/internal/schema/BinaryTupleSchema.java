@@ -90,24 +90,34 @@ public class BinaryTupleSchema {
 
     /** Tuple schema corresponding to a set of row columns going in a contiguous range. */
     private static final class DenseRowSchema extends BinaryTupleSchema {
-        int columnBaseIndex;
+        int columnBase;
+
+        boolean fullSize;
 
         /**
          * Constructor.
          *
          * @param elements Tuple elements.
-         * @param columnBaseIndex Row column matching the first tuple element.
          * @param hasNullables True if there are any nullable tuple elements, false otherwise.
+         * @param columnBase Row column matching the first tuple element.
+         * @param fullSize True if the tuple contains enough elements to form a full row.
          */
-        private DenseRowSchema(Element[] elements, int columnBaseIndex, boolean hasNullables) {
+        private DenseRowSchema(Element[] elements, boolean hasNullables, int columnBase, boolean fullSize) {
             super(elements, hasNullables);
-            this.columnBaseIndex = columnBaseIndex;
+            this.columnBase = columnBase;
+            this.fullSize = fullSize;
         }
 
         /** {@inheritDoc} */
         @Override
         public int columnIndex(int index) {
-            return index - columnBaseIndex;
+            return index - columnBase;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean convertible() {
+            return fullSize;
         }
     }
 
@@ -212,7 +222,10 @@ public class BinaryTupleSchema {
             hasNullables |= nullable;
         }
 
-        return new DenseRowSchema(elements, colBegin, hasNullables);
+        boolean fullSize = (colBegin == 0
+                && (colEnd == descriptor.length() || colEnd == descriptor.keyColumns().length()));
+
+        return new DenseRowSchema(elements, hasNullables, colBegin, fullSize);
     }
 
     /**
@@ -310,6 +323,15 @@ public class BinaryTupleSchema {
      */
     public int columnIndex(int index) {
         return -1;
+    }
+
+    /**
+     * Check to see if the tuple can be converted to a row.
+     *
+     * @return True if the tuple can be converted to a row, false otherwise.
+     */
+    public boolean convertible() {
+        return false;
     }
 
     /** Check to see if there are any nullable elements in the array. */
