@@ -620,6 +620,8 @@ public class BinaryTupleBuilder {
                 return appendDateTimeNotNull((LocalDateTime) value);
             case TIMESTAMP:
                 return appendTimestampNotNull((Instant) value);
+            default:
+                break;
         }
 
         throw new InvalidTypeException("Unexpected type value: " + element.typeSpec);
