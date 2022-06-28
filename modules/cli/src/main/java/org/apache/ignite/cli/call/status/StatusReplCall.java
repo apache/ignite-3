@@ -22,14 +22,15 @@ import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.CallOutput;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.cli.core.call.EmptyCallInput;
+import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.cli.core.repl.Session;
 import org.apache.ignite.cli.deprecated.CliPathsConfigLoader;
 import org.apache.ignite.cli.deprecated.IgnitePaths;
 import org.apache.ignite.cli.deprecated.builtins.node.NodeManager;
-import org.apache.ignite.rest.client.api.ClusterConfigurationApi;
+import org.apache.ignite.rest.client.api.ClusterManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.invoker.Configuration;
+import org.apache.ignite.rest.client.model.ClusterState;
 
 /**
  * Call to get cluster status.
@@ -55,29 +56,42 @@ public class StatusReplCall implements Call<EmptyCallInput, Status> {
     @Override
     public CallOutput<Status> execute(EmptyCallInput input) {
         IgnitePaths paths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
-        return DefaultCallOutput.success(
-                Status.builder()
-                        .connected(session.isConnectedToNode())
-                        .connectedNodeUrl(session.getNodeUrl())
-                        .initialized(session.isConnectedToNode() && canReadClusterConfig())
-                        .nodeCount(nodeManager.getRunningNodes(paths.logDir, paths.cliPidsDir()).size())
-                        .build()
-        );
-    }
-
-    private boolean canReadClusterConfig() {
-        ClusterConfigurationApi clusterApi = createApiClient();
         try {
-            clusterApi.getClusterConfiguration();
-            return true;
-        } catch (ApiException | IllegalArgumentException e) {
-            return false;
+            ClusterState clusterState = fetchClusterState();
+            return DefaultCallOutput.success(
+                    Status.builder()
+                            .connected(session.isConnectedToNode())
+                            .connectedNodeUrl(session.getNodeUrl())
+                            .initialized(true)
+                            .name(clusterState.getClusterTag().getClusterName())
+                            .cmgNodes(clusterState.getCmgNodes())
+                            .nodeCount(nodeManager.getRunningNodes(paths.logDir, paths.cliPidsDir()).size())
+                            .build()
+            );
+        } catch (ApiException e) {
+            if (e.getCode() == 404) {
+                return DefaultCallOutput.success(
+                        Status.builder()
+                                .connected(session.isConnectedToNode())
+                                .connectedNodeUrl(session.getNodeUrl())
+                                .initialized(false)
+                                .nodeCount(nodeManager.getRunningNodes(paths.logDir, paths.cliPidsDir()).size())
+                                .build());
+            }
+
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, ""));
+        } catch (IllegalArgumentException e) {
+            return DefaultCallOutput.success(
+                    Status.builder()
+                            .connected(session.isConnectedToNode())
+                            .connectedNodeUrl(session.getNodeUrl())
+                            .initialized(false)
+                            .nodeCount(nodeManager.getRunningNodes(paths.logDir, paths.cliPidsDir()).size())
+                            .build());
         }
     }
 
-    private ClusterConfigurationApi createApiClient() {
-        ApiClient client = Configuration.getDefaultApiClient();
-        client.setBasePath(session.getNodeUrl());
-        return new ClusterConfigurationApi(client);
+    private ClusterState fetchClusterState() throws ApiException {
+        return new ClusterManagementApi(new ApiClient().setBasePath(session.getNodeUrl())).clusterState();
     }
 }

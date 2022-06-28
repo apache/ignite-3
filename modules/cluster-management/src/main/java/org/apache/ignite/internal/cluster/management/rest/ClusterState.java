@@ -23,7 +23,7 @@ import java.util.Collection;
 import java.util.Objects;
 
 /**
- * REST representation on {@link org.apache.ignite.internal.cluster.management.ClusterState}
+ * REST representation on {@link org.apache.ignite.internal.cluster.management.ClusterState}.
  */
 class ClusterState {
     private final Collection<String> cmgNodes;

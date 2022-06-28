@@ -27,6 +27,7 @@ import org.apache.ignite.cli.deprecated.CliPathsConfigLoader;
 import org.apache.ignite.cli.deprecated.IgnitePaths;
 import org.apache.ignite.cli.deprecated.builtins.node.NodeManager;
 import org.apache.ignite.rest.client.api.ClusterConfigurationApi;
+import org.apache.ignite.rest.client.api.ClusterManagementApi;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -55,12 +56,14 @@ public class StatusCall implements Call<StatusCallInput, Status> {
         IgnitePaths paths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
         try {
             String connected = createNodeApi(input).getNodeConfiguration();
+            String body = new ClusterManagementApi(new ApiClient().setBasePath(input.getClusterUrl())).clusterState().toString();
             return DefaultCallOutput.success(
                     Status.builder()
                             .connected(connected != null)
                             .connectedNodeUrl(input.getClusterUrl())
-                            .initialized(connected != null && canReadClusterConfig(input))
+                            //.initialized(connected != null && canReadClusterConfig(input))
                             .nodeCount(nodeManager.getRunningNodes(paths.logDir, paths.cliPidsDir()).size())
+                            //.body(body)
                             .build()
             );
         } catch (ApiException | IllegalArgumentException e) {

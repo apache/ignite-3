@@ -29,14 +29,12 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
-import org.apache.ignite.internal.cluster.management.raft.CmgRaftService;
 import org.apache.ignite.internal.cluster.management.rest.exception.InvalidArgumentClusterInitializationException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -68,6 +66,24 @@ public class ClusterManagementController {
         this.clusterManagementGroupManager = clusterManagementGroupManager;
     }
 
+    @Get("state")
+    @Operation(operationId = "clusterState")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Return cluster state",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ClusterState.class))),
+            @ApiResponse(responseCode = "404", description = "Cluster state not found, it means that the cluster is not initialized"),
+            @ApiResponse(responseCode = "500", description = "Internal error",
+                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    })
+    @Produces({
+            MediaType.APPLICATION_JSON,
+            MediaType.PROBLEM_JSON
+    })
+    public CompletableFuture<org.apache.ignite.internal.cluster.management.rest.ClusterState> clusterState()
+            throws ExecutionException, InterruptedException {
+        return clusterManagementGroupManager.clusterState().thenApply(this::mapClusterState);
+    }
+
     /**
      * Initializes cluster.
      *
@@ -96,29 +112,17 @@ public class ClusterManagementController {
                 });
     }
 
-    @Get("state")
-    @Operation(operationId = "clusterState")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Return cluster state",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ClusterState.class))),
-            @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    })
-    @Produces({
-            MediaType.APPLICATION_JSON,
-            MediaType.PROBLEM_JSON
-    })
-    public CompletableFuture<org.apache.ignite.internal.cluster.management.rest.ClusterState> clusterState()
-            throws ExecutionException, InterruptedException {
-        return clusterManagementGroupManager.clusterState().thenApply(this::mapClusterState);
-    }
-
     private org.apache.ignite.internal.cluster.management.rest.ClusterState mapClusterState(ClusterState clusterState) {
+        if (clusterState == null) {
+            return null;
+        }
+
         return new org.apache.ignite.internal.cluster.management.rest.ClusterState(
                 clusterState.cmgNodes(),
                 clusterState.metaStorageNodes(),
-                new IgniteProductVersion(clusterState.igniteVersion().major(), clusterState.igniteVersion().minor(), clusterState.igniteVersion()
-                        .maintenance(),clusterState.igniteVersion().snapshot(), clusterState.igniteVersion().alphaVersion()),
+                new IgniteProductVersion(clusterState.igniteVersion().major(), clusterState.igniteVersion().minor(),
+                        clusterState.igniteVersion().maintenance(), clusterState.igniteVersion().snapshot(),
+                        clusterState.igniteVersion().alphaVersion()),
                 new ClusterTag(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId()));
     }
 

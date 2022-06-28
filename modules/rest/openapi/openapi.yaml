@@ -52,6 +52,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClusterState'
+        "404":
+          description: "Cluster state not found, it means that the cluster is not\
+            \ initialized"
         "500":
           description: Internal error
           content:

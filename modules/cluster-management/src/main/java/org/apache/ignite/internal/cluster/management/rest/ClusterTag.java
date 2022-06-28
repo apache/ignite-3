@@ -19,12 +19,11 @@ package org.apache.ignite.internal.cluster.management.rest;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
 
 /**
- * REST representation of {@link org.apache.ignite.internal.cluster.management.ClusterTag}
+ * REST representation of {@link org.apache.ignite.internal.cluster.management.ClusterTag}.
  */
 class ClusterTag {
     /** Auto-generated part. */

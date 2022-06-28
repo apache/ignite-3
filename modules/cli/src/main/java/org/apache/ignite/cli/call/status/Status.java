@@ -17,6 +17,8 @@
 
 package org.apache.ignite.cli.call.status;
 
+import java.util.List;
+
 /**
  * Class that represents the cluster status.
  */
@@ -32,12 +34,15 @@ public class Status {
 
     private final String connectedNodeUrl;
 
-    private Status(int nodeCount, boolean initialized, String name, boolean connected, String connectedNodeUrl) {
+    private final List<String> cmgNodes;
+
+    private Status(int nodeCount, boolean initialized, String name, boolean connected, String connectedNodeUrl, List<String> cmgNodes) {
         this.nodeCount = nodeCount;
         this.initialized = initialized;
         this.name = name;
         this.connected = connected;
         this.connectedNodeUrl = connectedNodeUrl;
+        this.cmgNodes = cmgNodes;
     }
 
     public int getNodeCount() {
@@ -60,6 +65,10 @@ public class Status {
         return connectedNodeUrl;
     }
 
+    public List<String> getCmgNodes() {
+        return cmgNodes;
+    }
+
     /**
      * Builder for {@link Status}.
      */
@@ -80,6 +89,8 @@ public class Status {
         private boolean connected;
 
         private String connectedNodeUrl;
+
+        private List<String> cmgNodes;
 
         private StatusBuilder() {
 
@@ -110,8 +121,13 @@ public class Status {
             return this;
         }
 
+        public StatusBuilder cmgNodes(List<String> cmgNodes) {
+            this.cmgNodes = cmgNodes;
+            return this;
+        }
+
         public Status build() {
-            return new Status(nodeCount, initialized, name, connected, connectedNodeUrl);
+            return new Status(nodeCount, initialized, name, connected, connectedNodeUrl, cmgNodes);
         }
     }
 }

@@ -40,11 +40,9 @@ import jakarta.inject.Inject;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.MockNode;
-import org.apache.ignite.internal.cluster.management.raft.CmgRaftService;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -137,6 +135,13 @@ public class ItClusterManagementControllerTest {
 
     @Test
     void testInitAlreadyInitializedWithAnotherNodes() {
+        // Given cluster is not initialized
+        HttpClientResponseException thrownBeforeInit = assertThrows(HttpClientResponseException.class,
+                () -> client.toBlocking().retrieve("state", ClusterState.class));
+
+        // Then status is 404: there is no "state"
+        assertThat(thrownBeforeInit.getStatus(), is(equalTo(HttpStatus.NOT_FOUND)));
+
         // Given cluster initialized
         String givenFirstRequestBody =
                 "{\"metaStorageNodes\": [\"" + cluster.get(0).clusterService().localConfiguration().getName() + "\"], \"cmgNodes\": [], "

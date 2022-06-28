@@ -190,8 +190,13 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         );
     }
 
+    /**
+     * Returns the cluster state future or the future that will be resolved to null if the cluster is not initialized yet.
+     */
     public CompletableFuture<ClusterState> clusterState() throws ExecutionException, InterruptedException {
-        return raftService.get().readClusterState();
+        return raftService != null && raftService.isDone()
+                ? raftService.get().readClusterState()
+                : CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -303,7 +308,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private CompletableFuture<Void> doInit(CmgRaftService service, CmgInitMessage msg) {
-        return service.initClusterState(clusterState(msg))
+        return service.initClusterState(createClusterState(msg))
                 .thenCompose(state -> {
                     var localState = new LocalState(state.cmgNodes(), state.clusterTag());
 
@@ -320,7 +325,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 });
     }
 
-    private static ClusterState clusterState(CmgInitMessage msg) {
+    private static ClusterState createClusterState(CmgInitMessage msg) {
         return new ClusterState(
                 msg.cmgNodes(),
                 msg.metaStorageNodes(),

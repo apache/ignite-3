@@ -21,7 +21,7 @@ import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * REST representation of {@link org.apache.ignite.internal.properties.IgniteProductVersion}
+ * REST representation of {@link org.apache.ignite.internal.properties.IgniteProductVersion}.
  */
 class IgniteProductVersion {
     /** Major version number. */
