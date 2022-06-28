@@ -35,12 +35,12 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageChange;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageView;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageChange;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageView;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfigurationSchema;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -61,19 +61,19 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
     }
 
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
-    private PageMemoryStorageEngineConfiguration engineConfig;
+    private VolatilePageMemoryStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration(
             name = "table",
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
                     UnknownDataStorageConfigurationSchema.class,
-                    PageMemoryDataStorageConfigurationSchema.class
+                    VolatilePageMemoryDataStorageConfigurationSchema.class
             }
     )
     private TableConfiguration tableCfg;
 
-    private PageMemoryStorageEngine engine;
+    private VolatilePageMemoryStorageEngine engine;
 
     private AbstractPageMemoryTableStorage table;
 
@@ -84,16 +84,17 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
 
     @BeforeEach
     void setUp() throws Exception {
-        engine = new PageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
+        engine = new VolatilePageMemoryStorageEngine(engineConfig, ioRegistry);
 
         engine.start();
 
-        tableCfg.change(c -> c.changeDataStorage(dsc -> dsc.convert(PageMemoryDataStorageChange.class)))
+        tableCfg
+                .change(c -> c.changeDataStorage(dsc -> dsc.convert(VolatilePageMemoryDataStorageChange.class)))
                 .get(1, TimeUnit.SECONDS);
 
         assertEquals(
-                PageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME,
-                ((PageMemoryDataStorageView) tableCfg.dataStorage().value()).dataRegion()
+                VolatilePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME,
+                ((VolatilePageMemoryDataStorageView) tableCfg.dataStorage().value()).dataRegion()
         );
 
         table = engine.createTable(tableCfg);

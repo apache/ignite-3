@@ -349,9 +349,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 .map(col -> new ColumnDescriptorImpl(
                         col.name(),
                         descriptor.isKeyColumn(col.schemaIndex()),
+                        col.nullable(),
                         col.columnOrder(),
                         col.schemaIndex(),
                         col.type(),
+                        DefaultValueStrategy.DEFAULT_CONSTANT,
                         col::defaultValue
                 ))
                 .collect(Collectors.toList());

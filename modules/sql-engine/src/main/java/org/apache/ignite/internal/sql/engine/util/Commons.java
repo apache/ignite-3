@@ -27,12 +27,10 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.Period;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -65,11 +63,8 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.fun.SqlLibrary;
-import org.apache.calcite.sql.fun.SqlLibraryOperatorTableFactory;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
-import org.apache.calcite.sql.util.SqlOperatorTables;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
@@ -114,7 +109,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlColumnType;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
@@ -158,14 +152,7 @@ public final class Commons {
                     .withSqlConformance(IgniteSqlConformance.INSTANCE)
                     .withTypeCoercionFactory(IgniteTypeCoercion::new))
             // Dialects support.
-            .operatorTable(SqlOperatorTables.chain(
-                    SqlLibraryOperatorTableFactory.INSTANCE
-                            .getOperatorTable(
-                                    SqlLibrary.STANDARD,
-                                    SqlLibrary.POSTGRESQL,
-                                    SqlLibrary.ORACLE,
-                                    SqlLibrary.MYSQL),
-                    IgniteSqlOperatorTable.instance()))
+            .operatorTable(IgniteSqlOperatorTable.INSTANCE)
             // Context provides a way to store data within the planner session that can be accessed in planner rules.
             .context(Contexts.empty())
             // Custom cost factory to use during optimization
@@ -699,74 +686,6 @@ public final class Commons {
 
             default:
                 throw new IllegalArgumentException("Unsupported type " + type.spec());
-        }
-    }
-
-    /**
-     * Column type to Java class.
-     */
-    public static Class<?> columnTypeToClass(SqlColumnType type) {
-        assert type != null;
-
-        switch (type) {
-            case BOOLEAN:
-                return Boolean.class;
-            case INT8:
-                return Byte.class;
-
-            case INT16:
-                return Short.class;
-
-            case INT32:
-                return Integer.class;
-
-            case INT64:
-                return Long.class;
-
-            case FLOAT:
-                return Float.class;
-
-            case DOUBLE:
-                return Double.class;
-
-            case NUMBER:
-                return BigInteger.class;
-
-            case DECIMAL:
-                return BigDecimal.class;
-
-            case UUID:
-                return UUID.class;
-
-            case STRING:
-                return String.class;
-
-            case BYTE_ARRAY:
-                return byte[].class;
-
-            case BITMASK:
-                return BitSet.class;
-
-            case DATE:
-                return LocalDate.class;
-
-            case TIME:
-                return LocalTime.class;
-
-            case DATETIME:
-                return LocalDateTime.class;
-
-            case TIMESTAMP:
-                return Instant.class;
-
-            case PERIOD:
-                return Period.class;
-
-            case DURATION:
-                return Duration.class;
-
-            default:
-                throw new IllegalArgumentException("Unsupported type " + type);
         }
     }
 

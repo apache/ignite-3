@@ -38,7 +38,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -54,10 +54,12 @@ import org.apache.ignite.raft.client.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Persistent partitions raft group snapshots tests.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-16644 MvPartitionStorage hasn't supported snapshots yet")
 public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<PartitionListener> {
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
@@ -212,7 +214,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     PartitionListener listener = new PartitionListener(
                             UUID.randomUUID(),
-                            new VersionedRowStore(new TestConcurrentHashMapPartitionStorage(0), txManager));
+                            new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager));
 
                     paths.put(listener, workDir);
 

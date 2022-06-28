@@ -26,14 +26,13 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
+import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.NoUncommittedVersionException;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageUtils;
@@ -78,7 +77,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     public PageMemoryMvPartitionStorage(
             int partitionId,
             TableView tableConfig,
-            PageMemoryDataRegion dataRegion,
+            DataRegion<?> dataRegion,
             VersionChainFreeList versionChainFreeList,
             RowVersionFreeList rowVersionFreeList
     ) {
@@ -102,7 +101,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     private VersionChainTree createVersionChainTree(
             int partitionId,
             TableView tableConfig,
-            PageMemoryDataRegion dataRegion,
+            DataRegion<?> dataRegion,
             VersionChainFreeList versionChainFreeList1
     ) throws IgniteInternalCheckedException {
         // TODO: IGNITE-17085 It is necessary to do getting the tree root for the persistent case.
@@ -335,7 +334,8 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         VersionChain currentVersionChain = findVersionChainForModification(rowId);
 
         if (currentVersionChain.transactionId() == null) {
-            throw new NoUncommittedVersionException();
+            //the chain doesn't contain an uncommitted write intent
+            return null;
         }
 
         RowVersion currentVersion = findLatestRowVersion(currentVersionChain, ALWAYS_LOAD_VALUE);
@@ -371,7 +371,10 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         VersionChain currentVersionChain = findVersionChainForModification(rowId);
         long chainLink = PartitionlessLinks.addPartitionIdToPartititionlessLink(currentVersionChain.headLink(), partitionId);
 
-        assert currentVersionChain.transactionId() != null;
+        if (currentVersionChain.transactionId() == null) {
+            //the chain doesn't contain an uncommitted write intent
+            return;
+        }
 
         try {
             rowVersionFreeList.updateTimestamp(chainLink, timestamp);

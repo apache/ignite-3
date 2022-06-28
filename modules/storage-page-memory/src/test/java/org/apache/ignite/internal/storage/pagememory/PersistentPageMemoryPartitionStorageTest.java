@@ -39,11 +39,11 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.AbstractPartitionStorageTest;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.engine.TableStorage;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageChange;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageView;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageChange;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageView;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfigurationSchema;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -64,21 +64,21 @@ public class PersistentPageMemoryPartitionStorageTest extends AbstractPartitionS
     private static PageIoRegistry ioRegistry;
 
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
-    PageMemoryStorageEngineConfiguration engineConfig;
+    PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration(
             name = "table",
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
                     UnknownDataStorageConfigurationSchema.class,
-                    PageMemoryDataStorageConfigurationSchema.class
+                    PersistentPageMemoryDataStorageConfigurationSchema.class
             }
     )
     private TableConfiguration tableCfg;
 
     private LongJvmPauseDetector longJvmPauseDetector;
 
-    private PageMemoryStorageEngine engine;
+    private PersistentPageMemoryStorageEngine engine;
 
     private TableStorage table;
 
@@ -100,17 +100,17 @@ public class PersistentPageMemoryPartitionStorageTest extends AbstractPartitionS
 
         longJvmPauseDetector.start();
 
-        engineConfig.defaultRegion().persistent().update(true).get(1, TimeUnit.SECONDS);
-
-        engine = new PageMemoryStorageEngine(nodeName, engineConfig, ioRegistry, workDir, longJvmPauseDetector);
+        engine = new PersistentPageMemoryStorageEngine(nodeName, engineConfig, ioRegistry, workDir, longJvmPauseDetector);
 
         engine.start();
 
-        tableCfg.change(c -> c.changeDataStorage(dsc -> dsc.convert(PageMemoryDataStorageChange.class))).get(1, TimeUnit.SECONDS);
+        tableCfg
+                .change(c -> c.changeDataStorage(dsc -> dsc.convert(PersistentPageMemoryDataStorageChange.class)))
+                .get(1, TimeUnit.SECONDS);
 
         assertEquals(
-                PageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME,
-                ((PageMemoryDataStorageView) tableCfg.dataStorage().value()).dataRegion()
+                PersistentPageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME,
+                ((PersistentPageMemoryDataStorageView) tableCfg.dataStorage().value()).dataRegion()
         );
 
         table = engine.createTable(tableCfg);

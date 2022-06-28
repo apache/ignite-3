@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Stream.generate;
 
+import java.time.Duration;
+import java.time.Period;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -81,9 +83,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
         assertQuery("select id, id::tinyint as tid, id::smallint as sid, id::varchar as vid, id::interval hour, "
                 + "id::interval year from person")
                 .columnNames("ID", "TID", "SID", "VID", "ID :: INTERVAL INTERVAL_HOUR", "ID :: INTERVAL INTERVAL_YEAR")
-                // TODO: IGNITE-16635 replace byte arrays for correct types.
-                //.columnTypes(Integer.class, Byte.class, Short.class, String.class, Duration.class, Period.class)
-                .columnTypes(Integer.class, Byte.class, Short.class, String.class, byte[].class, byte[].class)
+                .columnTypes(Integer.class, Byte.class, Short.class, String.class, Duration.class, Period.class)
                 .check();
     }
 

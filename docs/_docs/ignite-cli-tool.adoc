@@ -53,12 +53,6 @@ The following commands can be executed in REPL mode of the command line tool:
 | `status` | `--cluster-url` |Shows the status of the default cluster, or a different one if cluster-url is provided.
 | `sql` | `[--cluster-url][--script-file] <query>` | Executes the specified SQL query.
 | `version` || Displays current CLI tool version.
-
-
-
-
-
-
 |===
 
 == Non-interactive Mode

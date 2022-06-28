@@ -25,16 +25,14 @@ import org.apache.ignite.cli.commands.decorators.StatusReplDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.EmptyCallInput;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Spec;
 
 /**
  * Command that prints status of ignite cluster.
  */
 @Command(name = "status", description = "Prints status of the cluster.")
 @Singleton
-public class StatusReplCommand extends BaseCommand {
+public class StatusReplCommand extends BaseCommand implements Runnable {
 
     /**
      * Cluster url option.
@@ -45,9 +43,6 @@ public class StatusReplCommand extends BaseCommand {
     )
     private String clusterUrl;
 
-    @Spec
-    private CommandSpec commandSpec;
-
     @Inject
     private StatusReplCall statusReplCall;
 
@@ -56,8 +51,8 @@ public class StatusReplCommand extends BaseCommand {
     public void run() {
         CallExecutionPipeline.builder(statusReplCall)
                 .inputProvider(EmptyCallInput::new)
-                .output(commandSpec.commandLine().getOut())
-                .errOutput(commandSpec.commandLine().getErr())
+                .output(spec.commandLine().getOut())
+                .errOutput(spec.commandLine().getErr())
                 .decorator(new StatusReplDecorator())
                 .build()
                 .runPipeline();

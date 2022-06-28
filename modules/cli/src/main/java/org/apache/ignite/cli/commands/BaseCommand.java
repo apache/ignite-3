@@ -24,15 +24,11 @@ import picocli.CommandLine.Spec;
 /**
  * Base class for commands.
  */
-public abstract class BaseCommand implements Runnable {
+public abstract class BaseCommand {
     /** Help option specification. */
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit.")
     protected boolean usageHelpRequested;
 
     @Spec
     protected CommandSpec spec;
-
-    @Override
-    public void run() {
-    }
 }

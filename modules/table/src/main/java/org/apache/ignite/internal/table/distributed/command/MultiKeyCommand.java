@@ -20,8 +20,8 @@ package org.apache.ignite.internal.table.distributed.command;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -31,8 +31,8 @@ public abstract class MultiKeyCommand implements TransactionalCommand, Serializa
     /** Binary rows. */
     private transient Collection<BinaryRow> rows;
 
-    /** The timestamp. */
-    private @NotNull Timestamp timestamp;
+    /** Transaction id. */
+    private @NotNull UUID txId;
 
     /*
      * Row bytes.
@@ -45,12 +45,12 @@ public abstract class MultiKeyCommand implements TransactionalCommand, Serializa
      * The constructor.
      *
      * @param rows Rows.
-     * @param ts   The timestamp.
+     * @param txId Transaction id.
      */
-    public MultiKeyCommand(@NotNull Collection<BinaryRow> rows, @NotNull Timestamp ts) {
+    public MultiKeyCommand(@NotNull Collection<BinaryRow> rows, @NotNull UUID txId) {
         assert rows != null && !rows.isEmpty();
         this.rows = rows;
-        this.timestamp = ts;
+        this.txId = txId;
 
         rowsBytes = CommandUtils.rowsToBytes(rows);
     }
@@ -71,13 +71,13 @@ public abstract class MultiKeyCommand implements TransactionalCommand, Serializa
     }
 
     /**
-     * Returns a timestamp.
+     * Returns a transaction id.
      *
-     * @return The timestamp.
+     * @return The transaction id.
      */
     @NotNull
     @Override
-    public Timestamp getTimestamp() {
-        return timestamp;
+    public UUID getTxId() {
+        return txId;
     }
 }

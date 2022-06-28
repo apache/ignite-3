@@ -216,7 +216,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         AsyncResultSet rs = ses.executeAsync(null, "SELECT COL1, COL0 FROM TEST").get();
 
-        // Validata columns metadata.
+        // Validate columns metadata.
         ResultSetMetadata meta = rs.metadata();
 
         assertNotNull(meta);
@@ -224,10 +224,9 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertEquals(0, meta.indexOf("COL1"));
         assertEquals(1, meta.indexOf("COL0"));
 
-        //TODO: IGNITE-17094: ColumnMetadata.nullable() must return false for non-null column.
-        checkMetadata(new ColumnMetadataImpl("COL1", SqlColumnType.STRING, 0, 0, true, new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
+        checkMetadata(new ColumnMetadataImpl("COL1", SqlColumnType.STRING, 0, 0, false, new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
                 meta.columns().get(0));
-        checkMetadata(new ColumnMetadataImpl("COL0", SqlColumnType.INT64, 0, 0, true, new ColumnOriginImpl("PUBLIC", "TEST", "COL0")),
+        checkMetadata(new ColumnMetadataImpl("COL0", SqlColumnType.INT64, 0, 0, false, new ColumnOriginImpl("PUBLIC", "TEST", "COL0")),
                 meta.columns().get(1));
 
         // Validate result columns types.

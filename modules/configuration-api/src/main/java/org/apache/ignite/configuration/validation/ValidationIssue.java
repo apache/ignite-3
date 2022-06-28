@@ -17,6 +17,7 @@
 
 package org.apache.ignite.configuration.validation;
 
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -24,6 +25,7 @@ import org.apache.ignite.internal.tostring.S;
  */
 public class ValidationIssue {
     /** Message. */
+    @IgniteToStringInclude
     private final String message;
 
     /**

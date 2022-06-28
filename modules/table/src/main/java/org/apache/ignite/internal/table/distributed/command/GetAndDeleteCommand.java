@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -30,12 +30,12 @@ public class GetAndDeleteCommand extends SingleKeyCommand implements WriteComman
      * Creates a new instance of GetAndDeleteCommand with the given key to be got and deleted. The {@code keyRow} should not be {@code
      * null}.
      *
-     * @param keyRow    Binary key row.
-     * @param timestamp The timestamp.
+     * @param keyRow Binary key row.
+     * @param txId Transaction id.
      *
      * @see TransactionalCommand
      */
-    public GetAndDeleteCommand(@NotNull BinaryRow keyRow, @NotNull Timestamp timestamp) {
-        super(keyRow, timestamp);
+    public GetAndDeleteCommand(@NotNull BinaryRow keyRow, @NotNull UUID txId) {
+        super(keyRow, txId);
     }
 }

@@ -90,24 +90,25 @@ public class CallExecutionPipeline<I extends CallInput, T> {
         return new CallExecutionPipelineBuilder<>(call);
     }
 
-    /** {@inheritDoc} */
-    public void runPipeline() {
+    /**
+     * Runs the pipeline.
+     *
+     * @return exit code.
+     */
+    public int runPipeline() {
         I callInput = inputProvider.get();
 
         CallOutput<T> callOutput = call.execute(callInput);
 
         if (callOutput.hasError()) {
-            exceptionHandlers.handleException(ExceptionWriter.fromPrintWriter(errOutput), callOutput.errorCause());
-            return;
+            return exceptionHandlers.handleException(ExceptionWriter.fromPrintWriter(errOutput), callOutput.errorCause());
         }
 
-        if (callOutput.isEmpty()) {
-            return;
+        if (!callOutput.isEmpty()) {
+            TerminalOutput decoratedOutput = decorator.decorate(callOutput.body());
+            output.println(decoratedOutput.toTerminalString());
         }
-
-        TerminalOutput decoratedOutput = decorator.decorate(callOutput.body());
-
-        output.println(decoratedOutput.toTerminalString());
+        return 0;
     }
 
     /** Builder for {@link CallExecutionPipeline}. */

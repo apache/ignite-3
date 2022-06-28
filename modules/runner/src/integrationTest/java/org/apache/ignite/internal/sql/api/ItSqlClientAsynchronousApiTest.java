@@ -48,18 +48,6 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
     }
 
     @Override
-    @Disabled("IGNITE-17052")
-    public void metadata() throws ExecutionException, InterruptedException {
-        super.metadata();
-    }
-
-    @Override
-    @Disabled("IGNITE-17052")
-    public void sqlRow() throws ExecutionException, InterruptedException {
-        super.sqlRow();
-    }
-
-    @Override
     @Disabled("IGNITE-17134")
     public void closeSession() throws ExecutionException, InterruptedException {
         super.closeSession();

@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.Collection;
+import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
@@ -30,12 +30,12 @@ public class UpsertAllCommand extends MultiKeyCommand implements WriteCommand {
     /**
      * Creates a new instance of UpsertAllCommand with the given rows to be upserted. The {@code rows} should not be {@code null} or empty.
      *
-     * @param rows      Binary rows.
-     * @param timestamp The timestamp.
+     * @param rows Binary rows.
+     * @param txId The transaction id.
      *
      * @see TransactionalCommand
      */
-    public UpsertAllCommand(@NotNull Collection<BinaryRow> rows, @NotNull Timestamp timestamp) {
-        super(rows, timestamp);
+    public UpsertAllCommand(@NotNull Collection<BinaryRow> rows, @NotNull UUID txId) {
+        super(rows, txId);
     }
 }

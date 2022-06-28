@@ -554,11 +554,17 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
     }
 
     @Test
-    void abortWriteFailsIfNoUncommittedVersionExists() {
+    void commitAndAbortWriteNoOpIfNoUncommittedVersionExists() {
         RowId rowId = storage.insert(binaryRow, newTransactionId());
         storage.commitWrite(rowId, Timestamp.nextVersion());
 
-        assertThrows(NoUncommittedVersionException.class, () -> storage.abortWrite(rowId));
+        storage.abortWrite(rowId);
+
+        assertRowMatches(storage.read(rowId, newTransactionId()), binaryRow);
+
+        storage.commitWrite(rowId, Timestamp.nextVersion());
+
+        assertRowMatches(storage.read(rowId, newTransactionId()), binaryRow);
     }
 
     @Test

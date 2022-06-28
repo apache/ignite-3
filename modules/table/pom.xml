@@ -114,6 +114,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!--TODO: IGNITE-17197 Remove the dependency after the ticket is resolved.-->
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-storage-rocksdb</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>

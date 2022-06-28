@@ -578,7 +578,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             start
                     .thenCompose(none -> {
-                        if (!root.completeExceptionally(new ExecutionCancelledException())) {
+                        if (!root.completeExceptionally(new ExecutionCancelledException()) && !root.isCompletedExceptionally()) {
                             if (cancel) {
                                 return root.thenAccept(root -> root.onError(new ExecutionCancelledException()));
                             }

@@ -152,7 +152,7 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
 
     /**
      * Starts a cluster of 4 nodes and executes init command on it. First node is used to issue the command via REST endpoint,
-     * second will host the meta-storage RAFT group, third will host the Cluster Management RAFT Group (CMG), fourth
+     * second will host the Meta Storage, third will host the Cluster Management Group (CMG), fourth
      * will be just a node.
      *
      * @param testInfo test info (used to derive node names)
@@ -161,7 +161,7 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
     void initClusterWithNodesOfDifferentRoles(TestInfo testInfo) {
         int exitCode = cmd(ctx).execute(
                 "cluster", "init",
-                "--node-endpoint", FIRST_NODE.restHostPort(),
+                "--cluster-url", FIRST_NODE.restHostPort(),
                 "--meta-storage-node", SECOND_NODE.nodeName(testInfo),
                 "--cmg-node", THIRD_NODE.nodeName(testInfo),
                 "--cluster-name", "ignite-cluster"
@@ -196,7 +196,7 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
         }
 
         String restHostPort() {
-            return "localhost:" + restPort;
+            return "http://localhost:" + restPort;
         }
     }
 }

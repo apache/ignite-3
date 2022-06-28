@@ -14,7 +14,7 @@
 // limitations under the License.
 = Data Definition Language (DDL)
 
-This section walks you through all data definition language (DDL) commands supported by Apache Ignite 3.0 Alpha.
+This section walks you through all data definition language (DDL) commands supported by Apache Ignite 3.0 Alpha 5.
 
 == CREATE TABLE
 

@@ -406,6 +406,7 @@ public class NodeImpl implements Node, RaftServerService {
             }
             Requires.requireTrue(this.stage == Stage.STAGE_CATCHING_UP, "Stage is not in STAGE_CATCHING_UP");
             if (success) {
+                LOG.info("Catch up for peer={} was finished", peer);
                 this.addingPeers.remove(peer);
                 if (this.addingPeers.isEmpty()) {
                     nextStage();
@@ -496,6 +497,7 @@ public class NodeImpl implements Node, RaftServerService {
             Requires.requireTrue(isBusy(), "Not in busy stage");
             switch (this.stage) {
                 case STAGE_CATCHING_UP:
+                    LOG.info("Catch up phase to change peers from={} to={} was successfully finished", oldPeers, newPeers);
                     if (this.nchanges > 0) {
                         this.stage = Stage.STAGE_JOINT;
                         this.node.unsafeApplyConfiguration(new Configuration(this.newPeers, this.newLearners),

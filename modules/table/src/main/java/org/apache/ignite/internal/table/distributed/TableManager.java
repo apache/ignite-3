@@ -88,6 +88,7 @@ import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
@@ -372,6 +373,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (replicasCtx.oldValue() != null && replicasCtx.oldValue() > 0) {
                 TableConfiguration tblCfg = replicasCtx.config(TableConfiguration.class);
 
+                LOG.info("Received update for replicas number for table={} from replicas={} to replicas={}",
+                        tblCfg.name().value(), replicasCtx.oldValue(), replicasCtx.newValue());
+
                 int partCnt = tblCfg.partitions().value();
 
                 int newReplicas = replicasCtx.newValue();
@@ -382,7 +386,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     String partId = partitionRaftGroupName(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
                     futures[i] = updatePendingAssignmentsKeys(
-                            partId, baselineMgr.nodes(),
+                            tblCfg.name().value(), partId, baselineMgr.nodes(),
                             partCnt, newReplicas,
                             replicasCtx.storageRevision(), metaStorageMgr, i);
                 }
@@ -462,6 +466,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 InternalTable internalTbl = tablesById.get(tblId).internalTable();
 
                 try {
+                    // TODO: IGNITE-17197 Remove assert after the ticket is resolved.
+                    assert internalTbl.storage() instanceof MvTableStorage :
+                            "Only multi version storages are supported. Current storage is a " + internalTbl.storage().getClass().getName();
+
                     futures[partId] = raftMgr.updateRaftGroup(
                             partitionRaftGroupName(tblId, partId),
                             newPartAssignment,
@@ -469,7 +477,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             // other cases will be covered by rebalance logic
                             (oldPartAssignment.isEmpty()) ? newPartAssignment : Collections.emptyList(),
                             () -> new PartitionListener(tblId,
-                                    new VersionedRowStore(internalTbl.storage().getOrCreatePartition(partId), txManager)),
+                                    new VersionedRowStore(((MvTableStorage) internalTbl.storage()).getOrCreateMvPartition(partId),
+                                            txManager)),
                             () -> new RebalanceRaftGroupEventsListener(
                                     metaStorageMgr,
                                     tablesCfg.tables().get(tablesById.get(tblId).name()),
@@ -1254,9 +1263,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
 
+                    // TODO: IGNITE-17197 Remove assert after the ticket is resolved.
+                    assert tbl.internalTable().storage() instanceof MvTableStorage :
+                            "Only multi version storages are supported. Current storage is a "
+                                    + tbl.internalTable().storage().getClass().getName();
+
                     Supplier<RaftGroupListener> raftGrpLsnrSupplier = () -> new PartitionListener(tblId,
                             new VersionedRowStore(
-                                    tbl.internalTable().storage().getOrCreatePartition(part), txManager));
+                                    ((MvTableStorage) tbl.internalTable().storage()).getOrCreateMvPartition(part), txManager));
 
                     Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier = () -> new RebalanceRaftGroupEventsListener(
                             metaStorageMgr,
@@ -1276,11 +1290,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             ? ((List<List<ClusterNode>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(part)
                             : (List<ClusterNode>) ByteUtils.fromBytes(stableAssignments);
 
+                    ClusterNode localMember = raftMgr.server().clusterService().topologyService().localMember();
+
                     var deltaPeers = newPeers.stream()
                             .filter(p -> !assignments.contains(p))
                             .collect(Collectors.toList());
 
                     try {
+                        LOG.info("Received update on pending key={} for partition={}, table={}, "
+                                        + "check if current node={} should start new raft group node for partition rebalance.",
+                                pendingAssignmentsWatchEvent.key(), part, tbl.name(), localMember.address());
+
                         raftMgr.startRaftGroupNode(partId, assignments, deltaPeers, raftGrpLsnrSupplier,
                                 raftGrpEvtsLsnrSupplier);
                     } catch (NodeStoppingException e) {
@@ -1299,10 +1319,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     IgniteBiTuple<Peer, Long> leaderWithTerm = partGrpSvc.refreshAndGetLeaderWithTerm().join();
 
-                    ClusterNode localMember = raftMgr.server().clusterService().topologyService().localMember();
-
                     // run update of raft configuration if this node is a leader
                     if (localMember.address().equals(leaderWithTerm.get1().address())) {
+                        LOG.info("Current node={} is the leader of partition raft group={}. "
+                                        + "Initiate rebalance process for partition={}, table={}",
+                                localMember.address(), partId, part, tbl.name());
+
                         partGrpSvc.changePeersAsync(newNodes, leaderWithTerm.get2()).join();
                     }
 

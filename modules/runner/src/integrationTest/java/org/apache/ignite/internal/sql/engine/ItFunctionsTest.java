@@ -310,13 +310,7 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
         /**
          * A clock reporting a local time.
          */
-        Clock<LocalTime> TIME_CLOCK = () -> {
-            var tmp = LocalTime.now();
-
-            // need to erase millis because that is what we do when converting from internal types
-            // see: org.apache.ignite.internal.sql.engine.util.TypeUtils.fromInternal
-            return LocalTime.of(tmp.getHour(), tmp.getMinute(), tmp.getSecond());
-        };
+        Clock<LocalTime> TIME_CLOCK = LocalTime::now;
 
         /**
          * A clock reporting a local date.
