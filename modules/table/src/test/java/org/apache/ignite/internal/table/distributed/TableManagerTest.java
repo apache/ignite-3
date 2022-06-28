@@ -768,11 +768,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         sm.start();
 
-        //TODO: Get rid of it after IGNITE-17062.
         if (!waitingSqlSchema) {
-            tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
-                return completedFuture(false);
-            });
+            tableManager.listen(TableEvent.CREATE, (parameters, exception) -> completedFuture(false));
         }
 
         tableManager.start();

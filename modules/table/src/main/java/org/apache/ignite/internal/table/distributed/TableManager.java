@@ -430,7 +430,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         long causalityToken = assignmentsCtx.storageRevision();
 
         List<List<ClusterNode>> oldAssignments = assignmentsCtx.oldValue() == null ? null :
-            (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.oldValue());
+                (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.oldValue());
 
         List<List<ClusterNode>> newAssignments = (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.newValue());
 
@@ -449,7 +449,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             int partId = i;
 
             List<ClusterNode> oldPartAssignment = oldAssignments == null ? Collections.emptyList() :
-                oldAssignments.get(partId);
+                    oldAssignments.get(partId);
 
             List<ClusterNode> newPartAssignment = newAssignments.get(partId);
 
@@ -549,6 +549,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         CompletableFuture<?> eventFut = fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
 
+        beforeTablesVvComplete.add(schemaFut);
         beforeTablesVvComplete.add(eventFut);
 
         tablesByIdVv.update(causalityToken, (previous, e) -> {
@@ -559,8 +560,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             var val = new HashMap<>(previous);
 
             val.put(tblId, table);
-
-            tablesByIdVv.get(causalityToken).thenRun(() -> completeApiCreateFuture(table));
 
             return completedFuture(val);
         });
