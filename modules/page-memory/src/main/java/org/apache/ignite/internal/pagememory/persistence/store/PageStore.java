@@ -25,6 +25,12 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * Persistent store of pages.
  */
 public interface PageStore extends Closeable {
+    /** Type for affinity partitions. */
+    byte TYPE_DATA = 1;
+
+    /** Type for index partition. */
+    byte TYPE_IDX = 2;
+
     /**
      * Adds page write listener.
      *

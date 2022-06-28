@@ -55,7 +55,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  *
  * <p>Consists of:
  * <ul>
- *     <li>Header - {@link #SIGNATURE signature} (8 byte) + {@link #version version} (4 byte) +
+ *     <li>Header - {@link #SIGNATURE signature} (8 byte) + {@link #version version} (4 byte) + {@link #type type} (1 byte) +
  *     {@link #pageSize pageSize} (4 bytes) + version-specific information, total length {@link #headerSize}. </li>
  *     <li>Body - data pages are multiples of {@link #pageSize pageSize}.</li>
  * </ul>
@@ -68,11 +68,14 @@ public class FilePageStore implements PageStore {
     static final int VERSION = 1;
 
     /** Size of the common file page store header for all versions, in bytes. */
-    static final int COMMON_HEADER_SIZE = 8/*SIGNATURE*/ + 4/*VERSION*/ + 4/*page size*/;
+    static final int COMMON_HEADER_SIZE = 8/*SIGNATURE*/ + 4/*VERSION*/ + 1/*type*/ + 4/*page size*/;
 
     /** Skip CRC calculation flag. */
     // TODO: IGNITE-17011 Move to config
     private final boolean skipCrc = getBoolean("IGNITE_PDS_SKIP_CRC");
+
+    /** Data type, can be {@link PageStore#TYPE_IDX} or {@link PageStore#TYPE_DATA}. */
+    private final byte type;
 
     /** File page store path. */
     private final Path filePath;
@@ -103,15 +106,20 @@ public class FilePageStore implements PageStore {
     /**
      * Constructor.
      *
+     * @param type Data type, can be {@link PageStore#TYPE_IDX} or {@link PageStore#TYPE_DATA}.
      * @param filePath File page store path.
      * @param ioFactory {@link FileIo} factory.
      * @param pageSize Page size in bytes.
      */
     public FilePageStore(
+            byte type,
             Path filePath,
             FileIoFactory ioFactory,
             int pageSize
     ) {
+        assert type == PageStore.TYPE_DATA || type == PageStore.TYPE_IDX : type;
+
+        this.type = type;
         this.filePath = filePath;
         this.ioFactory = ioFactory;
         this.pageSize = pageSize;
@@ -398,7 +406,7 @@ public class FilePageStore implements PageStore {
     /**
      * Reads a page store header with its creation if missing (on store initialization).
      *
-     * <p>Structure: signature (8 byte) + version (4 byte) + pageSize (4 byte).
+     * <p>Structure: signature (8 byte) + version (4 byte) + type (1 byte) + pageSize (4 byte).
      *
      * @param bufferToWrite Buffer to write to.
      * @throws IgniteInternalCheckedException If failed.
@@ -531,7 +539,7 @@ public class FilePageStore implements PageStore {
      */
     private long initFile(FileIo fileIo) throws IOException {
         try {
-            ByteBuffer hdr = header(pageSize);
+            ByteBuffer hdr = header(type, pageSize);
 
             fileIo.writeFully(hdr);
 
@@ -558,15 +566,18 @@ public class FilePageStore implements PageStore {
      *
      * <p>Doesn't init the store.
      *
+     * @param type Data type, can be {@link PageStore#TYPE_IDX} or {@link PageStore#TYPE_DATA}.
      * @param pageSize Page size in bytes.
      * @return Byte buffer instance.
      */
-    private ByteBuffer header(int pageSize) {
+    private ByteBuffer header(byte type, int pageSize) {
         ByteBuffer hdr = ByteBuffer.allocate(headerSize()).order(nativeOrder());
 
         hdr.putLong(SIGNATURE);
 
         hdr.putInt(version());
+
+        hdr.put(type);
 
         hdr.putInt(pageSize);
 
@@ -739,6 +750,14 @@ public class FilePageStore implements PageStore {
                     + ", fileVersion=" + ver + "]");
         }
 
+        byte type = headerBuffer.get();
+
+        if (this.type != type) {
+            throw new IOException(prefix + "(invalid file type)"
+                    + " [expectedFileType=" + this.type
+                    + ", actualFileType=" + type + "]");
+        }
+
         int pageSize = headerBuffer.getInt();
 
         if (this.pageSize != pageSize) {
@@ -746,6 +765,13 @@ public class FilePageStore implements PageStore {
                     + " [expectedPageSize=" + this.pageSize
                     + ", filePageSize=" + pageSize + "]");
         }
+    }
+
+    /**
+     * Returns data type, can be {@link PageStore#TYPE_IDX} or {@link PageStore#TYPE_DATA}.
+     */
+    byte type() {
+        return type;
     }
 
     /**

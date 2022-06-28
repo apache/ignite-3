@@ -21,6 +21,8 @@ import static java.nio.file.Files.createDirectories;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
+import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_DATA;
+import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_IDX;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.io.IOException;
@@ -318,12 +320,13 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
         FilePageStoreFactory filePageStoreFactory = new FilePageStoreFactory(filePageStoreFileIoFactory, pageSize);
 
-        FilePageStore idxFilePageStore = filePageStoreFactory.createPageStore(groupWorkDir.resolve(INDEX_FILE_NAME));
+        FilePageStore idxFilePageStore = filePageStoreFactory.createPageStore(TYPE_IDX, groupWorkDir.resolve(INDEX_FILE_NAME));
 
         FilePageStore[] partitionFilePageStores = new FilePageStore[partitions];
 
         for (int i = 0; i < partitions; i++) {
             partitionFilePageStores[i] = filePageStoreFactory.createPageStore(
+                    TYPE_DATA,
                     groupWorkDir.resolve(String.format(PART_FILE_TEMPLATE, i))
             );
         }
