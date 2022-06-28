@@ -33,7 +33,6 @@ import static org.mockserver.model.HttpResponse.response;
 import static org.mockserver.model.HttpStatusCode.INTERNAL_SERVER_ERROR_500;
 import static org.mockserver.model.HttpStatusCode.OK_200;
 
-import com.google.gson.JsonParser;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.env.Environment;
 import java.io.ByteArrayOutputStream;
