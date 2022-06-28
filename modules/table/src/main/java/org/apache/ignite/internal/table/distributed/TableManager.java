@@ -367,6 +367,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (replicasCtx.oldValue() != null && replicasCtx.oldValue() > 0) {
                 TableConfiguration tblCfg = replicasCtx.config(TableConfiguration.class);
 
+                LOG.info("Received update for replicas number for table={} from replicas={} to replicas={}",
+                        tblCfg.name().value(), replicasCtx.oldValue(), replicasCtx.newValue());
+
                 int partCnt = tblCfg.partitions().value();
 
                 int newReplicas = replicasCtx.newValue();
@@ -377,7 +380,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     String partId = partitionRaftGroupName(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
                     futures[i] = updatePendingAssignmentsKeys(
-                            partId, baselineMgr.nodes(),
+                            tblCfg.name().value(), partId, baselineMgr.nodes(),
                             partCnt, newReplicas,
                             replicasCtx.storageRevision(), metaStorageMgr, i);
                 }
@@ -1277,11 +1280,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             ? ((List<List<ClusterNode>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(part)
                             : (List<ClusterNode>) ByteUtils.fromBytes(stableAssignments);
 
+                    ClusterNode localMember = raftMgr.server().clusterService().topologyService().localMember();
+
                     var deltaPeers = newPeers.stream()
                             .filter(p -> !assignments.contains(p))
                             .collect(Collectors.toList());
 
                     try {
+                        LOG.info("Received update on pending key={} for partition={}, table={}, "
+                                        + "check if current node={} should start new raft group node for partition rebalance.",
+                                pendingAssignmentsWatchEvent.key(), part, tbl.name(), localMember.address());
+
                         raftMgr.startRaftGroupNode(partId, assignments, deltaPeers, raftGrpLsnrSupplier,
                                 raftGrpEvtsLsnrSupplier);
                     } catch (NodeStoppingException e) {
@@ -1300,10 +1309,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     IgniteBiTuple<Peer, Long> leaderWithTerm = partGrpSvc.refreshAndGetLeaderWithTerm().join();
 
-                    ClusterNode localMember = raftMgr.server().clusterService().topologyService().localMember();
-
                     // run update of raft configuration if this node is a leader
                     if (localMember.address().equals(leaderWithTerm.get1().address())) {
+                        LOG.info("Current node={} is the leader of partition raft group={}. "
+                                        + "Initiate rebalance process for partition={}, table={}",
+                                localMember.address(), partId, part, tbl.name());
+
                         partGrpSvc.changePeersAsync(newNodes, leaderWithTerm.get2()).join();
                     }
 

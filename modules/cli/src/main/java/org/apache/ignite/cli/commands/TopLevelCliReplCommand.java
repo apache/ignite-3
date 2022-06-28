@@ -19,7 +19,7 @@ package org.apache.ignite.cli.commands;
 
 import jakarta.inject.Singleton;
 import org.apache.ignite.cli.commands.cliconfig.CliCommand;
-import org.apache.ignite.cli.commands.configuration.cluster.ClusterReplCommand;
+import org.apache.ignite.cli.commands.cluster.ClusterReplCommand;
 import org.apache.ignite.cli.commands.configuration.node.NodeReplCommand;
 import org.apache.ignite.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.cli.commands.connect.DisconnectCommand;

@@ -49,6 +49,7 @@ import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdExcept
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -532,18 +533,27 @@ public class ConfigurationUtil {
                     && !cls.isAnnotationPresent(Config.class)
                     && !cls.isAnnotationPresent(InternalConfiguration.class)
                     && !cls.isAnnotationPresent(PolymorphicConfig.class)
-                    && !cls.isAnnotationPresent(PolymorphicConfigInstance.class)) {
+                    && !cls.isAnnotationPresent(PolymorphicConfigInstance.class)
+                    && !cls.isAnnotationPresent(AbstractConfiguration.class)
+            ) {
                 throw new IllegalArgumentException(String.format(
-                        "Configuration schema must contain one of @%s, @%s, @%s, @%s, @%s: %s",
+                        "Configuration schema must contain one of @%s, @%s, @%s, @%s, @%s, @%s: %s",
                         ConfigurationRoot.class.getSimpleName(),
                         Config.class.getSimpleName(),
                         InternalConfiguration.class.getSimpleName(),
                         PolymorphicConfig.class.getSimpleName(),
                         PolymorphicConfigInstance.class.getSimpleName(),
+                        AbstractConfiguration.class.getSimpleName(),
                         cls.getName()
                 ));
             } else {
                 res.add(cls);
+
+                Class<?> superclass = cls.getSuperclass();
+
+                if (superclass.isAnnotationPresent(AbstractConfiguration.class) && !res.contains(superclass)) {
+                    queue.add(superclass);
+                }
 
                 for (Field f : cls.getDeclaredFields()) {
                     if ((f.isAnnotationPresent(ConfigValue.class) || f.isAnnotationPresent(NamedConfigValue.class))

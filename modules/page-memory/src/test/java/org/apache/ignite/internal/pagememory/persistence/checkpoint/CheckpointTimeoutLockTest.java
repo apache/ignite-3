@@ -39,8 +39,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -285,8 +283,6 @@ public class CheckpointTimeoutLockTest {
 
         Checkpointer checkpointer = newCheckpointer(currentThread(), future);
 
-        PageMemoryDataRegion dataRegion = newPageMemoryDataRegion(true, new AtomicBoolean());
-
         timeoutLock = new CheckpointTimeoutLock(log, newReadWriteLock(), 0, () -> false, checkpointer);
 
         timeoutLock.start();
@@ -338,19 +334,5 @@ public class CheckpointTimeoutLockTest {
         when(checkpointer.scheduleCheckpoint(0, "too many dirty pages")).thenReturn(checkpointProgress);
 
         return checkpointer;
-    }
-
-    private PageMemoryDataRegion newPageMemoryDataRegion(boolean persistent, AtomicBoolean safeToUpdate) {
-        PageMemoryDataRegion dataRegion = mock(PageMemoryDataRegion.class);
-
-        when(dataRegion.persistent()).thenReturn(persistent);
-
-        PageMemoryImpl pageMemory = mock(PageMemoryImpl.class);
-
-        when(pageMemory.safeToUpdate()).then(a -> safeToUpdate.get());
-
-        when(dataRegion.pageMemory()).thenReturn(pageMemory);
-
-        return dataRegion;
     }
 }
