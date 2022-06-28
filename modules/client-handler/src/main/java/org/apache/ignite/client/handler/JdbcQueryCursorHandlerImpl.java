@@ -31,11 +31,10 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
@@ -61,13 +60,15 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
         try {
             asyncSqlCursor = resources.get(req.cursorId()).get(AsyncSqlCursor.class);
         } catch (IgniteInternalCheckedException e) {
+            StringWriter sw = getWriterWithStackTrace(e);
+
             return CompletableFuture.completedFuture(new JdbcQueryFetchResult(Response.STATUS_FAILED,
-                    "Failed to find query cursor with ID: " + req.cursorId() + ". " + e));
+                    "Failed to find query cursor [curId=" + req.cursorId() + "]. Error message:" + sw));
         }
 
         if (req.pageSize() <= 0) {
             return CompletableFuture.completedFuture(new JdbcQueryFetchResult(Response.STATUS_FAILED,
-                    "Invalid fetch size : [fetchSize=" + req.pageSize() + ']'));
+                    "Invalid fetch size [fetchSize=" + req.pageSize() + ']'));
         }
 
         return asyncSqlCursor.requestNextAsync(req.pageSize()).handle((batch, t) -> {
@@ -75,7 +76,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
                 StringWriter sw = getWriterWithStackTrace(t);
 
                 return new JdbcQueryFetchResult(Response.STATUS_FAILED,
-                        "Failed to fetch results for cursor id " + req.cursorId() + ". Error message: " + sw);
+                    "Failed to fetch query results [curId=" + req.cursorId() + "]. Error message:" + sw);
             }
 
             return new JdbcQueryFetchResult(batch.items(), !batch.hasMore());
@@ -89,8 +90,10 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
         try {
             asyncSqlCursor = resources.remove(req.cursorId()).get(AsyncSqlCursor.class);
         } catch (IgniteInternalCheckedException e) {
+            StringWriter sw = getWriterWithStackTrace(e);
+
             return CompletableFuture.completedFuture(new JdbcQueryCloseResult(Response.STATUS_FAILED,
-                    "Failed to find query cursor with ID: " + req.cursorId() + ". " + e));
+                    "Failed to find query cursor [curId=" + req.cursorId() + "]. Error message:" + sw));
         }
 
         return asyncSqlCursor.closeAsync().handle((none, t) -> {
@@ -98,7 +101,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
                 StringWriter sw = getWriterWithStackTrace(t);
 
                 return new JdbcQueryCloseResult(Response.STATUS_FAILED,
-                        "Failed to close SQL query [curId=" + req.cursorId() + "]. Error message: " + sw);
+                        "Failed to close SQL query cursor [curId=" + req.cursorId() + "]. Error message: " + sw);
             }
 
             return new JdbcQueryCloseResult();
@@ -112,15 +115,17 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
         try {
             asyncSqlCursor = resources.get(req.cursorId()).get(AsyncSqlCursor.class);
         } catch (IgniteInternalCheckedException e) {
+            StringWriter sw = getWriterWithStackTrace(e);
+
             return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(Response.STATUS_FAILED,
-                    "Failed to find query cursor with ID: " + req.cursorId() + ". " + e));
+                    "Failed to find query cursor [curId=" + req.cursorId() + "]. Error message:" + sw));
         }
 
         ResultSetMetadata metadata = asyncSqlCursor.metadata();
 
         if (metadata == null) {
             return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(Response.STATUS_FAILED,
-                    "Failed to get query metadata for cursor with ID : " + req.cursorId()));
+                    "Failed to get query metadata for cursor [curId=" + req.cursorId() + ']'));
         }
 
         List<JdbcColumnMeta> meta = metadata.columns().stream()
@@ -137,7 +142,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
      * @return JdbcColumnMeta object.
      */
     private JdbcColumnMeta createColumnMetadata(ColumnMetadata fldMeta) {
-        ColumnOrigin origin = fldMeta.origin();
+        ColumnMetadata.ColumnOrigin origin = fldMeta.origin();
 
         String schemaName = null;
         String tblName = null;
@@ -150,14 +155,14 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
         }
 
         return new JdbcColumnMeta(
-                fldMeta.name(),
-                schemaName,
-                tblName,
-                colName,
-                Commons.columnTypeToClass(fldMeta.type()),
-                fldMeta.precision(),
-                fldMeta.scale(),
-                fldMeta.nullable()
+            fldMeta.name(),
+            schemaName,
+            tblName,
+            colName,
+            SqlColumnTypeConverter.columnTypeToClass(fldMeta.type()),
+            fldMeta.precision(),
+            fldMeta.scale(),
+            fldMeta.nullable()
         );
     }
 
