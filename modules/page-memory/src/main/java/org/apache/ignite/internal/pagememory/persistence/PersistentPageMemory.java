@@ -1476,11 +1476,6 @@ public class PersistentPageMemory implements PageMemory {
         public boolean tryToRemovePage(FullPageId fullPageId, long absPtr) throws IgniteInternalCheckedException {
             assert writeLock().isHeldByCurrentThread();
 
-            // Do not evict group meta pages.
-            if (fullPageId.pageId() == META_PAGE_ID) {
-                return false;
-            }
-
             if (isAcquired(absPtr)) {
                 return false;
             }

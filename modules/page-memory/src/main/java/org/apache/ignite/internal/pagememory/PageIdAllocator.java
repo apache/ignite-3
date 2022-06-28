@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.pagememory;
 
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
-
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
@@ -45,9 +43,6 @@ public interface PageIdAllocator {
      * Special partition reserved for the index space.
      */
     int INDEX_PARTITION = 0xFFFF;
-
-    /** Group meta page id. */
-    long META_PAGE_ID = pageId(INDEX_PARTITION, FLAG_AUX, 0);
 
     /**
      * Allocates a page from the space for the given partition ID and the given flags.
