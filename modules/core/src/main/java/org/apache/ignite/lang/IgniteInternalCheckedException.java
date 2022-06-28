@@ -17,11 +17,10 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.internal.err.ErrorGroup.UNKNOWN_ERR;
-import static org.apache.ignite.internal.err.ErrorGroup.UNKNOWN_ERR_GROUP;
+import static org.apache.ignite.lang.ErrorGroup.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroup.UNKNOWN_ERR_GROUP;
 
 import java.util.UUID;
-import org.apache.ignite.internal.err.ErrorGroup;
 import org.jetbrains.annotations.Nullable;
 
 /**

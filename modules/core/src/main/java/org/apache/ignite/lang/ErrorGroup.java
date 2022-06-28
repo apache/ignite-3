@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.err;
+package org.apache.ignite.lang;
 
 import java.util.ArrayList;
 import java.util.HashSet;
