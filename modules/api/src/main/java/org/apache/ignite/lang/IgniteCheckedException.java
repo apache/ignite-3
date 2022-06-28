@@ -1,0 +1,165 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.lang;
+
+import java.util.UUID;
+
+/**
+ * General Ignite exception. This exception is used to indicate any error condition within the node.
+ */
+public class IgniteCheckedException extends Exception {
+    /** Serial version uid. */
+    private static final long serialVersionUID = 0L;
+
+    /** Name of the error group. */
+    private final String groupName;
+
+    /**
+     * Error code which contains information about error group and code, where code is unique within the group.
+     * The structure of a code is shown in the following diagram:
+     * +------------+--------------+
+     * |  16 bits   |    16 bits   |
+     * +------------+--------------+
+     * | Group Code |  Error Code  |
+     * +------------+--------------+
+     */
+    private final int code;
+
+    /** Unique identifier of this exception that should help locating the error message in a log file. */
+    private final UUID traceId;
+
+    /**
+     * Creates a new exception with the given group and error code.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     */
+    public IgniteCheckedException(UUID traceId, String groupName, int code) {
+        this.traceId = traceId;
+        this.groupName = groupName;
+        this.code = code;
+    }
+
+    /**
+     * Creates a new exception with the given group, error code and detail message.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param message Detail message.
+     */
+    public IgniteCheckedException(UUID traceId, String groupName, int code, String message) {
+        super(message);
+
+        this.traceId = traceId;
+        this.groupName = groupName;
+        this.code = code;
+    }
+
+    /**
+     * Creates a new exception with the given group, error code and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public IgniteCheckedException(UUID traceId, String groupName, int code, Throwable cause) {
+        super(cause);
+
+        this.traceId = traceId;
+        this.groupName = groupName;
+        this.code = code;
+    }
+
+    /**
+     * Creates a new exception with the given group, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public IgniteCheckedException(UUID traceId, String groupName, int code, String message, Throwable cause) {
+        super(message, cause);
+
+        this.traceId = traceId;
+        this.groupName = groupName;
+        this.code = code;
+    }
+
+    /**
+     * Returns a group name of this error.
+     *
+     * @see #groupCode()
+     * @see #code()
+     * @return Group name.
+     */
+    public String groupName() {
+        return groupName;
+    }
+
+    /**
+     * Returns a full error code which includes a group of the error and code which is uniquely identifies a problem within the group.
+     * This is a combination of two most-significant bytes that represent the error group and
+     * two least-significant bytes for the error code.
+     *
+     * @return Full error code.
+     */
+    public int code() {
+        return code;
+    }
+
+    /**
+     * Returns error group.
+     *
+     * @see #code()
+     * @return Error group.
+     */
+    public int groupCode() {
+        return code() >> 16;
+    }
+
+    /**
+     * Returns error code that uniquely identifies a problem within a group.
+     *
+     * @see #code()
+     * @see #groupCode()
+     * @return Error code.
+     */
+    public int errorCode() {
+        return code() & 0xFFFF;
+    }
+
+    /**
+     * Returns an unique identifier of this exception.
+     *
+     * @return Unique identifier of this exception.
+     */
+    public UUID traceId() {
+        return traceId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return "IGN-" + groupName + '-' + errorCode() + " Trace ID:" + traceId() + ' ' + super.toString();
+    }
+}
