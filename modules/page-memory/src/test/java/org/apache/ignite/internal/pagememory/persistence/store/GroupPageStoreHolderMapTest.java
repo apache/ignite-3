@@ -28,6 +28,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,12 +54,12 @@ public class GroupPageStoreHolderMapTest {
 
     @Test
     void testPut() {
-        GroupPageStoreHolder<PageStore> holder0 = createHolder();
+        List<PageStore> holder0 = List.of();
 
         assertNull(holderMap.put(0, holder0));
         checkInvokeAfterAsyncCompletion(1);
 
-        GroupPageStoreHolder<PageStore> holder1 = createHolder();
+        List<PageStore> holder1 = List.of();
 
         assertSame(holder0, holderMap.put(0, holder1));
         checkInvokeAfterAsyncCompletion(2);
@@ -71,7 +72,7 @@ public class GroupPageStoreHolderMapTest {
 
     @Test
     void testPutAll() {
-        Map<Integer, GroupPageStoreHolder<PageStore>> expHolders = Map.of(0, createHolder(), 1, createHolder());
+        Map<Integer, List<PageStore>> expHolders = Map.of(0, List.of(), 1, List.of());
 
         holderMap.putAll(expHolders);
 
@@ -87,13 +88,13 @@ public class GroupPageStoreHolderMapTest {
 
     @Test
     void testPutIfAbsent() {
-        GroupPageStoreHolder<PageStore> holder0 = createHolder();
+        List<PageStore> holder0 = List.of();
 
         assertNull(holderMap.putIfAbsent(0, holder0));
 
         checkInvokeAfterAsyncCompletion(1);
 
-        GroupPageStoreHolder<PageStore> holder1 = createHolder();
+        List<PageStore> holder1 = List.of();
 
         assertSame(holder0, holderMap.putIfAbsent(0, holder1));
 
@@ -108,14 +109,14 @@ public class GroupPageStoreHolderMapTest {
 
     @Test
     void testReplaceMappedValue() {
-        GroupPageStoreHolder<PageStore> holder0 = createHolder();
+        List<PageStore> holder0 = List.of(mock(PageStore.class));
 
         holderMap.put(0, holder0);
 
         checkInvokeAfterAsyncCompletion(1);
 
-        GroupPageStoreHolder<PageStore> holder1 = createHolder();
-        GroupPageStoreHolder<PageStore> holder2 = createHolder();
+        List<PageStore> holder1 = List.of(mock(PageStore.class));
+        List<PageStore> holder2 = List.of(mock(PageStore.class));
 
         assertTrue(holderMap.replace(0, holder0, holder1));
 
@@ -136,14 +137,14 @@ public class GroupPageStoreHolderMapTest {
 
     @Test
     void testReplace() {
-        GroupPageStoreHolder<PageStore> holder0 = createHolder();
+        List<PageStore> holder0 = List.of();
 
         holderMap.put(0, holder0);
 
         checkInvokeAfterAsyncCompletion(1);
 
-        GroupPageStoreHolder<PageStore> holder1 = createHolder();
-        GroupPageStoreHolder<PageStore> holder2 = createHolder();
+        List<PageStore> holder1 = List.of();
+        List<PageStore> holder2 = List.of();
 
         assertSame(holder0, holderMap.replace(0, holder1));
         assertNull(holderMap.replace(1, holder2));
@@ -159,13 +160,13 @@ public class GroupPageStoreHolderMapTest {
 
     @Test
     void testComputeIfAbsent() {
-        GroupPageStoreHolder<PageStore> holder0 = createHolder();
+        List<PageStore> holder0 = List.of();
 
         assertSame(holder0, holderMap.computeIfAbsent(0, grpId -> holder0));
 
         checkInvokeAfterAsyncCompletion(1);
 
-        GroupPageStoreHolder<PageStore> holder1 = createHolder();
+        List<PageStore> holder1 = List.of();
 
         assertSame(holder0, holderMap.computeIfAbsent(0, grpId -> holder1));
 
@@ -180,14 +181,14 @@ public class GroupPageStoreHolderMapTest {
 
     @Test
     void testComputeIfPresent() {
-        GroupPageStoreHolder<PageStore> holder0 = createHolder();
+        List<PageStore> holder0 = List.of();
 
         holderMap.put(0, holder0);
 
         checkInvokeAfterAsyncCompletion(1);
 
-        GroupPageStoreHolder<PageStore> holder1 = createHolder();
-        GroupPageStoreHolder<PageStore> holder2 = createHolder();
+        List<PageStore> holder1 = List.of();
+        List<PageStore> holder2 = List.of();
 
         assertSame(holder1, holderMap.computeIfPresent(0, (grpId, oldVal) -> holder1));
 
@@ -204,14 +205,14 @@ public class GroupPageStoreHolderMapTest {
 
     @Test
     void testCompute() {
-        GroupPageStoreHolder<PageStore> holder0 = createHolder();
+        List<PageStore> holder0 = List.of();
 
         assertSame(holder0, holderMap.compute(0, (grpId, oldVal) -> holder0));
 
         checkInvokeAfterAsyncCompletion(1);
 
-        GroupPageStoreHolder<PageStore> holder1 = createHolder();
-        GroupPageStoreHolder<PageStore> holder2 = createHolder();
+        List<PageStore> holder1 = List.of();
+        List<PageStore> holder2 = List.of();
 
         assertSame(holder1, holderMap.compute(0, (grpId, oldVal) -> holder1));
         assertSame(holder2, holderMap.compute(1, (grpId, oldVal) -> holder2));
@@ -228,13 +229,13 @@ public class GroupPageStoreHolderMapTest {
 
     @Test
     void testMerge() {
-        GroupPageStoreHolder<PageStore> holder0 = createHolder();
+        List<PageStore> holder0 = List.of();
 
         assertSame(holder0, holderMap.merge(0, holder0, (h0, h1) -> h1));
 
         checkInvokeAfterAsyncCompletion(1);
 
-        GroupPageStoreHolder<PageStore> holder1 = createHolder();
+        List<PageStore> holder1 = List.of();
 
         assertSame(holder1, holderMap.merge(0, holder1, (h0, h1) -> h1));
 
@@ -245,10 +246,6 @@ public class GroupPageStoreHolderMapTest {
         assertSame(holder1, holderMap.get(0));
 
         assertNull(holderMap.get(1));
-    }
-
-    private GroupPageStoreHolder<PageStore> createHolder() {
-        return mock(GroupPageStoreHolder.class);
     }
 
     private void checkInvokeAfterAsyncCompletion(int times) {

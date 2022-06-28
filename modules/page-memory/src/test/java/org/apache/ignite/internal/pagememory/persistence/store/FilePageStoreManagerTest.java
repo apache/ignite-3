@@ -19,9 +19,6 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
-import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_DATA;
-import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_IDX;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -48,7 +45,6 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -125,7 +121,7 @@ public class FilePageStoreManagerTest {
 
             assertThat(
                     Files.list(testGroupDir).map(Path::getFileName).map(Path::toString).collect(toSet()),
-                    equalTo(Set.of("index.bin", "part-0.bin", "part-1.bin"))
+                    equalTo(Set.of("part-0.bin", "part-1.bin"))
             );
         } finally {
             manager.stop();
@@ -146,7 +142,7 @@ public class FilePageStoreManagerTest {
             Collection<FilePageStore> stores = manager.getStores(0);
 
             assertNotNull(stores);
-            assertEquals(3, stores.size());
+            assertEquals(2, stores.size());
             assertDoesNotThrow(() -> Set.copyOf(stores));
 
             // Checks getStore.
@@ -158,7 +154,6 @@ public class FilePageStoreManagerTest {
             assertTrue(pageStores.add(partitionPageStore0));
             assertTrue(stores.contains(partitionPageStore0));
 
-            assertEquals(TYPE_DATA, partitionPageStore0.type());
             assertTrue(partitionPageStore0.filePath().endsWith("db/group-test/part-0.bin"));
 
             FilePageStore partitionPageStore1 = manager.getStore(0, 1);
@@ -166,16 +161,7 @@ public class FilePageStoreManagerTest {
             assertTrue(pageStores.add(partitionPageStore1));
             assertTrue(stores.contains(partitionPageStore1));
 
-            assertEquals(TYPE_DATA, partitionPageStore1.type());
             assertTrue(partitionPageStore1.filePath().endsWith("db/group-test/part-1.bin"));
-
-            FilePageStore idxPageStore = manager.getStore(0, INDEX_PARTITION);
-
-            assertTrue(pageStores.add(idxPageStore));
-            assertTrue(stores.contains(idxPageStore));
-
-            assertEquals(TYPE_IDX, idxPageStore.type());
-            assertTrue(idxPageStore.filePath().endsWith("db/group-test/index.bin"));
 
             IgniteInternalCheckedException exception = assertThrows(IgniteInternalCheckedException.class, () -> manager.getStore(1, 0));
 
@@ -196,7 +182,6 @@ public class FilePageStoreManagerTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17230")
     void testStopAllGroupFilePageStores() throws Exception {
         // Checks without clean files.
 
@@ -219,7 +204,7 @@ public class FilePageStoreManagerTest {
 
             assertThat(
                     Files.list(workDir.resolve("db/group-test0")).map(Path::getFileName).map(Path::toString).collect(toSet()),
-                    equalTo(Set.of("index.bin", "part-0.bin"))
+                    equalTo(Set.of("part-0.bin"))
             );
         } finally {
             manager0.stop();
@@ -241,7 +226,8 @@ public class FilePageStoreManagerTest {
             assertTrue(waitForCondition(
                     () -> workDir.resolve("db/group-test1").toFile().listFiles().length == 0,
                     10,
-                    100
+                    // Because deleting files happens in a new thread.
+                    1_000
             ));
         } finally {
             manager1.stop();
