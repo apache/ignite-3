@@ -30,13 +30,11 @@ import org.apache.ignite.rest.client.api.ClusterConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Call to get cluster status.
  */
 @Singleton
-//TODO: https://issues.apache.org/jira/browse/IGNITE-17093
 public class StatusReplCall implements Call<EmptyCallInput, Status> {
 
     private final NodeManager nodeManager;
@@ -68,16 +66,15 @@ public class StatusReplCall implements Call<EmptyCallInput, Status> {
     }
 
     private boolean canReadClusterConfig() {
-        var clusterApi = createApiClient();
+        ClusterConfigurationApi clusterApi = createApiClient();
         try {
             clusterApi.getClusterConfiguration();
             return true;
-        } catch (ApiException e) {
+        } catch (ApiException | IllegalArgumentException e) {
             return false;
         }
     }
 
-    @NotNull
     private ClusterConfigurationApi createApiClient() {
         ApiClient client = Configuration.getDefaultApiClient();
         client.setBasePath(session.getNodeUrl());

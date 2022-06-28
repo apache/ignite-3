@@ -28,8 +28,8 @@ import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,20 +40,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class PersistentPageMemoryDataRegionTest {
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
-    private PageMemoryDataRegionConfiguration dataRegionConfig;
+    private PersistentPageMemoryDataRegionConfiguration dataRegionConfig;
 
     @Test
     void testCalculateSegmentSizes() throws Exception {
         int concurrencyLevel = 2;
 
-        PageMemoryDataRegionView dataRegionConfigView = dataRegionConfig.value();
+        PersistentPageMemoryDataRegionView dataRegionConfigView = dataRegionConfig.value();
 
         assertArrayEquals(
-                fill(new long[concurrencyLevel], dataRegionConfigView.maxSize() / concurrencyLevel),
+                fill(new long[concurrencyLevel], dataRegionConfigView.size() / concurrencyLevel),
                 calculateSegmentSizes(dataRegionConfigView, concurrencyLevel)
         );
 
-        dataRegionConfig.maxSize().update(1024L).get(1, TimeUnit.SECONDS);
+        dataRegionConfig.size().update(1024L).get(1, TimeUnit.SECONDS);
 
         assertArrayEquals(
                 fill(new long[concurrencyLevel], MiB),
@@ -63,19 +63,19 @@ public class PersistentPageMemoryDataRegionTest {
 
     @Test
     void testCalculateCheckpointBufferSize() throws Exception {
-        PageMemoryDataRegionView dataRegionConfigView = dataRegionConfig.value();
+        PersistentPageMemoryDataRegionView dataRegionConfigView = dataRegionConfig.value();
 
-        assertEquals(dataRegionConfigView.maxSize(), calculateCheckpointBufferSize(dataRegionConfigView));
+        assertEquals(dataRegionConfigView.size(), calculateCheckpointBufferSize(dataRegionConfigView));
 
-        dataRegionConfig.maxSize().update(GiB / 2L).get(1, TimeUnit.SECONDS);
+        dataRegionConfig.size().update(GiB / 2L).get(1, TimeUnit.SECONDS);
 
         assertEquals(GiB / 4L, calculateCheckpointBufferSize(dataRegionConfig.value()));
 
-        dataRegionConfig.maxSize().update(6L * GiB).get(1, TimeUnit.SECONDS);
+        dataRegionConfig.size().update(6L * GiB).get(1, TimeUnit.SECONDS);
 
         assertEquals((6L * GiB) / 4L, calculateCheckpointBufferSize(dataRegionConfig.value()));
 
-        dataRegionConfig.maxSize().update(8L * GiB).get(1, TimeUnit.SECONDS);
+        dataRegionConfig.size().update(8L * GiB).get(1, TimeUnit.SECONDS);
 
         assertEquals(2L * GiB, calculateCheckpointBufferSize(dataRegionConfig.value()));
     }

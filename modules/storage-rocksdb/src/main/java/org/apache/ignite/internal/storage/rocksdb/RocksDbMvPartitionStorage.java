@@ -30,7 +30,6 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.NoUncommittedVersionException;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
@@ -213,8 +212,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         try {
             byte[] previousValue = db.get(cf, keyBuf.array(), 0, ROW_PREFIX_SIZE);
+
             if (previousValue == null) {
-                throw new NoUncommittedVersionException();
+                //the chain doesn't contain an uncommitted write intent
+                return null;
             }
 
             // Perform unconditional remove for the key without associated timestamp.
@@ -237,7 +238,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             // Read a value associated with pending write.
             byte[] valueBytes = db.get(cf, keyBuf.array(), 0, ROW_PREFIX_SIZE);
 
-            assert valueBytes != null : "Failed to commit row " + rowId + ", value is missing";
+            if (valueBytes == null) {
+                //the chain doesn't contain an uncommitted write intent
+                return;
+            }
 
             // Delete pending write.
             db.delete(cf, writeOpts, keyBuf.array(), 0, ROW_PREFIX_SIZE);
@@ -356,7 +360,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         //  - no one guarantees that there will only be a single cursor;
         //  - no one guarantees that returned cursor will not be used by other threads.
         // The thing is, we need this buffer to preserve its content between invocactions of "hasNext" method.
-        ByteBuffer seekKeyBuf = ByteBuffer.allocate(seekKeyBufSize).order(BIG_ENDIAN);
+        ByteBuffer seekKeyBuf = ByteBuffer.allocate(seekKeyBufSize).order(BIG_ENDIAN).putShort(0, (short) partitionId);
 
         if (timestamp != null) {
             putTimestamp(seekKeyBuf.position(ROW_PREFIX_SIZE), timestamp);

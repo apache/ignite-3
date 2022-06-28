@@ -20,7 +20,7 @@ package org.apache.ignite.cli.call.configuration;
 import org.apache.ignite.cli.core.call.CallInput;
 
 /**
- * Input for {@link NodeConfigUpdateCall}.
+ * Input for {@link ClusterConfigUpdateCall}.
  */
 public class ClusterConfigUpdateCallInput implements CallInput {
     /**
@@ -59,7 +59,7 @@ public class ClusterConfigUpdateCallInput implements CallInput {
     /**
      * Get cluster URL.
      *
-     * @return Cluster url.
+     * @return Cluster URL.
      */
     public String getClusterUrl() {
         return clusterUrl;

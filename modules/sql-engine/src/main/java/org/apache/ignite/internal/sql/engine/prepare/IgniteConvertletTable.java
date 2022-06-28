@@ -37,6 +37,7 @@ import org.apache.calcite.sql2rel.SqlRexContext;
 import org.apache.calcite.sql2rel.SqlRexConvertlet;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
 import org.apache.calcite.sql2rel.StandardConvertletTable;
+import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 
 /**
  * Implementation of {@link SqlRexConvertletTable}.
@@ -47,6 +48,8 @@ public class IgniteConvertletTable extends ReflectiveConvertletTable {
     private IgniteConvertletTable() {
         // Replace Calcite's convertlet with our own.
         registerOp(SqlStdOperatorTable.TIMESTAMP_DIFF, new TimestampDiffConvertlet());
+
+        addAlias(IgniteSqlOperatorTable.LENGTH, SqlStdOperatorTable.CHAR_LENGTH);
     }
 
     /** {@inheritDoc} */

@@ -29,13 +29,10 @@ public class DefaultExceptionHandlers extends ExceptionHandlers {
      */
     public DefaultExceptionHandlers() {
         addExceptionHandler(new SqlExceptionHandler());
-        addExceptionHandler(new ConnectCommandExceptionHandler());
-        addExceptionHandler(new CommandExecutionExceptionHandler());
         addExceptionHandler(new TimeoutExceptionHandler());
         addExceptionHandler(new IgniteClientExceptionHandler());
         addExceptionHandler(new IgniteCliExceptionHandler());
-        addExceptionHandler(new ConnectExceptionHandler());
-        addExceptionHandler(new ApiExceptionHandler());
+        addExceptionHandler(new IgniteCliApiExceptionHandler());
         addExceptionHandler(new UnknownCommandExceptionHandler());
     }
 }

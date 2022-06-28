@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +37,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 
 /**
  * TableDescriptorImpl.
@@ -93,27 +94,20 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
         keyFields = keyFieldsBuilder.build();
     }
 
+    @SuppressWarnings("AssertWithSideEffects")
     private ColumnDescriptor injectDefault(ColumnDescriptor desc) {
         assert Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(desc.name()) : desc;
 
         return new ColumnDescriptorImpl(
                 desc.name(),
                 desc.key(),
+                desc.nullable(),
                 desc.logicalIndex(),
                 desc.physicalIndex(),
                 desc.physicalType(),
-                null
-        ) {
-            @Override
-            public boolean hasDefaultValue() {
-                return false;
-            }
-
-            @Override
-            public Object defaultValue() {
-                return UUID.randomUUID().toString();
-            }
-        };
+                DefaultValueStrategy.DEFAULT_COMPUTED,
+                () -> UUID.randomUUID().toString()
+        );
     }
 
     /** {@inheritDoc} */
@@ -143,7 +137,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     /** {@inheritDoc} */
     @Override
     public ColumnStrategy generationStrategy(RelOptTable tbl, int colIdx) {
-        if (descriptors[colIdx].hasDefaultValue()) {
+        if (descriptors[colIdx].defaultStrategy() != DefaultValueStrategy.DEFAULT_NULL) {
             return ColumnStrategy.DEFAULT;
         }
 
@@ -155,14 +149,14 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     public RexNode newColumnDefaultValue(RelOptTable tbl, int colIdx, InitializerContext ctx) {
         final ColumnDescriptor desc = descriptors[colIdx];
 
-        if (!desc.hasDefaultValue()) {
+        if (desc.defaultStrategy() != DefaultValueStrategy.DEFAULT_CONSTANT) {
             return super.newColumnDefaultValue(tbl, colIdx, ctx);
         }
 
         final RexBuilder rexBuilder = ctx.getRexBuilder();
         final IgniteTypeFactory typeFactory = (IgniteTypeFactory) rexBuilder.getTypeFactory();
 
-        return rexBuilder.makeLiteral(desc.defaultValue(), desc.logicalType(typeFactory), false);
+        return rexBuilder.makeLiteral(desc.defaultValue(), deriveLogicalType(typeFactory, desc), false);
     }
 
     /** {@inheritDoc} */
@@ -172,15 +166,15 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
         if (usedColumns == null) {
             for (int i = 0; i < descriptors.length; i++) {
-                b.add(descriptors[i].name(), descriptors[i].logicalType(factory));
+                b.add(descriptors[i].name(), deriveLogicalType(factory, descriptors[i]));
             }
         } else {
             for (int i = usedColumns.nextSetBit(0); i != -1; i = usedColumns.nextSetBit(i + 1)) {
-                b.add(descriptors[i].name(), descriptors[i].logicalType(factory));
+                b.add(descriptors[i].name(), deriveLogicalType(factory, descriptors[i]));
             }
         }
 
-        return TypeUtils.sqlType(factory, b.build());
+        return b.build();
     }
 
     /** {@inheritDoc} */
@@ -199,5 +193,9 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     @Override
     public int columnsCount() {
         return descriptors.length;
+    }
+
+    private RelDataType deriveLogicalType(RelDataTypeFactory factory, ColumnDescriptor desc) {
+        return native2relationalType(factory, desc.physicalType(), desc.nullable());
     }
 }

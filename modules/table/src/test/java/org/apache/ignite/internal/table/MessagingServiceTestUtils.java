@@ -23,26 +23,39 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
+import java.io.Serializable;
+import java.util.Iterator;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
+import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.message.TxFinishRequest;
 import org.apache.ignite.internal.tx.message.TxFinishResponse;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.client.Command;
+import org.apache.ignite.raft.client.service.CommandClosure;
+import org.jetbrains.annotations.Nullable;
 import org.mockito.Mockito;
 
 /**
  * Test utils for mocking messaging service.
  */
 public class MessagingServiceTestUtils {
-
     /**
      * Prepares messaging service mock.
      *
      * @param txManager Transaction manager.
+     * @param partitionListeners Partition listeners.
      * @return Messaging service mock.
      */
-    public static MessagingService mockMessagingService(TxManager txManager) {
+    public static MessagingService mockMessagingService(
+            TxManager txManager,
+            List<PartitionListener> partitionListeners
+    ) {
         MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
 
         doAnswer(
@@ -51,10 +64,20 @@ public class MessagingServiceTestUtils {
 
                     TxFinishRequest txFinishRequest = invocationClose.getArgument(1);
 
+                    UUID txId = txFinishRequest.txId();
+
+                    txManager.changeState(txId, TxState.PENDING, txFinishRequest.commit() ? TxState.COMMITED : TxState.ABORTED);
+
+                    FinishTxCommand finishTxCommand = new FinishTxCommand(
+                            txId, txFinishRequest.commit(), txManager.lockedKeys(txId)
+                    );
+
+                    partitionListeners.forEach(partitionListener -> partitionListener.onWrite(iterator(finishTxCommand)));
+
                     if (txFinishRequest.commit()) {
-                        txManager.commitAsync(txFinishRequest.timestamp()).get();
+                        txManager.commitAsync(txId).get();
                     } else {
-                        txManager.rollbackAsync(txFinishRequest.timestamp()).get();
+                        txManager.rollbackAsync(txId).get();
                     }
 
                     return CompletableFuture.completedFuture(mock(TxFinishResponse.class));
@@ -63,5 +86,21 @@ public class MessagingServiceTestUtils {
                 .invoke(any(NetworkAddress.class), any(TxFinishRequest.class), anyLong());
 
         return messagingService;
+    }
+
+    private static <T extends Command> Iterator<CommandClosure<T>> iterator(T obj) {
+        CommandClosure<T> closure = new CommandClosure<>() {
+            @Override
+            public T command() {
+                return obj;
+            }
+
+            @Override
+            public void result(@Nullable Serializable res) {
+                // no-op.
+            }
+        };
+
+        return List.of(closure).iterator();
     }
 }

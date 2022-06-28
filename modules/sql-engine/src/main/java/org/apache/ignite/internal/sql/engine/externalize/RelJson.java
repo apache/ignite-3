@@ -38,6 +38,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.avatica.AvaticaUtils;
+import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.avatica.util.TimeUnit;
 import org.apache.calcite.avatica.util.TimeUnitRange;
 import org.apache.calcite.linq4j.tree.BlockBuilder;
@@ -95,6 +96,7 @@ import org.apache.calcite.sql.SqlSyntax;
 import org.apache.calcite.sql.SqlWindow;
 import org.apache.calcite.sql.fun.SqlTrimFunction;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlNameMatchers;
 import org.apache.calcite.util.ImmutableBitSet;
@@ -294,10 +296,16 @@ class RelJson {
             return toJson((RelDataType) value);
         } else if (value instanceof RelDataTypeField) {
             return toJson((RelDataTypeField) value);
+        } else if (value instanceof ByteString) {
+            return toJson((ByteString) value);
         } else {
             throw new UnsupportedOperationException("type not serializable: "
                     + value + " (type " + value.getClass().getCanonicalName() + ")");
         }
+    }
+
+    private Object toJson(ByteString val) {
+        return val.toString();
     }
 
     private Object toJson(Enum<?> enum0) {
@@ -344,6 +352,12 @@ class RelJson {
             Map<String, Object> map = map();
             map.put("type", toJson(node.getSqlTypeName()));
             map.put("elementType", toJson(node.getComponentType()));
+            return map;
+        } else  if (node.getSqlTypeName() == SqlTypeName.MAP) {
+            Map<String, Object> map = map();
+            map.put("type", toJson(node.getSqlTypeName()));
+            map.put("keyType", toJson(node.getKeyType()));
+            map.put("valueType", toJson(node.getValueType()));
             return map;
         } else {
             Map<String, Object> map = map();
@@ -630,6 +644,11 @@ class RelJson {
                             new SqlIntervalQualifier(startUnit, endUnit, SqlParserPos.ZERO));
                 } else if (sqlTypeName == SqlTypeName.ARRAY) {
                     type = typeFactory.createArrayType(toType(typeFactory, map.get("elementType")), -1);
+                } else if (sqlTypeName == SqlTypeName.MAP) {
+                    type = typeFactory.createMapType(
+                            toType(typeFactory, map.get("keyType")),
+                            toType(typeFactory, map.get("valueType"))
+                    );
                 } else if (precision == null) {
                     type = typeFactory.createSqlType(sqlTypeName);
                 } else if (scale == null) {
@@ -754,6 +773,8 @@ class RelJson {
 
                 if (type.getSqlTypeName() == SqlTypeName.SYMBOL) {
                     literal = toEnum(literal);
+                } else if (type.getSqlTypeName().getFamily() == SqlTypeFamily.BINARY) {
+                    literal = toByteString(literal);
                 }
 
                 return rexBuilder.makeLiteral(literal, type, true);
@@ -829,6 +850,12 @@ class RelJson {
 
         String name = (String) o;
         return (T) ENUM_BY_NAME.get(name);
+    }
+
+    private ByteString toByteString(Object o) {
+        assert o instanceof String;
+
+        return ByteString.of((String) o, 16);
     }
 
     private RelFieldCollation toFieldCollation(Map<String, Object> map) {

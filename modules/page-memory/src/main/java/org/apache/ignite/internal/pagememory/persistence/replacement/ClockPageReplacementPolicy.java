@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
-import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.INVALID_REL_PTR;
-import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.OUTDATED_REL_PTR;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.INVALID_REL_PTR;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.OUTDATED_REL_PTR;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.LoadedPagesMap;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.Segment;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.Segment;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**

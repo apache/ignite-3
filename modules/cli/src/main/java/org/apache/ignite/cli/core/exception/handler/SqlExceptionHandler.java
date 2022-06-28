@@ -38,7 +38,7 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     public static final String CONNECTION_BROKE_MESSAGE = "Connection error.";
 
     @Override
-    public void handle(ExceptionWriter err, SQLException e) {
+    public int handle(ExceptionWriter err, SQLException e) {
         switch (e.getSQLState()) {
             case SqlStateCode.CONNECTION_FAILURE:
             case SqlStateCode.CONNECTION_CLOSED:
@@ -58,6 +58,7 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
                 log.error("Unrecognized error ", e);
                 err.write("Unrecognized error while process SQL query.");
         }
+        return 1;
     }
 
     @Override

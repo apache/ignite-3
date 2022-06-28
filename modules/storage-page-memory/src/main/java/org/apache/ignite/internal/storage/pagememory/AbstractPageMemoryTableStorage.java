@@ -40,8 +40,6 @@ import org.jetbrains.annotations.TestOnly;
  */
 // TODO: IGNITE-16642 Support indexes.
 public abstract class AbstractPageMemoryTableStorage implements TableStorage {
-    protected final AbstractPageMemoryDataRegion dataRegion;
-
     protected final TableConfiguration tableCfg;
 
     /** List of objects to be closed on the {@link #stop}. */
@@ -54,11 +52,9 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage {
     /**
      * Constructor.
      *
-     * @param tableCfg – Table configuration.
-     * @param dataRegion – Data region for the table.
+     * @param tableCfg Table configuration.
      */
-    public AbstractPageMemoryTableStorage(TableConfiguration tableCfg, AbstractPageMemoryDataRegion dataRegion) {
-        this.dataRegion = dataRegion;
+    public AbstractPageMemoryTableStorage(TableConfiguration tableCfg) {
         this.tableCfg = tableCfg;
     }
 
@@ -155,14 +151,7 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage {
      * This API is not yet ready. But we need to test mv storages anyways.
      */
     @TestOnly
-    public PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        return new PageMemoryMvPartitionStorage(partitionId,
-                tableCfg.value(),
-                dataRegion,
-                ((VolatilePageMemoryDataRegion) dataRegion).versionChainFreeList(),
-                ((VolatilePageMemoryDataRegion) dataRegion).rowVersionFreeList()
-        );
-    }
+    public abstract PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId);
 
     /**
      * Closes all {@link #partitions} and {@link #autoCloseables}.

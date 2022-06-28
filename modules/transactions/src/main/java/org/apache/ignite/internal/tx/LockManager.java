@@ -18,71 +18,68 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.Collection;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.TestOnly;
 
-/**
- * Lock manager allows to acquire locks in shared and exclusive mode and supports deadlock prevention by timestamp ordering.
- *
- * @see Timestamp
- */
+/** Lock manager allows to acquire locks in shared and exclusive mode and supports deadlock prevention by transaction id ordering. */
 public interface LockManager {
     /**
      * Attempts to acquire a lock for the specified {@code key} in exclusive mode.
      *
-     * @param key       The key.
-     * @param timestamp The timestamp.
+     * @param key The key.
+     * @param txId Transaction id.
      * @return The future that will be completed when a lock is successfully acquired.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> tryAcquire(Object key, Timestamp timestamp);
+    public CompletableFuture<Void> tryAcquire(Object key, UUID txId);
 
     /**
      * Attempts to release a lock for the specified {@code key} in exclusive mode.
      *
-     * @param key       The key.
-     * @param timestamp The timestamp.
+     * @param key The key.
+     * @param txId Transaction id.
      * @throws LockException If the unlock operation is invalid.
      */
-    public void tryRelease(Object key, Timestamp timestamp) throws LockException;
+    public void tryRelease(Object key, UUID txId) throws LockException;
 
     /**
      * Attempts to acquire a lock for the specified {@code key} in shared mode.
      *
-     * @param key       The key.
-     * @param timestamp The timestamp.
+     * @param key The key.
+     * @param txId Transaction id.
      * @return The future that will be completed when a lock is successfully acquired.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> tryAcquireShared(Object key, Timestamp timestamp);
+    public CompletableFuture<Void> tryAcquireShared(Object key, UUID txId);
 
     /**
      * Attempts to release a lock for the specified {@code key} in shared mode.
      *
-     * @param key       The key.
-     * @param timestamp The timestamp.
+     * @param key The key.
+     * @param txId Transaction id.
      * @throws LockException If the unlock operation is invalid.
      */
-    public void tryReleaseShared(Object key, Timestamp timestamp) throws LockException;
+    public void tryReleaseShared(Object key, UUID txId) throws LockException;
 
     /**
-     * Returns a collection of timestamps that is associated with the specified {@code key}.
+     * Returns a collection of transaction ids that is associated with the specified {@code key}.
      *
      * @param key The key.
      * @return The waiters queue.
      */
     @TestOnly
-    public Collection<Timestamp> queue(Object key);
+    public Collection<UUID> queue(Object key);
 
     /**
      * Returns a waiter associated with the specified {@code key}.
      *
-     * @param key       The key.
-     * @param timestamp The timestamp.
+     * @param key The key.
+     * @param txId Transaction id.
      * @return The waiter.
      */
     @TestOnly
-    public Waiter waiter(Object key, Timestamp timestamp);
+    public Waiter waiter(Object key, UUID txId);
 
     /**
      * Returns {@code true} if no locks have been held.

@@ -100,6 +100,7 @@
         <fastutil.version>8.5.6</fastutil.version>
         <kryo.version>4.0.1</kryo.version>
         <bytebuddy.version>1.12.8</bytebuddy.version>
+        <mock-server.version>5.13.2</mock-server.version>
 
         <!-- Plugins versions -->
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
@@ -896,6 +897,12 @@
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy</artifactId>
                 <version>${bytebuddy.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.mock-server</groupId>
+                <artifactId>mockserver-netty</artifactId>
+                <version>${mock-server.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

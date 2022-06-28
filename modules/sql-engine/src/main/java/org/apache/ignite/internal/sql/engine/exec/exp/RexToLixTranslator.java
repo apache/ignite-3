@@ -513,6 +513,12 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                                         BuiltInMethod.BOOLEAN_TO_STRING.method,
                                         operand));
                         break;
+                    case BINARY:
+                    case VARBINARY:
+                        convert = RexImpTable.optimize2(
+                                operand,
+                                Expressions.call(IgniteMethod.BYTESTRING_TO_STRING.method(), operand));
+                        break;
                     default:
                         // No-Op.
                 }
@@ -549,6 +555,16 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                                         Expressions.field(null, SqlParserPos.class, "ZERO")
                                 )
                         );
+                        break;
+                    default:
+                        // No-Op.
+                }
+                break;
+            case BINARY:
+            case VARBINARY:
+                switch (sourceType.getSqlTypeName().getFamily()) {
+                    case CHARACTER:
+                        convert = Expressions.call(IgniteMethod.STRING_TO_BYTESTRING.method(), operand);
                         break;
                     default:
                         // No-Op.

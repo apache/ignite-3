@@ -19,6 +19,7 @@ package org.apache.ignite.cli.commands.configuration.cluster;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.configuration.ClusterConfigUpdateCall;
 import org.apache.ignite.cli.call.configuration.ClusterConfigUpdateCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
@@ -33,7 +34,7 @@ import picocli.CommandLine.Parameters;
 @Command(name = "update",
         description = "Updates cluster configuration.")
 @Singleton
-public class ClusterConfigUpdateSubCommand extends BaseCommand {
+public class ClusterConfigUpdateSubCommand extends BaseCommand implements Callable<Integer> {
     @Inject
     ClusterConfigUpdateCall call;
 
@@ -54,8 +55,8 @@ public class ClusterConfigUpdateSubCommand extends BaseCommand {
 
     /** {@inheritDoc} */
     @Override
-    public void run() {
-        CallExecutionPipeline.builder(call)
+    public Integer call() {
+        return CallExecutionPipeline.builder(call)
                 .inputProvider(this::buildCallInput)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())

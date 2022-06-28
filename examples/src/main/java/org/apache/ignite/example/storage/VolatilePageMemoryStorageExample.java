@@ -37,7 +37,7 @@ package org.apache.ignite.example.storage;
  *     </li>
  *     <li>
  *         Add configuration for an in-memory data region of the PageMemory storage engine using the CLI tool (if not done yet):<br>
- *         {@code ignite cluster config update "pageMemory.regions.in-memory:{persistent=false}"}
+ *         {@code ignite cluster config update "aimem.regions.in-memory"}
  *     </li>
  *     <li>Run the example in the IDE.</li>
  *     <li>
@@ -54,6 +54,6 @@ public class VolatilePageMemoryStorageExample {
      * @throws Exception If failed.
      */
     public static void main(String[] args) throws Exception {
-        new StorageEngineExample("pagememory", "in-memory").run();
+        new StorageEngineExample("aimem", "in-memory").run();
     }
 }

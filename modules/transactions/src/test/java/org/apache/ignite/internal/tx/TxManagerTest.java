@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
+import java.util.UUID;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -65,7 +66,7 @@ public class TxManagerTest extends IgniteAbstractTest {
     public void testBegin() throws TransactionException {
         InternalTransaction tx = txManager.begin();
 
-        assertNotNull(tx.timestamp());
+        assertNotNull(tx.id());
         assertEquals(TxState.PENDING, txManager.begin().state());
     }
 
@@ -75,12 +76,12 @@ public class TxManagerTest extends IgniteAbstractTest {
         tx.commit();
 
         assertEquals(TxState.COMMITED, tx.state());
-        assertEquals(TxState.COMMITED, txManager.state(tx.timestamp()));
+        assertEquals(TxState.COMMITED, txManager.state(tx.id()));
 
         assertThrows(TransactionException.class, () -> tx.rollback());
 
         assertEquals(TxState.COMMITED, tx.state());
-        assertEquals(TxState.COMMITED, txManager.state(tx.timestamp()));
+        assertEquals(TxState.COMMITED, txManager.state(tx.id()));
     }
 
     @Test
@@ -89,12 +90,12 @@ public class TxManagerTest extends IgniteAbstractTest {
         tx.rollback();
 
         assertEquals(TxState.ABORTED, tx.state());
-        assertEquals(TxState.ABORTED, txManager.state(tx.timestamp()));
+        assertEquals(TxState.ABORTED, txManager.state(tx.id()));
 
         assertThrows(TransactionException.class, () -> tx.commit());
 
         assertEquals(TxState.ABORTED, tx.state());
-        assertEquals(TxState.ABORTED, txManager.state(tx.timestamp()));
+        assertEquals(TxState.ABORTED, txManager.state(tx.id()));
     }
 
     @Test
@@ -103,7 +104,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         assertEquals(TxState.PENDING, tx.state());
 
-        txManager.forget(tx.timestamp());
+        txManager.forget(tx.id());
 
         assertNull(tx.state());
     }
@@ -125,17 +126,17 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testTimestamp() throws InterruptedException {
-        Timestamp ts1 = Timestamp.nextVersion();
-        Timestamp ts2 = Timestamp.nextVersion();
-        Timestamp ts3 = Timestamp.nextVersion();
+    public void testId() throws InterruptedException {
+        UUID txId1 = Timestamp.nextVersion().toUuid();
+        UUID txId2 = Timestamp.nextVersion().toUuid();
+        UUID txId3 = Timestamp.nextVersion().toUuid();
 
         Thread.sleep(1);
 
-        Timestamp ts4 = Timestamp.nextVersion();
+        UUID txId4 = Timestamp.nextVersion().toUuid();
 
-        assertTrue(ts2.compareTo(ts1) > 0);
-        assertTrue(ts3.compareTo(ts2) > 0);
-        assertTrue(ts4.compareTo(ts3) > 0);
+        assertTrue(txId2.compareTo(txId1) > 0);
+        assertTrue(txId3.compareTo(txId2) > 0);
+        assertTrue(txId4.compareTo(txId3) > 0);
     }
 }

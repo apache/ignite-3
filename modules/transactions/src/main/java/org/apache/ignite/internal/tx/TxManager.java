@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.tx;
 
 import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.IgniteUuid;
@@ -40,84 +43,93 @@ public interface TxManager extends IgniteComponent {
     /**
      * Returns a transaction state.
      *
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return The state or null if the state is unknown.
      */
-    @Nullable TxState state(Timestamp ts);
+    @Nullable TxState state(UUID txId);
 
     /**
      * Atomically changes the state of a transaction.
      *
-     * @param ts     The timestamp.
+     * @param txId Transaction id.
      * @param before Before state.
-     * @param after  After state.
+     * @param after After state.
      * @return {@code True} if a state was changed.
      */
-    boolean changeState(Timestamp ts, @Nullable TxState before, TxState after);
+    boolean changeState(UUID txId, @Nullable TxState before, TxState after);
 
     /**
      * Forgets the transaction state. Intended for cleanup.
      *
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      */
-    void forget(Timestamp ts);
+    void forget(UUID txId);
 
     /**
      * Commits a transaction.
      *
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return The future.
      */
-    CompletableFuture<Void> commitAsync(Timestamp ts);
+    CompletableFuture<Void> commitAsync(UUID txId);
 
     /**
      * Aborts a transaction.
      *
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return The future.
      */
-    CompletableFuture<Void> rollbackAsync(Timestamp ts);
+    CompletableFuture<Void> rollbackAsync(UUID txId);
 
     /**
      * Acqures a write lock.
      *
-     * @param lockId  Table ID.
+     * @param lockId Table ID.
      * @param keyData The key data.
-     * @param ts      The timestamp.
+     * @param txId Transaction id.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts);
+    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, UUID txId);
 
     /**
      * Acqures a read lock.
      *
-     * @param lockId  Lock id.
+     * @param lockId Lock id.
      * @param keyData The key data.
-     * @param ts      The timestamp.
+     * @param txId Transaction id.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts);
+    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, UUID txId);
 
     /**
      * Returns a transaction state or starts a new in the PENDING state.
      *
-     * @param ts The timestamp.
+     * @param txId Transaction id.
      * @return @{code null} if a transaction was created, or a current state.
      */
     @Nullable
-    TxState getOrCreateTransaction(Timestamp ts);
+    TxState getOrCreateTransaction(UUID txId);
 
     /**
      * Finishes a dependant remote transactions.
      *
-     * @param ts     The timestamp.
      * @param addr   The address.
      * @param commit {@code True} if a commit requested.
      * @param groups Enlisted partition groups.
+     * @param txId   Transaction id.
      */
-    CompletableFuture<Void> finishRemote(NetworkAddress addr, Timestamp ts, boolean commit, Set<String> groups);
+    CompletableFuture<Void> finishRemote(NetworkAddress addr, boolean commit, Set<String> groups, UUID txId);
+
+    /**
+     * Keys that are locked by the transaction.
+     *
+     * @param txId Transaction id.
+     * @return Keys that are locked by the transaction.
+     */
+    @TestOnly
+    Map<IgniteUuid, List<byte[]>> lockedKeys(UUID txId);
 
     /**
      * Checks if a passed address belongs to a local node.

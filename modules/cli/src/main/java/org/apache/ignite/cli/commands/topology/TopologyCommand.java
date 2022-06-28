@@ -18,18 +18,17 @@
 package org.apache.ignite.cli.commands.topology;
 
 import jakarta.inject.Singleton;
+import java.util.concurrent.Callable;
 import org.apache.ignite.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Spec;
 
 /**
  * Command that prints ignite cluster topology.
  */
 @Command(name = "topology", description = "Prints topology information.")
 @Singleton
-public class TopologyCommand extends BaseCommand {
+public class TopologyCommand extends BaseCommand implements Callable<Integer> {
 
     /**
      * Cluster url option.
@@ -41,13 +40,11 @@ public class TopologyCommand extends BaseCommand {
     )
     private String clusterUrl;
 
-    @Spec
-    private CommandSpec commandSpec;
-
     /** {@inheritDoc} */
     @Override
-    public void run() {
+    public Integer call() {
         //TODO: https://issues.apache.org/jira/browse/IGNITE-17092
-        commandSpec.commandLine().getOut().println("Topology command is not implemented yet.");
+        spec.commandLine().getOut().println("Topology command is not implemented yet.");
+        return 0;
     }
 }

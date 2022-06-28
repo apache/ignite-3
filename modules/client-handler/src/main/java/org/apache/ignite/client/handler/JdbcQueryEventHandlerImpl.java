@@ -50,6 +50,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -237,6 +238,83 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
         return new JdbcBatchExecuteResult(Response.STATUS_FAILED, UNKNOWN, error, counters);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<QueryCloseResult> closeAsync(QueryCloseRequest req) {
+        var cur = openCursors.remove(req.cursorId());
+
+        if (cur == null) {
+            return CompletableFuture.completedFuture(new QueryCloseResult(Response.STATUS_FAILED,
+                    "Failed to find query cursor with ID: " + req.cursorId()));
+        }
+
+        return cur.closeAsync().handle((none, t) -> {
+            if (t != null) {
+                StringWriter sw = getWriterWithStackTrace(t);
+
+                return new QueryCloseResult(Response.STATUS_FAILED,
+                        "Failed to close SQL query [curId=" + req.cursorId() + "]. Error message: " + sw);
+            }
+
+            return new QueryCloseResult();
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<JdbcMetaColumnsResult> queryMetadataAsync(JdbcQueryMetadataRequest req) {
+        AsyncSqlCursor<?> cur = openCursors.get(req.cursorId());
+
+        if (cur == null) {
+            return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(Response.STATUS_FAILED,
+                    "Failed to find query cursor with ID: " + req.cursorId()));
+        }
+
+        ResultSetMetadata metadata = cur.metadata();
+
+        if (metadata == null) {
+            return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(Response.STATUS_FAILED,
+                    "Failed to get query metadata for cursor with ID : " + req.cursorId()));
+        }
+
+        List<JdbcColumnMeta> meta = metadata.columns().stream()
+                .map(this::createColumnMetadata)
+                .collect(Collectors.toList());
+
+        return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(meta));
+    }
+
+    /**
+     * Create Jdbc representation of column metadata from given origin and RelDataTypeField field.
+     *
+     * @param fldMeta field metadata contains info about column.
+     * @return JdbcColumnMeta object.
+     */
+    private JdbcColumnMeta createColumnMetadata(ColumnMetadata fldMeta) {
+        ColumnOrigin origin = fldMeta.origin();
+
+        String schemaName = null;
+        String tblName = null;
+        String colName = null;
+
+        if (origin != null) {
+            schemaName = origin.schemaName();
+            tblName = origin.tableName();
+            colName = origin.columnName();
+        }
+
+        return new JdbcColumnMeta(
+                fldMeta.name(),
+                schemaName,
+                tblName,
+                colName,
+                SqlColumnTypeConverter.columnTypeToClass(fldMeta.type()),
+                fldMeta.precision(),
+                fldMeta.scale(),
+                fldMeta.nullable()
+        );
     }
 
     /** {@inheritDoc} */

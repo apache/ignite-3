@@ -140,6 +140,10 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     if (!pendingEntry.empty()) {
                         List<ClusterNode> pendingNodes = (List<ClusterNode>) ByteUtils.fromBytes(pendingEntry.value());
 
+                        LOG.info("New leader was elected for the raft group={} "
+                                        + "of partition={}, table={} and pending reconfiguration to peers={} was discovered",
+                                partId, partNum, tblConfiguration.name().value(), pendingNodes);
+
                         movePartitionFn.apply(clusterNodesToPeers(pendingNodes), term).join();
                     }
                 } catch (InterruptedException | ExecutionException e) {
@@ -269,16 +273,30 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                                 remove(plannedPartAssignmentsKey(partId)))
                                 .yield(true),
                         ops().yield(false))).get().getAsBoolean()) {
+                    LOG.info("Planned key={} was changed, while trying to update rebalance information about partition={}, table={} "
+                            + "to peers={}, another attempt will be made",
+                            plannedPartAssignmentsKey(partId), partNum, tblConfiguration.name(), appliedPeers);
+
                     doOnNewPeersConfigurationApplied(peers);
                 }
+
+                LOG.info("Finished rebalance of partition={}, table={} to peers={} and queued new rebalance to peers={}",
+                        partNum, tblConfiguration.name().value(), appliedPeers, ByteUtils.fromBytes(plannedEntry.value()));
             } else {
                 if (!metaStorageMgr.invoke(If.iif(
                         notExists(plannedPartAssignmentsKey(partId)),
                         ops(put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(appliedPeers)),
                                 remove(pendingPartAssignmentsKey(partId))).yield(true),
                         ops().yield(false))).get().getAsBoolean()) {
+                    LOG.info("Planned key={} was changed, while trying to update rebalance information about partition={}, table={} "
+                                    + "to peers={}, another attempt will be made",
+                            plannedPartAssignmentsKey(partId), partNum, tblConfiguration.name(), appliedPeers);
+
                     doOnNewPeersConfigurationApplied(peers);
                 }
+
+                LOG.info("Finished rebalance of partition={}, table={} to peers={} and no new rebalance in planned key={} discovered",
+                        partNum, tblConfiguration.name().value(), appliedPeers, plannedPartAssignmentsKey(partId));
             }
 
             rebalanceAttempts.set(0);

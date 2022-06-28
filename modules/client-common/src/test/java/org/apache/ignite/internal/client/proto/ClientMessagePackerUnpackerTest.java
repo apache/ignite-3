@@ -346,4 +346,36 @@ public class ClientMessagePackerUnpackerTest {
             }
         }
     }
+
+    @Test
+    public void testTryUnpackInt() {
+        try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
+            packer.packInt(1);
+            packer.packInt(Byte.MAX_VALUE);
+            packer.packInt(Short.MAX_VALUE);
+            packer.packInt(Integer.MAX_VALUE);
+            packer.packNoValue();
+            packer.packString("s");
+
+            var buf = packer.getBuffer();
+
+            byte[] data = new byte[buf.readableBytes()];
+            buf.readBytes(data);
+
+            try (var unpacker = new ClientMessageUnpacker(Unpooled.wrappedBuffer(data))) {
+                unpacker.skipValues(4);
+
+                assertEquals(1, unpacker.tryUnpackInt(-1));
+                assertEquals(Byte.MAX_VALUE, unpacker.tryUnpackInt(-1));
+                assertEquals(Short.MAX_VALUE, unpacker.tryUnpackInt(-1));
+                assertEquals(Integer.MAX_VALUE, unpacker.tryUnpackInt(-1));
+
+                assertEquals(-1, unpacker.tryUnpackInt(-1));
+                assertTrue(unpacker.tryUnpackNoValue());
+
+                assertEquals(-2, unpacker.tryUnpackInt(-2));
+                assertEquals("s", unpacker.unpackString());
+            }
+        }
+    }
 }

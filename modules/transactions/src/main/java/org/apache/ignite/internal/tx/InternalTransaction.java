@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -28,11 +29,11 @@ import org.jetbrains.annotations.TestOnly;
  */
 public interface InternalTransaction extends Transaction {
     /**
-     * Returns a timestamp.
+     * Returns an id.
      *
-     * @return The timestamp.
+     * @return The id.
      */
-    @NotNull Timestamp timestamp();
+    @NotNull UUID id();
 
     /**
      * Returns a set of enlisted partition groups.

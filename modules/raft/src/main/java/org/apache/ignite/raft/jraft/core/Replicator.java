@@ -1016,6 +1016,10 @@ public class Replicator implements ThreadId.OnError {
         if (code != RaftError.ETIMEDOUT.getNumber()) {
             if (this.nextIndex - 1 + this.catchUpClosure.getMaxMargin() < this.options.getLogManager()
                 .getLastLogIndex()) {
+
+                LOG.debug("Catch up for peer={} in progress, current index={} (leader log last index={}, catch up margin={})",
+                        getOpts().getPeerId(), nextIndex - 1, options.getLogManager().getLastLogIndex(), catchUpClosure.getMaxMargin());
+
                 return;
             }
             if (this.catchUpClosure.isErrorWasSet()) {

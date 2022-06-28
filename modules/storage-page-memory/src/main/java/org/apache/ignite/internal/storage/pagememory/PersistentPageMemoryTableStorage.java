@@ -26,18 +26,21 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.io.PartitionMetaIo;
+import org.apache.ignite.internal.storage.pagememory.mv.PageMemoryMvPartitionStorage;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for persistent case.
  */
 class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+    private final PersistentPageMemoryDataRegion dataRegion;
+
     /**
      * Constructor.
      *
@@ -48,7 +51,9 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             TableConfiguration tableCfg,
             PersistentPageMemoryDataRegion dataRegion
     ) {
-        super(tableCfg, dataRegion);
+        super(tableCfg);
+
+        this.dataRegion = dataRegion;
     }
 
     /** {@inheritDoc} */
@@ -60,9 +65,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
         try {
             // TODO: IGNITE-16665 Directory name needs to be corrected to support table renaming
-            ((PersistentPageMemoryDataRegion) dataRegion)
-                    .filePageStoreManager()
-                    .initialize(tableView.name(), groupId(tableView), tableView.partitions());
+            dataRegion.filePageStoreManager().initialize(tableView.name(), groupId(tableView), tableView.partitions());
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error initializing file page stores for table: " + tableView.name(), e);
         }
@@ -75,9 +78,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
         FilePageStore partitionFilePageStore = ensurePartitionFilePageStore(tableView, partId);
 
-        CheckpointTimeoutLock checkpointTimeoutLock = ((PersistentPageMemoryDataRegion) dataRegion)
-                .checkpointManager()
-                .checkpointTimeoutLock();
+        CheckpointTimeoutLock checkpointTimeoutLock = dataRegion.checkpointManager().checkpointTimeoutLock();
 
         checkpointTimeoutLock.checkpointReadLock();
 
@@ -102,6 +103,12 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         close(true);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
+        throw new UnsupportedOperationException("Not supported yet");
+    }
+
     /**
      * Initializes the partition file page store if it hasn't already.
      *
@@ -112,9 +119,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      */
     FilePageStore ensurePartitionFilePageStore(TableView tableView, int partId) throws StorageException {
         try {
-            FilePageStore filePageStore = ((PersistentPageMemoryDataRegion) dataRegion)
-                    .filePageStoreManager()
-                    .getStore(groupId(tableView), partId);
+            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(groupId(tableView), partId);
 
             filePageStore.ensure();
 
@@ -141,7 +146,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             int partId,
             FilePageStore filePageStore
     ) throws StorageException {
-        PageMemoryImpl pageMemoryImpl = (PageMemoryImpl) dataRegion.pageMemory();
+        PersistentPageMemory pageMemoryImpl = dataRegion.pageMemory();
 
         int grpId = groupId(tableView);
 
