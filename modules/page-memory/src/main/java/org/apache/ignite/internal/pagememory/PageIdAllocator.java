@@ -40,11 +40,6 @@ public interface PageIdAllocator {
     int MAX_PARTITION_ID = 65500;
 
     /**
-     * Special partition reserved for the index space.
-     */
-    int INDEX_PARTITION = 0xFFFF;
-
-    /**
      * Allocates a page from the space for the given partition ID and the given flags.
      *
      * @param groupId Group ID.

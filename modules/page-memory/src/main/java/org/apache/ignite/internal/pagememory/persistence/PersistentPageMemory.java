@@ -507,7 +507,7 @@ public class PersistentPageMemory implements PageMemory {
     /** {@inheritDoc} */
     @Override
     public long allocatePage(int grpId, int partId, byte flags) throws IgniteInternalCheckedException {
-        assert partId <= MAX_PARTITION_ID || partId == INDEX_PARTITION && flags == FLAG_AUX : "flags = " + flags + ", partId = " + partId;
+        assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
 
         assert started;
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();

@@ -113,12 +113,11 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         return new VersionChainTree(
                 groupId,
                 tableConfig.name(),
-                dataRegion.pageMemory(),
+                partitionId, dataRegion.pageMemory(),
                 PageLockListenerNoOp.INSTANCE,
                 new AtomicLong(),
                 metaPageId,
                 versionChainFreeList1,
-                partitionId,
                 initNew
         );
     }
