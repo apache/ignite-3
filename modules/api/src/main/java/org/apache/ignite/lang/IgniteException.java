@@ -17,6 +17,7 @@
 
 package org.apache.ignite.lang;
 
+import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -26,11 +27,31 @@ public class IgniteException extends RuntimeException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
+    /** Name of the error group. */
+    private final String groupName;
+
+    /**
+     * Error code which contains information about error group and code, where code is unique within the group.
+     * The structure of a code is shown in the following diagram:
+     * +------------+--------------+
+     * |  16 bits   |    16 bits   |
+     * +------------+--------------+
+     * | Group Code |  Error Code  |
+     * +------------+--------------+
+     */
+    private final int code;
+
+    /** Unique identifier of this exception that should help locating the error message in a log file. */
+    private final UUID traceId;
+
     /**
      * Creates an empty exception.
      */
+    @Deprecated
     public IgniteException() {
-        // No-op.
+        groupName = "UNKNOWN";
+        code = 0;
+        traceId = null;
     }
 
     /**
@@ -38,8 +59,13 @@ public class IgniteException extends RuntimeException {
      *
      * @param msg Error message.
      */
+    @Deprecated
     public IgniteException(String msg) {
         super(msg);
+
+        groupName = "UNKNOWN";
+        code = 0;
+        traceId = null;
     }
 
     /**
@@ -47,6 +73,7 @@ public class IgniteException extends RuntimeException {
      *
      * @param cause Non-null throwable cause.
      */
+    @Deprecated
     public IgniteException(Throwable cause) {
         this(cause.getMessage(), cause);
     }
@@ -57,13 +84,132 @@ public class IgniteException extends RuntimeException {
      * @param msg   Error message.
      * @param cause Optional nested exception (can be {@code null}).
      */
+    @Deprecated
     public IgniteException(String msg, @Nullable Throwable cause) {
         super(msg, cause);
+
+        groupName = "UNKNOWN";
+        code = 0;
+        traceId = null;
+    }
+
+    /**
+     * Creates a new exception with the given group and error code.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     */
+    public IgniteException(UUID traceId, String groupName, int code) {
+        this.traceId = traceId;
+        this.groupName = groupName;
+        this.code = code;
+    }
+
+    /**
+     * Creates a new exception with the given group, error code and detail message.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param message Detail message.
+     */
+    public IgniteException(UUID traceId, String groupName, int code, String message) {
+        super(message);
+
+        this.traceId = traceId;
+        this.groupName = groupName;
+        this.code = code;
+    }
+
+    /**
+     * Creates a new exception with the given group, error code and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public IgniteException(UUID traceId, String groupName, int code, Throwable cause) {
+        super(cause);
+
+        this.traceId = traceId;
+        this.groupName = groupName;
+        this.code = code;
+    }
+
+    /**
+     * Creates a new exception with the given group, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public IgniteException(UUID traceId, String groupName, int code, String message, Throwable cause) {
+        super(message, cause);
+
+        this.traceId = traceId;
+        this.groupName = groupName;
+        this.code = code;
+    }
+
+    /**
+     * Returns a group name of this error.
+     *
+     * @see #groupCode()
+     * @see #code()
+     * @return Group name.
+     */
+    public String groupName() {
+        return groupName;
+    }
+
+    /**
+     * Returns a full error code which includes a group of the error and code which is uniquely identifies a problem within the group.
+     * This is a combination of two most-significant bytes that represent the error group and
+     * two least-significant bytes for the error code.
+     *
+     * @return Full error code.
+     */
+    public int code() {
+        return code;
+    }
+
+    /**
+     * Returns error group.
+     *
+     * @see #code()
+     * @return Error group.
+     */
+    public int groupCode() {
+        return code() >> 16;
+    }
+
+    /**
+     * Returns error code that uniquely identifies a problem within a group.
+     *
+     * @see #code()
+     * @see #groupCode()
+     * @return Error code.
+     */
+    public int errorCode() {
+        return code() & 0xFFFF;
+    }
+
+    /**
+     * Returns an unique identifier of this exception.
+     *
+     * @return Unique identifier of this exception.
+     */
+    public UUID traceId() {
+        return traceId;
     }
 
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return getClass() + ": " + getMessage();
+        return "IGN-" + groupName + '-' + errorCode() + " Trace ID:" + traceId() + ' ' + super.toString();
     }
 }

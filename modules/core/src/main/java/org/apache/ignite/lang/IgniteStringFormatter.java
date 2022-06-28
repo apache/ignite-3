@@ -67,7 +67,7 @@ public final class IgniteStringFormatter {
     /** Formatting anchor. */
     private static final String DELIM_STR = "{}";
 
-    /** Excape character. */
+    /** Escape character. */
     private static final char ESCAPE_CHAR = '\\';
 
     /**
