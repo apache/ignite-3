@@ -20,8 +20,6 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
-import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_DATA;
-import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_IDX;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -158,7 +156,6 @@ public class FilePageStoreManagerTest {
             assertTrue(pageStores.add(partitionPageStore0));
             assertTrue(stores.contains(partitionPageStore0));
 
-            assertEquals(TYPE_DATA, partitionPageStore0.type());
             assertTrue(partitionPageStore0.filePath().endsWith("db/group-test/part-0.bin"));
 
             FilePageStore partitionPageStore1 = manager.getStore(0, 1);
@@ -166,7 +163,6 @@ public class FilePageStoreManagerTest {
             assertTrue(pageStores.add(partitionPageStore1));
             assertTrue(stores.contains(partitionPageStore1));
 
-            assertEquals(TYPE_DATA, partitionPageStore1.type());
             assertTrue(partitionPageStore1.filePath().endsWith("db/group-test/part-1.bin"));
 
             FilePageStore idxPageStore = manager.getStore(0, INDEX_PARTITION);
@@ -174,7 +170,6 @@ public class FilePageStoreManagerTest {
             assertTrue(pageStores.add(idxPageStore));
             assertTrue(stores.contains(idxPageStore));
 
-            assertEquals(TYPE_IDX, idxPageStore.type());
             assertTrue(idxPageStore.filePath().endsWith("db/group-test/index.bin"));
 
             IgniteInternalCheckedException exception = assertThrows(IgniteInternalCheckedException.class, () -> manager.getStore(1, 0));

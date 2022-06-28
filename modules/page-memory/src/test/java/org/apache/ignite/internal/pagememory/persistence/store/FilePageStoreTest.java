@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static java.nio.ByteOrder.nativeOrder;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getCrc;
-import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_DATA;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
@@ -336,7 +335,6 @@ public class FilePageStoreTest {
 
         assertEquals(0xF19AC4FE60C530B8L, headerBuffer.getLong());
         assertEquals(1, headerBuffer.getInt());
-        assertEquals(TYPE_DATA, headerBuffer.get());
         assertEquals(PAGE_SIZE, headerBuffer.getInt());
 
         // Checks fail read header.
@@ -508,6 +506,6 @@ public class FilePageStoreTest {
     }
 
     private static FilePageStore createFilePageStore(Path filePath) {
-        return new FilePageStore(TYPE_DATA, filePath, new RandomAccessFileIoFactory(), PAGE_SIZE);
+        return new FilePageStore(filePath, new RandomAccessFileIoFactory(), PAGE_SIZE);
     }
 }

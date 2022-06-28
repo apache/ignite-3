@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.nio.ByteOrder.nativeOrder;
-import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_DATA;
-import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_IDX;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,15 +48,15 @@ public class FilePageStoreFactoryTest {
     void testSuccessCreateFilePageStore() throws Exception {
         FilePageStoreFactory filePageStoreFactory = createFilePageStoreFactory();
 
-        checkCommonHeader(filePageStoreFactory.createPageStore(TYPE_DATA, workDir.resolve("test0")), TYPE_DATA);
+        checkCommonHeader(filePageStoreFactory.createPageStore(workDir.resolve("test0")));
 
-        FilePageStore filePageStore = filePageStoreFactory.createPageStore(TYPE_IDX, Files.createFile(workDir.resolve("test1")));
+        FilePageStore filePageStore = filePageStoreFactory.createPageStore(Files.createFile(workDir.resolve("test1")));
 
-        checkCommonHeader(filePageStore, TYPE_IDX);
+        checkCommonHeader(filePageStore);
 
         filePageStore.close();
 
-        checkCommonHeader(filePageStoreFactory.createPageStore(TYPE_IDX, workDir.resolve("test1")), TYPE_IDX);
+        checkCommonHeader(filePageStoreFactory.createPageStore(workDir.resolve("test1")));
     }
 
     @Test
@@ -69,7 +67,7 @@ public class FilePageStoreFactoryTest {
 
         Path testFilePath = workDir.resolve("test");
 
-        FilePageStore filePageStore = filePageStoreFactory.createPageStore(TYPE_DATA, testFilePath);
+        FilePageStore filePageStore = filePageStoreFactory.createPageStore(testFilePath);
 
         ByteBuffer headerBuffer = ByteBuffer.allocate(PAGE_SIZE).order(nativeOrder());
 
@@ -85,13 +83,13 @@ public class FilePageStoreFactoryTest {
 
         IgniteInternalCheckedException exception = assertThrows(
                 IgniteInternalCheckedException.class,
-                () -> filePageStoreFactory.createPageStore(TYPE_DATA, testFilePath)
+                () -> filePageStoreFactory.createPageStore(testFilePath)
         );
 
         assertThat(exception.getMessage(), startsWith("Unknown version of file page store"));
     }
 
-    private void checkCommonHeader(FilePageStore filePageStore, byte expType) throws Exception {
+    private void checkCommonHeader(FilePageStore filePageStore) throws Exception {
         ByteBuffer headerBuffer = ByteBuffer.allocate(PAGE_SIZE).order(nativeOrder());
 
         filePageStore.readHeader(headerBuffer);
@@ -100,7 +98,6 @@ public class FilePageStoreFactoryTest {
         headerBuffer.rewind().getLong();
 
         assertEquals(FilePageStore.VERSION, headerBuffer.getInt());
-        assertEquals(expType, headerBuffer.get());
         assertEquals(PAGE_SIZE, headerBuffer.getInt());
     }
 
