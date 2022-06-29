@@ -228,8 +228,7 @@
 
         <dependency>
             <groupId>org.mock-server</groupId>
-            <artifactId>mockserver-client-java-no-dependencies</artifactId>
-            <version>RELEASE</version>
+            <artifactId>mockserver-netty</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
