@@ -362,7 +362,9 @@ public class VersionedValueTest {
 
         assertThrowsWithCause(() -> vv.get(0L).join(), IgniteInternalException.class);
 
-        assertEquals(exceptionMsg, exceptionRef.get().getMessage());
+        assertTrue(
+                exceptionRef.get().getMessage().contains(exceptionMsg),
+                "Expected: " + exceptionMsg + ", actual: " + exceptionRef.get().getMessage());
         assertEquals(successfulCompletionsCount, actualSuccessfulCompletionsCount.get());
     }
 
