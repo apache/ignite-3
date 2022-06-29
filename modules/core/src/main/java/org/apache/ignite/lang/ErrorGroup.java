@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * This class represents a concept of error group. Error group defines a collection of errors that belong to a single semantic component.
@@ -156,5 +157,33 @@ public class ErrorGroup {
      */
     public static int extractErrorCode(int code) {
         return code & 0xFFFF;
+    }
+
+    /**
+     * Creates a new error message with predefined prefix.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param message Original message.
+     * @return New error message with predefined prefix.
+     */
+    public static String errorMessage(UUID traceId, String groupName, int code, String message) {
+        return "IGN-" + groupName + '-' + extractErrorCode(code) + " Trace ID:" + traceId + ((message != null) ? ' ' + message : "");
+    }
+
+    /**
+     * Creates a new error message with predefined prefix.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param cause Cause.
+     * @return New error message with predefined prefix.
+     */
+    public static String errorMessageFromCause(UUID traceId, String groupName, int code, Throwable cause) {
+        String c = (cause != null && cause.getMessage() != null) ? cause.getMessage() : null;
+
+        return (c != null && c.startsWith("IGN-")) ? c :  errorMessage(traceId, groupName, code, c);
     }
 }

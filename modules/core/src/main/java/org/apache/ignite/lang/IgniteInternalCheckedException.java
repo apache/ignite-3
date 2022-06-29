@@ -17,6 +17,8 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.lang.ErrorGroup.errorMessage;
+import static org.apache.ignite.lang.ErrorGroup.errorMessageFromCause;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
@@ -283,33 +285,5 @@ public class IgniteInternalCheckedException extends Exception {
      */
     public UUID traceId() {
         return traceId;
-    }
-
-    /**
-     * Creates a new error message with predefined prefix.
-     *
-     * @param traceId Unique identifier of this exception.
-     * @param groupName Group name.
-     * @param code Full error code.
-     * @param message Original message.
-     * @return New error message with predefined prefix.
-     */
-    private static String errorMessage(UUID traceId, String groupName, int code, String message) {
-        return "IGN-" + groupName + '-' + extractErrorCode(code) + " Trace ID:" + traceId + ((message != null) ? ' ' + message : "");
-    }
-
-    /**
-     * Creates a new error message with predefined prefix.
-     *
-     * @param traceId Unique identifier of this exception.
-     * @param groupName Group name.
-     * @param code Full error code.
-     * @param cause Cause.
-     * @return New error message with predefined prefix.
-     */
-    private static String errorMessageFromCause(UUID traceId, String groupName, int code, Throwable cause) {
-        String c = (cause != null && cause.getMessage() != null) ? cause.getMessage() : null;
-
-        return (c != null && c.startsWith("IGN-")) ? c :  errorMessage(traceId, groupName, code, c);
     }
 }
