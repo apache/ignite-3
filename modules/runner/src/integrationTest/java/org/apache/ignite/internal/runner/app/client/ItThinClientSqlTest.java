@@ -208,9 +208,8 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(String.class, columns.get(0).valueClass());
         assertEquals(SqlColumnType.STRING, columns.get(0).type());
 
-        // TODO IGNITE-17203
-        // assertEquals(-1, columns.get(0).scale());
-        // assertEquals(-1, columns.get(0).precision());
+        assertEquals(ColumnMetadata.UNDEFINED_SCALE, columns.get(0).scale());
+        assertEquals(2 << 15, columns.get(0).precision());
 
         assertEquals("ID", columns.get(1).name());
         assertEquals("ID", columns.get(1).origin().columnName());

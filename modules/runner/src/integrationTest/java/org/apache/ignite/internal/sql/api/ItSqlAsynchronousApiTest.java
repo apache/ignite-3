@@ -53,6 +53,7 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
@@ -224,9 +225,21 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertEquals(0, meta.indexOf("COL1"));
         assertEquals(1, meta.indexOf("COL0"));
 
-        checkMetadata(new ColumnMetadataImpl("COL1", SqlColumnType.STRING, 0, 0, false, new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
+        checkMetadata(new ColumnMetadataImpl(
+                        "COL1",
+                        SqlColumnType.STRING,
+                        2 << 15,
+                        ColumnMetadata.UNDEFINED_SCALE,
+                        false,
+                        new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
                 meta.columns().get(0));
-        checkMetadata(new ColumnMetadataImpl("COL0", SqlColumnType.INT64, 0, 0, false, new ColumnOriginImpl("PUBLIC", "TEST", "COL0")),
+        checkMetadata(new ColumnMetadataImpl(
+                        "COL0",
+                        SqlColumnType.INT64,
+                        19,
+                        0,
+                        false,
+                        new ColumnOriginImpl("PUBLIC", "TEST", "COL0")),
                 meta.columns().get(1));
 
         // Validate result columns types.

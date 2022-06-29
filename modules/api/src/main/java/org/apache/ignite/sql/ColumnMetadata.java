@@ -23,6 +23,12 @@ import org.jetbrains.annotations.Nullable;
  * Interface that provides methods for accessing column metadata.
  */
 public interface ColumnMetadata {
+    /** Undefined precision value. */
+    int UNDEFINED_PRECISION = -1;
+
+    /** Undefined scale value. */
+    int UNDEFINED_SCALE = Integer.MIN_VALUE;
+
     /**
      * Return column name in the result set.
      *
