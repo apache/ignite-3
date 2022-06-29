@@ -57,15 +57,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryCloseRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryCloseResult;
-import org.apache.ignite.internal.jdbc.proto.event.QueryFetchRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
 
 /**
  * Jdbc result set implementation.
@@ -141,7 +141,7 @@ public class JdbcResultSet implements ResultSet {
     private boolean closeStmt;
 
     /** Query request handler. */
-    private JdbcQueryEventHandler qryHandler;
+    private JdbcQueryCursorHandler cursorHandler;
 
     /** Jdbc metadata. */
     private JdbcResultSetMetadata jdbcMeta;
@@ -149,6 +149,7 @@ public class JdbcResultSet implements ResultSet {
     /**
      * Creates new result set.
      *
+     * @param handler    JdbcQueryCursorHandler.
      * @param stmt       Statement.
      * @param cursorId   Cursor ID.
      * @param fetchSize  Fetch size.
@@ -158,14 +159,13 @@ public class JdbcResultSet implements ResultSet {
      * @param autoClose  Is automatic close of server cursors enabled.
      * @param updCnt     Update count.
      * @param closeStmt  Close statement on the result set close.
-     * @param qryHandler QueryEventHandler (local or remote).
      */
-    JdbcResultSet(JdbcStatement stmt, long cursorId, int fetchSize, boolean finished,
-            List<List<Object>> rows, boolean isQry, boolean autoClose, long updCnt, boolean closeStmt, JdbcQueryEventHandler qryHandler) {
+    JdbcResultSet(JdbcQueryCursorHandler handler, JdbcStatement stmt, Long cursorId, int fetchSize, boolean finished,
+            List<List<Object>> rows, boolean isQry, boolean autoClose, long updCnt, boolean closeStmt) {
         assert stmt != null;
         assert fetchSize > 0;
 
-        this.qryHandler = qryHandler;
+        this.cursorHandler = handler;
         this.stmt = stmt;
         this.cursorId = cursorId;
         this.fetchSize = fetchSize;
@@ -208,9 +208,8 @@ public class JdbcResultSet implements ResultSet {
     @Override
     public boolean next() throws SQLException {
         ensureNotClosed();
-
         if ((rowsIter == null || !rowsIter.hasNext()) && !finished) {
-            QueryFetchResult res = qryHandler.fetchAsync(new QueryFetchRequest(cursorId, fetchSize)).join();
+            JdbcQueryFetchResult res = cursorHandler.fetchAsync(new JdbcQueryFetchRequest(cursorId, fetchSize)).join();
 
             if (!res.hasResults()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
@@ -256,13 +255,13 @@ public class JdbcResultSet implements ResultSet {
      * @throws SQLException On error.
      */
     void close0() throws SQLException {
-        if (isClosed()) {
+        if (isClosed() || cursorId == null) {
             return;
         }
 
         try {
             if (stmt != null && (!finished || (isQuery && !autoClose))) {
-                QueryCloseResult res = qryHandler.closeAsync(new QueryCloseRequest(cursorId)).join();
+                JdbcQueryCloseResult res = cursorHandler.closeAsync(new JdbcQueryCloseRequest(cursorId)).join();
 
                 if (!res.hasResults()) {
                     throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
@@ -2194,8 +2193,10 @@ public class JdbcResultSet implements ResultSet {
             throw new SQLException("Server cursor is already closed.", SqlStateCode.INVALID_CURSOR_STATE);
         }
 
+        assert cursorId != null : "Unable to call meta() method for non QUERY result set.";
+
         if (!metaInit) {
-            JdbcMetaColumnsResult res = qryHandler.queryMetadataAsync(new JdbcQueryMetadataRequest(cursorId)).join();
+            JdbcMetaColumnsResult res = cursorHandler.queryMetadataAsync(new JdbcQueryMetadataRequest(cursorId)).join();
 
             meta = res.meta();
 

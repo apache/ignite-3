@@ -17,90 +17,57 @@
 
 package org.apache.ignite.internal.jdbc.proto.event;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.jdbc.proto.ClientMessage;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.CollectionUtils;
 
 /**
- * JDBC batch execute request.
+ * JDBC query close request.
  */
-public class BatchExecuteRequest implements ClientMessage {
-    /** Schema name. */
-    private String schemaName;
-
-    /** Sql queries. */
-    private List<String> queries;
+public class JdbcQueryCloseRequest implements ClientMessage {
+    /** Cursor ID. */
+    private long cursorId;
 
     /**
      * Default constructor.
      */
-    public BatchExecuteRequest() {
+    public JdbcQueryCloseRequest() {
     }
 
     /**
      * Constructor.
      *
-     * @param schemaName Schema name.
-     * @param queries    Queries.
+     * @param cursorId Cursor ID.
      */
-    public BatchExecuteRequest(String schemaName, List<String> queries) {
-        assert !CollectionUtils.nullOrEmpty(queries);
-
-        this.schemaName = schemaName;
-        this.queries = queries;
+    public JdbcQueryCloseRequest(long cursorId) {
+        this.cursorId = cursorId;
     }
 
     /**
-     * Get the schema name.
+     * Get the cursor id.
      *
-     * @return Schema name.
+     * @return Cursor ID.
      */
-    public String schemaName() {
-        return schemaName;
-    }
-
-    /**
-     * Get the queries.
-     *
-     * @return Queries.
-     */
-    public List<String> queries() {
-        return queries;
+    public long cursorId() {
+        return cursorId;
     }
 
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
-        ClientMessageUtils.writeStringNullable(packer, schemaName);
-
-        packer.packArrayHeader(queries.size());
-
-        for (String q : queries) {
-            packer.packString(q);
-        }
+        packer.packLong(cursorId);
     }
 
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
-        schemaName = ClientMessageUtils.readStringNullable(unpacker);
-
-        int n = unpacker.unpackArrayHeader();
-
-        queries = new ArrayList<>(n);
-
-        for (int i = 0; i < n; ++i) {
-            queries.add(unpacker.unpackString());
-        }
+        cursorId = unpacker.unpackLong();
     }
 
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(BatchExecuteRequest.class, this);
+        return S.toString(JdbcQueryCloseRequest.class, this);
     }
 }
