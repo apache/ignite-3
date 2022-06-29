@@ -29,11 +29,14 @@ import org.apache.ignite.cli.config.ConfigInitializationException;
 import org.apache.ignite.cli.config.ConfigManager;
 import org.apache.ignite.cli.config.Profile;
 import org.apache.ignite.cli.config.ProfileNotFoundException;
+import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Implementation of {@link ConfigManager} based on {@link IniFile}.
  */
 public class IniConfigManager implements ConfigManager {
+    private static final IgniteLogger log = IgniteLogger.forClass(IniConfigManager.class);
+
     private static final String INTERNAL_SECTION_NAME = "ignitecli_internal";
 
     private final IniFile configFile;
@@ -51,6 +54,7 @@ public class IniConfigManager implements ConfigManager {
             configFile = new IniFile(file);
             findCurrentProfile(configFile);
         } catch (IOException | NoSuchElementException e) {
+            log.warn("User config is corrupted or doesn't exist.", e);
             configFile = createDefaultConfig();
         }
         this.configFile = configFile;
