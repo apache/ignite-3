@@ -92,8 +92,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             rebuild(token, stringIgniteSchemaMap);
 
             listeners.forEach(SchemaUpdateListener::onSchemaUpdated);
-
-            tableManager.onSqlSchemaReady(token);
         });
     }
 
@@ -250,7 +248,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 }
         );
 
-        return completedFuture(false);
+        return calciteSchemaVv.get(causalityToken);
     }
 
     /**
@@ -312,7 +310,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 }
         );
 
-        return completedFuture(false);
+        return calciteSchemaVv.get(causalityToken);
     }
 
     /**
