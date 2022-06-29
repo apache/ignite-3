@@ -21,6 +21,7 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
@@ -184,12 +185,12 @@ public class ItClientHandlerTest {
             final var err = unpacker.unpackString();
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(32, len);
+            assertEquals(88, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
             assertEquals(1, errorCode);
-            assertEquals("Unsupported version: 2.8.0", err);
+            assertTrue(err.contains("Unsupported version: 2.8.0"), "Expected: 'Unsupported version: 2.8.0', actual: " + err);
         }
     }
 
