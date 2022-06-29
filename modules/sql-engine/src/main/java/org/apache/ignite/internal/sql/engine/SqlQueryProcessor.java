@@ -115,12 +115,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Constructor. */
     public SqlQueryProcessor(
-        Consumer<Function<Long, CompletableFuture<?>>> registry,
-        ClusterService clusterSrvc,
-        TableManager tableManager,
-        SchemaManager schemaManager,
-        DataStorageManager dataStorageManager,
-        Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier
+            Consumer<Function<Long, CompletableFuture<?>>> registry,
+            ClusterService clusterSrvc,
+            TableManager tableManager,
+            SchemaManager schemaManager,
+            DataStorageManager dataStorageManager,
+            Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier
     ) {
         this.registry = registry;
         this.clusterSrvc = clusterSrvc;
@@ -166,15 +166,15 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.prepareSvc = prepareSvc;
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
-            clusterSrvc.topologyService(),
-            msgSrvc,
-            sqlSchemaManager,
-            tableManager,
-            taskExecutor,
-            ArrayRowHandler.INSTANCE,
-            mailboxRegistry,
-            exchangeService,
-            dataStorageManager
+                clusterSrvc.topologyService(),
+                msgSrvc,
+                sqlSchemaManager,
+                tableManager,
+                taskExecutor,
+                ArrayRowHandler.INSTANCE,
+                mailboxRegistry,
+                exchangeService,
+                dataStorageManager
         ));
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.unmodifiableMap;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
@@ -225,6 +226,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             return node.id();
         };
+
         clusterNodeResolver = topologyService::getByAddress;
 
         tablesByIdVv = new VersionedValue<>(null, HashMap::new);
@@ -412,7 +414,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             busyLock.leaveBusy();
         }
 
-        return CompletableFuture.completedFuture(null);
+        return completedFuture(null);
     }
 
     /**
@@ -543,7 +545,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tableStorage.start();
 
-
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
                 partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage);
 
@@ -562,8 +563,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
 
         schemaManager.schemaRegistry(causalityToken, tblId)
-                .thenAccept(table::schemaView)
-                .thenRun(() -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null));
+            .thenAccept(table::schemaView)
+            .thenRun(() -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null));
 
         // TODO should be reworked in IGNITE-16763
         return tablesByIdVv.get(causalityToken).thenRun(() -> completeApiCreateFuture(table));
@@ -615,7 +616,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             TableImpl table = tablesByIdVv.latest().get(tblId);
 
             assert table != null : IgniteStringFormatter.format("There is no table with the name specified [name={}, id={}]",
-                    name, tblId);
+                name, tblId);
 
             table.internalTable().storage().destroy();
 
@@ -976,7 +977,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         tableFuts[i++] = tableAsyncInternal(tblId, false);
                     }
 
-                    return CompletableFuture.allOf(tableFuts).thenApply(unused -> {
+                    return allOf(tableFuts).thenApply(unused -> {
                         var tables = new ArrayList<Table>(tableIds.size());
 
                         try {

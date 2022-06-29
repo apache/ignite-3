@@ -37,6 +37,7 @@ import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -57,6 +58,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private final TableManager tableManager;
 
+    private final SchemaManager schemaManager;
+
     private final VersionedValue<SchemaPlus> calciteSchemaVv;
 
     private final Set<SchemaUpdateListener> listeners = new CopyOnWriteArraySet<>();
@@ -71,6 +74,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             Consumer<Function<Long, CompletableFuture<?>>> registry
     ) {
         this.tableManager = tableManager;
+        this.schemaManager = schemaManager;
         schemasVv = new VersionedValue<>(registry, HashMap::new);
         tablesVv = new VersionedValue<>(registry, HashMap::new);
 
@@ -81,6 +85,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         });
 
         schemasVv.whenComplete((token, stringIgniteSchemaMap, throwable) -> {
+            if (throwable != null) {
+                throw new IgniteInternalException("Couldn't evaluate sql schemas for causality token: " + token, throwable);
+            }
+
             rebuild(token, stringIgniteSchemaMap);
 
             listeners.forEach(SchemaUpdateListener::onSchemaUpdated);
@@ -194,7 +202,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * OnSqlTypeCreated.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public synchronized CompletableFuture<Boolean> onTableCreated(
+    public synchronized CompletableFuture<?> onTableCreated(
             String schemaName,
             TableImpl table,
             long causalityToken
@@ -210,9 +218,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                     IgniteSchema schema = res.computeIfAbsent(schemaName, IgniteSchema::new);
 
-                    IgniteTableImpl igniteTable = convert(table);
-
-                    schema.addTable(removeSchema(schemaName, table.name()), igniteTable);
+                    CompletableFuture<IgniteTableImpl> igniteTableFuture = convert(causalityToken, table);
 
                     return tablesVv
                             .update(
@@ -224,12 +230,23 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                                         Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
 
-                                        resTbls.put(igniteTable.id(), igniteTable);
+                                        return igniteTableFuture
+                                            .thenApply(igniteTable -> {
+                                                resTbls.put(igniteTable.id(), igniteTable);
 
-                                        return completedFuture(resTbls);
+                                                return resTbls;
+                                            });
                                     }
                             )
-                            .thenCompose(tables -> completedFuture(res));
+                            .thenCombine(
+                                igniteTableFuture,
+                                (v, igniteTable) -> {
+                                    schema.addTable(removeSchema(schemaName, table.name()), igniteTable);
+
+                                    return null;
+                                }
+                            )
+                            .thenCompose(v -> completedFuture(res));
                 }
         );
 
@@ -240,7 +257,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * OnSqlTypeUpdated.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public CompletableFuture<Boolean> onTableUpdated(
+    public CompletableFuture<?> onTableUpdated(
             String schemaName,
             TableImpl table,
             long causalityToken
@@ -252,7 +269,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * OnSqlTypeDropped.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public synchronized CompletableFuture<Boolean> onTableDropped(
+    public synchronized CompletableFuture<?> onTableDropped(
             String schemaName,
             String tableName,
             long causalityToken
@@ -314,8 +331,19 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         calciteSchemaVv.complete(causalityToken, newCalciteSchema);
     }
 
+    private CompletableFuture<IgniteTableImpl> convert(long causalityToken, TableImpl table) {
+        return schemaManager.schemaRegistry(causalityToken, table.tableId())
+            .thenApply(schemaRegistry -> convert(table, schemaRegistry));
+    }
+
     private IgniteTableImpl convert(TableImpl table) {
-        SchemaDescriptor descriptor = table.schemaView().schema();
+        SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(table.tableId());
+
+        return convert(table, schemaRegistry);
+    }
+
+    private IgniteTableImpl convert(TableImpl table, SchemaRegistry schemaRegistry) {
+        SchemaDescriptor descriptor = schemaRegistry.schema();
 
         List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
                 .map(descriptor::column)
@@ -335,7 +363,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return new IgniteTableImpl(
                 new TableDescriptorImpl(colDescriptors),
                 table.internalTable(),
-                table.schemaView()
+                schemaRegistry
         );
     }
 
