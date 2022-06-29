@@ -39,6 +39,7 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.manager.EventListener;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
@@ -86,6 +87,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final TableManager tableManager;
 
+    private final SchemaManager schemaManager;
+
     private final Consumer<Function<Long, CompletableFuture<?>>> registry;
 
     private final DataStorageManager dataStorageManager;
@@ -108,19 +111,21 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile PrepareService prepareSvc;
 
-    private volatile SqlSchemaManager schemaManager;
+    private volatile SqlSchemaManager sqlSchemaManager;
 
     /** Constructor. */
     public SqlQueryProcessor(
-            Consumer<Function<Long, CompletableFuture<?>>> registry,
-            ClusterService clusterSrvc,
-            TableManager tableManager,
-            DataStorageManager dataStorageManager,
-            Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier
+        Consumer<Function<Long, CompletableFuture<?>>> registry,
+        ClusterService clusterSrvc,
+        TableManager tableManager,
+        SchemaManager schemaManager,
+        DataStorageManager dataStorageManager,
+        Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier
     ) {
         this.registry = registry;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
+        this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
     }
@@ -134,42 +139,42 @@ public class SqlQueryProcessor implements QueryProcessor {
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
         var prepareSvc = registerService(PrepareServiceImpl.create(
-                nodeName,
-                PLAN_CACHE_SIZE,
-                dataStorageManager,
-                dataStorageFieldsSupplier.get()
+            nodeName,
+            PLAN_CACHE_SIZE,
+            dataStorageManager,
+            dataStorageFieldsSupplier.get()
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(
-                clusterSrvc.topologyService(),
-                clusterSrvc.messagingService(),
-                taskExecutor,
-                busyLock
+            clusterSrvc.topologyService(),
+            clusterSrvc.messagingService(),
+            taskExecutor,
+            busyLock
         ));
 
         var exchangeService = registerService(new ExchangeServiceImpl(
-                nodeName,
-                taskExecutor,
-                mailboxRegistry,
-                msgSrvc
+            nodeName,
+            taskExecutor,
+            mailboxRegistry,
+            msgSrvc
         ));
 
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, registry);
+        SqlSchemaManagerImpl sqlSchemaManager = new SqlSchemaManagerImpl(tableManager, schemaManager, registry);
 
-        schemaManager.registerListener(prepareSvc);
+        sqlSchemaManager.registerListener(prepareSvc);
 
         this.prepareSvc = prepareSvc;
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
-                clusterSrvc.topologyService(),
-                msgSrvc,
-                schemaManager,
-                tableManager,
-                taskExecutor,
-                ArrayRowHandler.INSTANCE,
-                mailboxRegistry,
-                exchangeService,
-                dataStorageManager
+            clusterSrvc.topologyService(),
+            msgSrvc,
+            sqlSchemaManager,
+            tableManager,
+            taskExecutor,
+            ArrayRowHandler.INSTANCE,
+            mailboxRegistry,
+            exchangeService,
+            dataStorageManager
         ));
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);
@@ -177,11 +182,11 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.executionSrvc = executionSrvc;
 
-        registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaManager));
-        registerTableListener(TableEvent.ALTER, new TableUpdatedListener(schemaManager));
-        registerTableListener(TableEvent.DROP, new TableDroppedListener(schemaManager));
+        registerTableListener(TableEvent.CREATE, new TableCreatedListener(sqlSchemaManager));
+        registerTableListener(TableEvent.ALTER, new TableUpdatedListener(sqlSchemaManager));
+        registerTableListener(TableEvent.DROP, new TableDroppedListener(sqlSchemaManager));
 
-        this.schemaManager = schemaManager;
+        this.sqlSchemaManager = sqlSchemaManager;
 
         services.forEach(LifecycleAware::start);
     }
@@ -190,8 +195,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     @Override
     public SessionId createSession(PropertiesHolder queryProperties) {
         return sessionManager.createSession(
-                TimeUnit.MINUTES.toMillis(5),
-                queryProperties
+            TimeUnit.MINUTES.toMillis(5),
+            queryProperties
         );
     }
 
@@ -221,7 +226,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         Stream<AutoCloseable> closableComponents = services.stream().map(s -> s::stop);
 
         Stream<AutoCloseable> closableListeners = evtLsnrs.stream()
-                .map((p) -> () -> tableManager.removeListener(p.left, p.right));
+            .map((p) -> () -> tableManager.removeListener(p.left, p.right));
 
         IgniteUtils.closeAll(Stream.concat(closableComponents, closableListeners).collect(Collectors.toList()));
     }
@@ -235,7 +240,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName,
-            String qry, Object... params) {
+        String qry, Object... params) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(new NodeStoppingException());
         }
@@ -250,7 +255,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
-            SessionId sessionId, QueryContext context, String qry, Object... params
+        SessionId sessionId, QueryContext context, String qry, Object... params
     ) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(new NodeStoppingException());
@@ -276,10 +281,10 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
-            SessionId sessionId,
-            QueryContext context,
-            String sql,
-            Object... params
+        SessionId sessionId,
+        QueryContext context,
+        String sql,
+        Object... params
     ) {
         var session = sessionManager.session(sessionId);
 
@@ -289,26 +294,26 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var schemaName = session.queryProperties().get(QueryProperty.DEFAULT_SCHEMA);
 
-        SchemaPlus schema = schemaManager.schema(schemaName);
+        SchemaPlus schema = sqlSchemaManager.schema(schemaName);
 
         if (schema == null) {
             return CompletableFuture.failedFuture(new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName)));
         }
 
         final BaseQueryContext ctx = BaseQueryContext.builder()
-                .cancel(new QueryCancel())
-                .frameworkConfig(
-                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(schema)
-                                .build()
-                )
-                .logger(LOG)
-                .parameters(params)
-                .build();
+            .cancel(new QueryCancel())
+            .frameworkConfig(
+                Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                    .defaultSchema(schema)
+                    .build()
+            )
+            .logger(LOG)
+            .parameters(params)
+            .build();
 
         AsyncCloseable closeableResource = () -> CompletableFuture.runAsync(
-                ctx.cancel()::cancel,
-                taskExecutor
+            ctx.cancel()::cancel,
+            taskExecutor
         );
 
         ctx.cancel().add(() -> session.unregisterResource(closeableResource));
@@ -317,48 +322,48 @@ public class SqlQueryProcessor implements QueryProcessor {
             session.registerResource(closeableResource);
         } catch (IllegalStateException ex) {
             return CompletableFuture.failedFuture(new IgniteInternalException(
-                    format("Session has been expired [{}]", session.sessionId()), ex));
+                format("Session has been expired [{}]", session.sessionId()), ex));
         }
 
         CompletableFuture<Void> start = new CompletableFuture<>();
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenApply(
-                        (v) -> Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig())
-                )
-                .thenApply(nodes -> {
-                    if (nodes.size() > 1) {
-                        throw new SqlException("Multiple statements aren't allowed.");
+                (v) -> Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig())
+            )
+            .thenApply(nodes -> {
+                if (nodes.size() > 1) {
+                    throw new SqlException("Multiple statements aren't allowed.");
+                }
+
+                return nodes.get(0);
+            })
+            .thenCompose(sqlNode -> prepareSvc.prepareAsync(sqlNode, ctx))
+            .thenApply(plan -> {
+                context.maybeUnwrap(QueryValidator.class)
+                    .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
+
+                var dataCursor = executionSrvc.executePlan(plan, ctx);
+
+                return new AsyncSqlCursorImpl<>(
+                    SqlQueryType.mapPlanTypeToSqlType(plan.type()),
+                    plan.metadata(),
+                    new AsyncCursor<List<Object>>() {
+                        @Override
+                        public CompletionStage<BatchedResult<List<Object>>> requestNextAsync(int rows) {
+                            session.touch();
+
+                            return dataCursor.requestNextAsync(rows);
+                        }
+
+                        @Override
+                        public CompletableFuture<Void> closeAsync() {
+                            session.touch();
+
+                            return dataCursor.closeAsync();
+                        }
                     }
-
-                    return nodes.get(0);
-                })
-                .thenCompose(sqlNode -> prepareSvc.prepareAsync(sqlNode, ctx))
-                .thenApply(plan -> {
-                    context.maybeUnwrap(QueryValidator.class)
-                            .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
-
-                    var dataCursor = executionSrvc.executePlan(plan, ctx);
-
-                    return new AsyncSqlCursorImpl<>(
-                            SqlQueryType.mapPlanTypeToSqlType(plan.type()),
-                            plan.metadata(),
-                            new AsyncCursor<List<Object>>() {
-                                @Override
-                                public CompletionStage<BatchedResult<List<Object>>> requestNextAsync(int rows) {
-                                    session.touch();
-
-                                    return dataCursor.requestNextAsync(rows);
-                                }
-
-                                @Override
-                                public CompletableFuture<Void> closeAsync() {
-                                    session.touch();
-
-                                    return dataCursor.closeAsync();
-                                }
-                            }
-                    );
-                });
+                );
+            });
 
         stage.whenComplete((cur, ex) -> {
             if (ex instanceof CancellationException) {
@@ -372,12 +377,12 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private List<CompletableFuture<AsyncSqlCursor<List<Object>>>> query0(
-            QueryContext context,
-            String schemaName,
-            String sql,
-            Object... params
+        QueryContext context,
+        String schemaName,
+        String sql,
+        Object... params
     ) {
-        SchemaPlus schema = schemaManager.schema(schemaName);
+        SchemaPlus schema = sqlSchemaManager.schema(schemaName);
 
         if (schema == null) {
             throw new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName));
@@ -391,27 +396,27 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         for (SqlNode sqlNode : nodes) {
             final BaseQueryContext ctx = BaseQueryContext.builder()
-                    .cancel(new QueryCancel())
-                    .frameworkConfig(
-                            Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                    .defaultSchema(schema)
-                                    .build()
-                    )
-                    .logger(LOG)
-                    .parameters(params)
-                    .build();
+                .cancel(new QueryCancel())
+                .frameworkConfig(
+                    Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                        .defaultSchema(schema)
+                        .build()
+                )
+                .logger(LOG)
+                .parameters(params)
+                .build();
 
             CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(none -> prepareSvc.prepareAsync(sqlNode, ctx))
-                    .thenApply(plan -> {
-                        context.maybeUnwrap(QueryValidator.class)
-                                .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
+                .thenApply(plan -> {
+                    context.maybeUnwrap(QueryValidator.class)
+                        .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
 
-                        return new AsyncSqlCursorImpl<>(
-                                SqlQueryType.mapPlanTypeToSqlType(plan.type()),
-                                plan.metadata(),
-                                executionSrvc.executePlan(plan, ctx)
-                        );
-                    });
+                    return new AsyncSqlCursorImpl<>(
+                        SqlQueryType.mapPlanTypeToSqlType(plan.type()),
+                        plan.metadata(),
+                        executionSrvc.executePlan(plan, ctx)
+                    );
+                });
 
             stage.whenComplete((cur, ex) -> {
                 if (ex instanceof CancellationException) {
@@ -431,7 +436,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         protected final SqlSchemaManagerImpl schemaHolder;
 
         private AbstractTableEventListener(
-                SqlSchemaManagerImpl schemaHolder
+            SqlSchemaManagerImpl schemaHolder
         ) {
             this.schemaHolder = schemaHolder;
         }
@@ -439,61 +444,58 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private static class TableCreatedListener extends AbstractTableEventListener {
         private TableCreatedListener(
-                SqlSchemaManagerImpl schemaHolder
+            SqlSchemaManagerImpl schemaHolder
         ) {
             super(schemaHolder);
         }
 
         /** {@inheritDoc} */
         @Override
-        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
-            schemaHolder.onTableCreated(
+        public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+            return schemaHolder.onTableCreated(
                     "PUBLIC",
                     parameters.table(),
                     parameters.causalityToken()
-            );
-
-            return false;
+                )
+                .thenApply(v -> false);
         }
     }
 
     private static class TableUpdatedListener extends AbstractTableEventListener {
         private TableUpdatedListener(
-                SqlSchemaManagerImpl schemaHolder
+            SqlSchemaManagerImpl schemaHolder
         ) {
             super(schemaHolder);
         }
 
         /** {@inheritDoc} */
         @Override
-        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
-            schemaHolder.onTableUpdated(
+        public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+            return schemaHolder.onTableUpdated(
                     "PUBLIC",
                     parameters.table(),
                     parameters.causalityToken()
-            );
-
-            return false;
+                )
+                .thenApply(v -> false);
         }
     }
 
     private static class TableDroppedListener extends AbstractTableEventListener {
         private TableDroppedListener(
-                SqlSchemaManagerImpl schemaHolder
+            SqlSchemaManagerImpl schemaHolder
         ) {
             super(schemaHolder);
         }
 
         /** {@inheritDoc} */
         @Override
-        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
-            schemaHolder.onTableDropped(
+        public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+            return schemaHolder.onTableDropped(
                     "PUBLIC",
                     parameters.tableName(),
                     parameters.causalityToken()
-            );
-
-            return false;
+                )
+                .thenApply(v -> false);
         }
     }
 }

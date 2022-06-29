@@ -36,6 +36,7 @@ import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -66,6 +67,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      */
     public SqlSchemaManagerImpl(
             TableManager tableManager,
+            SchemaManager schemaManager,
             Consumer<Function<Long, CompletableFuture<?>>> registry
     ) {
         this.tableManager = tableManager;
@@ -192,7 +194,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * OnSqlTypeCreated.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public synchronized void onTableCreated(
+    public synchronized CompletableFuture<Boolean> onTableCreated(
             String schemaName,
             TableImpl table,
             long causalityToken
@@ -230,25 +232,27 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                             .thenCompose(tables -> completedFuture(res));
                 }
         );
+
+        return completedFuture(false);
     }
 
     /**
      * OnSqlTypeUpdated.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public void onTableUpdated(
+    public CompletableFuture<Boolean> onTableUpdated(
             String schemaName,
             TableImpl table,
             long causalityToken
     ) {
-        onTableCreated(schemaName, table, causalityToken);
+        return onTableCreated(schemaName, table, causalityToken);
     }
 
     /**
      * OnSqlTypeDropped.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public synchronized void onTableDropped(
+    public synchronized CompletableFuture<Boolean> onTableDropped(
             String schemaName,
             String tableName,
             long causalityToken
@@ -290,6 +294,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     return completedFuture(res);
                 }
         );
+
+        return completedFuture(false);
     }
 
     /**

@@ -324,6 +324,7 @@ public class IgniteImpl implements Ignite {
                 registry,
                 clusterSvc,
                 distributedTblMgr,
+                schemaManager,
                 dataStorageMgr,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions())
         );
@@ -450,7 +451,7 @@ public class IgniteImpl implements Ignite {
                         LOG.info("Components started, performing recovery");
 
                         // Recovery future must be created before configuration listeners are triggered.
-                        CompletableFuture<Void> recoveryFuture = RecoveryCompletionFutureFactory.create(
+                        CompletableFuture<?> recoveryFuture = RecoveryCompletionFutureFactory.create(
                                 clusterCfgMgr,
                                 fut -> new ConfigurationCatchUpListener(cfgStorage, fut, LOG)
                         );

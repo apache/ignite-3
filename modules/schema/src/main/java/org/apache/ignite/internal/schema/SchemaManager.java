@@ -120,7 +120,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         CompletableFuture<?> createSchemaFut = createSchema(causalityToken, tblId, tableName, schemaDescriptor);
 
         registriesVv.get(causalityToken)
-                .thenRun(() -> fireEvent(SchemaEvent.CREATE, new SchemaEventParameters(causalityToken, tblId, schemaDescriptor), null));
+                .thenRun(() -> fireEvent(SchemaEvent.CREATE, new SchemaEventParameters(causalityToken, tblId, schemaDescriptor)));
 
         return createSchemaFut;
     }
@@ -240,14 +240,14 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
         var clo = new EventListener<SchemaEventParameters>() {
             @Override
-            public boolean notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable exception) {
+            public CompletableFuture<Boolean> notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable exception) {
                 if (tblId.equals(parameters.tableId()) && schemaVer <= parameters.schemaDescriptor().version()) {
                     fut.complete(getSchemaDescriptorLocally(schemaVer, tblCfg));
 
-                    return true;
+                    return completedFuture(true);
                 }
 
-                return false;
+                return completedFuture(false);
             }
 
             @Override
@@ -344,6 +344,16 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Returns schema registry by table id.
+     *
+     * @param tableId Table id.
+     * @return Schema registry.
+     */
+    public SchemaRegistry schemaRegistry(UUID tableId) {
+        return registriesVv.latest().get(tableId);
     }
 
     /**

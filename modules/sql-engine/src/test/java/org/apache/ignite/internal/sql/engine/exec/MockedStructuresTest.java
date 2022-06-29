@@ -181,6 +181,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     DataStorageManager dataStorageManager;
 
+    SchemaManager schemaManager;
+
     /** Returns current method name. */
     private static String getCurrentMethodName() {
         return StackWalker.getInstance()
@@ -234,12 +236,17 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         dataStorageManager.start();
 
+        schemaManager = new SchemaManager(revisionUpdater, tblsCfg);
+
+        schemaManager.start();
+
         tblManager = mockManagers();
 
         queryProc = new SqlQueryProcessor(
                 revisionUpdater,
                 cs,
                 tblManager,
+                schemaManager,
                 dataStorageManager,
                 () -> dataStorageModules.collectSchemasFields(List.of(
                         RocksDbDataStorageConfigurationSchema.class,
@@ -685,8 +692,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     }
 
     private TableManager createTableManager() {
-        SchemaManager sm = new SchemaManager(revisionUpdater, tblsCfg);
-
         TableManager tableManager = new TableManager(
                 revisionUpdater,
                 tblsCfg,
@@ -696,10 +701,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 tm,
                 dataStorageManager,
                 msm,
-                sm
+                schemaManager
         );
 
-        sm.start();
         tableManager.start();
 
         return tableManager;

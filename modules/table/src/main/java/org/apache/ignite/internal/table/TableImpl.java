@@ -97,7 +97,9 @@ public class TableImpl implements Table {
      * Sets a schema view for the table.
      */
     public void schemaView(@NotNull SchemaRegistry schemaReg) {
-        assert this.schemaReg == null : "Schema registry is already set [tableName=" + name() + "]";
+        assert this.schemaReg == null : "Schema registry is already set [tableName=" + name() + ']';
+
+        Objects.requireNonNull(schemaReg, "Schema registry must not be null [tableName=" + name() + ']');
 
         this.schemaReg = schemaReg;
     }

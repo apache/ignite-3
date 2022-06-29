@@ -191,7 +191,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     ) throws NodeStoppingException {
         Path dir = workDir.resolve(name);
 
-        List<IgniteComponent> res = new ArrayList<>();
+        partialNode = new ArrayList<>();
 
         VaultManager vault = createVault(dir);
 
@@ -282,13 +282,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 schemaManager
         );
 
-        //TODO: Get rid of it after IGNITE-17062.
-        SqlQueryProcessor queryProcessor = new SqlQueryProcessor(registry, clusterSvc, tableManager, dataStorageManager, Map::of);
+        SqlQueryProcessor queryProcessor =
+                new SqlQueryProcessor(registry, clusterSvc, tableManager, schemaManager, dataStorageManager, Map::of);
 
         // Preparing the result map.
 
-        res.add(vault);
-        res.add(nodeCfgMgr);
+        partialNode.add(vault);
+        partialNode.add(nodeCfgMgr);
 
         // Start.
 
@@ -326,7 +326,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         for (IgniteComponent component : otherComponents) {
             component.start();
 
-            res.add(component);
+            partialNode.add(component);
         }
 
         AtomicLong lastRevision = new AtomicLong();
@@ -367,9 +367,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 + ", acceptableDifference: " + IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100)
         );
 
-        partialNode = res;
-
-        return res;
+        return partialNode;
     }
 
     /**
@@ -875,6 +873,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         stopNode(nodes - 1);
 
         createTableWithData(CLUSTER_NODES.get(0), TABLE_NAME_2, nodes);
+        createTableWithData(CLUSTER_NODES.get(0), TABLE_NAME_2 + "0", nodes);
 
         log.info("Starting the node.");
 
@@ -927,6 +926,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                         log.info("Stopping METASTORAGE");
 
                         stopNode(0);
+
+                        log.info("Starting METASTORAGE");
 
                         startNode(testInfo, 0);
 
@@ -1035,7 +1036,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         Table table = ignite.tables().createTable(
                 scmTbl1.canonicalName(),
-                tbl -> convert(scmTbl1, tbl).changePartitions(10).changeReplicas(replicas).changePartitions(partitions)
+                tbl -> convert(scmTbl1, tbl).changeReplicas(replicas).changePartitions(partitions)
         );
 
         for (int i = 0; i < 100; i++) {
