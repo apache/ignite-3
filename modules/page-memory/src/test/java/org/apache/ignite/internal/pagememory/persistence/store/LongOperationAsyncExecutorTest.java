@@ -226,7 +226,7 @@ public class LongOperationAsyncExecutorTest {
 
             // Checks that the exception will be from task1.
             assertThat(exception.getCause(), instanceOf(IgniteInternalException.class));
-            assertThat(exception.getCause().getMessage(), equalTo("from_task_1"));
+            assertThat(exception.getCause().getMessage(), containsString("from_task_1"));
 
             assertThat(exception.getCause().getCause(), instanceOf(InterruptedException.class));
         } finally {
