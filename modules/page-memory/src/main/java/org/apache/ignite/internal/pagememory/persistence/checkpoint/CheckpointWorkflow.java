@@ -66,9 +66,6 @@ class CheckpointWorkflow {
     /** Starting from this number of dirty pages in checkpoint, array will be sorted with {@link Arrays#parallelSort(Comparable[])}. */
     private static final int PARALLEL_SORT_THRESHOLD = 40_000;
 
-    /** This number of threads will be created and used for parallel sorting. */
-    private static final int PARALLEL_SORT_THREADS = Math.min(Runtime.getRuntime().availableProcessors(), 8);
-
     /** Checkpoint marker storage. */
     private final CheckpointMarkersStorage checkpointMarkersStorage;
 
@@ -101,7 +98,7 @@ class CheckpointWorkflow {
         this.dataRegions = dataRegions;
 
         parallelSortThreadPool = new ForkJoinPool(
-                Math.min(Runtime.getRuntime().availableProcessors(), 8),
+                Math.min(Runtime.getRuntime().availableProcessors(), 8) + 1,
                 pool -> {
                     ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
 
