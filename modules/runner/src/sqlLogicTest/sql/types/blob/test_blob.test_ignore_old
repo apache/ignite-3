@@ -1,7 +1,7 @@
 # name: test/sql/types/blob/test_blob.test
 # description: BLOB tests
 # group: [blob]
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-17271
+# Ignore https://issues.apache.org/jira/browse/IGNITE-15123
 
 statement ok
 PRAGMA enable_verification
@@ -91,10 +91,7 @@ statement ok
 CREATE TABLE blob_empty (b binary);
 
 statement ok
-INSERT INTO blob_empty VALUES('')
-
-statement ok
-INSERT INTO blob_empty VALUES(''::VARBINARY)
+INSERT INTO blob_empty VALUES(''), (''::VARBINARY)
 
 statement ok
 INSERT INTO blob_empty VALUES(NULL), (NULL::VARBINARY)
@@ -106,3 +103,4 @@ NULL
 NULL
 (empty)
 (empty)
+
