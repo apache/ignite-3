@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.status;
+package org.apache.ignite.cli.commands.cluster;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
@@ -25,15 +25,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link StatusReplCommand}.
+ * Tests for {@link ClusterStatusReplSubCommand}.
  */
-class ItStatusReplCommandTest extends CliCommandTestIntegrationBase {
+class ItClusterStatusReplCommandTest extends CliCommandTestIntegrationBase {
 
     @Test
     @DisplayName("Should print status when valid cluster url is given")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17091")
+    @Disabled("Use topology call to get the number of nodes https://issues.apache.org/jira/browse/IGNITE-17092")
     void printStatus() {
-        execute("status", "--cluster-url", NODE_URL);
+        execute("cluster", "status", "--cluster-url", NODE_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,

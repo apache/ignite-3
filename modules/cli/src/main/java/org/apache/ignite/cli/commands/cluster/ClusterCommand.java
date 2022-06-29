@@ -24,7 +24,10 @@ import picocli.CommandLine.Command;
  * Node command.
  */
 @Command(name = "cluster",
-        subcommands = {ClusterConfigSubCommand.class, ClusterInitSubCommand.class},
+        subcommands = {
+                ClusterConfigSubCommand.class,
+                ClusterInitSubCommand.class,
+                ClusterStatusSubCommand.class},
         description = "Manages an Ignite cluster.")
 public class ClusterCommand {
 }

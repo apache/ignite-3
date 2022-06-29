@@ -18,6 +18,7 @@
 package org.apache.ignite.cli.call.status;
 
 import jakarta.inject.Singleton;
+import org.apache.ignite.cli.call.status.ClusterStatus.ClusterStatusBuilder;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.CallOutput;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
@@ -33,10 +34,10 @@ import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.ClusterState;
 
 /**
- * Call to get cluster status.
+ * Call to get cluster status in repl mode.
  */
 @Singleton
-public class StatusReplCall implements Call<EmptyCallInput, Status> {
+public class ClusterStatusReplCall implements Call<EmptyCallInput, ClusterStatus> {
 
     private final NodeManager nodeManager;
 
@@ -47,48 +48,37 @@ public class StatusReplCall implements Call<EmptyCallInput, Status> {
     /**
      * Default constructor.
      */
-    public StatusReplCall(NodeManager nodeManager, CliPathsConfigLoader cliPathsCfgLdr, Session session) {
+    public ClusterStatusReplCall(NodeManager nodeManager, CliPathsConfigLoader cliPathsCfgLdr, Session session) {
         this.nodeManager = nodeManager;
         this.cliPathsCfgLdr = cliPathsCfgLdr;
         this.session = session;
     }
 
     @Override
-    public CallOutput<Status> execute(EmptyCallInput input) {
+    public CallOutput<ClusterStatus> execute(EmptyCallInput input) {
         IgnitePaths paths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
+        ClusterStatusBuilder clusterStatusBuilder = ClusterStatus.builder()
+                .connected(session.isConnectedToNode())
+                .connectedNodeUrl(session.getNodeUrl())
+                .nodeCount(nodeManager.getRunningNodes(paths.logDir, paths.cliPidsDir()).size());
+
         try {
             ClusterState clusterState = fetchClusterState();
-            return DefaultCallOutput.success(
-                    Status.builder()
-                            .connected(session.isConnectedToNode())
-                            .connectedNodeUrl(session.getNodeUrl())
-                            .initialized(true)
-                            .name(clusterState.getClusterTag().getClusterName())
-                            .cmgNodes(clusterState.getCmgNodes())
-                            .nodeCount(nodeManager.getRunningNodes(paths.logDir, paths.cliPidsDir()).size())
-                            .build()
-            );
+            clusterStatusBuilder
+                    .initialized(true)
+                    .name(clusterState.getClusterTag().getClusterName())
+                    .cmgNodes(clusterState.getCmgNodes());
         } catch (ApiException e) {
-            if (e.getCode() == 404) {
-                return DefaultCallOutput.success(
-                        Status.builder()
-                                .connected(session.isConnectedToNode())
-                                .connectedNodeUrl(session.getNodeUrl())
-                                .initialized(false)
-                                .nodeCount(nodeManager.getRunningNodes(paths.logDir, paths.cliPidsDir()).size())
-                                .build());
+            if (e.getCode() == 404) { // NOT_FOUND means the cluster is not initialized yet
+                clusterStatusBuilder.initialized(false);
+            } else {
+                return DefaultCallOutput.failure(new IgniteCliApiException(e, session.getNodeUrl()));
             }
-
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, ""));
         } catch (IllegalArgumentException e) {
-            return DefaultCallOutput.success(
-                    Status.builder()
-                            .connected(session.isConnectedToNode())
-                            .connectedNodeUrl(session.getNodeUrl())
-                            .initialized(false)
-                            .nodeCount(nodeManager.getRunningNodes(paths.logDir, paths.cliPidsDir()).size())
-                            .build());
+            clusterStatusBuilder.initialized(false);
         }
+
+        return DefaultCallOutput.success(clusterStatusBuilder.build());
     }
 
     private ClusterState fetchClusterState() throws ApiException {

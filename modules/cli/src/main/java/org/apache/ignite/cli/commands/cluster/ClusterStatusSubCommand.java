@@ -15,45 +15,49 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.status;
+package org.apache.ignite.cli.commands.cluster;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.apache.ignite.cli.call.status.StatusReplCall;
+import java.util.concurrent.Callable;
+import org.apache.ignite.cli.call.status.ClusterStatusCall;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.StatusReplDecorator;
+import org.apache.ignite.cli.commands.decorators.StatusDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.call.EmptyCallInput;
+import org.apache.ignite.cli.core.call.StatusCallInput;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 /**
  * Command that prints status of ignite cluster.
  */
-@Command(name = "status", description = "Prints status of the cluster.")
+@Command(name = "status",
+        aliases = "cluster show", //TODO: https://issues.apache.org/jira/browse/IGNITE-17102
+        description = "Prints status of the cluster.")
 @Singleton
-public class StatusReplCommand extends BaseCommand implements Runnable {
+public class ClusterStatusSubCommand extends BaseCommand implements Callable<Integer> {
 
     /**
      * Cluster url option.
      */
     @SuppressWarnings("PMD.UnusedPrivateField")
     @Option(
-            names = {"--cluster-url"}, description = "Url to cluster node."
+            names = {"--cluster-url"}, description = "Url to cluster node.",
+            descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
     )
     private String clusterUrl;
 
     @Inject
-    private StatusReplCall statusReplCall;
+    private ClusterStatusCall clusterStatusCall;
 
     /** {@inheritDoc} */
     @Override
-    public void run() {
-        CallExecutionPipeline.builder(statusReplCall)
-                .inputProvider(EmptyCallInput::new)
+    public Integer call() {
+        return CallExecutionPipeline.builder(clusterStatusCall)
+                .inputProvider(() -> new StatusCallInput(clusterUrl))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new StatusReplDecorator())
+                .decorator(new StatusDecorator())
                 .build()
                 .runPipeline();
     }

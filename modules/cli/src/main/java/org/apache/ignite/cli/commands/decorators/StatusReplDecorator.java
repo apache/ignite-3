@@ -17,23 +17,23 @@
 
 package org.apache.ignite.cli.commands.decorators;
 
-import org.apache.ignite.cli.call.status.Status;
+import org.apache.ignite.cli.call.status.ClusterStatus;
 import org.apache.ignite.cli.commands.decorators.core.Decorator;
 import org.apache.ignite.cli.commands.decorators.core.TerminalOutput;
 import picocli.CommandLine.Help.Ansi;
 
 /**
- * Decorator for {@link Status}.
+ * Decorator for {@link ClusterStatus}.
  */
-public class StatusReplDecorator implements Decorator<Status, TerminalOutput> {
+public class StatusReplDecorator implements Decorator<ClusterStatus, TerminalOutput> {
 
     @Override
-    public TerminalOutput decorate(Status data) {
+    public TerminalOutput decorate(ClusterStatus data) {
         if (!data.isConnected()) {
             return () -> "You are not connected to any Ignite 3 node. Try to run 'connect' command.";
         }
 
-        return () -> Ansi.AUTO.string("Connected to " + data.getConnectedNodeUrl() + System.lineSeparator()
+        return () -> Ansi.AUTO.string("Connected to " + data.getNodeUrl() + System.lineSeparator()
                 + "["
                 + (data.isInitialized() ? "name: " + data.getName() + ", " : "")
                 + "nodes: " + data.getNodeCount()

@@ -24,7 +24,6 @@ import org.apache.ignite.cli.commands.configuration.node.NodeReplCommand;
 import org.apache.ignite.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.cli.commands.connect.DisconnectCommand;
 import org.apache.ignite.cli.commands.sql.SqlReplCommand;
-import org.apache.ignite.cli.commands.status.StatusReplCommand;
 import org.apache.ignite.cli.commands.version.VersionCommand;
 import org.apache.ignite.cli.deprecated.spec.BootstrapIgniteCommandSpec;
 import picocli.CommandLine;
@@ -40,7 +39,6 @@ import picocli.shell.jline3.PicocliCommands;
                 PicocliCommands.ClearScreen.class,
                 CommandLine.HelpCommand.class,
                 VersionCommand.class,
-                StatusReplCommand.class,
                 CliCommand.class,
                 BootstrapIgniteCommandSpec.class,
                 ConnectCommand.class,

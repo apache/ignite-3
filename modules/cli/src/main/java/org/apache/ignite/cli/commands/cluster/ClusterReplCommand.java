@@ -24,7 +24,11 @@ import picocli.CommandLine.Command;
  * Cluster command in REPL mode.
  */
 @Command(name = "cluster",
-        subcommands = {ClusterConfigReplSubCommand.class, ClusterInitReplSubCommand.class},
+        subcommands = {
+                ClusterConfigReplSubCommand.class,
+                ClusterInitReplSubCommand.class,
+                ClusterStatusReplSubCommand.class
+        },
         description = "Manages an Ignite cluster.")
 public class ClusterReplCommand {
 }

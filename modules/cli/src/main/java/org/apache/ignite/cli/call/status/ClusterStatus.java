@@ -22,7 +22,7 @@ import java.util.List;
 /**
  * Class that represents the cluster status.
  */
-public class Status {
+public class ClusterStatus {
 
     private final int nodeCount;
 
@@ -32,16 +32,17 @@ public class Status {
 
     private final boolean connected;
 
-    private final String connectedNodeUrl;
+    private final String nodeUrl;
 
     private final List<String> cmgNodes;
 
-    private Status(int nodeCount, boolean initialized, String name, boolean connected, String connectedNodeUrl, List<String> cmgNodes) {
+    private ClusterStatus(int nodeCount, boolean initialized, String name,
+            boolean connected, String nodeUrl, List<String> cmgNodes) {
         this.nodeCount = nodeCount;
         this.initialized = initialized;
         this.name = name;
         this.connected = connected;
-        this.connectedNodeUrl = connectedNodeUrl;
+        this.nodeUrl = nodeUrl;
         this.cmgNodes = cmgNodes;
     }
 
@@ -61,8 +62,8 @@ public class Status {
         return connected;
     }
 
-    public String getConnectedNodeUrl() {
-        return connectedNodeUrl;
+    public String getNodeUrl() {
+        return nodeUrl;
     }
 
     public List<String> getCmgNodes() {
@@ -70,16 +71,16 @@ public class Status {
     }
 
     /**
-     * Builder for {@link Status}.
+     * Builder for {@link ClusterStatus}.
      */
-    public static StatusBuilder builder() {
-        return new StatusBuilder();
+    public static ClusterStatusBuilder builder() {
+        return new ClusterStatusBuilder();
     }
 
     /**
-     * Builder for {@link Status}.
+     * Builder for {@link ClusterStatus}.
      */
-    public static class StatusBuilder {
+    public static class ClusterStatusBuilder {
         private int nodeCount;
 
         private boolean initialized;
@@ -92,42 +93,42 @@ public class Status {
 
         private List<String> cmgNodes;
 
-        private StatusBuilder() {
+        private ClusterStatusBuilder() {
 
         }
 
-        public StatusBuilder nodeCount(int nodeCount) {
+        public ClusterStatusBuilder nodeCount(int nodeCount) {
             this.nodeCount = nodeCount;
             return this;
         }
 
-        public StatusBuilder initialized(boolean initialized) {
+        public ClusterStatusBuilder initialized(boolean initialized) {
             this.initialized = initialized;
             return this;
         }
 
-        public StatusBuilder name(String name) {
+        public ClusterStatusBuilder name(String name) {
             this.name = name;
             return this;
         }
 
-        public StatusBuilder connected(boolean connected) {
+        public ClusterStatusBuilder connected(boolean connected) {
             this.connected = connected;
             return this;
         }
 
-        public StatusBuilder connectedNodeUrl(String connectedNodeUrl) {
+        public ClusterStatusBuilder connectedNodeUrl(String connectedNodeUrl) {
             this.connectedNodeUrl = connectedNodeUrl;
             return this;
         }
 
-        public StatusBuilder cmgNodes(List<String> cmgNodes) {
+        public ClusterStatusBuilder cmgNodes(List<String> cmgNodes) {
             this.cmgNodes = cmgNodes;
             return this;
         }
 
-        public Status build() {
-            return new Status(nodeCount, initialized, name, connected, connectedNodeUrl, cmgNodes);
+        public ClusterStatus build() {
+            return new ClusterStatus(nodeCount, initialized, name, connected, connectedNodeUrl, cmgNodes);
         }
     }
 }

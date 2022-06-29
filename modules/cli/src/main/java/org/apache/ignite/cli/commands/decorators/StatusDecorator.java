@@ -17,24 +17,24 @@
 
 package org.apache.ignite.cli.commands.decorators;
 
-import org.apache.ignite.cli.call.status.Status;
+import org.apache.ignite.cli.call.status.ClusterStatus;
 import org.apache.ignite.cli.commands.decorators.core.Decorator;
 import org.apache.ignite.cli.commands.decorators.core.TerminalOutput;
 import picocli.CommandLine.Help.Ansi;
 
 /**
- * Decorator for {@link Status}.
+ * Decorator for {@link ClusterStatus}.
  */
-public class StatusDecorator implements Decorator<Status, TerminalOutput> {
+public class StatusDecorator implements Decorator<ClusterStatus, TerminalOutput> {
 
     @Override
-    public TerminalOutput decorate(Status data) {
-        if (!data.isConnected()) {
-            return () -> "Can not get status from " + data.getConnectedNodeUrl();
-        }
-
-        return () -> Ansi.AUTO.string("Status from " + data.getConnectedNodeUrl() + System.lineSeparator()
-                + "[nodes: " + data.getNodeCount() + ", status: "
-                + (data.isInitialized() ? "@|fg(10) active|@" : "@|fg(9) not initialized|@") + "]");
+    public TerminalOutput decorate(ClusterStatus data) {
+        return () -> Ansi.AUTO.string(
+                "["
+                + (data.isInitialized() ? "name: " + data.getName() + ", " : "")
+                + "nodes: " + data.getNodeCount()
+                + ", status: " + (data.isInitialized() ? "@|fg(10) active|@" : "@|fg(9) not initialized|@")
+                + (data.isInitialized() ? ", cmgNodes: " + data.getCmgNodes() : "")
+                + "]");
     }
 }
