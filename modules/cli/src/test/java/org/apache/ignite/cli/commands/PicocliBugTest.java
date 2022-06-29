@@ -35,7 +35,7 @@ import picocli.CommandLine.Spec;
 
 @MicronautTest
 @Disabled
-public class PicocliBugTest {
+class PicocliBugTest {
     @Inject
     private ApplicationContext context;
 
@@ -70,7 +70,7 @@ public class PicocliBugTest {
 
     @CommandLine.Command(name = "command")
     @Singleton
-    public static class Command implements Runnable {
+    static class Command implements Runnable {
         @Option(names = "--option")
         private String option;
 
