@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;

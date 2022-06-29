@@ -18,6 +18,8 @@
 package org.apache.ignite.client;
 
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -198,7 +200,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         IgniteClientException e = assertThrows(IgniteClientException.class, () -> kvView.get(null, new NamePojo()));
 
-        assertEquals("No field found for column ID", e.getMessage());
+        assertThat(e.getMessage(), containsString("No field found for column ID"));
     }
 
     @Test

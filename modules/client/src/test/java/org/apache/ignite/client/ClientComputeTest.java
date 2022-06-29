@@ -20,6 +20,7 @@ package org.apache.ignite.client;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.Set;
@@ -126,8 +127,11 @@ public class ClientComputeTest {
             var ex = assertThrows(CompletionException.class,
                     () -> client.compute().<String>executeColocated("bad-tbl", key, "job").join());
 
+            String expected = "Table 'bad-tbl' does not exist";
             assertInstanceOf(IgniteClientException.class, ex.getCause());
-            assertEquals("Table 'bad-tbl' does not exist.", ex.getCause().getMessage());
+            assertTrue(
+                    ex.getCause().getMessage().contains(expected),
+                    "Expected: " + expected + ", actual: " + ex.getCause().getMessage());
         }
     }
 

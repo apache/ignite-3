@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.client.proto;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -51,8 +51,8 @@ public class ClientMessageDecoderTest {
 
         var t = assertThrows(IgniteException.class, () -> decode(buf));
 
-        assertEquals("Invalid magic header in thin client connection. Expected 'IGNI', but was 'BEEF'.",
-                t.getMessage());
+        String expected = "Invalid magic header in thin client connection. Expected 'IGNI', but was 'BEEF'.";
+        assertTrue(t.getMessage().contains(expected), "Expected: " + expected + ", actual: " + t.getMessage());
     }
 
     private static byte[] getMagicWithPayload() {

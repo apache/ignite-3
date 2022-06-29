@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.EN
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.startsWith;
@@ -572,7 +573,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ))
         );
 
-        assertThat(exception.getMessage(), startsWith("Unsuspected table option type"));
+        assertThat(exception.getMessage(), containsString("Unsuspected table option type"));
 
         exception = assertThrows(
                 IgniteException.class,
@@ -582,7 +583,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ))
         );
 
-        assertThat(exception.getMessage(), startsWith("Unexpected table option"));
+        assertThat(exception.getMessage(), containsString("Unexpected table option"));
 
         exception = assertThrows(
                 IgniteException.class,
@@ -592,7 +593,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ))
         );
 
-        assertThat(exception.getMessage(), startsWith("Table option validation failed"));
+        assertThat(exception.getMessage(), containsString("Table option validation failed"));
     }
 
     @Test
