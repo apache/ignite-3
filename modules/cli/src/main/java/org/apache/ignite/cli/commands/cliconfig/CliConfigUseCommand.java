@@ -29,8 +29,8 @@ import picocli.CommandLine.Parameters;
 /**
  * Command for activate profile as current.
  */
-@Command(name = "activate", description = "Profile activation command.")
-public class CliConfigActivateCommand extends BaseCommand implements Callable<Integer> {
+@Command(name = "use", description = "Profile activation command.")
+public class CliConfigUseCommand extends BaseCommand implements Callable<Integer> {
     @Parameters(description = "Name of profile which should be activated as default.")
     private String profileName;
 

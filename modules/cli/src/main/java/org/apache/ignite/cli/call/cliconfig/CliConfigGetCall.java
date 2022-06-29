@@ -38,7 +38,7 @@ public class CliConfigGetCall implements Call<CliConfigGetCallInput, String> {
         ConfigManager configManager = configManagerProvider.get();
         String key = input.getKey();
         String profileName = input.getProfileName();
-        Profile config = profileName == null ? configManager.getCurrentConfig() : configManager.getConfig(profileName);
+        Profile config = profileName == null ? configManager.getCurrentProfile() : configManager.getProfile(profileName);
         String property = config.getProperty(key, "");
         return DefaultCallOutput.success(property);
     }

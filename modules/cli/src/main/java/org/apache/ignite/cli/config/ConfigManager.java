@@ -21,19 +21,19 @@ package org.apache.ignite.cli.config;
  * Manager of CLI config.
  */
 public interface ConfigManager {
-    Profile getCurrentConfig();
+    Profile getCurrentProfile();
 
-    Profile getConfig(String profile);
+    Profile getProfile(String profile);
 
     Profile createProfile(String profileName);
 
     void setCurrentProfile(String profileName);
 
     default String getCurrentProperty(String key) {
-        return getCurrentConfig().getProperty(key);
+        return getCurrentProfile().getProperty(key);
     }
 
     default void setProperty(String key, String value) {
-        getCurrentConfig().setProperty(key, value);
+        getCurrentProfile().setProperty(key, value);
     }
 }

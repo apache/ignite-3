@@ -32,7 +32,7 @@ class CliConfigActivateCommandTest extends CliCommandTestBase {
 
     @Override
     protected Class<?> getCommandClass() {
-        return CliConfigActivateCommand.class;
+        return CliConfigUseCommand.class;
     }
 
     @BeforeEach
@@ -48,7 +48,7 @@ class CliConfigActivateCommandTest extends CliCommandTestBase {
                 this::assertExitCodeIsZero,
                 () -> assertOutputContains("Profile owner was activated successfully"),
                 this::assertErrOutputIsEmpty,
-                () -> assertThat(configManagerProvider.get().getCurrentConfig().getName()).isEqualTo("owner")
+                () -> assertThat(configManagerProvider.get().getCurrentProfile().getName()).isEqualTo("owner")
         );
     }
 
@@ -60,7 +60,7 @@ class CliConfigActivateCommandTest extends CliCommandTestBase {
                 () -> assertExitCodeIs(1),
                 () -> assertErrOutputContains("Profile notExist not found"),
                 this::assertOutputIsEmpty,
-                () -> assertThat(configManagerProvider.get().getCurrentConfig().getName()).isEqualTo("database")
+                () -> assertThat(configManagerProvider.get().getCurrentProfile().getName()).isEqualTo("database")
         );
     }
 

@@ -59,7 +59,7 @@ class CliConfigCreateProfileCommandTest extends CliCommandTestBase {
         assertAll(
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Profile profileName was created successfully"),
-                () -> assertThat(configManagerProvider.get().getCurrentConfig().getName()).isNotEqualTo("profileName")
+                () -> assertThat(configManagerProvider.get().getCurrentProfile().getName()).isNotEqualTo("profileName")
         );
     }
 
@@ -70,8 +70,8 @@ class CliConfigCreateProfileCommandTest extends CliCommandTestBase {
         assertAll(
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Profile profileName was created successfully"),
-                () -> assertThat(configManagerProvider.get().getConfig("profileName").getAll()).containsAllEntriesOf(
-                        configManagerProvider.get().getConfig("database").getAll())
+                () -> assertThat(configManagerProvider.get().getProfile("profileName").getAll()).containsAllEntriesOf(
+                        configManagerProvider.get().getProfile("database").getAll())
         );
     }
 
@@ -83,7 +83,7 @@ class CliConfigCreateProfileCommandTest extends CliCommandTestBase {
                 () -> assertExitCodeIs(1),
                 () -> assertErrOutputContains("Profile notExist not found"),
                 this::assertOutputIsEmpty,
-                () -> assertThatThrownBy(() -> configManagerProvider.get().getConfig("profileName"))
+                () -> assertThatThrownBy(() -> configManagerProvider.get().getProfile("profileName"))
                         .isInstanceOf(ProfileNotFoundException.class)
         );
     }
@@ -95,17 +95,21 @@ class CliConfigCreateProfileCommandTest extends CliCommandTestBase {
         assertAll(
                 () -> assertOutputContains("Profile profileName was created successfully"),
                 this::assertErrOutputIsEmpty,
-                () -> assertThat(configManagerProvider.get().getCurrentConfig().getName()).isEqualTo("profileName")
+                () -> assertThat(configManagerProvider.get().getCurrentProfile().getName()).isEqualTo("profileName")
         );
     }
 
     @Test
     public void testCreateExistedProfile() {
         execute("--name profileName");
+        assertAll(
+                () -> assertOutputContains("Profile profileName was created successfully"),
+                this::assertErrOutputIsEmpty
+        );
+
         execute("--name profileName");
 
         assertAll(
-                () -> assertOutputContains("Profile profileName was created successfully"),
                 () -> assertErrOutputContains("Section profileName already exist")
         );
     }

@@ -50,6 +50,8 @@ public abstract class CliCommandTestBase {
 
     @BeforeEach
     public void setUp() {
+        //Caching need to prevent bug in Picocli related to default values initialization.
+        //Please refer to org.apache.ignite.cli.commands.PicocliBugTest
         cmd = cache.computeIfAbsent(getCommandClass(), clazz -> new CommandLine(clazz, new MicronautFactory(context)));
         sout = new StringWriter();
         serr = new StringWriter();

@@ -40,7 +40,7 @@ public class CliConfigCreateProfileCall implements Call<CliConfigCreateProfileCa
         ConfigManager configManager = configManagerProvider.get();
         Profile copyFrom = null;
         if (input.getCopyFrom() != null) {
-            copyFrom = configManager.getConfig(input.getCopyFrom());
+            copyFrom = configManager.getProfile(input.getCopyFrom());
         }
 
         String profileName = input.getName();

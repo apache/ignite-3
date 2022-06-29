@@ -35,7 +35,7 @@ import picocli.CommandLine.Option;
         CliConfigGetSubCommand.class,
         CliConfigSetSubCommand.class,
         CliConfigCreateProfileCommand.class,
-        CliConfigActivateCommand.class
+        CliConfigUseCommand.class
 })
 @Singleton
 public class CliConfigSubCommand extends BaseCommand implements Callable<Integer> {

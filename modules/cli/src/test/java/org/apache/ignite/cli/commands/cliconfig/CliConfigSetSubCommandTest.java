@@ -115,8 +115,8 @@ class CliConfigSetSubCommandTest extends CliCommandTestBase {
                 this::assertErrOutputIsEmpty,
                 () -> assertThat(configManager.getCurrentProperty(ConfigConstants.CLUSTER_URL)).isNotEqualTo("test"),
                 () -> assertThat(configManager.getCurrentProperty(ConfigConstants.JDBC_URL)).isNotEqualTo("test2"),
-                () -> assertThat(configManager.getConfig("owner").getProperty(ConfigConstants.CLUSTER_URL)).isEqualTo("test"),
-                () -> assertThat(configManager.getConfig("owner").getProperty(ConfigConstants.JDBC_URL)).isEqualTo("test2"));
+                () -> assertThat(configManager.getProfile("owner").getProperty(ConfigConstants.CLUSTER_URL)).isEqualTo("test"),
+                () -> assertThat(configManager.getProfile("owner").getProperty(ConfigConstants.JDBC_URL)).isEqualTo("test2"));
     }
 
     @Test

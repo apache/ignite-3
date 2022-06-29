@@ -38,6 +38,6 @@ public class CliConfigCall implements Call<StringCallInput, Profile> {
     public DefaultCallOutput<Profile> execute(StringCallInput input) {
         ConfigManager configManager = configManagerProvider.get();
         String profile = input.getString();
-        return DefaultCallOutput.success(profile == null ? configManager.getCurrentConfig() : configManager.getConfig(profile));
+        return DefaultCallOutput.success(profile == null ? configManager.getCurrentProfile() : configManager.getProfile(profile));
     }
 }

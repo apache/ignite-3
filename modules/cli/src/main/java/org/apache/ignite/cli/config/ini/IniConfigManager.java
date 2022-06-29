@@ -68,12 +68,12 @@ public class IniConfigManager implements ConfigManager {
     }
 
     @Override
-    public Profile getCurrentConfig() {
-        return getConfig(currentProfileName);
+    public Profile getCurrentProfile() {
+        return getProfile(currentProfileName);
     }
 
     @Override
-    public Profile getConfig(String profile) {
+    public Profile getProfile(String profile) {
         IniSection section = configFile.getSection(profile);
         if (section == null) {
             throw new ProfileNotFoundException(profile);

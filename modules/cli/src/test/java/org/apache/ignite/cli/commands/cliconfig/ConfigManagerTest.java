@@ -41,7 +41,7 @@ class ConfigManagerTest {
         IniConfigManager configManager = new IniConfigManager(tempFile);
 
 
-        assertThat(configManager.getCurrentConfig().getName()).isEqualTo("owner");
+        assertThat(configManager.getCurrentProfile().getName()).isEqualTo("owner");
     }
 
     @Test
@@ -49,7 +49,7 @@ class ConfigManagerTest {
         File tempFile = TestConfigManagerHelper.createEmptyConfig();
         IniConfigManager configManager = new IniConfigManager(tempFile);
 
-        assertThat(configManager.getCurrentConfig().getName()).isEqualTo("default");
+        assertThat(configManager.getCurrentProfile().getName()).isEqualTo("default");
     }
 
 
@@ -58,17 +58,17 @@ class ConfigManagerTest {
         File tempFile = TestConfigManagerHelper.createSectionWithInternalPart();
         IniConfigManager configManager = new IniConfigManager(tempFile);
 
-        assertThat(configManager.getCurrentConfig().getName()).isEqualTo("database");
+        assertThat(configManager.getCurrentProfile().getName()).isEqualTo("database");
 
         assertThat(tempFile.delete()).isTrue();
         assertThat(tempFile.exists()).isFalse();
 
-        assertThat(configManager.getCurrentConfig().getName()).isEqualTo("database");
+        assertThat(configManager.getCurrentProfile().getName()).isEqualTo("database");
 
         configManager.setProperty("test", "testValue");
 
         assertThat(tempFile.exists()).isTrue();
-        assertThat(configManager.getCurrentConfig().getProperty("test")).isEqualTo("testValue");
-        assertThat(configManager.getCurrentConfig().getName()).isEqualTo("database");
+        assertThat(configManager.getCurrentProfile().getProperty("test")).isEqualTo("testValue");
+        assertThat(configManager.getCurrentProfile().getName()).isEqualTo("database");
     }
 }

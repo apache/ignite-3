@@ -37,7 +37,7 @@ public class CliConfigSetCall implements Call<CliConfigSetCallInput, Object> {
     public DefaultCallOutput<Object> execute(CliConfigSetCallInput input) {
         ConfigManager configManager = configManagerProvider.get();
         String profileName = input.getProfileName();
-        Profile config = profileName == null ? configManager.getCurrentConfig() : configManager.getConfig(profileName);
+        Profile config = profileName == null ? configManager.getCurrentProfile() : configManager.getProfile(profileName);
         config.setProperties(input.getParameters());
         return DefaultCallOutput.empty();
     }
