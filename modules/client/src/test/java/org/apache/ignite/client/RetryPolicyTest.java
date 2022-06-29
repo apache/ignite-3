@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -130,7 +132,7 @@ public class RetryPolicyTest {
         assertEquals(1, ctx.iteration());
         assertEquals(ClientOperationType.TABLES_GET, ctx.operation());
         assertSame(plc, ctx.configuration().retryPolicy());
-        assertEquals("Channel is closed", ctx.exception().getMessage());
+        assertThat(ctx.exception().getMessage(), containsString("Channel is closed"));
     }
 
     @Test
@@ -157,7 +159,7 @@ public class RetryPolicyTest {
             Transaction tx = client.transactions().begin();
 
             var ex = assertThrows(IgniteClientException.class, () -> recView.get(tx, Tuple.create().set("id", 1)));
-            assertEquals("Transaction context has been lost due to connection errors.", ex.getMessage());
+            assertThat(ex.getMessage(), containsString("Transaction context has been lost due to connection errors."));
 
             assertEquals(0, plc.invocations.size());
         }
