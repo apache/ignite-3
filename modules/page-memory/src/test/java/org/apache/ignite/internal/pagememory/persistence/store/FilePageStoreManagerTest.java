@@ -20,9 +20,9 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static java.util.stream.Collectors.toSet;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -75,7 +75,7 @@ public class FilePageStoreManagerTest {
 
         IgniteInternalCheckedException exception = assertThrows(IgniteInternalCheckedException.class, this::createManager);
 
-        assertThat(exception.getMessage(), startsWith("Could not create work directory for page stores"));
+        assertThat(exception.getMessage(), containsString("Could not create work directory for page stores"));
     }
 
     @Test
@@ -105,7 +105,7 @@ public class FilePageStoreManagerTest {
                     () -> manager.initialize("test", 0, 2)
             );
 
-            assertThat(exception.getMessage(), startsWith("Failed to initialize group working directory"));
+            assertThat(exception.getMessage(), containsString("Failed to initialize group working directory"));
 
             Files.delete(testGroupDir);
 
@@ -171,14 +171,14 @@ public class FilePageStoreManagerTest {
 
             assertThat(
                     exception.getMessage(),
-                    startsWith("Failed to get file page store for the given group ID (group has not been started)")
+                    containsString("Failed to get file page store for the given group ID (group has not been started)")
             );
 
             exception = assertThrows(IgniteInternalCheckedException.class, () -> manager.getStore(0, 2));
 
             assertThat(
                     exception.getMessage(),
-                    startsWith("Failed to get file page store for the given partition ID (partition has not been created)")
+                    containsString("Failed to get file page store for the given partition ID (partition has not been created)")
             );
         } finally {
             manager.stop();

@@ -19,9 +19,9 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -55,7 +55,7 @@ public class LongOperationAsyncExecutorTest {
         Runnable task0 = () -> {
             assertNotSame(testMethodThread, Thread.currentThread());
 
-            assertThat(Thread.currentThread().getName(), startsWith("%test%async-op0-task-"));
+            assertThat(Thread.currentThread().getName(), containsString("%test%async-op0-task-"));
         };
 
         executor.async(createTask(task0, null, task0Future), "op0");
@@ -90,7 +90,7 @@ public class LongOperationAsyncExecutorTest {
             Runnable task1 = () -> {
                 assertNotSame(testMethodThread, Thread.currentThread());
 
-                assertThat(Thread.currentThread().getName(), startsWith("%test%async-op1-task-"));
+                assertThat(Thread.currentThread().getName(), containsString("%test%async-op1-task-"));
             };
 
             executor.async(createTask(task1, null, task1Future), "op1");

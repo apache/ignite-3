@@ -19,7 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.nio.ByteOrder.nativeOrder;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.startsWith;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -84,7 +84,7 @@ public class FilePageStoreFactoryTest {
                 () -> filePageStoreFactory.createPageStore(testFilePath)
         );
 
-        assertThat(exception.getMessage(), startsWith("Unknown version of file page store"));
+        assertThat(exception.getMessage(), containsString("Unknown version of file page store"));
     }
 
     private void checkCommonHeader(FilePageStore filePageStore) throws Exception {
