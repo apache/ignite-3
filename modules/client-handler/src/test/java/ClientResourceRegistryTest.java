@@ -18,6 +18,7 @@
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.handler.ClientResource;
@@ -43,7 +44,9 @@ public class ClientResourceRegistryTest {
         assertSame(resource, removed);
 
         var ex = assertThrows(IgniteInternalException.class, () -> reg.get(id));
-        assertEquals("Failed to find resource with id: 1", ex.getMessage());
+        assertTrue(
+                ex.getMessage().contains("Failed to find resource with id: 1"),
+                "Expected: 'Failed to find resource with id: 1', actual: " + ex.getMessage());
     }
 
     @Test
@@ -58,13 +61,14 @@ public class ClientResourceRegistryTest {
 
         assertEquals(2, closed.get());
 
+        String expected = "Resource registry is closed.";
         var ex = assertThrows(IgniteInternalCheckedException.class, () -> reg.put(new ClientResource(1, null)));
-        assertEquals("Resource registry is closed.", ex.getMessage());
+        assertTrue(ex.getMessage().contains(expected), "Expected: '" + expected + "', actual: " + ex.getMessage());
 
         ex = assertThrows(IgniteInternalCheckedException.class, () -> reg.get(0));
-        assertEquals("Resource registry is closed.", ex.getMessage());
+        assertTrue(ex.getMessage().contains(expected), "Expected: '" + expected + "', actual: " + ex.getMessage());
 
         ex = assertThrows(IgniteInternalCheckedException.class, () -> reg.remove(0));
-        assertEquals("Resource registry is closed.", ex.getMessage());
+        assertTrue(ex.getMessage().contains(expected), "Expected: '" + expected + "', actual: " + ex.getMessage());
     }
 }
