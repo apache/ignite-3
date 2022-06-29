@@ -46,7 +46,7 @@ class ItSqlCommandTest extends CliCommandTestIntegrationBase {
     @Test
     @DisplayName("Should execute select * from table and display table when jdbc-url is correct")
     void selectFromTable() {
-        execute("sql", "--execute", "select * from person", "--jdbc-url", JDBC_URL);
+        execute("sql", "select * from person", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -58,7 +58,7 @@ class ItSqlCommandTest extends CliCommandTestIntegrationBase {
     @Test
     @DisplayName("Should display readable error when wrong jdbc is given")
     void wrongJdbcUrl() {
-        execute("sql", "--execute", "select * from person", "--jdbc-url", "jdbc:ignite:thin://no-such-host.com:10800");
+        execute("sql", "select * from person", "--jdbc-url", "jdbc:ignite:thin://no-such-host.com:10800");
 
         assertAll(
                 () -> assertExitCodeIs(1),
@@ -71,7 +71,7 @@ class ItSqlCommandTest extends CliCommandTestIntegrationBase {
     @Test
     @DisplayName("Should display readable error when wrong query is given")
     void incorrectQueryTest() {
-        execute("sql", "--execute", "select", "--jdbc-url", JDBC_URL);
+        execute("sql", "select", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 () -> assertExitCodeIs(1),
