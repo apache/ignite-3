@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -92,6 +93,6 @@ class BestEffortInstantiationTest {
     @Test
     void whenNoDelegateSupportsThenInstantiationFails() {
         InstantiationException ex = assertThrows(InstantiationException.class, () -> instantiation.newInstance(Object.class));
-        assertThat(ex.getMessage(), is("No delegate supports " + Object.class));
+        assertThat(ex.getMessage(), containsString("No delegate supports " + Object.class));
     }
 }
