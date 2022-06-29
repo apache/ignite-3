@@ -51,11 +51,11 @@ import org.apache.ignite.schema.definition.ColumnType;
  */
 public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     /** Interval qualifier to create year-month interval types. */
-    private static final SqlIntervalQualifier INTERVAL_QUALIFIER_YEAR_MONTH = new SqlIntervalQualifier(TimeUnit.YEAR,
+    public static final SqlIntervalQualifier INTERVAL_QUALIFIER_YEAR_MONTH = new SqlIntervalQualifier(TimeUnit.YEAR,
             TimeUnit.MONTH, SqlParserPos.ZERO);
 
     /** Interval qualifier to create day-time interval types. */
-    private static final SqlIntervalQualifier INTERVAL_QUALIFIER_DAY_TIME = new SqlIntervalQualifier(TimeUnit.DAY,
+    public static final SqlIntervalQualifier INTERVAL_QUALIFIER_DAY_TIME = new SqlIntervalQualifier(TimeUnit.DAY,
             TimeUnit.SECOND, SqlParserPos.ZERO);
 
     /** Default charset. */

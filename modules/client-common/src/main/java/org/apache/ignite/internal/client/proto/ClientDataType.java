@@ -20,58 +20,75 @@ package org.apache.ignite.internal.client.proto;
 /**
  * Client data types.
  */
-public class ClientDataType {
+public enum ClientDataType {
     /** Byte. */
-    public static final int INT8 = 1;
+    INT8(1),
 
     /** Short. */
-    public static final int INT16 = 2;
+    INT16(2),
 
     /** Int. */
-    public static final int INT32 = 3;
+    INT32(3),
 
     /** Long. */
-    public static final int INT64 = 4;
+    INT64(4),
 
     /** Float. */
-    public static final int FLOAT = 5;
+    FLOAT(5),
 
     /** Double. */
-    public static final int DOUBLE = 6;
+    DOUBLE(6),
 
     /** Decimal. */
-    public static final int DECIMAL = 7;
+    DECIMAL(7),
 
     /** UUID. */
-    public static final int UUID = 8;
+    UUID(8),
 
     /** String. */
-    public static final int STRING = 9;
+    STRING(9),
 
     /** Byte array. */
-    public static final int BYTES = 10;
+    BYTES(10),
 
     /** BitMask. */
-    public static final int BITMASK = 11;
+    BITMASK(11),
 
     /** Date. */
-    public static final int DATE = 12;
+    DATE(12),
 
     /** Time. */
-    public static final int TIME = 13;
+    TIME(13),
 
     /** DateTime. */
-    public static final int DATETIME = 14;
+    DATETIME(14),
 
     /** Timestamp. */
-    public static final int TIMESTAMP = 15;
+    TIMESTAMP(15),
 
     /** Number. */
-    public static final int NUMBER = 16;
+    NUMBER(16),
 
     /** Boolean. */
-    public static final int BOOLEAN = 17;
+    BOOLEAN(17),
 
     /** Big Integer. */
-    public static final int BIGINTEGER = 18;
+    BIGINTEGER(18),
+
+    /** Duration. */
+    DURATION(19),
+
+    /** Period. */
+    PERIOD(20);
+
+    /** Number type representation. */
+    private int type;
+
+    ClientDataType(int type) {
+        this.type = type;
+    }
+
+    public int type() {
+        return type;
+    }
 }

@@ -31,10 +31,12 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -237,7 +239,9 @@ public class TupleImplTest {
                 .set("valBytesCol", IgniteTestUtils.randomBytes(rnd, 13))
                 .set("valStringCol", IgniteTestUtils.randomString(rnd, 14))
                 .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
-                .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
+                .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5))
+                .set("valDurationCol", Duration.ofSeconds(rnd.nextLong(), 5_000))
+                .set("valPeriodCol", Period.ofWeeks(2));
 
         List<Integer> randomIdx = IntStream.range(0, tuple.columnCount()).boxed().collect(Collectors.toList());
 
@@ -273,7 +277,9 @@ public class TupleImplTest {
                 .set("valBytesCol", IgniteTestUtils.randomBytes(rnd, 13))
                 .set("valStringCol", IgniteTestUtils.randomString(rnd, 14))
                 .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
-                .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
+                .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5))
+                .set("valDurationCol", Duration.ofSeconds(rnd.nextLong(), 5_000))
+                .set("valPeriodCol", Period.ofWeeks(2));
 
         Tuple tup2;
 

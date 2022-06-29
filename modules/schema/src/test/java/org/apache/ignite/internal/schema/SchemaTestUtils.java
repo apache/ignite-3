@@ -23,10 +23,12 @@ import static org.apache.ignite.internal.schema.row.TemporalTypesHelper.normaliz
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.time.Year;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -54,7 +56,9 @@ public final class SchemaTestUtils {
             NativeTypes.datetime(),
             NativeTypes.timestamp(),
             NativeTypes.BYTES,
-            NativeTypes.STRING);
+            NativeTypes.STRING,
+            NativeTypes.PERIOD,
+            NativeTypes.duration());
 
     /**
      * Generates random value of given type.
@@ -129,6 +133,13 @@ public final class SchemaTestUtils {
             case TIMESTAMP:
                 return Instant.ofEpochMilli(rnd.nextLong()).truncatedTo(ChronoUnit.SECONDS)
                         .plusNanos(normalizeNanos(rnd.nextInt(1_000_000_000), ((TemporalNativeType) type).precision()));
+
+            case DURATION:
+                return Duration.ofSeconds(rnd.nextLong())
+                        .plusNanos(normalizeNanos(rnd.nextInt(1_000_000_000), ((TemporalNativeType) type).precision()));
+
+            case PERIOD:
+                return Period.ofDays(rnd.nextInt());
 
             default:
                 throw new IllegalArgumentException("Unsupported type: " + type);

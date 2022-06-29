@@ -25,25 +25,30 @@ import static org.apache.ignite.internal.client.proto.ClientDataType.DATE;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DATETIME;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DECIMAL;
 import static org.apache.ignite.internal.client.proto.ClientDataType.DOUBLE;
+import static org.apache.ignite.internal.client.proto.ClientDataType.DURATION;
 import static org.apache.ignite.internal.client.proto.ClientDataType.FLOAT;
 import static org.apache.ignite.internal.client.proto.ClientDataType.INT16;
 import static org.apache.ignite.internal.client.proto.ClientDataType.INT32;
 import static org.apache.ignite.internal.client.proto.ClientDataType.INT64;
 import static org.apache.ignite.internal.client.proto.ClientDataType.INT8;
 import static org.apache.ignite.internal.client.proto.ClientDataType.NUMBER;
+import static org.apache.ignite.internal.client.proto.ClientDataType.PERIOD;
 import static org.apache.ignite.internal.client.proto.ClientDataType.STRING;
 import static org.apache.ignite.internal.client.proto.ClientDataType.TIME;
 import static org.apache.ignite.internal.client.proto.ClientDataType.TIMESTAMP;
+import static org.apache.ignite.internal.client.proto.ClientMsgPackType.sizeForType;
 import static org.msgpack.core.MessagePack.Code;
 
 import io.netty.buffer.ByteBuf;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -104,7 +109,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
         } else {
             String name = format.getValueType().name();
             String typeName = name.charAt(0) + name.substring(1).toLowerCase();
-            return new MessageTypeException(String.format("Expected %s, but got %s (%02x)", expected, typeName, b));
+            return new MessageTypeException(String.format("Expected %s, but got %s %d", expected, typeName, b));
         }
     }
 
@@ -756,26 +761,14 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
-     * Reads an UUID.
+     * Reads a UUID.
      *
      * @return UUID value.
      * @throws MessageTypeException when type is not UUID.
      * @throws MessageSizeException when size is not correct.
      */
     public UUID unpackUuid() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        var hdr = unpackExtensionTypeHeader();
-        var type = hdr.getType();
-        var len = hdr.getLength();
-
-        if (type != ClientMsgPackType.UUID) {
-            throw new MessageTypeException("Expected UUID extension (3), but got " + type);
-        }
-
-        if (len != 16) {
-            throw new MessageSizeException("Expected 16 bytes for UUID extension, but got " + len, len);
-        }
+        validateLenTypeAndGetLength(ClientMsgPackType.UUID);
 
         return new UUID(buf.readLong(), buf.readLong());
     }
@@ -787,15 +780,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * @throws MessageTypeException when type is not Decimal.
      */
     public BigDecimal unpackDecimal() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        var hdr = unpackExtensionTypeHeader();
-        var type = hdr.getType();
-        var len = hdr.getLength();
-
-        if (type != ClientMsgPackType.DECIMAL) {
-            throw new MessageTypeException("Expected DECIMAL extension (2), but got " + type);
-        }
+        int len = validateTypeAndGetLength(ClientMsgPackType.DECIMAL);
 
         int pos = buf.readerIndex();
         int scale = unpackInt();
@@ -813,15 +798,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * @throws MessageTypeException when type is not BitSet.
      */
     public BitSet unpackBitSet() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        var hdr = unpackExtensionTypeHeader();
-        var type = hdr.getType();
-        var len = hdr.getLength();
-
-        if (type != ClientMsgPackType.BITMASK) {
-            throw new MessageTypeException("Expected BITSET extension (7), but got " + type);
-        }
+        int len = validateTypeAndGetLength(ClientMsgPackType.BITMASK);
 
         var bytes = readPayload(len);
 
@@ -835,15 +812,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * @throws MessageTypeException when type is not BigInteger.
      */
     public BigInteger unpackNumber() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        var hdr = unpackExtensionTypeHeader();
-        var type = hdr.getType();
-        var len = hdr.getLength();
-
-        if (type != ClientMsgPackType.NUMBER) {
-            throw new MessageTypeException("Expected NUMBER extension (1), but got " + type);
-        }
+        int len = validateTypeAndGetLength(ClientMsgPackType.NUMBER);
 
         var bytes = readPayload(len);
 
@@ -881,19 +850,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * @throws MessageSizeException when size is not correct.
      */
     public LocalDate unpackDate() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        var hdr = unpackExtensionTypeHeader();
-        var type = hdr.getType();
-        var len = hdr.getLength();
-
-        if (type != ClientMsgPackType.DATE) {
-            throw new MessageTypeException("Expected DATE extension (4), but got " + type);
-        }
-
-        if (len != 6) {
-            throw new MessageSizeException("Expected 6 bytes for DATE extension, but got " + len, len);
-        }
+        validateLenTypeAndGetLength(ClientMsgPackType.DATE);
 
         return LocalDate.of(buf.readInt(), buf.readByte(), buf.readByte());
     }
@@ -906,19 +863,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * @throws MessageSizeException when size is not correct.
      */
     public LocalTime unpackTime() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        var hdr = unpackExtensionTypeHeader();
-        var type = hdr.getType();
-        var len = hdr.getLength();
-
-        if (type != ClientMsgPackType.TIME) {
-            throw new MessageTypeException("Expected TIME extension (5), but got " + type);
-        }
-
-        if (len != 7) {
-            throw new MessageSizeException("Expected 7 bytes for TIME extension, but got " + len, len);
-        }
+        validateLenTypeAndGetLength(ClientMsgPackType.TIME);
 
         return LocalTime.of(buf.readByte(), buf.readByte(), buf.readByte(), buf.readInt());
     }
@@ -931,19 +876,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * @throws MessageSizeException when size is not correct.
      */
     public LocalDateTime unpackDateTime() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        var hdr = unpackExtensionTypeHeader();
-        var type = hdr.getType();
-        var len = hdr.getLength();
-
-        if (type != ClientMsgPackType.DATETIME) {
-            throw new MessageTypeException("Expected DATETIME extension (6), but got " + type);
-        }
-
-        if (len != 13) {
-            throw new MessageSizeException("Expected 13 bytes for DATETIME extension, but got " + len, len);
-        }
+        validateLenTypeAndGetLength(ClientMsgPackType.DATETIME);
 
         return LocalDateTime.of(
                 LocalDate.of(buf.readInt(), buf.readByte(), buf.readByte()),
@@ -959,21 +892,35 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * @throws MessageSizeException when size is not correct.
      */
     public Instant unpackTimestamp() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        var hdr = unpackExtensionTypeHeader();
-        var type = hdr.getType();
-        var len = hdr.getLength();
-
-        if (type != ClientMsgPackType.TIMESTAMP) {
-            throw new MessageTypeException("Expected TIMESTAMP extension (6), but got " + type);
-        }
-
-        if (len != 12) {
-            throw new MessageSizeException("Expected 12 bytes for TIMESTAMP extension, but got " + len, len);
-        }
+        validateLenTypeAndGetLength(ClientMsgPackType.TIMESTAMP);
 
         return Instant.ofEpochSecond(buf.readLong(), buf.readInt());
+    }
+
+    /**
+     * Reads a duration.
+     *
+     * @return Duration value.
+     * @throws MessageTypeException when type is not Duration.
+     * @throws MessageSizeException when size is not correct.
+     */
+    public Duration unpackDuration() {
+        validateLenTypeAndGetLength(ClientMsgPackType.DURATION);
+
+        return Duration.ofSeconds(buf.readLong(), buf.readInt());
+    }
+
+    /**
+     * Reads a period.
+     *
+     * @return Period value.
+     * @throws MessageTypeException when type is not Period.
+     * @throws MessageSizeException when size is not correct.
+     */
+    public Period unpackPeriod() {
+        validateLenTypeAndGetLength(ClientMsgPackType.PERIOD);
+
+        return Period.of(buf.readInt(), buf.readInt(), buf.readInt());
     }
 
     /**
@@ -1001,66 +948,50 @@ public class ClientMessageUnpacker implements AutoCloseable {
             return null;
         }
 
-        switch (dataType) {
-            case BOOLEAN:
-                return unpackBoolean();
+        if (dataType == BOOLEAN.type()) {
+            return unpackBoolean();
+        } else if (dataType == INT8.type()) {
+            return unpackByte();
+        } else if (dataType == INT16.type()) {
+            return unpackShort();
+        } else if (dataType == INT32.type()) {
+            return unpackInt();
+        } else if (dataType == INT64.type()) {
+            return unpackLong();
+        } else if (dataType == FLOAT.type()) {
+            return unpackFloat();
+        } else if (dataType == DOUBLE.type()) {
+            return unpackDouble();
+        } else if (dataType == ClientDataType.UUID.type()) {
+            return unpackUuid();
+        } else if (dataType == STRING.type()) {
+            return unpackString();
+        } else if (dataType == BYTES.type()) {
+            var cnt = unpackBinaryHeader();
 
-            case INT8:
-                return unpackByte();
-
-            case INT16:
-                return unpackShort();
-
-            case INT32:
-                return unpackInt();
-
-            case INT64:
-                return unpackLong();
-
-            case FLOAT:
-                return unpackFloat();
-
-            case DOUBLE:
-                return unpackDouble();
-
-            case ClientDataType.UUID:
-                return unpackUuid();
-
-            case STRING:
-                return unpackString();
-
-            case BYTES: {
-                var cnt = unpackBinaryHeader();
-
-                return readPayload(cnt);
-            }
-
-            case DECIMAL:
-                return unpackDecimal();
-
-            case BIGINTEGER:
-                return unpackBigInteger();
-
-            case BITMASK:
-                return unpackBitSet();
-
-            case NUMBER:
-                return unpackNumber();
-
-            case DATE:
-                return unpackDate();
-
-            case TIME:
-                return unpackTime();
-
-            case DATETIME:
-                return unpackDateTime();
-
-            case TIMESTAMP:
-                return unpackTimestamp();
-
-            default:
-                throw new IgniteException("Unknown client data type: " + dataType);
+            return readPayload(cnt);
+        } else if (dataType == DECIMAL.type()) {
+            return unpackDecimal();
+        } else if (dataType == BIGINTEGER.type()) {
+            return unpackBigInteger();
+        } else if (dataType == BITMASK.type()) {
+            return unpackBitSet();
+        } else if (dataType == NUMBER.type()) {
+            return unpackNumber();
+        } else if (dataType == DATE.type()) {
+            return unpackDate();
+        } else if (dataType == TIME.type()) {
+            return unpackTime();
+        } else if (dataType == DATETIME.type()) {
+            return unpackDateTime();
+        } else if (dataType == TIMESTAMP.type()) {
+            return unpackTimestamp();
+        } else if (dataType == DURATION.type()) {
+            return unpackDuration();
+        } else if (dataType == PERIOD.type()) {
+            return unpackPeriod();
+        } else {
+            throw new IgniteException("Unknown client data type: " + dataType);
         }
     }
 
@@ -1169,5 +1100,43 @@ public class ClientMessageUnpacker implements AutoCloseable {
 
     private void skipBytes(int bytes) {
         buf.readerIndex(buf.readerIndex() + bytes);
+    }
+
+    /**
+     * Check current and expected types and lengths.
+     *
+     * @param expType Expected type.
+     * @return Object length.
+     */
+    private int validateLenTypeAndGetLength(byte expType) {
+        int len = validateTypeAndGetLength(expType);
+
+        int expLen = sizeForType(expType);
+
+        if (len != expLen) {
+            throw new MessageSizeException("Expected size=" + expLen + " bytes for type=[" + expType + "], but got size=" + len, len);
+        }
+
+        return len;
+    }
+
+    /**
+     * Check current and expected types.
+     *
+     * @param expType Expected type.
+     * @return Object length.
+     */
+    private int validateTypeAndGetLength(byte expType) {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        var hdr = unpackExtensionTypeHeader();
+        var type = hdr.getType();
+        var len = hdr.getLength();
+
+        if (type != expType) {
+            throw new MessageTypeException("Expected type=[" + expType + "], but got=[" + type + "]");
+        }
+
+        return len;
     }
 }

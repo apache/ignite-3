@@ -90,6 +90,7 @@ public class SchemaConfigurationConverter {
         putType(ColumnType.DOUBLE);
         putType(ColumnType.UUID);
         putType(ColumnType.DATE);
+        putType(ColumnType.PERIOD);
     }
 
     /**
@@ -265,6 +266,7 @@ public class SchemaConfigurationConverter {
                 case "TIME":
                 case "DATETIME":
                 case "TIMESTAMP":
+                case "DURATION":
                     ColumnType.TemporalColumnType temporalColType = (ColumnType.TemporalColumnType) colType;
 
                     colTypeChg.changePrecision(temporalColType.precision());
@@ -325,6 +327,9 @@ public class SchemaConfigurationConverter {
 
                 case "TIMESTAMP":
                     return ColumnType.timestamp(colTypeView.precision());
+
+                case "DURATION":
+                    return ColumnType.duration(colTypeView.precision());
 
                 default:
                     throw new IllegalArgumentException("Unknown type " + typeName);

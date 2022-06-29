@@ -76,6 +76,9 @@ public class NativeTypes {
     /** Timezone-free three-part value representing a year, month, and day. */
     public static final NativeType DATE = new NativeType(NativeTypeSpec.DATE, 3);
 
+    /** PERIOD type. */
+    public static final NativeType PERIOD = new NativeType(NativeTypeSpec.PERIOD, 12);
+
     /** Don't allow to create an instance. */
     private NativeTypes() {
     }
@@ -192,6 +195,27 @@ public class NativeTypes {
     }
 
     /**
+     * Creates DURATION type.
+     *
+     * @see NativeTypeSpec#DURATION
+     * @param precision Fractional seconds meaningful digits. Allowed values are 0-9 for second to nanosecond precision.
+     * @return Native type.
+     */
+    public static NativeType duration(int precision) {
+        return TemporalNativeType.duration(precision);
+    }
+
+    /**
+     * Creates DURATION type with default precision.
+     *
+     * @see NativeTypeSpec#DURATION
+     * @return Native type.
+     */
+    public static NativeType duration() {
+        return TemporalNativeType.duration(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
+    }
+
+    /**
      * Return the native type for specified object.
      *
      * @param val Object to map to native type.
@@ -253,6 +277,12 @@ public class NativeTypes {
 
             case DECIMAL:
                 return decimalOf(((BigDecimal) val).precision(), ((BigDecimal) val).scale());
+
+            case DURATION:
+                return duration();
+
+            case PERIOD:
+                return PERIOD;
 
             default:
                 assert false : "Unexpected type: " + spec;

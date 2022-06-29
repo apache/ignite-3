@@ -653,6 +653,8 @@ public class KvMarshallerTest {
                 new Column("bytesCol".toUpperCase(), BYTES, nullable),
                 new Column("numberCol".toUpperCase(), NativeTypes.numberOf(12), nullable),
                 new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), nullable),
+                new Column("durationCol".toUpperCase(), NativeTypes.duration(), nullable),
+                new Column("periodCol".toUpperCase(), NativeTypes.PERIOD, nullable),
         };
         // Validate all types are tested.
         Set<NativeTypeSpec> testedTypes = Arrays.stream(cols).map(c -> c.type().spec())

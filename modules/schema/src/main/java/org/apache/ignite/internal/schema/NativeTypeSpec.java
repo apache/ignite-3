@@ -19,10 +19,12 @@ package org.apache.ignite.internal.schema;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.tostring.S;
@@ -211,6 +213,28 @@ public enum NativeTypeSpec {
         public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.timestampValue(colIdx);
         }
+    },
+
+    /**
+     * Native type representing time-based amount of time.
+     */
+    DURATION("duration", true) {
+        /** {@inheritDoc} */
+        @Override
+        public Object objectValue(InternalTuple tup, int colIdx) {
+            return tup.durationValue(colIdx);
+        }
+    },
+
+    /**
+     * Native type representing date-based amount of time.
+     */
+    PERIOD("period", true) {
+        /** {@inheritDoc} */
+        @Override
+        public Object objectValue(InternalTuple tup, int colIdx) {
+            return tup.periodValue(colIdx);
+        }
     };
 
     /** Flag indicating whether this type specifies a fixed-length type. */
@@ -311,6 +335,10 @@ public enum NativeTypeSpec {
             return NativeTypeSpec.NUMBER;
         } else if (cls == BigDecimal.class) {
             return NativeTypeSpec.DECIMAL;
+        } else if (cls == Duration.class) {
+            return NativeTypeSpec.DURATION;
+        } else if (cls == Period.class) {
+            return NativeTypeSpec.PERIOD;
         }
 
         return null;
@@ -353,6 +381,10 @@ public enum NativeTypeSpec {
                 return Instant.class;
             case DATETIME:
                 return LocalDateTime.class;
+            case DURATION:
+                return Duration.class;
+            case PERIOD:
+                return Period.class;
             case UUID:
                 return java.util.UUID.class;
             case NUMBER:

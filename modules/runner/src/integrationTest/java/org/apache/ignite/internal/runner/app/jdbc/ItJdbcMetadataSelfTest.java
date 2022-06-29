@@ -17,9 +17,16 @@
 
 package org.apache.ignite.internal.runner.app.jdbc;
 
+import static java.sql.Types.BIGINT;
+import static java.sql.Types.BINARY;
 import static java.sql.Types.DATE;
 import static java.sql.Types.DECIMAL;
+import static java.sql.Types.DOUBLE;
+import static java.sql.Types.FLOAT;
 import static java.sql.Types.INTEGER;
+import static java.sql.Types.OTHER;
+import static java.sql.Types.SMALLINT;
+import static java.sql.Types.TINYINT;
 import static java.sql.Types.VARCHAR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -41,12 +48,17 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.ColumnType.ColumnTypeSpec;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -58,6 +70,8 @@ import org.junit.jupiter.api.Test;
  * Metadata tests.
  */
 public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
+    static List<Pair<ColumnDefinition, Integer>> allColumns;
+
     /** Creates tables. */
     @BeforeAll
     public static void createTables() {
@@ -72,8 +86,43 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         TableDefinition orgTbl = SchemaBuilders.tableBuilder("PUBLIC", "ORGANIZATION").columns(
                 SchemaBuilders.column("ID", ColumnType.INT32).build(),
                 SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build(),
-                SchemaBuilders.column("BIGDATA", ColumnType.decimalOf(20, 10)).asNullable(true).build()
+                SchemaBuilders.column("BIGDATA", ColumnType.decimalOf(20, 10)).asNullable(true).build(),
+                SchemaBuilders.column("DUR", ColumnType.duration(3)).asNullable(true).build(),
+                SchemaBuilders.column("PER", ColumnType.PERIOD).asNullable(true).build()
         ).withPrimaryKey("ID").build();
+
+        allColumns = new ArrayList<>();
+
+        allColumns.add(new Pair<>(SchemaBuilders.column("BYTEVAL", ColumnType.INT8).asNullable(true).build(), TINYINT));
+        allColumns.add(new Pair<>(SchemaBuilders.column("SHORTVAL", ColumnType.INT16).asNullable(true).build(), SMALLINT));
+        allColumns.add(new Pair<>(SchemaBuilders.column("ID", ColumnType.INT32).build(), INTEGER));
+        allColumns.add(new Pair<>(SchemaBuilders.column("INTVAL", ColumnType.INT32).asNullable(true).build(), INTEGER));
+        allColumns.add(new Pair<>(SchemaBuilders.column("LONGVAL", ColumnType.INT64).asNullable(true).build(), BIGINT));
+        allColumns.add(new Pair<>(SchemaBuilders.column("FLOATVAL", ColumnType.FLOAT).asNullable(true).build(), FLOAT));
+        allColumns.add(new Pair<>(SchemaBuilders.column("DOUBLEVAL", ColumnType.DOUBLE).asNullable(true).build(), DOUBLE));
+        //not supported yet
+        //SchemaBuilders.column("UUIDVAL" ...
+        //SchemaBuilders.column("BITSET" ...
+        allColumns.add(new Pair<>(SchemaBuilders.column("DATEVAL", ColumnType.DATE).asNullable(true).build(), OTHER));
+        allColumns.add(new Pair<>(SchemaBuilders.column("PERVAL", ColumnType.PERIOD).asNullable(true).build(), OTHER));
+        allColumns.add(new Pair<>(SchemaBuilders.column("BIGVAL", ColumnType.decimalOf()).asNullable(true).build(), DECIMAL));
+        allColumns.add(new Pair<>(SchemaBuilders.column("STRVAL", ColumnType.string()).asNullable(true).build(), VARCHAR));
+        allColumns.add(new Pair<>(SchemaBuilders.column("ARRVAL", ColumnType.blobOf()).asNullable(true).build(), BINARY));
+        allColumns.add(new Pair<>(SchemaBuilders.column("TIMEVAL", ColumnType.TemporalColumnType.time()).asNullable(true).build(), OTHER));
+        allColumns.add(new Pair<>(SchemaBuilders.column("DATETIMEVAL",
+                ColumnType.TemporalColumnType.datetime()).asNullable(true).build(), OTHER));
+        allColumns.add(new Pair<>(SchemaBuilders.column("TSVAL",
+                ColumnType.TemporalColumnType.timestamp()).asNullable(true).build(), OTHER));
+        allColumns.add(new Pair<>(SchemaBuilders.column("URLVAL", ColumnType.blobOf()).asNullable(true).build(), BINARY));
+        allColumns.add(new Pair<>(SchemaBuilders.column("DURVAL", ColumnType.duration()).asNullable(true).build(), OTHER));
+
+        // exclude types : ColumnType.UINTx and not supported
+        assertEquals(allColumns.size() + 4 + 1, ColumnTypeSpec.values().length, "Some data types are not covered.");
+
+        List<ColumnDefinition> columns = allColumns.stream().map(Pair::getFirst).collect(Collectors.toList());
+
+        TableDefinition allTypesTbl = SchemaBuilders.tableBuilder("PUBLIC", "ALLTYPES").columns(columns)
+                .withPrimaryKey("ID").build();
 
         clusterNodes.get(0).tables().createTable(perTbl.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(perTbl, tblCh)
@@ -87,19 +136,24 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
                         .changePartitions(10)
         );
 
+        clusterNodes.get(0).tables().createTable(allTypesTbl.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.convert(allTypesTbl, tblCh)
+        );
+
         Table tbl1 = clusterNodes.get(0).tables().table(perTbl.canonicalName());
         Table tbl2 = clusterNodes.get(0).tables().table(orgTbl.canonicalName());
+        Table tbl3 = clusterNodes.get(0).tables().table(allTypesTbl.canonicalName());
 
         tbl1.recordView().insert(null, Tuple.create().set("ORGID", 1).set("NAME", "111").set("AGE", 111));
         tbl2.recordView().insert(null, Tuple.create().set("ID", 1).set("NAME", "AAA").set("BIGDATA", BigDecimal.valueOf(10)));
+        tbl3.recordView().insert(null, Tuple.create().set("ID", 1));
     }
 
     @Test
-    public void testResultSetMetaData() throws Exception {
+    public void testColumnTypesDescribed() throws Exception {
         Statement stmt = DriverManager.getConnection(URL).createStatement();
 
-        ResultSet rs = stmt.executeQuery(
-                "select p.name, o.id as orgId, p.age from PERSON p, ORGANIZATION o where p.orgId = o.id");
+        ResultSet rs = stmt.executeQuery("select * from ALLTYPES");
 
         assertNotNull(rs);
 
@@ -107,21 +161,59 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
         assertNotNull(meta);
 
-        assertEquals(3, meta.getColumnCount());
+        assertEquals(allColumns.size(), meta.getColumnCount());
+
+        int pos = 0;
+
+        for (Pair<ColumnDefinition, Integer> colDef : allColumns) {
+            assertEquals(colDef.getSecond(), meta.getColumnType(++pos), "Unexpected column type: " + meta.getColumnType(pos));
+
+            rs = stmt.executeQuery("select " + colDef.getFirst().name() + " from ALLTYPES");
+
+            assertTrue(rs.next());
+        }
+    }
+
+    @Test
+    public void testResultSetMetaData() throws Exception {
+        Statement stmt = DriverManager.getConnection(URL).createStatement();
+
+        ResultSet rs = stmt.executeQuery(
+                "select p.name, o.id as orgId, p.age, o.dur, o.per from PERSON p, ORGANIZATION o where p.orgId = o.id");
+
+        assertNotNull(rs);
+
+        ResultSetMetaData meta = rs.getMetaData();
+
+        assertNotNull(meta);
+
+        assertEquals(5, meta.getColumnCount());
 
         assertEquals("Person".toUpperCase(), meta.getTableName(1).toUpperCase());
         assertEquals("name".toUpperCase(), meta.getColumnName(1).toUpperCase());
         assertEquals("name".toUpperCase(), meta.getColumnLabel(1).toUpperCase());
         assertEquals(VARCHAR, meta.getColumnType(1));
-        assertEquals(meta.getColumnTypeName(1), "VARCHAR");
-        assertEquals(meta.getColumnClassName(1), "java.lang.String");
+        assertEquals("VARCHAR", meta.getColumnTypeName(1));
+        assertEquals("java.lang.String", meta.getColumnClassName(1));
 
         assertEquals("Organization".toUpperCase(), meta.getTableName(2).toUpperCase());
         assertEquals("id".toUpperCase(), meta.getColumnName(2).toUpperCase());
         assertEquals("orgId".toUpperCase(), meta.getColumnLabel(2).toUpperCase());
         assertEquals(INTEGER, meta.getColumnType(2));
-        assertEquals(meta.getColumnTypeName(2), "INTEGER");
-        assertEquals(meta.getColumnClassName(2), "java.lang.Integer");
+        assertEquals("INTEGER", meta.getColumnTypeName(2));
+        assertEquals("java.lang.Integer", meta.getColumnClassName(2));
+
+        assertEquals("dur".toUpperCase(), meta.getColumnName(4).toUpperCase());
+        assertEquals("dur".toUpperCase(), meta.getColumnLabel(4).toUpperCase());
+        assertEquals(OTHER, meta.getColumnType(4));
+        assertEquals("INTERVAL", meta.getColumnTypeName(4));
+        assertEquals("java.time.Duration", meta.getColumnClassName(4));
+
+        assertEquals("per".toUpperCase(), meta.getColumnName(5).toUpperCase());
+        assertEquals("per".toUpperCase(), meta.getColumnLabel(5).toUpperCase());
+        assertEquals(OTHER, meta.getColumnType(5));
+        assertEquals("INTERVAL", meta.getColumnTypeName(5));
+        assertEquals("java.time.Period", meta.getColumnClassName(5));
     }
 
     @Test
@@ -182,6 +274,9 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assertNotNull(rs);
         assertTrue(rs.next());
         assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+        assertEquals("ALLTYPES", rs.getString("TABLE_NAME"));
+        assertTrue(rs.next());
+        assertEquals("TABLE", rs.getString("TABLE_TYPE"));
         assertEquals("ORGANIZATION", rs.getString("TABLE_NAME"));
         assertTrue(rs.next());
         assertEquals("TABLE", rs.getString("TABLE_TYPE"));
@@ -191,7 +286,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assertNotNull(rs);
         assertTrue(rs.next());
         assertEquals("TABLE", rs.getString("TABLE_TYPE"));
-        assertEquals("ORGANIZATION", rs.getString("TABLE_NAME"));
+        assertEquals("ALLTYPES", rs.getString("TABLE_NAME"));
 
         rs = meta.getTables("IGNITE", "PUBLIC", "", new String[]{"WRONG"});
         assertFalse(rs.next());
@@ -231,6 +326,8 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         names.add("ID");
         names.add("NAME");
         names.add("BIGDATA");
+        names.add("DUR");
+        names.add("PER");
 
         int cnt = 0;
 
@@ -259,7 +356,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         }
 
         assertTrue(names.isEmpty());
-        assertEquals(3, cnt);
+        assertEquals(5, cnt);
     }
 
     /**
@@ -368,7 +465,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
         Set<String> expectedPks = new HashSet<>(Arrays.asList(
                 "PUBLIC.ORGANIZATION.PK_ORGANIZATION.ID",
-                "PUBLIC.PERSON.PK_PERSON.ORGID"));
+                "PUBLIC.PERSON.PK_PERSON.ORGID", "PUBLIC.ALLTYPES.PK_ALLTYPES.ID"));
 
         Set<String> actualPks = new HashSet<>(expectedPks.size());
 

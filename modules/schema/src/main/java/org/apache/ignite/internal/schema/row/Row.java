@@ -23,10 +23,12 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -437,6 +439,53 @@ public class Row implements BinaryRowEx, SchemaAware, InternalTuple {
         }
 
         return Instant.ofEpochSecond(seconds, nanos);
+    }
+
+    @Override
+    public Duration durationValue(int col) {
+        boolean isKeyCol = schema.isKeyColumn(col);
+
+        long offLen = findColumn(col, NativeTypeSpec.DURATION, isKeyCol);
+
+        if (offLen < 0) {
+            return null;
+        }
+
+        int off = offset(offLen);
+
+        TemporalNativeType type = (TemporalNativeType) schema.column(col).type();
+
+        ByteBuffer chunk = chunk(isKeyCol);
+
+        long seconds = chunk.getLong(off);
+        int nanos = 0;
+
+        if (type.precision() != 0) {
+            nanos = chunk.getInt(off + 8);
+        }
+
+        return Duration.ofSeconds(seconds, nanos);
+    }
+
+    @Override
+    public Period periodValue(int col) {
+        boolean isKeyCol = schema.isKeyColumn(col);
+
+        long offLen = findColumn(col, NativeTypeSpec.PERIOD, isKeyCol);
+
+        if (offLen < 0) {
+            return null;
+        }
+
+        int off = offset(offLen);
+
+        ByteBuffer chunk = chunk(isKeyCol);
+
+        int year = chunk.getInt(off);
+        int month = chunk.getInt(off + 4);
+        int day = chunk.getInt(off + 8);
+
+        return Period.of(year, month, day);
     }
 
     /** {@inheritDoc} */

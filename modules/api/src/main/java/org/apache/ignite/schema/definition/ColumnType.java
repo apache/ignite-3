@@ -60,6 +60,9 @@ public class ColumnType {
     /** Timezone-free three-part value representing a year, month, and day. */
     public static final ColumnType DATE = new ColumnType(ColumnTypeSpec.DATE);
 
+    /** Returns A date-based amount of time with defined date precision. */
+    public static final ColumnType PERIOD = new ColumnType(ColumnTypeSpec.PERIOD);
+
     /**
      * Returns bit mask type.
      *
@@ -171,6 +174,29 @@ public class ColumnType {
                 DecimalColumnType.DEFAULT_PRECISION,
                 DecimalColumnType.DEFAULT_SCALE
         );
+    }
+
+    /**
+     * Returns A time-based amount of time with the default time precision.
+     *
+     * @see TemporalColumnType#DEFAULT_TIMESTAMP_PRECISION
+     * @see #duration(int)
+     */
+    public static TemporalColumnType duration() {
+        return new TemporalColumnType(ColumnTypeSpec.DURATION, TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION);
+    }
+
+    /**
+     * Returns a time-based amount of time with defined time precision.
+     *
+     * <p>Precision is a number of digits in fractional seconds part, from 0 - whole seconds precision up to 9 - nanoseconds precision.
+     *
+     * @param precision The number of digits in fractional seconds part. Accepted values are in range [0-9].
+     * @return Native type.
+     * @throws IllegalArgumentException If precision value was invalid.
+     */
+    public static TemporalColumnType duration(int precision) {
+        return new TemporalColumnType(ColumnTypeSpec.DURATION, precision);
     }
 
     /**
@@ -580,6 +606,12 @@ public class ColumnType {
 
         /** Timezone-free datetime. */
         DATETIME,
+
+        /** Duration. */
+        DURATION,
+
+        /** Period. */
+        PERIOD,
 
         /** Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision. */
         TIMESTAMP,

@@ -40,7 +40,7 @@ import org.junit.jupiter.api.Test;
  */
 public class SchemaDescriptorConverterTest {
     /** Total number of columns. */
-    private static final int columns = 15;
+    private static final int columns = 16;
 
     /**
      * Convert table with complex primary key and check it.
@@ -69,16 +69,16 @@ public class SchemaDescriptorConverterTest {
         TableDefinitionBuilder bldr = getBuilder(false, false);
         TableDefinition tblSchm = bldr.withPrimaryKey(
                 SchemaBuilders.primaryKey()
-                        .withColumns("INT8", "ID")
-                        .withColocationColumns("INT8")
+                        .withColumns("INT8", "ID", "DURATION")
+                        .withColocationColumns("INT8", "DURATION")
                         .build()
         ).build();
 
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
 
-        assertEquals(2, tblDscr.keyColumns().length());
-        assertEquals(1, tblDscr.colocationColumns().length);
-        assertEquals(columns - 2, tblDscr.valueColumns().length());
+        assertEquals(3, tblDscr.keyColumns().length());
+        assertEquals(2, tblDscr.colocationColumns().length);
+        assertEquals(columns - 3, tblDscr.valueColumns().length());
     }
 
     /**
@@ -110,7 +110,8 @@ public class SchemaDescriptorConverterTest {
                 SchemaBuilders.column("DOUBLE", ColumnType.DOUBLE).build(),
                 SchemaBuilders.column("UUID", ColumnType.UUID).build(),
                 SchemaBuilders.column("INT16", ColumnType.INT16).build(),
-                SchemaBuilders.column("BITMASK_FS10", ColumnType.bitmaskOf(10)).build()
+                SchemaBuilders.column("BITMASK_FS10", ColumnType.bitmaskOf(10)).build(),
+                SchemaBuilders.column("PERIOD", ColumnType.PERIOD).build()
         };
 
         TableDefinition tblSchm = SchemaBuilders.tableBuilder("SCHEMA", "TABLE")
@@ -162,6 +163,7 @@ public class SchemaDescriptorConverterTest {
         testCol(tblDscr.valueColumns(), "NUMBER", NativeTypeSpec.NUMBER, nullable);
         testCol(tblDscr.valueColumns(), "DECIMAL", NativeTypeSpec.DECIMAL, nullable);
         testCol(tblDscr.valueColumns(), "BITMASK_FS10", NativeTypeSpec.BITMASK, nullable);
+        testCol(tblDscr.valueColumns(), "DURATION", NativeTypeSpec.DURATION, nullable);
     }
 
     /**
@@ -191,7 +193,8 @@ public class SchemaDescriptorConverterTest {
                         postProcess.apply(SchemaBuilders.column("BLOB_FS10", ColumnType.blobOf(10))),
                         postProcess.apply(SchemaBuilders.column("DECIMAL", ColumnType.decimalOf(1, 1))),
                         postProcess.apply(SchemaBuilders.column("NUMBER", ColumnType.numberOf(12))),
-                        postProcess.apply(SchemaBuilders.column("BITMASK_FS10", ColumnType.bitmaskOf(10)))
+                        postProcess.apply(SchemaBuilders.column("BITMASK_FS10", ColumnType.bitmaskOf(10))),
+                        postProcess.apply(SchemaBuilders.column("DURATION", ColumnType.duration(9)))
                 // TODO: IGNITE-13750 uncomment after unsigned types available
                 // postProcess.apply(SchemaBuilders.column("UINT8", ColumnType.UINT8)),
                 // postProcess.apply(SchemaBuilders.column("UINT16", ColumnType.UINT16)),

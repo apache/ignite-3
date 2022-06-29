@@ -25,10 +25,12 @@ import java.math.RoundingMode;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.AssemblyException;
@@ -221,6 +223,16 @@ public class RowAssembler {
             }
             case TIMESTAMP: {
                 rowAsm.appendTimestamp((Instant) val);
+
+                break;
+            }
+            case DURATION: {
+                rowAsm.appendDuration((Duration) val);
+
+                break;
+            }
+            case PERIOD: {
+                rowAsm.appendPeriod((Period) val);
 
                 break;
             }
@@ -699,6 +711,56 @@ public class RowAssembler {
         }
 
         shiftColumn(type.sizeInBytes());
+
+        return this;
+    }
+
+    /**
+     * Appends Duration value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     * @throws SchemaMismatchException If a value doesn't match the current column type.
+     */
+    public RowAssembler appendDuration(Duration val) throws SchemaMismatchException {
+        checkType(NativeTypeSpec.DURATION);
+
+        TemporalNativeType type = (TemporalNativeType) curCols.column(curCol).type();
+
+        long seconds = val.getSeconds();
+        int nanos = TemporalTypesHelper.normalizeNanos(val.getNano(), type.precision());
+
+        buf.putLong(curOff, seconds);
+
+        if (type.precision() != 0) {
+            // Write only meaningful bytes.
+            buf.putInt(curOff + 8, nanos);
+        }
+
+        shiftColumn(type.sizeInBytes());
+
+        return this;
+    }
+
+    /**
+     * Appends Period value for the current column to the chunk.
+     *
+     * @param val Column value.
+     * @return {@code this} for chaining.
+     * @throws SchemaMismatchException If a value doesn't match the current column type.
+     */
+    public RowAssembler appendPeriod(Period val) throws SchemaMismatchException {
+        checkType(NativeTypeSpec.PERIOD);
+
+        int years = val.getYears();
+        int months = val.getMonths();
+        int days = val.getDays();
+
+        buf.putInt(curOff, years);
+        buf.putInt(curOff + 4, months);
+        buf.putInt(curOff + 8, days);
+
+        shiftColumn(NativeTypes.PERIOD.sizeInBytes());
 
         return this;
     }

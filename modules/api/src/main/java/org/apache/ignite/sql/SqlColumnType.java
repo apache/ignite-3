@@ -21,7 +21,7 @@ package org.apache.ignite.sql;
  * Predefined column types.
  */
 public enum SqlColumnType {
-    /** Boolaen. */
+    /** Boolean. */
     BOOLEAN,
 
     /** 8-bit signed integer. */

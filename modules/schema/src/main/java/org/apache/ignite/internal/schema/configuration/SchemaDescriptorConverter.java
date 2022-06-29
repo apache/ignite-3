@@ -29,10 +29,12 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -134,7 +136,14 @@ public class SchemaDescriptorConverter {
 
                 return NativeTypes.timestamp(temporalType.precision());
             }
+            case DURATION: {
+                ColumnType.TemporalColumnType temporalType = (ColumnType.TemporalColumnType) colType;
 
+                return NativeTypes.duration(temporalType.precision());
+            }
+            case PERIOD: {
+                return NativeTypes.PERIOD;
+            }
             case NUMBER: {
                 ColumnType.NumberColumnType numberType = (ColumnType.NumberColumnType) colType;
 
@@ -231,8 +240,12 @@ public class SchemaDescriptorConverter {
                 return LocalDateTime.parse(dflt);
             case TIMESTAMP:
                 return Instant.parse(dflt);
+            case DURATION:
+                return Duration.parse(dflt);
+            case PERIOD:
+                return Period.parse(dflt);
             default:
-                throw new SchemaException("Default value is not supported for type: type=" + type.toString());
+                throw new SchemaException("Default value is not supported for type: type=" + type);
         }
     }
 

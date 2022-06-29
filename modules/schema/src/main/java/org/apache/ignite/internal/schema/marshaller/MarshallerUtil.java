@@ -19,10 +19,12 @@ package org.apache.ignite.internal.schema.marshaller;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.InvalidTypeException;
@@ -115,6 +117,10 @@ public final class MarshallerUtil {
             return BinaryMode.NUMBER;
         } else if (cls == BigDecimal.class) {
             return BinaryMode.DECIMAL;
+        } else if (cls == Duration.class) {
+            return BinaryMode.DURATION;
+        } else if (cls == Period.class) {
+            return BinaryMode.PERIOD;
         }
 
         return BinaryMode.POJO;

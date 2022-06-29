@@ -19,10 +19,12 @@ package org.apache.ignite.internal.util;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -54,67 +56,75 @@ public class ColocationUtils {
         switch (typeSpec) {
             case INT8:
                 calc.appendByte((byte) v);
-                return;
+                break;
 
             case INT16:
                 calc.appendShort((short) v);
-                return;
+                break;
 
             case INT32:
                 calc.appendInt((int) v);
-                return;
+                break;
 
             case INT64:
                 calc.appendLong((long) v);
-                return;
+                break;
 
             case FLOAT:
                 calc.appendFloat((float) v);
-                return;
+                break;
 
             case DOUBLE:
                 calc.appendDouble((double) v);
-                return;
+                break;
 
             case DECIMAL:
                 calc.appendDecimal((BigDecimal) v);
-                return;
+                break;
 
             case UUID:
                 calc.appendUuid((UUID) v);
-                return;
+                break;
 
             case STRING:
                 calc.appendString((String) v);
-                return;
+                break;
 
             case BYTES:
                 calc.appendBytes((byte[]) v);
-                return;
+                break;
 
             case BITMASK:
                 calc.appendBitmask((BitSet) v);
-                return;
+                break;
 
             case NUMBER:
                 calc.appendNumber((BigInteger) v);
-                return;
+                break;
 
             case DATE:
                 calc.appendDate((LocalDate) v);
-                return;
+                break;
 
             case TIME:
                 calc.appendTime((LocalTime) v);
-                return;
+                break;
 
             case DATETIME:
                 calc.appendDateTime((LocalDateTime) v);
-                return;
+                break;
 
             case TIMESTAMP:
                 calc.appendTimestamp((Instant) v);
-                return;
+                break;
+
+            case DURATION:
+                calc.appendDuration((Duration) v);
+                break;
+
+            case PERIOD:
+                calc.appendPeriod((Period) v);
+                break;
 
             default:
                 throw new IllegalStateException("Unexpected type: " + typeSpec);

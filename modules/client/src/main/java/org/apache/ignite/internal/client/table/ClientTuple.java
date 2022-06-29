@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.client.table;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.Objects;
@@ -307,6 +309,30 @@ public final class ClientTuple implements Tuple {
     /** {@inheritDoc} */
     @Override
     public Instant timestampValue(int columnIndex) {
+        return value(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Duration durationValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Duration durationValue(int columnIndex) {
+        return value(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Period periodValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Period periodValue(int columnIndex) {
         return value(columnIndex);
     }
 

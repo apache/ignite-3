@@ -22,10 +22,12 @@ import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -97,7 +99,7 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
     @ParameterizedTest(name = "type=" + ARGUMENTS_PLACEHOLDER)
     @EnumSource(
             value = NativeTypeSpec.class,
-            names = {"INT8", "UUID", "BITMASK", "DECIMAL", "NUMBER", "TIMESTAMP", "BYTES"},
+            names = {"UUID", "BITMASK", "DECIMAL", "NUMBER", "TIMESTAMP", "BYTES"},
             mode = Mode.EXCLUDE
     )
     // @EnumSource(value = NativeTypeSpec.class, names = {"BYTES", "TIME", "DATETIME"}, mode = Mode.INCLUDE)
@@ -254,6 +256,10 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
                 );
             case TIMESTAMP:
                 return Instant.from((LocalDateTime) generateValueByType(i, NativeTypeSpec.DATETIME));
+            case DURATION:
+                return Duration.ofSeconds(i);
+            case PERIOD:
+                return Period.of(i, i, i);
             default:
                 throw new IllegalStateException("Unexpected type: " + type);
         }
@@ -293,6 +299,10 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
                 return "timestamp";
             case TIMESTAMP:
                 return "timestamp_tz";
+            case DURATION:
+                return "INTERVAL DAYS TO SECONDS";
+            case PERIOD:
+                return "INTERVAL MONTHS";
             default:
                 throw new IllegalStateException("Unexpected type: " + type);
         }
