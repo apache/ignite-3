@@ -17,10 +17,12 @@
 
 package org.apache.ignite.table;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.Map;
 import java.util.Objects;
@@ -508,4 +510,44 @@ public interface Tuple extends Iterable<Object> {
      * @throws IndexOutOfBoundsException If column with given index doesn't exists.
      */
     Instant timestampValue(int columnIndex);
+
+    /**
+     * Gets {@code Duration} column value.
+     *
+     * @param columnName Column name with SQL-parser style quotation, e.g.
+     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
+     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
+     */
+    Duration durationValue(String columnName);
+
+    /**
+     * Gets {@code Duration} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     */
+    Duration durationValue(int columnIndex);
+
+    /**
+     * Gets {@code Period} column value.
+     *
+     * @param columnName Column name with SQL-parser style quotation, e.g.
+     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
+     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @return Column value.
+     * @throws IllegalArgumentException If column with given name doesn't exists.
+     */
+    Period periodValue(String columnName);
+
+    /**
+     * Gets {@code Period} column value.
+     *
+     * @param columnIndex Column index.
+     * @return Column value.
+     * @throws IndexOutOfBoundsException If column with given index doesn't exists.
+     */
+    Period periodValue(int columnIndex);
 }

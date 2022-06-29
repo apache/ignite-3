@@ -27,10 +27,12 @@ import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
@@ -200,11 +202,15 @@ public class ClientMessagePackerUnpackerTest {
             LocalDate date = LocalDate.now();
             LocalTime time = LocalTime.now();
             Instant timestamp = Instant.now();
+            Duration duration = Duration.ofSeconds(10);
+            Period period = Period.ofDays(10);
 
             packer.packDate(date);
             packer.packTime(time);
             packer.packTimestamp(timestamp);
             packer.packDateTime(LocalDateTime.of(date, time));
+            packer.packDuration(duration);
+            packer.packPeriod(period);
 
             var buf = packer.getBuffer();
             //noinspection unused
@@ -218,6 +224,8 @@ public class ClientMessagePackerUnpackerTest {
                 assertEquals(time, unpacker.unpackTime());
                 assertEquals(timestamp, unpacker.unpackTimestamp());
                 assertEquals(LocalDateTime.of(date, time), unpacker.unpackDateTime());
+                assertEquals(duration, unpacker.unpackDuration());
+                assertEquals(period, unpacker.unpackPeriod());
             }
         }
     }
@@ -234,7 +242,12 @@ public class ClientMessagePackerUnpackerTest {
                 LocalDate.now(),
                 LocalTime.now(),
                 LocalDateTime.now(),
-                Instant.now()
+                Instant.now(),
+                BigInteger.valueOf(12),
+                Boolean.valueOf(true),
+                BigInteger.valueOf(12),
+                Duration.ofSeconds(10),
+                Period.ofYears(1)
         };
 
         try (var packer = new ClientMessagePacker(PooledByteBufAllocator.DEFAULT.directBuffer())) {
@@ -254,7 +267,10 @@ public class ClientMessagePackerUnpackerTest {
                     if (values[i] instanceof byte[]) {
                         assertArrayEquals((byte[]) values[i], (byte[]) unpacker.unpackObject(i + 1));
                     } else {
-                        assertEquals(values[i], unpacker.unpackObject(i + 1));
+                        int shift = i + 1;
+                        // BigInteger packs like a Number.
+                        shift = shift == ClientDataType.BIGINTEGER.type() ? ClientDataType.NUMBER.type() : shift;
+                        assertEquals(values[i], unpacker.unpackObject(shift));
                     }
                 }
             }

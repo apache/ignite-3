@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory.INTERVAL_QUALIFIER_DAY_TIME;
+import static org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory.INTERVAL_QUALIFIER_YEAR_MONTH;
 import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
 
 import java.lang.reflect.Type;
@@ -429,6 +431,10 @@ public class TypeUtils {
                 var dt = (TemporalNativeType) nativeType;
 
                 return factory.createSqlType(SqlTypeName.TIMESTAMP, dt.precision());
+            case DURATION:
+                return factory.createSqlIntervalType(INTERVAL_QUALIFIER_DAY_TIME);
+            case PERIOD:
+                return factory.createSqlIntervalType(INTERVAL_QUALIFIER_YEAR_MONTH);
             default:
                 throw new IllegalStateException("Unexpected native type " + nativeType);
         }

@@ -19,10 +19,12 @@ package org.apache.ignite.internal.schema.marshaller.asm;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.marshaller.BinaryMode;
@@ -85,6 +87,10 @@ public class ColumnAccessCodeGenerator {
                 return new ColumnAccessCodeGenerator("dateTimeValue", "appendDateTime", LocalDateTime.class, fieldName, colIdx);
             case TIMESTAMP:
                 return new ColumnAccessCodeGenerator("timestampValue", "appendTimestamp", Instant.class, fieldName, colIdx);
+            case DURATION:
+                return new ColumnAccessCodeGenerator("durationValue", "appendDuration", Duration.class, fieldName, colIdx);
+            case PERIOD:
+                return new ColumnAccessCodeGenerator("periodValue", "appendPeriod", Period.class, fieldName, colIdx);
             default:
                 throw new IgniteInternalException("Unsupported binary mode: " + mode);
         }

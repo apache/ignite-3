@@ -453,6 +453,8 @@ public class RecordMarshallerTest {
                 new Column("bytesCol".toUpperCase(), BYTES, true),
                 new Column("numberCol".toUpperCase(), NativeTypes.numberOf(12), true),
                 new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), true),
+                new Column("durationCol".toUpperCase(), NativeTypes.duration(), true),
+                new Column("periodCol".toUpperCase(), NativeTypes.PERIOD, true),
         };
     }
 

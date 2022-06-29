@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.table;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.Objects;
@@ -329,6 +331,38 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
         Column col = rowColumnByIndex(columnIndex);
 
         return row.timestampValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Duration durationValue(String columnName) {
+        Column col = rowColumnByName(columnName);
+
+        return row.durationValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Duration durationValue(int columnIndex) {
+        Column col = rowColumnByIndex(columnIndex);
+
+        return row.durationValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Period periodValue(String columnName) {
+        Column col = rowColumnByName(columnName);
+
+        return row.periodValue(col.schemaIndex());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Period periodValue(int columnIndex) {
+        Column col = rowColumnByIndex(columnIndex);
+
+        return row.periodValue(col.schemaIndex());
     }
 
     /** {@inheritDoc} */

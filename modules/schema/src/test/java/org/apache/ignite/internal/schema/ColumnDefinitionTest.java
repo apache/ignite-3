@@ -43,6 +43,7 @@ public class ColumnDefinitionTest {
                 new Column("A", DATE, false),
                 new Column("AD", STRING, false),
                 new Column("AA", STRING, false),
+                new Column(-100, "J", STRING, false)
         };
 
         Arrays.sort(cols, Columns.COLUMN_COMPARATOR);
@@ -52,5 +53,6 @@ public class ColumnDefinitionTest {
         assertEquals("C", cols[2].name());
         assertEquals("AA", cols[3].name());
         assertEquals("AD", cols[4].name());
+        assertEquals("J", cols[5].name());
     }
 }

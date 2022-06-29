@@ -264,7 +264,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
      * Check merge table schema changes.
      */
     @Test
-    public void testMergeChangesColumnDefault() throws Exception {
+    public void testMergeChangesColumnDefault() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);

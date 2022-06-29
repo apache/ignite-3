@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
@@ -277,6 +279,30 @@ public class ClientSqlRow implements SqlRow {
     @Override
     public Instant timestampValue(int columnIndex) {
         return (Instant) row.get(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Duration durationValue(String columnName) {
+        return (Duration) row.get(columnIndexChecked(columnName));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Duration durationValue(int columnIndex) {
+        return (Duration) row.get(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Period periodValue(String columnName) {
+        return (Period) row.get(columnIndexChecked(columnName));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Period periodValue(int columnIndex) {
+        return (Period) row.get(columnIndex);
     }
 
     /** {@inheritDoc} */

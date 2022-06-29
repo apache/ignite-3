@@ -36,6 +36,12 @@ import java.math.BigDecimal;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
 import java.util.Date;
 import java.util.Objects;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -388,14 +394,18 @@ public class JdbcColumnMeta extends Response {
             return "VARCHAR";
         } else if (byte[].class.getName().equals(cls)) {
             return "BINARY";
-        } else if (Time.class.getName().equals(cls)) {
+        } else if (Time.class.getName().equals(cls) || LocalTime.class.getName().equals(cls)) {
             return "TIME";
-        } else if (Timestamp.class.getName().equals(cls)) {
+        } else if (LocalDateTime.class.getName().equals(cls)) {
+            return "DATETIME";
+        } else if (Timestamp.class.getName().equals(cls) || Instant.class.getName().equals(cls)) {
             return "TIMESTAMP";
-        } else if (Date.class.getName().equals(cls) || java.sql.Date.class.getName().equals(cls)) {
+        } else if (Date.class.getName().equals(cls) || java.sql.Date.class.getName().equals(cls) || LocalDate.class.getName().equals(cls)) {
             return "DATE";
         } else if (BigDecimal.class.getName().equals(cls)) {
             return "DECIMAL";
+        } else if (Duration.class.getName().equals(cls) || Period.class.getName().equals(cls)) {
+            return "INTERVAL";
         } else {
             return "OTHER";
         }

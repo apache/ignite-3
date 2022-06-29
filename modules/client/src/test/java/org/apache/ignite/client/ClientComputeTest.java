@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
@@ -64,7 +65,7 @@ public class ClientComputeTest {
 
             String res1 = client.compute().<String>execute(getClusterNodes("s1"), "job").join();
             String res2 = client.compute().<String>execute(getClusterNodes("s2"), "job").join();
-            String res3 = client.compute().<String>execute(getClusterNodes("s3"), "job").join();
+            String res3 = client.compute().<String>execute(getClusterNodes("s3"), "job", Duration.ofDays(1)).join();
 
             assertEquals("s1", res1);
             assertEquals("s2", res2);

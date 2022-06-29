@@ -21,10 +21,12 @@ import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Objects;
@@ -78,6 +80,9 @@ public class TestObjectWithAllTypes {
 
         obj.nullLongCol = null;
         obj.nullBytesCol = null;
+
+        obj.durationCol = (Duration) SchemaTestUtils.generateRandomValue(rnd, NativeTypes.duration());
+        obj.periodCol = (Period) SchemaTestUtils.generateRandomValue(rnd, NativeTypes.PERIOD);
 
         return obj;
     }
@@ -144,6 +149,10 @@ public class TestObjectWithAllTypes {
 
     private BigDecimal decimalCol;
 
+    private Duration durationCol;
+
+    private Period periodCol;
+
     /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
@@ -179,7 +188,9 @@ public class TestObjectWithAllTypes {
                 && Objects.equals(stringCol, object.stringCol)
                 && Arrays.equals(bytesCol, object.bytesCol)
                 && Objects.equals(numberCol, object.numberCol)
-                && Objects.equals(decimalCol, object.decimalCol);
+                && Objects.equals(decimalCol, object.decimalCol)
+                && Objects.equals(durationCol, object.durationCol)
+                && Objects.equals(periodCol, object.periodCol);
     }
 
     /** {@inheritDoc} */

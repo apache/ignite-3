@@ -58,6 +58,19 @@ public class ClientColumn {
         this.schemaIndex = schemaIndex;
     }
 
+    /**
+     * Constructor.
+     *
+     * @param name        Column name.
+     * @param type        Column type code.
+     * @param nullable    Nullable flag.
+     * @param isKey       Key column flag.
+     * @param schemaIndex Index of the column in the schema.
+     */
+    public ClientColumn(String name, ClientDataType type, boolean nullable, boolean isKey, int schemaIndex) {
+        this(name, type.type(), nullable, isKey, schemaIndex);
+    }
+
     public String name() {
         return name;
     }

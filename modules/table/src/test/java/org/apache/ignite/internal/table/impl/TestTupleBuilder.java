@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -250,6 +252,30 @@ public class TestTupleBuilder implements Tuple {
     /** {@inheritDoc} */
     @Override
     public Instant timestampValue(int columnIndex) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Duration durationValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Duration durationValue(int columnIndex) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Period periodValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Period periodValue(int columnIndex) {
         return null;
     }
 

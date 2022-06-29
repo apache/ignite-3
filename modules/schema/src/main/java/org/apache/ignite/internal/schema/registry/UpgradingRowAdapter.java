@@ -19,10 +19,12 @@ package org.apache.ignite.internal.schema.registry;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -400,5 +402,33 @@ class UpgradingRowAdapter extends Row {
         }
 
         return mappedId < 0 ? (Instant) column.defaultValue() : super.timestampValue(mappedId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Duration durationValue(int colIdx) throws InvalidTypeException {
+        int mappedId = mapColumn(colIdx);
+
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
+
+        if (NativeTypeSpec.DURATION != column.type().spec()) {
+            throw new SchemaException("Type conversion is not supported yet.");
+        }
+
+        return mappedId < 0 ? (Duration) column.defaultValue() : super.durationValue(mappedId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Period periodValue(int colIdx) throws InvalidTypeException {
+        int mappedId = mapColumn(colIdx);
+
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : super.schema().column(mappedId);
+
+        if (NativeTypeSpec.PERIOD != column.type().spec()) {
+            throw new SchemaException("Type conversion is not supported yet.");
+        }
+
+        return mappedId < 0 ? (Period) column.defaultValue() : super.periodValue(mappedId);
     }
 }

@@ -500,7 +500,9 @@ public class KeyValueViewOperationsSimpleSchemaTest {
                 NativeTypes.datetime(),
                 NativeTypes.timestamp(),
                 NativeTypes.BYTES,
-                NativeTypes.STRING);
+                NativeTypes.STRING,
+                NativeTypes.duration(),
+                NativeTypes.PERIOD);
 
         // Validate all types are tested.
         assertEquals(Set.of(NativeTypeSpec.values()),

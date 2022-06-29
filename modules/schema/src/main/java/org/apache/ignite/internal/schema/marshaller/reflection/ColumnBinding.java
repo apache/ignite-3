@@ -23,10 +23,12 @@ import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
@@ -78,6 +80,8 @@ abstract class ColumnBinding {
     private static final MethodHandle DATETIME_READER;
     private static final MethodHandle TIME_READER;
     private static final MethodHandle TIMESTAMP_READER;
+    private static final MethodHandle DURATION_READER;
+    private static final MethodHandle PERIOD_READER;
 
     private static final MethodHandle BYTE_WRITER;
     private static final MethodHandle SHORT_WRITER;
@@ -97,6 +101,8 @@ abstract class ColumnBinding {
     private static final MethodHandle DATETIME_WRITER;
     private static final MethodHandle TIME_WRITER;
     private static final MethodHandle TIMESTAMP_WRITER;
+    private static final MethodHandle DURATION_WRITER;
+    private static final MethodHandle PERIOD_WRITER;
 
     private static final MethodHandle TRANSFORM_BEFORE_WRITE;
     private static final MethodHandle TRANSFORM_AFTER_READ;
@@ -132,6 +138,8 @@ abstract class ColumnBinding {
             DATE_READER = lookup.unreflect(Row.class.getMethod("dateValue", int.class));
             TIME_READER = lookup.unreflect(Row.class.getMethod("timeValue", int.class));
             TIMESTAMP_READER = lookup.unreflect(Row.class.getMethod("timestampValue", int.class));
+            DURATION_READER = lookup.unreflect(Row.class.getMethod("durationValue", int.class));
+            PERIOD_READER = lookup.unreflect(Row.class.getMethod("periodValue", int.class));
             DATETIME_READER = lookup.unreflect(Row.class.getMethod("dateTimeValue", int.class));
 
             BYTE_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendByte", byte.class));
@@ -151,6 +159,8 @@ abstract class ColumnBinding {
             DATE_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendDate", LocalDate.class));
             TIME_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendTime", LocalTime.class));
             TIMESTAMP_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendTimestamp", Instant.class));
+            DURATION_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendDuration", Duration.class));
+            PERIOD_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendPeriod", Period.class));
             DATETIME_WRITER = lookup.unreflect(RowAssembler.class.getMethod("appendDateTime", LocalDateTime.class));
 
             TRANSFORM_AFTER_READ = lookup.unreflect(TypeConverter.class.getMethod("toObjectType", Object.class));
@@ -303,6 +313,10 @@ abstract class ColumnBinding {
                 return create(colIdx, getterHandle, setterHandle, DATETIME_READER, DATETIME_WRITER, converter);
             case TIMESTAMP:
                 return create(colIdx, getterHandle, setterHandle, TIMESTAMP_READER, TIMESTAMP_WRITER, converter);
+            case DURATION:
+                return create(colIdx, getterHandle, setterHandle, DURATION_READER, DURATION_WRITER, converter);
+            case PERIOD:
+                return create(colIdx, getterHandle, setterHandle, PERIOD_READER, PERIOD_WRITER, converter);
             case POJO:
                 if (converter == null) {
                     throw new IllegalArgumentException(String.format("Failed to bind column to a POJO class/field without converter:"

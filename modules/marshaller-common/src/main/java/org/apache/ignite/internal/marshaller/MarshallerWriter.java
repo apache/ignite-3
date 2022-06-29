@@ -19,10 +19,12 @@ package org.apache.ignite.internal.marshaller;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
@@ -154,6 +156,20 @@ public interface MarshallerWriter {
      * @param val Value.
      */
     void writeDateTime(LocalDateTime val);
+
+    /**
+     * Writes duration.
+     *
+     * @param val Value.
+     */
+    void writeDuration(Duration val);
+
+    /**
+     * Writes period.
+     *
+     * @param val Value.
+     */
+    void writePeriod(Period val);
 
     /**
      * Writes an object value.

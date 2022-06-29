@@ -51,11 +51,11 @@ import org.apache.ignite.schema.definition.ColumnType;
  */
 public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     /** Interval qualifier to create year-month interval types. */
-    private static final SqlIntervalQualifier INTERVAL_QUALIFIER_YEAR_MONTH = new SqlIntervalQualifier(TimeUnit.YEAR,
+    public static final SqlIntervalQualifier INTERVAL_QUALIFIER_YEAR_MONTH = new SqlIntervalQualifier(TimeUnit.YEAR,
             TimeUnit.MONTH, SqlParserPos.ZERO);
 
     /** Interval qualifier to create day-time interval types. */
-    private static final SqlIntervalQualifier INTERVAL_QUALIFIER_DAY_TIME = new SqlIntervalQualifier(TimeUnit.DAY,
+    public static final SqlIntervalQualifier INTERVAL_QUALIFIER_DAY_TIME = new SqlIntervalQualifier(TimeUnit.DAY,
             TimeUnit.SECOND, SqlParserPos.ZERO);
 
     /** Default charset. */
@@ -206,8 +206,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case INTERVAL_YEAR:
             case INTERVAL_YEAR_MONTH:
             case INTERVAL_MONTH:
-                //TODO: https://issues.apache.org/jira/browse/IGNITE-17219
-                throw new IllegalArgumentException("Type is not supported yet.");
+                return ColumnType.PERIOD;
             case INTERVAL_DAY:
             case INTERVAL_DAY_HOUR:
             case INTERVAL_DAY_MINUTE:
@@ -218,8 +217,8 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case INTERVAL_MINUTE:
             case INTERVAL_MINUTE_SECOND:
             case INTERVAL_SECOND:
-                //TODO: https://issues.apache.org/jira/browse/IGNITE-17219
-                throw new IllegalArgumentException("Type is not supported yet.");
+                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.duration() :
+                        ColumnType.duration(relType.getPrecision());
             case VARCHAR:
             case CHAR:
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.string() :
