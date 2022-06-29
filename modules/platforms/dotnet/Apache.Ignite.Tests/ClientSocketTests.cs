@@ -62,7 +62,7 @@ namespace Apache.Ignite.Tests
             var ex = Assert.ThrowsAsync<IgniteClientException>(
                 async () => await socket.DoOutInOpAsync((ClientOp)1234567, requestWriter));
 
-            Assert.AreEqual("Unexpected operation code: 1234567", ex!.Message);
+            StringAssert.Contains("Unexpected operation code: 1234567", ex!.Message);
         }
 
         [Test]

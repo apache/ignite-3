@@ -135,7 +135,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         IgniteClientException cause = (IgniteClientException) ex.getCause();
 
-        assertThat(cause.getMessage(), containsString("TransactionException: Custom job error"));
+        assertThat(cause.getMessage(), containsString("Custom job error"));
     }
 
     @ParameterizedTest
