@@ -2099,6 +2099,7 @@ public class PersistentPageMemory implements PageMemory {
 
         safeToUpdate.set(true);
 
+        // Less memory and no need for Set features.
         return CollectionUtils.union(collections);
     }
 

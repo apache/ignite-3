@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.MARKER_STORED_TO_DISK;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGE_SNAPSHOT_TAKEN;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWriteOrder.SEQUENTIAL;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.EMPTY;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,12 +39,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.ForkJoinWorkerThread;
-import java.util.concurrent.Future;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -63,11 +63,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>{@link CheckpointWorkflow#markCheckpointEnd} - Finalization of last checkpoint.
  */
 class CheckpointWorkflow {
-    /**
-     * Starting from this number of dirty pages in checkpoint, array will be sorted with {@link Arrays#parallelSort(Comparable[])} in case
-     * of {@link CheckpointWriteOrder#SEQUENTIAL}.
-     */
-    private final int parallelSortThreshold;
+    /** Starting from this number of dirty pages in checkpoint, array will be sorted with {@link Arrays#parallelSort(Comparable[])}. */
+    private static final int PARALLEL_SORT_THRESHOLD = 40_000;
 
     /** This number of threads will be created and used for parallel sorting. */
     private static final int PARALLEL_SORT_THREADS = Math.min(Runtime.getRuntime().availableProcessors(), 8);
@@ -81,33 +78,40 @@ class CheckpointWorkflow {
     /** Persistent data regions for the checkpointing. */
     private final Collection<? extends DataRegion<PersistentPageMemory>> dataRegions;
 
-    /** Checkpoint write order configuration. */
-    private final CheckpointWriteOrder checkpointWriteOrder;
-
     /** Collections of checkpoint listeners. */
     private final List<IgniteBiTuple<CheckpointListener, DataRegion<PersistentPageMemory>>> listeners = new CopyOnWriteArrayList<>();
+
+    /** Thread pool for sorting dirty pages in parallel if their count is >= {@link #PARALLEL_SORT_THRESHOLD}. */
+    private final ForkJoinPool parallelSortThreadPool;
 
     /**
      * Constructor.
      *
-     * @param checkpointConfig Checkpoint configuration.
      * @param checkpointMarkersStorage Checkpoint marker storage.
      * @param checkpointReadWriteLock Checkpoint read write lock.
      * @param dataRegions Persistent data regions for the checkpointing, doesn't copy.
      */
     public CheckpointWorkflow(
-            PageMemoryCheckpointConfiguration checkpointConfig,
             CheckpointMarkersStorage checkpointMarkersStorage,
             CheckpointReadWriteLock checkpointReadWriteLock,
             Collection<? extends DataRegion<PersistentPageMemory>> dataRegions
     ) {
-        PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
-
         this.checkpointMarkersStorage = checkpointMarkersStorage;
         this.checkpointReadWriteLock = checkpointReadWriteLock;
-        this.checkpointWriteOrder = CheckpointWriteOrder.valueOf(checkpointConfigView.writeOrder());
-        this.parallelSortThreshold = checkpointConfigView.parallelSortThreshold();
         this.dataRegions = dataRegions;
+
+        parallelSortThreadPool = new ForkJoinPool(
+                Math.min(Runtime.getRuntime().availableProcessors(), 8),
+                pool -> {
+                    ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
+
+                    worker.setName("checkpoint-pages-sorter-" + worker.getPoolIndex());
+
+                    return worker;
+                },
+                null,
+                false
+        );
     }
 
     /**
@@ -122,6 +126,8 @@ class CheckpointWorkflow {
      */
     public void stop() {
         listeners.clear();
+
+        shutdownAndAwaitTermination(parallelSortThreadPool, 10, SECONDS);
     }
 
     /**
@@ -167,7 +173,7 @@ class CheckpointWorkflow {
 
             tracker.onMarkCheckpointBeginEnd();
 
-            // There are allowable to replace pages only after checkpoint entry was stored to disk.
+            // There are allowable to replace pages only after checkpoint marker was stored to disk.
             dirtyPages = beginCheckpoint(dataRegions, curr.futureFor(MARKER_STORED_TO_DISK));
 
             curr.currentCheckpointPagesCount(dirtyPages.dirtyPageCount);
@@ -192,10 +198,12 @@ class CheckpointWorkflow {
 
             tracker.onSplitAndSortCheckpointPagesStart();
 
+            // TODO: IGNITE-17267 вот тут надо будет поменять
             IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPages0 = splitAndSortCheckpointPagesIfNeeded(dirtyPages);
 
             tracker.onSplitAndSortCheckpointPagesEnd();
 
+            // TODO: IGNITE-17267 вот тут надо будет поменять
             return new Checkpoint(dirtyPages0, curr);
         }
 
@@ -286,48 +294,20 @@ class CheckpointWorkflow {
         return new CheckpointDirtyPagesInfoHolder(pages, pageCount);
     }
 
-    private static ForkJoinPool parallelSortInIsolatedPool(
-            FullPageId[] pagesArr,
-            Comparator<FullPageId> cmp,
-            @Nullable ForkJoinPool pool
-    ) throws IgniteInternalCheckedException {
-        ForkJoinPool.ForkJoinWorkerThreadFactory factory = pool1 -> {
-            ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool1);
-
-            worker.setName("checkpoint-pages-sorter-" + worker.getPoolIndex());
-
-            return worker;
-        };
-
-        ForkJoinPool execPool = pool == null ? new ForkJoinPool(PARALLEL_SORT_THREADS + 1, factory, null, false) : pool;
-
-        Future<?> sortTask = execPool.submit(() -> Arrays.parallelSort(pagesArr, cmp));
-
-        try {
-            sortTask.get();
-        } catch (ExecutionException | InterruptedException e) {
-            throw new IgniteInternalCheckedException(
-                    "Failed to perform pages array parallel sort",
-                    e instanceof ExecutionException ? e.getCause() : e
-            );
-        }
-
-        return execPool;
-    }
-
-    private IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> splitAndSortCheckpointPagesIfNeeded(
+    // TODO: IGNITE-17267 вот тут надо поменять и кешировать тредпулл
+    IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> splitAndSortCheckpointPagesIfNeeded(
             CheckpointDirtyPagesInfoHolder dirtyPages
     ) throws IgniteInternalCheckedException {
-        Set<IgniteBiTuple<PersistentPageMemory, FullPageId[]>> cpPagesPerRegion = new HashSet<>();
+        Set<IgniteBiTuple<PersistentPageMemory, FullPageId[]>> checkpointPages = new HashSet<>();
 
         int realPagesArrSize = 0;
 
-        for (IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>> regPages : dirtyPages.dirtyPages) {
-            FullPageId[] pages = new FullPageId[regPages.getValue().size()];
+        for (IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>> regionPages : dirtyPages.dirtyPages) {
+            FullPageId[] pages = new FullPageId[regionPages.getValue().size()];
 
             int pagePos = 0;
 
-            for (FullPageId dirtyPage : regPages.getValue()) {
+            for (FullPageId dirtyPage : regionPages.getValue()) {
                 assert realPagesArrSize++ != dirtyPages.dirtyPageCount :
                         "Incorrect estimated dirty pages number: " + dirtyPages.dirtyPageCount;
 
@@ -336,30 +316,37 @@ class CheckpointWorkflow {
 
             // Some pages may have been already replaced.
             if (pagePos != pages.length) {
-                cpPagesPerRegion.add(new IgniteBiTuple<>(regPages.getKey(), Arrays.copyOf(pages, pagePos)));
+                checkpointPages.add(new IgniteBiTuple<>(regionPages.getKey(), Arrays.copyOf(pages, pagePos)));
             } else {
-                cpPagesPerRegion.add(new IgniteBiTuple<>(regPages.getKey(), pages));
+                checkpointPages.add(new IgniteBiTuple<>(regionPages.getKey(), pages));
             }
         }
 
-        if (checkpointWriteOrder == SEQUENTIAL) {
-            Comparator<FullPageId> cmp = Comparator.comparingInt(FullPageId::groupId).thenComparingLong(FullPageId::effectivePageId);
+        Comparator<FullPageId> cmp = Comparator.comparingInt(FullPageId::groupId).thenComparingLong(FullPageId::effectivePageId);
 
-            ForkJoinPool pool = null;
+        List<ForkJoinTask<?>> parallelSortTasks = checkpointPages.stream()
+                .map(IgniteBiTuple::getValue)
+                .filter(pages -> pages.length >= PARALLEL_SORT_THRESHOLD)
+                .map(pages -> parallelSortThreadPool.submit(() -> Arrays.parallelSort(pages, cmp)))
+                .collect(toList());
 
-            for (IgniteBiTuple<PersistentPageMemory, FullPageId[]> pagesPerReg : cpPagesPerRegion) {
-                if (pagesPerReg.getValue().length >= parallelSortThreshold) {
-                    pool = parallelSortInIsolatedPool(pagesPerReg.get2(), cmp, pool);
-                } else {
-                    Arrays.sort(pagesPerReg.get2(), cmp);
-                }
-            }
-
-            if (pool != null) {
-                pool.shutdown();
+        for (IgniteBiTuple<PersistentPageMemory, FullPageId[]> regionPages : checkpointPages) {
+            if (regionPages.getValue().length < PARALLEL_SORT_THRESHOLD) {
+                Arrays.sort(regionPages.getValue(), cmp);
             }
         }
 
-        return new IgniteConcurrentMultiPairQueue<>(cpPagesPerRegion);
+        for (ForkJoinTask<?> parallelSortTask : parallelSortTasks) {
+            try {
+                parallelSortTask.get();
+            } catch (ExecutionException | InterruptedException e) {
+                throw new IgniteInternalCheckedException(
+                        "Failed to perform pages array parallel sort",
+                        e instanceof ExecutionException ? e.getCause() : e
+                );
+            }
+        }
+
+        return new IgniteConcurrentMultiPairQueue<>(checkpointPages);
     }
 }
