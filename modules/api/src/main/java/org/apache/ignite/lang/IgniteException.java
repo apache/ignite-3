@@ -17,10 +17,10 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.lang.CommonErrors.UNKNOWN_ERR;
-import static org.apache.ignite.lang.CommonErrors.UNKNOWN_ERR_GROUP;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR_GROUP;
 
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
@@ -258,6 +258,6 @@ public class IgniteException extends RuntimeException {
      * @return New error message with predefined prefix.
      */
     private static String errorMessage(UUID traceId, String groupName, int code, String message) {
-        return "IGN-" + groupName + '-' + extractErrorCode(code) + " Trace ID:" + traceId + ((message != null) ? message : "");
+        return "IGN-" + groupName + '-' + extractErrorCode(code) + " Trace ID:" + traceId + ((message != null) ? ' ' + message : "");
     }
 }

@@ -17,8 +17,8 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.lang.CommonErrors.TABLE_ALREADY_EXISTS_ERR;
-import static org.apache.ignite.lang.CommonErrors.TABLE_ERR_GROUP;
+import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_ALREADY_EXISTS_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_ERR_GROUP;
 
 /**
  * This exception is thrown when a new table failed to be created, because a table with same name already exists.

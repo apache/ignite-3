@@ -216,6 +216,6 @@ public class IgniteCheckedException extends Exception {
      * @return New error message with predefined prefix.
      */
     private static String errorMessage(UUID traceId, String groupName, int code, String message) {
-        return "IGN-" + groupName + '-' + extractErrorCode(code) + " Trace ID:" + traceId + ((message != null) ? message : "");
+        return "IGN-" + groupName + '-' + extractErrorCode(code) + " Trace ID:" + traceId + ((message != null) ? ' ' + message : "");
     }
 }
