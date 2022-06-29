@@ -1,7 +1,7 @@
 # name: test/sql/filter/test_zonemap.test_slow
 # description: Test expressions with transitive filters
 # group: [filter]
-
+# Ignore: https://issues.apache.org/jira/browse/IGNITE-17268
 
 statement ok
 create table t as select x a, length(x) b, mod(x,10000) c, 5 d, 10000 e from table(system_range(0,999));
@@ -30,5 +30,3 @@ query I
 select count(*) from t where (a > 500 AND b = 1) OR b < 2
 ----
 10
-
-

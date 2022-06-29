@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.script;
+package org.apache.ignite.internal.sql;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -27,7 +27,7 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
-public @interface ScriptRunnerTestsEnvironment {
+public @interface SqlLogicTestEnvironment {
     /**
      * Test scripts root directory.
      *
@@ -55,5 +55,19 @@ public @interface ScriptRunnerTestsEnvironment {
      *
      * @return {@code true} if the cluster must be restarted for each test group (directory).
      */
-    boolean restart() default false;
+    RestartMode restart() default RestartMode.NONE;
+
+    /**
+     * Cluster restart mode.
+     */
+    enum RestartMode {
+        /** Cluster isn't restarted. */
+        NONE,
+
+        /** Restart cluster for each tests folder. */
+        FOLDER,
+
+        /** Restart cluster for each test script. */
+        TEST
+    }
 }

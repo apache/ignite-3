@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+package org.apache.ignite.internal.sql;
+
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -35,7 +37,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.sql.script.ScriptRunnerTestsEnvironment;
+import org.apache.ignite.internal.sql.SqlLogicTestEnvironment.RestartMode;
 import org.apache.ignite.internal.sql.script.SqlScriptRunner;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -97,13 +99,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({WorkDirectoryExtension.class, SystemPropertiesExtension.class})
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-@ScriptRunnerTestsEnvironment(scriptsRoot = "src/sqlLogicTest/sql")
-public class SqlScriptsTests {
+@SqlLogicTestEnvironment(scriptsRoot = "src/sqlLogicTest/sql", restart = RestartMode.TEST)
+public class SqlLogicTest {
     private static final String NODE_NAME_PREFIX = "sqllogic";
 
     private static final FileSystem FS = FileSystems.getDefault();
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(SqlScriptsTests.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(SqlLogicTest.class);
 
     /** Base port number. */
     private static final int BASE_PORT = 3344;
@@ -131,7 +133,7 @@ public class SqlScriptsTests {
 
     private static Pattern TEST_REGEX;
 
-    private static boolean RESTART_CLUSTER;
+    private static RestartMode RESTART_CLUSTER;
 
     @BeforeAll
     static void init() throws Exception {
@@ -151,6 +153,7 @@ public class SqlScriptsTests {
         return sqlTestsFolder(SCRIPTS_ROOT);
     }
 
+    @SuppressWarnings("checkstyle:MissingSwitchDefault")
     private Stream<DynamicNode> sqlTestsFolder(Path dir) {
         try {
             AtomicBoolean first = new AtomicBoolean(true);
@@ -175,10 +178,21 @@ public class SqlScriptsTests {
                                 final boolean firstInDir = first.get();
 
                                 return DynamicTest.dynamicTest(p.getFileName().toString(), p.toUri(), () -> {
-                                    if (firstInDir && RESTART_CLUSTER) {
-                                        stopNodes();
+                                    switch (RESTART_CLUSTER) {
+                                        case FOLDER:
+                                            if (firstInDir) {
+                                                restartCluster();
+                                            }
+                                            break;
 
-                                        startNodes();
+                                        case TEST:
+                                            restartCluster();
+
+                                            break;
+
+                                        case NONE:
+                                        default:
+                                            break;
                                     }
 
                                     run(p);
@@ -232,7 +246,7 @@ public class SqlScriptsTests {
     }
 
     private static void config() {
-        ScriptRunnerTestsEnvironment env = SqlScriptsTests.class.getAnnotation(ScriptRunnerTestsEnvironment.class);
+        SqlLogicTestEnvironment env = SqlLogicTest.class.getAnnotation(SqlLogicTestEnvironment.class);
 
         assert env != null;
         assert !Strings.isNullOrEmpty(env.scriptsRoot());
@@ -241,6 +255,16 @@ public class SqlScriptsTests {
         NODES = env.nodes();
         TEST_REGEX = Strings.isNullOrEmpty(env.regex()) ? null : Pattern.compile(env.regex());
         RESTART_CLUSTER = env.restart();
+    }
+
+    private static void restartCluster() throws Exception {
+        stopNodes();
+
+        IgniteUtils.deleteIfExists(WORK_DIR);
+
+        Files.createDirectories(WORK_DIR);
+
+        startNodes();
     }
 
     private static void startNodes() {
