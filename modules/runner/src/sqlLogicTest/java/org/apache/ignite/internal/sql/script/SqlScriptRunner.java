@@ -54,7 +54,6 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -585,7 +584,7 @@ public class SqlScriptRunner {
                 List<List<?>> res = sql(sql.toString());
 
                 checkResult(res);
-            } catch (SqlException e) {
+            } catch (Throwable e) {
                 throw new IgniteException("Error at: " + posDesc + ". sql: " + sql, e);
             }
         }
