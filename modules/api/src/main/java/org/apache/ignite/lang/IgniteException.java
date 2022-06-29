@@ -160,7 +160,7 @@ public class IgniteException extends RuntimeException {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteException(UUID traceId, String groupName, int code, Throwable cause) {
-        super(errorMessage(traceId, groupName, code, null), cause);
+        super(errorMessageFromCause(traceId, groupName, code, cause), cause);
 
         this.traceId = traceId;
         this.groupName = groupName;
@@ -259,5 +259,20 @@ public class IgniteException extends RuntimeException {
      */
     private static String errorMessage(UUID traceId, String groupName, int code, String message) {
         return "IGN-" + groupName + '-' + extractErrorCode(code) + " Trace ID:" + traceId + ((message != null) ? ' ' + message : "");
+    }
+
+    /**
+     * Creates a new error message with predefined prefix.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param groupName Group name.
+     * @param code Full error code.
+     * @param cause Cause.
+     * @return New error message with predefined prefix.
+     */
+    private static String errorMessageFromCause(UUID traceId, String groupName, int code, Throwable cause) {
+        String c = (cause != null && cause.getMessage() != null) ? cause.getMessage() : null;
+
+        return (c != null && c.startsWith("IGN-")) ? c :  errorMessage(traceId, groupName, code, c);
     }
 }

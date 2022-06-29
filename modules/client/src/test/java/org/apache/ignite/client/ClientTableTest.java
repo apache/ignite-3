@@ -18,7 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.startsWith;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -394,7 +394,7 @@ public class ClientTableTest extends AbstractClientTableTest {
         Tuple tuple = Tuple.create().set("id", 1);
         var ex = assertThrows(IgniteClientException.class, () -> clientTable.recordView().get(null, tuple));
 
-        assertThat(ex.getMessage(), startsWith("Table does not exist: "));
+        assertThat(ex.getMessage(), containsString("Table does not exist: "));
         assertEquals(ClientErrorCode.TABLE_ID_DOES_NOT_EXIST, ex.errorCode());
     }
 }
