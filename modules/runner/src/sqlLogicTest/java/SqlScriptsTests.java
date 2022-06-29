@@ -54,6 +54,7 @@ import org.junit.jupiter.api.DynamicContainer;
 import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -96,7 +97,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({WorkDirectoryExtension.class, SystemPropertiesExtension.class})
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-@ScriptRunnerTestsEnvironment(scriptsRoot = "src/sqlLogicTest/sql", timeout = 180000, regex = "types/date")
+@ScriptRunnerTestsEnvironment(scriptsRoot = "src/sqlLogicTest/sql")
 public class SqlScriptsTests {
     private static final String NODE_NAME_PREFIX = "sqllogic";
 
@@ -132,8 +133,6 @@ public class SqlScriptsTests {
 
     private static boolean RESTART_CLUSTER;
 
-    private static long TIMEOUT;
-
     @BeforeAll
     static void init() throws Exception {
         config();
@@ -147,6 +146,7 @@ public class SqlScriptsTests {
     }
 
     @TestFactory
+    @Timeout(3 * 60)
     public Stream<DynamicNode> sql() {
         return sqlTestsFolder(SCRIPTS_ROOT);
     }
@@ -175,8 +175,10 @@ public class SqlScriptsTests {
                                 final boolean firstInDir = first.get();
 
                                 return DynamicTest.dynamicTest(p.getFileName().toString(), p.toUri(), () -> {
-                                    if (firstInDir) {
-                                        System.out.println("+++ BeforeDir");
+                                    if (firstInDir && RESTART_CLUSTER) {
+                                        stopNodes();
+
+                                        startNodes();
                                     }
 
                                     run(p);
@@ -239,7 +241,6 @@ public class SqlScriptsTests {
         NODES = env.nodes();
         TEST_REGEX = Strings.isNullOrEmpty(env.regex()) ? null : Pattern.compile(env.regex());
         RESTART_CLUSTER = env.restart();
-        TIMEOUT = env.timeout();
     }
 
     private static void startNodes() {
