@@ -381,7 +381,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         // Reading all ids is also a special case.
         if (lastPathNode.key.equals(INTERNAL_IDS) && !lastPathNode.unresolvedName && path.get(pathSize - 1).namedListEntry) {
-            prefix = prefix.replaceAll(quote(INTERNAL_IDS) + "$", NamedListNode.IDS);
+            prefix = prefix.replaceAll(quote(INTERNAL_IDS) + "$", NamedListNode.IDS + KEY_SEPARATOR);
 
             Map<String, ? extends Serializable> storageData = get(storage.readAllLatest(prefix));
 
