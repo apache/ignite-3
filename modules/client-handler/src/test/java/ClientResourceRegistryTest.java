@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.handler.ClientResource;
@@ -44,9 +45,7 @@ public class ClientResourceRegistryTest {
         assertSame(resource, removed);
 
         var ex = assertThrows(IgniteInternalException.class, () -> reg.get(id));
-        assertTrue(
-                ex.getMessage().contains("Failed to find resource with id: 1"),
-                "Expected: 'Failed to find resource with id: 1', actual: " + ex.getMessage());
+        assertThat(ex.getMessage(), containsString("Failed to find resource with id: 1"));
     }
 
     @Test
@@ -63,12 +62,12 @@ public class ClientResourceRegistryTest {
 
         String expected = "Resource registry is closed.";
         var ex = assertThrows(IgniteInternalCheckedException.class, () -> reg.put(new ClientResource(1, null)));
-        assertTrue(ex.getMessage().contains(expected), "Expected: '" + expected + "', actual: " + ex.getMessage());
+        assertThat(ex.getMessage(), containsString(expected));
 
         ex = assertThrows(IgniteInternalCheckedException.class, () -> reg.get(0));
-        assertTrue(ex.getMessage().contains(expected), "Expected: '" + expected + "', actual: " + ex.getMessage());
+        assertThat(ex.getMessage(), containsString(expected));
 
         ex = assertThrows(IgniteInternalCheckedException.class, () -> reg.remove(0));
-        assertTrue(ex.getMessage().contains(expected), "Expected: '" + expected + "', actual: " + ex.getMessage());
+        assertThat(ex.getMessage(), containsString(expected));
     }
 }

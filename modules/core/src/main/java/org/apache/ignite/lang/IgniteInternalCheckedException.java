@@ -21,8 +21,8 @@ import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.errorMessageFromCause;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
+import static org.apache.ignite.lang.ErrorGroups.Common.COMMON_ERR_GROUP;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR_GROUP;
 
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
@@ -189,7 +189,7 @@ public class IgniteInternalCheckedException extends Exception {
      */
     @Deprecated
     public IgniteInternalCheckedException() {
-        this(UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR);
+        this(COMMON_ERR_GROUP.name(), UNKNOWN_ERR);
     }
 
     /**
@@ -199,7 +199,7 @@ public class IgniteInternalCheckedException extends Exception {
      */
     @Deprecated
     public IgniteInternalCheckedException(String msg) {
-        this(UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR, msg);
+        this(COMMON_ERR_GROUP.name(), UNKNOWN_ERR, msg);
     }
 
     /**
@@ -209,7 +209,7 @@ public class IgniteInternalCheckedException extends Exception {
      */
     @Deprecated
     public IgniteInternalCheckedException(Throwable cause) {
-        this(UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR, cause);
+        this(COMMON_ERR_GROUP.name(), UNKNOWN_ERR, cause);
     }
 
     /**
@@ -221,7 +221,7 @@ public class IgniteInternalCheckedException extends Exception {
      */
     @Deprecated
     public IgniteInternalCheckedException(String msg, @Nullable Throwable cause, boolean writableStackTrace) {
-        this(UUID.randomUUID(), UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR, msg, cause, writableStackTrace);
+        this(UUID.randomUUID(), COMMON_ERR_GROUP.name(), UNKNOWN_ERR, msg, cause, writableStackTrace);
     }
 
     /**
@@ -232,7 +232,7 @@ public class IgniteInternalCheckedException extends Exception {
      */
     @Deprecated
     public IgniteInternalCheckedException(String msg, @Nullable Throwable cause) {
-        this(UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR, msg, cause);
+        this(COMMON_ERR_GROUP.name(), UNKNOWN_ERR, msg, cause);
     }
 
     /**

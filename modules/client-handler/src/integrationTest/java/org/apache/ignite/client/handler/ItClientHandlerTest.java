@@ -18,10 +18,11 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
@@ -190,7 +191,7 @@ public class ItClientHandlerTest {
             assertEquals(0, minor);
             assertEquals(0, patch);
             assertEquals(1, errorCode);
-            assertTrue(err.contains("Unsupported version: 2.8.0"), "Expected: 'Unsupported version: 2.8.0', actual: " + err);
+            assertThat(err, containsString("Unsupported version: 2.8.0"));
         }
     }
 

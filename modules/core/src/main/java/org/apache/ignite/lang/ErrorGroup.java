@@ -80,7 +80,7 @@ public class ErrorGroup {
      *      or {@code errorCode} is greater than 0xFFFF or less than or equal to 0.
      */
     public int registerErrorCode(int errorCode) {
-        if (errorCode < 0 || errorCode > 0xFFFF) {
+        if (errorCode <= 0 || errorCode > 0xFFFF) {
             throw new IllegalArgumentException("Error code should be greater than 0 and less than or equal to 0xFFFF");
         }
 
@@ -117,10 +117,10 @@ public class ErrorGroup {
      * @throws IllegalArgumentException If the specified name or group code already registered.
      *      or {@code groupCode} is greater than 0xFFFF or less than or equal to 0.
      */
-    public static ErrorGroup newGroup(String groupName, int groupCode) {
+    public static synchronized ErrorGroup newGroup(String groupName, int groupCode) {
         String grpName = groupName.toUpperCase(Locale.ENGLISH);
 
-        Optional<ErrorGroup> grp = registeredGroups.stream().filter(g -> g.name().equalsIgnoreCase(grpName)).findFirst();
+        Optional<ErrorGroup> grp = registeredGroups.stream().filter(g -> g.name().equals(grpName)).findFirst();
         if (grp.isPresent()) {
             throw new IllegalArgumentException(
                     "Error group already registered [groupName=" + groupName + ", registeredGroup=" + grp.get() + ']');

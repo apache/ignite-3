@@ -24,16 +24,16 @@ public class ErrorGroups {
     /** Common error group. */
     public static class Common {
         /** Unknown error group. */
-        public static final ErrorGroup UNKNOWN_ERR_GROUP = ErrorGroup.newGroup("UNK", 1);
+        public static final ErrorGroup COMMON_ERR_GROUP = ErrorGroup.newGroup("CMN", 1);
 
         /** Unknown error. */
-        public static int UNKNOWN_ERR = UNKNOWN_ERR_GROUP.registerErrorCode(1);
+        public static int UNKNOWN_ERR = COMMON_ERR_GROUP.registerErrorCode(1);
     }
 
     /** Tables error group. */
     public static class Table {
         /** Table error group. */
-        public static final ErrorGroup TABLE_ERR_GROUP = ErrorGroup.newGroup("TBL", 3);
+        public static final ErrorGroup TABLE_ERR_GROUP = ErrorGroup.newGroup("TBL", 2);
 
         /** Table already exists. */
         public static int TABLE_ALREADY_EXISTS_ERR = TABLE_ERR_GROUP.registerErrorCode(1);

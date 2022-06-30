@@ -21,8 +21,8 @@ import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.errorMessageFromCause;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
+import static org.apache.ignite.lang.ErrorGroups.Common.COMMON_ERR_GROUP;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR_GROUP;
 
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
@@ -56,7 +56,7 @@ public class IgniteException extends RuntimeException {
      */
     @Deprecated
     public IgniteException() {
-        this(UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR);
+        this(COMMON_ERR_GROUP.name(), UNKNOWN_ERR);
     }
 
     /**
@@ -66,7 +66,7 @@ public class IgniteException extends RuntimeException {
      */
     @Deprecated
     public IgniteException(String msg) {
-        this(UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR, msg);
+        this(COMMON_ERR_GROUP.name(), UNKNOWN_ERR, msg);
     }
 
     /**
@@ -76,7 +76,7 @@ public class IgniteException extends RuntimeException {
      */
     @Deprecated
     public IgniteException(Throwable cause) {
-        this(UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR, cause);
+        this(COMMON_ERR_GROUP.name(), UNKNOWN_ERR, cause);
     }
 
     /**
@@ -87,7 +87,7 @@ public class IgniteException extends RuntimeException {
      */
     @Deprecated
     public IgniteException(String msg, @Nullable Throwable cause) {
-        this(UNKNOWN_ERR_GROUP.name(), UNKNOWN_ERR, msg, cause);
+        this(COMMON_ERR_GROUP.name(), UNKNOWN_ERR, msg, cause);
     }
 
     /**
