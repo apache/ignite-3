@@ -47,6 +47,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
@@ -99,8 +100,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({WorkDirectoryExtension.class, SystemPropertiesExtension.class})
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+// TODO: use default restart mode after fix performance issue: https://issues.apache.org/jira/browse/IGNITE-16760
 @SqlLogicTestEnvironment(scriptsRoot = "src/sqlLogicTest/sql", restart = RestartMode.TEST)
+//@SqlLogicTestEnvironment(scriptsRoot = "src/sqlLogicTest/sql")
 public class SqlLogicTest {
+    private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
+
     private static final String NODE_NAME_PREFIX = "sqllogic";
 
     private static final FileSystem FS = FileSystems.getDefault();
@@ -127,16 +132,23 @@ public class SqlLogicTest {
     @WorkDirectory
     private static Path WORK_DIR;
 
+    /** Root of the tests scripts. */
     private static Path SCRIPTS_ROOT;
 
+    /** Count of the nodes in the test cluster. */
     private static int NODES;
 
+    /** Regexp to filter tests scropts. */
     private static Pattern TEST_REGEX;
 
+    /** Cluster restart mode. */
     private static RestartMode RESTART_CLUSTER;
 
+    /** Flag to include '*.test_slow' scripts to tests run. */
+    private static boolean INCLUDE_SLOW = IgniteSystemProperties.getBoolean(SQL_LOGIC_TEST_INCLUDE_SLOW);
+
     @BeforeAll
-    static void init() throws Exception {
+    static void init() {
         config();
 
         startNodes();
@@ -158,15 +170,7 @@ public class SqlLogicTest {
         try {
             AtomicBoolean first = new AtomicBoolean(true);
             return Files.list(dir).sorted()
-                    .filter(p -> {
-                        if (TEST_REGEX != null) {
-                            return (Files.isDirectory(p) && directoryMatch(p)) || TEST_REGEX.matcher(p.toString()).find();
-                        } else {
-                            return Files.isDirectory(p)
-                                    || p.toString().endsWith(".test")
-                                    || p.toString().endsWith(".test_slow");
-                        }
-                    })
+                    .filter(p -> (Files.isDirectory(p) && isFolderContainsMatch(p)) || fileMatch(p))
                     .map((p) -> {
                         if (Files.isDirectory(p)) {
                             return DynamicContainer.dynamicContainer(
@@ -207,12 +211,18 @@ public class SqlLogicTest {
         }
     }
 
-    private boolean directoryMatch(Path dir) {
+    private boolean isFolderContainsMatch(Path folder) {
         try {
-            return Files.walk(dir).anyMatch(p -> !Files.isDirectory(p) && TEST_REGEX.matcher(p.toString()).find());
+            return Files.walk(folder).anyMatch(p -> !Files.isDirectory(p) && fileMatch(p));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private boolean fileMatch(Path file) {
+        return (TEST_REGEX != null && TEST_REGEX.matcher(file.toString()).find())
+                || file.toString().endsWith(".test")
+                || (INCLUDE_SLOW && file.toString().endsWith(".test_slow"));
     }
 
     private void run(Path testPath) {
@@ -236,12 +246,16 @@ public class SqlLogicTest {
     }
 
     private void beforeTest() {
-        for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
-            try (Session s = CLUSTER_NODES.get(0).sql().createSession()) {
-                try (ResultSet rs = s.execute(null, "DROP TABLE " + t.name())) {
-                    assertTrue(rs.wasApplied());
+        if (RESTART_CLUSTER != RestartMode.TEST) {
+            for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
+                try (Session s = CLUSTER_NODES.get(0).sql().createSession()) {
+                    try (ResultSet rs = s.execute(null, "DROP TABLE " + t.name())) {
+                        assertTrue(rs.wasApplied());
+                    }
                 }
             }
+
+            // ((MetaStorageManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), "metaStorageMgr")).compact().join();
         }
     }
 
