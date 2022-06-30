@@ -291,7 +291,6 @@ class CheckpointWorkflow {
         return new CheckpointDirtyPagesInfoHolder(pages, pageCount);
     }
 
-    // TODO: IGNITE-17267 вот тут надо поменять и кешировать тредпулл
     IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> splitAndSortCheckpointPagesIfNeeded(
             CheckpointDirtyPagesInfoHolder dirtyPages
     ) throws IgniteInternalCheckedException {
@@ -299,23 +298,23 @@ class CheckpointWorkflow {
 
         int realPagesArrSize = 0;
 
-        for (IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>> regionPages : dirtyPages.dirtyPages) {
-            FullPageId[] pages = new FullPageId[regionPages.getValue().size()];
+        for (IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>> regionDirtyPages : dirtyPages.dirtyPages) {
+            FullPageId[] checkpointRegionDirtyPages = new FullPageId[regionDirtyPages.getValue().size()];
 
             int pagePos = 0;
 
-            for (FullPageId dirtyPage : regionPages.getValue()) {
+            for (FullPageId dirtyPage : regionDirtyPages.getValue()) {
                 assert realPagesArrSize++ != dirtyPages.dirtyPageCount :
                         "Incorrect estimated dirty pages number: " + dirtyPages.dirtyPageCount;
 
-                pages[pagePos++] = dirtyPage;
+                checkpointRegionDirtyPages[pagePos++] = dirtyPage;
             }
 
             // Some pages may have been already replaced.
-            if (pagePos != pages.length) {
-                checkpointPages.add(new IgniteBiTuple<>(regionPages.getKey(), Arrays.copyOf(pages, pagePos)));
+            if (pagePos != checkpointRegionDirtyPages.length) {
+                checkpointPages.add(new IgniteBiTuple<>(regionDirtyPages.getKey(), Arrays.copyOf(checkpointRegionDirtyPages, pagePos)));
             } else {
-                checkpointPages.add(new IgniteBiTuple<>(regionPages.getKey(), pages));
+                checkpointPages.add(new IgniteBiTuple<>(regionDirtyPages.getKey(), checkpointRegionDirtyPages));
             }
         }
 
@@ -344,6 +343,7 @@ class CheckpointWorkflow {
             }
         }
 
+        // TODO: IGNITE-17267 вот тут думаю надо другую структуру брать
         return new IgniteConcurrentMultiPairQueue<>(checkpointPages);
     }
 }
