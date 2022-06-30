@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft;
 
+import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForCondition;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
@@ -102,7 +103,7 @@ public class ItRaftGroupServiceTest {
                     RAFT_GROUP_NAME,
                     nodes,
                     () -> mock(RaftGroupListener.class),
-                    RaftGroupOptions.defaults()
+                    defaults()
             );
 
             svcFutures[i] = raftGroupServiceFuture;
