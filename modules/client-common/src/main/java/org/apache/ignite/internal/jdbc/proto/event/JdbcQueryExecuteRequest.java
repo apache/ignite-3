@@ -27,7 +27,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * JDBC query execute request.
  */
-public class QueryExecuteRequest implements ClientMessage {
+public class JdbcQueryExecuteRequest implements ClientMessage {
     /** Expected statement type. */
     private JdbcStatementType stmtType;
 
@@ -49,7 +49,7 @@ public class QueryExecuteRequest implements ClientMessage {
     /**
      * Default constructor. For deserialization purposes.
      */
-    public QueryExecuteRequest() {
+    public JdbcQueryExecuteRequest() {
     }
 
     /**
@@ -62,7 +62,7 @@ public class QueryExecuteRequest implements ClientMessage {
      * @param sqlQry     SQL query.
      * @param args       Arguments list.
      */
-    public QueryExecuteRequest(JdbcStatementType stmtType,
+    public JdbcQueryExecuteRequest(JdbcStatementType stmtType,
             String schemaName, int pageSize, int maxRows, String sqlQry, Object[] args) {
         Objects.requireNonNull(stmtType);
 
@@ -155,6 +155,6 @@ public class QueryExecuteRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(QueryExecuteRequest.class, this);
+        return S.toString(JdbcQueryExecuteRequest.class, this);
     }
 }
