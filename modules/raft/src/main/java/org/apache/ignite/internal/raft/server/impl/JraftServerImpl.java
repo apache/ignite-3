@@ -361,7 +361,6 @@ public class JraftServerImpl implements RaftServer {
         nodeOptions.setRaftGrpEvtsLsnr(evLsnr);
 
         if (groupOptions.volatileStores()) {
-            // override to volatile stores
             nodeOptions.setServiceFactory(new VolatileJRaftServiceFactory());
         }
 
