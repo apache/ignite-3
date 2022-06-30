@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
@@ -37,8 +35,6 @@ import org.jetbrains.annotations.Nullable;
  * {@link BplusTree} implementation for storing version chains.
  */
 public class VersionChainTree extends BplusTree<VersionChainLink, VersionChain> {
-    private final int partitionId;
-
     private final VersionChainDataPageReader dataPageReader;
 
     /**
@@ -46,50 +42,42 @@ public class VersionChainTree extends BplusTree<VersionChainLink, VersionChain> 
      *
      * @param grpId Group ID.
      * @param grpName Group name.
+     * @param partId Partition id.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
      * @param globalRmvId Global remove ID.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
-     * @param partitionId Partition id.
      * @param initNew {@code True} if new tree should be created.
      */
     public VersionChainTree(
             int grpId,
             String grpName,
+            int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
-            int partitionId,
             boolean initNew
     ) throws IgniteInternalCheckedException {
         super(
                 "VersionChainTree_" + grpId,
                 grpId,
                 grpName,
+                partId,
                 pageMem,
                 lockLsnr,
-                FLAG_AUX,
                 globalRmvId,
                 metaPageId,
                 reuseList
         );
-
-        this.partitionId = partitionId;
 
         dataPageReader = new VersionChainDataPageReader(pageMem, grpId, IoStatisticsHolderNoOp.INSTANCE);
 
         setIos(VersionChainInnerIo.VERSIONS, VersionChainLeafIo.VERSIONS, VersionChainMetaIo.VERSIONS);
 
         initTree(initNew);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-        return pageMem.allocatePage(grpId, partitionId, defaultPageFlag);
     }
 
     /** {@inheritDoc} */

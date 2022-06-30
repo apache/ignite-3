@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.pagememory.tree;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.util.Constants.MiB;
@@ -101,7 +101,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
     }
 
     private FullPageId allocateMetaPage() throws IgniteInternalCheckedException {
-        return new FullPageId(pageMem.allocatePage(GROUP_ID, INDEX_PARTITION, FLAG_AUX), GROUP_ID);
+        return new FullPageId(pageMem.allocatePage(GROUP_ID, 0, FLAG_AUX), GROUP_ID);
     }
 
     /**
@@ -129,25 +129,23 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
         /**
          * Constructor.
          *
-         * @param grpId Group ID.
-         * @param pageMem Page memory.
          * @param metaPageId Meta page ID.
+         * @param pageMem Page memory.
          * @throws IgniteInternalCheckedException If failed.
          */
         public TestPairTree(
-                int grpId,
-                PageMemory pageMem,
-                long metaPageId
+                FullPageId metaPageId,
+                PageMemory pageMem
         ) throws IgniteInternalCheckedException {
             super(
                     "test",
-                    grpId,
+                    metaPageId.groupId(),
                     null,
+                    partitionId(metaPageId.pageId()),
                     pageMem,
                     PageLockListenerNoOp.INSTANCE,
-                    FLAG_AUX,
                     new AtomicLong(),
-                    metaPageId,
+                    metaPageId.pageId(),
                     null,
                     new IoVersions<>(new TestPairInnerIo()),
                     new IoVersions<>(new TestPairLeafIo()),
@@ -159,12 +157,6 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
             ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new TestPairMetaIo()));
 
             initTree(true);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-            return pageMem.allocatePage(GROUP_ID, INDEX_PARTITION, defaultPageFlag);
         }
 
         /** {@inheritDoc} */
@@ -437,7 +429,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
      * @throws Exception If failed.
      */
     private TestPairTree prepareBplusTree() throws Exception {
-        TestPairTree tree = new TestPairTree(GROUP_ID, pageMem, allocateMetaPage().pageId());
+        TestPairTree tree = new TestPairTree(allocateMetaPage(), pageMem);
 
         tree.putx(new Pair(1, 0));
         tree.putx(new Pair(2, 0));

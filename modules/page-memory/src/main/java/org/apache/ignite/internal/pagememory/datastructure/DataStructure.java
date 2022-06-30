@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.datastructure;
 
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.MAX_ITEMID_NUM;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
@@ -75,31 +73,38 @@ public abstract class DataStructure {
     /** Default flag value for allocated pages. One of {@link PageIdAllocator#FLAG_DATA} or {@link PageIdAllocator#FLAG_AUX}. */
     protected final byte defaultPageFlag;
 
+    /** Partition id. */
+    protected final int partId;
+
     /**
      * Constructor.
      *
      * @param name Structure name (for debugging purposes).
-     * @param grpId Group id.
+     * @param grpId Group ID.
      * @param grpName Group name.
+     * @param partId Partition ID.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
      * @param defaultPageFlag Default flag value for allocated pages. One of {@link PageIdAllocator#FLAG_DATA} or {@link
-     * PageIdAllocator#FLAG_AUX}.
+     *      PageIdAllocator#FLAG_AUX}.
      */
     public DataStructure(
             String name,
             int grpId,
             @Nullable String grpName,
+            int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
             byte defaultPageFlag
     ) {
         assert !StringUtils.nullOrEmpty(name);
         assert pageMem != null;
+        assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
 
         this.name = name;
         this.grpId = grpId;
         this.grpName = grpName;
+        this.partId = partId;
         this.pageMem = pageMem;
         this.lockLsnr = lockLsnr;
         this.defaultPageFlag = defaultPageFlag;
@@ -171,8 +176,7 @@ public abstract class DataStructure {
 
         assert pageId != 0;
 
-        assert partitionId(pageId) == INDEX_PARTITION && flag(pageId) == FLAG_AUX
-                || partitionId(pageId) <= MAX_PARTITION_ID : toDetailString(pageId);
+        assert partitionId(pageId) >= 0 && partitionId(pageId) <= MAX_PARTITION_ID : toDetailString(pageId);
 
         assert flag(pageId) != FLAG_DATA || itemId(pageId) == 0 : toDetailString(pageId);
 
@@ -185,7 +189,9 @@ public abstract class DataStructure {
      * @return Page ID of newly allocated page.
      * @throws IgniteInternalCheckedException If failed.
      */
-    protected abstract long allocatePageNoReuse() throws IgniteInternalCheckedException;
+    protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
+        return pageMem.allocatePage(grpId, partId, defaultPageFlag);
+    }
 
     /**
      * Acquires the page by the given ID. This method will allocate a page with the given ID if it doesn't exist.
@@ -198,8 +204,7 @@ public abstract class DataStructure {
      * @throws IgniteInternalCheckedException If failed.
      */
     protected final long acquirePage(long pageId, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
-        assert partitionId(pageId) == INDEX_PARTITION && flag(pageId) == FLAG_AUX
-                || partitionId(pageId) <= MAX_PARTITION_ID : toDetailString(pageId);
+        assert partitionId(pageId) >= 0 && partitionId(pageId) <= MAX_PARTITION_ID : toDetailString(pageId);
 
         return pageMem.acquirePage(grpId, pageId, statHolder);
     }
