@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
@@ -90,7 +91,8 @@ public class ItCmgRaftServiceTest {
             CompletableFuture<RaftGroupService> raftService = raftManager.prepareRaftGroup(
                     TEST_GROUP,
                     List.copyOf(clusterService.topologyService().allMembers()),
-                    () -> new CmgRaftGroupListener(raftStorage)
+                    () -> new CmgRaftGroupListener(raftStorage),
+                    defaults()
             );
 
             assertThat(raftService, willCompleteSuccessfully());

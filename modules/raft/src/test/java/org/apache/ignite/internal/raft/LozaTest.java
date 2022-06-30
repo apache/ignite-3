@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft;
 
+import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
@@ -77,8 +78,14 @@ public class LozaTest extends IgniteAbstractTest {
 
         Supplier<RaftGroupListener> lsnrSupplier = () -> null;
 
-        assertThrows(NodeStoppingException.class, () -> loza.updateRaftGroup(raftGroupId, nodes, newNodes, lsnrSupplier, () -> null));
+        assertThrows(
+                NodeStoppingException.class,
+                () -> loza.updateRaftGroup(raftGroupId, nodes, newNodes, lsnrSupplier, () -> null, defaults())
+        );
         assertThrows(NodeStoppingException.class, () -> loza.stopRaftGroup(raftGroupId));
-        assertThrows(NodeStoppingException.class, () -> loza.prepareRaftGroup(raftGroupId, nodes, lsnrSupplier));
+        assertThrows(
+                NodeStoppingException.class,
+                () -> loza.prepareRaftGroup(raftGroupId, nodes, lsnrSupplier, defaults())
+        );
     }
 }

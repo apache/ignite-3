@@ -14,20 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.core;
 
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.LogStorage;
-import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
+import org.apache.ignite.raft.jraft.storage.VolatileStorage;
+import org.junit.jupiter.api.Test;
 
-public class TestJRaftServiceFactory extends DefaultJRaftServiceFactory {
-    public TestJRaftServiceFactory() {
-        super(null);
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
+
+class VolatileJRaftServiceFactoryTest {
+    private final VolatileJRaftServiceFactory serviceFactory = new VolatileJRaftServiceFactory();
+
+    @Test
+    void producesVolatileMetaStorage() {
+        assertThat(serviceFactory.createRaftMetaStorage("test", new RaftOptions()), is(instanceOf(VolatileStorage.class)));
     }
 
-    @Override
-    public LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions) {
-        return new LocalLogStorage(raftOptions);
+    @Test
+    void producesVolatileLogStorage() {
+        assertThat(serviceFactory.createLogStorage("test", new RaftOptions()), is(instanceOf(VolatileStorage.class)));
     }
-
 }
