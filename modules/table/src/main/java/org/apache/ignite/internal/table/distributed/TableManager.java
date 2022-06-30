@@ -567,8 +567,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
 
         CompletableFuture<?> schemaFut = schemaManager.schemaRegistry(causalityToken, tblId)
-            .thenAccept(table::schemaView)
-            .thenCompose(v -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table)));
+                .thenAccept(table::schemaView)
+                .thenCompose(v -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table)));
 
         beforeTablesVvComplete.add(schemaFut);
 
