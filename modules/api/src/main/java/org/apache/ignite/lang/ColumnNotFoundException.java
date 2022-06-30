@@ -31,6 +31,6 @@ public class ColumnNotFoundException extends IgniteException {
      * @param fullName Table canonical name.
      */
     public ColumnNotFoundException(String columnName, String fullName) {
-        super(TABLE_ERR_GROUP.name(), COLUMN_NOT_FOUND_ERR, "Column '" + columnName + "' does not exist in table '" + fullName + '/');
+        super(TABLE_ERR_GROUP.name(), COLUMN_NOT_FOUND_ERR, "Column '" + columnName + "' does not exist in table '" + fullName + '\'');
     }
 }
