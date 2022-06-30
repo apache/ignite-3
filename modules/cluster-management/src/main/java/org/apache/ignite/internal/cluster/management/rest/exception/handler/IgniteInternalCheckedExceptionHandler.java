@@ -26,7 +26,6 @@ import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Handles {@link IgniteInternalCheckedException} and represents it as a rest response.
