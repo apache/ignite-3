@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static java.util.stream.Collectors.toSet;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
@@ -205,10 +204,12 @@ public class FilePageStoreManagerTest {
             manager0.stop();
         }
 
-        assertThat(
-                Files.list(workDir.resolve("db/group-test0")).map(Path::getFileName).map(Path::toString).collect(toList()),
-                containsInAnyOrder("part-0.bin")
-        );
+        try (Stream<Path> files = Files.list(workDir.resolve("db/group-test0"))) {
+            assertThat(
+                    files.map(Path::getFileName).map(Path::toString).collect(toSet()),
+                    containsInAnyOrder("part-0.bin")
+            );
+        }
 
         // Checks with clean files.
 
