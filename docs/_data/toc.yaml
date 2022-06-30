@@ -50,5 +50,6 @@
   url: transactions/performing-transactions
 - title: Table Views
   url: table-views
-
+- title: Handling Exceptions
+  url: handling-exceptions
 

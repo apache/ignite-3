@@ -81,6 +81,7 @@ import org.apache.ignite.internal.metastorage.client.WatchEvent;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -486,7 +487,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partId,
                                     busyLock,
                                     movePartition(() -> internalTbl.partitionRaftGroupService(partId)),
-                                    rebalanceScheduler)
+                                    rebalanceScheduler),
+                            groupOptionsForInternalTable(internalTbl)
                     ).thenAccept(
                             updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
                                     .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
@@ -504,6 +506,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         CompletableFuture.allOf(futures).join();
+    }
+
+    private RaftGroupOptions groupOptionsForInternalTable(InternalTable internalTbl) {
+        return RaftGroupOptions.forTable(internalTbl.storage().isVolatile());
     }
 
     /** {@inheritDoc} */
@@ -1299,8 +1305,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         + "check if current node={} should start new raft group node for partition rebalance.",
                                 pendingAssignmentsWatchEvent.key(), part, tbl.name(), localMember.address());
 
-                        raftMgr.startRaftGroupNode(partId, assignments, deltaPeers, raftGrpLsnrSupplier,
-                                raftGrpEvtsLsnrSupplier);
+                        raftMgr.startRaftGroupNode(
+                                partId,
+                                assignments,
+                                deltaPeers,
+                                raftGrpLsnrSupplier,
+                                raftGrpEvtsLsnrSupplier,
+                                groupOptionsForInternalTable(tbl.internalTable())
+                        );
                     } catch (NodeStoppingException e) {
                         // no-op
                     }

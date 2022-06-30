@@ -25,7 +25,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * JDBC query fetch request.
  */
-public class QueryFetchRequest implements ClientMessage {
+public class JdbcQueryFetchRequest implements ClientMessage {
     /** Cursor ID. */
     private long cursorId;
 
@@ -35,7 +35,7 @@ public class QueryFetchRequest implements ClientMessage {
     /**
      * Constructor.
      */
-    public QueryFetchRequest() {
+    public JdbcQueryFetchRequest() {
     }
 
     /**
@@ -44,7 +44,7 @@ public class QueryFetchRequest implements ClientMessage {
      * @param cursorId Cursor ID.
      * @param pageSize Fetch size.
      */
-    public QueryFetchRequest(long cursorId, int pageSize) {
+    public JdbcQueryFetchRequest(long cursorId, int pageSize) {
         this.cursorId = cursorId;
         this.pageSize = pageSize;
     }
@@ -84,6 +84,6 @@ public class QueryFetchRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(QueryFetchRequest.class, this);
+        return S.toString(JdbcQueryFetchRequest.class, this);
     }
 }

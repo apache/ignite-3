@@ -35,6 +35,7 @@ import org.apache.ignite.cli.sql.SqlManager;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
 /**
  * Command for sql execution.
@@ -50,10 +51,10 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
     private ExecOptions execOptions;
 
     private static class ExecOptions {
-        @Option(names = {"-e", "--execute", "--exec"}) //todo: can be passed as parameter, not option (see IGNITE-17209)
+        @Parameters(index = "0", description = "SQL query to execute.")
         private String command;
 
-        @Option(names = {"-f", "--script-file"})
+        @Option(names = {"-f", "--script-file"}, description = "Path to file with SQL commands to execute.")
         private File file;
     }
 

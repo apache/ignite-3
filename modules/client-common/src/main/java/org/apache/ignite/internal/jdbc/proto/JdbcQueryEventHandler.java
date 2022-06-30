@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.jdbc.proto;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteRequest;
-import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteResult;
-import org.apache.ignite.internal.jdbc.proto.event.BatchPreparedStmntRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
@@ -29,57 +29,37 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryCloseRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryCloseResult;
-import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteResult;
-import org.apache.ignite.internal.jdbc.proto.event.QueryFetchRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
+import org.apache.ignite.internal.jdbc.proto.event.Response;
 
 /**
  * Jdbc client request handler.
  */
 public interface JdbcQueryEventHandler {
     /**
-     * {@link QueryExecuteRequest} command handler.
+     * {@link JdbcQueryExecuteRequest} command handler.
      *
      * @param req Execute query request.
      * @return Result future.
      */
-    CompletableFuture<QueryExecuteResult> queryAsync(QueryExecuteRequest req);
+    CompletableFuture<? extends Response> queryAsync(JdbcQueryExecuteRequest req);
 
     /**
-     * {@link QueryFetchRequest} command handler.
-     *
-     * @param req Fetch query request.
-     * @return Result future.
-     */
-    CompletableFuture<QueryFetchResult> fetchAsync(QueryFetchRequest req);
-
-    /**
-     * {@link BatchExecuteRequest} command handler.
+     * {@link JdbcBatchExecuteRequest} command handler.
      *
      * @param req Batch query request.
      * @return Result future.
      */
-    CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req);
+    CompletableFuture<JdbcBatchExecuteResult> batchAsync(JdbcBatchExecuteRequest req);
 
     /**
-     * {@link BatchPreparedStmntRequest} command handler.
+     * {@link JdbcBatchPreparedStmntRequest} command handler.
      *
      * @param req Batch query request.
      * @return Result future.
      */
-    CompletableFuture<BatchExecuteResult> batchPrepStatementAsync(BatchPreparedStmntRequest req);
-
-    /**
-     * {@link QueryCloseRequest} command handler.
-     *
-     * @param req Close query request.
-     * @return Result future.
-     */
-    CompletableFuture<QueryCloseResult> closeAsync(QueryCloseRequest req);
+    CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(
+            JdbcBatchPreparedStmntRequest req);
 
     /**
      * {@link JdbcMetaTablesRequest} command handler.
@@ -112,12 +92,4 @@ public interface JdbcQueryEventHandler {
      * @return Result future.
      */
     CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(JdbcMetaPrimaryKeysRequest req);
-
-    /**
-     * {@link JdbcQueryMetadataRequest} command handler.
-     *
-     * @param req Jdbc query metadata request.
-     * @return Result future.
-     */
-    CompletableFuture<JdbcMetaColumnsResult> queryMetadataAsync(JdbcQueryMetadataRequest req);
 }

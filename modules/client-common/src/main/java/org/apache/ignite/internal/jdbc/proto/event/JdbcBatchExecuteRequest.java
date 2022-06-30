@@ -28,7 +28,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 /**
  * JDBC batch execute request.
  */
-public class BatchExecuteRequest implements ClientMessage {
+public class JdbcBatchExecuteRequest implements ClientMessage {
     /** Schema name. */
     private String schemaName;
 
@@ -38,7 +38,7 @@ public class BatchExecuteRequest implements ClientMessage {
     /**
      * Default constructor.
      */
-    public BatchExecuteRequest() {
+    public JdbcBatchExecuteRequest() {
     }
 
     /**
@@ -47,7 +47,7 @@ public class BatchExecuteRequest implements ClientMessage {
      * @param schemaName Schema name.
      * @param queries    Queries.
      */
-    public BatchExecuteRequest(String schemaName, List<String> queries) {
+    public JdbcBatchExecuteRequest(String schemaName, List<String> queries) {
         assert !CollectionUtils.nullOrEmpty(queries);
 
         this.schemaName = schemaName;
@@ -101,6 +101,6 @@ public class BatchExecuteRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(BatchExecuteRequest.class, this);
+        return S.toString(JdbcBatchExecuteRequest.class, this);
     }
 }

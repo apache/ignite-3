@@ -17,11 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.reuse;
 
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
-
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.freelist.PagesList;
 import org.apache.ignite.internal.pagememory.io.PageIo;
@@ -48,10 +45,9 @@ public class ReuseListImpl extends PagesList implements ReuseList {
      *
      * @param name Structure name (for debug purpose).
      * @param grpId Group ID.
+     * @param partId Partition ID.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
-     * @param defaultPageFlag Default flag value for allocated pages. One of {@link PageIdAllocator#FLAG_DATA} or {@link
-     * PageIdAllocator#FLAG_AUX}.
      * @param log Logger.
      * @param metaPageId Metadata page ID.
      * @param initNew {@code True} if new metadata should be initialized.
@@ -60,9 +56,9 @@ public class ReuseListImpl extends PagesList implements ReuseList {
     public ReuseListImpl(
             String name,
             int grpId,
+            int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
-            byte defaultPageFlag,
             IgniteLogger log,
             long metaPageId,
             boolean initNew,
@@ -71,9 +67,9 @@ public class ReuseListImpl extends PagesList implements ReuseList {
         super(
                 name,
                 grpId,
+                partId,
                 pageMem,
                 lockLsnr,
-                defaultPageFlag,
                 log,
                 1,
                 metaPageId
@@ -84,12 +80,6 @@ public class ReuseListImpl extends PagesList implements ReuseList {
         reuseList = this;
 
         init(metaPageId, initNew);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-        return pageMem.allocatePage(grpId, INDEX_PARTITION, defaultPageFlag);
     }
 
     /** {@inheritDoc} */

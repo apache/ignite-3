@@ -56,6 +56,11 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         this.dataRegion = dataRegion;
     }
 
+    @Override
+    public boolean isVolatile() {
+        return false;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
@@ -218,6 +223,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         try {
             return new TableFreeList(
                     groupId(tableView),
+                    partId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
                     partitionMeta.reuseListRoot.pageId(),
@@ -255,12 +261,11 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             return new TableTree(
                     grpId,
                     tableView.name(),
-                    dataRegion.pageMemory(),
+                    partId, dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
                     partitionMeta.treeRoot.pageId(),
                     freeList,
-                    partId,
                     partitionMeta.allocated
             );
         } catch (IgniteInternalCheckedException e) {

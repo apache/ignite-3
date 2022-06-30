@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -57,6 +58,7 @@ import org.apache.ignite.raft.jraft.core.FSMCallerImpl;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
+import org.apache.ignite.raft.jraft.core.VolatileJRaftServiceFactory;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -71,7 +73,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -316,14 +317,24 @@ public class JraftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr, @Nullable List<Peer> initialConf) {
-        return startRaftGroup(groupId, RaftGroupEventsListener.noopLsnr, lsnr, initialConf);
+    public synchronized boolean startRaftGroup(
+            String groupId,
+            RaftGroupListener lsnr,
+            @Nullable List<Peer> initialConf,
+            RaftGroupOptions groupOptions
+    ) {
+        return startRaftGroup(groupId, RaftGroupEventsListener.noopLsnr, lsnr, initialConf, groupOptions);
     }
 
     /** {@inheritDoc} */
     @Override
-    public synchronized boolean startRaftGroup(String groupId, @NotNull RaftGroupEventsListener evLsnr,
-            RaftGroupListener lsnr, @Nullable List<Peer> initialConf) {
+    public synchronized boolean startRaftGroup(
+            String groupId,
+            RaftGroupEventsListener evLsnr,
+            RaftGroupListener lsnr,
+            @Nullable List<Peer> initialConf,
+            RaftGroupOptions groupOptions
+    ) {
         if (groups.containsKey(groupId)) {
             return false;
         }
@@ -331,6 +342,7 @@ public class JraftServerImpl implements RaftServer {
         // Thread pools are shared by all raft groups.
         NodeOptions nodeOptions = opts.copy();
 
+        // TODO: IGNITE-17083 - Do not create paths for volatile stores at all when we get rid of snapshot storage on FS.
         Path serverDataPath = getServerDataPath(groupId);
 
         try {
@@ -339,12 +351,18 @@ public class JraftServerImpl implements RaftServer {
             throw new IgniteInternalException(e);
         }
 
-        nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
+        if (!groupOptions.volatileStores()) {
+            nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
+        }
         nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
 
         nodeOptions.setFsm(new DelegatingStateMachine(lsnr));
 
         nodeOptions.setRaftGrpEvtsLsnr(evLsnr);
+
+        if (groupOptions.volatileStores()) {
+            nodeOptions.setServiceFactory(new VolatileJRaftServiceFactory());
+        }
 
         if (initialConf != null) {
             List<PeerId> mapped = initialConf.stream().map(PeerId::fromPeer).collect(Collectors.toList());

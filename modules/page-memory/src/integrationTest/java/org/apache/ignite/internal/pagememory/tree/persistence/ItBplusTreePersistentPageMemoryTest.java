@@ -30,8 +30,10 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPage
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManager;
+import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreePageMemoryTest;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -70,5 +72,17 @@ public class ItBplusTreePersistentPageMemoryTest extends AbstractBplusTreePageMe
     @Override
     protected long acquiredPages() {
         return ((PersistentPageMemory) pageMem).acquiredPages();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected @Nullable ReuseList createReuseList(
+            int grpId,
+            int partId,
+            PageMemory pageMem,
+            long rootId,
+            boolean initNew
+    ) {
+        return null;
     }
 }

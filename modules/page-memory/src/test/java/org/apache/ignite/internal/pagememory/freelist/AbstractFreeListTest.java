@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.freelist;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
@@ -142,23 +141,17 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
 
         return new AbstractFreeList<>(
                 0,
+                1,
                 "freelist",
                 pageMemory,
                 null,
                 PageLockListenerNoOp.INSTANCE,
-                FLAG_AUX,
                 log,
                 metaPageId,
                 true,
                 null,
                 PageEvictionTrackerNoOp.INSTANCE
         ) {
-            /** {@inheritDoc} */
-            @Override
-            protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-                return pageMemory.allocatePage(grpId, 0, FLAG_AUX);
-            }
-
             /** {@inheritDoc} */
             @Override
             public void insertDataRow(TestDataRow row, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {

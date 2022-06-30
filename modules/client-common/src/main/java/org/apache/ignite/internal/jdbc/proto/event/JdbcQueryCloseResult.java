@@ -15,43 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.store;
+package org.apache.ignite.internal.jdbc.proto.event;
 
-import java.util.AbstractList;
-import java.util.RandomAccess;
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * Holder of the group page stores (index and partitions).
- *
- * @param <T> Type of {@link PageStore}.
+ * JDBC query fetch result.
  */
-class GroupPageStoreHolder<T extends PageStore> extends AbstractList<T> implements RandomAccess {
-    /** Index page store. */
-    final T idxStore;
-
-    /** Partition page stores. */
-    final T[] partStores;
+public class JdbcQueryCloseResult extends Response {
+    /**
+     * Default constructor is used for deserialization.
+     */
+    public JdbcQueryCloseResult() {
+        hasResults = true;
+    }
 
     /**
      * Constructor.
      *
-     * @param idxStore Index page store.
-     * @param partStores Partition page stores.
+     * @param status Status code.
+     * @param err    Error message.
      */
-    public GroupPageStoreHolder(T idxStore, T[] partStores) {
-        this.idxStore = idxStore;
-        this.partStores = partStores;
+    public JdbcQueryCloseResult(int status, String err) {
+        super(status, err);
     }
 
     /** {@inheritDoc} */
     @Override
-    public T get(int index) {
-        return index == partStores.length ? idxStore : partStores[index];
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int size() {
-        return partStores.length + 1;
+    public String toString() {
+        return S.toString(JdbcQueryCloseResult.class, this);
     }
 }

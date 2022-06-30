@@ -29,7 +29,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 /**
  * JDBC prepared statement query batch execute request.
  */
-public class BatchPreparedStmntRequest implements ClientMessage {
+public class JdbcBatchPreparedStmntRequest implements ClientMessage {
     /** Schema name. */
     private String schemaName;
 
@@ -42,7 +42,7 @@ public class BatchPreparedStmntRequest implements ClientMessage {
     /**
      * Default constructor.
      */
-    public BatchPreparedStmntRequest() {
+    public JdbcBatchPreparedStmntRequest() {
     }
 
     /**
@@ -52,7 +52,7 @@ public class BatchPreparedStmntRequest implements ClientMessage {
      * @param query Sql query string.
      * @param args Sql query arguments.
      */
-    public BatchPreparedStmntRequest(String schemaName, String query, List<Object[]> args) {
+    public JdbcBatchPreparedStmntRequest(String schemaName, String query, List<Object[]> args) {
         assert !StringUtil.isNullOrEmpty(query);
         assert !CollectionUtils.nullOrEmpty(args);
 
@@ -120,6 +120,6 @@ public class BatchPreparedStmntRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(BatchPreparedStmntRequest.class, this);
+        return S.toString(JdbcBatchPreparedStmntRequest.class, this);
     }
 }
