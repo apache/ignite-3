@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.cliconfig;
+package org.apache.ignite.cli.commands.cliconfig.profile;
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
-import org.apache.ignite.cli.call.cliconfig.CliConfigCreateProfileCall;
-import org.apache.ignite.cli.call.cliconfig.CliConfigCreateProfileCallInput;
+import org.apache.ignite.cli.call.cliconfig.profile.CliConfigCreateProfileCall;
+import org.apache.ignite.cli.call.cliconfig.profile.CliConfigCreateProfileCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;

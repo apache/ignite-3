@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.cliconfig;
+package org.apache.ignite.cli.commands.cliconfig.profile;
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
-import org.apache.ignite.cli.call.cliconfig.CliConfigActivateCall;
+import org.apache.ignite.cli.call.cliconfig.profile.CliConfigUseCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
@@ -35,7 +35,7 @@ public class CliConfigUseCommand extends BaseCommand implements Callable<Integer
     private String profileName;
 
     @Inject
-    private CliConfigActivateCall call;
+    private CliConfigUseCall call;
 
     @Override
     public Integer call() {

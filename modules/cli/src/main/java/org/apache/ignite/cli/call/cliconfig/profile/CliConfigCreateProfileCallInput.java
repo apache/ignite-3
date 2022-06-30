@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.call.cliconfig;
+package org.apache.ignite.cli.call.cliconfig.profile;
 
 import org.apache.ignite.cli.core.call.CallInput;
 

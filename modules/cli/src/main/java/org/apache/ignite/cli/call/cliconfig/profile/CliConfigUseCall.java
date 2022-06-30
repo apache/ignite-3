@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.call.cliconfig;
+package org.apache.ignite.cli.call.cliconfig.profile;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -29,7 +29,7 @@ import org.apache.ignite.cli.core.call.StringCallInput;
  * Activate CLI profile as default.
  */
 @Singleton
-public class CliConfigActivateCall implements Call<StringCallInput, String> {
+public class CliConfigUseCall implements Call<StringCallInput, String> {
 
     @Inject
     private ConfigManagerProvider configManagerProvider;

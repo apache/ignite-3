@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.cli.commands.CliCommandTestBase;
+import org.apache.ignite.cli.commands.cliconfig.profile.CliConfigUseCommand;
 import org.apache.ignite.cli.config.ini.IniConfigManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
