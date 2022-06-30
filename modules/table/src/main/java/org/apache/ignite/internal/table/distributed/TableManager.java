@@ -624,13 +624,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             assert table != null : IgniteStringFormatter.format("There is no table with the name specified [name={}, id={}]",
                 name, tblId);
 
-            CompletableFuture<?> eventFut = fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table));
-
-            beforeTablesVvComplete.add(eventFut);
-
             table.internalTable().storage().destroy();
 
-            schemaManager.dropRegistry(causalityToken, table.tableId());
+            CompletableFuture<?> fut = schemaManager.dropRegistry(causalityToken, table.tableId())
+                    .thenCompose(v -> fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table)));
+
+            beforeTablesVvComplete.add(fut);
         } catch (Exception e) {
             fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, tblId, name), e);
         }
