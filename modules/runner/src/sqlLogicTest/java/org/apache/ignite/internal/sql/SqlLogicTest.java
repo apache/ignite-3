@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.base.Strings;
@@ -28,6 +29,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -57,7 +59,6 @@ import org.junit.jupiter.api.DynamicContainer;
 import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
-import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -102,7 +103,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
 // TODO: use default restart mode after fix performance issue: https://issues.apache.org/jira/browse/IGNITE-16760
 @SqlLogicTestEnvironment(scriptsRoot = "src/sqlLogicTest/sql", restart = RestartMode.FOLDER)
-//@SqlLogicTestEnvironment(scriptsRoot = "src/sqlLogicTest/sql")
 public class SqlLogicTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 
@@ -138,6 +138,9 @@ public class SqlLogicTest {
     /** Count of the nodes in the test cluster. */
     private static int NODES;
 
+    /** Test timeout. */
+    private static long TIMEOUT;
+
     /** Regexp to filter tests scropts. */
     private static Pattern TEST_REGEX;
 
@@ -160,7 +163,6 @@ public class SqlLogicTest {
     }
 
     @TestFactory
-    @Timeout(3 * 60)
     public Stream<DynamicNode> sql() {
         return sqlTestsFolder(SCRIPTS_ROOT);
     }
@@ -237,7 +239,11 @@ public class SqlLogicTest {
         );
 
         try {
-            r.run();
+            if (testPath.toString().endsWith("_slow")) {
+                r.run();
+            } else {
+                assertTimeoutPreemptively(Duration.ofMillis(TIMEOUT), r::run);
+            }
         } catch (Error | RuntimeException e) {
             throw e;
         } catch (Exception e) {
@@ -267,6 +273,7 @@ public class SqlLogicTest {
         NODES = env.nodes();
         TEST_REGEX = Strings.isNullOrEmpty(env.regex()) ? null : Pattern.compile(env.regex());
         RESTART_CLUSTER = env.restart();
+        TIMEOUT = env.timeout();
 
         // TODO: use default restart mode after fix performance issue: https://issues.apache.org/jira/browse/IGNITE-16760
         if (INCLUDE_SLOW) {

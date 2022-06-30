@@ -51,6 +51,13 @@ public @interface SqlLogicTestEnvironment {
     int nodes() default 2;
 
     /**
+     * Test timeout.
+     *
+     * @return Test timeout in millis.
+     */
+    long timeout() default 3 * 60 * 1000L;
+
+    /**
      * Flag to restart cluster for each test group (directory).
      *
      * @return {@code true} if the cluster must be restarted for each test group (directory).
