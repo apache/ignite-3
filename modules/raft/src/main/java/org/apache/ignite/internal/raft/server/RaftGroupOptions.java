@@ -21,16 +21,32 @@ package org.apache.ignite.internal.raft.server;
  * Options specific to a Raft group that is being started.
  */
 public class RaftGroupOptions {
+    /** Whether volatile stores should be used for the corresponding Raft Group. Classic Raft uses persistent ones. */
     private final boolean volatileStores;
 
+    /**
+     * Returns default options as defined by classic Raft (so stores are persistent).
+     *
+     * @return Default options.
+     */
     public static RaftGroupOptions defaults() {
         return forPersistentStores();
     }
 
+    /**
+     * Returns options with persistent Raft stores.
+     *
+     * @return Options with persistent Raft stores.
+     */
     public static RaftGroupOptions forPersistentStores() {
         return new RaftGroupOptions(false);
     }
 
+    /**
+     * Returns options with volatile Raft stores.
+     *
+     * @return Options with volatile Raft stores.
+     */
     public static RaftGroupOptions forVolatileStores() {
         return new RaftGroupOptions(true);
     }
