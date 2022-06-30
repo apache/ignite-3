@@ -503,7 +503,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private RaftGroupOptions groupOptionsForInternalTable(InternalTable internalTbl) {
-        return new RaftGroupOptions(internalTbl.storage().isVolatile());
+        return RaftGroupOptions.forTable(internalTbl.storage().isVolatile());
     }
 
     /** {@inheritDoc} */

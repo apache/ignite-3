@@ -51,7 +51,17 @@ public class RaftGroupOptions {
         return new RaftGroupOptions(true);
     }
 
-    public RaftGroupOptions(boolean volatileStores) {
+    /**
+     * Creates options derived from table configuration.
+     *
+     * @param isVolatile Whether the table is configured as volatile (in-memory) or not.
+     * @return Options derived from table configuration.
+     */
+    public static RaftGroupOptions forTable(boolean isVolatile) {
+        return isVolatile ? forVolatileStores() : forPersistentStores();
+    }
+
+    private RaftGroupOptions(boolean volatileStores) {
         this.volatileStores = volatileStores;
     }
 
