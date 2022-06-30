@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Type;
@@ -33,6 +35,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
@@ -41,6 +44,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.hamcrest.core.SubstringMatcher;
 import org.jetbrains.annotations.Nullable;
 
@@ -242,6 +246,8 @@ public abstract class QueryChecker {
 
     private List<Type> expectedColumnTypes;
 
+    private List<MetadataMatcher> metadataMatchers;
+
     private boolean ordered;
 
     private Object[] params = OBJECT_EMPTY_ARRAY;
@@ -322,6 +328,17 @@ public abstract class QueryChecker {
     }
 
     /**
+     * Sets columns metadata.
+     *
+     * @return This.
+     */
+    public QueryChecker columnMetadata(MetadataMatcher... matchers) {
+        metadataMatchers = Arrays.asList(matchers);
+
+        return this;
+    }
+
+    /**
      * Sets plan.
      *
      * @return This.
@@ -360,6 +377,8 @@ public abstract class QueryChecker {
 
         var cur = cursors.get(0).join();
 
+        var res = CursorUtils.getAllFromCursor(cur);
+
         if (expectedColumnNames != null) {
             List<String> colNames = cur.metadata().columns().stream()
                     .map(ColumnMetadata::name)
@@ -377,7 +396,21 @@ public abstract class QueryChecker {
             assertThat("Column types don't match", colTypes, equalTo(expectedColumnTypes));
         }
 
-        var res = CursorUtils.getAllFromCursor(cur);
+        if (metadataMatchers != null) {
+            List<ColumnMetadata> columnMetadata = cur.metadata().columns();
+
+            Iterator<ColumnMetadata> valueIterator = columnMetadata.iterator();
+            Iterator<MetadataMatcher> matcherIterator = metadataMatchers.iterator();
+
+            while(matcherIterator.hasNext() && valueIterator.hasNext()) {
+                MetadataMatcher matcher = matcherIterator.next();
+                ColumnMetadata actualElement = valueIterator.next();
+
+                matcher.check(actualElement);
+            }
+
+            assertFalse(matcherIterator.hasNext(), "Column metadata doesn't match");
+        }
 
         if (expectedResult != null) {
             if (!ordered) {
@@ -477,4 +510,5 @@ public abstract class QueryChecker {
             return 0;
         }
     }
+
 }
