@@ -1158,4 +1158,17 @@ public class ConfigurationUtil {
     public static <N> N getByInternalId(NamedListView<N> node, UUID internalId) {
         return node.get(((NamedListNode<?>) node).keyByInternalId(internalId));
     }
+
+    /**
+     * Returns all internal ids of the elements from the list.
+     */
+    public static List<UUID> internalIds(NamedConfigurationTree<?, ?, ?> cfg) {
+        assert cfg instanceof NamedListConfiguration || cfg instanceof DirectNamedListProxy : cfg.getClass();
+
+        if (cfg instanceof NamedListConfiguration) {
+            return ((NamedListConfiguration<?, ?, ?>) cfg).internalIds();
+        } else {
+            return ((DirectNamedListProxy<?, ?, ?>) cfg).internalIds();
+        }
+    }
 }

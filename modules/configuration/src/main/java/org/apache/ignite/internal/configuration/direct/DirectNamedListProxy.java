@@ -74,6 +74,13 @@ public class DirectNamedListProxy<T extends ConfigurationProperty<VIEWT>, VIEWT,
         return creator.apply(appendKey(keys, new KeyPathNode(internalId.toString(), false)), changer);
     }
 
+    /**
+     * Returns all internal ids of the elements from the list.
+     */
+    public List<UUID> internalIds() {
+        return changer.getLatest(appendKey(keys, new KeyPathNode(KeyPathNode.INTERNAL_IDS, false)));
+    }
+
     /** {@inheritDoc} */
     @Override public CompletableFuture<Void> change(Consumer<NamedListChange<VIEWT, CHANGET>> change) {
         throw new UnsupportedOperationException("change");
