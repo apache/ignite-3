@@ -41,6 +41,7 @@ import org.apache.ignite.cli.sql.SqlSchemaProvider;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
 /**
  * Command for sql execution in REPL mode.
@@ -57,10 +58,10 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
     private ExecOptions execOptions;
 
     private static class ExecOptions {
-        @Option(names = {"-e", "--execute", "--exec"}) //todo: can be passed as parameter, not option (see IEP-88)
+        @Parameters(index = "0", description = "SQL query to execute.")
         private String command;
 
-        @Option(names = {"-f", "--script-file"})
+        @Option(names = {"-f", "--script-file"}, description = "Path to file with SQL commands to execute.")
         private File file;
     }
 
