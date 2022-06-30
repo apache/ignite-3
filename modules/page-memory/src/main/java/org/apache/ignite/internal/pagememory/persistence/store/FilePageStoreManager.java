@@ -71,12 +71,12 @@ public class FilePageStoreManager implements PageReadWriteManager {
     private final PageReadWriteManager pageReadWriteManager = new PageReadWriteManagerImpl(this);
 
     /**
-     * Executor to disallow running code that modifies data in {@link #groupPageStoreHolders} concurrently with cleanup of file page store.
+     * Executor to disallow running code that modifies data in {@link #groupPageStores} concurrently with cleanup of file page store.
      */
     private final LongOperationAsyncExecutor cleanupAsyncExecutor;
 
     /** Mapping: group ID -> page store list. */
-    private final GroupPageStoreHolderMap<FilePageStore> groupPageStoreHolders;
+    private final GroupPageStoresMap<FilePageStore> groupPageStores;
 
     /** Group directory initialization lock. */
     private final IgniteStripedLock initGroupDirLock = new IgniteStripedLock(Math.max(Runtime.getRuntime().availableProcessors(), 8));
@@ -112,7 +112,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
         cleanupAsyncExecutor = new LongOperationAsyncExecutor(igniteInstanceName, log);
 
-        groupPageStoreHolders = new GroupPageStoreHolderMap<>(cleanupAsyncExecutor);
+        groupPageStores = new GroupPageStoresMap<>(cleanupAsyncExecutor);
     }
 
     /**
@@ -177,10 +177,10 @@ public class FilePageStoreManager implements PageReadWriteManager {
         initGroupDirLock.lock(grpId);
 
         try {
-            if (!groupPageStoreHolders.containsPageStores(grpId)) {
-                List<FilePageStore> holder = createGroupFilePageStoreHolder(grpName, partitions);
+            if (!groupPageStores.containsPageStores(grpId)) {
+                List<FilePageStore> partitionFilePageStores = createPartitionFilePageStores(grpName, partitions);
 
-                List<FilePageStore> old = groupPageStoreHolders.put(grpId, holder);
+                List<FilePageStore> old = groupPageStores.put(grpId, partitionFilePageStores);
 
                 assert old == null : grpName;
             }
@@ -199,7 +199,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param grpId Group ID.
      */
     public @Nullable Collection<FilePageStore> getStores(int grpId) {
-        return groupPageStoreHolders.get(grpId);
+        return groupPageStores.get(grpId);
     }
 
     /**
@@ -212,7 +212,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
     public FilePageStore getStore(int grpId, int partId) throws IgniteInternalCheckedException {
         assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
 
-        List<FilePageStore> holder = groupPageStoreHolders.get(grpId);
+        List<FilePageStore> holder = groupPageStores.get(grpId);
 
         if (holder == null) {
             throw new IgniteInternalCheckedException(
@@ -237,19 +237,18 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param cleanFiles Delete files.
      */
     void stopAllGroupFilePageStores(boolean cleanFiles) {
-        List<List<FilePageStore>> holders = List.copyOf(groupPageStoreHolders.allPageStores());
+        List<FilePageStore> partitionPageStores = groupPageStores.allPageStores().stream()
+                .flatMap(Collection::stream)
+                .collect(toList());
 
-        groupPageStoreHolders.clear();
+        groupPageStores.clear();
 
         Runnable stopPageStores = () -> {
             try {
-                stopGroupFilePageStores(
-                        holders.stream().flatMap(Collection::stream).collect(toList()),
-                        cleanFiles
-                );
+                stopGroupFilePageStores(partitionPageStores, cleanFiles);
 
                 if (log.isInfoEnabled()) {
-                    log.info(String.format("Cleanup cache stores [total=%s, cleanFiles=%s]", holders.size(), cleanFiles));
+                    log.info(String.format("Cleanup cache stores [total=%s, cleanFiles=%s]", partitionPageStores.size(), cleanFiles));
                 }
             } catch (Exception e) {
                 log.error("Failed to gracefully stop page store managers", e);
@@ -264,11 +263,11 @@ public class FilePageStoreManager implements PageReadWriteManager {
     }
 
     private static void stopGroupFilePageStores(
-            List<FilePageStore> groupFilePageStoreHolders,
+            List<FilePageStore> partitionPageStores,
             boolean cleanFiles
     ) throws IgniteInternalCheckedException {
         try {
-            List<AutoCloseable> closePageStores = groupFilePageStoreHolders.stream()
+            List<AutoCloseable> closePageStores = partitionPageStores.stream()
                     .map(pageStore -> (AutoCloseable) () -> pageStore.stop(cleanFiles))
                     .collect(toList());
 
@@ -294,7 +293,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
         return groupWorkDir;
     }
 
-    private List<FilePageStore> createGroupFilePageStoreHolder(
+    private List<FilePageStore> createPartitionFilePageStores(
             String grpName,
             int partitions
     ) throws IgniteInternalCheckedException {

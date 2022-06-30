@@ -195,17 +195,15 @@ public class FilePageStoreManagerTest {
             }
 
             manager0.stopAllGroupFilePageStores(false);
-
+        } finally {
             // Waits for all asynchronous operations to complete.
             manager0.stop();
-
-            assertThat(
-                    Files.list(workDir.resolve("db/group-test0")).map(Path::getFileName).map(Path::toString).collect(toList()),
-                    containsInAnyOrder("part-0.bin")
-            );
-        } finally {
-            manager0.stop();
         }
+
+        assertThat(
+                Files.list(workDir.resolve("db/group-test0")).map(Path::getFileName).map(Path::toString).collect(toList()),
+                containsInAnyOrder("part-0.bin")
+        );
 
         // Checks with clean files.
 
@@ -219,14 +217,12 @@ public class FilePageStoreManagerTest {
             }
 
             manager1.stopAllGroupFilePageStores(true);
-
+        } finally {
             // Waits for all asynchronous operations to complete.
             manager1.stop();
-
-            assertThat(workDir.resolve("db/group-test1").toFile().listFiles(), emptyArray());
-        } finally {
-            manager1.stop();
         }
+
+        assertThat(workDir.resolve("db/group-test1").toFile().listFiles(), emptyArray());
     }
 
     private FilePageStoreManager createManager() throws Exception {

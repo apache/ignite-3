@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <T> Type of {@link PageStore}.
  */
-class GroupPageStoreHolderMap<T extends PageStore> {
+class GroupPageStoresMap<T extends PageStore> {
     /** Mapping: grpId -> list of page stores. */
     private final ConcurrentHashMap<Integer, List<T>> groupPageStores = new ConcurrentHashMap<>();
 
@@ -42,7 +42,7 @@ class GroupPageStoreHolderMap<T extends PageStore> {
      *
      * @param longOperationAsyncExecutor Executor that wraps data adding and replacing operations.
      */
-    public GroupPageStoreHolderMap(LongOperationAsyncExecutor longOperationAsyncExecutor) {
+    public GroupPageStoresMap(LongOperationAsyncExecutor longOperationAsyncExecutor) {
         this.longOperationAsyncExecutor = longOperationAsyncExecutor;
     }
 

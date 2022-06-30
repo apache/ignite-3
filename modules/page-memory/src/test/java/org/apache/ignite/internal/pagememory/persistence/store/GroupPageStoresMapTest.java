@@ -38,12 +38,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * For {@link GroupPageStoreHolderMap} testing.
+ * For {@link GroupPageStoresMap} testing.
  */
-public class GroupPageStoreHolderMapTest {
+public class GroupPageStoresMapTest {
     private LongOperationAsyncExecutor longOperationAsyncExecutor;
 
-    private GroupPageStoreHolderMap<PageStore> groupPageStores;
+    private GroupPageStoresMap<PageStore> groupPageStores;
 
     @BeforeEach
     void setUp() {
@@ -52,7 +52,7 @@ public class GroupPageStoreHolderMapTest {
         when(longOperationAsyncExecutor.afterAsyncCompletion(any(Supplier.class)))
                 .then(answer -> ((Supplier<?>) answer.getArgument(0)).get());
 
-        groupPageStores = new GroupPageStoreHolderMap<>(longOperationAsyncExecutor);
+        groupPageStores = new GroupPageStoresMap<>(longOperationAsyncExecutor);
     }
 
     @Test
