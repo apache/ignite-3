@@ -157,7 +157,7 @@ class CheckpointWorkflow {
 
         checkpointReadWriteLock.writeLock();
 
-        CheckpointDirtyPagesInfoHolder dirtyPages;
+        DataRegionsDirtyPages dirtyPages;
 
         try {
             curr.transitTo(LOCK_TAKEN);
@@ -272,7 +272,7 @@ class CheckpointWorkflow {
                 .collect(toUnmodifiableList());
     }
 
-    private CheckpointDirtyPagesInfoHolder beginCheckpoint(
+    private DataRegionsDirtyPages beginCheckpoint(
             Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
             CompletableFuture<?> allowToReplace
     ) {
@@ -288,24 +288,24 @@ class CheckpointWorkflow {
             pages.add(new IgniteBiTuple<>(dataRegion.pageMemory(), dirtyPages));
         }
 
-        return new CheckpointDirtyPagesInfoHolder(pages, pageCount);
+        return new DataRegionsDirtyPages(pages, pageCount);
     }
 
     IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> splitAndSortCheckpointPagesIfNeeded(
-            CheckpointDirtyPagesInfoHolder dirtyPages
+            DataRegionsDirtyPages dataRegionsDirtyPages
     ) throws IgniteInternalCheckedException {
         Set<IgniteBiTuple<PersistentPageMemory, FullPageId[]>> checkpointPages = new HashSet<>();
 
         int realPagesArrSize = 0;
 
-        for (IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>> regionDirtyPages : dirtyPages.dirtyPages) {
+        for (IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>> regionDirtyPages : dataRegionsDirtyPages.dirtyPages) {
             FullPageId[] checkpointRegionDirtyPages = new FullPageId[regionDirtyPages.getValue().size()];
 
             int pagePos = 0;
 
             for (FullPageId dirtyPage : regionDirtyPages.getValue()) {
-                assert realPagesArrSize++ != dirtyPages.dirtyPageCount :
-                        "Incorrect estimated dirty pages number: " + dirtyPages.dirtyPageCount;
+                assert realPagesArrSize++ != dataRegionsDirtyPages.dirtyPageCount :
+                        "Incorrect estimated dirty pages number: " + dataRegionsDirtyPages.dirtyPageCount;
 
                 checkpointRegionDirtyPages[pagePos++] = dirtyPage;
             }
@@ -318,6 +318,7 @@ class CheckpointWorkflow {
             }
         }
 
+        // TODO: IGNITE-17267 не забыть написать тест, можно еще тест чтобы превыщать порог для паралельной сортировки
         Comparator<FullPageId> cmp = Comparator.comparingInt(FullPageId::groupId).thenComparingLong(FullPageId::effectivePageId);
 
         List<ForkJoinTask<?>> parallelSortTasks = checkpointPages.stream()

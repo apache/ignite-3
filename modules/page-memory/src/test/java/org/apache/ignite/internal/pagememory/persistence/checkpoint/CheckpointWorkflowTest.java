@@ -302,6 +302,7 @@ public class CheckpointWorkflowTest {
         verify(markersStorage, times(1)).onCheckpointBegin(checkpointId);
     }
 
+    // TODO: IGNITE-17267 думаю надо переименовать или вроде того
     @Test
     void testMarkCheckpointBeginSequential() throws Exception {
         List<FullPageId> dirtyPages = List.of(new FullPageId(1, 0), new FullPageId(0, 0), new FullPageId(2, 0));
