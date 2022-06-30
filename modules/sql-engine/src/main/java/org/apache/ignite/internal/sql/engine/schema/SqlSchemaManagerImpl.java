@@ -250,7 +250,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 }
         );
 
-        return completedFuture(false);
+        return calciteSchemaVv.get(causalityToken);
     }
 
     /**
@@ -312,7 +312,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 }
         );
 
-        return completedFuture(false);
+        return calciteSchemaVv.get(causalityToken);
     }
 
     /**
