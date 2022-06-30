@@ -101,7 +101,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith({WorkDirectoryExtension.class, SystemPropertiesExtension.class})
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
 // TODO: use default restart mode after fix performance issue: https://issues.apache.org/jira/browse/IGNITE-16760
-@SqlLogicTestEnvironment(scriptsRoot = "src/sqlLogicTest/sql", restart = RestartMode.TEST)
+@SqlLogicTestEnvironment(scriptsRoot = "src/sqlLogicTest/sql", restart = RestartMode.FOLDER)
 //@SqlLogicTestEnvironment(scriptsRoot = "src/sqlLogicTest/sql")
 public class SqlLogicTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
@@ -269,6 +269,11 @@ public class SqlLogicTest {
         NODES = env.nodes();
         TEST_REGEX = Strings.isNullOrEmpty(env.regex()) ? null : Pattern.compile(env.regex());
         RESTART_CLUSTER = env.restart();
+
+        // TODO: use default restart mode after fix performance issue: https://issues.apache.org/jira/browse/IGNITE-16760
+        if (INCLUDE_SLOW) {
+            RESTART_CLUSTER = RestartMode.TEST;
+        }
     }
 
     private static void restartCluster() throws Exception {
