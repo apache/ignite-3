@@ -29,44 +29,28 @@ import org.apache.ignite.internal.rest.problem.Builder;
  * Implements application/problem+json schema defined in <a href="https://www.rfc-editor.org/rfc/rfc7807.html">RFC-7807</a>.
  */
 public class Problem {
-    /**
-     * Short, human-readable summary of the problem type.
-     */
+    /** Short, human-readable summary of the problem type. */
     private final String title;
 
-    /**
-     * HTTP status code.
-     */
+    /** HTTP status code. */
     private final int status;
 
-    /**
-     * Ignite 3 error code.
-     */
+    /** Ignite 3 error code. */
     private final String code;
 
-    /**
-     * URI to the error documentation (optional).
-     */
+    /** URI to the error documentation (optional). */
     private final String type;
 
-    /**
-     * Human-readable explanation of the problem (optional).
-     */
+    /** Human-readable explanation of the problem (optional). */
     private final String detail;
 
-    /**
-     * Ignite 3 node name (optional).
-     */
+    /** Ignite 3 node name (optional). */
     private final String node;
 
-    /**
-     * Unique identifier that will help to trace the error in the log (optional).
-     */
+    /** Unique identifier that will help to trace the error in the log (optional). */
     private final UUID traceId;
 
-    /**
-     * Constructor.
-     */
+    /** Constructor. */
     @JsonCreator
     protected Problem(
             @JsonProperty("title") String title,
@@ -85,16 +69,12 @@ public class Problem {
         this.traceId = traceId;
     }
 
-    /**
-     * Returns {@link ProblemBuilder}.
-     */
+    /** Returns {@link ProblemBuilder}. */
     public static <T extends Problem, B extends ProblemBuilder<T, B>> ProblemBuilder<T, B> builder() {
         return new ProblemBuilder<>();
     }
 
-    /**
-     * Returns {@link ProblemBuilder} with http status and title.
-     */
+    /** Returns {@link ProblemBuilder} with http status and title. */
     public static <T extends Problem, B extends ProblemBuilder<T, B>> ProblemBuilder<T, B> fromHttpCode(HttpCode httpCode) {
         ProblemBuilder<T, B> builder = new ProblemBuilder<>();
         builder.status(httpCode.code());
@@ -170,9 +150,7 @@ public class Problem {
                 + '}';
     }
 
-    /**
-     * Builder for {@link Problem}.
-     */
+    /** Builder for {@link Problem}. */
     public static class ProblemBuilder<T extends Problem, B extends ProblemBuilder<T, B>> implements Builder<T, B> {
         protected String title;
 

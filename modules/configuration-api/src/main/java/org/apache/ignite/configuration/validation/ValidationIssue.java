@@ -25,6 +25,7 @@ import org.apache.ignite.internal.tostring.S;
  */
 public class ValidationIssue {
     /** Configuration key. */
+    @IgniteToStringInclude
     private final String key;
 
     /** Message. */

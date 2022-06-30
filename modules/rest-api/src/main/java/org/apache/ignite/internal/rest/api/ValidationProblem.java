@@ -29,14 +29,10 @@ import org.apache.ignite.internal.rest.constants.HttpCode;
  * Validation problem that adds one more property (invalidParams) to the standard problem.
  */
 public class ValidationProblem extends Problem {
-    /**
-     * List of parameter that did not pass the validation (optional).
-     */
+    /** List of parameter that did not pass the validation (optional). */
     private final Collection<InvalidParam> invalidParams;
 
-    /**
-     * Constructor.
-     */
+    /** Constructor. */
     @JsonCreator
     public ValidationProblem(
             @JsonProperty("title") String title,
@@ -84,16 +80,12 @@ public class ValidationProblem extends Problem {
                 + "} " + super.toString();
     }
 
-    /**
-     * Returns {@link ValidationProblemBuilder}.
-     */
+    /** Returns {@link ValidationProblemBuilder}. */
     public static ValidationProblemBuilder builder() {
         return new ValidationProblemBuilder();
     }
 
-    /**
-     * Returns {@link ValidationProblemBuilder} with http status and title.
-     */
+    /** Returns {@link ValidationProblemBuilder} with http status and title. */
     public static ValidationProblemBuilder fromHttpCode(HttpCode httpCode) {
         ValidationProblemBuilder builder = new ValidationProblemBuilder();
         builder.status(httpCode.code());
@@ -102,9 +94,7 @@ public class ValidationProblem extends Problem {
         return builder;
     }
 
-    /**
-     * Builder for {@link ValidationProblem}.
-     */
+    /** Builder for {@link ValidationProblem}. */
     public static class ValidationProblemBuilder extends ProblemBuilder<ValidationProblem, ValidationProblemBuilder> {
         private Collection<InvalidParam> invalidParams;
 
