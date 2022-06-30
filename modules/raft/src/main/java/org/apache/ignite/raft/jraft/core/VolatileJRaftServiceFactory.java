@@ -17,8 +17,6 @@
 package org.apache.ignite.raft.jraft.core;
 
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
-import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
-import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
@@ -28,20 +26,20 @@ import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.StringUtils;
-import org.apache.ignite.raft.jraft.util.timer.DefaultRaftTimerFactory;
-import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
 
 /**
  * The factory for JRaft services producing volatile stores. Useful for Raft groups hosting partitions of in-memory tables.
  */
 public class VolatileJRaftServiceFactory implements JRaftServiceFactory {
-    @Override public LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions) {
+    @Override
+    public LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions) {
         Requires.requireTrue(StringUtils.isNotBlank(groupId), "Blank group id.");
 
         return new LocalLogStorage(raftOptions);
     }
 
-    @Override public SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions) {
+    @Override
+    public SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions) {
         Requires.requireTrue(!StringUtils.isBlank(uri), "Blank snapshot storage uri.");
 
         // TODO: IGNITE-17083 - return an in-memory store here (or get rid of SnapshotStorage)
@@ -49,15 +47,8 @@ public class VolatileJRaftServiceFactory implements JRaftServiceFactory {
         return new LocalSnapshotStorage(uri, raftOptions);
     }
 
-    @Override public RaftMetaStorage createRaftMetaStorage(final String uri, final RaftOptions raftOptions) {
+    @Override
+    public RaftMetaStorage createRaftMetaStorage(final String uri, final RaftOptions raftOptions) {
         return new VolatileRaftMetaStorage();
-    }
-
-    @Override public LogEntryCodecFactory createLogEntryCodecFactory() {
-        return LogEntryV1CodecFactory.getInstance();
-    }
-
-    @Override public RaftTimerFactory createRaftTimerFactory() {
-        return new DefaultRaftTimerFactory();
     }
 }
