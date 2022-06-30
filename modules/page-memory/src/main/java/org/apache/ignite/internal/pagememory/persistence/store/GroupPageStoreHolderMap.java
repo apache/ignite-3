@@ -17,21 +17,23 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiFunction;
-import java.util.function.Function;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Proxy class for map (grpId -> page store list) that wraps data adding and replacing operations to disallow concurrent execution
+ * Proxy class for map (grpId -> list of page stores) that wraps data adding and replacing operations to disallow concurrent execution
  * simultaneously with cleanup of file page storage.
  *
  * <p>Wrapping of data removing operations is not needed.
  *
  * @param <T> Type of {@link PageStore}.
  */
-class GroupPageStoreHolderMap<T extends PageStore> extends ConcurrentHashMap<Integer, List<T>> {
+class GroupPageStoreHolderMap<T extends PageStore> {
+    /** Mapping: grpId -> list of page stores. */
+    private final ConcurrentHashMap<Integer, List<T>> groupPageStores = new ConcurrentHashMap<>();
+
     /** Executor that wraps data adding and replacing operations. */
     private final LongOperationAsyncExecutor longOperationAsyncExecutor;
 
@@ -44,74 +46,53 @@ class GroupPageStoreHolderMap<T extends PageStore> extends ConcurrentHashMap<Int
         this.longOperationAsyncExecutor = longOperationAsyncExecutor;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public List<T> put(Integer grpId, List<T> val) {
-        return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.put(grpId, val));
+    /**
+     * Puts the page stores for the group.
+     *
+     * @param grpId Group ID.
+     * @param pageStores Page stores.
+     * @return Previous page stores.
+     */
+    public @Nullable List<T> put(Integer grpId, List<T> pageStores) {
+        return longOperationAsyncExecutor.afterAsyncCompletion(() -> groupPageStores.put(grpId, pageStores));
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void putAll(Map<? extends Integer, ? extends List<T>> m) {
-        longOperationAsyncExecutor.afterAsyncCompletion(() -> {
-            super.putAll(m);
-
-            return null;
-        });
+    /**
+     * Returns the page stores for the group.
+     *
+     * @param grpId Group ID.
+     */
+    public @Nullable List<T> get(Integer grpId) {
+        return groupPageStores.get(grpId);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public List<T> putIfAbsent(Integer grpId, List<T> val) {
-        return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.putIfAbsent(grpId, val));
+    /**
+     * Returns {@code true} if a page stores exists for the group.
+     *
+     * @param grpId Group ID.
+     */
+    public boolean containsPageStores(Integer grpId) {
+        return groupPageStores.containsKey(grpId);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public boolean replace(Integer grpId, List<T> oldVal, List<T> newVal) {
-        return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.replace(grpId, oldVal, newVal));
+    /**
+     * Returns all page stores of all groups.
+     */
+    public Collection<List<T>> allPageStores() {
+        return groupPageStores.values();
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public List<T> replace(Integer grpId, List<T> val) {
-        return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.replace(grpId, val));
+    /**
+     * Clears all page stores of all groups.
+     */
+    public void clear() {
+        groupPageStores.clear();
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public List<T> computeIfAbsent(
-            Integer grpId,
-            Function<? super Integer, ? extends List<T>> mappingFunction
-    ) {
-        return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.computeIfAbsent(grpId, mappingFunction));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<T> computeIfPresent(
-            Integer grpId,
-            BiFunction<? super Integer, ? super List<T>, ? extends List<T>> remappingFunction
-    ) {
-        return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.computeIfPresent(grpId, remappingFunction));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<T> compute(
-            Integer grpId,
-            BiFunction<? super Integer, ? super List<T>, ? extends List<T>> remappingFunction
-    ) {
-        return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.compute(grpId, remappingFunction));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<T> merge(
-            Integer grpId,
-            List<T> val,
-            BiFunction<? super List<T>, ? super List<T>, ? extends List<T>> remappingFun
-    ) {
-        return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.merge(grpId, val, remappingFun));
+    /**
+     * Returns the number of groups for which there are page stores.
+     */
+    public int groupCount() {
+        return groupPageStores.size();
     }
 }

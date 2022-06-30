@@ -214,7 +214,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     /**
-     * Returns reuse list.
+     * Creates a reuse list, {@code null} if not needed.
      *
      * @param grpId Cache ID.
      * @param partId Partition ID.
@@ -223,9 +223,13 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
      * @param initNew Init new flag.
      * @throws Exception If failed.
      */
-    protected ReuseList createReuseList(int grpId, int partId, PageMemory pageMem, long rootId, boolean initNew) throws Exception {
-        return null;
-    }
+    protected abstract @Nullable ReuseList createReuseList(
+            int grpId,
+            int partId,
+            PageMemory pageMem,
+            long rootId,
+            boolean initNew
+    ) throws Exception;
 
     @Test
     public void testFind() throws Exception {

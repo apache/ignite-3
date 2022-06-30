@@ -19,14 +19,14 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -196,15 +196,12 @@ public class FilePageStoreManagerTest {
 
             manager0.stopAllGroupFilePageStores(false);
 
-            assertFalse(waitForCondition(
-                    () -> workDir.resolve("db/group-test0").toFile().listFiles().length == 0,
-                    10,
-                    100
-            ));
+            // Waits for all asynchronous operations to complete.
+            manager0.stop();
 
             assertThat(
-                    Files.list(workDir.resolve("db/group-test0")).map(Path::getFileName).map(Path::toString).collect(toSet()),
-                    equalTo(Set.of("part-0.bin"))
+                    Files.list(workDir.resolve("db/group-test0")).map(Path::getFileName).map(Path::toString).collect(toList()),
+                    containsInAnyOrder("part-0.bin")
             );
         } finally {
             manager0.stop();
@@ -223,12 +220,10 @@ public class FilePageStoreManagerTest {
 
             manager1.stopAllGroupFilePageStores(true);
 
-            assertTrue(waitForCondition(
-                    () -> workDir.resolve("db/group-test1").toFile().listFiles().length == 0,
-                    10,
-                    // Because deleting files happens in a new thread.
-                    1_000
-            ));
+            // Waits for all asynchronous operations to complete.
+            manager1.stop();
+
+            assertThat(workDir.resolve("db/group-test1").toFile().listFiles(), emptyArray());
         } finally {
             manager1.stop();
         }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.nio.file.Files.createDirectories;
+import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -28,7 +29,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
@@ -177,7 +177,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
         initGroupDirLock.lock(grpId);
 
         try {
-            if (!groupPageStoreHolders.containsKey(grpId)) {
+            if (!groupPageStoreHolders.containsPageStores(grpId)) {
                 List<FilePageStore> holder = createGroupFilePageStoreHolder(grpName, partitions);
 
                 List<FilePageStore> old = groupPageStoreHolders.put(grpId, holder);
@@ -237,19 +237,16 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param cleanFiles Delete files.
      */
     void stopAllGroupFilePageStores(boolean cleanFiles) {
-        List<List<FilePageStore>> holders = new ArrayList<>(groupPageStoreHolders.size());
+        List<List<FilePageStore>> holders = List.copyOf(groupPageStoreHolders.allPageStores());
 
-        for (Iterator<List<FilePageStore>> it = groupPageStoreHolders.values().iterator(); it.hasNext(); ) {
-            List<FilePageStore> holder = it.next();
-
-            it.remove();
-
-            holders.add(holder);
-        }
+        groupPageStoreHolders.clear();
 
         Runnable stopPageStores = () -> {
             try {
-                stopGroupFilePageStores(holders, cleanFiles);
+                stopGroupFilePageStores(
+                        holders.stream().flatMap(Collection::stream).collect(toList()),
+                        cleanFiles
+                );
 
                 if (log.isInfoEnabled()) {
                     log.info(String.format("Cleanup cache stores [total=%s, cleanFiles=%s]", holders.size(), cleanFiles));
@@ -267,12 +264,11 @@ public class FilePageStoreManager implements PageReadWriteManager {
     }
 
     private static void stopGroupFilePageStores(
-            Collection<List<FilePageStore>> groupFilePageStoreHolders,
+            List<FilePageStore> groupFilePageStoreHolders,
             boolean cleanFiles
     ) throws IgniteInternalCheckedException {
         try {
             List<AutoCloseable> closePageStores = groupFilePageStoreHolders.stream()
-                    .flatMap(Collection::stream)
                     .map(pageStore -> (AutoCloseable) () -> pageStore.stop(cleanFiles))
                     .collect(toList());
 
@@ -306,14 +302,14 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
         FilePageStoreFactory filePageStoreFactory = new FilePageStoreFactory(filePageStoreFileIoFactory, pageSize);
 
-        FilePageStore[] partitionFilePageStores = new FilePageStore[partitions];
+        List<FilePageStore> partitionFilePageStores = new ArrayList<>(partitions);
 
         for (int i = 0; i < partitions; i++) {
-            partitionFilePageStores[i] = filePageStoreFactory.createPageStore(
+            partitionFilePageStores.add(filePageStoreFactory.createPageStore(
                     groupWorkDir.resolve(String.format(PART_FILE_TEMPLATE, i))
-            );
+            ));
         }
 
-        return List.of(partitionFilePageStores);
+        return unmodifiableList(partitionFilePageStores);
     }
 }

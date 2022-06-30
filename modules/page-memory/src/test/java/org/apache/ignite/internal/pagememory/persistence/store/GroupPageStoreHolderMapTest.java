@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -29,7 +33,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.Map;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,7 +43,7 @@ import org.junit.jupiter.api.Test;
 public class GroupPageStoreHolderMapTest {
     private LongOperationAsyncExecutor longOperationAsyncExecutor;
 
-    private GroupPageStoreHolderMap<PageStore> holderMap;
+    private GroupPageStoreHolderMap<PageStore> groupPageStores;
 
     @BeforeEach
     void setUp() {
@@ -49,203 +52,122 @@ public class GroupPageStoreHolderMapTest {
         when(longOperationAsyncExecutor.afterAsyncCompletion(any(Supplier.class)))
                 .then(answer -> ((Supplier<?>) answer.getArgument(0)).get());
 
-        holderMap = new GroupPageStoreHolderMap<>(longOperationAsyncExecutor);
+        groupPageStores = new GroupPageStoreHolderMap<>(longOperationAsyncExecutor);
+    }
+
+    @Test
+    void testGroupCount() {
+        assertEquals(0, groupPageStores.groupCount());
+
+        groupPageStores.put(0, List.of());
+
+        assertEquals(1, groupPageStores.groupCount());
+
+        groupPageStores.put(0, List.of());
+
+        assertEquals(1, groupPageStores.groupCount());
+
+        groupPageStores.put(1, List.of());
+
+        assertEquals(2, groupPageStores.groupCount());
+
+        groupPageStores.clear();
+
+        assertEquals(0, groupPageStores.groupCount());
     }
 
     @Test
     void testPut() {
         List<PageStore> holder0 = List.of();
 
-        assertNull(holderMap.put(0, holder0));
+        assertNull(groupPageStores.put(0, holder0));
         checkInvokeAfterAsyncCompletion(1);
 
         List<PageStore> holder1 = List.of();
 
-        assertSame(holder0, holderMap.put(0, holder1));
+        assertSame(holder0, groupPageStores.put(0, holder1));
         checkInvokeAfterAsyncCompletion(2);
 
-        assertEquals(1, holderMap.size());
-
-        assertSame(holder1, holderMap.get(0));
-        assertNull(holderMap.get(1));
+        assertSame(holder1, groupPageStores.get(0));
+        assertNull(groupPageStores.get(1));
     }
 
     @Test
-    void testPutAll() {
-        Map<Integer, List<PageStore>> expHolders = Map.of(0, List.of(), 1, List.of());
+    void testGet() {
+        assertNull(groupPageStores.get(0));
+        assertNull(groupPageStores.get(1));
 
-        holderMap.putAll(expHolders);
+        List<PageStore> pageStores0 = List.of();
 
-        checkInvokeAfterAsyncCompletion(1);
+        groupPageStores.put(0, pageStores0);
 
-        assertEquals(2, expHolders.size());
+        assertSame(pageStores0, groupPageStores.get(0));
+        assertNull(groupPageStores.get(1));
 
-        assertSame(expHolders.get(0), holderMap.get(0));
-        assertSame(expHolders.get(1), holderMap.get(1));
+        List<PageStore> pageStores1 = List.of();
 
-        assertNull(holderMap.get(2));
+        groupPageStores.put(1, pageStores1);
+
+        assertSame(pageStores0, groupPageStores.get(0));
+        assertSame(pageStores1, groupPageStores.get(1));
+
+        groupPageStores.clear();
+
+        assertNull(groupPageStores.get(0));
+        assertNull(groupPageStores.get(1));
     }
 
     @Test
-    void testPutIfAbsent() {
-        List<PageStore> holder0 = List.of();
+    void testContainsPageStores() {
+        assertFalse(groupPageStores.containsPageStores(0));
+        assertFalse(groupPageStores.containsPageStores(1));
 
-        assertNull(holderMap.putIfAbsent(0, holder0));
+        groupPageStores.put(0, List.of());
 
-        checkInvokeAfterAsyncCompletion(1);
+        assertTrue(groupPageStores.containsPageStores(0));
+        assertFalse(groupPageStores.containsPageStores(1));
 
-        List<PageStore> holder1 = List.of();
+        List<PageStore> pageStores1 = List.of();
 
-        assertSame(holder0, holderMap.putIfAbsent(0, holder1));
+        groupPageStores.put(1, List.of());
 
-        checkInvokeAfterAsyncCompletion(2);
+        assertTrue(groupPageStores.containsPageStores(0));
+        assertTrue(groupPageStores.containsPageStores(1));
 
-        assertEquals(1, holderMap.size());
+        groupPageStores.clear();
 
-        assertSame(holder0, holderMap.get(0));
-
-        assertNull(holderMap.get(1));
+        assertFalse(groupPageStores.containsPageStores(0));
+        assertFalse(groupPageStores.containsPageStores(1));
     }
 
     @Test
-    void testReplaceMappedValue() {
-        List<PageStore> holder0 = List.of(mock(PageStore.class));
+    void testAllPageStores() {
+        assertThat(groupPageStores.allPageStores(), empty());
 
-        holderMap.put(0, holder0);
+        List<PageStore> pageStores0 = List.of();
+        List<PageStore> pageStores1 = List.of();
 
-        checkInvokeAfterAsyncCompletion(1);
+        groupPageStores.put(0, pageStores0);
 
-        List<PageStore> holder1 = List.of(mock(PageStore.class));
-        List<PageStore> holder2 = List.of(mock(PageStore.class));
+        assertThat(groupPageStores.allPageStores(), containsInAnyOrder(pageStores0));
 
-        assertTrue(holderMap.replace(0, holder0, holder1));
+        groupPageStores.put(1, pageStores1);
 
-        checkInvokeAfterAsyncCompletion(2);
+        assertThat(groupPageStores.allPageStores(), containsInAnyOrder(pageStores0, pageStores1));
 
-        assertFalse(holderMap.replace(0, holder0, holder1));
-        assertFalse(holderMap.replace(0, holder0, holder2));
-        assertFalse(holderMap.replace(1, holder0, holder2));
+        groupPageStores.clear();
 
-        checkInvokeAfterAsyncCompletion(5);
-
-        assertEquals(1, holderMap.size());
-
-        assertSame(holder1, holderMap.get(0));
-
-        assertNull(holderMap.get(1));
+        assertThat(groupPageStores.allPageStores(), empty());
     }
 
     @Test
-    void testReplace() {
-        List<PageStore> holder0 = List.of();
+    void testClear() {
+        assertDoesNotThrow(groupPageStores::clear);
 
-        holderMap.put(0, holder0);
+        groupPageStores.put(0, List.of());
 
-        checkInvokeAfterAsyncCompletion(1);
-
-        List<PageStore> holder1 = List.of();
-        List<PageStore> holder2 = List.of();
-
-        assertSame(holder0, holderMap.replace(0, holder1));
-        assertNull(holderMap.replace(1, holder2));
-
-        checkInvokeAfterAsyncCompletion(3);
-
-        assertEquals(1, holderMap.size());
-
-        assertSame(holder1, holderMap.get(0));
-
-        assertNull(holderMap.get(1));
-    }
-
-    @Test
-    void testComputeIfAbsent() {
-        List<PageStore> holder0 = List.of();
-
-        assertSame(holder0, holderMap.computeIfAbsent(0, grpId -> holder0));
-
-        checkInvokeAfterAsyncCompletion(1);
-
-        List<PageStore> holder1 = List.of();
-
-        assertSame(holder0, holderMap.computeIfAbsent(0, grpId -> holder1));
-
-        checkInvokeAfterAsyncCompletion(2);
-
-        assertEquals(1, holderMap.size());
-
-        assertSame(holder0, holderMap.get(0));
-
-        assertNull(holderMap.get(1));
-    }
-
-    @Test
-    void testComputeIfPresent() {
-        List<PageStore> holder0 = List.of();
-
-        holderMap.put(0, holder0);
-
-        checkInvokeAfterAsyncCompletion(1);
-
-        List<PageStore> holder1 = List.of();
-        List<PageStore> holder2 = List.of();
-
-        assertSame(holder1, holderMap.computeIfPresent(0, (grpId, oldVal) -> holder1));
-
-        assertNull(holderMap.computeIfPresent(1, (grpId, oldVal) -> holder2));
-
-        checkInvokeAfterAsyncCompletion(3);
-
-        assertEquals(1, holderMap.size());
-
-        assertSame(holder1, holderMap.get(0));
-
-        assertNull(holderMap.get(1));
-    }
-
-    @Test
-    void testCompute() {
-        List<PageStore> holder0 = List.of();
-
-        assertSame(holder0, holderMap.compute(0, (grpId, oldVal) -> holder0));
-
-        checkInvokeAfterAsyncCompletion(1);
-
-        List<PageStore> holder1 = List.of();
-        List<PageStore> holder2 = List.of();
-
-        assertSame(holder1, holderMap.compute(0, (grpId, oldVal) -> holder1));
-        assertSame(holder2, holderMap.compute(1, (grpId, oldVal) -> holder2));
-
-        checkInvokeAfterAsyncCompletion(3);
-
-        assertEquals(2, holderMap.size());
-
-        assertSame(holder1, holderMap.get(0));
-        assertSame(holder2, holderMap.get(1));
-
-        assertNull(holderMap.get(2));
-    }
-
-    @Test
-    void testMerge() {
-        List<PageStore> holder0 = List.of();
-
-        assertSame(holder0, holderMap.merge(0, holder0, (h0, h1) -> h1));
-
-        checkInvokeAfterAsyncCompletion(1);
-
-        List<PageStore> holder1 = List.of();
-
-        assertSame(holder1, holderMap.merge(0, holder1, (h0, h1) -> h1));
-
-        checkInvokeAfterAsyncCompletion(2);
-
-        assertEquals(1, holderMap.size());
-
-        assertSame(holder1, holderMap.get(0));
-
-        assertNull(holderMap.get(1));
+        assertDoesNotThrow(groupPageStores::clear);
+        assertEquals(0, groupPageStores.groupCount());
     }
 
     private void checkInvokeAfterAsyncCompletion(int times) {

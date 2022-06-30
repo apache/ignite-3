@@ -42,7 +42,7 @@ public class VersionChainTree extends BplusTree<VersionChainLink, VersionChain> 
      *
      * @param grpId Group ID.
      * @param grpName Group name.
-     * @param partitionId Partition id.
+     * @param partId Partition id.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
      * @param globalRmvId Global remove ID.
@@ -53,7 +53,7 @@ public class VersionChainTree extends BplusTree<VersionChainLink, VersionChain> 
     public VersionChainTree(
             int grpId,
             String grpName,
-            int partitionId,
+            int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
             AtomicLong globalRmvId,
@@ -65,7 +65,7 @@ public class VersionChainTree extends BplusTree<VersionChainLink, VersionChain> 
                 "VersionChainTree_" + grpId,
                 grpId,
                 grpName,
-                partitionId,
+                partId,
                 pageMem,
                 lockLsnr,
                 globalRmvId,
