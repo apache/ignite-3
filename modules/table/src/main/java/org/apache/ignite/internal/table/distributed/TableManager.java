@@ -562,9 +562,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return completedFuture(val);
         });
 
-        schemaManager.schemaRegistry(causalityToken, tblId)
-            .thenAccept(table::schemaView)
-            .thenRun(() -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null));
+        schemaManager.schemaRegistry(causalityToken, tblId).thenAccept(table::schemaView);
+
+        fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
 
         // TODO should be reworked in IGNITE-16763
         return tablesByIdVv.get(causalityToken).thenRun(() -> completeApiCreateFuture(table));
