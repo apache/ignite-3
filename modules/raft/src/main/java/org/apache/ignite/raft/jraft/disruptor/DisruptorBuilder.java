@@ -31,7 +31,7 @@ import org.apache.ignite.raft.jraft.util.Requires;
 public class DisruptorBuilder<T> {
     private EventFactory<T> eventFactory;
     private Integer ringBufferSize;
-    private ThreadFactory threadFactory = new NamedThreadFactory("Disruptor-", true);
+    private ThreadFactory threadFactory;
     private ProducerType producerType = ProducerType.MULTI;
     private WaitStrategy waitStrategy = new BlockingWaitStrategy();
 
@@ -90,6 +90,7 @@ public class DisruptorBuilder<T> {
     public Disruptor<T> build() {
         Requires.requireNonNull(this.ringBufferSize, " Ring buffer size not set");
         Requires.requireNonNull(this.eventFactory, "Event factory not set");
+        Requires.requireNonNull(this.threadFactory, "Thread factory not set");
 
         return new Disruptor<>(this.eventFactory, this.ringBufferSize, this.threadFactory, this.producerType,
             this.waitStrategy);

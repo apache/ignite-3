@@ -79,7 +79,7 @@ public class StripedDisruptor<T extends GroupAware> {
             Disruptor<T> disruptor = DisruptorBuilder.<T>newInstance()
                 .setRingBufferSize(bufferSize)
                 .setEventFactory(eventFactory)
-                .setThreadFactory(new NamedThreadFactory(stripeName, true))
+                .setThreadFactory(new NamedThreadFactory(stripeName, true, LOG))
                 .setProducerType(ProducerType.MULTI)
                 .setWaitStrategy(new BlockingWaitStrategy())
                 .build();

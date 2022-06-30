@@ -48,7 +48,7 @@ public abstract class RepeatedTimer implements Describer {
     }
 
     public RepeatedTimer(final String name, final int timeoutMs) {
-        this(name, timeoutMs, new HashedWheelTimer(new NamedThreadFactory(name, true), 1, TimeUnit.MILLISECONDS, 2048));
+        this(name, timeoutMs, new HashedWheelTimer(new NamedThreadFactory(name, true, LOG), 1, TimeUnit.MILLISECONDS, 2048));
     }
 
     public RepeatedTimer(final String name, final int timeoutMs, final Timer timer) {

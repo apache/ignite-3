@@ -103,7 +103,7 @@ public class Loza implements IgniteComponent {
 
         this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
-                        CLIENT_POOL_NAME)
+                        CLIENT_POOL_NAME), LOG
                 )
         );
     }
@@ -121,7 +121,7 @@ public class Loza implements IgniteComponent {
 
         this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
-                        CLIENT_POOL_NAME)
+                        CLIENT_POOL_NAME), LOG
                 )
         );
     }

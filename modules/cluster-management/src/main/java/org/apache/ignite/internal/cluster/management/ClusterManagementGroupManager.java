@@ -106,7 +106,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     /** Delayed executor. */
     private final ScheduledExecutorService scheduledExecutor =
-            Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("cmg-manager"));
+            Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("cmg-manager", LOG));
 
     private final ClusterService clusterService;
 

@@ -231,7 +231,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tablesByIdVv = new VersionedValue<>(null, HashMap::new);
 
         rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                new NamedThreadFactory("rebalance-scheduler"));
+                new NamedThreadFactory("rebalance-scheduler", LOG));
     }
 
     /** {@inheritDoc} */

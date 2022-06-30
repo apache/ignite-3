@@ -32,6 +32,7 @@ import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -88,6 +89,8 @@ public interface IgniteClient extends Ignite {
         /** Retry policy. */
         private RetryPolicy retryPolicy = new RetryReadPolicy();
 
+        private LoggerFactory loggerFactory;
+
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
          * If port is not set then Ignite will generate multiple addresses for default port range. See {@link
@@ -115,6 +118,20 @@ public interface IgniteClient extends Ignite {
          */
         public Builder retryPolicy(RetryPolicy retryPolicy) {
             this.retryPolicy = retryPolicy;
+
+            return this;
+        }
+
+        /**
+         * Sets the logger factory. This factory will be used to create a logger instance when needed.
+         *
+         * <p>When {@code null} (default), {@link System#getLogger} is used.
+         *
+         * @param loggerFactory A factory.
+         * @return This instance.
+         */
+        public Builder loggerFactory(LoggerFactory loggerFactory) {
+            this.loggerFactory = loggerFactory;
 
             return this;
         }
@@ -246,7 +263,9 @@ public interface IgniteClient extends Ignite {
                     reconnectThrottlingRetries,
                     asyncContinuationExecutor,
                     heartbeatInterval,
-                    retryPolicy);
+                    retryPolicy,
+                    loggerFactory
+            );
 
             return TcpIgniteClient.startAsync(cfg);
         }

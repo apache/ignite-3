@@ -103,6 +103,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -136,6 +137,8 @@ import org.mockito.quality.Strictness;
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest extends IgniteAbstractTest {
+    private static IgniteLogger LOG = IgniteLogger.forClass(TableManagerTest.class);
+
     /** The name of the table which is preconfigured. */
     private static final String PRECONFIGURED_TABLE_NAME = "t1";
 
@@ -667,7 +670,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         TableManager tableManager = createTableManager(tblManagerFut, false);
 
-        ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
+        ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
         String groupId = "test";
 

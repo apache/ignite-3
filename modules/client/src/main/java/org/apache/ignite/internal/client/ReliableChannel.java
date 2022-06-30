@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -45,6 +46,7 @@ import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -81,6 +83,8 @@ public final class ReliableChannel implements AutoCloseable {
     /** Connection manager. */
     private final ClientConnectionMultiplexer connMgr;
 
+    private final IgniteLogger log;
+
     /** Cache addresses returned by {@code ThinClientAddressFinder}. */
     private volatile String[] prevHostAddrs;
 
@@ -91,17 +95,10 @@ public final class ReliableChannel implements AutoCloseable {
      * @param clientCfg Client config.
      */
     ReliableChannel(BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory,
-            IgniteClientConfiguration clientCfg) {
-        if (chFactory == null) {
-            throw new NullPointerException("chFactory");
-        }
-
-        if (clientCfg == null) {
-            throw new NullPointerException("clientCfg");
-        }
-
-        this.clientCfg = clientCfg;
-        this.chFactory = chFactory;
+            IgniteClientConfiguration clientCfg, IgniteLogger log) {
+        this.clientCfg = Objects.requireNonNull(clientCfg, "clientCfg");
+        this.chFactory = Objects.requireNonNull(chFactory, "chFactory");
+        this.log = Objects.requireNonNull(log, "log");
 
         connMgr = new NettyClientConnectionMultiplexer();
         connMgr.start(clientCfg);
@@ -271,6 +268,9 @@ public final class ReliableChannel implements AutoCloseable {
                         }
 
                         if (shouldRetry(opCode, attempt, connectionErr)) {
+                            log.debug("Going to retry request because of error [opCode={}, currentAttempt={}, errMsg={}]",
+                                    failure0, opCode, attempt, failure0.getMessage());
+
                             handleServiceAsync(fut, opCode, payloadWriter, payloadReader, null, failure0, attempt + 1);
 
                             return null;

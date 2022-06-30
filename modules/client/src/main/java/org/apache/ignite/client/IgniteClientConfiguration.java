@@ -20,6 +20,7 @@ package org.apache.ignite.client;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
+import org.apache.ignite.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -119,4 +120,13 @@ public interface IgniteClientConfiguration {
      * @return Heartbeat interval.
      */
     public long heartbeatInterval();
+
+    /**
+     * Returns the logger factory. This factory will be used to create a logger instance when needed.
+     *
+     * <p>When {@code null} (default), {@link System#getLogger} is used.
+     *
+     * @return Configured logger factory.
+     */
+    @Nullable LoggerFactory loggerFactory();
 }

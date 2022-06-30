@@ -46,7 +46,7 @@ class ValidationManager implements AutoCloseable {
     private static final IgniteLogger LOG = IgniteLogger.forClass(CmgRaftGroupListener.class);
 
     private final ScheduledExecutorService executor =
-            Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("node-validator"));
+            Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("node-validator", LOG));
 
     private final RaftStorageManager storage;
 

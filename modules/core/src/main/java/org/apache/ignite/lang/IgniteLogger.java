@@ -27,25 +27,40 @@ import org.jetbrains.annotations.NotNull;
  */
 public class IgniteLogger {
     /**
-     * Creates logger for class.
+     * Creates logger for given class with system logger as a backend.
      *
      * @param cls The class for a logger.
      * @return Ignite logger.
      */
     public static IgniteLogger forClass(Class<?> cls) {
-        return new IgniteLogger(cls);
+        var delegate = System.getLogger(Objects.requireNonNull(cls).getName());
+
+        return new IgniteLogger(delegate);
+    }
+
+    /**
+     * Creates logger for given class with backend created by the given loggerFactory.
+     *
+     * @param cls The class for a logger.
+     * @param loggerFactory Logger factory to create backend for the logger.
+     * @return Ignite logger.
+     */
+    public static IgniteLogger forClass(Class<?> cls, LoggerFactory loggerFactory) {
+        var delegate = loggerFactory.forName(Objects.requireNonNull(cls).getName());
+
+        return new IgniteLogger(delegate);
     }
 
     /** Logger delegate. */
-    private final System.Logger log;
+    private final System.Logger delegate;
 
     /**
      * Creates logger instance for a category related to the given class.
      *
-     * @param cls The class for a logger.
+     * @param delegate The class for a logger.
      */
-    protected IgniteLogger(@NotNull Class<?> cls) {
-        log = System.getLogger(Objects.requireNonNull(cls).getName());
+    protected IgniteLogger(@NotNull System.Logger delegate) {
+        this.delegate = delegate;
     }
 
     /**
@@ -86,7 +101,7 @@ public class IgniteLogger {
      * @param th  The {@code Throwable} associated with the log message.
      */
     public void info(String msg, Throwable th) {
-        log.log(Level.INFO, msg, th);
+        delegate.log(Level.INFO, msg, th);
     }
 
     /**
@@ -127,7 +142,7 @@ public class IgniteLogger {
      * @param th  The {@code Throwable} associated with the log message;
      */
     public void debug(String msg, Throwable th) {
-        log.log(Level.DEBUG, msg, th);
+        delegate.log(Level.DEBUG, msg, th);
     }
 
     /**
@@ -168,7 +183,7 @@ public class IgniteLogger {
      * @param th  The {@code Throwable} associated with the log message.
      */
     public void warn(String msg, Throwable th) {
-        log.log(Level.WARNING, msg, th);
+        delegate.log(Level.WARNING, msg, th);
     }
 
     /**
@@ -209,7 +224,7 @@ public class IgniteLogger {
      * @param th  The {@code Throwable} associated with the log message.
      */
     public void error(String msg, Throwable th) {
-        log.log(Level.ERROR, msg, th);
+        delegate.log(Level.ERROR, msg, th);
     }
 
     /**
@@ -250,7 +265,7 @@ public class IgniteLogger {
      * @param th  A {@code Throwable} associated with the log message.
      */
     public void trace(String msg, Throwable th) {
-        log.log(Level.TRACE, msg, th);
+        delegate.log(Level.TRACE, msg, th);
     }
 
     /**
@@ -265,14 +280,14 @@ public class IgniteLogger {
     private void logInternal(Level level, String msg, Throwable th, Object... params) {
         Objects.requireNonNull(level);
 
-        if (!log.isLoggable(level)) {
+        if (!delegate.isLoggable(level)) {
             return;
         }
 
         if (th != null) {
-            log.log(level, IgniteStringFormatter.arrayFormat(msg, params), th);
+            delegate.log(level, IgniteStringFormatter.arrayFormat(msg, params), th);
         } else {
-            log.log(level, IgniteStringFormatter.arrayFormat(msg, params));
+            delegate.log(level, IgniteStringFormatter.arrayFormat(msg, params));
         }
     }
 
@@ -288,11 +303,11 @@ public class IgniteLogger {
         Objects.requireNonNull(level);
         Objects.requireNonNull(msgSupplier);
 
-        if (!log.isLoggable(level)) {
+        if (!delegate.isLoggable(level)) {
             return;
         }
 
-        log.log(level, msgSupplier.get(), th);
+        delegate.log(level, msgSupplier.get(), th);
     }
 
     /**
@@ -301,7 +316,7 @@ public class IgniteLogger {
      * @return {@code true} if the message level is currently being logged, {@code false} otherwise.
      */
     public boolean isTraceEnabled() {
-        return log.isLoggable(Level.TRACE);
+        return delegate.isLoggable(Level.TRACE);
     }
 
     /**
@@ -310,7 +325,7 @@ public class IgniteLogger {
      * @return {@code true} if the message level is currently being logged, {@code false} otherwise.
      */
     public boolean isDebugEnabled() {
-        return log.isLoggable(Level.DEBUG);
+        return delegate.isLoggable(Level.DEBUG);
     }
 
     /**
@@ -319,7 +334,7 @@ public class IgniteLogger {
      * @return {@code true} if the message level is currently being logged, {@code false} otherwise.
      */
     public boolean isInfoEnabled() {
-        return log.isLoggable(Level.INFO);
+        return delegate.isLoggable(Level.INFO);
     }
 
     /**
@@ -328,6 +343,6 @@ public class IgniteLogger {
      * @return {@code true} if the message level is currently being logged, {@code false} otherwise.
      */
     public boolean isWarnEnabled() {
-        return log.isLoggable(Level.WARNING);
+        return delegate.isLoggable(Level.WARNING);
     }
 }
