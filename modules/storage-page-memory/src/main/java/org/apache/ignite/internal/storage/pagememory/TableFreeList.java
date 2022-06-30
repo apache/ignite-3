@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
-
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
@@ -54,6 +51,7 @@ public class TableFreeList extends AbstractFreeList<TableDataRow> {
      */
     public TableFreeList(
             int grpId,
+            int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
             long metaPageId,
@@ -64,11 +62,11 @@ public class TableFreeList extends AbstractFreeList<TableDataRow> {
     ) throws IgniteInternalCheckedException {
         super(
                 grpId,
+                partId,
                 "TableFreeList_" + grpId,
                 pageMem,
                 null,
                 lockLsnr,
-                FLAG_AUX,
                 LOG,
                 metaPageId,
                 initNew,
@@ -77,12 +75,6 @@ public class TableFreeList extends AbstractFreeList<TableDataRow> {
         );
 
         this.statHolder = statHolder;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-        return pageMem.allocatePage(grpId, INDEX_PARTITION, defaultPageFlag);
     }
 
     /**
