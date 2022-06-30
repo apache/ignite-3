@@ -17,17 +17,14 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import static java.nio.file.Files.createDirectories;
-import static java.nio.file.Files.createFile;
-import static java.nio.file.Files.exists;
-import static java.nio.file.Files.isDirectory;
-import static java.nio.file.Files.list;
-import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +34,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -66,21 +65,19 @@ public class CheckpointMarkersStorage {
      * @param storagePath Storage path.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public CheckpointMarkersStorage(
-            Path storagePath
-    ) throws IgniteInternalCheckedException {
+    public CheckpointMarkersStorage(Path storagePath) throws IgniteInternalCheckedException {
         checkpointDir = storagePath.resolve("cp");
 
         try {
-            createDirectories(checkpointDir);
+            Files.createDirectories(checkpointDir);
         } catch (IOException e) {
             throw new IgniteInternalCheckedException("Could not create directory for checkpoint metadata: " + checkpointDir, e);
         }
 
         checkCheckpointDir(checkpointDir);
 
-        try {
-            checkpointIds = list(checkpointDir)
+        try (Stream<Path> checkpointMarkers = Files.list(checkpointDir)) {
+            checkpointIds = checkpointMarkers
                     .map(CheckpointMarkersStorage::parseCheckpointIdFromMarkerFile)
                     .collect(toCollection(ConcurrentHashMap::newKeySet));
         } catch (IOException e) {
@@ -101,7 +98,7 @@ public class CheckpointMarkersStorage {
         Path checkpointStartMarker = checkpointDir.resolve(checkpointMarkerFileName(checkpointId, CHECKPOINT_START_MARKER));
 
         try {
-            createFile(checkpointStartMarker);
+            Files.createFile(checkpointStartMarker);
         } catch (IOException e) {
             throw new IgniteInternalCheckedException("Could not create start checkpoint marker: " + checkpointStartMarker, e);
         }
@@ -122,7 +119,7 @@ public class CheckpointMarkersStorage {
         Path checkpointEndMarker = checkpointDir.resolve(checkpointMarkerFileName(checkpointId, CHECKPOINT_END_MARKER));
 
         try {
-            createFile(checkpointEndMarker);
+            Files.createFile(checkpointEndMarker);
         } catch (IOException e) {
             throw new IgniteInternalCheckedException("Could not create end checkpoint marker: " + checkpointEndMarker, e);
         }
@@ -142,25 +139,32 @@ public class CheckpointMarkersStorage {
         Path startMarker = checkpointDir.resolve(checkpointMarkerFileName(checkpointId, CHECKPOINT_START_MARKER));
         Path endMarker = checkpointDir.resolve(checkpointMarkerFileName(checkpointId, CHECKPOINT_END_MARKER));
 
-        if (exists(startMarker)) {
-            startMarker.toFile().delete();
-        }
-
-        if (exists(endMarker)) {
-            endMarker.toFile().delete();
-        }
+        IgniteUtils.deleteIfExists(startMarker);
+        IgniteUtils.deleteIfExists(endMarker);
     }
 
     /**
      * Checks that the directory contains only paired (start and end) checkpoint markers.
      */
     private static void checkCheckpointDir(Path checkpointDir) throws IgniteInternalCheckedException {
-        assert isDirectory(checkpointDir) : checkpointDir;
+        assert Files.isDirectory(checkpointDir) : checkpointDir;
 
-        try {
-            List<Path> notCheckpointMarkers = list(checkpointDir)
-                    .filter(path -> parseCheckpointIdFromMarkerFile(path) == null)
-                    .collect(toList());
+        try (Stream<Path> checkpointMarkers = Files.list(checkpointDir)) {
+            List<Path> notCheckpointMarkers = new ArrayList<>();
+
+            Map<UUID, List<Path>> checkpointMarkersById = new HashMap<>();
+
+            checkpointMarkers.forEach(marker -> {
+                UUID checkpointId = parseCheckpointIdFromMarkerFile(marker);
+
+                if (checkpointId == null) {
+                    notCheckpointMarkers.add(marker);
+                } else {
+                    checkpointMarkersById
+                            .computeIfAbsent(checkpointId, id -> new ArrayList<>())
+                            .add(marker);
+                }
+            });
 
             if (!notCheckpointMarkers.isEmpty()) {
                 throw new IgniteInternalCheckedException(
@@ -168,10 +172,7 @@ public class CheckpointMarkersStorage {
                 );
             }
 
-            Map<UUID, List<Path>> checkpointMarkers = list(checkpointDir)
-                    .collect(groupingBy(CheckpointMarkersStorage::parseCheckpointIdFromMarkerFile));
-
-            List<UUID> checkpointsWithoutEndMarker = checkpointMarkers.entrySet().stream()
+            List<UUID> checkpointsWithoutEndMarker = checkpointMarkersById.entrySet().stream()
                     .filter(e -> e.getValue().stream().noneMatch(path -> path.getFileName().toString().contains(CHECKPOINT_END_MARKER)))
                     .map(Entry::getKey)
                     .collect(toList());

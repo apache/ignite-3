@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -160,7 +161,8 @@ public class ItInternalTableScanTest {
         raftSrv.startRaftGroup(
                 grpName,
                 new PartitionListener(tblId, new VersionedRowStore(mockStorage, txManager)),
-                conf
+                conf,
+                RaftGroupOptions.defaults()
         );
 
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));

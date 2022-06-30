@@ -36,6 +36,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
@@ -275,7 +276,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         grpId,
                         partNodes,
                         () -> new PartitionListener(tblId,
-                                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManagers.get(node)))
+                                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManagers.get(node))),
+                        RaftGroupOptions.defaults()
                 );
             }
 

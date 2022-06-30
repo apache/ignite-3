@@ -60,6 +60,11 @@ class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         );
     }
 
+    @Override
+    public boolean isVolatile() {
+        return true;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void destroy() throws StorageException {

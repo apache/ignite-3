@@ -19,38 +19,36 @@ package org.apache.ignite.raft.jraft.core;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
-import org.apache.ignite.raft.jraft.storage.LogStorageFactory;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
-import org.apache.ignite.raft.jraft.storage.impl.LocalRaftMetaStorage;
+import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
+import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 
 /**
- * The default factory for JRaft services.
+ * The factory for JRaft services producing volatile stores. Useful for Raft groups hosting partitions of in-memory tables.
  */
-public class DefaultJRaftServiceFactory implements JRaftServiceFactory {
-
-    private final LogStorageFactory logStorageFactory;
-
-    public DefaultJRaftServiceFactory(LogStorageFactory factory) {
-        logStorageFactory = factory;
-    }
-
-    @Override public LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions) {
+public class VolatileJRaftServiceFactory implements JRaftServiceFactory {
+    @Override
+    public LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions) {
         Requires.requireTrue(StringUtils.isNotBlank(groupId), "Blank group id.");
 
-        return logStorageFactory.getLogStorage(groupId, raftOptions);
+        return new LocalLogStorage(raftOptions);
     }
 
-    @Override public SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions) {
+    @Override
+    public SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions) {
         Requires.requireTrue(!StringUtils.isBlank(uri), "Blank snapshot storage uri.");
+
+        // TODO: IGNITE-17083 - return an in-memory store here (or get rid of SnapshotStorage)
+
         return new LocalSnapshotStorage(uri, raftOptions);
     }
 
-    @Override public RaftMetaStorage createRaftMetaStorage(final String uri, final RaftOptions raftOptions) {
-        Requires.requireTrue(!StringUtils.isBlank(uri), "Blank raft meta storage uri.");
-        return new LocalRaftMetaStorage(uri, raftOptions);
+    @Override
+    public RaftMetaStorage createRaftMetaStorage(final String uri, final RaftOptions raftOptions) {
+        return new VolatileRaftMetaStorage();
     }
 }

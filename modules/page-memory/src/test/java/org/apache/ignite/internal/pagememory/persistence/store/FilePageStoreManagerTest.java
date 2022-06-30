@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.emptyArray;
-import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,6 +39,7 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -113,16 +113,21 @@ public class FilePageStoreManagerTest {
             assertDoesNotThrow(() -> manager.initialize("test", 0, 2));
 
             assertTrue(Files.isDirectory(testGroupDir));
-            assertThat(Files.list(testGroupDir).collect(toList()), empty());
+
+            try (Stream<Path> files = Files.list(testGroupDir)) {
+                assertThat(files.count(), is(0L));
+            }
 
             for (FilePageStore filePageStore : manager.getStores(0)) {
                 filePageStore.ensure();
             }
 
-            assertThat(
-                    Files.list(testGroupDir).map(Path::getFileName).map(Path::toString).collect(toSet()),
-                    equalTo(Set.of("part-0.bin", "part-1.bin"))
-            );
+            try (Stream<Path> files = Files.list(testGroupDir)) {
+                assertThat(
+                        files.map(Path::getFileName).map(Path::toString).collect(toSet()),
+                        containsInAnyOrder("part-0.bin", "part-1.bin")
+                );
+            }
         } finally {
             manager.stop();
         }

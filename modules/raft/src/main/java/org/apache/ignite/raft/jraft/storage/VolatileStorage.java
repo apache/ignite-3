@@ -14,20 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.core;
 
-import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.LogStorage;
-import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
+package org.apache.ignite.raft.jraft.storage;
 
-public class TestJRaftServiceFactory extends DefaultJRaftServiceFactory {
-    public TestJRaftServiceFactory() {
-        super(null);
-    }
-
-    @Override
-    public LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions) {
-        return new LocalLogStorage(raftOptions);
-    }
-
+/**
+ * Marker interface for a storage that is volatile (i.e. it keeps its data in memory).
+ */
+public interface VolatileStorage {
 }

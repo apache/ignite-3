@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.metastorage.client.ItMetaStorageService
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.internal.metastorage.client.Operations.put;
 import static org.apache.ignite.internal.metastorage.client.Operations.remove;
+import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -1063,7 +1064,7 @@ public class ItMetaStorageServiceTest {
 
         metaStorageRaftSrv.start();
 
-        metaStorageRaftSrv.startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(mockStorage), peers);
+        metaStorageRaftSrv.startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(mockStorage), peers, defaults());
 
         metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
                 METASTORAGE_RAFT_GROUP_NAME,
