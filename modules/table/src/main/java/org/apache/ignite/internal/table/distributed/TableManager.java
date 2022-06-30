@@ -237,9 +237,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tablesByIdVv = new VersionedValue<>(null, HashMap::new);
 
         registry.accept(token -> {
+            List<CompletableFuture<?>> futures = new ArrayList<>(beforeTablesVvComplete);
+
             beforeTablesVvComplete.clear();
 
-            return completedFuture(null);
+            return CompletableFuture.allOf(futures.toArray(new CompletableFuture[] {}))
+                    .thenRun(() -> tablesByIdVv.complete(token));
         });
 
         rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
@@ -288,16 +291,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return completedFuture(false);
             }
         });
-    }
-
-    /**
-     * Completes all table futures.
-     * TODO: Get rid of it after IGNITE-17062.
-     *
-     * @param causalityToken Causality token.
-     */
-    public void onSqlSchemaReady(long causalityToken) {
-        tablesByIdVv.complete(causalityToken);
     }
 
     /**

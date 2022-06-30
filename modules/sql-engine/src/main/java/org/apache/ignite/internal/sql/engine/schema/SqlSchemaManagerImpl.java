@@ -92,8 +92,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             rebuild(token, stringIgniteSchemaMap);
 
             listeners.forEach(SchemaUpdateListener::onSchemaUpdated);
-
-            tableManager.onSqlSchemaReady(token);
         });
     }
 
