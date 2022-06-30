@@ -24,7 +24,7 @@ import org.apache.ignite.raft.jraft.storage.VolatileStorage;
 
 /**
  * Volatile (in-memory) implementation of {@link RaftMetaStorage}. Used for Raft groups storing partition data of
- * volatile (in-memory) storages.
+ * volatile storages.
  */
 public class VolatileRaftMetaStorage implements RaftMetaStorage, VolatileStorage {
     private volatile long term;
