@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -120,6 +121,7 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
@@ -165,6 +167,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Versioned store for tables by id. */
     private final VersionedValue<Map<UUID, TableImpl>> tablesByIdVv;
+
+    /** Set of futures that should complete before completion of {@link #tablesByIdVv}, after completion this set is cleared. */
+    private final Set<CompletableFuture<?>> beforeTablesVvComplete = new ConcurrentHashSet<>();
 
     /** Resolver that resolves a network address to node id. */
     private final Function<NetworkAddress, String> netAddrResolver;
@@ -231,6 +236,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tablesByIdVv = new VersionedValue<>(null, HashMap::new);
 
+        registry.accept(token -> {
+            List<CompletableFuture<?>> futures = new ArrayList<>(beforeTablesVvComplete);
+
+            beforeTablesVvComplete.clear();
+
+            return CompletableFuture.allOf(futures.toArray(new CompletableFuture[] {}))
+                    .thenRun(() -> tablesByIdVv.complete(token));
+        });
+
         rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                 new NamedThreadFactory("rebalance-scheduler"));
     }
@@ -277,16 +291,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return completedFuture(false);
             }
         });
-    }
-
-    /**
-     * Completes all table futures.
-     * TODO: Get rid of it after IGNITE-17062.
-     *
-     * @param causalityToken Causality token.
-     */
-    public void onSqlSchemaReady(long causalityToken) {
-        tablesByIdVv.complete(causalityToken);
     }
 
     /**
@@ -562,9 +566,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return completedFuture(val);
         });
 
-        schemaManager.schemaRegistry(causalityToken, tblId).thenAccept(table::schemaView);
+        CompletableFuture<?> schemaFut = schemaManager.schemaRegistry(causalityToken, tblId)
+            .thenAccept(table::schemaView)
+            .thenCompose(v -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table)));
 
-        fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
+        beforeTablesVvComplete.add(schemaFut);
 
         // TODO should be reworked in IGNITE-16763
         return tablesByIdVv.get(causalityToken).thenRun(() -> completeApiCreateFuture(table));
@@ -618,9 +624,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             assert table != null : IgniteStringFormatter.format("There is no table with the name specified [name={}, id={}]",
                 name, tblId);
 
-            table.internalTable().storage().destroy();
+            CompletableFuture<?> eventFut = fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table));
 
-            fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table), null);
+            beforeTablesVvComplete.add(eventFut);
+
+            table.internalTable().storage().destroy();
 
             schemaManager.dropRegistry(causalityToken, table.tableId());
         } catch (Exception e) {
