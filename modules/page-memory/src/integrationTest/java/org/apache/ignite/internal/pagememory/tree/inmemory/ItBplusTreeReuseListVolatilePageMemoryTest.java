@@ -32,7 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test with reuse list and {@link VolatilePageMemory}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class ItBplusTreeReuseVolatilePageMemoryTest extends AbstractBplusTreeReusePageMemoryTest {
+public class ItBplusTreeReuseListVolatilePageMemoryTest extends AbstractBplusTreeReusePageMemoryTest {
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
     private VolatilePageMemoryDataRegionConfiguration dataRegionCfg;
 
