@@ -609,12 +609,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         CountDownLatch createTblLatch = new CountDownLatch(1);
 
-        AtomicLong token = new AtomicLong();
-
         tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
             createTblLatch.countDown();
-
-            token.set(parameters.causalityToken());
 
             return completedFuture(true);
         });

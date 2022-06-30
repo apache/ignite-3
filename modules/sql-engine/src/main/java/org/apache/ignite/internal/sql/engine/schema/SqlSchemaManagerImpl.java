@@ -89,9 +89,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 throw new IgniteInternalException("Couldn't evaluate sql schemas for causality token: " + token, throwable);
             }
 
-            rebuild(token, stringIgniteSchemaMap);
+            SchemaPlus newCalciteSchema = rebuild(stringIgniteSchemaMap);
 
             listeners.forEach(SchemaUpdateListener::onSchemaUpdated);
+
+            calciteSchemaVv.complete(token, newCalciteSchema);
         });
     }
 
@@ -316,17 +318,16 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /**
      * Rebuilds Calcite schemas.
      *
-     * @param causalityToken Causality token.
      * @param schemas Ignite schemas.
      */
-    private void rebuild(long causalityToken, Map<String, IgniteSchema> schemas) {
+    private SchemaPlus rebuild(Map<String, IgniteSchema> schemas) {
         SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
 
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
 
         schemas.forEach(newCalciteSchema::add);
 
-        calciteSchemaVv.complete(causalityToken, newCalciteSchema);
+        return newCalciteSchema;
     }
 
     private CompletableFuture<IgniteTableImpl> convert(long causalityToken, TableImpl table) {
