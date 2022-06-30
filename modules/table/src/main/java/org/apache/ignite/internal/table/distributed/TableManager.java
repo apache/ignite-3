@@ -550,8 +550,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         var table = new TableImpl(internalTable);
 
-        CompletableFuture<?> eventFut = fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
-
         tablesByIdVv.update(causalityToken, (previous, e) -> {
             if (e != null) {
                 return failedFuture(e);
@@ -564,12 +562,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return completedFuture(val);
         });
 
-        CompletableFuture<?> fut = schemaManager.schemaRegistry(causalityToken, tblId)
+        schemaManager.schemaRegistry(causalityToken, tblId)
             .thenAccept(table::schemaView)
-            .thenCompose(v -> eventFut);
+            .thenRun(() -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null));
 
         // TODO should be reworked in IGNITE-16763
-        return tablesByIdVv.get(causalityToken).thenCompose(v -> fut).thenRun(() -> completeApiCreateFuture(table));
+        return tablesByIdVv.get(causalityToken).thenRun(() -> completeApiCreateFuture(table));
     }
 
     /**
