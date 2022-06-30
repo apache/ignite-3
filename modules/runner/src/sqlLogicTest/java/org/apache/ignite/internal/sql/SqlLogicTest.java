@@ -254,8 +254,6 @@ public class SqlLogicTest {
                     }
                 }
             }
-
-            // ((MetaStorageManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), "metaStorageMgr")).compact().join();
         }
     }
 
