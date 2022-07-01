@@ -2044,6 +2044,43 @@ public abstract class AbstractKeyValueStorageTest {
     }
 
     @Test
+    public void rangeCursorSkippingTombstones() {
+        byte[] key1 = key(1);
+        byte[] val1 = keyValue(1, 1);
+
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
+
+        assertEquals(0, storage.revision());
+        assertEquals(0, storage.updateCounter());
+
+        storage.put(key1, val1);
+
+        assertEquals(1, storage.revision());
+        assertEquals(1, storage.updateCounter());
+
+        storage.remove(key1);
+
+        assertEquals(2, storage.revision());
+        assertEquals(2, storage.updateCounter());
+
+        storage.put(key2, val2);
+
+        assertEquals(3, storage.revision());
+        assertEquals(3, storage.updateCounter());
+
+        // Range that includes tombstones.
+        Cursor<Entry> cur = storage.range(key1, null, true);
+
+        assertEquals(2, cur.stream().count());
+
+        // Range that doesn't include tombstones.
+        cur = storage.range(key1, null, false);
+
+        assertEquals(1, cur.stream().count());
+    }
+
+    @Test
     public void watchCursorLexicographicTest() throws Exception {
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
