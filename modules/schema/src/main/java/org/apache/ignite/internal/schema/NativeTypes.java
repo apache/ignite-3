@@ -147,7 +147,7 @@ public class NativeTypes {
      * @see #time(int)
      */
     public static NativeType time() {
-        return TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
+        return TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_TIME_PRECISION);
     }
 
     /**
@@ -167,7 +167,7 @@ public class NativeTypes {
      * @see #datetime(int)
      */
     public static NativeType datetime() {
-        return TemporalNativeType.datetime(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
+        return TemporalNativeType.datetime(ColumnType.TemporalColumnType.DEFAULT_TIME_PRECISION);
     }
 
     /**
@@ -187,7 +187,7 @@ public class NativeTypes {
      * @see #timestamp(int)
      */
     public static NativeType timestamp() {
-        return TemporalNativeType.timestamp(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
+        return TemporalNativeType.timestamp(ColumnType.TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION);
     }
 
     /**

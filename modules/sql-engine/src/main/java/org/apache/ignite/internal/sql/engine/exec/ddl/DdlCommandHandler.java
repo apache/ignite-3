@@ -44,7 +44,6 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteObjectName;
@@ -122,14 +121,12 @@ public class DdlCommandHandler {
         pkeyDef.withColumns(IgniteObjectName.quoteNames(cmd.primaryKeyColumns()));
         pkeyDef.withColocationColumns(IgniteObjectName.quoteNames(cmd.colocationColumns()));
 
-        final IgniteTypeFactory typeFactory = Commons.typeFactory();
-
         final List<org.apache.ignite.schema.definition.ColumnDefinition> colsInner = new ArrayList<>();
 
         for (ColumnDefinition col : cmd.columns()) {
             ColumnDefinitionBuilder col0 = SchemaBuilders.column(
                             IgniteObjectName.quote(col.name()),
-                            typeFactory.columnType(col.type())
+                            IgniteTypeFactory.relDataTypeToColumnType(col.type())
                     )
                     .asNullable(col.nullable())
                     .withDefaultValueExpression(col.defaultValue());
@@ -320,12 +317,10 @@ public class DdlCommandHandler {
                         }).collect(Collectors.toList());
                     }
 
-                    final IgniteTypeFactory typeFactory = Commons.typeFactory();
-
                     for (ColumnDefinition col : colsDef0) {
                         ColumnDefinitionBuilder col0 = SchemaBuilders.column(
                                         IgniteObjectName.quote(col.name()),
-                                        typeFactory.columnType(col.type())
+                                        IgniteTypeFactory.relDataTypeToColumnType(col.type())
                                 )
                                 .asNullable(col.nullable())
                                 .withDefaultValueExpression(col.defaultValue());

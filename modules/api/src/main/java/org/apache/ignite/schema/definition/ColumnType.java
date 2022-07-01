@@ -175,14 +175,14 @@ public class ColumnType {
 
     /**
      * Returns timezone-free type representing a time of day in hours, minutes, seconds, and fractional seconds with the default precision
-     * of 6 (microseconds).
+     * of 0 (seconds).
      *
      * @return Native type.
-     * @see TemporalColumnType#DEFAULT_PRECISION
+     * @see TemporalColumnType#DEFAULT_TIME_PRECISION
      * @see #time(int)
      */
     public static TemporalColumnType time() {
-        return new TemporalColumnType(ColumnTypeSpec.TIME, TemporalColumnType.DEFAULT_PRECISION);
+        return new TemporalColumnType(ColumnTypeSpec.TIME, TemporalColumnType.DEFAULT_TIME_PRECISION);
     }
 
     /**
@@ -203,14 +203,14 @@ public class ColumnType {
     }
 
     /**
-     * Returns timezone-free datetime encoded as (date, time) with the default time precision of 6 (microseconds).
+     * Returns timezone-free datetime encoded as (date, time) with the default time precision of 0 (seconds).
      *
      * @return Native type.
-     * @see TemporalColumnType#DEFAULT_PRECISION
+     * @see TemporalColumnType#DEFAULT_TIME_PRECISION
      * @see #datetime(int)
      */
     public static TemporalColumnType datetime() {
-        return new TemporalColumnType(ColumnTypeSpec.DATETIME, TemporalColumnType.DEFAULT_PRECISION);
+        return new TemporalColumnType(ColumnTypeSpec.DATETIME, TemporalColumnType.DEFAULT_TIME_PRECISION);
     }
 
     /**
@@ -236,11 +236,11 @@ public class ColumnType {
      * (microseconds).
      *
      * @return Native type.
-     * @see TemporalColumnType#DEFAULT_PRECISION
+     * @see TemporalColumnType#DEFAULT_TIMESTAMP_PRECISION
      * @see #timestamp(int)
      */
     public static TemporalColumnType timestamp() {
-        return new TemporalColumnType(ColumnTypeSpec.TIMESTAMP, TemporalColumnType.DEFAULT_PRECISION);
+        return new TemporalColumnType(ColumnTypeSpec.TIMESTAMP, TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION);
     }
 
     /**
@@ -460,8 +460,26 @@ public class ColumnType {
      * Column type of variable length.
      */
     public static class TemporalColumnType extends ColumnType {
-        /** Default temporal type precision: microseconds. */
-        public static final int DEFAULT_PRECISION = 6;
+        /**
+         * Default TIME type precision: microseconds.
+         *
+         * SQL99 part 2 section 6.1 syntax rule 30
+         */
+        public static final int DEFAULT_TIMESTAMP_PRECISION = 6;
+
+        /**
+         * Default TIMESTAMP type precision: seconds.
+         *
+         * SQL99 part 2 section 6.1 syntax rule 30
+         */
+        public static final int DEFAULT_TIME_PRECISION = 0;
+
+        /**
+         * Max TIME precision.
+         *
+         * SQL99 part 2 section 6.1 syntax rule 31
+         */
+        public static final int MAX_TIME_PRECISION = 9;
 
         /** Fractional seconds precision. */
         private final int precision;

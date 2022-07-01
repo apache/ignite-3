@@ -129,11 +129,11 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                                 + "INT_C INT, "
                                 + "LONG_C BIGINT, "
                                 + "NUMBER_C NUMERIC, "
-                                + "NUMBER_C2 NUMERIC(5), "
-                                + "NUMBER_C3 NUMERIC(10,3), "
+                                + "NUMBER_C2 NUMERIC(38), "
+                                + "NUMBER_C3 NUMERIC(38,37), "
                                 + "DECIMAL_C DECIMAL, "
-                                + "DECIMAL_C2 DECIMAL(5), "
-                                + "DECIMAL_C3 DECIMAL(10,3), "
+                                + "DECIMAL_C2 DECIMAL(38), "
+                                + "DECIMAL_C3 DECIMAL(38,37), "
 
                                 // Approximate numeric types
                                 + "FLOAT_C FLOAT, "
@@ -143,7 +143,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
 
                                 // Character string types
                                 + "CHAR_C CHAR, "
-                                + "CHAR_C2 CHAR(125), "
+                                + "CHAR_C2 CHAR(65536), "
                                 + "VARCHAR_C VARCHAR, "
                                 + "VARCHAR_C2 VARCHAR(125), "
 
@@ -152,9 +152,9 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
 //                              + "BIT_C2 BIT(10), "  // TODO: from ANSI`92. Not supported by Calcite parser.
 //                              + "BIT_C3 BIT VARYING(10), " // TODO: from ANSI`92. Not supported by Calcite parser.
                                 + "BINARY_C BINARY, " // Added in ANSI`99
-                                + "BINARY_C2 BINARY(80), "
+                                + "BINARY_C2 BINARY(65536), "
 //                              + "VARBINARY_C VARBINARY, " // TODO: from ANSI`99. Not supported by Calcite parser.
-//                              + "VARBINARY_C2 VARBINARY(80) " // TODO: from ANSI`99. Not supported by Calcite parser.
+//                              + "VARBINARY_C2 VARBINARY(125) " // TODO: from ANSI`99. Not supported by Calcite parser.
 
                                 // Datetime types
                                 + "DATE_C DATE, "
@@ -164,12 +164,12 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                                 + "TIME_LTZ_C2 TIME(9) WITH LOCAL TIME ZONE, " // Not part of any standard
 //                              + "TIME_TZ_C TIME WITH TIMEZONE, " // TODO: from ANSI`92. Not supported by Calcite parser.
 //                              + "TIME_TZ_C2 TIME(9) WITH TIMEZONE, " // TODO: from ANSI`92. Not supported by Calcite parser.
-                                + "TIMESTAMP_C TIMESTAMP, "
-                                + "TIMESTAMP_C2 TIMESTAMP(9), "
-                                + "TIMESTAMP_LTZ_C TIMESTAMP WITH LOCAL TIME ZONE, " // Not part of any standard
-                                + "TIMESTAMP_LTZ_C2 TIMESTAMP(9) WITH LOCAL TIME ZONE, " // Not part of any standard
-//                              + "TIMESTAMP_TZ_C TIMESTAMP WITH TIME ZONE, " // TODO: from ANSI`92. Not supported by Calcite parser.
-//                              + "TIMESTAMP_TZ_C2 TIMESTAMP(9) WITH TIME ZONE, " // TODO: from ANSI`92. Not supported by Calcite parser.
+                                + "DATETIME_C TIMESTAMP, "
+                                + "DATETIME_C2 TIMESTAMP(9), "
+                                + "TIMESTAMP_C TIMESTAMP WITH LOCAL TIME ZONE, " // Not part of any standard
+                                + "TIMESTAMP_C2 TIMESTAMP(9) WITH LOCAL TIME ZONE, " // Not part of any standard
+//                              + "TIMESTAMP_C TIMESTAMP WITH TIME ZONE, " // TODO: from ANSI`92. Not supported by Calcite parser.
+//                              + "TIMESTAMP_C2 TIMESTAMP(9) WITH TIME ZONE, " // TODO: from ANSI`92. Not supported by Calcite parser.
 
                                 // Interval types
                                 // TODO: Ignite doesn't support interval types.
@@ -193,56 +193,54 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
         assertQuery("select * from metadata_table")
                 .columnMetadata(
                         new MetadataMatcher().name("ID").nullable(false),
-//                        new MetadataMatcher().name("BOOLEAN_C")
+//                      new MetadataMatcher().name("BOOLEAN_C"),
 
                         // Exact numeric types
                         new MetadataMatcher().name("TINY_C").type(SqlColumnType.INT8).precision(3).scale(0),
                         new MetadataMatcher().name("SMALL_C").type(SqlColumnType.INT16).precision(5).scale(0),
                         new MetadataMatcher().name("INT_C").type(SqlColumnType.INT32).precision(10).scale(0),
                         new MetadataMatcher().name("LONG_C").type(SqlColumnType.INT64).precision(19).scale(0),
-                        new MetadataMatcher().name("NUMBER_C").type(SqlColumnType.DECIMAL).precision(0x7FFF).scale(0),
-                        new MetadataMatcher().name("NUMBER_C2").type(SqlColumnType.DECIMAL).precision(5).scale(0),
-                        new MetadataMatcher().name("NUMBER_C3").type(SqlColumnType.DECIMAL).precision(10).scale(3),
 
+                        new MetadataMatcher().name("NUMBER_C").type(SqlColumnType.DECIMAL).precision(0x7FFF).scale(0),
+                        new MetadataMatcher().name("NUMBER_C2").type(SqlColumnType.DECIMAL).precision(38).scale(0),
+                        new MetadataMatcher().name("NUMBER_C3").type(SqlColumnType.DECIMAL).precision(38).scale(37),
                         new MetadataMatcher().name("DECIMAL_C").type(SqlColumnType.DECIMAL).precision(0x7FFF).scale(0),
-                        new MetadataMatcher().name("DECIMAL_C2").type(SqlColumnType.DECIMAL).precision(5).scale(0),
-                        new MetadataMatcher().name("DECIMAL_C3").type(SqlColumnType.DECIMAL).precision(10).scale(3),
+                        new MetadataMatcher().name("DECIMAL_C2").type(SqlColumnType.DECIMAL).precision(38).scale(0),
+                        new MetadataMatcher().name("DECIMAL_C3").type(SqlColumnType.DECIMAL).precision(38).scale(37),
 
                         // Approximate numeric types
                         new MetadataMatcher().name("FLOAT_C").type(SqlColumnType.FLOAT).precision(7).scale(UNDEFINED_SCALE),
-//                        new MetadataMatcher().name("FLOAT_C2").precision(4).scale(ColumnMetadata.UNDEFINED_SCALE),
+//                      new MetadataMatcher().name("FLOAT_C2").precision(4).scale(ColumnMetadata.UNDEFINED_SCALE),
                         new MetadataMatcher().name("REAL_C").type(SqlColumnType.FLOAT).precision(7).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("DOUBLE_C").type(SqlColumnType.DOUBLE).precision(15).scale(UNDEFINED_SCALE),
 
                         // Character string types
                         new MetadataMatcher().name("CHAR_C").type(SqlColumnType.STRING).precision(1).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("CHAR_C2").type(SqlColumnType.STRING).precision(125).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("VARCHAR_C").type(SqlColumnType.STRING).precision(2 << 15).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("CHAR_C2").type(SqlColumnType.STRING).precision(65536).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("VARCHAR_C").type(SqlColumnType.STRING).precision(65536).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("VARCHAR_C2").type(SqlColumnType.STRING).precision(125).scale(UNDEFINED_SCALE),
 
                         // Binary string types
-//                        new MetadataMatcher().name("BIT_C"),
-//                        new MetadataMatcher().name("BIT_C2"),
-//                        new MetadataMatcher().name("BIT_C3"),
+//                      new MetadataMatcher().name("BIT_C"),
+//                      new MetadataMatcher().name("BIT_C2"),
+//                      new MetadataMatcher().name("BIT_C3"),
                         new MetadataMatcher().name("BINARY_C").type(SqlColumnType.BYTE_ARRAY).precision(1).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("BINARY_C2").type(SqlColumnType.BYTE_ARRAY).precision(80).scale(UNDEFINED_SCALE),
-//                        new MetadataMatcher().name("VARBINARY_C"),
-//                        new MetadataMatcher().name("VARBINARY_C2"),
+                        new MetadataMatcher().name("BINARY_C2").type(SqlColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
+//                      new MetadataMatcher().name("VARBINARY_C").type(SqlColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
+//                      new MetadataMatcher().name("VARBINARY_C2").type(SqlColumnType.BYTE_ARRAY).precision(125).scale(UNDEFINED_SCALE),
 
                         // Datetime types
                         new MetadataMatcher().name("DATE_C").type(SqlColumnType.DATE).precision(0).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIME_C").type(SqlColumnType.TIME).precision(3).scale(UNDEFINED_SCALE),
-                        // TODO: Add IGNITE dialect to support time/timestamp precision > 3
-                        new MetadataMatcher().name("TIME_C2").type(SqlColumnType.TIME)/*.precision(9)*/.scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIME_LTZ_C").type(SqlColumnType.TIME).precision(3).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIME_LTZ_C2").type(SqlColumnType.TIME)/*.precision(9)*/.scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("TIME_C").type(SqlColumnType.TIME).precision(0).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("TIME_C2").type(SqlColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("TIME_LTZ_C").type(SqlColumnType.TIME).precision(0).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("TIME_LTZ_C2").type(SqlColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
 //                      new MetadataMatcher().name("TIME_TZ_C").type(SqlColumnType.TIME),
 //                      new MetadataMatcher().name("TIME_TZ_C2").type(SqlColumnType.TIME),
-                        new MetadataMatcher().name("TIMESTAMP_C").type(SqlColumnType.DATETIME).precision(3).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIMESTAMP_C2").type(SqlColumnType.DATETIME)/*.precision(9)*/.scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIMESTAMP_LTZ_C").type(SqlColumnType.TIMESTAMP).precision(3).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("TIMESTAMP_LTZ_C2").type(SqlColumnType.TIMESTAMP)/*.precision(9)*/.scale(
-                                UNDEFINED_SCALE),
+                        new MetadataMatcher().name("DATETIME_C").type(SqlColumnType.DATETIME).precision(0).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("DATETIME_C2").type(SqlColumnType.DATETIME).precision(9).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("TIMESTAMP_C").type(SqlColumnType.TIMESTAMP).precision(6).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("TIMESTAMP_C2").type(SqlColumnType.TIMESTAMP).precision(9).scale(UNDEFINED_SCALE),
 //                      new MetadataMatcher().name("TIMESTAMP_TZ_C").type(SqlColumnType.TIMESTAMP),
 //                      new MetadataMatcher().name("TIMESTAMP_TZ_C2").type(SqlColumnType.TIMESTAMP),
 

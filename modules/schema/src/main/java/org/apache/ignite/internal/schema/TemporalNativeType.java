@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema;
 
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.schema.definition.ColumnType.TemporalColumnType;
 
 /**
  * Temporal native type.
@@ -71,7 +72,7 @@ public class TemporalNativeType extends NativeType {
     private TemporalNativeType(NativeTypeSpec typeSpec, int size, int precision) {
         super(typeSpec, size);
 
-        if (precision < 0 || precision > 9) {
+        if (precision < 0 || precision > TemporalColumnType.MAX_TIME_PRECISION) {
             throw new IllegalArgumentException("Unsupported fractional seconds precision: " + precision);
         }
 
