@@ -170,11 +170,12 @@ public interface KeyValueStorage extends AutoCloseable {
     /**
      * Returns cursor by entries which correspond to the given keys range.
      *
-     * @param keyFrom Start key of range (inclusive).
-     * @param keyTo   Last key of range (exclusive).
+     * @param keyFrom           Start key of range (inclusive).
+     * @param keyTo             Last key of range (exclusive).
+     * @param includeTombstones Whether to include tombstone entries.
      * @return Cursor by entries which correspond to the given keys range.
      */
-    Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo);
+    Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo, boolean includeTombstones);
 
     /**
      * Returns cursor by entries which correspond to the given keys range and bounded by revision number.
@@ -182,9 +183,10 @@ public interface KeyValueStorage extends AutoCloseable {
      * @param keyFrom       Start key of range (inclusive).
      * @param keyTo         Last key of range (exclusive).
      * @param revUpperBound Upper bound of revision.
+     * @param includeTombstones Whether to include tombstone entries.
      * @return Cursor by entries which correspond to the given keys range.
      */
-    Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound);
+    Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound, boolean includeTombstones);
 
     /**
      * Creates subscription on updates of entries corresponding to the given keys range and starting from the given revision number.

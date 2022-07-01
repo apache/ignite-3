@@ -52,6 +52,9 @@ class RangeCursor implements Cursor<Entry> {
     /** Key of the last returned entry. */
     private byte[] lastRetKey;
 
+    /** Whether to include tombstone entries. */
+    private final boolean includeTombstones;
+
     /**
      * {@code true} if the iteration is finished.
      */
@@ -60,16 +63,18 @@ class RangeCursor implements Cursor<Entry> {
     /**
      * Constructor.
      *
-     * @param storage Storage.
-     * @param keyFrom {@link #keyFrom}.
-     * @param keyTo   {@link #keyTo}.
-     * @param rev     {@link #rev}.
+     * @param storage           Storage.
+     * @param keyFrom           {@link #keyFrom}.
+     * @param keyTo             {@link #keyTo}.
+     * @param rev               {@link #rev}.
+     * @param includeTombstones {@link #includeTombstones}.
      */
-    RangeCursor(RocksDbKeyValueStorage storage, byte[] keyFrom, byte @Nullable [] keyTo, long rev) {
+    RangeCursor(RocksDbKeyValueStorage storage, byte[] keyFrom, byte @Nullable [] keyTo, long rev, boolean includeTombstones) {
         this.storage = storage;
         this.keyFrom = keyFrom;
         this.keyTo = keyTo;
         this.rev = rev;
+        this.includeTombstones = includeTombstones;
         this.it = createIterator();
     }
 
@@ -147,9 +152,11 @@ class RangeCursor implements Cursor<Entry> {
 
                             Entry entry = storage.doGetValue(key, lastRev);
 
-                            assert !entry.empty() : "Iterator should not return empty entry.";
+                            if (!entry.tombstone() || includeTombstones) {
+                                assert !entry.empty() : "Iterator should not return empty entry.";
 
-                            nextRetEntry = entry;
+                                nextRetEntry = entry;
+                            }
                         }
                     }
                 } finally {

@@ -685,14 +685,14 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo) {
-        return new RangeCursor(this, keyFrom, keyTo, rev);
+    public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, boolean includeTombstones) {
+        return new RangeCursor(this, keyFrom, keyTo, rev, includeTombstones);
     }
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound) {
-        return new RangeCursor(this, keyFrom, keyTo, revUpperBound);
+    public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound, boolean includeTombstones) {
+        return new RangeCursor(this, keyFrom, keyTo, revUpperBound, includeTombstones);
     }
 
     /** {@inheritDoc} */

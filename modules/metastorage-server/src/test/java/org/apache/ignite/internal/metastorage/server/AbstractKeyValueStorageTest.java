@@ -1958,7 +1958,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertEquals(3, storage.updateCounter());
 
         // Range for latest revision without max bound.
-        Cursor<Entry> cur = storage.range(key1, null);
+        Cursor<Entry> cur = storage.range(key1, null, false);
 
         Iterator<Entry> it = cur.iterator();
 
@@ -2006,7 +2006,7 @@ public abstract class AbstractKeyValueStorageTest {
         }
 
         // Range for latest revision with max bound.
-        cur = storage.range(key1, key3);
+        cur = storage.range(key1, key3, false);
 
         it = cur.iterator();
 
