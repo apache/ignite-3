@@ -282,9 +282,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 schemaManager
         );
 
-        SqlQueryProcessor queryProcessor =
-                new SqlQueryProcessor(registry, clusterSvc, tableManager, schemaManager, dataStorageManager, Map::of);
-
         // Preparing the result map.
 
         partialNode.add(vault);
@@ -319,8 +316,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterCfgMgr,
                 dataStorageManager,
                 schemaManager,
-                tableManager,
-                queryProcessor
+                tableManager
         );
 
         for (IgniteComponent component : otherComponents) {
