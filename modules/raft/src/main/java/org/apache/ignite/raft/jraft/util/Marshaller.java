@@ -17,7 +17,7 @@
 package org.apache.ignite.raft.jraft.util;
 
 public interface Marshaller {
-    public static Marshaller DEFAULT = new JDKMarshaller();
+    public static Marshaller DEFAULT = new JDKMarshaller.NewMarshaller();
 
     byte[] marshall(Object o);
 

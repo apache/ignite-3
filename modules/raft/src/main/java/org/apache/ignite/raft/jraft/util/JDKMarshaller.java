@@ -20,6 +20,12 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
+import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
+import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
+import org.apache.ignite.internal.network.serialization.marshal.MarshalException;
+import org.apache.ignite.internal.network.serialization.marshal.UnmarshalException;
+import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 
 /**
  *
@@ -52,6 +58,39 @@ public class JDKMarshaller implements Marshaller {
         }
         catch (Exception e) {
             throw new Error(e);
+        }
+    }
+
+    /** */
+    public static class NewMarshaller implements Marshaller {
+        /** */
+        private final ClassDescriptorRegistry registry = new ClassDescriptorRegistry();
+
+        /** */
+        private final ClassDescriptorFactory factory = new ClassDescriptorFactory(registry);
+
+        /** */
+        private final UserObjectMarshaller uom = new DefaultUserObjectMarshaller(registry, factory);
+
+        /** {@inheritDoc} */
+        @Override
+        public byte[] marshall(Object o) {
+            try {
+                return uom.marshal(o).bytes();
+            } catch (MarshalException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public <T> T unmarshall(byte[] raw) {
+            try {
+                return uom.unmarshal(raw, registry);
+            }
+            catch (UnmarshalException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }
