@@ -358,7 +358,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
 
         if (latestVersion.hasNextLink()) {
             // This load can be avoided, see the comment below.
-            RowVersion preLatestVersion = readPredecessor(latestVersion);
+            RowVersion preLatestVersion = readNextInChainOrderHeaderOnly(latestVersion);
 
             VersionChain versionChainReplacement = VersionChain.withoutTxId(
                     partId,
@@ -379,8 +379,14 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         return rowVersionToBinaryRow(latestVersion);
     }
 
-    private RowVersion readPredecessor(RowVersion latestVersion) {
-        long preLatestVersionLink = PartitionlessLinks.addPartitionIdToPartititionlessLink(latestVersion.nextLink(), partId);
+    /**
+     * Reads next row version in chain order (that is, the predecessor of the given version in creation order); payload is not loaded.
+     *
+     * @param rowVersion Version from which to start.
+     * @return Next row version in chain order (that is, the predecessor of the given version in creation order).
+     */
+    private RowVersion readNextInChainOrderHeaderOnly(RowVersion rowVersion) {
+        long preLatestVersionLink = PartitionlessLinks.addPartitionIdToPartititionlessLink(rowVersion.nextLink(), partId);
 
         return readRowVersion(preLatestVersionLink, NEVER_LOAD_VALUE);
     }
