@@ -44,8 +44,8 @@ class CheckpointDirtyPages {
      * @param dirtyPages Sorted dirty pages from data regions by groupId -> partitionId -> pageIdx.
      */
     @SafeVarargs
-    CheckpointDirtyPages(@Nullable IgniteBiTuple<PersistentPageMemory, FullPageId[]>... dirtyPages) {
-        this(dirtyPages == null ? List.of() : List.of(dirtyPages));
+    CheckpointDirtyPages(IgniteBiTuple<PersistentPageMemory, FullPageId[]>... dirtyPages) {
+        this(List.of(dirtyPages));
     }
 
     /**

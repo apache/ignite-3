@@ -62,7 +62,7 @@ import org.jetbrains.annotations.Nullable;
  */
 class CheckpointWorkflow {
     /** Starting from this number of dirty pages in checkpoint, array will be sorted with {@link Arrays#parallelSort(Comparable[])}. */
-    private static final int PARALLEL_SORT_THRESHOLD = 40_000;
+    static final int PARALLEL_SORT_THRESHOLD = 40_000;
 
     /** Checkpoint marker storage. */
     private final CheckpointMarkersStorage checkpointMarkersStorage;
@@ -193,7 +193,7 @@ class CheckpointWorkflow {
 
             tracker.onSplitAndSortCheckpointPagesStart();
 
-            CheckpointDirtyPages checkpointPages = createCheckpointPages(dirtyPages);
+            CheckpointDirtyPages checkpointPages = createAndSortCheckpointDirtyPages(dirtyPages);
 
             tracker.onSplitAndSortCheckpointPagesEnd();
 
@@ -274,20 +274,16 @@ class CheckpointWorkflow {
     ) {
         Collection<IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>>> pages = new ArrayList<>(dataRegions.size());
 
-        int pageCount = 0;
-
         for (DataRegion<PersistentPageMemory> dataRegion : dataRegions) {
             Collection<FullPageId> dirtyPages = dataRegion.pageMemory().beginCheckpoint(allowToReplace);
-
-            pageCount += dirtyPages.size();
 
             pages.add(new IgniteBiTuple<>(dataRegion.pageMemory(), dirtyPages));
         }
 
-        return new DataRegionsDirtyPages(pages, pageCount);
+        return new DataRegionsDirtyPages(pages);
     }
 
-    CheckpointDirtyPages createCheckpointPages(
+    CheckpointDirtyPages createAndSortCheckpointDirtyPages(
             DataRegionsDirtyPages dataRegionsDirtyPages
     ) throws IgniteInternalCheckedException {
         List<IgniteBiTuple<PersistentPageMemory, FullPageId[]>> checkpointPages = new ArrayList<>();
