@@ -76,7 +76,7 @@ public class VersionChainDataIo extends AbstractDataPageIo<VersionChain> {
     protected void writeFragmentData(VersionChain row, ByteBuffer buf, int rowOff, int payloadSize) {
         assertPageType(buf);
 
-        throw new IllegalStateException("Version chains must never be split to fragments, this should be guaranteed "
+        throw new UnsupportedOperationException("Version chains must never be split to fragments, this should be guaranteed "
                 + "by VersionChain#headerSize()");
     }
 
