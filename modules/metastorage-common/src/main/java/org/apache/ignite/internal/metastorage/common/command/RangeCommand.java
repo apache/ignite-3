@@ -98,12 +98,12 @@ public final class RangeCommand implements WriteCommand {
      * @param includeTombstones Whether to include tombstones.
      */
     public RangeCommand(
-        @NotNull ByteArray keyFrom,
-        @Nullable ByteArray keyTo,
-        long revUpperBound,
-        @NotNull String requesterNodeId,
-        @NotNull IgniteUuid cursorId,
-        boolean includeTombstones
+            @NotNull ByteArray keyFrom,
+            @Nullable ByteArray keyTo,
+            long revUpperBound,
+            @NotNull String requesterNodeId,
+            @NotNull IgniteUuid cursorId,
+            boolean includeTombstones
     ) {
         this.keyFrom = keyFrom.bytes();
         this.keyTo = keyTo == null ? null : keyTo.bytes();

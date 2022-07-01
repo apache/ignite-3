@@ -215,10 +215,10 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** {@inheritDoc} */
     @Override
     public @NotNull Cursor<Entry> range(
-        @NotNull ByteArray keyFrom,
-        @Nullable ByteArray keyTo,
-        long revUpperBound,
-        boolean includeTombstones
+            @NotNull ByteArray keyFrom,
+            @Nullable ByteArray keyTo,
+            long revUpperBound,
+            boolean includeTombstones
     ) {
         return new CursorImpl<>(
                 metaStorageRaftGrpSvc,

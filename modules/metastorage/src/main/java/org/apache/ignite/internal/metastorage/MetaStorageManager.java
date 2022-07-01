@@ -674,7 +674,11 @@ public class MetaStorageManager implements IgniteComponent {
      *
      * @see MetaStorageService#range(ByteArray, ByteArray, boolean)
      */
-    public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones) throws NodeStoppingException {
+    public @NotNull Cursor<Entry> range(
+            @NotNull ByteArray keyFrom,
+            @Nullable ByteArray keyTo,
+            boolean includeTombstones
+    ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
