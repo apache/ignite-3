@@ -68,7 +68,7 @@ class ItShowConfigurationCallTest extends CallIntegrationTestBase {
         // Then
         assertThat(output.hasError()).isFalse();
         // And
-        assertThat(output.body()).isEqualTo("\"lru\"");
+        assertThat(output.body()).isEqualTo("lru");
     }
 
     @Test

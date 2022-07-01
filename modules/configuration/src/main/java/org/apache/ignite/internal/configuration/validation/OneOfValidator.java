@@ -43,6 +43,6 @@ public class OneOfValidator implements Validator<OneOf, String> {
         String message = "'" + ctx.currentKey() + "' configuration value must be one of "
                 + Arrays.toString(annotation.value()) + (caseSensitive ? " (case sensitive)" : " (case insensitive)");
 
-        ctx.addIssue(new ValidationIssue(message));
+        ctx.addIssue(new ValidationIssue(ctx.currentKey(), message));
     }
 }

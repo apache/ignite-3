@@ -15,8 +15,26 @@
  * limitations under the License.
  */
 
-/**
- * This package contains classes that represent exceptions that can be thrown and their handlers.
- */
+package org.apache.ignite.internal.rest.constants;
 
-package org.apache.ignite.internal.rest.configuration.exception;
+/**
+ * REST API media types.
+ */
+public final class MediaType {
+    private MediaType() {}
+
+    /**
+     * application/json media type.
+     */
+    public static final String APPLICATION_JSON = "application/json";
+
+    /**
+     * application/problem+json media type.
+     */
+    public static final String PROBLEM_JSON = "application/problem+json";
+
+    /**
+     * text/plain media type.
+     */
+    public static final String TEXT_PLAIN = "text/plain";
+}
