@@ -510,5 +510,4 @@ public abstract class QueryChecker {
             return 0;
         }
     }
-
 }

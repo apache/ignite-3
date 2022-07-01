@@ -161,7 +161,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     }
 
     /**
-     * Gets ColumnType type for RelDataType class.
+     * Gets ColumnType type for RelDataType.
      *
      * @param relType Rel type.
      * @return ColumnType type or null.
