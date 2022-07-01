@@ -50,7 +50,7 @@ public class ClientArchTest {
             // both target/classes and target/libs defines a runtime scope of this particular module
             locations.add(Location.of(Paths.get("target", "classes")));
 
-            var libDir = Paths.get("target","libs").toFile();
+            var libDir = Paths.get("target", "libs").toFile();
 
             if (!libDir.exists()) {
                 throw new AssertionError("Expect \"libs\" directory to exist. Try to run 'mvn clean install'");
