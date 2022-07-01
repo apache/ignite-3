@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.checkpoint;
+package org.apache.ignite.internal.util;
 
 import static java.util.function.Predicate.not;
 
@@ -40,7 +40,6 @@ import org.apache.ignite.lang.IgniteBiTuple;
  * @param <K> The type of key in input pair collection.
  * @param <V> The type of value array.
  */
-// TODO: IGNITE-17267 надо пересмотреть и возможно заменить
 public class IgniteConcurrentMultiPairQueue<K, V> {
     /** Empty pair queue. */
     public static final IgniteConcurrentMultiPairQueue EMPTY = new IgniteConcurrentMultiPairQueue<>(Map.of());

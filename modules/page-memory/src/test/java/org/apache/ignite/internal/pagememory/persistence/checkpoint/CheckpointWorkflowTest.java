@@ -21,6 +21,7 @@ import static java.util.Comparator.comparing;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
@@ -31,7 +32,6 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.BEFORE_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_MARK_CHECKPOINT_BEGIN;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.EMPTY;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -51,14 +51,14 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.Result;
+import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
+import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -277,7 +277,9 @@ public class CheckpointWorkflowTest {
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesStart();
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesEnd();
 
-        List<IgniteBiTuple<PersistentPageMemory, FullPageId>> pairs = collect(checkpoint.dirtyPages);
+        // TODO: IGNITE-17267 почини это
+        //List<IgniteBiTuple<PersistentPageMemory, FullPageId>> pairs = collect(checkpoint.dirtyPages);
+        List<IgniteBiTuple<PersistentPageMemory, FullPageId>> pairs = null;
 
         assertThat(
                 pairs.stream().map(IgniteBiTuple::getKey).collect(toSet()),
@@ -327,8 +329,10 @@ public class CheckpointWorkflowTest {
                 mock(CheckpointMetricsTracker.class)
         );
 
+        // TODO: IGNITE-17267 почини это
         assertThat(
-                collect(checkpoint.dirtyPages).stream().map(IgniteBiTuple::getValue).collect(toList()),
+                //collect(checkpoint.dirtyPages).stream().map(IgniteBiTuple::getValue).collect(toList()),
+                collect(null).stream().map(IgniteBiTuple::getValue).collect(toList()),
                 equalTo(dirtyPages.stream().sorted(comparing(FullPageId::effectivePageId)).collect(toList()))
         );
     }
@@ -379,8 +383,10 @@ public class CheckpointWorkflowTest {
 
         workflow.addCheckpointListener(checkpointListener, dataRegion);
 
+        // TODO: IGNITE-17267 почини это
         workflow.markCheckpointEnd(new Checkpoint(
-                new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(new FullPageId(0, 0)))),
+                null,
+                //new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(new FullPageId(0, 0)))),
                 progressImpl
         ));
 

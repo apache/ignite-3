@@ -20,21 +20,19 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.MARKER_STORED_TO_DISK;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGE_SNAPSHOT_TAKEN;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.EMPTY;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
@@ -195,13 +193,11 @@ class CheckpointWorkflow {
 
             tracker.onSplitAndSortCheckpointPagesStart();
 
-            // TODO: IGNITE-17267 вот тут надо будет поменять
-            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPages0 = splitAndSortCheckpointPagesIfNeeded(dirtyPages);
+            CheckpointDirtyPages checkpointPages = createCheckpointPages(dirtyPages);
 
             tracker.onSplitAndSortCheckpointPagesEnd();
 
-            // TODO: IGNITE-17267 вот тут надо будет поменять
-            return new Checkpoint(dirtyPages0, curr);
+            return new Checkpoint(checkpointPages, curr);
         }
 
         return new Checkpoint(EMPTY, curr);
@@ -291,10 +287,10 @@ class CheckpointWorkflow {
         return new DataRegionsDirtyPages(pages, pageCount);
     }
 
-    IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> splitAndSortCheckpointPagesIfNeeded(
+    CheckpointDirtyPages createCheckpointPages(
             DataRegionsDirtyPages dataRegionsDirtyPages
     ) throws IgniteInternalCheckedException {
-        Set<IgniteBiTuple<PersistentPageMemory, FullPageId[]>> checkpointPages = new HashSet<>();
+        List<IgniteBiTuple<PersistentPageMemory, FullPageId[]>> checkpointPages = new ArrayList<>();
 
         int realPagesArrSize = 0;
 
@@ -311,7 +307,9 @@ class CheckpointWorkflow {
             }
 
             // Some pages may have been already replaced.
-            if (pagePos != checkpointRegionDirtyPages.length) {
+            if (pagePos == 0) {
+                continue;
+            } else if (pagePos != checkpointRegionDirtyPages.length) {
                 checkpointPages.add(new IgniteBiTuple<>(regionDirtyPages.getKey(), Arrays.copyOf(checkpointRegionDirtyPages, pagePos)));
             } else {
                 checkpointPages.add(new IgniteBiTuple<>(regionDirtyPages.getKey(), checkpointRegionDirtyPages));
@@ -344,7 +342,6 @@ class CheckpointWorkflow {
             }
         }
 
-        // TODO: IGNITE-17267 вот тут думаю надо другую структуру брать
-        return new IgniteConcurrentMultiPairQueue<>(checkpointPages);
+        return new CheckpointDirtyPages(checkpointPages);
     }
 }

@@ -26,6 +26,7 @@ import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
+import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**

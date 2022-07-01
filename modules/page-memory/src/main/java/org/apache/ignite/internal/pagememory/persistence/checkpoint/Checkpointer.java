@@ -40,10 +40,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
-import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -355,7 +353,7 @@ public class Checkpointer extends IgniteWorker {
      * Writes dirty pages to the appropriate stores.
      *
      * @param tracker Checkpoint metrics tracker.
-     * @param checkpointPages Checkpoint pages to write.
+     * @param checkpointDirtyPages Checkpoint dirty pages to write.
      * @param currentCheckpointProgress Current checkpoint progress.
      * @param workProgressDispatcher Work progress dispatcher.
      * @param shutdownNow Checker of stop operation.
@@ -363,7 +361,7 @@ public class Checkpointer extends IgniteWorker {
      */
     boolean writePages(
             CheckpointMetricsTracker tracker,
-            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> checkpointPages,
+            CheckpointDirtyPages checkpointDirtyPages,
             CheckpointProgressImpl currentCheckpointProgress,
             WorkProgressDispatcher workProgressDispatcher,
             BooleanSupplier shutdownNow
@@ -382,7 +380,8 @@ public class Checkpointer extends IgniteWorker {
         for (int i = 0; i < checkpointWritePageThreads; i++) {
             CheckpointPagesWriter write = checkpointPagesWriterFactory.build(
                     tracker,
-                    checkpointPages,
+                    // TODO: IGNITE-17267 исправь это место
+                    null,
                     updStores,
                     futures[i] = new CompletableFuture<>(),
                     workProgressDispatcher::updateHeartbeat,
