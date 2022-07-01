@@ -17,7 +17,9 @@
 
 package org.apache.ignite.cli.commands.cluster;
 
-import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigReplSubCommand;
+import org.apache.ignite.cli.commands.cluster.config.ClusterConfigReplSubCommand;
+import org.apache.ignite.cli.commands.cluster.init.ClusterInitReplSubCommand;
+import org.apache.ignite.cli.commands.cluster.status.ClusterStatusReplSubCommand;
 import picocli.CommandLine.Command;
 
 /**

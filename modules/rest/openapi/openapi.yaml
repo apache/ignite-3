@@ -231,6 +231,25 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+  /management/v1/node/state:
+    get:
+      tags:
+      - nodeManagement
+      operationId: nodeState
+      parameters: []
+      responses:
+        "200":
+          description: Return node state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeState'
+        "500":
+          description: Internal error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 components:
   schemas:
     ClusterState:
@@ -288,6 +307,16 @@ components:
             type: string
         clusterName:
           type: string
+    NodeState:
+      required:
+      - name
+      - state
+      type: object
+      properties:
+        name:
+          type: string
+        state:
+          $ref: '#/components/schemas/State'
     Problem:
       required:
       - code
@@ -315,5 +344,11 @@ components:
         traceId:
           type: string
           format: uuid
+    State:
+      type: string
+      enum:
+      - STARTING
+      - STARTED
+      - STOPPING
     Void:
       type: object

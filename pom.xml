@@ -80,6 +80,7 @@
         <module>modules/table</module>
         <module>modules/transactions</module>
         <module>modules/vault</module>
+        <module>modules/node-management</module>
     </modules>
 
     <profiles>

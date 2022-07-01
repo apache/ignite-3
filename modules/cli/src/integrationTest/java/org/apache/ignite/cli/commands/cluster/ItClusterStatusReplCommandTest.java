@@ -20,6 +20,7 @@ package org.apache.ignite.cli.commands.cluster;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.cli.commands.CliCommandTestIntegrationBase;
+import org.apache.ignite.cli.commands.cluster.status.ClusterStatusReplSubCommand;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

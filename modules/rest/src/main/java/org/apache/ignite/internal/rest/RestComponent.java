@@ -35,6 +35,7 @@ import org.apache.ignite.internal.cluster.management.rest.ClusterManagementContr
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.node.rest.NodeManagementController;
 import org.apache.ignite.internal.rest.configuration.ClusterConfigurationController;
 import org.apache.ignite.internal.rest.configuration.NodeConfigurationController;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -46,8 +47,17 @@ import org.jetbrains.annotations.Nullable;
  * <p>It is started on port 10300 by default but it is possible to change this in configuration itself. Refer to default config file in
  * resources for the example.
  */
-@OpenAPIDefinition(info = @Info(title = "Ignite REST module", version = "3.0.0-alpha", license = @License(name = "Apache 2.0", url = "https://ignite.apache.org"), contact = @Contact(email = "user@ignite.apache.org")))
-@OpenAPIInclude(classes = {ClusterConfigurationController.class, NodeConfigurationController.class, ClusterManagementController.class})
+@OpenAPIDefinition(info = @Info(
+        title = "Ignite REST module",
+        version = "3.0.0-alpha",
+        license = @License(name = "Apache 2.0", url = "https://ignite.apache.org"),
+        contact = @Contact(email = "user@ignite.apache.org")))
+@OpenAPIInclude(classes = {
+        ClusterConfigurationController.class,
+        NodeConfigurationController.class,
+        ClusterManagementController.class,
+        NodeManagementController.class
+})
 public class RestComponent implements IgniteComponent {
     /** Default port. */
     public static final int DFLT_PORT = 10300;

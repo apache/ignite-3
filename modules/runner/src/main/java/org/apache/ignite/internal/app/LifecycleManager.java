@@ -29,14 +29,14 @@ import org.apache.ignite.lang.NodeStoppingException;
 /**
  * Class for managing the lifecycle of Ignite components.
  */
-class LifecycleManager {
+class LifecycleManager implements StateProvider {
     private static final IgniteLogger LOG = Loggers.forClass(LifecycleManager.class);
 
     /** Ignite node name. */
     private final String nodeName;
 
     /** Node status. Needed for handling stop a starting node. */
-    private final AtomicReference<Status> status = new AtomicReference<>(Status.STARTING);
+    private final AtomicReference<State> status = new AtomicReference<>(State.STARTING);
 
     /**
      * List of started Ignite components.
@@ -45,11 +45,9 @@ class LifecycleManager {
      */
     private final List<IgniteComponent> startedComponents = new ArrayList<>();
 
-    /** Node state. */
-    private enum Status {
-        STARTING,
-        STARTED,
-        STOPPING
+    @Override
+    public State getState() {
+        return status.get();
     }
 
     LifecycleManager(String nodeName) {
@@ -57,14 +55,14 @@ class LifecycleManager {
     }
 
     /**
-     * Starts a given components unless the node is in {@link Status#STOPPING} state, in which case a {@link NodeStoppingException} will be
+     * Starts a given components unless the node is in {@link State#STOPPING} state, in which case a {@link NodeStoppingException} will be
      * thrown.
      *
      * @param component Ignite component to start.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     void startComponent(IgniteComponent component) throws NodeStoppingException {
-        if (status.get() == Status.STOPPING) {
+        if (status.get() == State.STOPPING) {
             throw new NodeStoppingException("Node=[" + nodeName + "] was stopped");
         }
 
@@ -89,29 +87,29 @@ class LifecycleManager {
 
     /**
      * Callback that should be called after the node has joined a cluster. After this method completes,
-     * the node will be transferred to the {@link Status#STARTED} state.
+     * the node will be transferred to the {@link State#STARTED} state.
      *
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     void onStartComplete() throws NodeStoppingException {
         LOG.info("Start complete");
 
-        Status currentStatus = status.compareAndExchange(Status.STARTING, Status.STARTED);
+        State currentStatus = status.compareAndExchange(State.STARTING, State.STARTED);
 
-        if (currentStatus == Status.STOPPING) {
+        if (currentStatus == State.STOPPING) {
             throw new NodeStoppingException();
-        } else if (currentStatus != Status.STARTING) {
+        } else if (currentStatus != State.STARTING) {
             throw new IllegalStateException("Unexpected node status: " + currentStatus);
         }
     }
 
     /**
-     * Stops all started components and transfers the node into the {@link Status#STOPPING} state.
+     * Stops all started components and transfers the node into the {@link State#STOPPING} state.
      */
     void stopNode() {
-        Status currentStatus = status.getAndSet(Status.STOPPING);
+        State currentStatus = status.getAndSet(State.STOPPING);
 
-        if (currentStatus != Status.STOPPING) {
+        if (currentStatus != State.STOPPING) {
             stopAllComponents();
         }
     }

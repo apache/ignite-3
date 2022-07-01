@@ -58,6 +58,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.node.rest.NodeManagementRestFactory;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
@@ -276,10 +277,14 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
-        RestFactory factory = new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
+        RestFactory presentationsFactory = new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
         RestFactory clusterManagementRestFactory = new ClusterManagementRestFactory(clusterSvc, cmgMgr);
+        RestFactory nodeManagementRestFactory = new NodeManagementRestFactory(lifecycleManager, () -> name);
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
-        restComponent = new RestComponent(List.of(factory, clusterManagementRestFactory), restConfiguration);
+        restComponent = new RestComponent(
+                List.of(presentationsFactory, clusterManagementRestFactory, nodeManagementRestFactory),
+                restConfiguration
+        );
 
         baselineMgr = new BaselineManager(
                 clusterCfgMgr,
