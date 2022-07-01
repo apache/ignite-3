@@ -42,8 +42,6 @@ public class CheckpointTest {
                 new FullPageId[]{new FullPageId(0, 1)}
         );
 
-        // TODO: IGNITE-17267 почини это
-        //assertTrue(new Checkpoint(new IgniteConcurrentMultiPairQueue<>(List.of(biTuple)), progress).hasDelta());
-        assertTrue(new Checkpoint(null, progress).hasDelta());
+        assertTrue(new Checkpoint(new CheckpointDirtyPages(biTuple), progress).hasDelta());
     }
 }

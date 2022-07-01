@@ -312,7 +312,6 @@ class CheckpointWorkflow {
             }
         }
 
-        // TODO: IGNITE-17267 не забыть написать тест, можно еще тест чтобы превыщать порог для паралельной сортировки
         Comparator<FullPageId> cmp = Comparator.comparingInt(FullPageId::groupId).thenComparingLong(FullPageId::effectivePageId);
 
         List<ForkJoinTask<?>> parallelSortTasks = checkpointPages.stream()

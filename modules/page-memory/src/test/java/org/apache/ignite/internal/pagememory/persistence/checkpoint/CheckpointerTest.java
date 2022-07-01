@@ -19,11 +19,11 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.lang.System.nanoTime;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.EMPTY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.greaterThan;
@@ -49,8 +49,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.List;
-import java.util.Map;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -59,7 +59,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.Test;
@@ -301,10 +301,10 @@ public class CheckpointerTest {
 
     @Test
     void testDoCheckpoint() throws Exception {
-        IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPages = dirtyPages(
+        CheckpointDirtyPages dirtyPages = spy(dirtyPages(
                 mock(PersistentPageMemory.class),
                 new FullPageId(0, 0), new FullPageId(1, 0), new FullPageId(2, 0)
-        );
+        ));
 
         Checkpointer checkpointer = spy(new Checkpointer(
                 log,
@@ -318,8 +318,7 @@ public class CheckpointerTest {
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
 
-        assertTrue(dirtyPages.isEmpty());
-
+        verify(dirtyPages, times(1)).nextView(any());
         verify(checkpointer, times(1)).startCheckpointProgress();
 
         assertEquals(checkpointer.currentProgress().currentCheckpointPagesCount(), 3);
@@ -364,22 +363,17 @@ public class CheckpointerTest {
         );
     }
 
-    private IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPages(
-            PersistentPageMemory pageMemory,
-            FullPageId... fullPageIds
-    ) {
-        return fullPageIds.length == 0 ? EMPTY : new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(fullPageIds)));
+    private CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, FullPageId... fullPageIds) {
+        Arrays.sort(fullPageIds, Comparator.comparing(FullPageId::groupId).thenComparing(FullPageId::effectivePageId));
+
+        return new CheckpointDirtyPages(new IgniteBiTuple<>(pageMemory, fullPageIds));
     }
 
-    private CheckpointWorkflow createCheckpointWorkflow(
-            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPages
-    ) throws Exception {
+    private CheckpointWorkflow createCheckpointWorkflow(CheckpointDirtyPages dirtyPages) throws Exception {
         CheckpointWorkflow mock = mock(CheckpointWorkflow.class);
 
-        // TODO: IGNITE-17267 почини это
         when(mock.markCheckpointBegin(anyLong(), any(CheckpointProgressImpl.class), any(CheckpointMetricsTracker.class)))
-                //.then(answer -> new Checkpoint(dirtyPages, answer.getArgument(1)));
-                .then(answer -> new Checkpoint(null, answer.getArgument(1)));
+                .then(answer -> new Checkpoint(dirtyPages, answer.getArgument(1)));
 
         doAnswer(answer -> {
             ((Checkpoint) answer.getArgument(0)).progress.transitTo(FINISHED);
