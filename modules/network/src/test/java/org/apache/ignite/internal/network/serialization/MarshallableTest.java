@@ -147,21 +147,25 @@ public class MarshallableTest {
 
         outBuffer.flip();
 
-        ByteBuf inBuffer = allocator.buffer();
-
         // List that holds decoded object
         final var list = new ArrayList<>();
 
-        for (int i = 0; i < size; i++) {
-            // Write bytes to a decoding buffer one by one
-            inBuffer.writeByte(outBuffer.get());
+        ByteBuf inBuffer = allocator.buffer();
 
-            decoder.decode(ctx, inBuffer, list);
+        try {
+            for (int i = 0; i < size; i++) {
+                // Write bytes to a decoding buffer one by one
+                inBuffer.writeByte(outBuffer.get());
 
-            if (i < size - 1) {
-                // Any time before the buffer is fully read, message object should not be decoded
-                assertThat(list, is(empty()));
+                decoder.decode(ctx, inBuffer, list);
+
+                if (i < size - 1) {
+                    // Any time before the buffer is fully read, message object should not be decoded
+                    assertThat(list, is(empty()));
+                }
             }
+        } finally {
+            inBuffer.release();
         }
 
         // Buffer is fully read, message object should be decoded
