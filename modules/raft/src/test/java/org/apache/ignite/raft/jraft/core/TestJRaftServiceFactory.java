@@ -27,7 +27,7 @@ public class TestJRaftServiceFactory extends DefaultJRaftServiceFactory {
 
     @Override
     public LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions) {
-        return new LocalLogStorage(null, raftOptions);
+        return new LocalLogStorage(raftOptions);
     }
 
 }

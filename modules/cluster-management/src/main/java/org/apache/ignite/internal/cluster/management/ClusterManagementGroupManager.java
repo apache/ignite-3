@@ -50,6 +50,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyComm
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -480,11 +481,16 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         try {
             return raftManager
-                    .prepareRaftGroup(CMG_RAFT_GROUP_NAME, nodes, () -> {
-                        clusterStateStorage.start();
+                    .prepareRaftGroup(
+                            CMG_RAFT_GROUP_NAME,
+                            nodes,
+                            () -> {
+                                clusterStateStorage.start();
 
-                        return new CmgRaftGroupListener(clusterStateStorage);
-                    })
+                                return new CmgRaftGroupListener(clusterStateStorage);
+                            },
+                            RaftGroupOptions.defaults()
+                    )
                     .thenApply(service -> new CmgRaftService(service, clusterService));
         } catch (NodeStoppingException e) {
             return failedFuture(e);

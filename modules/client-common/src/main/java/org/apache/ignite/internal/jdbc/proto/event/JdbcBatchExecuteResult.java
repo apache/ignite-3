@@ -26,7 +26,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 /**
  * JDBC batch execute result.
  */
-public class BatchExecuteResult extends Response {
+public class JdbcBatchExecuteResult extends Response {
     /** Update counts. */
     private int[] updateCnts;
 
@@ -36,7 +36,7 @@ public class BatchExecuteResult extends Response {
     /**
      * Constructor.
      */
-    public BatchExecuteResult() {
+    public JdbcBatchExecuteResult() {
     }
 
     /**
@@ -47,7 +47,7 @@ public class BatchExecuteResult extends Response {
      * @param errorMessage Error message.
      * @param updateCnts Array with success and error markers.
      */
-    public BatchExecuteResult(int status, int errorCode, String errorMessage, int[] updateCnts) {
+    public JdbcBatchExecuteResult(int status, int errorCode, String errorMessage, int[] updateCnts) {
         super(status, errorMessage);
 
         this.errorCode = errorCode;
@@ -60,7 +60,7 @@ public class BatchExecuteResult extends Response {
      * @param status Status code.
      * @param err    Error message.
      */
-    public BatchExecuteResult(int status, String err) {
+    public JdbcBatchExecuteResult(int status, String err) {
         super(status, err);
     }
 
@@ -69,7 +69,7 @@ public class BatchExecuteResult extends Response {
      *
      * @param updateCnts Update counts for batch.
      */
-    public BatchExecuteResult(int[] updateCnts) {
+    public JdbcBatchExecuteResult(int[] updateCnts) {
         Objects.requireNonNull(updateCnts);
 
         this.updateCnts = updateCnts;
@@ -122,6 +122,6 @@ public class BatchExecuteResult extends Response {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(BatchExecuteResult.class, this);
+        return S.toString(JdbcBatchExecuteResult.class, this);
     }
 }

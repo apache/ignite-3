@@ -25,14 +25,14 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * JDBC query close request.
  */
-public class QueryCloseRequest implements ClientMessage {
+public class JdbcQueryCloseRequest implements ClientMessage {
     /** Cursor ID. */
     private long cursorId;
 
     /**
      * Default constructor.
      */
-    public QueryCloseRequest() {
+    public JdbcQueryCloseRequest() {
     }
 
     /**
@@ -40,7 +40,7 @@ public class QueryCloseRequest implements ClientMessage {
      *
      * @param cursorId Cursor ID.
      */
-    public QueryCloseRequest(long cursorId) {
+    public JdbcQueryCloseRequest(long cursorId) {
         this.cursorId = cursorId;
     }
 
@@ -68,6 +68,6 @@ public class QueryCloseRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(QueryCloseRequest.class, this);
+        return S.toString(JdbcQueryCloseRequest.class, this);
     }
 }

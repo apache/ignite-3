@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.client.service;
 
+import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -386,7 +387,8 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         server.startRaftGroup(
                 raftGroupId(),
                 createListener(service, listenerPersistencePath),
-                INITIAL_CONF
+                INITIAL_CONF,
+                defaults()
         );
 
         return server;

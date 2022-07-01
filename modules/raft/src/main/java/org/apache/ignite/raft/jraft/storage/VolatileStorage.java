@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,34 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.jdbc.proto.event;
-
-import org.apache.ignite.internal.tostring.S;
+package org.apache.ignite.raft.jraft.storage;
 
 /**
- * JDBC query fetch result.
+ * Marker interface for a storage that is volatile (i.e. it keeps its data in memory).
  */
-public class QueryCloseResult extends Response {
-    /**
-     * Default constructor is used for deserialization.
-     */
-    public QueryCloseResult() {
-        hasResults = true;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param status Status code.
-     * @param err    Error message.
-     */
-    public QueryCloseResult(int status, String err) {
-        super(status, err);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return S.toString(QueryCloseResult.class, this);
-    }
+public interface VolatileStorage {
 }

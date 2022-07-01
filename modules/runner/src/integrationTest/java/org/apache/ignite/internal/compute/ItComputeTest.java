@@ -19,7 +19,6 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
@@ -277,12 +276,6 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(actualNodeName, in(allNodeNames()));
-    }
-
-    private List<List<Object>> executeSql(String sql, Object... args) {
-        return getAllFromCursor(
-                node(0).queryEngine().queryAsync("PUBLIC", sql, args).get(0).join()
-        );
     }
 
     private static class ConcatJob implements ComputeJob<String> {

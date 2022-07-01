@@ -19,6 +19,7 @@ package org.apache.ignite.internal.jdbc.proto.event;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -26,19 +27,28 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * JDBC query fetch result.
+ * JDBC query execute result.
  */
-public class QueryFetchResult extends Response {
+public class JdbcQuerySingleResult extends Response {
+    /** Cursor ID. */
+    private Long cursorId;
+
     /** Query result rows. */
     private List<List<Object>> items;
 
     /** Flag indicating the query has no unfetched results. */
     private boolean last;
 
+    /** Flag indicating the query is SELECT query. {@code false} for DML/DDL queries. */
+    private boolean isQuery;
+
+    /** Update count. */
+    private long updateCnt;
+
     /**
-     * Default constructor is used for deserialization.
+     * Constructor. For deserialization purposes only.
      */
-    public QueryFetchResult() {
+    public JdbcQuerySingleResult() {
     }
 
     /**
@@ -47,27 +57,57 @@ public class QueryFetchResult extends Response {
      * @param status Status code.
      * @param err    Error message.
      */
-    public QueryFetchResult(int status, String err) {
+    public JdbcQuerySingleResult(int status, String err) {
         super(status, err);
     }
 
     /**
      * Constructor.
      *
-     * @param items Query result rows.
-     * @param last  Flag indicating the query has no unfetched results.
+     * @param cursorId Cursor ID.
+     * @param items    Query result rows.
+     * @param last     Flag indicates the query has no unfetched results.
      */
-    public QueryFetchResult(List<List<Object>> items, boolean last) {
+    public JdbcQuerySingleResult(long cursorId, List<List<Object>> items, boolean last) {
+        super();
+
         Objects.requireNonNull(items);
 
+        this.cursorId = cursorId;
         this.items = items;
         this.last = last;
+        this.isQuery = true;
 
         hasResults = true;
     }
 
     /**
-     * Get the result rows.
+     * Constructor.
+     *
+     * @param updateCnt Update count for DML queries.
+     */
+    public JdbcQuerySingleResult(long updateCnt) {
+        super();
+
+        this.last = true;
+        this.isQuery = false;
+        this.updateCnt = updateCnt;
+        this.items = Collections.emptyList();
+
+        hasResults = true;
+    }
+
+    /**
+     * Get the cursor id.
+     *
+     * @return Cursor ID.
+     */
+    public Long cursorId() {
+        return cursorId;
+    }
+
+    /**
+     * Get the items.
      *
      * @return Query result rows.
      */
@@ -84,6 +124,24 @@ public class QueryFetchResult extends Response {
         return last;
     }
 
+    /**
+     * Get the isQuery flag.
+     *
+     * @return Flag indicating the query is SELECT query. {@code false} for DML/DDL queries.
+     */
+    public boolean isQuery() {
+        return isQuery;
+    }
+
+    /**
+     * Get the update count.
+     *
+     * @return Update count for DML queries.
+     */
+    public long updateCount() {
+        return updateCnt;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
@@ -93,6 +151,14 @@ public class QueryFetchResult extends Response {
             return;
         }
 
+        if (cursorId != null) {
+            packer.packLong(cursorId);
+        } else {
+            packer.packNil();
+        }
+
+        packer.packBoolean(isQuery);
+        packer.packLong(updateCnt);
         packer.packBoolean(last);
 
         packer.packArrayHeader(items.size());
@@ -111,6 +177,13 @@ public class QueryFetchResult extends Response {
             return;
         }
 
+        if (unpacker.tryUnpackNil()) {
+            cursorId = null;
+        } else {
+            cursorId = unpacker.unpackLong();
+        }
+        isQuery = unpacker.unpackBoolean();
+        updateCnt = unpacker.unpackLong();
         last = unpacker.unpackBoolean();
 
         int size = unpacker.unpackArrayHeader();
@@ -125,6 +198,6 @@ public class QueryFetchResult extends Response {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(QueryFetchResult.class, this);
+        return S.toString(JdbcQuerySingleResult.class, this);
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.server;
 
+import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -106,8 +107,12 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         ClusterNode serverNode = server.clusterService().topologyService().localMember();
 
-        assertTrue(server.startRaftGroup(COUNTER_GROUP_ID_0, new CounterListener(), List.of(new Peer(serverNode.address()))));
-        assertTrue(server.startRaftGroup(COUNTER_GROUP_ID_1, new CounterListener(), List.of(new Peer(serverNode.address()))));
+        assertTrue(
+                server.startRaftGroup(COUNTER_GROUP_ID_0, new CounterListener(), List.of(new Peer(serverNode.address())), defaults())
+        );
+        assertTrue(
+                server.startRaftGroup(COUNTER_GROUP_ID_1, new CounterListener(), List.of(new Peer(serverNode.address())), defaults())
+        );
 
         ClusterService clientNode1 = clusterService(PORT + 1, List.of(addr), true);
 

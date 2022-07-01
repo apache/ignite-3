@@ -362,12 +362,11 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
      * Constructor.
      *
      * @param grpId Group ID.
+     * @param partId Partition ID.
      * @param name Structure name (for debug purpose).
      * @param pageMem Page memory.
      * @param reuseList Reuse list or {@code null} if this free list will be a reuse list for itself.
      * @param lockLsnr Page lock listener.
-     * @param defaultPageFlag Default flag value for allocated pages. One of {@link PageIdAllocator#FLAG_DATA} or {@link
-     * PageIdAllocator#FLAG_AUX}.
      * @param log Logger.
      * @param metaPageId Metadata page ID.
      * @param initNew {@code True} if new metadata should be initialized.
@@ -377,11 +376,11 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
      */
     public AbstractFreeList(
             int grpId,
+            int partId,
             String name,
             PageMemory pageMem,
             @Nullable ReuseList reuseList,
             PageLockListener lockLsnr,
-            byte defaultPageFlag,
             IgniteLogger log,
             long metaPageId,
             boolean initNew,
@@ -391,9 +390,9 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
         super(
                 name,
                 grpId,
+                partId,
                 pageMem,
                 lockLsnr,
-                defaultPageFlag,
                 log,
                 BUCKETS,
                 metaPageId

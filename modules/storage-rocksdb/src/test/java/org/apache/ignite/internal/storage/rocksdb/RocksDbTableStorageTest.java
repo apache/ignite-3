@@ -298,4 +298,9 @@ public class RocksDbTableStorageTest {
         assertThat(partitionStorage1.read(overwriteData), is(testData));
         assertThat(partitionStorage2.read(overwriteData), is(testData));
     }
+
+    @Test
+    void storageAdvertisesItIsPersistent() {
+        assertThat(storage.isVolatile(), is(false));
+    }
 }

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.jdbc.proto.event;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -26,16 +26,19 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * JDBC query execute result.
+ * JDBC query fetch result.
  */
-public class QueryExecuteResult extends Response {
+public class JdbcQueryFetchResult extends Response {
     /** Query result rows. */
-    private List<QuerySingleResult> results;
+    private List<List<Object>> items;
+
+    /** Flag indicating the query has no unfetched results. */
+    private boolean last;
 
     /**
-     * Constructor. For deserialization purposes only.
+     * Default constructor is used for deserialization.
      */
-    public QueryExecuteResult() {
+    public JdbcQueryFetchResult() {
     }
 
     /**
@@ -44,23 +47,41 @@ public class QueryExecuteResult extends Response {
      * @param status Status code.
      * @param err    Error message.
      */
-    public QueryExecuteResult(int status, String err) {
+    public JdbcQueryFetchResult(int status, String err) {
         super(status, err);
     }
 
     /**
      * Constructor.
      *
-     * @param results Results.
+     * @param items Query result rows.
+     * @param last  Flag indicating the query has no unfetched results.
      */
-    public QueryExecuteResult(List<QuerySingleResult> results) {
-        super();
+    public JdbcQueryFetchResult(List<List<Object>> items, boolean last) {
+        Objects.requireNonNull(items);
 
-        Objects.requireNonNull(results);
+        this.items = items;
+        this.last = last;
 
-        this.results = results;
+        hasResults = true;
+    }
 
-        this.hasResults = true;
+    /**
+     * Get the result rows.
+     *
+     * @return Query result rows.
+     */
+    public List<List<Object>> items() {
+        return items;
+    }
+
+    /**
+     * Get the last flag.
+     *
+     * @return Flag indicating the query has no unfetched results.
+     */
+    public boolean last() {
+        return last;
     }
 
     /** {@inheritDoc} */
@@ -72,10 +93,12 @@ public class QueryExecuteResult extends Response {
             return;
         }
 
-        packer.packArrayHeader(results.size());
+        packer.packBoolean(last);
 
-        for (QuerySingleResult result : results) {
-            result.writeBinary(packer);
+        packer.packArrayHeader(items.size());
+
+        for (List<Object> item : items) {
+            packer.packObjectArray(item.toArray());
         }
     }
 
@@ -88,36 +111,20 @@ public class QueryExecuteResult extends Response {
             return;
         }
 
+        last = unpacker.unpackBoolean();
+
         int size = unpacker.unpackArrayHeader();
 
-        if (size == 0) {
-            results = Collections.emptyList();
-
-            return;
-        }
-
-        results = new ArrayList<>(size);
+        items = new ArrayList<>(size);
 
         for (int i = 0; i < size; i++) {
-            var res = new QuerySingleResult();
-            res.readBinary(unpacker);
-
-            results.add(res);
+            items.add(Arrays.asList(unpacker.unpackObjectArray()));
         }
-    }
-
-    /**
-     * Get the query results.
-     *
-     * @return Query result rows.
-     */
-    public List<QuerySingleResult> results() {
-        return results;
     }
 
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(QueryExecuteResult.class, this);
+        return S.toString(JdbcQueryFetchResult.class, this);
     }
 }

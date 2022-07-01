@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
-
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
@@ -42,6 +39,7 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
     private static final IgniteLogger LOG = IgniteLogger.forClass(RowVersionFreeList.class);
 
     private final PageEvictionTracker evictionTracker;
+
     private final IoStatisticsHolder statHolder;
 
     private final UpdateTimestampHandler updateTimestampHandler = new UpdateTimestampHandler();
@@ -49,20 +47,22 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
     /**
      * Constructor.
      *
-     * @param grpId              Group ID.
-     * @param pageMem            Page memory.
-     * @param reuseList          Reuse list to track pages that can be reused after they get completely empty (if {@code null},
-     *                           the free list itself will be used as a ReuseList.
-     * @param lockLsnr           Page lock listener.
-     * @param metaPageId         Metadata page ID.
-     * @param initNew            {@code True} if new metadata should be initialized.
+     * @param grpId Group ID.
+     * @param partId Partition ID.
+     * @param pageMem Page memory.
+     * @param reuseList Reuse list to track pages that can be reused after they get completely empty (if {@code null}, the free list itself
+     *      will be used as a ReuseList.
+     * @param lockLsnr Page lock listener.
+     * @param metaPageId Metadata page ID.
+     * @param initNew {@code True} if new metadata should be initialized.
      * @param pageListCacheLimit Page list cache limit.
-     * @param evictionTracker    Page eviction tracker.
-     * @param statHolder         Statistics holder to track IO operations.
+     * @param evictionTracker Page eviction tracker.
+     * @param statHolder Statistics holder to track IO operations.
      * @throws IgniteInternalCheckedException If failed.
      */
     public RowVersionFreeList(
             int grpId,
+            int partId,
             PageMemory pageMem,
             @Nullable ReuseList reuseList,
             PageLockListener lockLsnr,
@@ -74,11 +74,11 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
     ) throws IgniteInternalCheckedException {
         super(
                 grpId,
+                partId,
                 "RowVersionFreeList_" + grpId,
                 pageMem,
                 reuseList,
                 lockLsnr,
-                FLAG_AUX,
                 LOG,
                 metaPageId,
                 initNew,
@@ -88,14 +88,6 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
 
         this.evictionTracker = evictionTracker;
         this.statHolder = statHolder;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-        return pageMem.allocatePage(grpId, INDEX_PARTITION, defaultPageFlag);
     }
 
     /**
