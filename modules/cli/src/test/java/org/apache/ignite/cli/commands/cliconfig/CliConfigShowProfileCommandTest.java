@@ -9,7 +9,7 @@ import org.apache.ignite.cli.config.ini.IniConfigManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class CliConfigShowProfileCommandTest extends CliCommandTestBase {
+class CliConfigShowProfileCommandTest extends CliCommandTestBase {
 
     @Inject
     TestConfigManagerProvider configManagerProvider;

@@ -8,6 +8,9 @@ import org.apache.ignite.cli.core.call.CallOutput;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.cli.core.call.EmptyCallInput;
 
+/**
+ * Get current profile call.
+ */
 @Singleton
 public class CliConfigShowProfileCall implements Call<EmptyCallInput, String> {
 

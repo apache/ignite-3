@@ -8,6 +8,9 @@ import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.EmptyCallInput;
 import picocli.CommandLine;
 
+/**
+ * Show current profile command.
+ */
 @CommandLine.Command(name = "profile", description = "Show current default profile.")
 public class CliConfigShowProfileCommand extends BaseCommand implements Callable<Integer> {
 
