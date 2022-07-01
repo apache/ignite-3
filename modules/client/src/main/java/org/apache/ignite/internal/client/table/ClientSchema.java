@@ -42,6 +42,7 @@ import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerColumn;
+import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.NotNull;
@@ -119,7 +120,7 @@ public class ClientSchema {
         var column = map.get(name);
 
         if (column == null) {
-            throw new IgniteException("Column is not present in schema: " + name);
+            throw new ColumnNotFoundException(name);
         }
 
         return column;
