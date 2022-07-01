@@ -90,6 +90,8 @@ import org.jetbrains.annotations.TestOnly;
  * TODO: IGNITE-14693 Implement Meta storage exception handling logic.
  */
 public class MetaStorageListener implements RaftGroupListener {
+    public static final int RANGE_CURSOR_BATCH_SIZE = 100;
+
     /** Storage. */
     private final KeyValueStorage storage;
 
@@ -276,9 +278,20 @@ public class MetaStorageListener implements RaftGroupListener {
 
                 try {
                     if (cursorDesc.type() == CursorType.RANGE) {
-                        Entry e = (Entry) cursorDesc.cursor().next();
+                        List<SingleEntryResponse> batch = new ArrayList<>(RANGE_CURSOR_BATCH_SIZE);
 
-                        clo.result(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
+                        for (int i = 0; i < RANGE_CURSOR_BATCH_SIZE; i++) {
+                            Entry e = (Entry) cursorDesc.cursor().next();
+
+                            batch.add(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
+
+                            if (! cursorDesc.cursor.hasNext()) {
+                                break;
+                            }
+                        }
+
+                    clo.result(new MultipleEntryResponse(batch));
+
                     } else if (cursorDesc.type() == CursorType.WATCH) {
                         WatchEvent evt = (WatchEvent) cursorDesc.cursor().next();
 
