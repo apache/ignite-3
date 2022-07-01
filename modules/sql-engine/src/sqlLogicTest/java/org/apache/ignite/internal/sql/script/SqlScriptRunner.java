@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.script;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -67,7 +66,7 @@ public class SqlScriptRunner {
     private static final Pattern HASHING_PTRN = Pattern.compile("([0-9]+) values hashing to ([0-9a-fA-F]+)");
 
     /** Ignored statements. */
-    private static final Set<String> ignoredStmts = ImmutableSet.of("PRAGMA");
+    private static final Set<String> ignoredStmts = Set.of("PRAGMA");
 
     /** NULL label. */
     private static final String NULL = "NULL";
@@ -114,7 +113,7 @@ public class SqlScriptRunner {
     private Script script;
 
     /** nl to bytes representation. */
-    private static final byte[] NL_BYTES = "\n".getBytes();
+    private static final byte[] NL_BYTES = "\n".getBytes(Charset.defaultCharset());
 
     /** Equivalent results store. */
     private Map<String, Collection<String>> eqResStorage = new HashMap<>();
