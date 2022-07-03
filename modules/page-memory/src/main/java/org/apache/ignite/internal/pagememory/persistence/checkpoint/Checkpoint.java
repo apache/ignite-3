@@ -28,7 +28,7 @@ class Checkpoint {
     final CheckpointProgressImpl progress;
 
     /** Number of dirty pages. */
-    final int dirtyPagesSize;
+    final long dirtyPagesSize;
 
     /**
      * Constructor.

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.DIRTY_PAGE_COMPARATOR;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
@@ -31,7 +32,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -312,17 +312,15 @@ class CheckpointWorkflow {
             }
         }
 
-        Comparator<FullPageId> cmp = Comparator.comparingInt(FullPageId::groupId).thenComparingLong(FullPageId::effectivePageId);
-
         List<ForkJoinTask<?>> parallelSortTasks = checkpointPages.stream()
                 .map(IgniteBiTuple::getValue)
                 .filter(pages -> pages.length >= PARALLEL_SORT_THRESHOLD)
-                .map(pages -> parallelSortThreadPool.submit(() -> Arrays.parallelSort(pages, cmp)))
+                .map(pages -> parallelSortThreadPool.submit(() -> Arrays.parallelSort(pages, DIRTY_PAGE_COMPARATOR)))
                 .collect(toList());
 
         for (IgniteBiTuple<PersistentPageMemory, FullPageId[]> regionPages : checkpointPages) {
             if (regionPages.getValue().length < PARALLEL_SORT_THRESHOLD) {
-                Arrays.sort(regionPages.getValue(), cmp);
+                Arrays.sort(regionPages.getValue(), DIRTY_PAGE_COMPARATOR);
             }
         }
 

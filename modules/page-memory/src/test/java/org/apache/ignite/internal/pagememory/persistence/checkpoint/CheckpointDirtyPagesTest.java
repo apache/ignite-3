@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -72,12 +73,15 @@ public class CheckpointDirtyPagesTest {
     @Test
     void testNextView() {
         IgniteBiTuple<PersistentPageMemory, FullPageId[]> dirtyPages0 = createDirtyPages();
+
         IgniteBiTuple<PersistentPageMemory, FullPageId[]> dirtyPages1 = createDirtyPages(of(0, 0, 0));
+
         IgniteBiTuple<PersistentPageMemory, FullPageId[]> dirtyPages2 = createDirtyPages(
                 of(1, 0, 0), of(1, 0, 1),
                 of(1, 1, 0), of(1, 1, 1), of(1, 1, 2),
                 of(1, 2, 0)
         );
+
         IgniteBiTuple<PersistentPageMemory, FullPageId[]> dirtyPages3 = createDirtyPages(
                 of(2, 0, 0), of(2, 0, 1), of(2, 0, 2),
                 of(3, 1, 10),
@@ -88,7 +92,7 @@ public class CheckpointDirtyPagesTest {
 
         CheckpointDirtyPagesView dirtyPagesView = checkpointDirtyPages0.nextView(null);
 
-        assertThat(dirtyPagesView, equalTo(List.of(of(0, 0, 0))));
+        assertThat(toList(dirtyPagesView), equalTo(List.of(of(0, 0, 0))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dirtyPages1.get1()));
 
         assertNull(checkpointDirtyPages0.nextView(dirtyPagesView));
@@ -97,7 +101,7 @@ public class CheckpointDirtyPagesTest {
 
         dirtyPagesView = checkpointDirtyPages1.nextView(null);
 
-        assertThat(dirtyPagesView, equalTo(List.of(of(0, 0, 0))));
+        assertThat(toList(dirtyPagesView), equalTo(List.of(of(0, 0, 0))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dirtyPages1.get1()));
 
         assertNull(checkpointDirtyPages1.nextView(dirtyPagesView));
@@ -109,37 +113,37 @@ public class CheckpointDirtyPagesTest {
 
         dirtyPagesView = checkpointDirtyPages2.nextView(null);
 
-        assertThat(dirtyPagesView, equalTo(List.of(of(0, 0, 0))));
+        assertThat(toList(dirtyPagesView), equalTo(List.of(of(0, 0, 0))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dirtyPages1.get1()));
 
         dirtyPagesView = checkpointDirtyPages2.nextView(dirtyPagesView);
 
-        assertThat(dirtyPagesView, equalTo(List.of(of(1, 0, 0), of(1, 0, 1))));
+        assertThat(toList(dirtyPagesView), equalTo(List.of(of(1, 0, 0), of(1, 0, 1))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dirtyPages2.get1()));
 
         dirtyPagesView = checkpointDirtyPages2.nextView(dirtyPagesView);
 
-        assertThat(dirtyPagesView, equalTo(List.of(of(1, 1, 0), of(1, 1, 1), of(1, 1, 2))));
+        assertThat(toList(dirtyPagesView), equalTo(List.of(of(1, 1, 0), of(1, 1, 1), of(1, 1, 2))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dirtyPages2.get1()));
 
         dirtyPagesView = checkpointDirtyPages2.nextView(dirtyPagesView);
 
-        assertThat(dirtyPagesView, equalTo(List.of(of(1, 2, 0))));
+        assertThat(toList(dirtyPagesView), equalTo(List.of(of(1, 2, 0))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dirtyPages2.get1()));
 
         dirtyPagesView = checkpointDirtyPages2.nextView(dirtyPagesView);
 
-        assertThat(dirtyPagesView, equalTo(List.of(of(2, 0, 0), of(2, 0, 1), of(2, 0, 2))));
+        assertThat(toList(dirtyPagesView), equalTo(List.of(of(2, 0, 0), of(2, 0, 1), of(2, 0, 2))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dirtyPages3.get1()));
 
         dirtyPagesView = checkpointDirtyPages2.nextView(dirtyPagesView);
 
-        assertThat(dirtyPagesView, equalTo(List.of(of(3, 1, 10))));
+        assertThat(toList(dirtyPagesView), equalTo(List.of(of(3, 1, 10))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dirtyPages3.get1()));
 
         dirtyPagesView = checkpointDirtyPages2.nextView(dirtyPagesView);
 
-        assertThat(dirtyPagesView, equalTo(List.of(of(777, 666, 100), of(777, 666, 100500))));
+        assertThat(toList(dirtyPagesView), equalTo(List.of(of(777, 666, 100), of(777, 666, 100500))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dirtyPages3.get1()));
 
         assertNull(checkpointDirtyPages2.nextView(dirtyPagesView));
