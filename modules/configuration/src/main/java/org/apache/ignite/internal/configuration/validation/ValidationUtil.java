@@ -92,7 +92,7 @@ public class ValidationUtil {
                 if (val == null) {
                     String message = "'" + (currentKey() + fieldName) + "' configuration value is not initialized.";
 
-                    issues.add(new ValidationIssue(message));
+                    issues.add(new ValidationIssue(currentKey(), message));
 
                     return;
                 }

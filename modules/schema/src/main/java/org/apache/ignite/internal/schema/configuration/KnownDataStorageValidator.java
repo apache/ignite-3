@@ -35,11 +35,13 @@ public class KnownDataStorageValidator implements Validator<KnownDataStorage, Da
         DataStorageView newValue = ctx.getNewValue();
 
         if (newValue.name().equals(UNKNOWN_DATA_STORAGE)) {
-            ctx.addIssue(new ValidationIssue(String.format(
-                    "Data storage cannot be '%s': %s",
-                    UNKNOWN_DATA_STORAGE,
-                    ctx.currentKey()
-            )));
+            ctx.addIssue(new ValidationIssue(
+                    ctx.currentKey(),
+                    String.format(
+                            "Data storage cannot be '%s': %s",
+                            UNKNOWN_DATA_STORAGE,
+                            ctx.currentKey()
+                    )));
         }
     }
 }

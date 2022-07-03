@@ -15,54 +15,44 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.validation;
-
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
-import org.apache.ignite.internal.tostring.S;
+package org.apache.ignite.internal.rest.constants;
 
 /**
- * Class that stores information about issues found during the configuration validation.
+ * Represents http codes that can be returned by Ignite.
  */
-public class ValidationIssue {
-    /** Configuration key. */
-    @IgniteToStringInclude
-    private final String key;
+public enum HttpCode {
+    OK(200, "OK"),
+    BAD_REQUEST(400, "Bad Request"),
+    NOT_FOUND(404, "Not Found"),
+    INTERNAL_ERROR(500, "Internal Server Error");
 
-    /** Message. */
-    @IgniteToStringInclude
+    private final int code;
+
     private final String message;
 
-    /**
-     * Constructor.
-     *
-     * @param message Error message.
-     */
-    public ValidationIssue(String key, String message) {
-        this.key = key;
+    HttpCode(int code, String message) {
+        this.code = code;
         this.message = message;
     }
 
-    /**
-     * Returns configuration key that did not pass the validation.
-     *
-     * @return Configuration key.
-     */
-    public String key() {
-        return key;
+    public int code() {
+        return code;
     }
 
-    /**
-     * Returns error message.
-     *
-     * @return Error message.
-     */
     public String message() {
         return message;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return S.toString(ValidationIssue.class, this);
+    /**
+     * Create {@link HttpCode} from integer number.
+     */
+    public static HttpCode valueOf(int code) {
+        switch (code) {
+            case 200: return OK;
+            case 400: return BAD_REQUEST;
+            case 404: return NOT_FOUND;
+            case 500: return INTERNAL_ERROR;
+            default: throw new IllegalArgumentException(code + " is unknown http code");
+        }
     }
 }

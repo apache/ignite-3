@@ -72,7 +72,7 @@ public class ConfigurationPresentationTest {
             @Override
             public void validate(Value annotation, ValidationContext<Object> ctx) {
                 if (Objects.equals("error", ctx.getNewValue())) {
-                    ctx.addIssue(new ValidationIssue("Error word"));
+                    ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Error word"));
                 }
             }
         };
