@@ -204,34 +204,31 @@ class CheckpointDirtyPages {
          * @param result Holder is the result of getting the next dirty page.
          */
         public boolean next(QueueResult result) {
-            int position = this.position.getAndIncrement();
+            int queuePosition = this.position.getAndIncrement();
 
-            if (position >= dirtyPagesCount) {
-                result.reset();
+            if (queuePosition >= dirtyPagesCount) {
+                result.owner = null;
 
                 return false;
             }
 
-            if (result.owner == this) {
-                int size = sizes[result.index];
-
-                if (position >= size) {
-                    if (position == size) {
-                        result.index++;
-                    } else {
-                        result.index = findDirtyPagesIndex(result.index + 1, position);
-                    }
-
-                    result.position = position - sizes[result.index - 1];
-                }
-            } else {
+            if (result.owner != this) {
                 result.owner = this;
-                result.index = findDirtyPagesIndex(0, position);
+                result.index = 0;
+            }
 
-                if (sizes[result.index] >= position) {
-                    result.position = position - sizes[result.index - 1];
+            int index = result.index;
+
+            if (queuePosition >= sizes[index]) {
+                if (queuePosition == sizes[index]) {
+                    index++;
+                } else {
+                    index = findDirtyPagesIndex(index, queuePosition);
                 }
             }
+
+            result.index = index;
+            result.position = index > 0 ? queuePosition - sizes[index - 1] : queuePosition;
 
             return true;
         }
@@ -346,12 +343,6 @@ class CheckpointDirtyPages {
          */
         public @Nullable FullPageId dirtyPage() {
             return owner == null ? null : owner.owner().dirtyPages.get(index).getValue()[position];
-        }
-
-        private void reset() {
-            owner = null;
-            index = 0;
-            position = 0;
         }
     }
 
