@@ -112,9 +112,11 @@ class CheckpointDirtyPages {
         for (int i = 0; i < dirtyPages.size(); i++) {
             FullPageId[] pageIds = dirtyPages.get(i).getValue();
 
-            int fromIndex = Arrays.binarySearch(pageIds, endPageId, DIRTY_PAGE_COMPARATOR);
+            int fromIndex = Arrays.binarySearch(pageIds, startPageId, DIRTY_PAGE_COMPARATOR);
 
-            if (fromIndex < 0 && !equalsByGroupAndPartition(startPageId, pageIds[fromIndex = Math.abs(fromIndex + 1)])) {
+            fromIndex = fromIndex >= 0 ? fromIndex : Math.min(pageIds.length - 1, Math.abs(fromIndex + 1));
+
+            if (!equalsByGroupAndPartition(startPageId, pageIds[fromIndex])) {
                 continue;
             }
 
@@ -291,7 +293,7 @@ class CheckpointDirtyPages {
          * @param index Dirty page index.
          */
         public FullPageId get(int index) {
-            return dirtyPages.get(index).getValue()[fromPosition + index];
+            return dirtyPages.get(this.index).getValue()[fromPosition + index];
         }
 
         /**
