@@ -20,7 +20,7 @@ namespace Apache.Ignite.Sql
     /// <summary>
     /// Ignite SQL query facade.
     /// </summary>
-    public interface IIgniteSql
+    public interface ISql
     {
         // TODO: How do we avoid builder interfaces? With config classes?
         object CreateSession(object? sessionConfiguration = null);

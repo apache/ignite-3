@@ -27,6 +27,7 @@ namespace Apache.Ignite.Internal
     using Ignite.Transactions;
     using Network;
     using Proto;
+    using Sql;
     using Table;
 
     /// <summary>
@@ -51,6 +52,9 @@ namespace Apache.Ignite.Internal
             Transactions = new Transactions.Transactions(socket);
 
             Compute = new Compute.Compute(socket, tables);
+
+            // TODO
+            Sql = null!;
         }
 
         /// <inheritdoc/>
@@ -65,6 +69,9 @@ namespace Apache.Ignite.Internal
 
         /// <inheritdoc/>
         public ICompute Compute { get; }
+
+        /// <inheritdoc/>
+        public ISql Sql { get; }
 
         /// <inheritdoc/>
         public async Task<IList<IClusterNode>> GetClusterNodesAsync()
