@@ -57,12 +57,15 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /**
      * Constructor.
      *
-     * @param addressFinder             Address finder.
-     * @param addresses                 Addresses.
-     * @param connectTimeout            Socket connect timeout.
+     * @param addressFinder Address finder.
+     * @param addresses  Addresses.
+     * @param connectTimeout Socket connect timeout.
+     * @param reconnectThrottlingPeriod Reconnect throttling period, in milliseconds.
+     * @param reconnectThrottlingRetries Reconnect throttling retries.
      * @param asyncContinuationExecutor Async continuation executor.
-     * @param heartbeatInterval         Heartbeat message interval.
-     * @param retryPolicy               Retry policy.
+     * @param heartbeatInterval Heartbeat message interval.
+     * @param retryPolicy Retry policy.
+     * @param loggerFactory Logger factory which will be used to create a logger instance for this this particular client when needed.
      */
     public IgniteClientConfigurationImpl(
             IgniteClientAddressFinder addressFinder,
