@@ -121,7 +121,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
         CLUSTER_NODES.get(0).sql().createSession()
                 .execute(null, "CREATE TABLE METADATA_TABLE ("
                                 + "ID INT PRIMARY KEY, "
-//                              + "BOOLEAN_C BOOLEAN, "  //TODO: IGNITE-17298 Boolean type is not supported by Ignite. ANSI`99 syntax.
+                                // + "BOOLEAN_C BOOLEAN, "  //TODO: IGNITE-17298 Boolean type is not supported by Ignite. ANSI`99 syntax.
 
                                 // Exact numeric types
                                 + "TINY_C TINYINT, " // TINYINT is not a part of any SQL standard.
@@ -167,18 +167,18 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
 
                                 // Interval types
                                 // TODO: IGNITE-17219: Ignite doesn't support interval types yet.
-//                              + "INTERVAL_YEAR_C INTERVAL YEAR, "
-//                              + "INTERVAL_MONTH_C INTERVAL MONTH, "
-//                              + "INTERVAL_DAY_C INTERVAL DAY, "
-//                              + "INTERVAL_HOUR_C INTERVAL HOUR, "
-//                              + "INTERVAL_SEC_C INTERVAL SECOND, "
-//                              + "INTERVAL_SEC_C2 INTERVAL SECOND(9), "
+                                // + "INTERVAL_YEAR_C INTERVAL YEAR, "
+                                // + "INTERVAL_MONTH_C INTERVAL MONTH, "
+                                // + "INTERVAL_DAY_C INTERVAL DAY, "
+                                // + "INTERVAL_HOUR_C INTERVAL HOUR, "
+                                // + "INTERVAL_SEC_C INTERVAL SECOND, "
+                                // + "INTERVAL_SEC_C2 INTERVAL SECOND(9), "
 
                                 // Custom types
                                 // TODO: IGNITE-16376 support additional data types.
-//                              + "UUID_C UUID, "
-//                              + "BITSET_C BITMASK, "
-//                              + "BITSET_C BITMASK(8), "
+                                // + "UUID_C UUID, "
+                                // + "BITSET_C BITMASK, "
+                                // + "BITSET_C BITMASK(8), "
 
                                 // Nullability constraint
                                 + "NULLABLE_C INT, "
@@ -189,7 +189,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
         assertQuery("select * from metadata_table")
                 .columnMetadata(
                         new MetadataMatcher().name("ID").nullable(false),
-//                      new MetadataMatcher().name("BOOLEAN_C"), //TODO: IGNITE-17298 Boolean type is not supported by Ignite.
+                        // new MetadataMatcher().name("BOOLEAN_C"), //TODO: IGNITE-17298 Boolean type is not supported by Ignite.
 
                         // Exact numeric types
                         new MetadataMatcher().name("TINY_C").type(SqlColumnType.INT8).precision(3).scale(0),
@@ -234,19 +234,19 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
 
                         // Interval types
                         // TODO: Ignite doesn't support interval types.
-//                      new MetadataMatcher().name("INTERVAL_YEAR_C"),
-//                      new MetadataMatcher().name("INTERVAL_MONTH_C"),
-//                      new MetadataMatcher().name("INTERVAL_DAY_C"),
-//                      new MetadataMatcher().name("INTERVAL_HOUR_C"),
-//                      new MetadataMatcher().name("INTERVAL_MINUTE_C"),
-//                      new MetadataMatcher().name("INTERVAL_SEC_C"),
-//                      new MetadataMatcher().name("INTERVAL_SEC_C2"),
+                        // new MetadataMatcher().name("INTERVAL_YEAR_C"),
+                        // new MetadataMatcher().name("INTERVAL_MONTH_C"),
+                        // new MetadataMatcher().name("INTERVAL_DAY_C"),
+                        // new MetadataMatcher().name("INTERVAL_HOUR_C"),
+                        // new MetadataMatcher().name("INTERVAL_MINUTE_C"),
+                        // new MetadataMatcher().name("INTERVAL_SEC_C"),
+                        // new MetadataMatcher().name("INTERVAL_SEC_C2"),
 
                         // Custom types
                         // TODO: IGNITE-16376 support additional data types.
-//                      new MetadataMatcher().name("UUID_C"),
-//                      new MetadataMatcher().name("BITSET_C"),
-//                      new MetadataMatcher().name("BITSET_C2"),
+                        // new MetadataMatcher().name("UUID_C"),
+                        // new MetadataMatcher().name("BITSET_C"),
+                        // new MetadataMatcher().name("BITSET_C2"),
 
                         // Nullability constraint
                         new MetadataMatcher().name("NULLABLE_C").nullable(true),

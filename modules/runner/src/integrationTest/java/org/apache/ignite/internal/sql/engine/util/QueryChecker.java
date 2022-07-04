@@ -397,7 +397,7 @@ public abstract class QueryChecker {
             Iterator<ColumnMetadata> valueIterator = columnMetadata.iterator();
             Iterator<MetadataMatcher> matcherIterator = metadataMatchers.iterator();
 
-            while(matcherIterator.hasNext() && valueIterator.hasNext()) {
+            while (matcherIterator.hasNext() && valueIterator.hasNext()) {
                 MetadataMatcher matcher = matcherIterator.next();
                 ColumnMetadata actualElement = valueIterator.next();
 

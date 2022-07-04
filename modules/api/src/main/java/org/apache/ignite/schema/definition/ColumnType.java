@@ -462,21 +462,18 @@ public class ColumnType {
     public static class TemporalColumnType extends ColumnType {
         /**
          * Default TIME type precision: microseconds.
-         *
          * SQL99 part 2 section 6.1 syntax rule 30
          */
         public static final int DEFAULT_TIMESTAMP_PRECISION = 6;
 
         /**
          * Default TIMESTAMP type precision: seconds.
-         *
          * SQL99 part 2 section 6.1 syntax rule 30
          */
         public static final int DEFAULT_TIME_PRECISION = 0;
 
         /**
          * Max TIME precision.
-         *
          * SQL99 part 2 section 6.1 syntax rule 31
          */
         public static final int MAX_TIME_PRECISION = 9;

@@ -60,7 +60,8 @@ public class TemporalTypesTest {
             checkTime(TemporalNativeType.time(i), LocalTime.MIN);
         }
 
-        checkTime(TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_TIME_PRECISION), LocalTime.MAX.truncatedTo(ChronoUnit.SECONDS));
+        checkTime(TemporalNativeType.time(ColumnType.TemporalColumnType.DEFAULT_TIME_PRECISION),
+                LocalTime.MAX.truncatedTo(ChronoUnit.SECONDS));
         checkTime(TemporalNativeType.time(9), LocalTime.MAX);
 
         assertThrows(AssertionError.class,
