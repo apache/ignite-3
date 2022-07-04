@@ -285,8 +285,8 @@ public interface MetaStorageService {
     Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo);
 
     /**
-     * Retrieves entries for the given key range in lexicographic order. Short cut for {@link #range(ByteArray, ByteArray, long)} where
-     * {@code revUpperBound == -1}.
+     * Retrieves entries for the given key range in lexicographic order. Short cut for
+     * {@link #range(ByteArray, ByteArray, long, boolean)} where {@code revUpperBound == -1}.
      *
      * @param keyFrom           Start key of range (inclusive). Couldn't be {@code null}.
      * @param keyTo             End key of range (exclusive). Could be {@code null}.
