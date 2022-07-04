@@ -209,10 +209,21 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** {@inheritDoc} */
     @Override
     public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound) {
+        return range(keyFrom, keyTo, revUpperBound, false);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @NotNull Cursor<Entry> range(
+            @NotNull ByteArray keyFrom,
+            @Nullable ByteArray keyTo,
+            long revUpperBound,
+            boolean includeTombstones
+    ) {
         return new CursorImpl<>(
                 metaStorageRaftGrpSvc,
                 metaStorageRaftGrpSvc.run(
-                        new RangeCommand(keyFrom, keyTo, revUpperBound, localNodeId, uuidGenerator.randomUuid())),
+                        new RangeCommand(keyFrom, keyTo, revUpperBound, localNodeId, uuidGenerator.randomUuid(), includeTombstones)),
                 MetaStorageServiceImpl::singleEntryResult
         );
     }
@@ -220,11 +231,17 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** {@inheritDoc} */
     @Override
     public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo) {
+        return range(keyFrom, keyTo, false);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones) {
         return new CursorImpl<>(
-                metaStorageRaftGrpSvc,
-                metaStorageRaftGrpSvc.run(
-                        new RangeCommand(keyFrom, keyTo, localNodeId, uuidGenerator.randomUuid())),
-                MetaStorageServiceImpl::singleEntryResult
+            metaStorageRaftGrpSvc,
+            metaStorageRaftGrpSvc.run(
+                new RangeCommand(keyFrom, keyTo, localNodeId, uuidGenerator.randomUuid())),
+            MetaStorageServiceImpl::singleEntryResult
         );
     }
 
