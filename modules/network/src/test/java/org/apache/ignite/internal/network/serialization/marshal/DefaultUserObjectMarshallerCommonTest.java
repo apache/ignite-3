@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -53,7 +54,7 @@ class DefaultUserObjectMarshallerCommonTest {
         byte[] tooManyBytes = Arrays.copyOf(marshalled.bytes(), marshalled.bytes().length + 1);
 
         UnmarshalException ex = assertThrows(UnmarshalException.class, () -> marshaller.unmarshal(tooManyBytes, descriptorRegistry));
-        assertThat(ex.getMessage(), is("After reading a value, 1 excessive byte(s) still remain"));
+        assertThat(ex.getMessage(), containsString("After reading a value, 1 excessive byte(s) still remain"));
     }
 
     @Test
