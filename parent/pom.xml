@@ -1544,7 +1544,7 @@
                         <exclude>deliveries/deb/rules</exclude>
                         <exclude>deliveries/deb/control</exclude>
                         <exclude>**/*.bat</exclude> <!-- Files in bat format -->
-                        <exclude> modules/runner/src/integrationTest/sql/**</exclude> <!-- SQL logic tests. -->
+                        <exclude>modules/runner/src/integrationTest/sql/**</exclude> <!-- SQL logic tests. -->
                     </excludes>
                 </configuration>
             </plugin>
