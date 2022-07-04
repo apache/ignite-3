@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.script;
+package org.apache.ignite.internal.sqllogic;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Streams;

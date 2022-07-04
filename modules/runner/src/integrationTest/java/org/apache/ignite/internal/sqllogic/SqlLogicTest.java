@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql;
+package org.apache.ignite.internal.sqllogic;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -39,8 +39,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.sql.SqlLogicTestEnvironment.RestartMode;
-import org.apache.ignite.internal.sql.script.SqlScriptRunner;
+import org.apache.ignite.internal.sqllogic.SqlLogicTestEnvironment.RestartMode;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -58,6 +57,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DynamicContainer;
 import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -99,10 +99,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
  *
  * @see <a href="https://www.sqlite.org/sqllogictest/doc/trunk/about.wiki">Extended format documentation.</a>
  */
+@Tag(value = "sqllogic")
 @ExtendWith({WorkDirectoryExtension.class, SystemPropertiesExtension.class})
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
 // TODO: use default restart mode after fix performance issue: https://issues.apache.org/jira/browse/IGNITE-16760
-@SqlLogicTestEnvironment(scriptsRoot = "src/sqlLogicTest/sql", restart = RestartMode.FOLDER)
+@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql", restart = RestartMode.FOLDER)
 public class SqlLogicTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 
@@ -164,6 +165,8 @@ public class SqlLogicTest {
 
     @TestFactory
     public Stream<DynamicNode> sql() {
+        assertTrue(Files.isDirectory(SCRIPTS_ROOT));
+
         return sqlTestsFolder(SCRIPTS_ROOT);
     }
 
