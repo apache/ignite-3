@@ -179,33 +179,37 @@ public class ItSqlLogicTest {
                     .map((p) -> {
                         if (Files.isDirectory(p)) {
                             return DynamicContainer.dynamicContainer(
-                                    p.getFileName().toString(),
+                                    SCRIPTS_ROOT.relativize(p).toString(),
                                     sqlTestsFolder(p)
                             );
                         } else {
                             try {
                                 final boolean firstInDir = first.get();
 
-                                return DynamicTest.dynamicTest(p.getFileName().toString(), p.toUri(), () -> {
-                                    switch (RESTART_CLUSTER) {
-                                        case FOLDER:
-                                            if (firstInDir) {
-                                                restartCluster();
+                                return DynamicTest.dynamicTest(
+                                        SCRIPTS_ROOT.relativize(p).toString(),
+                                        p.toUri(),
+                                        () -> {
+                                            switch (RESTART_CLUSTER) {
+                                                case FOLDER:
+                                                    if (firstInDir) {
+                                                        restartCluster();
+                                                    }
+                                                    break;
+
+                                                case TEST:
+                                                    restartCluster();
+
+                                                    break;
+
+                                                case NONE:
+                                                default:
+                                                    break;
                                             }
-                                            break;
 
-                                        case TEST:
-                                            restartCluster();
-
-                                            break;
-
-                                        case NONE:
-                                        default:
-                                            break;
-                                    }
-
-                                    run(p);
-                                });
+                                            run(p);
+                                        }
+                                );
                             } finally {
                                 first.set(false);
                             }
