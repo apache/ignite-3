@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-/**
- * This package contains classes that implement a number of ExceptionHandlers. They wrap plain exceptions into human-readable rest
- * responses.
- */
+package org.apache.ignite.internal.rest;
 
-package org.apache.ignite.internal.rest.configuration.exception.handler;
+/**
+ * Factory that produces all beans that is necessary for the controller class.
+ */
+public interface RestFactory {
+}

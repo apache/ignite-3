@@ -15,29 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.rest;
+package org.apache.ignite.internal.rest.problem;
 
-import io.micronaut.context.annotation.Bean;
-import io.micronaut.context.annotation.Factory;
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cluster.management.ClusterInitializer;
-import org.apache.ignite.internal.rest.RestFactory;
-import org.apache.ignite.network.ClusterService;
+import io.micronaut.http.HttpResponse;
+import io.micronaut.http.HttpStatus;
+import org.apache.ignite.internal.rest.api.Problem;
+import org.apache.ignite.internal.rest.api.Problem.ProblemBuilder;
 
 /**
- * Factory that creates beans that are needed for {@link ClusterManagementController}.
+ * Creates {@link HttpResponse} from {@link Problem}.
  */
-@Factory
-public class ClusterManagementRestFactory implements RestFactory {
-    private final ClusterService clusterService;
-
-    public ClusterManagementRestFactory(ClusterService clusterService) {
-        this.clusterService = clusterService;
+public final class HttpProblemResponse {
+    private HttpProblemResponse() {
     }
 
-    @Bean
-    @Singleton
-    public ClusterInitializer clusterInitializer() {
-        return new ClusterInitializer(clusterService);
+    /**
+     * Create {@link HttpResponse} from {@link Problem}.
+     */
+    public static HttpResponse<Problem> from(Problem problem) {
+        return HttpResponse.status(HttpStatus.valueOf(problem.status())).body(problem);
+    }
+
+    /**
+     * Create {@link HttpResponse} from {@link ProblemBuilder}.
+     */
+    public static HttpResponse<? extends Problem> from(ProblemBuilder problemBuilder) {
+        return from(problemBuilder.build());
     }
 }

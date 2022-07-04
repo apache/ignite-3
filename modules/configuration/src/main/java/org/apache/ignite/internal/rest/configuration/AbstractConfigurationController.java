@@ -21,8 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
-import org.apache.ignite.internal.rest.configuration.exception.ConfigPathUnrecognizedException;
-import org.apache.ignite.internal.rest.configuration.exception.InvalidConfigFormatException;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -55,7 +53,7 @@ public abstract class AbstractConfigurationController {
         try {
             return cfgPresentation.representByPath(path);
         } catch (IllegalArgumentException ex) {
-            throw new ConfigPathUnrecognizedException(ex);
+            throw new IgniteException(ex);
         }
     }
 
@@ -69,10 +67,9 @@ public abstract class AbstractConfigurationController {
                 .exceptionally(ex -> {
                     if (ex instanceof CompletionException) {
                         var cause = ex.getCause();
-                        if (cause instanceof IllegalArgumentException) {
-                            throw new InvalidConfigFormatException(ex);
-                        } else if (cause instanceof ConfigurationValidationException) {
-                            throw (ConfigurationValidationException) cause;
+                        if (cause instanceof IllegalArgumentException
+                                || cause instanceof ConfigurationValidationException) {
+                            throw new IgniteException(cause);
                         }
                     }
                     throw new IgniteException(ex);

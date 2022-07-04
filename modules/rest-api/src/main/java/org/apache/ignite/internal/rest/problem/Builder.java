@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration.exception;
+package org.apache.ignite.internal.rest.problem;
 
 /**
- * Exception that is thrown when the wrong configuration is given.
+ * Generic interface for builders.
+ *
+ * @param <T> built type.
+ * @param <B> builder type.
  */
-public class InvalidConfigFormatException extends RuntimeException {
-    public InvalidConfigFormatException(Throwable cause) {
-        super(cause);
-    }
+public interface Builder<T, B extends Builder<T, B>> {
+    T build();
 }
