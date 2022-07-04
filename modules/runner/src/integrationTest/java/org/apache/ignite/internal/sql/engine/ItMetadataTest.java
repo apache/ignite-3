@@ -120,70 +120,70 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
     public void metadata() {
         CLUSTER_NODES.get(0).sql().createSession()
                 .execute(null, "CREATE TABLE METADATA_TABLE ("
-                                + "ID INT PRIMARY KEY, "
-                                // + "BOOLEAN_C BOOLEAN, "  //TODO: IGNITE-17298 Boolean type is not supported by Ignite. ANSI`99 syntax.
+                        + "ID INT PRIMARY KEY, "
+                        // + "BOOLEAN_C BOOLEAN, "  //TODO: IGNITE-17298 Boolean type is not supported by Ignite. ANSI`99 syntax.
 
-                                // Exact numeric types
-                                + "TINY_C TINYINT, " // TINYINT is not a part of any SQL standard.
-                                + "SMALL_C SMALLINT, "
-                                + "INT_C INT, "
-                                + "LONG_C BIGINT, "
-                                + "NUMBER_C NUMERIC, "
-                                + "NUMBER_C2 NUMERIC(38), "
-                                + "NUMBER_C3 NUMERIC(38,37), "
-                                + "DECIMAL_C DECIMAL, "
-                                + "DECIMAL_C2 DECIMAL(38), "
-                                + "DECIMAL_C3 DECIMAL(38,37), "
+                        // Exact numeric types
+                        + "TINY_C TINYINT, " // TINYINT is not a part of any SQL standard.
+                        + "SMALL_C SMALLINT, "
+                        + "INT_C INT, "
+                        + "LONG_C BIGINT, "
+                        + "NUMBER_C NUMERIC, "
+                        + "NUMBER_C2 NUMERIC(38), "
+                        + "NUMBER_C3 NUMERIC(38,37), "
+                        + "DECIMAL_C DECIMAL, "
+                        + "DECIMAL_C2 DECIMAL(38), "
+                        + "DECIMAL_C3 DECIMAL(38,37), "
 
-                                // Approximate numeric types
-                                + "FLOAT_C FLOAT, " // FLOAT(4) ANSI`92 syntax is not supported by Calcite parser.
-                                + "REAL_C REAL, "
-                                + "DOUBLE_C DOUBLE, "
+                        // Approximate numeric types
+                        + "FLOAT_C FLOAT, " // FLOAT(4) ANSI`92 syntax is not supported by Calcite parser.
+                        + "REAL_C REAL, "
+                        + "DOUBLE_C DOUBLE, "
 
-                                // Character string types
-                                + "CHAR_C CHAR, "
-                                + "CHAR_C2 CHAR(65536), "
-                                + "VARCHAR_C VARCHAR, "
-                                + "VARCHAR_C2 VARCHAR(125), "
+                        // Character string types
+                        + "CHAR_C CHAR, "
+                        + "CHAR_C2 CHAR(65536), "
+                        + "VARCHAR_C VARCHAR, "
+                        + "VARCHAR_C2 VARCHAR(125), "
 
-                                // Binary string types
-                                + "BINARY_C BINARY, "
-                                + "BINARY_C2 BINARY(65536), "
-                                + "VARBINARY_C VARBINARY, "
-                                + "VARBINARY_C2 VARBINARY(125), "
+                        // Binary string types
+                        + "BINARY_C BINARY, "
+                        + "BINARY_C2 BINARY(65536), "
+                        + "VARBINARY_C VARBINARY, "
+                        + "VARBINARY_C2 VARBINARY(125), "
 
-                                // Datetime types
-                                // ANSI`99 syntax "WITH TIME ZONE" is not supported,
-                                // a "WITH LOCAL TIME ZONE" syntax MUST be used instead.
-                                + "DATE_C DATE, "
-                                + "TIME_C TIME, "
-                                + "TIME_C2 TIME(9), "
-                                + "TIME_LTZ_C TIME WITH LOCAL TIME ZONE, "
-                                + "TIME_LTZ_C2 TIME(9) WITH LOCAL TIME ZONE, "
-                                + "DATETIME_C TIMESTAMP, "
-                                + "DATETIME_C2 TIMESTAMP(9), "
-                                + "TIMESTAMP_C TIMESTAMP WITH LOCAL TIME ZONE, "
-                                + "TIMESTAMP_C2 TIMESTAMP(9) WITH LOCAL TIME ZONE, "
+                        // Datetime types
+                        // ANSI`99 syntax "WITH TIME ZONE" is not supported,
+                        // a "WITH LOCAL TIME ZONE" syntax MUST be used instead.
+                        + "DATE_C DATE, "
+                        + "TIME_C TIME, "
+                        + "TIME_C2 TIME(9), "
+                        + "TIME_LTZ_C TIME WITH LOCAL TIME ZONE, "
+                        + "TIME_LTZ_C2 TIME(9) WITH LOCAL TIME ZONE, "
+                        + "DATETIME_C TIMESTAMP, "
+                        + "DATETIME_C2 TIMESTAMP(9), "
+                        + "TIMESTAMP_C TIMESTAMP WITH LOCAL TIME ZONE, "
+                        + "TIMESTAMP_C2 TIMESTAMP(9) WITH LOCAL TIME ZONE, "
 
-                                // Interval types
-                                // TODO: IGNITE-17219: Ignite doesn't support interval types yet.
-                                // + "INTERVAL_YEAR_C INTERVAL YEAR, "
-                                // + "INTERVAL_MONTH_C INTERVAL MONTH, "
-                                // + "INTERVAL_DAY_C INTERVAL DAY, "
-                                // + "INTERVAL_HOUR_C INTERVAL HOUR, "
-                                // + "INTERVAL_SEC_C INTERVAL SECOND, "
-                                // + "INTERVAL_SEC_C2 INTERVAL SECOND(9), "
+                        // Interval types
+                        // TODO: IGNITE-17219: Ignite doesn't support interval types yet.
+                        // + "INTERVAL_YEAR_C INTERVAL YEAR, "
+                        // + "INTERVAL_MONTH_C INTERVAL MONTH, "
+                        // + "INTERVAL_DAY_C INTERVAL DAY, "
+                        // + "INTERVAL_HOUR_C INTERVAL HOUR, "
+                        // + "INTERVAL_SEC_C INTERVAL SECOND, "
+                        // + "INTERVAL_SEC_C2 INTERVAL SECOND(9), "
 
-                                // Custom types
-                                // TODO: IGNITE-16376 support additional data types.
-                                // + "UUID_C UUID, "
-                                // + "BITSET_C BITMASK, "
-                                // + "BITSET_C BITMASK(8), "
+                        // Custom types
+                        // TODO: IGNITE-16376 support additional data types.
+                        // + "UUID_C UUID, "
+                        // + "BITSET_C BITMASK, "
+                        // + "BITSET_C BITMASK(8), "
 
-                                // Nullability constraint
-                                + "NULLABLE_C INT, "
-                                + "NON_NULL_C INT NOT NULL "
-                                + ")"
+                        // Nullability constraint
+                        + "NULLABLE_C INT, "
+                        + "NON_NULL_C INT NOT NULL "
+                        + ")"
                 );
 
         assertQuery("select * from metadata_table")
