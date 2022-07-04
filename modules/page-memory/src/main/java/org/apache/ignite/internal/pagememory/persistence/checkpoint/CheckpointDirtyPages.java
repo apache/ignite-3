@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -57,6 +59,19 @@ class CheckpointDirtyPages {
     @SafeVarargs
     public CheckpointDirtyPages(IgniteBiTuple<PersistentPageMemory, FullPageId[]>... dirtyPages) {
         this(List.of(dirtyPages));
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param dirtyPages Sorted dirty pages from data regions by groupId -> partitionId -> pageIdx.
+     */
+    public CheckpointDirtyPages(Map<PersistentPageMemory, List<FullPageId>> dirtyPages) {
+        this(dirtyPages.isEmpty() ? List.of()
+                : dirtyPages.entrySet().stream()
+                        .map(e -> new IgniteBiTuple<>(e.getKey(), e.getValue().toArray(FullPageId[]::new)))
+                        .collect(toList())
+        );
     }
 
     /**

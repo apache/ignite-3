@@ -42,6 +42,7 @@ import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesQueue;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -377,11 +378,12 @@ public class Checkpointer extends IgniteWorker {
 
         tracker.onPagesWriteStart();
 
+        CheckpointDirtyPagesQueue checkpointDirtyPagesQueue = checkpointDirtyPages.toQueue();
+
         for (int i = 0; i < checkpointWritePageThreads; i++) {
             CheckpointPagesWriter write = checkpointPagesWriterFactory.build(
                     tracker,
-                    // TODO: IGNITE-17267 исправь это место
-                    null,
+                    checkpointDirtyPagesQueue,
                     updStores,
                     futures[i] = new CompletableFuture<>(),
                     workProgressDispatcher::updateHeartbeat,

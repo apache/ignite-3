@@ -33,6 +33,7 @@ import static org.mockito.Mockito.mock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -227,6 +228,18 @@ public class CheckpointDirtyPagesTest {
         }
 
         return IntStream.range(0, view.size()).mapToObj(i -> new IgniteBiTuple<>(view.pageMemory(), view.get(i))).collect(toList());
+    }
+
+    private static List<IgniteBiTuple<PersistentPageMemory, FullPageId>> toListDirtyPagePair(
+            Map<PersistentPageMemory, List<FullPageId>> dirtyPages
+    ) {
+        if (dirtyPages.isEmpty()) {
+            return List.of();
+        }
+
+        return dirtyPages.entrySet().stream()
+                .flatMap(entry -> entry.getValue().stream().map(pageId -> new IgniteBiTuple<>(entry.getKey(), pageId)))
+                .collect(toList());
     }
 
     private static Predicate<FullPageId> equalsByGroupAndPartition(int grpId, int partId) {
