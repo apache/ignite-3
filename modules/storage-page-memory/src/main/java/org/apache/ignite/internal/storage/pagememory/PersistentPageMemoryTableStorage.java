@@ -28,10 +28,10 @@ import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
+import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.pagememory.io.PartitionMetaIo;
 import org.apache.ignite.internal.storage.pagememory.mv.PageMemoryMvPartitionStorage;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
