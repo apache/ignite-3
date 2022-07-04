@@ -261,6 +261,14 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <excludedGroups>sqlline</excludedGroups>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>

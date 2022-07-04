@@ -59,7 +59,6 @@ import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.TestFactory;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -103,17 +102,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @Tag(value = "sqllogic")
 @ExtendWith({WorkDirectoryExtension.class, SystemPropertiesExtension.class})
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 // TODO: use default restart mode after fix performance issue: https://issues.apache.org/jira/browse/IGNITE-16760
 @SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql", restart = RestartMode.FOLDER)
-public class SqlLogicTest {
+public class ItSqlLogicTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 
     private static final String NODE_NAME_PREFIX = "sqllogic";
 
     private static final FileSystem FS = FileSystems.getDefault();
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(SqlLogicTest.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ItSqlLogicTest.class);
 
     /** Base port number. */
     private static final int BASE_PORT = 3344;
@@ -269,7 +267,7 @@ public class SqlLogicTest {
     }
 
     private static void config() {
-        SqlLogicTestEnvironment env = SqlLogicTest.class.getAnnotation(SqlLogicTestEnvironment.class);
+        SqlLogicTestEnvironment env = ItSqlLogicTest.class.getAnnotation(SqlLogicTestEnvironment.class);
 
         assert env != null;
         assert !Strings.isNullOrEmpty(env.scriptsRoot());
