@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.util.worker;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.worker.IgniteWorkerTest.TestWorkerListener.ON_IDLE;
 import static org.apache.ignite.internal.util.worker.IgniteWorkerTest.TestWorkerListener.ON_STARTED;
@@ -100,21 +101,23 @@ public class IgniteWorkerTest {
     void testUpdateHeartbeat() throws Exception {
         IgniteWorker worker = new NoopWorker(log, null);
 
-        long currentTimeMillis = coarseCurrentTimeMillis();
+        assertEquals(0, worker.heartbeat());
+
+        long coarseCurrentTimeMillis = coarseCurrentTimeMillis();
 
         worker.updateHeartbeat();
 
         long heartbeat = worker.heartbeat();
 
-        assertThat(heartbeat, greaterThanOrEqualTo(currentTimeMillis));
+        assertThat(heartbeat, greaterThanOrEqualTo(coarseCurrentTimeMillis));
 
-        Thread.sleep(10);
-
-        assertEquals(heartbeat, worker.heartbeat());
+        assertTrue(waitForCondition(() -> coarseCurrentTimeMillis() > coarseCurrentTimeMillis, 10, 1_000));
 
         worker.updateHeartbeat();
 
         assertThat(worker.heartbeat(), greaterThan(heartbeat));
+        assertThat(worker.heartbeat(), greaterThan(coarseCurrentTimeMillis));
+        assertThat(worker.heartbeat(), lessThanOrEqualTo(coarseCurrentTimeMillis()));
     }
 
     @Test
