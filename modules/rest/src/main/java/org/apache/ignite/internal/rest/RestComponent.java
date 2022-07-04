@@ -33,7 +33,6 @@ import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestView;
 import org.apache.ignite.internal.cluster.management.rest.ClusterManagementController;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.rest.api.RestFactory;
 import org.apache.ignite.internal.rest.configuration.ClusterConfigurationController;
 import org.apache.ignite.internal.rest.configuration.NodeConfigurationController;
 import org.apache.ignite.lang.IgniteInternalException;

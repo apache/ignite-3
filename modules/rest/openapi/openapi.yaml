@@ -23,8 +23,22 @@ paths:
       responses:
         "200":
           description: Cluster initialized
-        "409":
-          description: Cluster already initialized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Void'
+        "500":
+          description: Internal error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "400":
+          description: Incorrect configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /management/v1/configuration/cluster:
     get:
       tags:
@@ -38,6 +52,18 @@ paths:
             text/plain:
               schema:
                 type: string
+        "500":
+          description: Internal error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "400":
+          description: Incorrect configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
     patch:
       tags:
       - clusterConfiguration
@@ -53,9 +79,21 @@ paths:
         "200":
           description: Configuration updated
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/Void'
+        "500":
+          description: Internal error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "400":
+          description: Incorrect configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /management/v1/configuration/cluster/{path}:
     get:
       tags:
@@ -74,6 +112,18 @@ paths:
             text/plain:
               schema:
                 type: string
+        "500":
+          description: Internal error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "400":
+          description: Incorrect configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /management/v1/configuration/node:
     get:
       tags:
@@ -87,6 +137,18 @@ paths:
             text/plain:
               schema:
                 type: string
+        "500":
+          description: Internal error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "400":
+          description: Incorrect configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
     patch:
       tags:
       - nodeConfiguration
@@ -102,9 +164,21 @@ paths:
         "200":
           description: Configuration updated
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/Void'
+        "500":
+          description: Internal error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "400":
+          description: Incorrect configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /management/v1/configuration/node/{path}:
     get:
       tags:
@@ -123,6 +197,18 @@ paths:
             text/plain:
               schema:
                 type: string
+        "500":
+          description: Internal error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "400":
+          description: Incorrect configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 components:
   schemas:
     InitCommand:
@@ -141,5 +227,32 @@ components:
             type: string
         clusterName:
           type: string
+    Problem:
+      required:
+      - code
+      - detail
+      - node
+      - status
+      - title
+      - traceId
+      - type
+      type: object
+      properties:
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        code:
+          type: string
+        type:
+          type: string
+        detail:
+          type: string
+        node:
+          type: string
+        traceId:
+          type: string
+          format: uuid
     Void:
       type: object

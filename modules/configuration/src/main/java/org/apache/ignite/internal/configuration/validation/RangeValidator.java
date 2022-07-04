@@ -33,12 +33,14 @@ public class RangeValidator implements Validator<Range, Number> {
 
         if (longValue < annotation.min()) {
             ctx.addIssue(new ValidationIssue(
+                    ctx.currentKey(),
                     "Configuration value '" + ctx.currentKey() + "' must not be less than " + annotation.min()
             ));
         }
 
         if (longValue > annotation.max()) {
             ctx.addIssue(new ValidationIssue(
+                    ctx.currentKey(),
                     "Configuration value '" + ctx.currentKey() + "' must not be greater than " + annotation.max()
             ));
         }
