@@ -2077,7 +2077,14 @@ public abstract class AbstractKeyValueStorageTest {
         // Range that doesn't include tombstones.
         cur = storage.range(key1, null, false);
 
-        assertEquals(1, cur.stream().count());
+        Entry e = cur.next();
+
+        assertArrayEquals(key2, e.key());
+
+        assertFalse(e.tombstone());
+
+        // Check that there are no more elements in cursor.
+        assertFalse(cur.hasNext());
     }
 
     @Test
