@@ -88,7 +88,6 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
                 case TINYINT:
                 case SMALLINT:
                     sumType = typeFactory.createTypeWithNullability(
-                            // TODO: can we cache the type?
                             typeFactory.createSqlType(
                                     SqlTypeName.BIGINT,
                                     typeFactory.getTypeSystem().getMaxPrecision(SqlTypeName.BIGINT),
@@ -100,7 +99,6 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
                 case BIGINT:
                 case DECIMAL:
                     sumType = typeFactory.createTypeWithNullability(
-                            // TODO: can we cache the type?
                             typeFactory.createSqlType(
                                     SqlTypeName.DECIMAL,
                                     typeFactory.getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL),
@@ -113,7 +111,6 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
                 case FLOAT:
                 case DOUBLE:
                     sumType = typeFactory.createTypeWithNullability(
-                            // TODO: can we cache the type?
                             typeFactory.createSqlType(
                                     SqlTypeName.DOUBLE,
                                     typeFactory.getTypeSystem().getMaxPrecision(SqlTypeName.DOUBLE),
