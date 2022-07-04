@@ -28,96 +28,14 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
+import java.util.function.BiFunction;
 
 /**
  * Utility for access to binary tuple elements as typed values.
  */
-public class BinaryTupleReader extends BinaryTupleParser {
-    /** A helper to locate and handle tuple elements. */
-    private class ElementSink implements BinaryTupleParser.Sink {
-        int offset;
-        int length;
-
-        /** {@inheritDoc} */
-        @Override
-        public void nextElement(int index, int begin, int end) {
-            offset = begin;
-            length = end - begin;
-        }
-
-        boolean isNull() {
-            return offset == 0;
-        }
-
-        byte asByte() {
-            if (length == 0) {
-                return 0;
-            }
-            assert length == Byte.BYTES;
-            return buffer.get(offset);
-        }
-
-        short asShort() {
-            if (length == 0) {
-                return 0;
-            }
-            if (length == Byte.BYTES) {
-                return buffer.get(offset);
-            }
-            assert length == Short.BYTES;
-            return buffer.getShort(offset);
-        }
-
-        int asInt() {
-            if (length == 0) {
-                return 0;
-            }
-            if (length == Byte.BYTES) {
-                return buffer.get(offset);
-            }
-            if (length == Short.BYTES) {
-                return buffer.getShort(offset);
-            }
-            assert length == Integer.BYTES;
-            return buffer.getInt(offset);
-        }
-
-        long asLong() {
-            if (length == 0) {
-                return 0;
-            }
-            if (length == Byte.BYTES) {
-                return buffer.get(offset);
-            }
-            if (length == Short.BYTES) {
-                return buffer.getShort(offset);
-            }
-            if (length == Integer.BYTES) {
-                return buffer.getInt(offset);
-            }
-            assert length == Long.BYTES;
-            return buffer.getLong(offset);
-        }
-
-        float asFloat() {
-            if (length == 0) {
-                return 0.0F;
-            }
-            assert length == Float.BYTES;
-            return buffer.getFloat(offset);
-        }
-
-        double asDouble() {
-            if (length == 0) {
-                return 0.0;
-            }
-            if (length == Float.BYTES) {
-                return buffer.getFloat(offset);
-            }
-            assert length == Double.BYTES;
-            return buffer.getDouble(offset);
-        }
-    }
+public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleParser.Sink {
+    int begin = 0;
+    int end = 0;
 
     /**
      * Constructor.
@@ -139,6 +57,13 @@ public class BinaryTupleReader extends BinaryTupleParser {
         super(numElements, buffer);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void nextElement(int index, int begin, int end) {
+        this.begin = begin;
+        this.end = end;
+    }
+
     /**
      * Get underlying buffer.
      *
@@ -155,7 +80,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return {@code true} if this element contains a null value, {@code false} otherwise.
      */
     public boolean hasNullValue(int index) {
-        return seek(index).isNull();
+        seek(index);
+        return begin == 0;
     }
 
     /**
@@ -165,7 +91,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public byte byteValue(int index) {
-        return seek(index).asByte();
+        seek(index);
+        return byteValue(begin, end);
     }
 
     /**
@@ -175,8 +102,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public Byte byteValueBoxed(int index) {
-        var element = seek(index);
-        return element.isNull() ? null : element.asByte();
+        seek(index);
+        return begin == 0 ? null : byteValue(begin, end);
     }
 
     /**
@@ -186,7 +113,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public short shortValue(int index) {
-        return seek(index).asShort();
+        seek(index);
+        return shortValue(begin, end);
     }
 
     /**
@@ -196,8 +124,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public Short shortValueBoxed(int index) {
-        var element = seek(index);
-        return element.isNull() ? null : element.asShort();
+        seek(index);
+        return begin == 0 ? null : shortValue(begin, end);
     }
 
     /**
@@ -207,7 +135,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public int intValue(int index) {
-        return seek(index).asInt();
+        seek(index);
+        return intValue(begin, end);
     }
 
     /**
@@ -217,8 +146,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public Integer intValueBoxed(int index) {
-        var element = seek(index);
-        return element.isNull() ? null : element.asInt();
+        seek(index);
+        return begin == 0 ? null : intValue(begin,  end);
     }
 
     /**
@@ -228,7 +157,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public long longValue(int index) {
-        return seek(index).asLong();
+        seek(index);
+        return longValue(begin, end);
     }
 
     /**
@@ -238,8 +168,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public Long longValueBoxed(int index) {
-        var element = seek(index);
-        return element.isNull() ? null : element.asLong();
+        seek(index);
+        return begin == 0 ? null : longValue(begin, end);
     }
 
     /**
@@ -249,7 +179,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public float floatValue(int index) {
-        return seek(index).asFloat();
+        seek(index);
+        return floatValue(begin, end);
     }
 
     /**
@@ -259,8 +190,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public Float floatValueBoxed(int index) {
-        var element = seek(index);
-        return element.isNull() ? null : element.asFloat();
+        seek(index);
+        return begin == 0 ? null : floatValue(begin, end);
     }
 
     /**
@@ -270,7 +201,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public double doubleValue(int index) {
-        return seek(index).asDouble();
+        seek(index);
+        return doubleValue(begin, end);
     }
 
     /**
@@ -280,8 +212,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public Double doubleValueBoxed(int index) {
-        var element = seek(index);
-        return element.isNull() ? null : element.asDouble();
+        seek(index);
+        return begin == 0 ? null : doubleValue(begin, end);
     }
 
     /**
@@ -291,14 +223,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public BigInteger numberValue(int index) {
-        var element = seek(index);
-        if (element.isNull()) {
-            return null;
-        }
-
-        byte[] bytes = new byte[element.length];
-        buffer.duplicate().position(element.offset).limit(element.offset + element.length).get(bytes);
-        return new BigInteger(bytes);
+        seek(index);
+        return begin == 0 ? null : numberValue(begin, end);
     }
 
     /**
@@ -309,14 +235,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public BigDecimal decimalValue(int index, int scale) {
-        var element = seek(index);
-        if (element.isNull()) {
-            return null;
-        }
-
-        byte[] bytes = new byte[element.length];
-        buffer.duplicate().position(element.offset).limit(element.offset + element.length).get(bytes);
-        return new BigDecimal(new BigInteger(bytes), scale);
+        seek(index);
+        return begin == 0 ? null : new BigDecimal(numberValue(begin, end), scale);
     }
 
     /**
@@ -326,23 +246,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public String stringValue(int index) {
-        var element = seek(index);
-        if (element.isNull()) {
-            return null;
-        }
-
-        byte[] bytes;
-        int offset;
-        if (buffer.hasArray()) {
-            bytes = buffer.array();
-            offset = element.offset + buffer.arrayOffset();
-        } else {
-            bytes = new byte[element.length];
-            buffer.duplicate().position(element.offset).limit(element.offset + element.length).get(bytes);
-            offset = 0;
-        }
-
-        return new String(bytes, offset, element.length, StandardCharsets.UTF_8);
+        seek(index);
+        return begin == 0 ? null : stringValue(begin, end);
     }
 
     /**
@@ -352,14 +257,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public byte[] bytesValue(int index) {
-        var element = seek(index);
-        if (element.isNull()) {
-            return null;
-        }
-
-        byte[] bytes = new byte[element.length];
-        buffer.duplicate().position(element.offset).limit(element.offset + element.length).get(bytes);
-        return bytes;
+        seek(index);
+        return begin == 0 ? null : bytesValue(begin, end);
     }
 
     /**
@@ -369,19 +268,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public UUID uuidValue(int index) {
-        var element = seek(index);
-        if (element.isNull()) {
-            return null;
-        }
-        if (element.length == 0) {
-            return BinaryTupleSchema.DEFAULT_UUID;
-        }
-
-        assert element.length == NativeTypes.UUID.sizeInBytes();
-
-        long lsb = buffer.getLong(element.offset);
-        long msb = buffer.getLong(element.offset + 8);
-        return new UUID(msb, lsb);
+        seek(index);
+        return begin == 0 ? null : uuidValue(begin, end);
     }
 
     /**
@@ -391,11 +279,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public BitSet bitmaskValue(int index) {
-        var element = seek(index);
-        if (element.isNull()) {
-            return null;
-        }
-        return BitSet.valueOf(buffer.duplicate().position(element.offset).limit(element.offset + element.length));
+        seek(index);
+        return begin == 0 ? null : bitmaskValue(begin, end);
     }
 
     /**
@@ -405,16 +290,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public LocalDate dateValue(int index) {
-        var element = seek(index);
-        if (element.isNull()) {
-            return null;
-        }
-        if (element.length == 0) {
-            return BinaryTupleSchema.DEFAULT_DATE;
-        }
-
-        assert element.length == 3;
-        return getDate(element);
+        seek(index);
+        return begin == 0 ? null : dateValue(begin, end);
     }
 
     /**
@@ -424,17 +301,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public LocalTime timeValue(int index) {
-        var element = seek(index);
-        if (element.isNull()) {
-            return null;
-        }
-        if (element.length == 0) {
-            return BinaryTupleSchema.DEFAULT_TIME;
-        }
-
-        assert element.length >= 4;
-        assert element.length <= 6;
-        return getTime(element);
+        seek(index);
+        return begin == 0 ? null : timeValue(begin, end);
     }
 
     /**
@@ -444,20 +312,8 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public LocalDateTime dateTimeValue(int index) {
-        var element = seek(index);
-        if (element.isNull()) {
-            return null;
-        }
-        if (element.length == 0) {
-            return BinaryTupleSchema.DEFAULT_DATE_TIME;
-        }
-
-        assert element.length >= 7;
-        assert element.length <= 9;
-        LocalDate date = getDate(element);
-        element.offset += 3;
-        element.length -= 3;
-        return LocalDateTime.of(date, getTime(element));
+        seek(index);
+        return begin == 0 ? null : dateTimeValue(begin, end);
     }
 
     /**
@@ -467,71 +323,16 @@ public class BinaryTupleReader extends BinaryTupleParser {
      * @return Element value.
      */
     public Instant timestampValue(int index) {
-        var element = seek(index);
-        if (element.isNull()) {
-            return null;
-        }
-        if (element.length == 0) {
-            return BinaryTupleSchema.DEFAULT_TIMESTAMP;
-        }
-
-        assert element.length == 8 || element.length == 12;
-        long seconds = buffer.getLong(element.offset);
-        int nanos = element.length == 8 ? 0 : buffer.getInt(element.offset + 8);
-
-        return Instant.ofEpochSecond(seconds, nanos);
+        seek(index);
+        return begin == 0 ? null : timestampValue(begin, end);
     }
 
     /**
      * Locate the specified tuple element.
      *
      * @param index Element index.
-     * @return Element location info.
      */
-    private ElementSink seek(int index) {
-        ElementSink element = new ElementSink();
-        fetch(index, element);
-        return element;
-    }
-
-    /**
-     * Decode a non-trivial Date element.
-     */
-    private LocalDate getDate(ElementSink element) {
-        int date = Short.toUnsignedInt(buffer.getShort(element.offset));
-        date |= ((int) buffer.get(element.offset)) << 16;
-
-        int day = date & 31;
-        int month = (date >> 5) & 15;
-        int year = (date >> 9); // Sign matters.
-
-        return LocalDate.of(year, month, day);
-    }
-
-    /**
-     * Decode a non-trivial Time element.
-     */
-    private LocalTime getTime(ElementSink element) {
-        long time = Integer.toUnsignedLong(buffer.getInt(element.offset));
-
-        int nanos;
-        if (element.length == 4) {
-            nanos = ((int) time & ((1 << 10) - 1)) * 1000 * 1000;
-            time >>>= 10;
-        } else if (element.length == 5) {
-            time |= Byte.toUnsignedLong(buffer.get(element.offset + 4)) << 32;
-            nanos = ((int) time & ((1 << 20) - 1)) * 1000;
-            time >>>= 20;
-        } else {
-            time |= Short.toUnsignedLong(buffer.getShort(element.offset + 4)) << 32;
-            nanos = ((int) time & ((1 << 30) - 1));
-            time >>>= 30;
-        }
-
-        int second = ((int) time) & 63;
-        int minute = ((int) time >>> 6) & 63;
-        int hour = ((int) time >>> 12) & 31;
-
-        return LocalTime.of(hour, minute, second, nanos);
+    private void seek(int index) {
+        fetch(index, this);
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import org.apache.ignite.internal.schema.row.Row;
@@ -208,7 +209,7 @@ public class BinaryConverter {
             return null;
         }
 
-        var reader = new BinaryTupleReader(tupleSchema.elementCount(), buffer);
+        var parser = new BinaryTupleParser(tupleSchema.elementCount(), buffer);
 
         // Collect information needed for RowAssembler.
         var stats = new BinaryTupleParser.Sink() {
@@ -238,12 +239,12 @@ public class BinaryConverter {
                 }
             }
         };
-        reader.parse(stats);
+        parser.parse(stats);
 
         // Now compose the row.
         var asm = new RowAssembler(descriptor, stats.nonNullVarLenKeySize, stats.nonNullVarLenKeyCols,
                 stats.nonNullVarLenValSize, stats.nonNullVarLenValCols);
-        reader.parse(new BinaryTupleParser.Sink() {
+        parser.parse(new BinaryTupleParser.Sink() {
             @Override
             public void nextElement(int index, int begin, int end) {
                 if (begin == 0) {
@@ -254,52 +255,52 @@ public class BinaryConverter {
                 BinaryTupleSchema.Element elt = tupleSchema.element(index);
                 switch (elt.typeSpec) {
                     case INT8:
-                        asm.appendByte(reader.byteValue(index));
+                        asm.appendByte(parser.byteValue(begin, end));
                         break;
                     case INT16:
-                        asm.appendShort(reader.shortValue(index));
+                        asm.appendShort(parser.shortValue(begin, end));
                         break;
                     case INT32:
-                        asm.appendInt(reader.intValue(index));
+                        asm.appendInt(parser.intValue(begin, end));
                         break;
                     case INT64:
-                        asm.appendLong(reader.longValue(index));
+                        asm.appendLong(parser.longValue(begin, end));
                         break;
                     case FLOAT:
-                        asm.appendFloat(reader.floatValue(index));
+                        asm.appendFloat(parser.floatValue(begin, end));
                         break;
                     case DOUBLE:
-                        asm.appendDouble(reader.doubleValue(index));
+                        asm.appendDouble(parser.doubleValue(begin, end));
                         break;
                     case NUMBER:
-                        asm.appendNumber(reader.numberValue(index));
+                        asm.appendNumber(parser.numberValue(begin, end));
                         break;
                     case DECIMAL:
-                        asm.appendDecimal(reader.decimalValue(index, elt.decimalScale));
+                        asm.appendDecimal(new BigDecimal(parser.numberValue(begin, end), elt.decimalScale));
                         break;
                     case STRING:
-                        asm.appendString(reader.stringValue(index));
+                        asm.appendString(parser.stringValue(begin, end));
                         break;
                     case BYTES:
-                        asm.appendBytes(reader.bytesValue(index));
+                        asm.appendBytes(parser.bytesValue(begin, end));
                         break;
                     case UUID:
-                        asm.appendUuid(reader.uuidValue(index));
+                        asm.appendUuid(parser.uuidValue(begin, end));
                         break;
                     case BITMASK:
-                        asm.appendBitmask(reader.bitmaskValue(index));
+                        asm.appendBitmask(parser.bitmaskValue(begin, end));
                         break;
                     case DATE:
-                        asm.appendDate(reader.dateValue(index));
+                        asm.appendDate(parser.dateValue(begin, end));
                         break;
                     case TIME:
-                        asm.appendTime(reader.timeValue(index));
+                        asm.appendTime(parser.timeValue(begin, end));
                         break;
                     case DATETIME:
-                        asm.appendDateTime(reader.dateTimeValue(index));
+                        asm.appendDateTime(parser.dateTimeValue(begin, end));
                         break;
                     case TIMESTAMP:
-                        asm.appendTimestamp(reader.timestampValue(index));
+                        asm.appendTimestamp(parser.timestampValue(begin, end));
                         break;
                     default:
                         throw new InvalidTypeException("Unexpected type value: " + elt.typeSpec);

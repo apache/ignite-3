@@ -17,8 +17,17 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.BitSet;
+import java.util.UUID;
+
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -30,11 +39,11 @@ public class BinaryTupleParser {
      */
     public interface Sink {
         /**
-         * Provides the location of the next tuple value.
+         * Provides the location of the next tuple element.
          *
-         * @param index Value index.
-         * @param begin Start offset of the value, 0 for NULL.
-         * @param end End offset of the value, 0 for NULL.
+         * @param index Element index.
+         * @param begin Start offset of the element, 0 for NULL.
+         * @param end End offset of the element, 0 for NULL.
          */
         void nextElement(int index, int begin, int end);
     }
@@ -101,34 +110,6 @@ public class BinaryTupleParser {
     }
 
     /**
-     * Get buffer positioned at the specified tuple element.
-     *
-     * <p>If the element has NULL value then null is returned.
-     *
-     * @param index Index of the element.
-     * @return ByteBuffer with element bytes between current position and limit or null.
-     */
-    public ByteBuffer element(int index) {
-        var sink = new Sink() {
-            int begin;
-            int end;
-
-            @Override
-            public void nextElement(int index, int begin, int end) {
-                this.begin = begin;
-                this.end = end;
-            }
-        };
-
-        fetch(index, sink);
-        if (sink.begin == 0) {
-            return null;
-        }
-
-        return buffer.asReadOnlyBuffer().position(sink.begin).limit(sink.end).order(ByteOrder.LITTLE_ENDIAN);
-    }
-
-    /**
      * Locate the specified tuple element.
      *
      * @param index Index of the element.
@@ -146,7 +127,9 @@ public class BinaryTupleParser {
         }
 
         int nextOffset = valueBase + getOffset(entry);
-        assert nextOffset >= offset;
+        if (nextOffset < offset) {
+            throw new IgniteInternalException("Corrupted offset table");
+        }
 
         if (offset == nextOffset && hasNullMap()) {
             int nullIndex = BinaryTupleSchema.HEADER_SIZE + index / 8;
@@ -171,7 +154,9 @@ public class BinaryTupleParser {
 
         for (int i = 0; i < numElements; i++) {
             int nextOffset = valueBase + getOffset(entry);
-            assert nextOffset >= offset;
+            if (nextOffset < offset) {
+                throw new IgniteInternalException("Corrupted offset table");
+            }
 
             if (offset == nextOffset && hasNullMap()) {
                 int nullIndex = BinaryTupleSchema.HEADER_SIZE + i / 8;
@@ -189,12 +174,290 @@ public class BinaryTupleParser {
     }
 
     /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    final byte byteValue(int begin, int end) {
+        switch (end - begin) {
+            case 0:
+                return 0;
+            case Byte.BYTES:
+                return buffer.get(begin);
+            default:
+                throw new IgniteInternalException("Invalid length for a tuple element");
+        }
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    final short shortValue(int begin, int end) {
+        switch (end - begin) {
+            case 0:
+                return 0;
+            case Byte.BYTES:
+                return buffer.get(begin);
+            case Short.BYTES:
+                return buffer.getShort(begin);
+            default:
+                throw new IgniteInternalException("Invalid length for a tuple element");
+        }
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    final int intValue(int begin, int end) {
+        switch (end - begin) {
+            case 0:
+                return 0;
+            case Byte.BYTES:
+                return buffer.get(begin);
+            case Short.BYTES:
+                return buffer.getShort(begin);
+            case Integer.BYTES:
+                return buffer.getInt(begin);
+            default:
+                throw new IgniteInternalException("Invalid length for a tuple element");
+        }
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    final long longValue(int begin, int end) {
+        switch (end - begin) {
+            case 0:
+                return 0;
+            case Byte.BYTES:
+                return buffer.get(begin);
+            case Short.BYTES:
+                return buffer.getShort(begin);
+            case Integer.BYTES:
+                return buffer.getInt(begin);
+            case Long.BYTES:
+                return buffer.getLong(begin);
+            default:
+                throw new IgniteInternalException("Invalid length for a tuple element");
+        }
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    final float floatValue(int begin, int end) {
+        switch (end - begin) {
+            case 0:
+                return 0.0F;
+            case Float.BYTES:
+                return buffer.getFloat(begin);
+            default:
+                throw new IgniteInternalException("Invalid length for a tuple element");
+        }
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    final double doubleValue(int begin, int end) {
+        switch (end - begin) {
+            case 0:
+                return 0.0;
+            case Float.BYTES:
+                return buffer.getFloat(begin);
+            case Double.BYTES:
+                return buffer.getDouble(begin);
+            default:
+                throw new IgniteInternalException("Invalid length for a tuple element");
+        }
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    final BigInteger numberValue(int begin, int end) {
+        byte[] bytes;
+        if (buffer.hasArray()) {
+            bytes = buffer.array();
+            begin += buffer.arrayOffset();
+        } else {
+            bytes = bytesValue(begin, end);
+            begin = 0;
+        }
+        return new BigInteger(bytes, begin, end - begin);
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    final String stringValue(int begin, int end) {
+        byte[] bytes;
+        if (buffer.hasArray()) {
+            bytes = buffer.array();
+            begin += buffer.arrayOffset();
+        } else {
+            bytes = bytesValue(begin, end);
+            begin = 0;
+        }
+        return new String(bytes, begin, end - begin, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    final byte[] bytesValue(int begin, int end) {
+        byte[] bytes = new byte[end - begin];
+        buffer.duplicate().position(begin).limit(end).get(bytes);
+        return bytes;
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    final UUID uuidValue(int begin, int end) {
+        int len = end - begin;
+        if (len != NativeTypes.UUID.sizeInBytes()) {
+            if (len == 0) {
+                return BinaryTupleSchema.DEFAULT_UUID;
+            }
+            throw new IgniteInternalException("Invalid length for a tuple element");
+        }
+        long lsb = buffer.getLong(begin);
+        long msb = buffer.getLong(begin + 8);
+        return new UUID(msb, lsb);
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    final BitSet bitmaskValue(int begin, int end) {
+        return BitSet.valueOf(buffer.duplicate().position(begin).limit(end));
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    final LocalDate dateValue(int begin, int end) {
+        int len = end - begin;
+        if (len != 3) {
+            if (len == 0) {
+                return BinaryTupleSchema.DEFAULT_DATE;
+            }
+            throw new IgniteInternalException("Invalid length for a tuple element");
+        }
+        return getDate(begin);
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    final LocalTime timeValue(int begin, int end) {
+        int len = end - begin;
+        if (len < 4 || len > 6) {
+            if (len == 0) {
+                return BinaryTupleSchema.DEFAULT_TIME;
+            }
+            throw new IgniteInternalException("Invalid length for a tuple element");
+        }
+        return getTime(begin, len);
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    final LocalDateTime dateTimeValue(int begin, int end) {
+        int len = end - begin;
+        if (len < 7 || len > 9) {
+            if (len == 0) {
+                return BinaryTupleSchema.DEFAULT_DATE_TIME;
+            }
+            throw new IgniteInternalException("Invalid length for a tuple element");
+        }
+        return LocalDateTime.of(getDate(begin), getTime(begin + 3, len - 3));
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    final Instant timestampValue(int begin, int end) {
+        int len = end - begin;
+        if (len != 8 && len != 12) {
+            if (len == 0) {
+                return BinaryTupleSchema.DEFAULT_TIMESTAMP;
+            }
+            throw new IgniteInternalException("Invalid length for a tuple element");
+        }
+        long seconds = buffer.getLong(begin);
+        int nanos = len == 8 ? 0 : buffer.getInt(begin + 8);
+        return Instant.ofEpochSecond(seconds, nanos);
+    }
+
+    /**
      * Get an entry from the value offset table.
      *
      * @param index Byte index of the table entry.
      * @return Entry value.
      */
-    private int getOffset(int index) {
+    private final int getOffset(int index) {
         switch (entrySize) {
             case Byte.BYTES:
                 return Byte.toUnsignedInt(buffer.get(index));
@@ -212,5 +475,46 @@ public class BinaryTupleParser {
             default:
                 throw new IgniteInternalException("Invalid offset table size");
         }
+    }
+
+    /**
+     * Decode a non-trivial Date element.
+     */
+    private final LocalDate getDate(int offset) {
+        int date = Short.toUnsignedInt(buffer.getShort(offset));
+        date |= ((int) buffer.get(offset)) << 16;
+
+        int day = date & 31;
+        int month = (date >> 5) & 15;
+        int year = (date >> 9); // Sign matters.
+
+        return LocalDate.of(year, month, day);
+    }
+
+    /**
+     * Decode a non-trivial Time element.
+     */
+    private final LocalTime getTime(int offset, int length) {
+        long time = Integer.toUnsignedLong(buffer.getInt(offset));
+
+        int nanos;
+        if (length == 4) {
+            nanos = ((int) time & ((1 << 10) - 1)) * 1000 * 1000;
+            time >>>= 10;
+        } else if (length == 5) {
+            time |= Byte.toUnsignedLong(buffer.get(offset + 4)) << 32;
+            nanos = ((int) time & ((1 << 20) - 1)) * 1000;
+            time >>>= 20;
+        } else {
+            time |= Short.toUnsignedLong(buffer.getShort(offset + 4)) << 32;
+            nanos = ((int) time & ((1 << 30) - 1));
+            time >>>= 30;
+        }
+
+        int second = ((int) time) & 63;
+        int minute = ((int) time >>> 6) & 63;
+        int hour = ((int) time >>> 12) & 31;
+
+        return LocalTime.of(hour, minute, second, nanos);
     }
 }
