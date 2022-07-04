@@ -59,6 +59,7 @@ import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.TestFactory;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -102,6 +103,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @Tag(value = "sqllogic")
 @ExtendWith({WorkDirectoryExtension.class, SystemPropertiesExtension.class})
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 // TODO: use default restart mode after fix performance issue: https://issues.apache.org/jira/browse/IGNITE-16760
 @SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql", restart = RestartMode.FOLDER)
 public class SqlLogicTest {
