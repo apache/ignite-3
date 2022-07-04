@@ -87,12 +87,8 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
                 case INTEGER:
                 case TINYINT:
                 case SMALLINT:
-                    sumType = typeFactory.createTypeWithNullability(
-                            typeFactory.createSqlType(
-                                    SqlTypeName.BIGINT,
-                                    typeFactory.getTypeSystem().getMaxPrecision(SqlTypeName.BIGINT),
-                                    typeFactory.getTypeSystem().getMaxScale(SqlTypeName.BIGINT)
-                            ), argumentType.isNullable());
+                    sumType = typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.BIGINT),
+                            argumentType.isNullable());
 
                     break;
 
