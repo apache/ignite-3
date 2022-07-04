@@ -19,6 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.lang.System.nanoTime;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.DIRTY_PAGE_COMPARATOR;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
@@ -50,7 +51,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -318,7 +318,7 @@ public class CheckpointerTest {
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
 
-        verify(dirtyPages, times(1)).nextView(any());
+        verify(dirtyPages, times(1)).toQueue();
         verify(checkpointer, times(1)).startCheckpointProgress();
 
         assertEquals(checkpointer.currentProgress().currentCheckpointPagesCount(), 3);
@@ -364,7 +364,7 @@ public class CheckpointerTest {
     }
 
     private CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, FullPageId... fullPageIds) {
-        Arrays.sort(fullPageIds, Comparator.comparing(FullPageId::groupId).thenComparing(FullPageId::effectivePageId));
+        Arrays.sort(fullPageIds, DIRTY_PAGE_COMPARATOR);
 
         return new CheckpointDirtyPages(new IgniteBiTuple<>(pageMemory, fullPageIds));
     }
