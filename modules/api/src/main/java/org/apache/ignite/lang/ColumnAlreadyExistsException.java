@@ -18,7 +18,6 @@
 package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_ERR_GROUP;
 
 /**
  * This exception is thrown when a new column failed to be created, because another column with the same name already exists.
@@ -30,6 +29,6 @@ public class ColumnAlreadyExistsException extends IgniteException {
      * @param name Column name.
      */
     public ColumnAlreadyExistsException(String name) {
-        super(TABLE_ERR_GROUP.name(), COLUMN_ALREADY_EXISTS_ERR, "Column already exists [name=" + name + ']');
+        super(COLUMN_ALREADY_EXISTS_ERR, "Column already exists [name=" + name + ']');
     }
 }

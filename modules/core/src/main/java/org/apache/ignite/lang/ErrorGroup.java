@@ -17,12 +17,11 @@
 
 package org.apache.ignite.lang;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.Locale;
-import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -31,7 +30,7 @@ import java.util.UUID;
  */
 public class ErrorGroup {
     /** List of all registered error groups. */
-    private static final List<ErrorGroup> registeredGroups = new ArrayList<>();
+    private static final Int2ObjectMap<ErrorGroup> registeredGroups = new Int2ObjectOpenHashMap<>();
 
     /** Group name. */
     private final String groupName;
@@ -40,7 +39,7 @@ public class ErrorGroup {
     private final int groupCode;
 
     /** Contains error codes for this error group. */
-    private final Set<Integer> codes = new HashSet<>();
+    private final IntSet codes = new IntOpenHashSet();
 
     /**
      * Creates a new error group with the specified name and corresponding code.
@@ -103,11 +102,6 @@ public class ErrorGroup {
         return group.codes.contains(code);
     }
 
-    @Override
-    public String toString() {
-        return "ErrorGroup [name=" + name() + ", code=" + code() + ']';
-    }
-
     /**
      * Creates a new error group with the given {@code groupName} and {@code groupCode}.
      *
@@ -120,23 +114,25 @@ public class ErrorGroup {
     public static synchronized ErrorGroup newGroup(String groupName, int groupCode) {
         String grpName = groupName.toUpperCase(Locale.ENGLISH);
 
-        Optional<ErrorGroup> grp = registeredGroups.stream().filter(g -> g.name().equals(grpName)).findFirst();
-        if (grp.isPresent()) {
+        if (registeredGroups.containsKey(groupCode)) {
             throw new IllegalArgumentException(
-                    "Error group already registered [groupName=" + groupName + ", registeredGroup=" + grp.get() + ']');
+                    "Error group already registered [groupName=" + groupName + ", groupCode=" + groupCode
+                            + ", registeredGroup=" + registeredGroups.get(groupCode) + ']');
         }
 
-        grp = registeredGroups.stream().filter(g -> g.code() == groupCode).findFirst();
-        if (grp.isPresent()) {
-            throw new IllegalArgumentException(
-                    "Error group already registered [groupCode=" + groupCode + ", registeredGroup=" + grp.get() + ']');
+        for (ErrorGroup group : registeredGroups.values()) {
+            if (group.name().equals(groupName)) {
+                throw new IllegalArgumentException(
+                    "Error group already registered [groupName=" + groupName + ", groupCode=" + groupCode
+                            + ", registeredGroup=" + group + ']');
+            }
         }
 
-        ErrorGroup newGrp = new ErrorGroup(grpName, groupCode);
+        ErrorGroup newGroup = new ErrorGroup(grpName, groupCode);
 
-        registeredGroups.add(newGrp);
+        registeredGroups.put(groupCode, newGroup);
 
-        return newGrp;
+        return newGroup;
     }
 
     /**
@@ -160,6 +156,28 @@ public class ErrorGroup {
     }
 
     /**
+     * Returns error group identified by the given {@code groupCode}.
+     *
+     * @param groupCode Group code
+     * @return Error Group.
+     */
+    public static ErrorGroup errorGroupByCode(int groupCode) {
+        return registeredGroups.get(groupCode);
+    }
+
+    /**
+     * Creates a new error message with predefined prefix.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Original message.
+     * @return New error message with predefined prefix.
+     */
+    public static String errorMessage(UUID traceId, int code, String message) {
+        return errorMessage(traceId, registeredGroups.get(extractGroupCode(code)).name(), code, message);
+    }
+
+    /**
      * Creates a new error message with predefined prefix.
      *
      * @param traceId Unique identifier of this exception.
@@ -176,6 +194,18 @@ public class ErrorGroup {
      * Creates a new error message with predefined prefix.
      *
      * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param cause Cause.
+     * @return New error message with predefined prefix.
+     */
+    public static String errorMessageFromCause(UUID traceId, int code, Throwable cause) {
+        return errorMessageFromCause(traceId, registeredGroups.get(extractGroupCode(code)).name(), code, cause);
+    }
+
+    /**
+     * Creates a new error message with predefined prefix.
+     *
+     * @param traceId Unique identifier of this exception.
      * @param groupName Group name.
      * @param code Full error code.
      * @param cause Cause.
@@ -185,5 +215,10 @@ public class ErrorGroup {
         String c = (cause != null && cause.getMessage() != null) ? cause.getMessage() : null;
 
         return (c != null && c.startsWith("IGN-")) ? c :  errorMessage(traceId, groupName, code, c);
+    }
+
+    @Override
+    public String toString() {
+        return "ErrorGroup [name=" + name() + ", code=" + code() + ']';
     }
 }

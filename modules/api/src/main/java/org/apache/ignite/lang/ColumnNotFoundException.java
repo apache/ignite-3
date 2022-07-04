@@ -18,7 +18,6 @@
 package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_NOT_FOUND_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_ERR_GROUP;
 
 /**
  * Exception is thrown when appropriate column is not found.
@@ -30,7 +29,7 @@ public class ColumnNotFoundException extends IgniteException {
      * @param columnName Column name.
      */
     public ColumnNotFoundException(String columnName) {
-        super(TABLE_ERR_GROUP.name(), COLUMN_NOT_FOUND_ERR, "Column '" + columnName + "' does not exist");
+        super(COLUMN_NOT_FOUND_ERR, "Column '" + columnName + "' does not exist");
     }
 
     /**
@@ -40,6 +39,6 @@ public class ColumnNotFoundException extends IgniteException {
      * @param fullName Table canonical name.
      */
     public ColumnNotFoundException(String columnName, String fullName) {
-        super(TABLE_ERR_GROUP.name(), COLUMN_NOT_FOUND_ERR, "Column '" + columnName + "' does not exist in table '" + fullName + '\'');
+        super(COLUMN_NOT_FOUND_ERR, "Column '" + columnName + "' does not exist in table '" + fullName + '\'');
     }
 }
