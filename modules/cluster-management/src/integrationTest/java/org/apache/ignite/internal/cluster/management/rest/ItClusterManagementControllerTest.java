@@ -141,6 +141,10 @@ public class ItClusterManagementControllerTest {
 
         // Then status is 404: there is no "state"
         assertThat(thrownBeforeInit.getStatus(), is(equalTo(HttpStatus.NOT_FOUND)));
+        assertThat(
+                getProblem(thrownBeforeInit).detail(),
+                is(equalTo("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster"))
+        );
 
         // Given cluster initialized
         String givenFirstRequestBody =

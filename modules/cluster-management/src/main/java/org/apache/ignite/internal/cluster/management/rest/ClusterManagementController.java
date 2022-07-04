@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management.rest;
 
+import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Consumes;
 import io.micronaut.http.annotation.Controller;
@@ -35,6 +36,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.internal.cluster.management.rest.exception.InvalidArgumentClusterInitializationException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -81,7 +83,14 @@ public class ClusterManagementController {
             MediaType.PROBLEM_JSON
     })
     public CompletableFuture<ClusterStateDto> clusterState() throws ExecutionException, InterruptedException {
-        return clusterManagementGroupManager.clusterState().thenApply(this::mapClusterState);
+        return clusterManagementGroupManager.clusterState()
+                .thenApply(this::mapClusterState)
+                .thenApply(res -> {
+                    if (res == null) {
+                        throw new ClusterNotInitializedException();
+                    }
+                    return res;
+                });
     }
 
     /**
