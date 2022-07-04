@@ -374,8 +374,6 @@ public abstract class QueryChecker {
 
         var cur = cursors.get(0).join();
 
-        var res = CursorUtils.getAllFromCursor(cur);
-
         if (expectedColumnNames != null) {
             List<String> colNames = cur.metadata().columns().stream()
                     .map(ColumnMetadata::name)
@@ -408,6 +406,8 @@ public abstract class QueryChecker {
 
             assertFalse(matcherIterator.hasNext(), "Column metadata doesn't match");
         }
+
+        var res = getAllFromCursor(cur);
 
         if (expectedResult != null) {
             if (!ordered) {

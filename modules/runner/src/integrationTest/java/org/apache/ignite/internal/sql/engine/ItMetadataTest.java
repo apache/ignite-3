@@ -121,7 +121,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
         CLUSTER_NODES.get(0).sql().createSession()
                 .execute(null, "CREATE TABLE METADATA_TABLE ("
                                 + "ID INT PRIMARY KEY, "
-//                                + "BOOLEAN_C BOOLEAN, "  //TODO: from ANSI`99. Not supported by Ignite.
+//                                + "BOOLEAN_C BOOLEAN, "  //TODO: ANSI`99. Not supported by Ignite.
 
                                 // Exact numeric types
                                 + "TINY_C TINYINT, " // TINYINT is not a part of any SQL standard.
@@ -136,8 +136,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                                 + "DECIMAL_C3 DECIMAL(38,37), "
 
                                 // Approximate numeric types
-                                + "FLOAT_C FLOAT, "
-//                              + "FLOAT_C2 FLOAT(4), " // TODO: from ANSI`92. Not supported by Calcite parser.
+                                + "FLOAT_C FLOAT, " // FLOAT(4) ANSI`92 syntax is not supported by Calcite parser.
                                 + "REAL_C REAL, "
                                 + "DOUBLE_C DOUBLE, "
 
@@ -148,31 +147,26 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                                 + "VARCHAR_C2 VARCHAR(125), "
 
                                 // Binary string types
-//                              + "BIT_C BIT, " // TODO: from ANSI`92. Not supported by Calcite parser.
-//                              + "BIT_C2 BIT(10), "  // TODO: from ANSI`92. Not supported by Calcite parser.
-//                              + "BIT_C3 BIT VARYING(10), " // TODO: from ANSI`92. Not supported by Calcite parser.
-                                + "BINARY_C BINARY, " // Added in ANSI`99
+                                + "BINARY_C BINARY, "
                                 + "BINARY_C2 BINARY(65536), "
-//                              + "VARBINARY_C VARBINARY, " // TODO: from ANSI`99. Not supported by Calcite parser.
-//                              + "VARBINARY_C2 VARBINARY(125) " // TODO: from ANSI`99. Not supported by Calcite parser.
+                                + "VARBINARY_C VARBINARY, "
+                                + "VARBINARY_C2 VARBINARY(125), "
 
                                 // Datetime types
+                                // ANSI`99 syntax "WITH TIME ZONE" is not supported,
+                                // a "WITH LOCAL TIME ZONE" syntax MUST be used instead.
                                 + "DATE_C DATE, "
                                 + "TIME_C TIME, "
                                 + "TIME_C2 TIME(9), "
-                                + "TIME_LTZ_C TIME WITH LOCAL TIME ZONE, " // Not part of any standard
-                                + "TIME_LTZ_C2 TIME(9) WITH LOCAL TIME ZONE, " // Not part of any standard
-//                              + "TIME_TZ_C TIME WITH TIMEZONE, " // TODO: from ANSI`92. Not supported by Calcite parser.
-//                              + "TIME_TZ_C2 TIME(9) WITH TIMEZONE, " // TODO: from ANSI`92. Not supported by Calcite parser.
+                                + "TIME_LTZ_C TIME WITH LOCAL TIME ZONE, "
+                                + "TIME_LTZ_C2 TIME(9) WITH LOCAL TIME ZONE, "
                                 + "DATETIME_C TIMESTAMP, "
                                 + "DATETIME_C2 TIMESTAMP(9), "
-                                + "TIMESTAMP_C TIMESTAMP WITH LOCAL TIME ZONE, " // Not part of any standard
-                                + "TIMESTAMP_C2 TIMESTAMP(9) WITH LOCAL TIME ZONE, " // Not part of any standard
-//                              + "TIMESTAMP_C TIMESTAMP WITH TIME ZONE, " // TODO: from ANSI`92. Not supported by Calcite parser.
-//                              + "TIMESTAMP_C2 TIMESTAMP(9) WITH TIME ZONE, " // TODO: from ANSI`92. Not supported by Calcite parser.
+                                + "TIMESTAMP_C TIMESTAMP WITH LOCAL TIME ZONE, "
+                                + "TIMESTAMP_C2 TIMESTAMP(9) WITH LOCAL TIME ZONE, "
 
                                 // Interval types
-                                // TODO: Ignite doesn't support interval types.
+                                // TODO: IGNITE-17219: Ignite doesn't support interval types yet.
 //                              + "INTERVAL_YEAR_C INTERVAL YEAR, "
 //                              + "INTERVAL_MONTH_C INTERVAL MONTH, "
 //                              + "INTERVAL_DAY_C INTERVAL DAY, "
@@ -181,8 +175,10 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
 //                              + "INTERVAL_SEC_C2 INTERVAL SECOND(9), "
 
                                 // Custom types
-//                              + "UUID_C UUID, " //TODO: custom types are not supported yet.
-//                              + "BITSET_C BITMASK(8) " //TODO: custom types are not supported yet. Map to BIT(n) ?
+                                // TODO: IGNITE-16376 support additional data types.
+//                              + "UUID_C UUID, "
+//                              + "BITSET_C BITMASK, "
+//                              + "BITSET_C BITMASK(8), "
 
                                 // Nullability constraint
                                 + "NULLABLE_C INT, "
@@ -210,7 +206,6 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
 
                         // Approximate numeric types
                         new MetadataMatcher().name("FLOAT_C").type(SqlColumnType.FLOAT).precision(7).scale(UNDEFINED_SCALE),
-//                      new MetadataMatcher().name("FLOAT_C2").precision(4).scale(ColumnMetadata.UNDEFINED_SCALE),
                         new MetadataMatcher().name("REAL_C").type(SqlColumnType.FLOAT).precision(7).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("DOUBLE_C").type(SqlColumnType.DOUBLE).precision(15).scale(UNDEFINED_SCALE),
 
@@ -221,13 +216,10 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                         new MetadataMatcher().name("VARCHAR_C2").type(SqlColumnType.STRING).precision(125).scale(UNDEFINED_SCALE),
 
                         // Binary string types
-//                      new MetadataMatcher().name("BIT_C"),
-//                      new MetadataMatcher().name("BIT_C2"),
-//                      new MetadataMatcher().name("BIT_C3"),
                         new MetadataMatcher().name("BINARY_C").type(SqlColumnType.BYTE_ARRAY).precision(1).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("BINARY_C2").type(SqlColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
-//                      new MetadataMatcher().name("VARBINARY_C").type(SqlColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
-//                      new MetadataMatcher().name("VARBINARY_C2").type(SqlColumnType.BYTE_ARRAY).precision(125).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("VARBINARY_C").type(SqlColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("VARBINARY_C2").type(SqlColumnType.BYTE_ARRAY).precision(125).scale(UNDEFINED_SCALE),
 
                         // Datetime types
                         new MetadataMatcher().name("DATE_C").type(SqlColumnType.DATE).precision(0).scale(UNDEFINED_SCALE),
@@ -235,14 +227,10 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                         new MetadataMatcher().name("TIME_C2").type(SqlColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("TIME_LTZ_C").type(SqlColumnType.TIME).precision(0).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("TIME_LTZ_C2").type(SqlColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
-//                      new MetadataMatcher().name("TIME_TZ_C").type(SqlColumnType.TIME),
-//                      new MetadataMatcher().name("TIME_TZ_C2").type(SqlColumnType.TIME),
                         new MetadataMatcher().name("DATETIME_C").type(SqlColumnType.DATETIME).precision(0).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("DATETIME_C2").type(SqlColumnType.DATETIME).precision(9).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("TIMESTAMP_C").type(SqlColumnType.TIMESTAMP).precision(6).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("TIMESTAMP_C2").type(SqlColumnType.TIMESTAMP).precision(9).scale(UNDEFINED_SCALE),
-//                      new MetadataMatcher().name("TIMESTAMP_TZ_C").type(SqlColumnType.TIMESTAMP),
-//                      new MetadataMatcher().name("TIMESTAMP_TZ_C2").type(SqlColumnType.TIMESTAMP),
 
                         // Interval types
                         // TODO: Ignite doesn't support interval types.
@@ -257,6 +245,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                         // Custom types
 //                      new MetadataMatcher().name("UUID_C"),
 //                      new MetadataMatcher().name("BITSET_C"),
+//                      new MetadataMatcher().name("BITSET_C2"),
 
                         // Nullability constraint
                         new MetadataMatcher().name("NULLABLE_C").nullable(true),
