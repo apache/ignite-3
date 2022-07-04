@@ -269,6 +269,7 @@ components:
           $ref: '#/components/schemas/ClusterTag'
     ClusterTag:
       required:
+      - clusterId
       - clusterName
       type: object
       properties:
@@ -278,17 +279,21 @@ components:
         clusterName:
           type: string
     IgniteProductVersion:
+      required:
+      - maintenance
+      - major
+      - minor
       type: object
       properties:
         major:
-          type: string
-          format: byte
+          type: integer
+          format: int32
         minor:
-          type: string
-          format: byte
+          type: integer
+          format: int32
         maintenance:
-          type: string
-          format: byte
+          type: integer
+          format: int32
         alphaVersion:
           type: string
     InitCommand:

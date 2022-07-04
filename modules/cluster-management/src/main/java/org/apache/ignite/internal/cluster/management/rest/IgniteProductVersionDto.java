@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.cluster.management.rest;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
@@ -27,13 +30,13 @@ import org.jetbrains.annotations.Nullable;
 @Schema(name = "IgniteProductVersion")
 class IgniteProductVersionDto {
     /** Major version number. */
-    private final byte major;
+    private final short major;
 
     /** Minor version number. */
-    private final byte minor;
+    private final short minor;
 
     /** Maintenance version number. */
-    private final byte maintenance;
+    private final short maintenance;
 
     /** Flag indicating if this is a snapshot release. */
     private final boolean isSnapshot;
@@ -42,38 +45,48 @@ class IgniteProductVersionDto {
     // TODO: IGNITE-17146 Fix and add support for beta and other releases
     private final String alphaVersion;
 
-    IgniteProductVersionDto(byte major, byte minor, byte maintenance, boolean isSnapshot, @Nullable String alphaVersion) {
+    @JsonCreator
+    IgniteProductVersionDto(
+            @JsonProperty("major") short major,
+            @JsonProperty("minor") short minor,
+            @JsonProperty("maintenance") short maintenance,
+            @JsonProperty("isSnapshot") boolean isSnapshot,
+            @JsonProperty("alphaVersion") @Nullable String alphaVersion) {
         this.major = major;
         this.minor = minor;
         this.maintenance = maintenance;
         this.isSnapshot = isSnapshot;
-        this.alphaVersion = alphaVersion;
+        this.alphaVersion = alphaVersion == null ? "" : alphaVersion;
     }
 
     /**
      * Returns the major version number.
      */
-    public byte major() {
+    @JsonGetter
+    public short major() {
         return major;
     }
 
     /**
      * Returns the minor version number.
      */
-    public byte minor() {
+    @JsonGetter
+    public short minor() {
         return minor;
     }
 
     /**
      * Returns the maintenance version number.
      */
-    public byte maintenance() {
+    @JsonGetter
+    public short maintenance() {
         return maintenance;
     }
 
     /**
      * Returns {@code true} if this is a snapshot release, {@code false} otherwise.
      */
+    @JsonGetter
     public boolean snapshot() {
         return isSnapshot;
     }
@@ -81,6 +94,7 @@ class IgniteProductVersionDto {
     /**
      * Returns the alpha version of this release or an empty string if this is not an alpha release.
      */
+    @JsonGetter
     public String alphaVersion() {
         return alphaVersion;
     }
