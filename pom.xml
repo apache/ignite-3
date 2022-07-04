@@ -65,6 +65,7 @@
         <module>modules/network</module>
         <module>modules/network-annotation-processor</module>
         <module>modules/network-api</module>
+        <module>modules/node-management</module>
         <module>modules/page-memory</module>
         <module>modules/raft</module>
         <module>modules/raft-client</module>
@@ -80,7 +81,6 @@
         <module>modules/table</module>
         <module>modules/transactions</module>
         <module>modules/vault</module>
-        <module>modules/node-management</module>
     </modules>
 
     <profiles>

@@ -137,7 +137,7 @@ public class ItClusterManagementControllerTest {
     void testInitAlreadyInitializedWithAnotherNodes() {
         // Given cluster is not initialized
         HttpClientResponseException thrownBeforeInit = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().retrieve("state", ClusterState.class));
+                () -> client.toBlocking().retrieve("state", ClusterStateDto.class));
 
         // Then status is 404: there is no "state"
         assertThat(thrownBeforeInit.getStatus(), is(equalTo(HttpStatus.NOT_FOUND)));
@@ -156,8 +156,8 @@ public class ItClusterManagementControllerTest {
         assertThat(cluster.get(0).startFuture(), willCompleteSuccessfully());
 
         // When get cluster state
-        org.apache.ignite.internal.cluster.management.rest.ClusterState state =
-                client.toBlocking().retrieve("state", org.apache.ignite.internal.cluster.management.rest.ClusterState.class);
+        ClusterStateDto state =
+                client.toBlocking().retrieve("state", ClusterStateDto.class);
 
         // Then cluster state is valid
         assertThat(state.metaStorageNodes(), is(equalTo(List.of(cluster.get(0).clusterService().localConfiguration().getName()))));

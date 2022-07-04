@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.cluster.management.rest;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * REST representation of {@link org.apache.ignite.internal.properties.IgniteProductVersion}.
  */
-class IgniteProductVersion {
+@Schema(name = "IgniteProductVersion")
+class IgniteProductVersionDto {
     /** Major version number. */
     private final byte major;
 
@@ -40,7 +42,7 @@ class IgniteProductVersion {
     // TODO: IGNITE-17146 Fix and add support for beta and other releases
     private final String alphaVersion;
 
-    IgniteProductVersion(byte major, byte minor, byte maintenance, boolean isSnapshot, @Nullable String alphaVersion) {
+    IgniteProductVersionDto(byte major, byte minor, byte maintenance, boolean isSnapshot, @Nullable String alphaVersion) {
         this.major = major;
         this.minor = minor;
         this.maintenance = maintenance;
@@ -91,7 +93,7 @@ class IgniteProductVersion {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        IgniteProductVersion that = (IgniteProductVersion) o;
+        IgniteProductVersionDto that = (IgniteProductVersionDto) o;
         return major == that.major && minor == that.minor && maintenance == that.maintenance && isSnapshot == that.isSnapshot
                 && alphaVersion.equals(that.alphaVersion);
     }

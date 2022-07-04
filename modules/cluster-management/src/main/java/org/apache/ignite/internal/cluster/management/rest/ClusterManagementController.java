@@ -70,7 +70,8 @@ public class ClusterManagementController {
     @Operation(operationId = "clusterState")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Return cluster state",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ClusterState.class))),
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON,
+                            schema = @Schema(name = "ClusterState", implementation = ClusterState.class))),
             @ApiResponse(responseCode = "404", description = "Cluster state not found, it means that the cluster is not initialized"),
             @ApiResponse(responseCode = "500", description = "Internal error",
                     content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
@@ -79,8 +80,7 @@ public class ClusterManagementController {
             MediaType.APPLICATION_JSON,
             MediaType.PROBLEM_JSON
     })
-    public CompletableFuture<org.apache.ignite.internal.cluster.management.rest.ClusterState> clusterState()
-            throws ExecutionException, InterruptedException {
+    public CompletableFuture<ClusterStateDto> clusterState() throws ExecutionException, InterruptedException {
         return clusterManagementGroupManager.clusterState().thenApply(this::mapClusterState);
     }
 
@@ -112,18 +112,18 @@ public class ClusterManagementController {
                 });
     }
 
-    private org.apache.ignite.internal.cluster.management.rest.ClusterState mapClusterState(ClusterState clusterState) {
+    private ClusterStateDto mapClusterState(ClusterState clusterState) {
         if (clusterState == null) {
             return null;
         }
 
-        return new org.apache.ignite.internal.cluster.management.rest.ClusterState(
+        return new ClusterStateDto(
                 clusterState.cmgNodes(),
                 clusterState.metaStorageNodes(),
-                new IgniteProductVersion(clusterState.igniteVersion().major(), clusterState.igniteVersion().minor(),
+                new IgniteProductVersionDto(clusterState.igniteVersion().major(), clusterState.igniteVersion().minor(),
                         clusterState.igniteVersion().maintenance(), clusterState.igniteVersion().snapshot(),
                         clusterState.igniteVersion().alphaVersion()),
-                new ClusterTag(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId()));
+                new ClusterTagDto(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId()));
     }
 
     private RuntimeException mapException(Throwable ex) {

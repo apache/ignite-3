@@ -21,18 +21,19 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
 import java.util.Objects;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 
 /**
- * REST representation on {@link org.apache.ignite.internal.cluster.management.ClusterState}.
+ * REST representation of {@link ClusterState}.
  */
-class ClusterState {
+class ClusterStateDto {
     private final Collection<String> cmgNodes;
 
     private final Collection<String> msNodes;
 
-    private final org.apache.ignite.internal.cluster.management.rest.IgniteProductVersion igniteVersion;
+    private final IgniteProductVersionDto igniteVersion;
 
-    private final org.apache.ignite.internal.cluster.management.rest.ClusterTag clusterTag;
+    private final ClusterTagDto clusterTag;
 
     /**
      * Creates a new cluster state.
@@ -43,11 +44,11 @@ class ClusterState {
      * @param clusterTag Cluster tag.
      */
     @JsonCreator
-    public ClusterState(
+    public ClusterStateDto(
             @JsonProperty("cmgNodes") Collection<String> cmgNodes,
             @JsonProperty("metaStorageNodes") Collection<String> metaStorageNodes,
-            @JsonProperty("igniteVersion") org.apache.ignite.internal.cluster.management.rest.IgniteProductVersion igniteVersion,
-            @JsonProperty("clusterTag") org.apache.ignite.internal.cluster.management.rest.ClusterTag clusterTag
+            @JsonProperty("igniteVersion") IgniteProductVersionDto igniteVersion,
+            @JsonProperty("clusterTag") ClusterTagDto clusterTag
     ) {
         this.cmgNodes = cmgNodes;
         this.msNodes = metaStorageNodes;
@@ -66,12 +67,12 @@ class ClusterState {
     }
 
     @JsonProperty
-    public org.apache.ignite.internal.cluster.management.rest.IgniteProductVersion igniteVersion() {
+    public IgniteProductVersionDto igniteVersion() {
         return igniteVersion;
     }
 
     @JsonProperty
-    public org.apache.ignite.internal.cluster.management.rest.ClusterTag clusterTag() {
+    public ClusterTagDto clusterTag() {
         return clusterTag;
     }
 
@@ -83,7 +84,7 @@ class ClusterState {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        ClusterState state = (ClusterState) o;
+        ClusterStateDto state = (ClusterStateDto) o;
         return cmgNodes.equals(state.cmgNodes) && msNodes.equals(state.msNodes) && igniteVersion.equals(state.igniteVersion)
                 && clusterTag.equals(state.clusterTag);
     }
