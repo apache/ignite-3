@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.DIRTY_PAGE_COMPARATOR;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -175,6 +177,56 @@ public class CheckpointDirtyPagesTest {
                         of(10, 0, 0), of(10, 0, 10), of(10, 10, 0), of(10, 10, 9), of(10, 10, 10)
                 ))
         );
+    }
+
+    @Test
+    void testQueueNextElementInDifferentThreads() throws Exception {
+        var dirtyPages0 = createDirtyPages(of(0, 0, 0));
+        var dirtyPages1 = createDirtyPages(of(1, 0, 0));
+        var dirtyPages2 = createDirtyPages(of(2, 0, 0), of(2, 0, 1));
+        var dirtyPages3 = createDirtyPages(of(3, 0, 0), of(3, 1, 0), of(4, 2, 2));
+
+        CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1, dirtyPages2, dirtyPages3));
+
+        CheckpointDirtyPagesQueue queue = checkpointDirtyPages.toQueue();
+
+        runAsync(() -> {
+            QueueResult queueResult0 = new QueueResult();
+
+            assertTrue(queue.next(queueResult0));
+            assertEquals(dirtyPages0.getKey(), queueResult0.pageMemory());
+            assertEquals(dirtyPages0.getValue()[0], queueResult0.dirtyPage());
+
+            QueueResult queueResult1 = new QueueResult();
+
+            assertTrue(queue.next(queueResult1));
+            assertEquals(dirtyPages1.getKey(), queueResult1.pageMemory());
+            assertEquals(dirtyPages1.getValue()[0], queueResult1.dirtyPage());
+
+            assertTrue(queue.next(queueResult0));
+            assertEquals(dirtyPages2.getKey(), queueResult0.pageMemory());
+            assertEquals(dirtyPages2.getValue()[0], queueResult0.dirtyPage());
+
+            assertTrue(queue.next(queueResult1));
+            assertEquals(dirtyPages2.getKey(), queueResult1.pageMemory());
+            assertEquals(dirtyPages2.getValue()[1], queueResult1.dirtyPage());
+        }).get(1, TimeUnit.SECONDS);
+
+        QueueResult queueResult0 = new QueueResult();
+
+        assertTrue(queue.next(queueResult0));
+        assertEquals(dirtyPages3.getKey(), queueResult0.pageMemory());
+        assertEquals(dirtyPages3.getValue()[0], queueResult0.dirtyPage());
+
+        QueueResult queueResult1 = new QueueResult();
+
+        assertTrue(queue.next(queueResult1));
+        assertEquals(dirtyPages3.getKey(), queueResult1.pageMemory());
+        assertEquals(dirtyPages3.getValue()[1], queueResult1.dirtyPage());
+
+        assertTrue(queue.next(queueResult0));
+        assertEquals(dirtyPages3.getKey(), queueResult0.pageMemory());
+        assertEquals(dirtyPages3.getValue()[2], queueResult0.dirtyPage());
     }
 
     private static IgniteBiTuple<PersistentPageMemory, FullPageId[]> createDirtyPages(FullPageId... dirtyPages) {
