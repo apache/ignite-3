@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
+
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -84,7 +86,7 @@ public class CursorImpl<T> implements Cursor<T> {
 
             LOG.debug("Unable to evaluate cursor close command", e);
 
-            throw new IgniteInternalException(e);
+            throw new IgniteInternalException(CURSOR_CLOSING_ERR, e);
         }
     }
 
