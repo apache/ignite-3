@@ -94,15 +94,15 @@ public class RocksSnapshotManager {
                 }, executor)
                 .thenCompose(Function.identity())
                 .whenCompleteAsync((ignored, e) -> {
-                    if (e != null) {
-                        return;
-                    }
-
                     db.releaseSnapshot(snapshot);
 
                     // Snapshot is not actually closed here, because a Snapshot instance doesn't own a pointer, the
                     // database does. Calling close to maintain the AutoCloseable semantics
                     snapshot.close();
+
+                    if (e != null) {
+                        return;
+                    }
 
                     // Delete snapshot directory if it already exists
                     IgniteUtils.deleteIfExists(snapshotDir);
