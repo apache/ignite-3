@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import java.util.Collection;
-import java.util.List;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -36,18 +35,6 @@ class DataRegionsDirtyPages {
 
     /** Collection of dirty pages per {@link PersistentPageMemory} distribution. */
     final Collection<IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>>> dirtyPages;
-
-    /**
-     * Constructor.
-     *
-     * @param dirtyPages Collection of dirty pages per {@link PersistentPageMemory} distribution.
-     */
-    @SafeVarargs
-    public DataRegionsDirtyPages(
-            IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>>... dirtyPages
-    ) {
-        this(List.of(dirtyPages));
-    }
 
     /**
      * Constructor.

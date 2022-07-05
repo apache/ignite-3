@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.RandomAccess;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -43,23 +44,13 @@ class CheckpointDirtyPages {
             .thenComparingLong(FullPageId::effectivePageId);
 
     /** Empty checkpoint dirty pages. */
-    static final CheckpointDirtyPages EMPTY = new CheckpointDirtyPages();
+    static final CheckpointDirtyPages EMPTY = new CheckpointDirtyPages(List.of());
 
     /** Sorted dirty pages from data regions by groupId -> partitionId -> pageIdx. */
     private final List<IgniteBiTuple<PersistentPageMemory, FullPageId[]>> dirtyPages;
 
     /** Total number of dirty pages. */
     private final int dirtyPagesCount;
-
-    /**
-     * Constructor.
-     *
-     * @param dirtyPages Sorted dirty pages from data regions by groupId -> partitionId -> pageIdx.
-     */
-    @SafeVarargs
-    public CheckpointDirtyPages(IgniteBiTuple<PersistentPageMemory, FullPageId[]>... dirtyPages) {
-        this(List.of(dirtyPages));
-    }
 
     /**
      * Constructor.
@@ -80,6 +71,8 @@ class CheckpointDirtyPages {
      * @param dirtyPages Sorted dirty pages from data regions by groupId -> partitionId -> pageIdx.
      */
     public CheckpointDirtyPages(List<IgniteBiTuple<PersistentPageMemory, FullPageId[]>> dirtyPages) {
+        assert dirtyPages instanceof RandomAccess : dirtyPages;
+
         this.dirtyPages = dirtyPages;
 
         int count = 0;
@@ -129,7 +122,7 @@ class CheckpointDirtyPages {
 
             int fromIndex = Arrays.binarySearch(pageIds, startPageId, DIRTY_PAGE_COMPARATOR);
 
-            fromIndex = fromIndex >= 0 ? fromIndex : Math.min(pageIds.length - 1, Math.abs(fromIndex + 1));
+            fromIndex = fromIndex >= 0 ? fromIndex : Math.min(pageIds.length - 1, -fromIndex - 1);
 
             if (!equalsByGroupAndPartition(startPageId, pageIds[fromIndex])) {
                 continue;
@@ -137,7 +130,7 @@ class CheckpointDirtyPages {
 
             int toIndex = Arrays.binarySearch(pageIds, fromIndex, pageIds.length, endPageId, DIRTY_PAGE_COMPARATOR);
 
-            toIndex = toIndex > 0 ? toIndex - 1 : Math.abs(toIndex + 1) - 1;
+            toIndex = toIndex > 0 ? toIndex - 1 : -toIndex - 2;
 
             return new CheckpointDirtyPagesView(i, fromIndex, toIndex);
         }
@@ -183,7 +176,7 @@ class CheckpointDirtyPages {
 
         int toPosition = Arrays.binarySearch(pageIds, fromPosition, pageIds.length, endPageId, DIRTY_PAGE_COMPARATOR);
 
-        toPosition = toPosition > 0 ? toPosition - 1 : Math.abs(toPosition + 1) - 1;
+        toPosition = toPosition > 0 ? toPosition - 1 : -toPosition - 2;
 
         return new CheckpointDirtyPagesView(index, fromPosition, toPosition);
     }

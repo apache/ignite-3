@@ -342,7 +342,7 @@ public class CheckpointWorkflowTest {
         workflow.addCheckpointListener(checkpointListener, dataRegion);
 
         workflow.markCheckpointEnd(new Checkpoint(
-                new CheckpointDirtyPages(createCheckpointDirtyPages(pageMemory, of(0, 0, 0))),
+                new CheckpointDirtyPages(List.of(createCheckpointDirtyPages(pageMemory, of(0, 0, 0)))),
                 progressImpl
         ));
 
@@ -384,7 +384,7 @@ public class CheckpointWorkflowTest {
         workflow.start();
 
         CheckpointDirtyPages sortCheckpointDirtyPages = workflow.createAndSortCheckpointDirtyPages(
-                new DataRegionsDirtyPages(dataRegionDirtyPages0, dataRegionDirtyPages1)
+                new DataRegionsDirtyPages(List.of(dataRegionDirtyPages0, dataRegionDirtyPages1))
         );
 
         CheckpointDirtyPagesView dirtyPagesView = sortCheckpointDirtyPages.nextView(null);
@@ -429,10 +429,10 @@ public class CheckpointWorkflowTest {
 
         workflow.start();
 
-        CheckpointDirtyPages sortCheckpointDirtyPages = workflow.createAndSortCheckpointDirtyPages(new DataRegionsDirtyPages(
+        CheckpointDirtyPages sortCheckpointDirtyPages = workflow.createAndSortCheckpointDirtyPages(new DataRegionsDirtyPages(List.of(
                 createDataRegionDirtyPages(mock(PersistentPageMemory.class), dirtyPages1),
                 createDataRegionDirtyPages(mock(PersistentPageMemory.class), dirtyPages0)
-        ));
+        )));
 
         CheckpointDirtyPagesView dirtyPagesView = sortCheckpointDirtyPages.nextView(null);
 

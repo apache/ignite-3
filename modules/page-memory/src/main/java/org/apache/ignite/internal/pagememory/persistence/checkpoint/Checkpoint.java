@@ -21,14 +21,14 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
  * Data class of checkpoint information.
  */
 class Checkpoint {
-    /** orted dirty pages from data regions that should be checkpointed. */
+    /** Sorted dirty pages from data regions that should be checkpointed. */
     final CheckpointDirtyPages dirtyPages;
 
     /** Checkpoint progress status. */
     final CheckpointProgressImpl progress;
 
     /** Number of dirty pages. */
-    final long dirtyPagesSize;
+    final int dirtyPagesSize;
 
     /**
      * Constructor.

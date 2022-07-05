@@ -50,7 +50,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
     private volatile String reason;
 
     /** Number of dirty pages in current checkpoint at the beginning of checkpoint. */
-    private volatile long currCheckpointPagesCnt;
+    private volatile int currCheckpointPagesCnt;
 
     /** Cause of fail, which has happened during the checkpoint or {@code null} if checkpoint was successful. */
     @Nullable
@@ -115,7 +115,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
 
     /** {@inheritDoc} */
     @Override
-    public long currentCheckpointPagesCount() {
+    public int currentCheckpointPagesCount() {
         return currCheckpointPagesCnt;
     }
 
@@ -180,7 +180,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
      *
      * @param checkpointPages Number of dirty pages in current checkpoint at the beginning of checkpoint.
      */
-    public void initCounters(long checkpointPages) {
+    public void initCounters(int checkpointPages) {
         currCheckpointPagesCnt = checkpointPages;
 
         writtenPagesCntr.set(0);

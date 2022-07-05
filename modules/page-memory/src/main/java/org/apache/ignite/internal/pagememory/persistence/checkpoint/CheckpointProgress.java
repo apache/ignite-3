@@ -48,5 +48,5 @@ public interface CheckpointProgress {
     /**
      * Returns number of dirty pages in current checkpoint. If checkpoint is not running, returns {@code 0}.
      */
-    long currentCheckpointPagesCount();
+    int currentCheckpointPagesCount();
 }

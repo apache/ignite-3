@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
+import java.util.List;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -42,6 +43,6 @@ public class CheckpointTest {
                 new FullPageId[]{new FullPageId(0, 1)}
         );
 
-        assertTrue(new Checkpoint(new CheckpointDirtyPages(biTuple), progress).hasDelta());
+        assertTrue(new Checkpoint(new CheckpointDirtyPages(List.of(biTuple)), progress).hasDelta());
     }
 }

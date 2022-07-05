@@ -51,6 +51,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -366,7 +367,7 @@ public class CheckpointerTest {
     private CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, FullPageId... fullPageIds) {
         Arrays.sort(fullPageIds, DIRTY_PAGE_COMPARATOR);
 
-        return new CheckpointDirtyPages(new IgniteBiTuple<>(pageMemory, fullPageIds));
+        return new CheckpointDirtyPages(List.of(new IgniteBiTuple<>(pageMemory, fullPageIds)));
     }
 
     private CheckpointWorkflow createCheckpointWorkflow(CheckpointDirtyPages dirtyPages) throws Exception {

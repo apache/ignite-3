@@ -56,9 +56,9 @@ public class CheckpointDirtyPagesTest {
         var dirtyPages1 = createDirtyPages(of(1, 0, 0), of(1, 0, 1), of(1, 0, 2));
 
         assertEquals(0, EMPTY.dirtyPagesCount());
-        assertEquals(2, new CheckpointDirtyPages(dirtyPages0).dirtyPagesCount());
-        assertEquals(3, new CheckpointDirtyPages(dirtyPages1).dirtyPagesCount());
-        assertEquals(5, new CheckpointDirtyPages(dirtyPages0, dirtyPages1).dirtyPagesCount());
+        assertEquals(2, new CheckpointDirtyPages(List.of(dirtyPages0)).dirtyPagesCount());
+        assertEquals(3, new CheckpointDirtyPages(List.of(dirtyPages1)).dirtyPagesCount());
+        assertEquals(5, new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1)).dirtyPagesCount());
     }
 
     @Test
@@ -69,7 +69,7 @@ public class CheckpointDirtyPagesTest {
         var dirtyPages1 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
         var dirtyPages2 = createDirtyPages(of(2, 0, 0), of(2, 1, 0), of(3, 2, 2));
 
-        CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(dirtyPages0, dirtyPages1, dirtyPages2);
+        CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1, dirtyPages2));
 
         CheckpointDirtyPagesQueue queue0 = checkpointDirtyPages.toQueue();
 
@@ -95,7 +95,7 @@ public class CheckpointDirtyPagesTest {
         var dirtyPages2 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
         var dirtyPages3 = createDirtyPages(of(2, 0, 0), of(2, 0, 1), of(2, 1, 1), of(3, 2, 2), of(3, 2, 3));
 
-        CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(dirtyPages0, dirtyPages1, dirtyPages2, dirtyPages3);
+        CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1, dirtyPages2, dirtyPages3));
 
         assertNull(checkpointDirtyPages.findView(4, 0));
         assertNull(checkpointDirtyPages.findView(2, 2));
@@ -131,7 +131,7 @@ public class CheckpointDirtyPagesTest {
         var dirtyPages2 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
         var dirtyPages3 = createDirtyPages(of(2, 0, 0), of(2, 0, 1), of(2, 1, 1), of(3, 2, 2), of(3, 2, 3));
 
-        CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(dirtyPages0, dirtyPages1, dirtyPages2, dirtyPages3);
+        CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1, dirtyPages2, dirtyPages3));
 
         CheckpointDirtyPagesView view = checkpointDirtyPages.nextView(null);
 
