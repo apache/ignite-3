@@ -68,6 +68,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -91,6 +92,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class ItInternalTableScanTest {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ItInternalTableScanTest.class);
+
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     private static final String TEST_TABLE_NAME = "testTbl";
@@ -165,7 +168,7 @@ public class ItInternalTableScanTest {
                 RaftGroupOptions.defaults()
         );
 
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
         RaftGroupService raftGrpSvc = RaftGroupServiceImpl.start(
                 RAFT_GRP_ID,

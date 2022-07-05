@@ -237,7 +237,7 @@ public class ItMetaStorageServiceTest {
 
         LOG.info("Cluster started.");
 
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
         metaStorageSvc = prepareMetaStorage();
     }

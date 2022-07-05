@@ -20,12 +20,15 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 
 /**
  * The global timer manager.
  */
 public class TimerManager implements Scheduler {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(TimerManager.class);
+
     private final ScheduledExecutorService executor;
 
     public TimerManager(int workerNum) {
@@ -37,7 +40,7 @@ public class TimerManager implements Scheduler {
             .poolName(name) //
             .coreThreads(workerNum) //
             .enableMetric(true) //
-            .threadFactory(new NamedThreadFactory(name, true)) //
+            .threadFactory(new NamedThreadFactory(name, true, LOG)) //
             .build();
     }
 

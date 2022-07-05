@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -53,7 +54,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
         this.stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
                 4,
                 NamedThreadFactory.threadPrefix(nodeName, "sql-execution-pool"),
-                null,
+                new LogUncaughtExceptionHandler(LOG),
                 false,
                 0
         );

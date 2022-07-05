@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.util.concurrent;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
 
@@ -26,6 +27,8 @@ import org.apache.ignite.raft.jraft.util.Utils;
  * TODO asch switch default executor to threadpoolexecutor + mpsc blocking queue IGNITE-14832
  */
 public final class DefaultFixedThreadsExecutorGroupFactory implements FixedThreadsExecutorGroupFactory {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(DefaultFixedThreadsExecutorGroupFactory.class);
+
     public static final DefaultFixedThreadsExecutorGroupFactory INSTANCE = new DefaultFixedThreadsExecutorGroupFactory();
 
     @Override
@@ -40,7 +43,7 @@ public final class DefaultFixedThreadsExecutorGroupFactory implements FixedThrea
         Requires.requireTrue(nThreads > 0, "nThreads must > 0");
         final boolean mpsc = useMpscQueue && Utils.USE_MPSC_SINGLE_THREAD_EXECUTOR;
         final SingleThreadExecutor[] children = new SingleThreadExecutor[nThreads];
-        final ThreadFactory threadFactory = mpsc ? new NamedThreadFactory(poolName, true) : null;
+        final ThreadFactory threadFactory = mpsc ? new NamedThreadFactory(poolName, true, LOG) : null;
         for (int i = 0; i < nThreads; i++) {
             if (mpsc) {
                 children[i] = new MpscSingleThreadExecutor(maxPendingTasksPerThread, threadFactory);

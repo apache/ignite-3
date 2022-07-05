@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class MpscSingleThreadExecutorTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(MpscSingleThreadExecutorTest.class);
 
-    private static final ThreadFactory THREAD_FACTORY = new NamedThreadFactory("test", true);
+    private static final ThreadFactory THREAD_FACTORY = new NamedThreadFactory("test", true, LOG);
 
     @Test
     public void testExecutorIsShutdownWithoutTask() {

@@ -124,7 +124,7 @@ public class RaftGroupServiceTest {
     void before(TestInfo testInfo) {
         when(cluster.messagingService()).thenReturn(messagingService);
 
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
         LOG.info(">>>> Starting test {}", testInfo.getTestMethod().orElseThrow().getName());
     }

@@ -64,7 +64,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     /** End key in range for searching local configuration keys. */
     private static final ByteArray LOC_KEYS_END_RANGE = ByteArray.fromString(incrementLastChar(LOC_PREFIX));
 
-    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("loc-cfg"));
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("loc-cfg", LOG));
 
     private final InFlightFutures futureTracker = new InFlightFutures();
 

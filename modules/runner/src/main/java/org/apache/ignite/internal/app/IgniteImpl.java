@@ -204,7 +204,7 @@ public class IgniteImpl implements Ignite {
     IgniteImpl(String name, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
         this.name = name;
 
-        longJvmPauseDetector = new LongJvmPauseDetector(name);
+        longJvmPauseDetector = new LongJvmPauseDetector(name, IgniteLogger.forClass(LongJvmPauseDetector.class));
 
         lifecycleManager = new LifecycleManager(name);
 
