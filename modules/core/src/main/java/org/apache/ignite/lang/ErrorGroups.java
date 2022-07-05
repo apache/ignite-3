@@ -59,4 +59,19 @@ public class ErrorGroups {
         /** Error of tx state storage. */
         public static int TX_STATE_STORAGE_ERR = TX_ERR_GROUP.registerErrorCode(3);
     }
+
+    /** Replicator error group. */
+    public static class Replicator {
+        /** Replicator error group. */
+        public static final ErrorGroup REPLICATOR_ERR_GROUP = ErrorGroup.newGroup("REP", 4);
+
+        /** Common error for the replication procedure. */
+        public static int REPLICA_COMMON_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(1);
+
+        /** Replica with the same identifier is already existed. */
+        public static int REPLICA_ALREADY_IS_STARTED_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(2);
+
+        /** Timeout has happened during the replication procedure. */
+        public static int REPLICA_TIMEOUT_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(3);
+    }
 }
