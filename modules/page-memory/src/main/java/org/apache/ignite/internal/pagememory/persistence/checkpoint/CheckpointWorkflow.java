@@ -335,6 +335,10 @@ class CheckpointWorkflow {
             }
         }
 
-        return new CheckpointDirtyPages(checkpointPages);
+        return new CheckpointDirtyPages(
+                checkpointPages.stream()
+                        .map(tuple -> new IgniteBiTuple<>(tuple.getKey(), Arrays.asList(tuple.getValue())))
+                        .collect(toList())
+        );
     }
 }

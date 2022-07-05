@@ -367,7 +367,7 @@ public class CheckpointerTest {
     private CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, FullPageId... fullPageIds) {
         Arrays.sort(fullPageIds, DIRTY_PAGE_COMPARATOR);
 
-        return new CheckpointDirtyPages(List.of(new IgniteBiTuple<>(pageMemory, fullPageIds)));
+        return new CheckpointDirtyPages(List.of(new IgniteBiTuple<>(pageMemory, Arrays.asList(fullPageIds))));
     }
 
     private CheckpointWorkflow createCheckpointWorkflow(CheckpointDirtyPages dirtyPages) throws Exception {

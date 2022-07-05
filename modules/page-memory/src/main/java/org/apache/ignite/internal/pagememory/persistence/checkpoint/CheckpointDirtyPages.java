@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static java.util.Collections.binarySearch;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
@@ -47,7 +48,7 @@ class CheckpointDirtyPages {
     static final CheckpointDirtyPages EMPTY = new CheckpointDirtyPages(List.of());
 
     /** Sorted dirty pages from data regions by groupId -> partitionId -> pageIdx. */
-    private final List<IgniteBiTuple<PersistentPageMemory, FullPageId[]>> dirtyPages;
+    private final List<IgniteBiTuple<PersistentPageMemory, List<FullPageId>>> dirtyPages;
 
     /** Total number of dirty pages. */
     private final int dirtyPagesCount;
@@ -59,10 +60,7 @@ class CheckpointDirtyPages {
      */
     public CheckpointDirtyPages(Map<PersistentPageMemory, List<FullPageId>> dirtyPages) {
         this(dirtyPages.isEmpty() ? List.of()
-                : dirtyPages.entrySet().stream()
-                        .map(e -> new IgniteBiTuple<>(e.getKey(), e.getValue().toArray(FullPageId[]::new)))
-                        .collect(toList())
-        );
+                : dirtyPages.entrySet().stream().map(e -> new IgniteBiTuple<>(e.getKey(), e.getValue())).collect(toList()));
     }
 
     /**
@@ -70,20 +68,18 @@ class CheckpointDirtyPages {
      *
      * @param dirtyPages Sorted dirty pages from data regions by groupId -> partitionId -> pageIdx.
      */
-    public CheckpointDirtyPages(List<IgniteBiTuple<PersistentPageMemory, FullPageId[]>> dirtyPages) {
+    public CheckpointDirtyPages(List<IgniteBiTuple<PersistentPageMemory, List<FullPageId>>> dirtyPages) {
         assert dirtyPages instanceof RandomAccess : dirtyPages;
 
         this.dirtyPages = dirtyPages;
 
         int count = 0;
 
-        for (IgniteBiTuple<PersistentPageMemory, FullPageId[]> pages : dirtyPages) {
-            assert pages.getValue().length != 0 : pages.getKey();
+        for (IgniteBiTuple<PersistentPageMemory, List<FullPageId>> pages : dirtyPages) {
+            assert !pages.getValue().isEmpty() : pages.getKey();
+            assert pages.getValue() instanceof RandomAccess : pages.getValue();
 
-            count += pages.getValue().length;
-
-            // Integer overflow check.
-            assert count > 0 : count;
+            count += pages.getValue().size();
         }
 
         dirtyPagesCount = count;
@@ -118,21 +114,21 @@ class CheckpointDirtyPages {
         FullPageId endPageId = new FullPageId(pageId(partId + 1, (byte) 0, 0), grpId);
 
         for (int i = 0; i < dirtyPages.size(); i++) {
-            FullPageId[] pageIds = dirtyPages.get(i).getValue();
+            List<FullPageId> pageIds = dirtyPages.get(i).getValue();
 
-            int fromIndex = Arrays.binarySearch(pageIds, startPageId, DIRTY_PAGE_COMPARATOR);
+            int fromIndex = binarySearch(pageIds, startPageId, DIRTY_PAGE_COMPARATOR);
 
-            fromIndex = fromIndex >= 0 ? fromIndex : Math.min(pageIds.length - 1, -fromIndex - 1);
+            fromIndex = fromIndex >= 0 ? fromIndex : Math.min(pageIds.size() - 1, -fromIndex - 1);
 
-            if (!equalsByGroupAndPartition(startPageId, pageIds[fromIndex])) {
+            if (!equalsByGroupAndPartition(startPageId, pageIds.get(fromIndex))) {
                 continue;
             }
 
-            int toIndex = Arrays.binarySearch(pageIds, fromIndex, pageIds.length, endPageId, DIRTY_PAGE_COMPARATOR);
+            int toIndex = binarySearch(pageIds.subList(fromIndex, pageIds.size()), endPageId, DIRTY_PAGE_COMPARATOR);
 
             toIndex = toIndex > 0 ? toIndex - 1 : -toIndex - 2;
 
-            return new CheckpointDirtyPagesView(i, fromIndex, toIndex);
+            return new CheckpointDirtyPagesView(i, fromIndex, fromIndex + toIndex);
         }
 
         return null;
@@ -165,20 +161,20 @@ class CheckpointDirtyPages {
             return null;
         }
 
-        FullPageId[] pageIds = dirtyPages.get(index).getValue();
+        List<FullPageId> pageIds = dirtyPages.get(index).getValue();
 
-        if (fromPosition == pageIds.length - 1 || !equalsByGroupAndPartition(pageIds[fromPosition], pageIds[fromPosition + 1])) {
+        if (fromPosition == pageIds.size() - 1 || !equalsByGroupAndPartition(pageIds.get(fromPosition), pageIds.get(fromPosition + 1))) {
             return new CheckpointDirtyPagesView(index, fromPosition, fromPosition);
         }
 
-        FullPageId startPageId = pageIds[fromPosition];
+        FullPageId startPageId = pageIds.get(fromPosition);
         FullPageId endPageId = new FullPageId(pageId(partitionId(startPageId.pageId()) + 1, (byte) 0, 0), startPageId.groupId());
 
-        int toPosition = Arrays.binarySearch(pageIds, fromPosition, pageIds.length, endPageId, DIRTY_PAGE_COMPARATOR);
+        int toPosition = binarySearch(pageIds.subList(fromPosition, pageIds.size()), endPageId, DIRTY_PAGE_COMPARATOR);
 
         toPosition = toPosition > 0 ? toPosition - 1 : -toPosition - 2;
 
-        return new CheckpointDirtyPagesView(index, fromPosition, toPosition);
+        return new CheckpointDirtyPagesView(index, fromPosition, fromPosition + toPosition);
     }
 
     /**
@@ -202,7 +198,7 @@ class CheckpointDirtyPages {
             int[] sizes = new int[dirtyPages.size()];
 
             for (int i = 0; i < dirtyPages.size(); i++) {
-                sizes[i] = size += dirtyPages.get(i).getValue().length;
+                sizes[i] = size += dirtyPages.get(i).getValue().size();
             }
 
             this.sizes = sizes;
@@ -301,7 +297,7 @@ class CheckpointDirtyPages {
          * @param index Dirty page index.
          */
         public FullPageId get(int index) {
-            return dirtyPages.get(this.index).getValue()[fromPosition + index];
+            return dirtyPages.get(this.index).getValue().get(fromPosition + index);
         }
 
         /**
@@ -323,7 +319,7 @@ class CheckpointDirtyPages {
         }
 
         private boolean isToPositionLast() {
-            return toPosition == dirtyPages.get(index).getValue().length - 1;
+            return toPosition == dirtyPages.get(index).getValue().size() - 1;
         }
     }
 
@@ -352,7 +348,7 @@ class CheckpointDirtyPages {
          * Returns dirty page.
          */
         public @Nullable FullPageId dirtyPage() {
-            return owner == null ? null : owner.owner().dirtyPages.get(index).getValue()[position];
+            return owner == null ? null : owner.owner().dirtyPages.get(index).getValue().get(position);
         }
     }
 

@@ -38,9 +38,9 @@ public class CheckpointTest {
 
         assertFalse(new Checkpoint(EMPTY, progress).hasDelta());
 
-        IgniteBiTuple<PersistentPageMemory, FullPageId[]> biTuple = new IgniteBiTuple<>(
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> biTuple = new IgniteBiTuple<>(
                 mock(PersistentPageMemory.class),
-                new FullPageId[]{new FullPageId(0, 1)}
+                List.of(new FullPageId(0, 1))
         );
 
         assertTrue(new Checkpoint(new CheckpointDirtyPages(List.of(biTuple)), progress).hasDelta());

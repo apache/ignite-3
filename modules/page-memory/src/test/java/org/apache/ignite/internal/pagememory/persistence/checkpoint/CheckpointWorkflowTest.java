@@ -48,6 +48,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -454,11 +455,11 @@ public class CheckpointWorkflowTest {
         return mock;
     }
 
-    private static IgniteBiTuple<PersistentPageMemory, FullPageId[]> createCheckpointDirtyPages(
+    private static IgniteBiTuple<PersistentPageMemory, List<FullPageId>> createCheckpointDirtyPages(
             PersistentPageMemory pageMemory,
             FullPageId... dirtyPages
     ) {
-        return new IgniteBiTuple<>(pageMemory, dirtyPages);
+        return new IgniteBiTuple<>(pageMemory, Arrays.asList(dirtyPages));
     }
 
     private static IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>> createDataRegionDirtyPages(
