@@ -388,6 +388,7 @@ public class InternalTableImpl implements InternalTable {
         return keyRowsByPartition;
     }
 
+    // placement driver
     /** {@inheritDoc} */
     @Override
     public List<String> assignments() {
