@@ -215,8 +215,7 @@ public class ItSqlLogicTest {
 
     private boolean fileMatch(Path file) {
         return (TEST_REGEX != null && TEST_REGEX.matcher(file.toString()).find())
-                || file.toString().endsWith(".test")
-                || (INCLUDE_SLOW && file.toString().endsWith(".test_slow"));
+                || (TEST_REGEX == null && (file.toString().endsWith(".test") || (INCLUDE_SLOW && file.toString().endsWith(".test_slow"))));
     }
 
     private void run(Path testPath) {

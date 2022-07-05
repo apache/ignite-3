@@ -112,8 +112,8 @@ public class SqlScriptRunner {
     /** Script. */
     private Script script;
 
-    /** nl to bytes representation. */
-    private static final byte[] NL_BYTES = "\n".getBytes(Charset.defaultCharset());
+    /** Line separator to bytes representation. */
+    private static final byte[] LINE_SEPARATOR_BYTES = System.lineSeparator().getBytes(Charset.defaultCharset());
 
     /** Equivalent results store. */
     private Map<String, Collection<String>> eqResStorage = new HashMap<>();
@@ -698,7 +698,7 @@ public class SqlScriptRunner {
             for (List<?> row : res) {
                 for (Object col : row) {
                     messageDigest.update(SqlScriptRunner.toString(col).getBytes(Charset.forName(UTF_8.name())));
-                    messageDigest.update(NL_BYTES);
+                    messageDigest.update(LINE_SEPARATOR_BYTES);
                 }
             }
 
