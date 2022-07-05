@@ -102,8 +102,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @Tag(value = "sqllogic")
 @ExtendWith({WorkDirectoryExtension.class, SystemPropertiesExtension.class})
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-// TODO: use default restart mode after fix performance issue: https://issues.apache.org/jira/browse/IGNITE-16760
-@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql", restart = RestartMode.FOLDER)
+@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql")
 public class ItSqlLogicTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 
@@ -174,6 +173,7 @@ public class ItSqlLogicTest {
     private Stream<DynamicNode> sqlTestsFolder(Path dir) {
         try {
             AtomicBoolean first = new AtomicBoolean(true);
+
             return Files.list(dir).sorted()
                     .filter(p -> (Files.isDirectory(p) && isFolderContainsMatch(p)) || fileMatch(p))
                     .map((p) -> {
@@ -183,19 +183,18 @@ public class ItSqlLogicTest {
                                     sqlTestsFolder(p)
                             );
                         } else {
-                                boolean restart = (RESTART_CLUSTER == TEST) 
-                                        || (RESTART_CLUSTER == FOLDER && firstInDir.getAndSet(false);
+                            boolean restart = (RESTART_CLUSTER == RestartMode.TEST)
+                                    || (RESTART_CLUSTER == RestartMode.FOLDER && first.getAndSet(false));
 
-                                return DynamicTest.dynamicTest(
-                                        SCRIPTS_ROOT.relativize(p).toString(),
-                                        p.toUri(),
-                                        restart ? 
-                                            () -> {
-                                                        restartCluster();
-                                                        run(p);
-                                            } :
-                                            () -> run(p);
-                                );
+                            return DynamicTest.dynamicTest(
+                                    SCRIPTS_ROOT.relativize(p).toString(),
+                                    p.toUri(),
+                                    restart ? () -> {
+                                        restartCluster();
+                                        run(p);
+                                    }
+                                            : () -> run(p)
+                            );
                         }
                     });
         } catch (Exception e) {
