@@ -37,7 +37,10 @@ public class IgniteInternalExceptionHandler implements ExceptionHandler<IgniteIn
     @Override
     public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteInternalException exception) {
         return HttpProblemResponse.from(
-                Problem.fromHttpCode(HttpCode.INTERNAL_ERROR).detail(exception.getMessage())
+                Problem.fromHttpCode(HttpCode.INTERNAL_ERROR)
+                        .traceId(exception.traceId())
+                        .code(exception.code())
+                        .detail(exception.getMessage())
         );
     }
 }

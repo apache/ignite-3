@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.rest.exception.handler;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
@@ -30,48 +32,75 @@ import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.Problem.ProblemBuilder;
 import org.apache.ignite.internal.rest.api.ValidationProblem;
+import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class IgniteExceptionHandlerTest {
-
     private HttpRequest<?> request;
 
     private IgniteExceptionHandler exceptionHandler;
 
     static Stream<Arguments> igniteExceptions() {
+        UUID traceId = UUID.randomUUID();
+        String errorMessage = ErrorGroup.errorMessage(traceId, UNKNOWN_ERR, null);
+
+        var invalidParams = List.of(
+                new InvalidParam("key1", "Some issue1"),
+                new InvalidParam("key2", "Some issue2"));
+
+        var validationIssues = List.of(
+                new ValidationIssue("key1", "Some issue1"),
+                new ValidationIssue("key2", "Some issue2"));
+
         return Stream.of(
                 Arguments.of(
                         // given
-                        new IgniteException("Ooops"),
+                        new IgniteException(traceId, UNKNOWN_ERR, "Ooops"),
                         // expected
-                        Problem.builder().status(500).title("Internal Server Error").detail("Ooops")),
+                        Problem.builder()
+                                .status(500)
+                                .title("Internal Server Error")
+                                .code(UNKNOWN_ERR)
+                                .detail(errorMessage + " Ooops")
+                                .traceId(traceId)),
                 Arguments.of(
                         // given
-                        new IgniteException(),
+                        new IgniteException(traceId, UNKNOWN_ERR),
                         // expected
-                        Problem.builder().status(500).title("Internal Server Error")),
+                        Problem.builder()
+                                .status(500)
+                                .title("Internal Server Error")
+                                .code(UNKNOWN_ERR)
+                                .detail(errorMessage)
+                                .traceId(traceId)),
                 Arguments.of(
                         // given
-                        new IgniteException(new IllegalArgumentException("Illegal value")),
+                        new IgniteException(traceId, UNKNOWN_ERR, new IllegalArgumentException("Illegal value")),
                         // expected
-                        Problem.builder().status(400).title("Bad Request").detail("Illegal value")),
+                        Problem.builder()
+                                .status(400)
+                                .title("Bad Request")
+                                .code(UNKNOWN_ERR)
+                                .traceId(traceId)
+                                .detail(errorMessage + " Illegal value")),
                 Arguments.of(
                         // given
                         new IgniteException(
-                                new ConfigurationValidationException(
-                                        List.of(new ValidationIssue("key1", "Some issue1"),
-                                                new ValidationIssue("key2", "Some issue2")))),
+                                traceId,
+                                UNKNOWN_ERR,
+                                new ConfigurationValidationException(validationIssues)),
                         // expected
-                        ValidationProblem.builder().status(400).title("Bad Request").detail("Validation did not pass")
-                                .invalidParams(
-                                        List.of(
-                                                new InvalidParam("key1", "Some issue1"),
-                                                new InvalidParam("key2", "Some issue2"))))
+                        ValidationProblem.builder()
+                                .status(400)
+                                .title("Bad Request")
+                                .detail(errorMessage + ' ' + validationIssues)
+                                .code(UNKNOWN_ERR)
+                                .traceId(traceId)
+                                .invalidParams(invalidParams))
         );
     }
 
@@ -83,7 +112,6 @@ class IgniteExceptionHandlerTest {
 
     @ParameterizedTest
     @MethodSource("igniteExceptions")
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17305")
     void shouldHandleIgniteException(IgniteException givenIgniteException, ProblemBuilder<? extends Problem, ?> expectedProblem) {
         HttpResponse<? extends Problem> response = exceptionHandler.handle(request, givenIgniteException);
 

@@ -244,7 +244,8 @@ components:
           type: integer
           format: int32
         code:
-          type: string
+          type: integer
+          format: int32
         type:
           type: string
         detail:
