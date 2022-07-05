@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -77,8 +78,11 @@ public class RocksSnapshotManager {
     public CompletableFuture<Void> createSnapshot(Path snapshotDir) {
         Path tmpPath = Paths.get(snapshotDir.toString() + TMP_SUFFIX);
 
-        return CompletableFuture.supplyAsync(db::getSnapshot, executor)
-                .thenComposeAsync(snapshot -> {
+        // The snapshot reference must be taken synchronously, otherwise we might let more writes sneak into the snapshot than needed.
+        Snapshot snapshot = db.getSnapshot();
+
+        return CompletableFuture.supplyAsync(
+                () -> {
                     createTmpSnapshotDir(tmpPath);
 
                     // Create futures for capturing SST snapshots of the column families
@@ -86,9 +90,10 @@ public class RocksSnapshotManager {
                             .map(cf -> createSstFileAsync(cf, snapshot, tmpPath))
                             .toArray(CompletableFuture[]::new);
 
-                    return CompletableFuture.allOf(sstFutures).thenApply(v -> snapshot);
+                    return CompletableFuture.allOf(sstFutures);
                 }, executor)
-                .whenCompleteAsync((snapshot, e) -> {
+                .thenCompose(Function.identity())
+                .whenCompleteAsync((ignored, e) -> {
                     if (e != null) {
                         return;
                     }
