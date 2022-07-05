@@ -37,6 +37,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.TableStorage;
@@ -64,7 +66,6 @@ import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBat
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
@@ -82,7 +83,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class InternalTableImpl implements InternalTable {
     /** Log. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(InternalTableImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(InternalTableImpl.class);
 
     /** IgniteUuid generator. */
     private static final IgniteUuidGenerator UUID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);

@@ -19,7 +19,8 @@ package org.apache.ignite.raft.jraft.storage.impl;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
@@ -38,7 +39,7 @@ import org.apache.ignite.raft.jraft.util.Utils;
  */
 public class LocalRaftMetaStorage implements RaftMetaStorage {
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(LocalRaftMetaStorage.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LocalRaftMetaStorage.class);
     private static final String RAFT_META = "raft_meta";
 
     private boolean isInited;

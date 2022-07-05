@@ -38,6 +38,8 @@ import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
@@ -48,7 +50,6 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
@@ -57,7 +58,7 @@ import org.jetbrains.annotations.Nullable;
  * An implementation of the {@link PrepareService} that uses a Calcite-based query planner to validate and optimize a given query.
  */
 public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(PrepareServiceImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(PrepareServiceImpl.class);
 
     private static final long THREAD_TIMEOUT_MS = 60_000;
 

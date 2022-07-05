@@ -19,8 +19,9 @@ package org.apache.ignite.raft.jraft.util.concurrent;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 
@@ -28,7 +29,7 @@ import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
  *
  */
 public final class DefaultSingleThreadExecutor implements SingleThreadExecutor {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(DefaultSingleThreadExecutor.class);
+    private static final IgniteLogger LOG = Loggers.forClass(DefaultSingleThreadExecutor.class);
 
     private final SingleThreadExecutor singleThreadExecutor;
 

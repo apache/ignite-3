@@ -20,6 +20,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import java.nio.file.Path;
 import java.util.Collection;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
@@ -29,7 +30,6 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreMana
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -94,7 +94,7 @@ public class CheckpointManager {
         long logReadLockThresholdTimeout = checkpointConfigView.logReadLockThresholdTimeout();
 
         ReentrantReadWriteLockWithTracking reentrantReadWriteLockWithTracking = logReadLockThresholdTimeout > 0
-                ? new ReentrantReadWriteLockWithTracking(IgniteLogger.forClass(CheckpointReadWriteLock.class), logReadLockThresholdTimeout)
+                ? new ReentrantReadWriteLockWithTracking(Loggers.forClass(CheckpointReadWriteLock.class), logReadLockThresholdTimeout)
                 : new ReentrantReadWriteLockWithTracking();
 
         CheckpointReadWriteLock checkpointReadWriteLock = new CheckpointReadWriteLock(reentrantReadWriteLockWithTracking);
@@ -109,13 +109,13 @@ public class CheckpointManager {
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
-                IgniteLogger.forClass(CheckpointPagesWriterFactory.class),
+                Loggers.forClass(CheckpointPagesWriterFactory.class),
                 (fullPage, buf, tag) -> filePageStoreManager.write(fullPage.groupId(), fullPage.pageId(), buf, tag, true),
                 pageSize
         );
 
         checkpointer = new Checkpointer(
-                IgniteLogger.forClass(Checkpoint.class),
+                Loggers.forClass(Checkpoint.class),
                 igniteInstanceName,
                 workerListener,
                 longJvmPauseDetector,
@@ -125,7 +125,7 @@ public class CheckpointManager {
         );
 
         checkpointTimeoutLock = new CheckpointTimeoutLock(
-                IgniteLogger.forClass(CheckpointTimeoutLock.class),
+                Loggers.forClass(CheckpointTimeoutLock.class),
                 checkpointReadWriteLock,
                 checkpointConfigView.readLockTimeout(),
                 () -> safeToUpdateAllPageMemories(dataRegions),

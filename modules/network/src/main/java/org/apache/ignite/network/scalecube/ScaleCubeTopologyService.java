@@ -24,7 +24,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.AbstractTopologyService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -36,7 +37,7 @@ import org.apache.ignite.network.TopologyService;
  */
 final class ScaleCubeTopologyService extends AbstractTopologyService {
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ScaleCubeTopologyService.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ScaleCubeTopologyService.class);
 
     /**
      * Inner representation of a ScaleCube cluster.

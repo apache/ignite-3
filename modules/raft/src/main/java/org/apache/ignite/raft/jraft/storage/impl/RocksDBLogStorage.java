@@ -28,7 +28,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
@@ -67,7 +68,7 @@ import org.rocksdb.WriteOptions;
  */
 public class RocksDBLogStorage implements LogStorage, Describer {
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RocksDBLogStorage.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RocksDBLogStorage.class);
 
     static {
         RocksDB.loadLibrary();
