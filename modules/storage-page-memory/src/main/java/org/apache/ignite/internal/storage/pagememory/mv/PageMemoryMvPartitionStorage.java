@@ -358,7 +358,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
 
         if (latestVersion.hasNextLink()) {
             // This load can be avoided, see the comment below.
-            RowVersion preLatestVersion = readNextInChainOrderHeaderOnly(latestVersion);
+            RowVersion latestCommittedVersion = readNextInChainOrderHeaderOnly(latestVersion);
 
             VersionChain versionChainReplacement = VersionChain.withoutTxId(
                     partId,
@@ -368,7 +368,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
                     // is some uncommitted value, but when we add an uncommitted value, we 'fix' such placeholder value
                     // (like -1) by replacing it with a valid value. But it seems that this optimization is not critical
                     // as aborts are pretty rare; let's strive for internal consistency for now and write the correct value.
-                    preLatestVersion.nextLink()
+                    latestCommittedVersion.nextLink()
             );
             updateVersionChain(currentVersionChain, versionChainReplacement);
         } else {
