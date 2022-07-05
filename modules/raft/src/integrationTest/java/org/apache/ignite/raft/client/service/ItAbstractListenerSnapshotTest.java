@@ -38,6 +38,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -59,6 +60,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener> {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ItAbstractListenerSnapshotTest.class);
+
     /** Starting server port. */
     private static final int PORT = 5003;
 
@@ -96,7 +99,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      */
     @BeforeEach
     public void beforeTest() {
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
     }
 
     /**

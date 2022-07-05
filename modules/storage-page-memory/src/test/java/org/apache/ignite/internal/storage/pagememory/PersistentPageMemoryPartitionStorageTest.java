@@ -47,6 +47,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -96,7 +97,7 @@ public class PersistentPageMemoryPartitionStorageTest extends AbstractPartitionS
     void setUp() throws Exception {
         String nodeName = "test-node";
 
-        longJvmPauseDetector = new LongJvmPauseDetector(nodeName);
+        longJvmPauseDetector = new LongJvmPauseDetector(nodeName, IgniteLogger.forClass(LongJvmPauseDetector.class));
 
         longJvmPauseDetector.start();
 

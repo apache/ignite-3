@@ -55,6 +55,7 @@ import org.apache.ignite.configuration.schemas.compute.ComputeConfiguration;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
@@ -319,7 +320,7 @@ class ComputeComponentImplTest {
     void executorThreadsAreNamedAccordingly() throws Exception {
         String threadName = computeComponent.executeLocally(GetThreadNameJob.class).get();
 
-        assertThat(threadName, startsWith("[" + INSTANCE_NAME + "] Compute-"));
+        assertThat(threadName, startsWith(NamedThreadFactory.threadPrefix(INSTANCE_NAME, "compute")));
     }
 
     @Test

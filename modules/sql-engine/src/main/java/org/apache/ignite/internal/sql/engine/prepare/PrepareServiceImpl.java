@@ -48,6 +48,7 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
@@ -56,6 +57,8 @@ import org.jetbrains.annotations.Nullable;
  * An implementation of the {@link PrepareService} that uses a Calcite-based query planner to validate and optimize a given query.
  */
 public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(PrepareServiceImpl.class);
+
     private static final long THREAD_TIMEOUT_MS = 60_000;
 
     private static final int THREAD_COUNT = 4;
@@ -119,7 +122,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                 THREAD_TIMEOUT_MS,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, "sql-planning-pool"))
+                new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, "sql-planning-pool"), LOG)
         );
 
         planningPool.allowCoreThreadTimeOut(true);

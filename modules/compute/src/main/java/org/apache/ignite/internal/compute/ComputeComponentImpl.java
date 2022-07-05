@@ -39,6 +39,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
@@ -49,6 +50,8 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of {@link ComputeComponent}.
  */
 public class ComputeComponentImpl implements ComputeComponent {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ComputeComponentImpl.class);
+
     private static final long NETWORK_TIMEOUT_MILLIS = Long.MAX_VALUE;
 
     private static final long THREAD_KEEP_ALIVE_SECONDS = 60;
@@ -192,7 +195,7 @@ public class ComputeComponentImpl implements ComputeComponent {
                 THREAD_KEEP_ALIVE_SECONDS,
                 TimeUnit.SECONDS,
                 newExecutorServiceTaskQueue(),
-                new NamedThreadFactory("[" + ignite.name() + "] Compute-")
+                new NamedThreadFactory(NamedThreadFactory.threadPrefix(ignite.name(), "compute"), LOG)
         );
 
         messagingService.addMessageHandler(ComputeMessageTypes.class, (message, senderAddr, correlationId) -> {

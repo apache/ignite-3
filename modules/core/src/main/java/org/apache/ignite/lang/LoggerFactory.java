@@ -17,18 +17,16 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
-
 /**
- * Exception is thrown when appropriate table can`t be found.
+ * An interface describing a factory to create a logger instance.
  */
-public class TableNotFoundException extends IgniteException {
+@FunctionalInterface
+public interface LoggerFactory {
     /**
-     * Create a new exception with given table name.
+     * Creates a logger instance with a given name.
      *
-     * @param name Table name.
+     * @param name Name to create logger with.
+     * @return Logger instance.
      */
-    public TableNotFoundException(String name) {
-        super(TABLE_NOT_FOUND_ERR, "Table does not exist [name=" + name + ']');
-    }
+    System.Logger forName(String name);
 }

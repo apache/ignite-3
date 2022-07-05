@@ -180,7 +180,7 @@ public class ItMetaStorageRaftGroupTest {
 
         LOG.info("Cluster started.");
 
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
     }
 
     /**
@@ -228,7 +228,7 @@ public class ItMetaStorageRaftGroupTest {
 
         final AtomicInteger replicatorStoppedCounter = new AtomicInteger(0);
 
-        when(mockStorage.range(EXPECTED_RESULT_ENTRY1.key().bytes(), new byte[]{4})).thenAnswer(invocation -> {
+        when(mockStorage.range(EXPECTED_RESULT_ENTRY1.key().bytes(), new byte[]{4}, false)).thenAnswer(invocation -> {
             List<org.apache.ignite.internal.metastorage.server.Entry> entries = new ArrayList<>(
                     List.of(EXPECTED_SRV_RESULT_ENTRY1, EXPECTED_SRV_RESULT_ENTRY2));
 

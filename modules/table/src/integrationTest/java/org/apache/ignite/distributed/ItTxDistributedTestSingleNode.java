@@ -53,6 +53,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -73,6 +74,8 @@ import org.mockito.Mockito;
  * Distributed transaction test using a single partition table.
  */
 public class ItTxDistributedTestSingleNode extends TxAbstractTest {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ItTxDistributedTestSingleNode.class);
+
     public static final int NODE_PORT_BASE = 20_000;
 
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
@@ -173,7 +176,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         txManagers = new HashMap<>(nodes);
 
         executor = new ScheduledThreadPoolExecutor(20,
-                new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
+                new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
         for (int i = 0; i < nodes; i++) {
             var raftSrv = new Loza(cluster.get(i), workDir.resolve("node" + i));

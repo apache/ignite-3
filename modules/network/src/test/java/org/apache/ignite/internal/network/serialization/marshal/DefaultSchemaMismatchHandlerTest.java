@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -43,7 +43,7 @@ class DefaultSchemaMismatchHandlerTest {
     @Test
     void throwsOnFieldTypeChanged() {
         var ex = assertThrows(SchemaMismatchException.class, () -> handler.onFieldTypeChanged(new Object(), "field", int.class, "value"));
-        assertThat(ex.getMessage(), is("field type changed, serialized as int, value value of type java.lang.String"));
+        assertThat(ex.getMessage(), containsString("field type changed, serialized as int, value value of type java.lang.String"));
     }
 
     @Test
@@ -52,7 +52,8 @@ class DefaultSchemaMismatchHandlerTest {
                 () -> handler.onExternalizableIgnored(new Object(), mock(ObjectInput.class))
         );
         assertThat(ex.getMessage(),
-                is("Class java.lang.Object was serialized as an Externalizable remotely, but locally it is not an Externalizable")
+                containsString("Class java.lang.Object was serialized as an Externalizable remotely,"
+                        + " but locally it is not an Externalizable")
         );
     }
 

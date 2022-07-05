@@ -33,6 +33,7 @@ import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.BlockBasedTableConfig;
 import org.rocksdb.BloomFilter;
@@ -55,7 +56,9 @@ public class PersistentVaultService implements VaultService {
         RocksDB.loadLibrary();
     }
 
-    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("vault"));
+    private static final IgniteLogger LOG = IgniteLogger.forClass(PersistentVaultService.class);
+
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("vault", LOG));
 
     private final InFlightFutures futureTracker = new InFlightFutures();
 

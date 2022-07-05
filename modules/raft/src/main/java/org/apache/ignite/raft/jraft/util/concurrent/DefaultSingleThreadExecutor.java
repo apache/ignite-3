@@ -20,6 +20,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 
@@ -27,6 +28,7 @@ import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
  *
  */
 public final class DefaultSingleThreadExecutor implements SingleThreadExecutor {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(DefaultSingleThreadExecutor.class);
 
     private final SingleThreadExecutor singleThreadExecutor;
 
@@ -91,7 +93,7 @@ public final class DefaultSingleThreadExecutor implements SingleThreadExecutor {
             .maximumThreads(1) //
             .keepAliveSeconds(60L) //
             .workQueue(new LinkedBlockingQueue<>(maxPendingTasks)) //
-            .threadFactory(new NamedThreadFactory(poolName, true)) //
+            .threadFactory(new NamedThreadFactory(poolName, true, LOG)) //
             .build();
 
         return new SingleThreadExecutor() {
