@@ -65,8 +65,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Test suite to run SQL test scripts.
  *
- * <p>By default, only "*.test" and "*.test_slow" scripts are run.
+ * <p>By default, only "*.test" scripts are run.
  * Other files are ignored.
+ *
+ * <p>"*.test_slow" files are run when system property {@code SQL_LOGIC_TEST_INCLUDE_SLOW} is set to {@code true}.
  *
  * <p>All test files consist of appropriate collection of queries.
  * A query record begins with a line of the following form: query &lt;type-string&gt; &lt;sort-mode&gt; &lt;label&gt;
