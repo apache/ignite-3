@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -291,7 +293,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                         break;
 
                     default:
-                        throw new IllegalArgumentException("Unknown operation type: " + op.type());
+                        throw new IgniteInternalException(OP_EXECUTION_ERR, "Unknown operation type: " + op.type());
                 }
             }
 
@@ -335,7 +337,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                                 break;
 
                             default:
-                                throw new IllegalArgumentException("Unknown operation type: " + op.type());
+                                throw new IgniteInternalException(OP_EXECUTION_ERR, "Unknown operation type: " + op.type());
                         }
                     }
 

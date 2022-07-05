@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.metastorage.server.raft;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CLOSING_STORAGE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -328,7 +330,7 @@ public class MetaStorageListener implements RaftGroupListener {
                 try {
                     cursorDesc.cursor().close();
                 } catch (Exception e) {
-                    throw new IgniteInternalException(e);
+                    throw new IgniteInternalException(CURSOR_CLOSING_ERR, e);
                 }
 
                 clo.result(null);
@@ -381,7 +383,7 @@ public class MetaStorageListener implements RaftGroupListener {
                         try {
                             cursorDesc.cursor().close();
                         } catch (Exception e) {
-                            throw new IgniteInternalException(e);
+                            throw new IgniteInternalException(CURSOR_CLOSING_ERR, e);
                         }
 
                         cursorsIter.remove();
@@ -417,7 +419,7 @@ public class MetaStorageListener implements RaftGroupListener {
         try {
             storage.close();
         } catch (Exception e) {
-            throw new IgniteInternalException("Failed to close storage: " + e.getMessage(), e);
+            throw new IgniteInternalException(CLOSING_STORAGE_ERR, "Failed to close storage: " + e.getMessage(), e);
         }
     }
 

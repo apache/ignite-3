@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.metastorage.server.persistence.RocksSto
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.revisionFromRocksKey;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.rocksKeyToBytes;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.checkIterator;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.WATCH_EXECUTION_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -111,7 +112,7 @@ class WatchCursor implements Cursor<WatchEvent> {
 
             return currentHasNext;
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
+            throw new IgniteInternalException(WATCH_EXECUTION_ERR, e);
         } finally {
             storage.lock().readLock().unlock();
         }
