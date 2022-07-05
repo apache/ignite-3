@@ -19,7 +19,8 @@ package org.apache.ignite.raft.jraft.storage.snapshot.local;
 import java.io.File;
 import java.io.IOException;
 import java.util.Set;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaBuilder;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta;
@@ -35,7 +36,7 @@ import org.apache.ignite.raft.jraft.util.Utils;
  */
 public class LocalSnapshotWriter extends SnapshotWriter {
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(LocalSnapshotWriter.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LocalSnapshotWriter.class);
 
     private final LocalSnapshotMetaTable metaTable;
     private final String path;

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.util;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Random;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -41,7 +41,7 @@ class HashUtilsTest {
     public void initRandom() {
         long seed = System.currentTimeMillis();
 
-        IgniteLogger.forClass(HashUtilsTest.class).info("Using seed: " + seed + "L; //");
+        Loggers.forClass(HashUtilsTest.class).info("Using seed: " + seed + "L; //");
 
         rnd = new Random(seed);
     }

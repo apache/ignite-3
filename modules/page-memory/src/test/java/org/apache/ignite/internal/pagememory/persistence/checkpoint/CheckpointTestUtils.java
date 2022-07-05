@@ -19,7 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static org.mockito.Mockito.mock;
 
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
 
 /**
  * Useful class for testing a checkpoint.

@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.AbstractFreeList;
@@ -25,14 +27,13 @@ import org.apache.ignite.internal.pagememory.freelist.FreeList;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link FreeList} implementation for storage-page-memory module.
  */
 public class TableFreeList extends AbstractFreeList<TableDataRow> {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(TableFreeList.class);
+    private static final IgniteLogger LOG = Loggers.forClass(TableFreeList.class);
 
     private final IoStatisticsHolder statHolder;
 

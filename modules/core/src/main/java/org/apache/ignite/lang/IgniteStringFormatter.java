@@ -78,17 +78,6 @@ public final class IgniteStringFormatter {
      * @return A formatted message.
      */
     public static String format(final String messagePattern, final Object... params) {
-        return arrayFormat(messagePattern, params);
-    }
-
-    /**
-     * Replaces all substitutions in the messagePattern. Assumes that params only contains arguments with no throwable as last element.
-     *
-     * @param messagePattern Message with formatting anchor.
-     * @param params         Parameters.
-     * @return A formatted message.
-     */
-    static String arrayFormat(final String messagePattern, final Object[] params) {
         if (messagePattern == null) {
             return null;
         }

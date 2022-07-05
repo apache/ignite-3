@@ -70,6 +70,8 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
@@ -107,7 +109,6 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -132,7 +133,7 @@ import org.jetbrains.annotations.TestOnly;
 public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTables, IgniteTablesInternal,
         IgniteComponent {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(TableManager.class);
+    private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
 
     /**
      * If this property is set to {@code true} then an attempt to get the configuration property directly from the meta storage will be
@@ -231,7 +232,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tablesByIdVv = new VersionedValue<>(null, HashMap::new);
 
         rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                new NamedThreadFactory("rebalance-scheduler"));
+                new NamedThreadFactory("rebalance-scheduler", LOG));
     }
 
     /** {@inheritDoc} */

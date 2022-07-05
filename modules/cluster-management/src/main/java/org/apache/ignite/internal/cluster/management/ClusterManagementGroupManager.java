@@ -47,6 +47,8 @@ import org.apache.ignite.internal.cluster.management.raft.CmgRaftService;
 import org.apache.ignite.internal.cluster.management.raft.IllegalInitArgumentException;
 import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Loza;
@@ -56,7 +58,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -78,7 +79,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     // TODO: timeout should be configurable, see https://issues.apache.org/jira/browse/IGNITE-16785
     private static final int NETWORK_INVOKE_TIMEOUT = 500;
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ClusterManagementGroupManager.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
 
     /** CMG Raft group name. */
     private static final String CMG_RAFT_GROUP_NAME = "cmg_raft_group";
@@ -106,7 +107,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     /** Delayed executor. */
     private final ScheduledExecutorService scheduledExecutor =
-            Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("cmg-manager"));
+            Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("cmg-manager", LOG));
 
     private final ClusterService clusterService;
 

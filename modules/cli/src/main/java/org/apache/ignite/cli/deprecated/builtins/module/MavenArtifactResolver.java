@@ -31,7 +31,8 @@ import java.util.stream.Collectors;
 import org.apache.ignite.cli.deprecated.IgniteCliException;
 import org.apache.ignite.cli.deprecated.builtins.SystemPathResolver;
 import org.apache.ignite.cli.deprecated.ui.ProgressBar;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ivy.Ivy;
 import org.apache.ivy.core.IvyContext;
 import org.apache.ivy.core.event.EventManager;
@@ -308,7 +309,7 @@ public class MavenArtifactResolver {
      */
     private static class IvyLogger extends AbstractMessageLogger {
         /** Common logger. */
-        private final IgniteLogger log = IgniteLogger.forClass(IvyLogger.class);
+        private final IgniteLogger log = Loggers.forClass(IvyLogger.class);
 
         /** {@inheritDoc} */
         @Override

@@ -105,7 +105,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
                 ByteArray keyFrom = invocation.getArgument(0);
                 ByteArray keyTo = invocation.getArgument(1);
 
-                return new CursorAdapter(metaStorage.range(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes()));
+                return new CursorAdapter(metaStorage.range(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes(), false));
             });
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);

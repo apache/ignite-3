@@ -32,6 +32,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil;
 import org.apache.ignite.internal.future.InFlightFutures;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Conditions;
 import org.apache.ignite.internal.metastorage.client.Entry;
@@ -48,7 +50,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -56,7 +57,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(DistributedConfigurationStorage.class);
+    private static final IgniteLogger LOG = Loggers.forClass(DistributedConfigurationStorage.class);
 
     /** Prefix added to configuration keys to distinguish them in the meta storage. Must end with a dot. */
     private static final String DISTRIBUTED_PREFIX = "dst-cfg.";
@@ -107,7 +108,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      */
     private final AtomicLong changeId = new AtomicLong(0L);
 
-    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("dst-cfg"));
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("dst-cfg", LOG));
 
     private final InFlightFutures futureTracker = new InFlightFutures();
 

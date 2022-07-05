@@ -20,10 +20,11 @@ package org.apache.ignite.internal.network.netty;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkMessage;
 
 /**
@@ -34,7 +35,7 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
     public static final String NAME = "handshake-handler";
 
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(HandshakeHandler.class);
+    private static final IgniteLogger LOG = Loggers.forClass(HandshakeHandler.class);
 
     /** Handshake manager. */
     private final HandshakeManager manager;
