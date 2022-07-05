@@ -713,7 +713,7 @@ public class BinaryTupleBuilder {
 
         buffer.put(offset, flags);
 
-        return buffer.flip().position(offset).slice();
+        return buffer.flip().position(offset).slice().order(ByteOrder.LITTLE_ENDIAN);
     }
 
     /** Put a byte value to the buffer extending it if needed. */

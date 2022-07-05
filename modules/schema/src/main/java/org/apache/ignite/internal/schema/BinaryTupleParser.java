@@ -162,6 +162,7 @@ public class BinaryTupleParser {
                 byte nullMask = (byte) (1 << (i % 8));
                 if ((buffer.get(nullIndex) & nullMask) != 0) {
                     sink.nextElement(i, 0, 0);
+                    entry += entrySize;
                     continue;
                 }
             }
@@ -303,6 +304,7 @@ public class BinaryTupleParser {
      */
     final BigInteger numberValue(int begin, int end) {
         byte[] bytes;
+        int len = end - begin;
         if (buffer.hasArray()) {
             bytes = buffer.array();
             begin += buffer.arrayOffset();
@@ -310,7 +312,7 @@ public class BinaryTupleParser {
             bytes = bytesValue(begin, end);
             begin = 0;
         }
-        return new BigInteger(bytes, begin, end - begin);
+        return new BigInteger(bytes, begin, len);
     }
 
     /**
@@ -322,6 +324,7 @@ public class BinaryTupleParser {
      */
     final String stringValue(int begin, int end) {
         byte[] bytes;
+        int len = end - begin;
         if (buffer.hasArray()) {
             bytes = buffer.array();
             begin += buffer.arrayOffset();
@@ -329,7 +332,7 @@ public class BinaryTupleParser {
             bytes = bytesValue(begin, end);
             begin = 0;
         }
-        return new String(bytes, begin, end - begin, StandardCharsets.UTF_8);
+        return new String(bytes, begin, len, StandardCharsets.UTF_8);
     }
 
     /**
@@ -456,7 +459,7 @@ public class BinaryTupleParser {
      * @param index Byte index of the table entry.
      * @return Entry value.
      */
-    private final int getOffset(int index) {
+    private int getOffset(int index) {
         switch (entrySize) {
             case Byte.BYTES:
                 return Byte.toUnsignedInt(buffer.get(index));
@@ -479,9 +482,9 @@ public class BinaryTupleParser {
     /**
      * Decode a non-trivial Date element.
      */
-    private final LocalDate getDate(int offset) {
+    private LocalDate getDate(int offset) {
         int date = Short.toUnsignedInt(buffer.getShort(offset));
-        date |= ((int) buffer.get(offset)) << 16;
+        date |= ((int) buffer.get(offset + 2)) << 16;
 
         int day = date & 31;
         int month = (date >> 5) & 15;
@@ -493,7 +496,7 @@ public class BinaryTupleParser {
     /**
      * Decode a non-trivial Time element.
      */
-    private final LocalTime getTime(int offset, int length) {
+    private LocalTime getTime(int offset, int length) {
         long time = Integer.toUnsignedLong(buffer.getInt(offset));
 
         int nanos;

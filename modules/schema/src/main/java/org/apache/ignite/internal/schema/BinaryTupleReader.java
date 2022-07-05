@@ -32,8 +32,11 @@ import java.util.UUID;
  * Utility for access to binary tuple elements as typed values.
  */
 public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleParser.Sink {
-    int begin = 0;
-    int end = 0;
+    /** Start offset of the current element. */
+    private int begin = 0;
+
+    /** End offset of the current element. */
+    private int end = 0;
 
     /**
      * Constructor.
@@ -57,18 +60,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
 
     /** {@inheritDoc} */
     @Override
-    public void nextElement(int index, int begin, int end) {
+    public final void nextElement(int index, int begin, int end) {
         this.begin = begin;
         this.end = end;
-    }
-
-    /**
-     * Get underlying buffer.
-     *
-     * @return Buffer.
-     */
-    public ByteBuffer getBuffer() {
-        return buffer;
     }
 
     /**
