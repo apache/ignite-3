@@ -60,6 +60,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  *     <li>Body - data pages are multiples of {@link #pageSize pageSize}.</li>
  * </ul>
  */
+// TODO: IGNITE-17295 исправить описание ^
 public class FilePageStore implements PageStore {
     /** Page store file signature. */
     private static final long SIGNATURE = 0xF19AC4FE60C530B8L;
