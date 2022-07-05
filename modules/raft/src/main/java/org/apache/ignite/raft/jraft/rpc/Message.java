@@ -17,10 +17,14 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.io.Serializable;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * Base raft message. Temporary extends Serializable for compatibility with JDK serialization.
  */
 public interface Message extends NetworkMessage, Serializable {
+    @Marshallable
+    HybridTimestamp timestamp();
 }

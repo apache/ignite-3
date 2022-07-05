@@ -34,9 +34,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Collectors;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -87,6 +88,7 @@ import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.ReadIndexResponseBuilder;
+import org.apache.ignite.raft.jraft.rpc.RequestVoteResponseBuilder;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesResponse;
@@ -129,6 +131,8 @@ public class NodeImpl implements Node, RaftServerService {
 
     // Max retry times when applying tasks.
     private static final int MAX_APPLY_RETRY_TIMES = 3;
+
+    private final HybridClock clock;
 
     /**
      * Internal states
@@ -541,6 +545,15 @@ public class NodeImpl implements Node, RaftServerService {
         updateLastLeaderTimestamp(Utils.monotonicMs());
         this.confCtx = new ConfigurationCtx(this);
         this.wakingCandidate = null;
+        this.clock = new HybridClock();
+    }
+
+    public HybridTimestamp clockNow() {
+        return clock.now();
+    }
+
+    public HybridTimestamp clockTick(HybridTimestamp timestamp) {
+        return clock.tick(timestamp);
     }
 
     private boolean initSnapshotStorage() {
@@ -1278,6 +1291,7 @@ public class NodeImpl implements Node, RaftServerService {
                     final OnRequestVoteRpcDone done = new OnRequestVoteRpcDone(peer, electSelfTerm, this);
                     done.request = raftOptions.getRaftMessagesFactory()
                             .requestVoteRequest()
+                            .timestamp(clock.now())
                             .preVote(false) // It's not a pre-vote request.
                             .groupId(this.groupId)
                             .serverId(this.serverId.toString())
@@ -1836,11 +1850,16 @@ public class NodeImpl implements Node, RaftServerService {
             }
             while (false);
 
-            return raftOptions.getRaftMessagesFactory()
-                .requestVoteResponse()
-                .term(this.currTerm)
-                .granted(granted)
-                .build();
+            RequestVoteResponseBuilder rb = raftOptions.getRaftMessagesFactory()
+                    .requestVoteResponse()
+                    .term(this.currTerm)
+                    .granted(granted);
+
+            if (request.timestamp() != null) {
+                rb.timestamp(clock.tick(request.timestamp()));
+            }
+
+            return rb.build();
         }
         finally {
             if (doUnlock) {
@@ -1951,11 +1970,16 @@ public class NodeImpl implements Node, RaftServerService {
             }
             while (false);
 
-            return raftOptions.getRaftMessagesFactory()
-                .requestVoteResponse()
-                .term(this.currTerm)
-                .granted(request.term() == this.currTerm && candidateId.equals(this.votedId))
-                .build();
+            RequestVoteResponseBuilder rb = raftOptions.getRaftMessagesFactory()
+                    .requestVoteResponse()
+                    .term(this.currTerm)
+                    .granted(request.term() == this.currTerm && candidateId.equals(this.votedId));
+
+            if (request.timestamp() != null) {
+                rb.timestamp(clock.tick(request.timestamp()));
+            }
+
+            return rb.build();
         }
         finally {
             if (doUnlock) {
@@ -2059,11 +2083,16 @@ public class NodeImpl implements Node, RaftServerService {
             if (request.term() < this.currTerm) {
                 LOG.warn("Node {} ignore stale AppendEntriesRequest from {}, term={}, currTerm={}.", getNodeId(),
                     request.serverId(), request.term(), this.currTerm);
-                return raftOptions.getRaftMessagesFactory()
-                    .appendEntriesResponse()
-                    .success(false)
-                    .term(this.currTerm)
-                    .build();
+                AppendEntriesResponseBuilder rb = raftOptions.getRaftMessagesFactory()
+                        .appendEntriesResponse()
+                        .success(false)
+                        .term(this.currTerm);
+
+                if (request.timestamp() != null) {
+                    rb.timestamp(clock.tick(request.timestamp()));
+                }
+
+                return rb.build();
             }
 
             // Check term and state to step down
@@ -2075,11 +2104,16 @@ public class NodeImpl implements Node, RaftServerService {
                 // loss of split brain
                 stepDown(request.term() + 1, false, new Status(RaftError.ELEADERCONFLICT,
                     "More than one leader in the same term."));
-                return raftOptions.getRaftMessagesFactory()
-                    .appendEntriesResponse()
-                    .success(false) //
-                    .term(request.term() + 1) //
-                    .build();
+                AppendEntriesResponseBuilder rb = raftOptions.getRaftMessagesFactory()
+                        .appendEntriesResponse()
+                        .success(false) //
+                        .term(request.term() + 1);
+
+                if (request.timestamp() != null) {
+                    rb.timestamp(clock.tick(request.timestamp()));
+                }
+
+                return rb.build();
             }
 
             updateLastLeaderTimestamp(Utils.monotonicMs());
@@ -2102,12 +2136,17 @@ public class NodeImpl implements Node, RaftServerService {
                     getNodeId(), request.serverId(), request.term(), prevLogIndex, prevLogTerm, localPrevLogTerm,
                     lastLogIndex, entriesCount);
 
-                return raftOptions.getRaftMessagesFactory()
-                    .appendEntriesResponse()
-                    .success(false)
-                    .term(this.currTerm)
-                    .lastLogIndex(lastLogIndex)
-                    .build();
+                AppendEntriesResponseBuilder rb = raftOptions.getRaftMessagesFactory()
+                        .appendEntriesResponse()
+                        .success(false)
+                        .term(this.currTerm)
+                        .lastLogIndex(lastLogIndex);
+
+                if (request.timestamp() != null) {
+                    rb.timestamp(clock.tick(request.timestamp()));
+                }
+
+                return rb.build();
             }
 
             if (entriesCount == 0) {
@@ -2117,6 +2156,9 @@ public class NodeImpl implements Node, RaftServerService {
                     .success(true)
                     .term(this.currTerm)
                     .lastLogIndex(this.logManager.getLastLogIndex());
+                if (request.timestamp() != null) {
+                    respBuilder.timestamp(clock.tick(request.timestamp()));
+                }
                 doUnlock = false;
                 this.writeLock.unlock();
                 // see the comments at FollowerStableClosure#run()
@@ -2778,6 +2820,10 @@ public class NodeImpl implements Node, RaftServerService {
                     electSelf();
                 }
             }
+
+            if (response.timestamp() != null) {
+                clock.tick(response.timestamp());
+            }
         }
         finally {
             if (doUnlock) {
@@ -2858,6 +2904,7 @@ public class NodeImpl implements Node, RaftServerService {
                     final OnPreVoteRpcDone done = new OnPreVoteRpcDone(peer, preVoteTerm);
                     done.request = raftOptions.getRaftMessagesFactory()
                             .requestVoteRequest()
+                            .timestamp(clock.now())
                             .preVote(true) // it's a pre-vote request.
                             .groupId(this.groupId)
                             .serverId(this.serverId.toString())

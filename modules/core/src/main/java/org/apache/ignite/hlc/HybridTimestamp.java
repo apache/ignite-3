@@ -17,13 +17,14 @@
 
 package org.apache.ignite.hlc;
 
+import java.io.Serializable;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A hybrid timestamp that combines physical clock and logical clock.
  */
-public class HybridTimestamp implements Comparable<HybridTimestamp> {
+public class HybridTimestamp implements Comparable<HybridTimestamp>, Serializable {
     /** Physical clock. */
     private final long physical;
 
