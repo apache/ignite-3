@@ -22,9 +22,9 @@ import static org.mockito.Mockito.mock;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
-import org.apache.ignite.internal.logger.IgniteLogger;
 
 /**
  * Useful class for testing a checkpoint.
