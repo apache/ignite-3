@@ -105,4 +105,31 @@ public class ErrorGroups {
         /** Storage engine not valid. */
         public static final int STORAGE_ENGINE_NOT_VALID_ERR = SQL_ERR_GROUP.registerErrorCode(8);
     }
+
+    /** Meta storage error group. */
+    public static class MetaStorage {
+        /** Meta storage error group. */
+        public static final ErrorGroup META_STORAGE_ERR_GROUP = ErrorGroup.newGroup("MTS", 5);
+
+        /** Failed to start the underlying key value storage. */
+        public static final int STARTING_STORAGE_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(1);
+
+        /** Failed to restore the underlying key value storage. */
+        public static final int RESTORING_STORAGE_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(2);
+
+        /** Failed to close the underlying key value storage. */
+        public static final int CLOSING_STORAGE_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(3);
+
+        /** Failed to compact the underlying key value storage. */
+        public static final int COMPACTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(4);
+
+        /** Failed to perform an operation on the underlying key value storage. */
+        public static final int OP_EXECUTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(5);
+
+        /** Failed to iterate over the underlying key value storage. */
+        public static final int WATCH_EXECUTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(6);
+
+        /** Failed to close a cursor. */
+        public static final int CURSOR_CLOSING_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(7);
+    }
 }
