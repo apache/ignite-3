@@ -51,10 +51,11 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
@@ -77,7 +78,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class RaftGroupServiceImpl implements RaftGroupService {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RaftGroupServiceImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RaftGroupServiceImpl.class);
 
     /** */
     private volatile long timeout;

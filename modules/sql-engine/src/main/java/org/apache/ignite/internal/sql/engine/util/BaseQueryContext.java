@@ -49,6 +49,8 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.trait.CorrelationTraitDef;
@@ -56,8 +58,6 @@ import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
 import org.apache.ignite.internal.sql.engine.trait.RewindabilityTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.logger.NullLogger;
 
 /**
  * Base query context.
@@ -273,7 +273,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         private QueryCancel cancel = new QueryCancel();
 
-        private IgniteLogger log = new NullLogger();
+        private IgniteLogger log = Loggers.voidLogger();
 
         private UUID queryId = UUID.randomUUID();
 

@@ -22,14 +22,15 @@ import java.net.UnknownHostException;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.exception.IgniteCliApiException;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
 /**
  * Exception handler for {@link IgniteCliApiException}.
  */
 public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliApiException> {
-    private static final IgniteLogger log = IgniteLogger.forClass(IgniteCliApiExceptionHandler.class);
+    private static final IgniteLogger log = Loggers.forClass(IgniteCliApiExceptionHandler.class);
 
     @Override
     public int handle(ExceptionWriter err, IgniteCliApiException e) {

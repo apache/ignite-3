@@ -25,9 +25,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
-import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Synchronization wrapper for long operations that should be executed asynchronously and operations that can not be executed in parallel

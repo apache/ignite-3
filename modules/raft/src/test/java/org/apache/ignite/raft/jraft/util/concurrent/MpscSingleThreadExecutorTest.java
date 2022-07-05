@@ -16,25 +16,26 @@
  */
 package org.apache.ignite.raft.jraft.util.concurrent;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  *
  */
 public class MpscSingleThreadExecutorTest {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(MpscSingleThreadExecutorTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(MpscSingleThreadExecutorTest.class);
 
     private static final ThreadFactory THREAD_FACTORY = new NamedThreadFactory("test", true, LOG);
 

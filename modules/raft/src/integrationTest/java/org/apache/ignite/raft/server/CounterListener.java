@@ -26,7 +26,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -43,7 +44,7 @@ public class CounterListener implements RaftGroupListener {
     /**
      * The logger.
      */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(CounterListener.class);
+    private static final IgniteLogger LOG = Loggers.forClass(CounterListener.class);
 
     /**
      * The counter.

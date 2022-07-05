@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
+
 import java.util.ArrayList;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
@@ -24,8 +26,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiPredicate;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
@@ -40,10 +43,8 @@ import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Utils;
 
-import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
-
 public class IgniteRpcClient implements RpcClientEx {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteRpcClient.class);
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteRpcClient.class);
     
     private volatile BiPredicate<Object, String> recordPred;
 

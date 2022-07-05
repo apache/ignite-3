@@ -16,19 +16,20 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 public class CountDownEventTest {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(CountDownEventTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(CountDownEventTest.class);
 
     private ExecutorService executor;
 

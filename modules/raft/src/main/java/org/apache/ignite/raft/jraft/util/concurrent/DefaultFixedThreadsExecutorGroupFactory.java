@@ -18,8 +18,9 @@ package org.apache.ignite.raft.jraft.util.concurrent;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
 
@@ -27,7 +28,7 @@ import org.apache.ignite.raft.jraft.util.Utils;
  * TODO asch switch default executor to threadpoolexecutor + mpsc blocking queue IGNITE-14832
  */
 public final class DefaultFixedThreadsExecutorGroupFactory implements FixedThreadsExecutorGroupFactory {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(DefaultFixedThreadsExecutorGroupFactory.class);
+    private static final IgniteLogger LOG = Loggers.forClass(DefaultFixedThreadsExecutorGroupFactory.class);
 
     public static final DefaultFixedThreadsExecutorGroupFactory INSTANCE = new DefaultFixedThreadsExecutorGroupFactory();
 
