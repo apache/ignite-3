@@ -23,6 +23,7 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.BytecodeVisitor;
@@ -50,6 +51,9 @@ public class InvokeInstruction
     //
     // Invoke Static
     //
+
+    /** Name pattern for {@link #checkUnqualifiedName} */
+    private static final Pattern UNQUALIFIED_NAME_PATTERN = Pattern.compile(".*[.;\\[/<>].*");
 
     public static InstructionNode invokeStatic(Method method) {
         return invoke(INVOKESTATIC, method);
@@ -366,9 +370,7 @@ public class InvokeInstruction
             Handle bootstrapMethodHandle = new Handle(Opcodes.H_INVOKESTATIC,
                 type(bootstrapMethod.getDeclaringClass()).getClassName(),
                 bootstrapMethod.getName(),
-                methodDescription(
-                    bootstrapMethod.getReturnType(),
-                    bootstrapMethod.getParameterTypes()),
+                methodDescription(bootstrapMethod),
                 false);
 
             visitor.visitInvokeDynamicInsn(getName(),
@@ -404,6 +406,6 @@ public class InvokeInstruction
             return;
         }
 
-        checkArgument(!name.matches(".*[.;\\[/<>].*"), "invalid name: %s", name);
+        checkArgument(!UNQUALIFIED_NAME_PATTERN.matcher(name).matches(), "invalid name: %s", name);
     }
 }

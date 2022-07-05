@@ -17,6 +17,7 @@
 
 package com.facebook.presto.bytecode;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -25,6 +26,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.InsnNode;
 
 import static com.facebook.presto.bytecode.Access.STATIC;
@@ -241,20 +243,8 @@ public class MethodDefinition {
         return toSourceString();
     }
 
-    public static String methodDescription(Class<?> returnType, Class<?>... parameterTypes) {
-        return methodDescription(returnType, List.of(parameterTypes));
-    }
-
-    public static String methodDescription(Class<?> returnType, List<Class<?>> parameterTypes) {
-        return methodDescription(
-            type(returnType),
-            parameterTypes.stream().map(ParameterizedType::type).collect(Collectors.toList()));
-    }
-
-    public static String methodDescription(
-        ParameterizedType returnType,
-        ParameterizedType... parameterTypes) {
-        return methodDescription(returnType, List.of(parameterTypes));
+    public static String methodDescription(Method method) {
+        return Type.getMethodDescriptor(method);
     }
 
     public static String methodDescription(
@@ -262,7 +252,9 @@ public class MethodDefinition {
         List<ParameterizedType> parameterTypes) {
         StringBuilder sb = new StringBuilder();
         sb.append("(");
-        sb.append(parameterTypes.stream().map(ParameterizedType::getType).collect(Collectors.joining("")));
+        for (ParameterizedType type : parameterTypes) {
+            sb.append(type.getType());
+        }
         sb.append(")");
         sb.append(returnType.getType());
         return sb.toString();
@@ -279,7 +271,9 @@ public class MethodDefinition {
         List<ParameterizedType> parameterTypes) {
         StringBuilder sb = new StringBuilder();
         sb.append("(");
-        sb.append(parameterTypes.stream().map(ParameterizedType::toString).collect(Collectors.joining("")));
+        for (ParameterizedType type : parameterTypes) {
+            sb.append(type.toString());
+        }
         sb.append(")");
         sb.append(returnType);
         return sb.toString();
