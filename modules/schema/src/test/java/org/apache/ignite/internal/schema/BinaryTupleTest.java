@@ -385,7 +385,7 @@ public class BinaryTupleTest {
      */
     @Test
     public void binaryTest() {
-        Random rnd = getRNG();
+        Random rnd = getRng();
 
         for (int n = 1; n < 100_000; n = n < 100 ? n + 1 : n * 10) {
             byte[][] values = new byte[n][];
@@ -433,7 +433,7 @@ public class BinaryTupleTest {
      */
     @Test
     public void bitmaskTest() {
-        Random rnd = getRNG();
+        Random rnd = getRng();
 
         for (int i = 0; i < 100; i++) {
             byte[] valueBytes = generateBytes(rnd);
@@ -614,7 +614,7 @@ public class BinaryTupleTest {
     }
 
     /** Get a pseudo-random number generator. */
-    private Random getRNG() {
+    private Random getRng() {
         long seed = System.currentTimeMillis();
         IgniteLogger.forClass(BinaryTupleTest.class).info("Using seed: " + seed + "L; //");
         return new Random(seed);
