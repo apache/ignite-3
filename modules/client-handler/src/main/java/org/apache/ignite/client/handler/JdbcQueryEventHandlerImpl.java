@@ -27,19 +27,17 @@ import java.io.StringWriter;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcQueryCursor;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
-import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteRequest;
-import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteResult;
-import org.apache.ignite.internal.jdbc.proto.event.BatchPreparedStmntRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
@@ -48,16 +46,10 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryCloseRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryCloseResult;
-import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteResult;
-import org.apache.ignite.internal.jdbc.proto.event.QueryFetchRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
-import org.apache.ignite.internal.jdbc.proto.event.QuerySingleResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
-import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -65,9 +57,8 @@ import org.apache.ignite.internal.sql.engine.QueryValidator;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlColumnType;
 
@@ -75,40 +66,40 @@ import org.apache.ignite.sql.SqlColumnType;
  * Jdbc query event handler implementation.
  */
 public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
-    /** Current JDBC cursors. */
-    private final ConcurrentHashMap<Long, AsyncSqlCursor<List<Object>>> openCursors = new ConcurrentHashMap<>();
-
-    /** Cursor Id generator. */
-    private final AtomicLong cursorIdGenerator = new AtomicLong();
-
     /** Sql query processor. */
     private final QueryProcessor processor;
 
     /** Jdbc metadata info. */
     private final JdbcMetadataCatalog meta;
 
+    /** Current JDBC cursors. */
+    private final ClientResourceRegistry resources;
+
     /**
      * Constructor.
      *
      * @param processor Processor.
-     * @param meta      JdbcMetadataInfo.
+     * @param meta JdbcMetadataInfo.
+     * @param resources Client resources.
      */
-    public JdbcQueryEventHandlerImpl(QueryProcessor processor, JdbcMetadataCatalog meta) {
+    public JdbcQueryEventHandlerImpl(QueryProcessor processor, JdbcMetadataCatalog meta,
+            ClientResourceRegistry resources) {
         this.processor = processor;
         this.meta = meta;
+        this.resources = resources;
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<QueryExecuteResult> queryAsync(QueryExecuteRequest req) {
+    public CompletableFuture<? extends Response> queryAsync(JdbcQueryExecuteRequest req) {
         if (req.pageSize() <= 0) {
-            return CompletableFuture.completedFuture(new QueryExecuteResult(Response.STATUS_FAILED,
-                    "Invalid fetch size : [fetchSize=" + req.pageSize() + ']'));
+            return CompletableFuture.completedFuture(new JdbcQueryExecuteResult(Response.STATUS_FAILED,
+                    "Invalid fetch size [fetchSize=" + req.pageSize() + ']'));
         }
 
         QueryContext context = createQueryContext(req.getStmtType());
 
-        var results = new ArrayList<CompletableFuture<QuerySingleResult>>();
+        var results = new ArrayList<CompletableFuture<JdbcQuerySingleResult>>();
         for (var cursorFut : processor.queryAsync(context, req.schemaName(), req.sqlQuery(),
                 req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments())) {
             results.add(
@@ -118,25 +109,35 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
         if (results.isEmpty()) {
-            return CompletableFuture.completedFuture(new QueryExecuteResult(Response.STATUS_FAILED,
-                    "At least one cursor is expected for query " + req.sqlQuery()));
+            return CompletableFuture.completedFuture(new JdbcQueryExecuteResult(Response.STATUS_FAILED,
+                    "At least one cursor is expected for query [query=" + req.sqlQuery() + ']'));
         }
 
         return CompletableFuture.allOf(results.toArray(new CompletableFuture[0])).thenApply(none -> {
             var actualResults = results.stream().map(CompletableFuture::join).collect(Collectors.toList());
 
-            return new QueryExecuteResult(actualResults);
+            return new JdbcQueryExecuteResult(actualResults);
         }).exceptionally(t -> {
             results.stream()
                     .filter(fut -> !fut.isCompletedExceptionally())
                     .map(CompletableFuture::join)
-                    .map(res -> openCursors.get(res.cursorId()))
+                    .filter(res -> res.cursorId() != null) //close only for QUERY cursors
+                    .map(res -> {
+                        try {
+                            return resources.remove(res.cursorId()).get(AsyncSqlCursor.class);
+                        } catch (IgniteInternalCheckedException e) {
+                            //we can do nothing about this.
+                        }
+                        return null;
+                    })
+                    .filter(Objects::nonNull)
                     .forEach(AsyncSqlCursor::closeAsync);
+
 
             StringWriter sw = getWriterWithStackTrace(t);
 
-            return new QueryExecuteResult(Response.STATUS_FAILED,
-                    "Exception while executing query " + req.sqlQuery() + ". Error message: " + sw);
+            return new JdbcQueryExecuteResult(Response.STATUS_FAILED,
+                    "Exception while executing query [query=" + req.sqlQuery() + "]. Error message:" + sw);
         });
     }
 
@@ -163,34 +164,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<QueryFetchResult> fetchAsync(QueryFetchRequest req) {
-        var cur = openCursors.get(req.cursorId());
-
-        if (cur == null) {
-            return CompletableFuture.completedFuture(new QueryFetchResult(Response.STATUS_FAILED,
-                    "Failed to find query cursor with ID: " + req.cursorId()));
-        }
-
-        if (req.pageSize() <= 0) {
-            return CompletableFuture.completedFuture(new QueryFetchResult(Response.STATUS_FAILED,
-                    "Invalid fetch size : [fetchSize=" + req.pageSize() + ']'));
-        }
-
-        return cur.requestNextAsync(req.pageSize()).handle((batch, t) -> {
-            if (t != null) {
-                StringWriter sw = getWriterWithStackTrace(t);
-
-                return new QueryFetchResult(Response.STATUS_FAILED,
-                        "Failed to fetch results for cursor id " + req.cursorId() + ". Error message: " + sw);
-            }
-
-            return new QueryFetchResult(batch.items(), batch.hasMore());
-        }).toCompletableFuture();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req) {
+    public CompletableFuture<JdbcBatchExecuteResult> batchAsync(JdbcBatchExecuteRequest req) {
         List<String> queries = req.queries();
 
         var counters = new IntArrayList(req.queries().size());
@@ -210,13 +184,14 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 return handleBatchException(t, queries.get(counters.size()), counters.toIntArray());
             }
 
-            return new BatchExecuteResult(counters.toIntArray());
+            return new JdbcBatchExecuteResult(counters.toIntArray());
         });
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BatchExecuteResult> batchPrepStatementAsync(BatchPreparedStmntRequest req) {
+    public CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(
+            JdbcBatchPreparedStmntRequest req) {
         var argList = req.getArgs();
 
         var counters = new IntArrayList(req.getArgs().size());
@@ -236,7 +211,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 return handleBatchException(t, req.getQuery(), counters.toIntArray());
             }
 
-            return new BatchExecuteResult(counters.toIntArray());
+            return new JdbcBatchExecuteResult(counters.toIntArray());
         });
     }
 
@@ -252,95 +227,18 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         return cursors.get(0).thenCompose(cursor -> cursor.requestNextAsync(1).thenApply(batch -> (Long) batch.items().get(0).get(0)));
     }
 
-    private BatchExecuteResult handleBatchException(Throwable e, String query, int[] counters) {
+    private JdbcBatchExecuteResult handleBatchException(Throwable e, String query, int[] counters) {
         StringWriter sw = getWriterWithStackTrace(e);
 
         String error;
 
         if (e instanceof ClassCastException) {
-            error = "Unexpected result after query:" + query + ". Not an upsert statement? " + sw;
+            error = "Unexpected result. Not an upsert statement? [query=" + query + "] Error message:" + sw;
         } else {
             error = sw.toString();
         }
 
-        return new BatchExecuteResult(Response.STATUS_FAILED, UNKNOWN, error, counters);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<QueryCloseResult> closeAsync(QueryCloseRequest req) {
-        var cur = openCursors.remove(req.cursorId());
-
-        if (cur == null) {
-            return CompletableFuture.completedFuture(new QueryCloseResult(Response.STATUS_FAILED,
-                    "Failed to find query cursor with ID: " + req.cursorId()));
-        }
-
-        return cur.closeAsync().handle((none, t) -> {
-            if (t != null) {
-                StringWriter sw = getWriterWithStackTrace(t);
-
-                return new QueryCloseResult(Response.STATUS_FAILED,
-                        "Failed to close SQL query [curId=" + req.cursorId() + "]. Error message: " + sw);
-            }
-
-            return new QueryCloseResult();
-        });
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<JdbcMetaColumnsResult> queryMetadataAsync(JdbcQueryMetadataRequest req) {
-        AsyncSqlCursor<?> cur = openCursors.get(req.cursorId());
-
-        if (cur == null) {
-            return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(Response.STATUS_FAILED,
-                    "Failed to find query cursor with ID: " + req.cursorId()));
-        }
-
-        ResultSetMetadata metadata = cur.metadata();
-
-        if (metadata == null) {
-            return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(Response.STATUS_FAILED,
-                    "Failed to get query metadata for cursor with ID : " + req.cursorId()));
-        }
-
-        List<JdbcColumnMeta> meta = metadata.columns().stream()
-                .map(this::createColumnMetadata)
-                .collect(Collectors.toList());
-
-        return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(meta));
-    }
-
-    /**
-     * Create Jdbc representation of column metadata from given origin and RelDataTypeField field.
-     *
-     * @param fldMeta field metadata contains info about column.
-     * @return JdbcColumnMeta object.
-     */
-    private JdbcColumnMeta createColumnMetadata(ColumnMetadata fldMeta) {
-        ColumnOrigin origin = fldMeta.origin();
-
-        String schemaName = null;
-        String tblName = null;
-        String colName = null;
-
-        if (origin != null) {
-            schemaName = origin.schemaName();
-            tblName = origin.tableName();
-            colName = origin.columnName();
-        }
-
-        return new JdbcColumnMeta(
-                fldMeta.name(),
-                schemaName,
-                tblName,
-                colName,
-                SqlColumnTypeConverter.columnTypeToClass(fldMeta.type()),
-                fldMeta.precision(),
-                fldMeta.scale(),
-                fldMeta.nullable()
-        );
+        return new JdbcBatchExecuteResult(Response.STATUS_FAILED, UNKNOWN, error, counters);
     }
 
     /** {@inheritDoc} */
@@ -388,30 +286,36 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @param req Execution request.
      * @return JdbcQuerySingleResult filled with first batch of data.
      */
-    private CompletionStage<QuerySingleResult> createJdbcResult(AsyncSqlCursor<List<Object>> cur, QueryExecuteRequest req) {
-        long cursorId = cursorIdGenerator.getAndIncrement();
-
-        openCursors.put(cursorId, cur);
-
+    private CompletionStage<JdbcQuerySingleResult> createJdbcResult(AsyncSqlCursor<List<Object>> cur, JdbcQueryExecuteRequest req) {
         return cur.requestNextAsync(req.pageSize()).thenApply(batch -> {
             boolean hasNext = batch.hasMore();
 
             switch (cur.queryType()) {
                 case EXPLAIN:
-                case QUERY:
-                    return new QuerySingleResult(cursorId, batch.items(), !hasNext);
+                case QUERY: {
+                    long cursorId;
+                    try {
+                        cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
+                    } catch (IgniteInternalCheckedException e) {
+                        cur.closeAsync();
+
+                        return new JdbcQuerySingleResult(Response.STATUS_FAILED,
+                                "Unable to store query cursor.");
+                    }
+                    return new JdbcQuerySingleResult(cursorId, batch.items(), !hasNext);
+                }
                 case DML:
                     if (!validateDmlResult(cur.metadata(), hasNext)) {
-                        return new QuerySingleResult(Response.STATUS_FAILED,
-                                "Unexpected result for DML query [" + req.sqlQuery() + "].");
+                        return new JdbcQuerySingleResult(Response.STATUS_FAILED,
+                                "Unexpected result for DML [query=" + req.sqlQuery() + ']');
                     }
 
-                    return new QuerySingleResult(cursorId, (Long) batch.items().get(0).get(0));
+                    return new JdbcQuerySingleResult((Long) batch.items().get(0).get(0));
                 case DDL:
-                    return new QuerySingleResult(cursorId, 0);
+                    return new JdbcQuerySingleResult(0);
                 default:
-                    return new QuerySingleResult(UNSUPPORTED_OPERATION,
-                            "Query type [" + cur.queryType() + "] is not supported yet.");
+                    return new JdbcQuerySingleResult(UNSUPPORTED_OPERATION,
+                            "Query type is not supported yet [queryType=" + cur.queryType() + ']');
             }
         });
     }

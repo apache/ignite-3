@@ -18,6 +18,7 @@
 package org.apache.ignite.internal;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -68,7 +69,7 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
 
     /** Work directory. */
     @WorkDirectory
-    private static Path WORK_DIR;
+    protected static Path WORK_DIR;
 
     /**
      * Before all.
@@ -152,5 +153,11 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
 
     protected final IgniteImpl node(int index) {
         return (IgniteImpl) clusterNodes.get(index);
+    }
+
+    protected List<List<Object>> executeSql(String sql, Object... args) {
+        return getAllFromCursor(
+                node(0).queryEngine().queryAsync("PUBLIC", sql, args).get(0).join()
+        );
     }
 }

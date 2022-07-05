@@ -107,7 +107,7 @@ public class LogManagerTest extends BaseStorageTest {
     }
 
     protected LogStorage newLogStorage(final RaftOptions raftOptions) {
-        return new LocalLogStorage(this.path.toString(), raftOptions);
+        return new LocalLogStorage(raftOptions);
     }
 
     @AfterEach

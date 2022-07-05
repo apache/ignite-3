@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -173,7 +174,7 @@ public class RaftServerImpl implements RaftServer {
     /** {@inheritDoc} */
     @Override
     public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr,
-            List<Peer> initialConf) {
+            List<Peer> initialConf, RaftGroupOptions groupOptions) {
         if (listeners.containsKey(groupId)) {
             return false;
         }
@@ -185,8 +186,14 @@ public class RaftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public boolean startRaftGroup(String groupId, RaftGroupEventsListener evLsnr, RaftGroupListener lsnr, List<Peer> initialConf) {
-        return startRaftGroup(groupId, lsnr, initialConf);
+    public boolean startRaftGroup(
+            String groupId,
+            RaftGroupEventsListener evLsnr,
+            RaftGroupListener lsnr,
+            List<Peer> initialConf,
+            RaftGroupOptions groupOptions
+    ) {
+        return startRaftGroup(groupId, lsnr, initialConf, groupOptions);
     }
 
     /** {@inheritDoc} */

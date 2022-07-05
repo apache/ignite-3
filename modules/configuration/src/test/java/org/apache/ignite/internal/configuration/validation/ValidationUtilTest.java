@@ -342,8 +342,6 @@ public class ValidationUtilTest {
     }
 
     private static class ExValidationIssue extends ValidationIssue {
-        @IgniteToStringInclude
-        final String currentKey;
 
         @IgniteToStringInclude
         @Nullable
@@ -358,8 +356,7 @@ public class ValidationUtilTest {
                 @Nullable Object oldVal,
                 Object newVal
         ) {
-            super(message);
-            this.currentKey = currentKey;
+            super(currentKey, message);
             this.oldVal = oldVal;
             this.newVal = newVal;
         }
@@ -377,7 +374,7 @@ public class ValidationUtilTest {
 
             ExValidationIssue that = (ExValidationIssue) o;
 
-            return Objects.equals(currentKey, that.currentKey)
+            return Objects.equals(key(), that.key())
                     && Objects.equals(oldVal, that.oldVal)
                     && Objects.equals(newVal, that.newVal);
         }
@@ -385,7 +382,7 @@ public class ValidationUtilTest {
         /** {@inheritDoc} */
         @Override
         public int hashCode() {
-            return Objects.hash(currentKey, oldVal, newVal);
+            return Objects.hash(key(), oldVal, newVal);
         }
 
         /** {@inheritDoc} */
@@ -398,7 +395,7 @@ public class ValidationUtilTest {
             ExValidationIssue ex1 = (ExValidationIssue) o1;
             ExValidationIssue ex2 = (ExValidationIssue) o2;
 
-            return ex1.currentKey.compareTo(ex2.currentKey);
+            return ex1.key().compareTo(ex2.key());
         }
 
         static List<ExValidationIssue> sortedByCurrentKey(List<ValidationIssue> issues) {

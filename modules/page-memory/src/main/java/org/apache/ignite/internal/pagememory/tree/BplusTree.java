@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.tree;
 
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.tree.BplusTree.Bool.DONE;
 import static org.apache.ignite.internal.pagememory.tree.BplusTree.Bool.FALSE;
 import static org.apache.ignite.internal.pagememory.tree.BplusTree.Bool.READY;
@@ -47,7 +48,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.pagememory.CorruptedDataStructureException;
-import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
@@ -876,10 +876,9 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param name Tree name.
      * @param grpId Group ID.
      * @param grpName Group name.
+     * @param partId Partition ID.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
-     * @param defaultPageFlag Default flag value for allocated pages. One of {@link PageIdAllocator#FLAG_DATA} or {@link
-     * PageIdAllocator#FLAG_AUX}.
      * @param globalRmvId Remove ID.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
@@ -891,9 +890,9 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             String name,
             int grpId,
             @Nullable String grpName,
+            int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
-            byte defaultPageFlag,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
@@ -901,7 +900,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             IoVersions<? extends BplusLeafIo<L>> leafIos,
             IoVersions<? extends BplusMetaIo> metaIos
     ) {
-        this(name, grpId, grpName, pageMem, lockLsnr, defaultPageFlag, globalRmvId, metaPageId, reuseList);
+        this(name, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
         setIos(innerIos, leafIos, metaIos);
     }
@@ -914,8 +913,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param grpName Group name.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
-     * @param defaultPageFlag Default flag value for allocated pages. One of {@link PageIdAllocator#FLAG_DATA} or {@link
-     * PageIdAllocator#FLAG_AUX}.
      * @param globalRmvId Remove ID.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
@@ -924,14 +921,14 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             String name,
             int grpId,
             @Nullable String grpName,
+            int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
-            byte defaultPageFlag,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList
     ) {
-        super(name, grpId, grpName, pageMem, lockLsnr, defaultPageFlag);
+        super(name, grpId, grpName, partId, pageMem, lockLsnr, FLAG_AUX);
 
         // TODO: IGNITE-16350 Move to config.
         minFill = 0f; // Testing worst case when merge happens only on empty page.

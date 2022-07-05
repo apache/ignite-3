@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft;
 
+import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
@@ -66,7 +67,7 @@ public class ItLozaTest {
      */
     private RaftGroupService startClient(String groupId, ClusterNode node, Loza loza) throws Exception {
         return loza.prepareRaftGroup(groupId,
-                List.of(node), () -> mock(RaftGroupListener.class)
+                List.of(node), () -> mock(RaftGroupListener.class), defaults()
         ).get(10, TimeUnit.SECONDS);
     }
 

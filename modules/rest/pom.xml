@@ -122,6 +122,8 @@
                     </dependency>
                 </dependencies>
                 <configuration>
+                    <!-- required by https://micronaut-projects.github.io/micronaut-openapi/latest/guide/index.html -->
+                    <fork>true</fork>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.apache.ignite</groupId>
@@ -140,7 +142,7 @@
                         </path>
                     </annotationProcessorPaths>
                     <compilerArgs>
-                        <arg>-J-Dmicronaut.openapi.target.file=openapi/openapi.yaml</arg>
+                        <arg>-J-Dmicronaut.openapi.config.file=openapi/openapi.properties</arg>
                     </compilerArgs>
                 </configuration>
             </plugin>

@@ -48,8 +48,8 @@ import java.util.Objects;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteResult;
-import org.apache.ignite.internal.jdbc.proto.event.BatchPreparedStmntRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 import org.apache.ignite.internal.util.CollectionUtils;
 
 /**
@@ -111,11 +111,11 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
             return INT_EMPTY_ARRAY;
         }
 
-        BatchPreparedStmntRequest req
-                = new BatchPreparedStmntRequest(conn.getSchema(), sql, batchedArgs);
+        JdbcBatchPreparedStmntRequest req
+                = new JdbcBatchPreparedStmntRequest(conn.getSchema(), sql, batchedArgs);
 
         try {
-            BatchExecuteResult res = conn.handler().batchPrepStatementAsync(req).join();
+            JdbcBatchExecuteResult res = conn.handler().batchPrepStatementAsync(req).join();
 
             if (!res.hasResults()) {
                 throw new BatchUpdateException(res.err(),

@@ -193,7 +193,7 @@ public class ConfigurationChangerTest {
             /** {@inheritDoc} */
             @Override
             public void validate(MaybeInvalid annotation, ValidationContext<Object> ctx) {
-                ctx.addIssue(new ValidationIssue("foo"));
+                ctx.addIssue(new ValidationIssue("key", "foo"));
             }
         };
 

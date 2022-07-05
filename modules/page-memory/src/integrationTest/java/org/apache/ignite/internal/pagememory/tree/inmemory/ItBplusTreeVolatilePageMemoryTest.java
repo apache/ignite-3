@@ -25,8 +25,10 @@ import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
+import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreePageMemoryTest;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -57,5 +59,17 @@ public class ItBplusTreeVolatilePageMemoryTest extends AbstractBplusTreePageMemo
     @Override
     protected long acquiredPages() {
         return ((VolatilePageMemory) pageMem).acquiredPages();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected @Nullable ReuseList createReuseList(
+            int grpId,
+            int partId,
+            PageMemory pageMem,
+            long rootId,
+            boolean initNew
+    ) {
+        return null;
     }
 }

@@ -32,13 +32,14 @@ import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
+import org.apache.ignite.raft.jraft.storage.VolatileStorage;
 import org.apache.ignite.raft.jraft.util.Describer;
 import org.apache.ignite.raft.jraft.util.Requires;
 
 /**
  * Stores log in heap.
  */
-public class LocalLogStorage implements LogStorage, Describer {
+public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
     private static final IgniteLogger LOG = IgniteLogger.forClass(LocalLogStorage.class);
 
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
@@ -56,7 +57,7 @@ public class LocalLogStorage implements LogStorage, Describer {
 
     private volatile boolean initialized = false;
 
-    public LocalLogStorage(final String path, final RaftOptions raftOptions) {
+    public LocalLogStorage(final RaftOptions raftOptions) {
         super();
     }
 

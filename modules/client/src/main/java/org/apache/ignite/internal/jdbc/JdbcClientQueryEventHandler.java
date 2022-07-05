@@ -21,9 +21,9 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
-import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteRequest;
-import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteResult;
-import org.apache.ignite.internal.jdbc.proto.event.BatchPreparedStmntRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
@@ -32,13 +32,8 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryCloseRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryCloseResult;
-import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteResult;
-import org.apache.ignite.internal.jdbc.proto.event.QueryFetchRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
+import org.apache.ignite.internal.jdbc.proto.event.Response;
 
 /**
  * Jdbc query network event handler implementation.
@@ -58,83 +53,86 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<QueryExecuteResult> queryAsync(QueryExecuteRequest req) {
-        QueryExecuteResult res = new QueryExecuteResult();
+    public CompletableFuture<Response> queryAsync(JdbcQueryExecuteRequest req) {
+        return client.sendRequestAsync(ClientOp.JDBC_EXEC, w -> req.writeBinary(w.out()), r -> {
+            JdbcQueryExecuteResponse res = new JdbcQueryExecuteResponse(r.clientChannel());
 
-        return client.sendRequestAsync(ClientOp.JDBC_EXEC, req, res);
+            res.readBinary(r.in());
+
+            return res;
+        });
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<QueryFetchResult> fetchAsync(QueryFetchRequest req) {
-        QueryFetchResult res = new QueryFetchResult();
+    public CompletableFuture<JdbcBatchExecuteResult> batchAsync(JdbcBatchExecuteRequest req) {
+        return client.sendRequestAsync(ClientOp.JDBC_EXEC_BATCH, w -> req.writeBinary(w.out()), r -> {
+            JdbcBatchExecuteResult res = new JdbcBatchExecuteResult();
 
-        return client.sendRequestAsync(ClientOp.JDBC_NEXT, req, res);
+            res.readBinary(r.in());
+
+            return res;
+        });
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req) {
-        BatchExecuteResult res = new BatchExecuteResult();
+    public CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(
+            JdbcBatchPreparedStmntRequest req) {
+        return client.sendRequestAsync(ClientOp.JDBC_SQL_EXEC_PS_BATCH, w -> req.writeBinary(w.out()), r -> {
+            JdbcBatchExecuteResult res = new JdbcBatchExecuteResult();
 
-        return client.sendRequestAsync(ClientOp.JDBC_EXEC_BATCH, req, res);
-    }
+            res.readBinary(r.in());
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<BatchExecuteResult> batchPrepStatementAsync(
-            BatchPreparedStmntRequest req) {
-        BatchExecuteResult res = new BatchExecuteResult();
-
-        return client.sendRequestAsync(ClientOp.SQL_EXEC_PS_BATCH, req, res);
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<QueryCloseResult> closeAsync(QueryCloseRequest req) {
-        QueryCloseResult res = new QueryCloseResult();
-
-        return client.sendRequestAsync(ClientOp.JDBC_CURSOR_CLOSE, req, res);
+            return res;
+        });
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcMetaTablesResult> tablesMetaAsync(JdbcMetaTablesRequest req) {
-        JdbcMetaTablesResult res = new JdbcMetaTablesResult();
+        return client.sendRequestAsync(ClientOp.JDBC_TABLE_META, w -> req.writeBinary(w.out()), r -> {
+            JdbcMetaTablesResult res = new JdbcMetaTablesResult();
 
-        return client.sendRequestAsync(ClientOp.JDBC_TABLE_META, req, res);
+            res.readBinary(r.in());
+
+            return res;
+        });
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcMetaColumnsResult> columnsMetaAsync(JdbcMetaColumnsRequest req) {
-        JdbcMetaColumnsResult res = new JdbcMetaColumnsResult();
+        return client.sendRequestAsync(ClientOp.JDBC_COLUMN_META, w -> req.writeBinary(w.out()), r -> {
+            JdbcMetaColumnsResult res = new JdbcMetaColumnsResult();
 
-        return client.sendRequestAsync(ClientOp.JDBC_COLUMN_META, req, res);
+            res.readBinary(r.in());
+
+            return res;
+        });
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcMetaSchemasResult> schemasMetaAsync(JdbcMetaSchemasRequest req) {
-        JdbcMetaSchemasResult res = new JdbcMetaSchemasResult();
+        return client.sendRequestAsync(ClientOp.JDBC_SCHEMAS_META, w -> req.writeBinary(w.out()), r -> {
+            JdbcMetaSchemasResult res = new JdbcMetaSchemasResult();
 
-        return client.sendRequestAsync(ClientOp.JDBC_SCHEMAS_META, req, res);
+            res.readBinary(r.in());
+
+            return res;
+        });
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(JdbcMetaPrimaryKeysRequest req) {
-        JdbcMetaPrimaryKeysResult res = new JdbcMetaPrimaryKeysResult();
+        return client.sendRequestAsync(ClientOp.JDBC_PK_META, w -> req.writeBinary(w.out()), r -> {
+            JdbcMetaPrimaryKeysResult res = new JdbcMetaPrimaryKeysResult();
 
-        return client.sendRequestAsync(ClientOp.JDBC_PK_META, req, res);
-    }
+            res.readBinary(r.in());
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<JdbcMetaColumnsResult> queryMetadataAsync(JdbcQueryMetadataRequest req) {
-        JdbcMetaColumnsResult res = new JdbcMetaColumnsResult();
-
-        return client.sendRequestAsync(ClientOp.JDBC_QUERY_META, req, res);
+            return res;
+        });
     }
 }

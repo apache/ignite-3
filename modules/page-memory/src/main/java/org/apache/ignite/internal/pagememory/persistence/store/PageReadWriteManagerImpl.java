@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
@@ -84,7 +83,7 @@ class PageReadWriteManagerImpl implements org.apache.ignite.internal.pagememory.
     /** {@inheritDoc} */
     @Override
     public long allocatePage(int grpId, int partId, byte flags) throws IgniteInternalCheckedException {
-        assert partId >= 0 && (partId <= MAX_PARTITION_ID || partId == INDEX_PARTITION) : partId;
+        assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
 
         FilePageStore pageStore = filePageStoreManager.getStore(grpId, partId);
 

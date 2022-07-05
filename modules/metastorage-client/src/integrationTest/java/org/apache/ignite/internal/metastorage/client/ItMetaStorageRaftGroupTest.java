@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
+import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -179,7 +180,7 @@ public class ItMetaStorageRaftGroupTest {
 
         LOG.info("Cluster started.");
 
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
     }
 
     /**
@@ -227,7 +228,7 @@ public class ItMetaStorageRaftGroupTest {
 
         final AtomicInteger replicatorStoppedCounter = new AtomicInteger(0);
 
-        when(mockStorage.range(EXPECTED_RESULT_ENTRY1.key().bytes(), new byte[]{4})).thenAnswer(invocation -> {
+        when(mockStorage.range(EXPECTED_RESULT_ENTRY1.key().bytes(), new byte[]{4}, false)).thenAnswer(invocation -> {
             List<org.apache.ignite.internal.metastorage.server.Entry> entries = new ArrayList<>(
                     List.of(EXPECTED_SRV_RESULT_ENTRY1, EXPECTED_SRV_RESULT_ENTRY2));
 
@@ -324,11 +325,11 @@ public class ItMetaStorageRaftGroupTest {
 
         metaStorageRaftSrv3.start();
 
-        metaStorageRaftSrv1.startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(mockStorage), peers);
+        metaStorageRaftSrv1.startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(mockStorage), peers, defaults());
 
-        metaStorageRaftSrv2.startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(mockStorage), peers);
+        metaStorageRaftSrv2.startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(mockStorage), peers, defaults());
 
-        metaStorageRaftSrv3.startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(mockStorage), peers);
+        metaStorageRaftSrv3.startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(mockStorage), peers, defaults());
 
         metaStorageRaftGrpSvc1 = RaftGroupServiceImpl.start(
                 METASTORAGE_RAFT_GROUP_NAME,
