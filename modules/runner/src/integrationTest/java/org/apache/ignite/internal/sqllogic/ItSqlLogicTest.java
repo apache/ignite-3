@@ -183,36 +183,19 @@ public class ItSqlLogicTest {
                                     sqlTestsFolder(p)
                             );
                         } else {
-                            try {
-                                final boolean firstInDir = first.get();
+                                boolean restart = (RESTART_CLUSTER == TEST) 
+                                        || (RESTART_CLUSTER == FOLDER && firstInDir.getAndSet(false);
 
                                 return DynamicTest.dynamicTest(
                                         SCRIPTS_ROOT.relativize(p).toString(),
                                         p.toUri(),
-                                        () -> {
-                                            switch (RESTART_CLUSTER) {
-                                                case FOLDER:
-                                                    if (firstInDir) {
+                                        restart ? 
+                                            () -> {
                                                         restartCluster();
-                                                    }
-                                                    break;
-
-                                                case TEST:
-                                                    restartCluster();
-
-                                                    break;
-
-                                                case NONE:
-                                                default:
-                                                    break;
-                                            }
-
-                                            run(p);
-                                        }
+                                                        run(p);
+                                            } :
+                                            () -> run(p);
                                 );
-                            } finally {
-                                first.set(false);
-                            }
                         }
                     });
         } catch (Exception e) {
