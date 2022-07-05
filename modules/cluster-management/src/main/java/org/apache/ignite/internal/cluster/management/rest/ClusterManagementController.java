@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management.rest;
 
-import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Consumes;
 import io.micronaut.http.annotation.Controller;
@@ -68,6 +67,9 @@ public class ClusterManagementController {
         this.clusterManagementGroupManager = clusterManagementGroupManager;
     }
 
+    /**
+     * Returns cluster state.
+     */
     @Get("state")
     @Operation(operationId = "clusterState")
     @ApiResponses({

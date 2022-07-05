@@ -23,6 +23,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.node.State;
+import org.apache.ignite.internal.node.StateProvider;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.lang.NodeStoppingException;
 
