@@ -29,7 +29,7 @@ public class NullLogger extends IgniteLogger {
      * Creates null logger.
      */
     public NullLogger() {
-        super(NullLogger.class);
+        super(System.getLogger(NullLogger.class.getName()));
     }
 
 

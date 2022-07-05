@@ -107,7 +107,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      */
     private final AtomicLong changeId = new AtomicLong(0L);
 
-    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("dst-cfg"));
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("dst-cfg", LOG));
 
     private final InFlightFutures futureTracker = new InFlightFutures();
 

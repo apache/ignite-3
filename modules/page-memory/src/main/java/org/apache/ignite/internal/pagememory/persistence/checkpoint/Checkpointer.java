@@ -167,7 +167,7 @@ public class Checkpointer extends IgniteWorker {
                     30_000,
                     MILLISECONDS,
                     new LinkedBlockingQueue<>(),
-                    new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io")
+                    new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", log)
             );
         } else {
             checkpointWritePagesPool = null;

@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -43,7 +45,7 @@ public class ClientResourceRegistryTest {
         assertSame(resource, removed);
 
         var ex = assertThrows(IgniteInternalException.class, () -> reg.get(id));
-        assertEquals("Failed to find resource with id: 1", ex.getMessage());
+        assertThat(ex.getMessage(), containsString("Failed to find resource with id: 1"));
     }
 
     @Test
@@ -58,13 +60,14 @@ public class ClientResourceRegistryTest {
 
         assertEquals(2, closed.get());
 
+        String expected = "Resource registry is closed.";
         var ex = assertThrows(IgniteInternalCheckedException.class, () -> reg.put(new ClientResource(1, null)));
-        assertEquals("Resource registry is closed.", ex.getMessage());
+        assertThat(ex.getMessage(), containsString(expected));
 
         ex = assertThrows(IgniteInternalCheckedException.class, () -> reg.get(0));
-        assertEquals("Resource registry is closed.", ex.getMessage());
+        assertThat(ex.getMessage(), containsString(expected));
 
         ex = assertThrows(IgniteInternalCheckedException.class, () -> reg.remove(0));
-        assertEquals("Resource registry is closed.", ex.getMessage());
+        assertThat(ex.getMessage(), containsString(expected));
     }
 }

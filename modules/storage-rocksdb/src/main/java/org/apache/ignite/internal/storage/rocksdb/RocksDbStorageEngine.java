@@ -40,6 +40,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDa
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteLogger;
 import org.rocksdb.RocksDB;
 
 /**
@@ -48,6 +49,8 @@ import org.rocksdb.RocksDB;
 public class RocksDbStorageEngine implements StorageEngine {
     /** Engine name. */
     public static final String ENGINE_NAME = "rocksdb";
+
+    private static final IgniteLogger LOG = IgniteLogger.forClass(RocksDbStorageEngine.class);
 
     static {
         RocksDB.loadLibrary();
@@ -59,7 +62,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     private final ExecutorService threadPool = Executors.newFixedThreadPool(
             Runtime.getRuntime().availableProcessors(),
-            new NamedThreadFactory("rocksdb-storage-engine-pool")
+            new NamedThreadFactory("rocksdb-storage-engine-pool", LOG)
     );
 
     private final Map<String, RocksDbDataRegion> regions = new ConcurrentHashMap<>();

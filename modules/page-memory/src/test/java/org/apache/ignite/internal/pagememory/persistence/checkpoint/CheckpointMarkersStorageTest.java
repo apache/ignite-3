@@ -21,7 +21,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.IgniteUtils.deleteIfExists;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.startsWith;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.FileWriter;
@@ -61,7 +61,7 @@ public class CheckpointMarkersStorageTest {
                 () -> new CheckpointMarkersStorage(testFile)
         );
 
-        assertThat(exception.getMessage(), startsWith("Could not create directory for checkpoint metadata"));
+        assertThat(exception.getMessage(), containsString("Could not create directory for checkpoint metadata"));
     }
 
     @Test
@@ -73,7 +73,7 @@ public class CheckpointMarkersStorageTest {
                 () -> new CheckpointMarkersStorage(workDir)
         );
 
-        assertThat(exception.getMessage(), startsWith("Not checkpoint markers found, they need to be removed manually"));
+        assertThat(exception.getMessage(), containsString("Not checkpoint markers found, they need to be removed manually"));
     }
 
     @Test
@@ -90,7 +90,7 @@ public class CheckpointMarkersStorageTest {
                 () -> new CheckpointMarkersStorage(workDir)
         );
 
-        assertThat(exception.getMessage(), startsWith("Not checkpoint markers found, they need to be removed manually"));
+        assertThat(exception.getMessage(), containsString("Not checkpoint markers found, they need to be removed manually"));
     }
 
     @Test
@@ -104,7 +104,7 @@ public class CheckpointMarkersStorageTest {
                 () -> new CheckpointMarkersStorage(workDir)
         );
 
-        assertThat(exception.getMessage(), startsWith("Found incomplete checkpoints"));
+        assertThat(exception.getMessage(), containsString("Found incomplete checkpoints"));
     }
 
     @Test
@@ -130,14 +130,14 @@ public class CheckpointMarkersStorageTest {
                 () -> markersStorage.onCheckpointBegin(UUID.randomUUID())
         );
 
-        assertThat(exception.getMessage(), startsWith("Could not create start checkpoint marker"));
+        assertThat(exception.getMessage(), containsString("Could not create start checkpoint marker"));
 
         exception = assertThrows(
                 IgniteInternalCheckedException.class,
                 () -> markersStorage.onCheckpointEnd(id0)
         );
 
-        assertThat(exception.getMessage(), startsWith("Could not create end checkpoint marker"));
+        assertThat(exception.getMessage(), containsString("Could not create end checkpoint marker"));
     }
 
     @Test

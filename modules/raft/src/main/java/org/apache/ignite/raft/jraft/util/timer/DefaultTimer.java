@@ -22,6 +22,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
@@ -30,6 +31,8 @@ import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
  *
  */
 public class DefaultTimer implements Timer {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(DefaultTimer.class);
+
     private final ScheduledExecutorService scheduledExecutorService;
 
     public DefaultTimer(int workerNum, String name) {
@@ -37,7 +40,7 @@ public class DefaultTimer implements Timer {
             .coreThreads(workerNum) //
             .poolName(name) //
             .enableMetric(true) //
-            .threadFactory(new NamedThreadFactory(name, true)) //
+            .threadFactory(new NamedThreadFactory(name, true, LOG)) //
             .build();
     }
 

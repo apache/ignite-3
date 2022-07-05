@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -50,6 +51,8 @@ import org.junit.jupiter.api.TestInfo;
  * Utility class for tests.
  */
 public final class IgniteTestUtils {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteTestUtils.class);
+
     private static final int TIMEOUT_SEC = 5000;
 
     /**
@@ -430,7 +433,7 @@ public final class IgniteTestUtils {
      * @return Future with task result.
      */
     public static <T> CompletableFuture<T> runAsync(final Callable<T> task, String threadName) {
-        final NamedThreadFactory thrFactory = new NamedThreadFactory(threadName);
+        final NamedThreadFactory thrFactory = new NamedThreadFactory(threadName, LOG);
 
         final CompletableFuture<T> fut = new CompletableFuture<T>();
 
@@ -518,7 +521,7 @@ public final class IgniteTestUtils {
     public static long runMultiThreaded(Callable<?> call, int threadNum, String threadName) throws Exception {
         List<Callable<?>> calls = Collections.nCopies(threadNum, call);
 
-        NamedThreadFactory threadFactory = new NamedThreadFactory(threadName);
+        NamedThreadFactory threadFactory = new NamedThreadFactory(threadName, LOG);
 
         return runMultiThreaded(calls, threadFactory);
     }
@@ -550,7 +553,7 @@ public final class IgniteTestUtils {
     public static CompletableFuture<Long> runMultiThreadedAsync(Callable<?> call, int threadNum, final String threadName) {
         List<Callable<?>> calls = Collections.<Callable<?>>nCopies(threadNum, call);
 
-        NamedThreadFactory threadFactory = new NamedThreadFactory(threadName);
+        NamedThreadFactory threadFactory = new NamedThreadFactory(threadName, LOG);
 
         return runAsync(() -> runMultiThreaded(calls, threadFactory));
     }

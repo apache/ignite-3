@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,20 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.lang;
+package org.apache.ignite.internal.thread;
 
-import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
+import java.util.Objects;
+import org.apache.ignite.lang.IgniteLogger;
 
 /**
- * Exception is thrown when appropriate table can`t be found.
+ * Print uncaught exceptions to log. Default handler of uncaught exceptions for thread pools.
  */
-public class TableNotFoundException extends IgniteException {
-    /**
-     * Create a new exception with given table name.
-     *
-     * @param name Table name.
-     */
-    public TableNotFoundException(String name) {
-        super(TABLE_NOT_FOUND_ERR, "Table does not exist [name=" + name + ']');
+public final class LogUncaughtExceptionHandler implements Thread.UncaughtExceptionHandler {
+    private final IgniteLogger log;
+
+    public LogUncaughtExceptionHandler(IgniteLogger log) {
+        this.log = Objects.requireNonNull(log, "log");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void uncaughtException(Thread t, Throwable e) {
+        log.error("Uncaught exception in thread {}", e, t);
     }
 }

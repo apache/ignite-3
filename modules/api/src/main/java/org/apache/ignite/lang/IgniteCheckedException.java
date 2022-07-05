@@ -22,15 +22,13 @@ import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.errorMessageFromCause;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
 import java.util.UUID;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * General internal checked exception. This exception is used to indicate any error condition within the node.
+ * General Ignite exception. This exception is used to indicate any error condition within the node.
  */
-public class IgniteInternalCheckedException extends Exception {
+public class IgniteCheckedException extends Exception {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
@@ -52,11 +50,11 @@ public class IgniteInternalCheckedException extends Exception {
     private final UUID traceId;
 
     /**
-     * Creates a new exception with the error code.
+     * Creates a new exception with the given error code.
      *
      * @param code Full error code.
      */
-    public IgniteInternalCheckedException(int code) {
+    public IgniteCheckedException(int code) {
         this(UUID.randomUUID(), code);
     }
 
@@ -66,7 +64,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param traceId Unique identifier of this exception.
      * @param code Full error code.
      */
-    public IgniteInternalCheckedException(UUID traceId, int code) {
+    public IgniteCheckedException(UUID traceId, int code) {
         super(errorMessage(traceId, code, null));
 
         this.traceId = traceId;
@@ -80,7 +78,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param code Full error code.
      * @param message Detail message.
      */
-    public IgniteInternalCheckedException(int code, String message) {
+    public IgniteCheckedException(int code, String message) {
         this(UUID.randomUUID(), code, message);
     }
 
@@ -91,7 +89,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param code Full error code.
      * @param message Detail message.
      */
-    public IgniteInternalCheckedException(UUID traceId, int code, String message) {
+    public IgniteCheckedException(UUID traceId, int code, String message) {
         super(errorMessage(traceId, code, message));
 
         this.traceId = traceId;
@@ -105,7 +103,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteInternalCheckedException(int code, Throwable cause) {
+    public IgniteCheckedException(int code, Throwable cause) {
         this(UUID.randomUUID(), code, cause);
     }
 
@@ -116,7 +114,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteInternalCheckedException(UUID traceId, int code, Throwable cause) {
+    public IgniteCheckedException(UUID traceId, int code, Throwable cause) {
         super(errorMessageFromCause(traceId, code, cause), cause);
 
         this.traceId = traceId;
@@ -131,7 +129,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param message Detail message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteInternalCheckedException(int code, String message, Throwable cause) {
+    public IgniteCheckedException(int code, String message, Throwable cause) {
         this(UUID.randomUUID(), code, message, cause);
     }
 
@@ -143,86 +141,12 @@ public class IgniteInternalCheckedException extends Exception {
      * @param message Detail message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteInternalCheckedException(UUID traceId, int code, String message, Throwable cause) {
+    public IgniteCheckedException(UUID traceId, int code, String message, Throwable cause) {
         super(errorMessage(traceId, code, message), cause);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
         this.code = code;
-    }
-
-    /**
-     * Creates a new exception with the given trace id, error code, detail message and optional nested exception.
-     *
-     * @param traceId Unique identifier of this exception.
-     * @param code Full error code.
-     * @param message Error message.
-     * @param cause Optional nested exception (can be {@code null}).
-     * @param writableStackTrace Whether or not the stack trace should be writable.
-     */
-    public IgniteInternalCheckedException(
-            UUID traceId,
-            int code,
-            String message,
-            @Nullable Throwable cause,
-            boolean writableStackTrace
-    ) {
-        super(errorMessage(traceId, code, message), cause, true, writableStackTrace);
-
-        this.traceId = traceId;
-        this.groupName = errorGroupByCode((extractGroupCode(code))).name();
-        this.code = code;
-    }
-
-    /**
-     * Creates an empty exception.
-     */
-    @Deprecated
-    public IgniteInternalCheckedException() {
-        this(UNKNOWN_ERR);
-    }
-
-    /**
-     * Creates a new exception with the given error message.
-     *
-     * @param msg Error message.
-     */
-    @Deprecated
-    public IgniteInternalCheckedException(String msg) {
-        this(UNKNOWN_ERR, msg);
-    }
-
-    /**
-     * Creates a new grid exception with the given throwable as a cause and source of error message.
-     *
-     * @param cause Non-null throwable cause.
-     */
-    @Deprecated
-    public IgniteInternalCheckedException(Throwable cause) {
-        this(UNKNOWN_ERR, cause);
-    }
-
-    /**
-     * Creates a new exception with the given error message and optional nested exception.
-     *
-     * @param msg                Error message.
-     * @param cause              Optional nested exception (can be {@code null}).
-     * @param writableStackTrace Whether or not the stack trace should be writable.
-     */
-    @Deprecated
-    public IgniteInternalCheckedException(String msg, @Nullable Throwable cause, boolean writableStackTrace) {
-        this(UUID.randomUUID(), UNKNOWN_ERR, msg, cause, writableStackTrace);
-    }
-
-    /**
-     * Creates a new exception with the given error message and optional nested exception.
-     *
-     * @param msg   Error message.
-     * @param cause Optional nested exception (can be {@code null}).
-     */
-    @Deprecated
-    public IgniteInternalCheckedException(String msg, @Nullable Throwable cause) {
-        this(UNKNOWN_ERR, msg, cause);
     }
 
     /**
