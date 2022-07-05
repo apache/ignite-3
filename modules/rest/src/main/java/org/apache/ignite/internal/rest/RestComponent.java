@@ -32,11 +32,12 @@ import java.util.Map;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestView;
 import org.apache.ignite.internal.cluster.management.rest.ClusterManagementController;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.rest.configuration.ClusterConfigurationController;
 import org.apache.ignite.internal.rest.configuration.NodeConfigurationController;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,7 +56,7 @@ public class RestComponent implements IgniteComponent {
     private static final String LOCALHOST = "localhost";
 
     /** Ignite logger. */
-    private final IgniteLogger log = IgniteLogger.forClass(RestComponent.class);
+    private final IgniteLogger log = Loggers.forClass(RestComponent.class);
 
     /** Factories that produce beans needed for REST controllers. */
     private final List<RestFactory> restFactories;

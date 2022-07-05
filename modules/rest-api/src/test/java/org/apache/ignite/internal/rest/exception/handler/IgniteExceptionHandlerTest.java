@@ -32,6 +32,7 @@ import org.apache.ignite.internal.rest.api.Problem.ProblemBuilder;
 import org.apache.ignite.internal.rest.api.ValidationProblem;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -82,6 +83,7 @@ class IgniteExceptionHandlerTest {
 
     @ParameterizedTest
     @MethodSource("igniteExceptions")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17305")
     void shouldHandleIgniteException(IgniteException givenIgniteException, ProblemBuilder<? extends Problem, ?> expectedProblem) {
         HttpResponse<? extends Problem> response = exceptionHandler.handle(request, givenIgniteException);
 

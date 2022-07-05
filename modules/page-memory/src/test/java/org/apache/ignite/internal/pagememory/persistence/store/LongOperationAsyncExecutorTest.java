@@ -30,8 +30,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -39,7 +40,7 @@ import org.junit.jupiter.api.Test;
  * For {@link LongOperationAsyncExecutor} testing.
  */
 public class LongOperationAsyncExecutorTest {
-    private final IgniteLogger log = IgniteLogger.forClass(LongOperationAsyncExecutorTest.class);
+    private final IgniteLogger log = Loggers.forClass(LongOperationAsyncExecutorTest.class);
 
     @Test
     void testAsync() throws Exception {

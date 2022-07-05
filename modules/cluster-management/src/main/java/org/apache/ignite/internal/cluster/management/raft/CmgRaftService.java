@@ -35,9 +35,10 @@ import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTo
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -48,7 +49,7 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
  * A wrapper around a {@link RaftGroupService} providing helpful methods for working with the CMG.
  */
 public class CmgRaftService {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ClusterManagementGroupManager.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
 
     /**
      * Number of attempts when trying to resolve a {@link Peer} into a {@link ClusterNode}.

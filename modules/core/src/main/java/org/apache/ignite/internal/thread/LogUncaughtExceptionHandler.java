@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.thread;
 
 import java.util.Objects;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
 
 /**
  * Print uncaught exceptions to log. Default handler of uncaught exceptions for thread pools.
