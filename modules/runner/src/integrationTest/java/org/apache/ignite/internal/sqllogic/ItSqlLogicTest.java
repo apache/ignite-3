@@ -263,11 +263,6 @@ public class ItSqlLogicTest {
         TEST_REGEX = Strings.isNullOrEmpty(env.regex()) ? null : Pattern.compile(env.regex());
         RESTART_CLUSTER = env.restart();
         TIMEOUT = env.timeout();
-
-        // TODO: use default restart mode after fix performance issue: https://issues.apache.org/jira/browse/IGNITE-16760
-        if (INCLUDE_SLOW) {
-            RESTART_CLUSTER = RestartMode.TEST;
-        }
     }
 
     private static void restartCluster() throws Exception {
