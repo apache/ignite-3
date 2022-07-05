@@ -39,6 +39,8 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sqllogic.SqlLogicTestEnvironment.RestartMode;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -46,7 +48,6 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.sql.ResultSet;
@@ -110,7 +111,7 @@ public class ItSqlLogicTest {
 
     private static final FileSystem FS = FileSystems.getDefault();
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ItSqlLogicTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ItSqlLogicTest.class);
 
     /** Base port number. */
     private static final int BASE_PORT = 3344;
