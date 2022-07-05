@@ -86,7 +86,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         schemasVv.whenComplete((token, stringIgniteSchemaMap, throwable) -> {
             if (throwable != null) {
-                throw new IgniteInternalException("Couldn't evaluate sql schemas for causality token: " + token, throwable);
+                calciteSchemaVv.completeExceptionally(
+                    token,
+                    new IgniteInternalException("Couldn't evaluate sql schemas for causality token: " + token, throwable)
+                );
+
+                return;
             }
 
             SchemaPlus newCalciteSchema = rebuild(stringIgniteSchemaMap);

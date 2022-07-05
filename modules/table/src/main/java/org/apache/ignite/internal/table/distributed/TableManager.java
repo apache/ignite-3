@@ -134,6 +134,10 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTables, IgniteTablesInternal,
         IgniteComponent {
+    // TODO get rid of this in future? IGNITE-17307
+    /** Timeout to complete the tablesByIdVv on revision update. */
+    private static final long TABLES_COMPLETE_TIMEOUT = 120;
+
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(TableManager.class);
 
@@ -243,7 +247,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             beforeTablesVvComplete.clear();
 
             return CompletableFuture.allOf(futures.toArray(new CompletableFuture[] {}))
-                    .thenRun(() -> tablesByIdVv.complete(token));
+                    .orTimeout(TABLES_COMPLETE_TIMEOUT, TimeUnit.SECONDS)
+                    .whenComplete((v, e) -> {
+                        if (e != null) {
+                            tablesByIdVv.completeExceptionally(token, e);
+                        } else {
+                            tablesByIdVv.complete(token);
+                        }
+                    });
         });
 
         rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
