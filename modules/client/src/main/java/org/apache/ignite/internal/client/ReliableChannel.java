@@ -46,7 +46,7 @@ import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 
 /**

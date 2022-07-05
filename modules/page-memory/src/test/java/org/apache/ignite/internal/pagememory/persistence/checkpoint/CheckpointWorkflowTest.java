@@ -55,6 +55,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -62,7 +64,6 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDi
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -72,7 +73,7 @@ import org.mockito.ArgumentCaptor;
  * For {@link CheckpointWorkflow} testing.
  */
 public class CheckpointWorkflowTest {
-    private final IgniteLogger log = IgniteLogger.forClass(CheckpointWorkflowTest.class);
+    private final IgniteLogger log = Loggers.forClass(CheckpointWorkflowTest.class);
 
     @Nullable
     private CheckpointWorkflow workflow;

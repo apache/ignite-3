@@ -48,10 +48,10 @@ import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.util.Constants;
-import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -72,7 +72,7 @@ public class RowTest {
     public void initRandom() {
         long seed = System.currentTimeMillis();
 
-        IgniteLogger.forClass(RowTest.class).info("Using seed: " + seed + "L; //");
+        Loggers.forClass(RowTest.class).info("Using seed: " + seed + "L; //");
 
         rnd = new Random(seed);
     }

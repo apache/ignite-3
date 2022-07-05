@@ -32,6 +32,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
@@ -39,7 +41,6 @@ import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -52,7 +53,7 @@ public class ConnectionManager {
     private static final NetworkMessagesFactory FACTORY = new NetworkMessagesFactory();
 
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ConnectionManager.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ConnectionManager.class);
 
     /** Latest version of the direct marshalling protocol. */
     public static final byte DIRECT_PROTOCOL_VERSION = 1;

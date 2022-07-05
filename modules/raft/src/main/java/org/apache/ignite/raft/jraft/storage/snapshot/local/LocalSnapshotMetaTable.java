@@ -23,7 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta;
 import org.apache.ignite.raft.jraft.entity.LocalSnapshotPbMetaBuilder;
 import org.apache.ignite.raft.jraft.entity.LocalStorageOutter.LocalSnapshotPbMeta;
@@ -38,7 +39,7 @@ import org.apache.ignite.raft.jraft.util.Marshaller;
  */
 public class LocalSnapshotMetaTable {
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(LocalSnapshotMetaTable.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LocalSnapshotMetaTable.class);
 
     private final Map<String, LocalFileMeta> fileMap;
     private final RaftOptions raftOptions;

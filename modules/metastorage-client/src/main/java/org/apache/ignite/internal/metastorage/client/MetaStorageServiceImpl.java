@@ -28,6 +28,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.common.StatementInfo;
 import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
@@ -58,7 +60,6 @@ import org.apache.ignite.internal.metastorage.common.command.cursor.CursorsClose
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -71,7 +72,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class MetaStorageServiceImpl implements MetaStorageService {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(MetaStorageServiceImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(MetaStorageServiceImpl.class);
 
     /** IgniteUuid generator. */
     private static final IgniteUuidGenerator uuidGenerator = new IgniteUuidGenerator(UUID.randomUUID(), 0);

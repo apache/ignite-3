@@ -15,51 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.lang;
+package org.apache.ignite.internal.logger;
 
 import java.lang.System.Logger.Level;
 import java.util.Objects;
 import java.util.function.Supplier;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Ignite logger wraps system logger for more convenient access.
  */
 public class IgniteLogger {
-    /**
-     * Creates logger for given class with system logger as a backend.
-     *
-     * @param cls The class for a logger.
-     * @return Ignite logger.
-     */
-    public static IgniteLogger forClass(Class<?> cls) {
-        var delegate = System.getLogger(Objects.requireNonNull(cls).getName());
-
-        return new IgniteLogger(delegate);
-    }
-
-    /**
-     * Creates logger for given class with backend created by the given loggerFactory.
-     *
-     * @param cls The class for a logger.
-     * @param loggerFactory Logger factory to create backend for the logger.
-     * @return Ignite logger.
-     */
-    public static IgniteLogger forClass(Class<?> cls, LoggerFactory loggerFactory) {
-        var delegate = loggerFactory.forName(Objects.requireNonNull(cls).getName());
-
-        return new IgniteLogger(delegate);
-    }
-
     /** Logger delegate. */
     private final System.Logger delegate;
 
     /**
-     * Creates logger instance for a category related to the given class.
+     * Creates logger facade for a given delegate.
      *
-     * @param delegate The class for a logger.
+     * @param delegate The delegate to create facade for.
      */
-    protected IgniteLogger(@NotNull System.Logger delegate) {
+    IgniteLogger(@NotNull System.Logger delegate) {
         this.delegate = delegate;
     }
 
@@ -285,9 +261,9 @@ public class IgniteLogger {
         }
 
         if (th != null) {
-            delegate.log(level, IgniteStringFormatter.arrayFormat(msg, params), th);
+            delegate.log(level, IgniteStringFormatter.format(msg, params), th);
         } else {
-            delegate.log(level, IgniteStringFormatter.arrayFormat(msg, params));
+            delegate.log(level, IgniteStringFormatter.format(msg, params));
         }
     }
 

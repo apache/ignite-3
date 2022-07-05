@@ -41,7 +41,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -51,7 +52,7 @@ import org.junit.jupiter.api.Test;
 public class IgniteWorkerTest {
     static final String CLEANUP = "cleanup";
 
-    private final IgniteLogger log = IgniteLogger.forClass(IgniteWorkerTest.class);
+    private final IgniteLogger log = Loggers.forClass(IgniteWorkerTest.class);
 
     @Test
     void testNewIgniteWorker() {

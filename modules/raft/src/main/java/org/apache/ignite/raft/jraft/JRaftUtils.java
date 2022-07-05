@@ -21,8 +21,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
@@ -45,7 +46,7 @@ import org.apache.ignite.raft.jraft.util.timer.Timer;
  * Some helper methods for jraft usage.
  */
 public final class JRaftUtils {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(JRaftUtils.class);
+    private static final IgniteLogger LOG = Loggers.forClass(JRaftUtils.class);
 
     /**
      * Bootstrap a non-empty raft node.

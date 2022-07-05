@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.logger;
+package org.apache.ignite.internal.logger;
 
 import java.util.function.Supplier;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Logger which does not output anything.
  */
-public class NullLogger extends IgniteLogger {
+class VoidLogger extends IgniteLogger {
     /**
      * Creates null logger.
      */
-    public NullLogger() {
-        super(System.getLogger(NullLogger.class.getName()));
+    VoidLogger() {
+        super(System.getLogger(VoidLogger.class.getName()));
     }
-
 
     /** {@inheritDoc} */
     @Override

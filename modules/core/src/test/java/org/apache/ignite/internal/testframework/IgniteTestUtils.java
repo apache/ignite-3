@@ -39,9 +39,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -51,7 +52,7 @@ import org.junit.jupiter.api.TestInfo;
  * Utility class for tests.
  */
 public final class IgniteTestUtils {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteTestUtils.class);
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteTestUtils.class);
 
     private static final int TIMEOUT_SEC = 5000;
 

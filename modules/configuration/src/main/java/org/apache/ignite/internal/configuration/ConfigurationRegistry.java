@@ -76,8 +76,9 @@ import org.apache.ignite.internal.configuration.validation.ImmutableValidator;
 import org.apache.ignite.internal.configuration.validation.OneOfValidator;
 import org.apache.ignite.internal.configuration.validation.PowerOfTwoValidator;
 import org.apache.ignite.internal.configuration.validation.RangeValidator;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -85,7 +86,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ConfigurationRegistry implements IgniteComponent, ConfigurationStorageRevisionListenerHolder {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ConfigurationRegistry.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ConfigurationRegistry.class);
 
     /** Generated configuration implementations. Mapping: {@link RootKey#key} -> configuration implementation. */
     private final Map<String, DynamicConfiguration<?, ?>> configs = new HashMap<>();
