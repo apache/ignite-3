@@ -112,8 +112,12 @@ public class SqlScriptRunner {
     /** Script. */
     private Script script;
 
-    /** Line separator to bytes representation. */
-    private static final byte[] LINE_SEPARATOR_BYTES = System.lineSeparator().getBytes(Charset.defaultCharset());
+    /**
+     * Line separator to bytes representation.
+     * NB: Don't use {@code System.lineSeparator()} here.
+     * The separator is used to calculate hash by SQL results and mustn't be changed on the different platforms.
+     */
+    private static final byte[] LINE_SEPARATOR_BYTES = "\n".getBytes(Charset.forName(UTF_8.name()));
 
     /** Equivalent results store. */
     private Map<String, Collection<String>> eqResStorage = new HashMap<>();
