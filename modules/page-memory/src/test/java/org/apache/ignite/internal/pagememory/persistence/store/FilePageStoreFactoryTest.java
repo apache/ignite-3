@@ -17,16 +17,20 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
-import static java.nio.ByteOrder.nativeOrder;
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.READ;
+import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
+import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader.readHeader;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.nio.ByteBuffer;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.internal.fileio.FileIo;
+import org.apache.ignite.internal.fileio.RandomAccessFileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -45,61 +49,76 @@ public class FilePageStoreFactoryTest {
     private Path workDir;
 
     @Test
-    void testSuccessCreateFilePageStore() throws Exception {
-        FilePageStoreFactory filePageStoreFactory = createFilePageStoreFactory();
+    void testInvalidFilePageSize() throws Exception {
+        Path testFilePath = workDir.resolve("test");
 
-        FilePageStore filePageStore = filePageStoreFactory.createPageStore(Files.createFile(workDir.resolve("test")));
+        try (FileIo fileIo = createFileIo(testFilePath)) {
+            fileIo.writeFully(new FilePageStoreHeader(VERSION_1, PAGE_SIZE * 2).toByteBuffer(), 0);
 
-        checkCommonHeader(filePageStore);
+            Exception exception = assertThrows(
+                    IgniteInternalCheckedException.class,
+                    () -> createFilePageStoreFactory().createPageStore(testFilePath)
+            );
 
-        filePageStore.close();
-
-        checkCommonHeader(filePageStoreFactory.createPageStore(workDir.resolve("test")));
+            assertThat(exception.getCause().getMessage(), startsWith("Invalid file pageSize"));
+        }
     }
 
     @Test
-    void testFailCreateFilePageStore() throws Exception {
-        FilePageStoreFactory filePageStoreFactory = createFilePageStoreFactory();
+    void testUnknownFilePageStoreVersion() throws Exception {
+        Path testFilePath = workDir.resolve("test");
 
-        // Breaks the file page store version.
+        try (FileIo fileIo = createFileIo(testFilePath)) {
+            fileIo.writeFully(new FilePageStoreHeader(-1, PAGE_SIZE).toByteBuffer(), 0);
+
+            Exception exception = assertThrows(
+                    IgniteInternalCheckedException.class,
+                    () -> createFilePageStoreFactory().createPageStore(testFilePath)
+            );
+
+            assertThat(exception.getMessage(), containsString("Unknown version of file page store"));
+        }
+    }
+
+    @Test
+    void testCreateNewFilePageStore() throws Exception {
+        Path testFilePath = workDir.resolve("test");
+
+        try (
+                FilePageStore filePageStore = createFilePageStoreFactory().createPageStore(testFilePath);
+                FileIo fileIo = createFileIo(testFilePath)
+        ) {
+            checkHeader(readHeader(fileIo));
+        }
+    }
+
+    @Test
+    void testCreateExistsFilePageStore() throws Exception {
+        FilePageStoreFactory filePageStoreFactory = createFilePageStoreFactory();
 
         Path testFilePath = workDir.resolve("test");
 
-        FilePageStore filePageStore = filePageStoreFactory.createPageStore(testFilePath);
+        filePageStoreFactory.createPageStore(testFilePath).close();
 
-        ByteBuffer headerBuffer = ByteBuffer.allocate(PAGE_SIZE).order(nativeOrder());
-
-        filePageStore.readHeader(headerBuffer);
-
-        headerBuffer.rewind().putInt(8, -1);
-
-        try (FileIo fileIo = new RandomAccessFileIoFactory().create(testFilePath)) {
-            fileIo.writeFully(headerBuffer.rewind());
+        try (
+                FilePageStore filePageStore = createFilePageStoreFactory().createPageStore(testFilePath);
+                FileIo fileIo = createFileIo(testFilePath)
+        ) {
+            checkHeader(readHeader(fileIo));
         }
-
-        // Checks that there will be an error when creating an unknown version of file page store.
-
-        IgniteInternalCheckedException exception = assertThrows(
-                IgniteInternalCheckedException.class,
-                () -> filePageStoreFactory.createPageStore(testFilePath)
-        );
-
-        assertThat(exception.getMessage(), containsString("Unknown version of file page store"));
     }
 
-    private void checkCommonHeader(FilePageStore filePageStore) throws Exception {
-        ByteBuffer headerBuffer = ByteBuffer.allocate(PAGE_SIZE).order(nativeOrder());
-
-        filePageStore.readHeader(headerBuffer);
-
-        // Skip signature.
-        headerBuffer.rewind().getLong();
-
-        assertEquals(FilePageStore.VERSION_1, headerBuffer.getInt());
-        assertEquals(PAGE_SIZE, headerBuffer.getInt());
-    }
-
-    private FilePageStoreFactory createFilePageStoreFactory() {
+    private static FilePageStoreFactory createFilePageStoreFactory() {
         return new FilePageStoreFactory(new RandomAccessFileIoFactory(), PAGE_SIZE);
+    }
+
+    private static FileIo createFileIo(Path filePath) throws Exception {
+        return new RandomAccessFileIo(filePath, CREATE, WRITE, READ);
+    }
+
+    private static void checkHeader(FilePageStoreHeader header) {
+        // Check that creates a file page store with the latest version.
+        assertEquals(VERSION_1, header.version());
+        assertEquals(header.pageSize(), PAGE_SIZE);
     }
 }

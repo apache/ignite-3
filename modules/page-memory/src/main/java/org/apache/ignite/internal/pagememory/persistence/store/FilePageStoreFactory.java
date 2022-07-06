@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader.readHeader;
+import static org.apache.ignite.internal.util.IgniteUtils.readableSize;
+
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
@@ -61,54 +61,47 @@ class FilePageStoreFactory {
      * @throws IgniteInternalCheckedException if failed
      */
     public FilePageStore createPageStore(Path filePath) throws IgniteInternalCheckedException {
-        if (!Files.exists(filePath)) {
-            return createPageStore(filePath, pageSize, latestVersion);
-        }
-
         try (FileIo fileIo = fileIoFactory.create(filePath)) {
-            int commonHeaderSize = FilePageStore.COMMON_HEADER_SIZE;
+            FilePageStoreHeader header = readHeader(fileIo);
 
-            if (fileIo.size() < commonHeaderSize) {
-                return createPageStore(filePath, pageSize, latestVersion);
+            if (header == null) {
+                header = new FilePageStoreHeader(latestVersion, pageSize);
+
+                fileIo.writeFully(header.toByteBuffer(), 0);
+
+                fileIo.force();
+            } else {
+                checkHeader(header);
             }
 
-            ByteBuffer commonHeader = ByteBuffer.allocate(commonHeaderSize).order(ByteOrder.nativeOrder());
-
-            fileIo.readFully(commonHeader);
-
-            commonHeader.rewind();
-
-            // Read signature.
-            commonHeader.getLong();
-
-            int ver = commonHeader.getInt();
-
-            return createPageStore(filePath, pageSize, ver);
+            return createPageStore(filePath, header);
         } catch (IOException e) {
             throw new IgniteInternalCheckedException("Error while creating file page store [file=" + filePath + "]:", e);
         }
     }
 
-    /**
-     * Instantiates specific version of {@link FilePageStore}.
-     *
-     * @param filePath File page store path.
-     * @param ver File page store version.
-     * @param pageSize Page size in bytes.
-     */
     private FilePageStore createPageStore(
             Path filePath,
-            int pageSize,
-            int ver
+            FilePageStoreHeader header
     ) throws IgniteInternalCheckedException {
-        if (ver == FilePageStore.VERSION_1) {
+        if (header.version() == FilePageStore.VERSION_1) {
             return new FilePageStore(filePath, fileIoFactory, pageSize);
         }
 
         throw new IgniteInternalCheckedException(String.format(
                 "Unknown version of file page store [version=%s, file=%s]",
-                ver,
+                header.version(),
                 filePath
         ));
+    }
+
+    private void checkHeader(FilePageStoreHeader header) throws IOException {
+        if (header.pageSize() != pageSize) {
+            throw new IOException(String.format(
+                    "Invalid file pageSize [expected=%s, actual=%s]",
+                    readableSize(pageSize, false),
+                    readableSize(header.pageSize(), false)
+            ));
+        }
     }
 }

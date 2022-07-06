@@ -26,7 +26,7 @@ import org.apache.ignite.internal.fileio.FileIo;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link FilePageStore} header:
+ * {@link FilePageStore} header.
  * <ul>
  *     <li>{@link #SIGNATURE signature} (8 byte)</li>
  *     <li>{@link #version version} (4 byte)</li>
@@ -107,9 +107,11 @@ class FilePageStoreHeader {
         long signature = buffer.rewind().getLong();
 
         if (SIGNATURE != signature) {
-            throw new IOException("Invalid file signature"
-                    + " [expectedSignature=" + hexLong(SIGNATURE)
-                    + ", actualSignature=" + hexLong(signature) + ']');
+            throw new IOException(String.format(
+                    "Invalid file signature [expected=%s, actual=%s]",
+                    hexLong(SIGNATURE),
+                    hexLong(signature))
+            );
         }
 
         return new FilePageStoreHeader(buffer.getInt(), buffer.getInt());
