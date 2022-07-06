@@ -113,7 +113,7 @@ public class SqlScriptRunner {
     private Script script;
 
     /** Line separator to bytes representation. */
-    private static final byte[] LINE_SEPARATOR_BYTES = System.lineSeparator().getBytes(Charset.defaultCharset());
+    private static final byte[] LINE_SEPARATOR_BYTES = "\n".getBytes(Charset.defaultCharset());
 
     /** Equivalent results store. */
     private Map<String, Collection<String>> eqResStorage = new HashMap<>();
