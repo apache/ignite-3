@@ -39,7 +39,7 @@ public class IgniteInternalExceptionHandler implements ExceptionHandler<IgniteIn
         return HttpProblemResponse.from(
                 Problem.fromHttpCode(HttpCode.INTERNAL_ERROR)
                         .traceId(exception.traceId())
-                        .code(exception.code())
+                        .code(exception.codeAsString())
                         .detail(exception.getMessage())
         );
     }

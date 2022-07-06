@@ -40,7 +40,7 @@ public class IgniteInternalCheckedExceptionHandler
         return HttpProblemResponse.from(
                 Problem.fromHttpCode(HttpCode.INTERNAL_ERROR)
                         .traceId(exception.traceId())
-                        .code(exception.code())
+                        .code(exception.codeAsString())
                         .detail(exception.getMessage())
         );
     }
