@@ -17,8 +17,6 @@
 
 package org.apache.ignite.raft.jraft.storage.impl;
 
-import static java.util.Arrays.copyOfRange;
-
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -54,6 +52,8 @@ import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
+
+import static java.util.Arrays.copyOfRange;
 
 /**
  * Log storage that shares rocksdb instance with other log storages.
@@ -172,7 +172,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         this.groupEndBound = new Slice(groupEndPrefix);
 
         this.writeOptions = new WriteOptions();
-        this.writeOptions.setSync(raftOptions.isSync());
+        this.writeOptions.setSync(false);
     }
 
     /** {@inheritDoc} */
