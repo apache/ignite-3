@@ -61,7 +61,12 @@ import org.jetbrains.annotations.Nullable;
  * <p>{@link CheckpointWorkflow#markCheckpointEnd} - Finalization of last checkpoint.
  */
 class CheckpointWorkflow {
-    /** Starting from this number of dirty pages in checkpoint, array will be sorted with {@link Arrays#parallelSort(Comparable[])}. */
+    /**
+     * Starting from this number of dirty pages in checkpoint, array will be sorted with {@link Arrays#parallelSort(Comparable[])}.
+     *
+     * <p>See <a href="https://www.researchgate.net/publication/331742843_Threshold_Analysis_and_Comparison_of_Sequential_and_Parallel_Divide_and_Conquer_Sorting_Algorithms">threshold
+     * for parallel sort.</a>
+     */
     static final int PARALLEL_SORT_THRESHOLD = 40_000;
 
     /** Checkpoint marker storage. */
