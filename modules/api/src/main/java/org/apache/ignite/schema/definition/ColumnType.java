@@ -232,7 +232,7 @@ public class ColumnType {
     }
 
     /**
-     * Returns point in time as number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone) with the default precision of 6
+     * Returns point in time as number of ticks since {@code 1970-01-01T00:00:00Z} with the default precision of 6
      * (microseconds).
      *
      * @return Native type.
@@ -244,7 +244,7 @@ public class ColumnType {
     }
 
     /**
-     * Returns point in time as number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone). Ticks that are stored can be precised to
+     * Returns point in time as number of ticks since {@code 1970-01-01T00:00:00Z}. Ticks that are stored can be precised to
      * second, millisecond, microsecond or nanosecond.
      *
      * <p>Precision is a number of digits in fractional seconds part of time, from 0 - whole seconds precision up to 9 - nanoseconds
@@ -581,7 +581,7 @@ public class ColumnType {
         /** Timezone-free datetime. */
         DATETIME,
 
-        /** Number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone). Tick unit depends on precision. */
+        /** Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision. */
         TIMESTAMP,
 
         /** 128-bit UUID. */
