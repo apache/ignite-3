@@ -46,7 +46,7 @@ public class IgniteExceptionHandler implements ExceptionHandler<IgniteException,
                     Problem.fromHttpCode(HttpCode.BAD_REQUEST)
                             .detail(exception.getMessage())
                             .traceId(exception.traceId())
-                            .code(exception.code())
+                            .code(exception.codeAsString())
             );
         }
 
@@ -56,7 +56,7 @@ public class IgniteExceptionHandler implements ExceptionHandler<IgniteException,
                             .detail(exception.getMessage())
                             .invalidParams(mapValidationIssuesToRestFormat((ConfigurationValidationException) exception.getCause()))
                             .traceId(exception.traceId())
-                            .code(exception.code())
+                            .code(exception.codeAsString())
             );
         }
 
@@ -64,7 +64,7 @@ public class IgniteExceptionHandler implements ExceptionHandler<IgniteException,
                 Problem.fromHttpCode(HttpCode.INTERNAL_ERROR)
                         .detail(exception.getMessage())
                         .traceId(exception.traceId())
-                        .code(exception.code())
+                        .code(exception.codeAsString())
         );
     }
 

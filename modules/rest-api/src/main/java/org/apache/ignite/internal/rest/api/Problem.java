@@ -36,7 +36,7 @@ public class Problem {
     private final int status;
 
     /** Ignite 3 error code. */
-    private final int code;
+    private final String code;
 
     /** URI to the error documentation (optional). */
     private final String type;
@@ -55,7 +55,7 @@ public class Problem {
     protected Problem(
             @JsonProperty("title") String title,
             @JsonProperty("status") int status,
-            @JsonProperty("code") int code,
+            @JsonProperty("code") String code,
             @JsonProperty("type") String type,
             @JsonProperty("detail") String detail,
             @JsonProperty("node") String node,
@@ -94,7 +94,7 @@ public class Problem {
     }
 
     @JsonGetter("code")
-    public int code() {
+    public String code() {
         return code;
     }
 
@@ -156,7 +156,7 @@ public class Problem {
 
         protected int status;
 
-        protected int code;
+        protected String code;
 
         protected String type;
 
@@ -176,7 +176,7 @@ public class Problem {
             return (B) this;
         }
 
-        public B code(int code) {
+        public B code(String code) {
             this.code = code;
             return (B) this;
         }

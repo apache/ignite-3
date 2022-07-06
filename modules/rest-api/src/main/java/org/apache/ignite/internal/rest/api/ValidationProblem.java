@@ -37,7 +37,7 @@ public class ValidationProblem extends Problem {
     public ValidationProblem(
             @JsonProperty("title") String title,
             @JsonProperty("status") int status,
-            @JsonProperty("code") int code,
+            @JsonProperty("code") String code,
             @JsonProperty("type") String type,
             @JsonProperty("detail") String detail,
             @JsonProperty("node") String node,

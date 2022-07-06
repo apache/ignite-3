@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.rest.exception.handler;
 
+import static org.apache.ignite.lang.ErrorGroup.errorMessage;
+import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
+import static org.apache.ignite.lang.ErrorGroups.Common.COMMON_ERR_GROUP;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
@@ -46,7 +49,8 @@ class IgniteExceptionHandlerTest {
 
     static Stream<Arguments> igniteExceptions() {
         UUID traceId = UUID.randomUUID();
-        String errorMessage = ErrorGroup.errorMessage(traceId, UNKNOWN_ERR, null);
+        String errorMessage = errorMessage(traceId, UNKNOWN_ERR, null);
+        String humanReadableCode = ErrorGroup.ERR_PREFIX + COMMON_ERR_GROUP.name() + '-' + extractErrorCode(UNKNOWN_ERR);
 
         var invalidParams = List.of(
                 new InvalidParam("key1", "Some issue1"),
@@ -64,7 +68,7 @@ class IgniteExceptionHandlerTest {
                         Problem.builder()
                                 .status(500)
                                 .title("Internal Server Error")
-                                .code(UNKNOWN_ERR)
+                                .code(humanReadableCode)
                                 .detail(errorMessage + " Ooops")
                                 .traceId(traceId)),
                 Arguments.of(
@@ -74,7 +78,7 @@ class IgniteExceptionHandlerTest {
                         Problem.builder()
                                 .status(500)
                                 .title("Internal Server Error")
-                                .code(UNKNOWN_ERR)
+                                .code(humanReadableCode)
                                 .detail(errorMessage)
                                 .traceId(traceId)),
                 Arguments.of(
@@ -84,7 +88,7 @@ class IgniteExceptionHandlerTest {
                         Problem.builder()
                                 .status(400)
                                 .title("Bad Request")
-                                .code(UNKNOWN_ERR)
+                                .code(humanReadableCode)
                                 .traceId(traceId)
                                 .detail(errorMessage + " Illegal value")),
                 Arguments.of(
@@ -98,7 +102,7 @@ class IgniteExceptionHandlerTest {
                                 .status(400)
                                 .title("Bad Request")
                                 .detail(errorMessage + ' ' + validationIssues)
-                                .code(UNKNOWN_ERR)
+                                .code(humanReadableCode)
                                 .traceId(traceId)
                                 .invalidParams(invalidParams))
         );
