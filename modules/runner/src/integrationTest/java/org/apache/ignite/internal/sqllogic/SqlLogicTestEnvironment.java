@@ -51,7 +51,7 @@ public @interface SqlLogicTestEnvironment {
     int nodes() default 2;
 
     /**
-     * Test timeout.
+     * Test timeout (3 min by default).
      *
      * @return Test timeout in millis.
      */
@@ -71,7 +71,7 @@ public @interface SqlLogicTestEnvironment {
         /** Cluster isn't restarted. */
         NONE,
 
-        /** Restart cluster for each tests folder. */
+        /** Restart cluster for each tests' folder. */
         FOLDER,
 
         /** Restart cluster for each test script. */
