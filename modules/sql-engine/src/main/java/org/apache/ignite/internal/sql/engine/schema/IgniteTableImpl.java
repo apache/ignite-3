@@ -252,13 +252,13 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             for (int i = 0; i < desc.columnsCount(); i++) {
                 ColumnDescriptor colDesc = desc.columnDescriptor(i);
 
-                handler.set(i, res, row.value(colDesc.physicalIndex()));
+                handler.set(i, res, TypeUtils.toInternal(ectx, row.value(colDesc.physicalIndex())));
             }
         } else {
             for (int i = 0, j = requiredColumns.nextSetBit(0); j != -1; j = requiredColumns.nextSetBit(j + 1), i++) {
                 ColumnDescriptor colDesc = desc.columnDescriptor(j);
 
-                handler.set(i, res, row.value(colDesc.physicalIndex()));
+                handler.set(i, res, TypeUtils.toInternal(ectx, row.value(colDesc.physicalIndex())));
             }
         }
 
