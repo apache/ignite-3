@@ -53,8 +53,8 @@ import org.junit.jupiter.api.Test;
 public class CheckpointDirtyPagesTest {
     @Test
     void testDirtyPagesCount() {
-        var dirtyPages0 = createDirtyPages(of(0, 0, 0), of(0, 0, 1));
-        var dirtyPages1 = createDirtyPages(of(1, 0, 0), of(1, 0, 1), of(1, 0, 2));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages0 = createDirtyPages(of(0, 0, 0), of(0, 0, 1));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages1 = createDirtyPages(of(1, 0, 0), of(1, 0, 1), of(1, 0, 2));
 
         assertEquals(0, EMPTY.dirtyPagesCount());
         assertEquals(2, new CheckpointDirtyPages(List.of(dirtyPages0)).dirtyPagesCount());
@@ -66,9 +66,9 @@ public class CheckpointDirtyPagesTest {
     void testToQueue() {
         assertTrue(EMPTY.toQueue().isEmpty());
 
-        var dirtyPages0 = createDirtyPages(of(0, 0, 0));
-        var dirtyPages1 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
-        var dirtyPages2 = createDirtyPages(of(2, 0, 0), of(2, 1, 0), of(3, 2, 2));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages0 = createDirtyPages(of(0, 0, 0));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages1 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages2 = createDirtyPages(of(2, 0, 0), of(2, 1, 0), of(3, 2, 2));
 
         CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1, dirtyPages2));
 
@@ -91,10 +91,14 @@ public class CheckpointDirtyPagesTest {
     void testFindView() {
         assertNull(EMPTY.findView(0, 0));
 
-        var dirtyPages0 = createDirtyPages(of(0, 0, 0));
-        var dirtyPages1 = createDirtyPages(of(5, 0, 0));
-        var dirtyPages2 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
-        var dirtyPages3 = createDirtyPages(of(2, 0, 0), of(2, 0, 1), of(2, 1, 1), of(3, 2, 2), of(3, 2, 3));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages0 = createDirtyPages(of(0, 0, 0));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages1 = createDirtyPages(of(5, 0, 0));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages2 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages3 = createDirtyPages(
+                of(2, 0, 0), of(2, 0, 1),
+                of(2, 1, 1),
+                of(3, 2, 2), of(3, 2, 3)
+        );
 
         CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1, dirtyPages2, dirtyPages3));
 
@@ -127,10 +131,14 @@ public class CheckpointDirtyPagesTest {
     void testNextView() {
         assertNull(EMPTY.nextView(null));
 
-        var dirtyPages0 = createDirtyPages(of(0, 0, 0));
-        var dirtyPages1 = createDirtyPages(of(5, 0, 0));
-        var dirtyPages2 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
-        var dirtyPages3 = createDirtyPages(of(2, 0, 0), of(2, 0, 1), of(2, 1, 1), of(3, 2, 2), of(3, 2, 3));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages0 = createDirtyPages(of(0, 0, 0));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages1 = createDirtyPages(of(5, 0, 0));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages2 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages3 = createDirtyPages(
+                of(2, 0, 0), of(2, 0, 1),
+                of(2, 1, 1),
+                of(3, 2, 2), of(3, 2, 3)
+        );
 
         CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1, dirtyPages2, dirtyPages3));
 
@@ -180,10 +188,10 @@ public class CheckpointDirtyPagesTest {
 
     @Test
     void testQueueNextElementInDifferentThreads() throws Exception {
-        var dirtyPages0 = createDirtyPages(of(0, 0, 0));
-        var dirtyPages1 = createDirtyPages(of(1, 0, 0));
-        var dirtyPages2 = createDirtyPages(of(2, 0, 0), of(2, 0, 1));
-        var dirtyPages3 = createDirtyPages(of(3, 0, 0), of(3, 1, 0), of(4, 2, 2));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages0 = createDirtyPages(of(0, 0, 0));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages1 = createDirtyPages(of(1, 0, 0));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages2 = createDirtyPages(of(2, 0, 0), of(2, 0, 1));
+        IgniteBiTuple<PersistentPageMemory, List<FullPageId>> dirtyPages3 = createDirtyPages(of(3, 0, 0), of(3, 1, 0), of(4, 2, 2));
 
         CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1, dirtyPages2, dirtyPages3));
 

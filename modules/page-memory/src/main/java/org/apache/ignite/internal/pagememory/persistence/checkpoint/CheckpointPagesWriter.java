@@ -53,7 +53,12 @@ public class CheckpointPagesWriter implements Runnable {
     /** Checkpoint specific metrics tracker. */
     private final CheckpointMetricsTracker tracker;
 
-    /** Queue of dirty page IDs to write under this task. Overall pages to write may be greater than this queue. */
+    /**
+     * Queue of dirty page IDs to write under this task.
+     *
+     * <p>Overall pages to write may be greater than this queue, since it may be necessary to retire write some pages due to unsuccessful
+     * page write lock acquisition
+     */
     private final CheckpointDirtyPagesQueue writePageIds;
 
     /** Page store used to write -> Count of written pages. */
