@@ -167,7 +167,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
      * @return ColumnType type or null.
      */
     public static ColumnType relDataTypeToColumnType(RelDataType relType) {
-        assert relType != null;
         assert relType instanceof BasicSqlType
                 || relType instanceof IntervalSqlType : "Not supported yet."; // Implement Class->ColumnType mapping if failed.
 
@@ -183,8 +182,9 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case BIGINT:
                 return ColumnType.INT64;
             case DECIMAL:
-                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.decimalOf() :
-                        ColumnType.decimalOf(relType.getPrecision(), relType.getScale());
+                assert relType.getPrecision() != PRECISION_NOT_SPECIFIED;
+
+                return ColumnType.decimalOf(relType.getPrecision(), relType.getScale());
             case FLOAT:
             case REAL:
                 return ColumnType.FLOAT;

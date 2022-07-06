@@ -118,7 +118,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void metadata() {
-        CLUSTER_NODES.get(0).sql().createSession().execute(null, "CREATE TABLE METADATA_TABLE (" + "ID INT PRIMARY KEY, "
+        sql("CREATE TABLE METADATA_TABLE (" + "ID INT PRIMARY KEY, "
                 // + "BOOLEAN_C BOOLEAN, "  //TODO: IGNITE-17298 Boolean type is not supported by Ignite. ANSI`99 syntax.
 
                 // Exact numeric types
