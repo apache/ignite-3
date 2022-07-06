@@ -168,7 +168,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
      */
     public static ColumnType relDataTypeToColumnType(RelDataType relType) {
         assert relType instanceof BasicSqlType
-                || relType instanceof IntervalSqlType : "Not supported yet."; // Implement Class->ColumnType mapping if failed.
+                || relType instanceof IntervalSqlType : "Not supported.";
 
         switch (relType.getSqlTypeName()) {
             case BOOLEAN:

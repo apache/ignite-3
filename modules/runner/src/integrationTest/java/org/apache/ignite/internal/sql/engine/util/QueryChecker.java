@@ -404,7 +404,7 @@ public abstract class QueryChecker {
                 matcher.check(actualElement);
             }
 
-            assertFalse(matcherIterator.hasNext(), "Column metadata doesn't match");
+            assertEquals(metadataMatchers.size(), columnMetadata.size(), "Column metadata doesn't match");
         }
 
         var res = getAllFromCursor(cur);
