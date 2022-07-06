@@ -202,7 +202,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                         new MetadataMatcher().name("TIME_C2").type(SqlColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("TIME_LTZ_C").type(SqlColumnType.TIME).precision(0).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("TIME_LTZ_C2").type(SqlColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("DATETIME_C").type(SqlColumnType.DATETIME).precision(0).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("DATETIME_C").type(SqlColumnType.DATETIME).precision(6).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("DATETIME_C2").type(SqlColumnType.DATETIME).precision(9).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("TIMESTAMP_C").type(SqlColumnType.TIMESTAMP).precision(6).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("TIMESTAMP_C2").type(SqlColumnType.TIMESTAMP).precision(9).scale(UNDEFINED_SCALE),

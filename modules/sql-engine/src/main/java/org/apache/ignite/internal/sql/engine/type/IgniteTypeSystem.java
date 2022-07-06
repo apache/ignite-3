@@ -64,7 +64,6 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
     public int getDefaultPrecision(SqlTypeName typeName) {
         switch (typeName) {
             case TIMESTAMP: // DATETIME
-                return TemporalColumnType.DEFAULT_TIME_PRECISION;
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE: // TIMESTAMP
                 return TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION;
             default:
