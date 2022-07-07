@@ -27,7 +27,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Binary tuple parser allows to get bytes of individual elements from entirety of tuple bytes.
@@ -127,7 +126,7 @@ public class BinaryTupleParser {
 
         int nextOffset = valueBase + getOffset(entry);
         if (nextOffset < offset) {
-            throw new IgniteInternalException("Corrupted offset table");
+            throw new BinaryTupleFormatException("Corrupted offset table");
         }
 
         if (offset == nextOffset && hasNullMap()) {
@@ -154,7 +153,7 @@ public class BinaryTupleParser {
         for (int i = 0; i < numElements; i++) {
             int nextOffset = valueBase + getOffset(entry);
             if (nextOffset < offset) {
-                throw new IgniteInternalException("Corrupted offset table");
+                throw new BinaryTupleFormatException("Corrupted offset table");
             }
 
             if (offset == nextOffset && hasNullMap()) {
@@ -187,7 +186,7 @@ public class BinaryTupleParser {
             case Byte.BYTES:
                 return buffer.get(begin);
             default:
-                throw new IgniteInternalException("Invalid length for a tuple element");
+                throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
     }
 
@@ -207,7 +206,7 @@ public class BinaryTupleParser {
             case Short.BYTES:
                 return buffer.getShort(begin);
             default:
-                throw new IgniteInternalException("Invalid length for a tuple element");
+                throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
     }
 
@@ -229,7 +228,7 @@ public class BinaryTupleParser {
             case Integer.BYTES:
                 return buffer.getInt(begin);
             default:
-                throw new IgniteInternalException("Invalid length for a tuple element");
+                throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
     }
 
@@ -253,7 +252,7 @@ public class BinaryTupleParser {
             case Long.BYTES:
                 return buffer.getLong(begin);
             default:
-                throw new IgniteInternalException("Invalid length for a tuple element");
+                throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
     }
 
@@ -271,7 +270,7 @@ public class BinaryTupleParser {
             case Float.BYTES:
                 return buffer.getFloat(begin);
             default:
-                throw new IgniteInternalException("Invalid length for a tuple element");
+                throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
     }
 
@@ -291,7 +290,7 @@ public class BinaryTupleParser {
             case Double.BYTES:
                 return buffer.getDouble(begin);
             default:
-                throw new IgniteInternalException("Invalid length for a tuple element");
+                throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
     }
 
@@ -361,7 +360,7 @@ public class BinaryTupleParser {
             if (len == 0) {
                 return BinaryTupleSchema.DEFAULT_UUID;
             }
-            throw new IgniteInternalException("Invalid length for a tuple element");
+            throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
         long lsb = buffer.getLong(begin);
         long msb = buffer.getLong(begin + 8);
@@ -392,7 +391,7 @@ public class BinaryTupleParser {
             if (len == 0) {
                 return BinaryTupleSchema.DEFAULT_DATE;
             }
-            throw new IgniteInternalException("Invalid length for a tuple element");
+            throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
         return getDate(begin);
     }
@@ -410,7 +409,7 @@ public class BinaryTupleParser {
             if (len == 0) {
                 return BinaryTupleSchema.DEFAULT_TIME;
             }
-            throw new IgniteInternalException("Invalid length for a tuple element");
+            throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
         return getTime(begin, len);
     }
@@ -428,7 +427,7 @@ public class BinaryTupleParser {
             if (len == 0) {
                 return BinaryTupleSchema.DEFAULT_DATE_TIME;
             }
-            throw new IgniteInternalException("Invalid length for a tuple element");
+            throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
         return LocalDateTime.of(getDate(begin), getTime(begin + 3, len - 3));
     }
@@ -446,7 +445,7 @@ public class BinaryTupleParser {
             if (len == 0) {
                 return BinaryTupleSchema.DEFAULT_TIMESTAMP;
             }
-            throw new IgniteInternalException("Invalid length for a tuple element");
+            throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
         long seconds = buffer.getLong(begin);
         int nanos = len == 8 ? 0 : buffer.getInt(begin + 8);
@@ -468,14 +467,14 @@ public class BinaryTupleParser {
             case Integer.BYTES: {
                 int offset = buffer.getInt(index);
                 if (offset < 0) {
-                    throw new IgniteInternalException("Unsupported offset table size");
+                    throw new BinaryTupleFormatException("Unsupported offset table size");
                 }
                 return offset;
             }
             case Long.BYTES:
-                throw new IgniteInternalException("Unsupported offset table size");
+                throw new BinaryTupleFormatException("Unsupported offset table size");
             default:
-                throw new IgniteInternalException("Invalid offset table size");
+                throw new BinaryTupleFormatException("Invalid offset table size");
         }
     }
 

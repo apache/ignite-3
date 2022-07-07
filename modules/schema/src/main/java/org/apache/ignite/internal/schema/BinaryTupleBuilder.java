@@ -32,7 +32,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -175,7 +174,7 @@ public class BinaryTupleBuilder {
      */
     public BinaryTupleBuilder appendNull() {
         if (!hasNullMap()) {
-            throw new IgniteInternalException("Appending a NULL value in binary tuple builder with disabled NULLs");
+            throw new IllegalStateException("Appending a NULL value in binary tuple builder with disabled NULLs");
         }
 
         hasNullValues = true;
@@ -389,7 +388,7 @@ public class BinaryTupleBuilder {
         try {
             putString(value);
         } catch (CharacterCodingException e) {
-            throw new IgniteInternalException("Failed to encode string in binary tuple builder", e);
+            throw new AssemblyException("Failed to encode string in binary tuple builder", e);
         }
         return proceed();
     }
@@ -668,7 +667,7 @@ public class BinaryTupleBuilder {
         // Shrink the offset table if needed.
         if (desiredEntrySize != entrySize) {
             if (desiredEntrySize > entrySize) {
-                throw new IgniteInternalException("Offset entry overflow in binary tuple builder");
+                throw new IllegalStateException("Offset entry overflow in binary tuple builder");
             }
 
             assert entrySize == 4 || entrySize == 2;
@@ -879,7 +878,7 @@ public class BinaryTupleBuilder {
         do {
             capacity *= 2;
             if (capacity < 0) {
-                throw new IgniteInternalException("Buffer overflow in binary tuple builder");
+                throw new AssemblyException("Buffer overflow in binary tuple builder");
             }
         } while ((capacity - buffer.position()) < size);
 
