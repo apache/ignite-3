@@ -137,7 +137,7 @@ public class CursorImpl<T> implements Cursor<T> {
         @Override
         public boolean hasNext() {
             try {
-                if (internalCacheIterator.hasNext()) {
+                if (internalCacheIterator != null && internalCacheIterator.hasNext()) {
                     return true;
                 } else {
                     return initOp
@@ -159,7 +159,7 @@ public class CursorImpl<T> implements Cursor<T> {
         @Override
         public T next() {
             try {
-                if (internalCacheIterator.hasNext()) {
+                if (internalCacheIterator != null && internalCacheIterator.hasNext()) {
                     return fn.apply(internalCacheIterator.next());
                 } else {
                     Object res = initOp
