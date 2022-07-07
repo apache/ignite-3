@@ -18,10 +18,12 @@
 namespace Apache.Ignite.Internal.Sql
 {
     using System.Threading.Tasks;
+    using Buffers;
     using Common;
     using Ignite.Sql;
     using Ignite.Transactions;
     using Proto;
+    using Transactions;
 
     /// <summary>
     /// SQL API.
@@ -45,9 +47,29 @@ namespace Apache.Ignite.Internal.Sql
         {
             IgniteArgumentCheck.NotNull(statement, nameof(statement));
 
-            await _socket.DoOutInOpAsync(ClientOp.SqlExec, null).ConfigureAwait(false);
+            var tx = transaction.ToInternal();
 
-            return null!;
+            using var bufferWriter = Write();
+            using var buf = await _socket.DoOutInOpAsync(ClientOp.SqlExec, tx, bufferWriter).ConfigureAwait(false);
+
+            return Read(buf);
+
+            PooledArrayBufferWriter Write()
+            {
+                var writer = new PooledArrayBufferWriter();
+                var w = writer.GetMessageWriter();
+
+                w.Flush();
+                return writer;
+            }
+
+            static IResultSet Read(in PooledBuffer buf)
+            {
+                var reader = buf.GetReader();
+
+                // TODO
+                return (IResultSet)reader.ReadObjectWithType()!;
+            }
         }
     }
 }

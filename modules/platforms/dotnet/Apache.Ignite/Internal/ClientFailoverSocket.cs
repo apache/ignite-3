@@ -30,6 +30,7 @@ namespace Apache.Ignite.Internal
     using Buffers;
     using Log;
     using Proto;
+    using Transactions;
 
     /// <summary>
     /// Client socket wrapper with reconnect/failover functionality.
@@ -101,6 +102,33 @@ namespace Apache.Ignite.Internal
             _ = socket.ConnectAllSockets();
 
             return socket;
+        }
+
+        /// <summary>
+        /// Performs an in-out operation.
+        /// </summary>
+        /// <param name="clientOp">Client op code.</param>
+        /// <param name="tx">Transaction.</param>
+        /// <param name="request">Request data.</param>
+        /// <returns>Response data.</returns>
+        public async Task<PooledBuffer> DoOutInOpAsync(
+            ClientOp clientOp,
+            Transaction? tx,
+            PooledArrayBufferWriter? request = null)
+        {
+            if (tx == null)
+            {
+                // Use failover socket with reconnect and retry behavior.
+                return await DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+            }
+
+            if (tx.FailoverSocket != this)
+            {
+                throw new IgniteClientException("Specified transaction belongs to a different IgniteClient instance.");
+            }
+
+            // Use tx-specific socket without retry and failover.
+            return await tx.Socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
         }
 
         /// <summary>
