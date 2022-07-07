@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
+import static java.util.Objects.requireNonNull;
+
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import static java.util.Objects.requireNonNull;
 
 /**
  * Range command for MetaStorageCommandListener that retrieves entries for the given key range in lexicographic order. Entries will be
@@ -157,36 +157,58 @@ public final class RangeCommand implements WriteCommand {
 
         private int batchSize = DEFAULT_BATCH_SIZE;
 
+        /**
+         * The builder constructor.
+         */
         public RangeCommandBuilder(@NotNull ByteArray keyFrom, @NotNull String requesterNodeId, @NotNull IgniteUuid cursorId) {
             this.keyFrom = keyFrom;
             this.requesterNodeId = requesterNodeId;
             this.cursorId = cursorId;
         }
 
+        /**
+         * @param keyTo Key to.
+         * @return This for chaining.
+         */
         public RangeCommandBuilder keyTo(ByteArray keyTo) {
             this.keyTo = keyTo;
 
             return this;
         }
 
+        /**
+         * @param revUpperBound Upper bound revision.
+         * @return This for chaining.
+         */
         public RangeCommandBuilder revUpperBound(long revUpperBound) {
             this.revUpperBound = revUpperBound;
 
             return this;
         }
 
+        /**
+         * @param includeTombstones Whether to include tombstones.
+         * @return This for chaining.
+         */
         public RangeCommandBuilder includeTombstones(boolean includeTombstones) {
             this.includeTombstones = includeTombstones;
 
             return this;
         }
 
+        /**
+         * @param batchSize Batch size.
+         * @return This for chaining.
+         */
         public RangeCommandBuilder batchSize(int batchSize) {
             this.batchSize = batchSize;
 
             return this;
         }
 
+        /**
+         * @return Range command.
+         */
         public RangeCommand build() {
             return new RangeCommand(
                 requireNonNull(keyFrom),

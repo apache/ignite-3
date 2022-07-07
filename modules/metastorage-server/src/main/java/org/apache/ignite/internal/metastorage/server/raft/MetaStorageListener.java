@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
+import static java.util.Objects.requireNonNull;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -84,8 +86,6 @@ import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
-
-import static java.util.Objects.requireNonNull;
 
 /**
  * Meta storage listener.

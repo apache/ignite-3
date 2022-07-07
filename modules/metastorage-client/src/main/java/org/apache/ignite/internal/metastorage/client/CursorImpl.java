@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
+import static java.util.Collections.singleton;
+
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -32,8 +34,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-
-import static java.util.Collections.singleton;
 
 /**
  * Meta storage service side implementation of cursor.
@@ -60,9 +60,9 @@ public class CursorImpl<T> implements Cursor<T> {
      * @param fn                    Function transforming the element of type {@link M} to the type of {@link T}.
      */
     <M> CursorImpl(
-        RaftGroupService metaStorageRaftGrpSvc,
-        CompletableFuture<IgniteUuid> initOp,
-        Function<M, T> fn
+            RaftGroupService metaStorageRaftGrpSvc,
+            CompletableFuture<IgniteUuid> initOp,
+            Function<M, T> fn
     ) {
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
         this.initOp = initOp;
@@ -79,10 +79,10 @@ public class CursorImpl<T> implements Cursor<T> {
      * @param fn                    Function transforming the element of type {@link M} to the type of {@link T}.
      */
     <M> CursorImpl(
-        RaftGroupService metaStorageRaftGrpSvc,
-        CompletableFuture<IgniteUuid> initOp,
-        Function<Object, Iterable<M>> internalCacheFn,
-        Function<M, T> fn
+            RaftGroupService metaStorageRaftGrpSvc,
+            CompletableFuture<IgniteUuid> initOp,
+            Function<Object, Iterable<M>> internalCacheFn,
+            Function<M, T> fn
     ) {
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
         this.initOp = initOp;
