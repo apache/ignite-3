@@ -22,7 +22,6 @@ import static java.util.Collections.shuffle;
 import static java.util.Collections.singleton;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.pagememory.datastructure.DataStructure.rnd;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
 import static org.apache.ignite.internal.pagememory.tree.AbstractBplusTreePageMemoryTest.TestTree.threadId;
@@ -30,6 +29,7 @@ import static org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationTyp
 import static org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType.PUT;
 import static org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType.REMOVE;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.effectivePageId;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreaded;
@@ -72,6 +72,7 @@ import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
@@ -92,7 +93,6 @@ import org.apache.ignite.internal.util.IgniteCursor;
 import org.apache.ignite.internal.util.IgniteRandom;
 import org.apache.ignite.internal.util.IgniteStripedLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringBuilder;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -159,7 +159,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         pageMem.start();
 
-        reuseList = createReuseList(GROUP_ID, pageMem, 0, true);
+        reuseList = createReuseList(GROUP_ID, 0, pageMem, 0, true);
     }
 
     @AfterEach
@@ -214,17 +214,22 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     /**
-     * Returns reuse list.
+     * Creates a reuse list, {@code null} if not needed.
      *
      * @param grpId Cache ID.
+     * @param partId Partition ID.
      * @param pageMem Page memory.
      * @param rootId Root page ID.
      * @param initNew Init new flag.
      * @throws Exception If failed.
      */
-    protected ReuseList createReuseList(int grpId, PageMemory pageMem, long rootId, boolean initNew) throws Exception {
-        return null;
-    }
+    protected abstract @Nullable ReuseList createReuseList(
+            int grpId,
+            int partId,
+            PageMemory pageMem,
+            long rootId,
+            boolean initNew
+    ) throws Exception;
 
     @Test
     public void testFind() throws Exception {
@@ -2528,7 +2533,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     protected TestTree createTestTree(boolean canGetRow) throws Exception {
-        TestTree tree = new TestTree(reuseList, canGetRow, GROUP_ID, pageMem, allocateMetaPage().pageId());
+        TestTree tree = new TestTree(allocateMetaPage(), reuseList, canGetRow, pageMem);
 
         assertEquals(0, tree.size());
         assertEquals(0, tree.rootLevel());
@@ -2537,7 +2542,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     private FullPageId allocateMetaPage() throws Exception {
-        return new FullPageId(pageMem.allocatePage(GROUP_ID, INDEX_PARTITION, FLAG_AUX), GROUP_ID);
+        return new FullPageId(pageMem.allocatePage(GROUP_ID, 0, FLAG_AUX), GROUP_ID);
     }
 
     /**
@@ -2550,29 +2555,27 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         /**
          * Constructor.
          *
+         * @param metaPageId Meta page ID.
          * @param reuseList Reuse list.
          * @param canGetRow Can get row from inner page.
-         * @param grpId Group ID.
          * @param pageMem Page memory.
-         * @param metaPageId Meta page ID.
          * @throws Exception If failed.
          */
         public TestTree(
+                FullPageId metaPageId,
                 @Nullable ReuseList reuseList,
                 boolean canGetRow,
-                int grpId,
-                PageMemory pageMem,
-                long metaPageId
+                PageMemory pageMem
         ) throws Exception {
             super(
                     "test",
-                    grpId,
+                    metaPageId.groupId(),
                     null,
+                    partitionId(metaPageId.pageId()),
                     pageMem,
                     new TestPageLockListener(PageLockListenerNoOp.INSTANCE),
-                    FLAG_AUX,
                     new AtomicLong(),
-                    metaPageId,
+                    metaPageId.pageId(),
                     reuseList,
                     new IoVersions<>(new LongInnerIo(canGetRow)),
                     new IoVersions<>(new LongLeafIo()),
@@ -2655,12 +2658,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         @Override
         protected int getLockRetries() {
             return numRetries;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-            return pageMem.allocatePage(grpId, INDEX_PARTITION, defaultPageFlag);
         }
     }
 

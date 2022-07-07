@@ -171,4 +171,11 @@ public final class FullPageId {
                 .app(", effectivePageId=").appendHex(effectivePageId())
                 .app(", groupId=").app(groupId).app(']').toString();
     }
+
+    /**
+     * Returns the partition ID.
+     */
+    public int partitionId() {
+        return PageIdUtils.partitionId(pageId);
+    }
 }

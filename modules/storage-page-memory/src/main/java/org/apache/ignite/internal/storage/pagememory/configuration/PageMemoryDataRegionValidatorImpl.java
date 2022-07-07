@@ -53,7 +53,11 @@ public class PageMemoryDataRegionValidatorImpl implements Validator<PageMemoryDa
             assert engineConfig != null;
 
             if (!contains(engineConfig, dataRegionName)) {
-                ctx.addIssue(unableToFindDataRegionIssue(dataRegionName, VolatilePageMemoryStorageEngineConfiguration.KEY));
+                ctx.addIssue(unableToFindDataRegionIssue(
+                        ctx.currentKey(),
+                        dataRegionName,
+                        VolatilePageMemoryStorageEngineConfiguration.KEY)
+                );
             }
         } else if (newOwner instanceof PersistentPageMemoryDataStorageView) {
             PersistentPageMemoryStorageEngineView engineConfig = ctx.getNewRoot(PersistentPageMemoryStorageEngineConfiguration.KEY);
@@ -61,10 +65,14 @@ public class PageMemoryDataRegionValidatorImpl implements Validator<PageMemoryDa
             assert engineConfig != null;
 
             if (!contains(engineConfig, dataRegionName)) {
-                ctx.addIssue(unableToFindDataRegionIssue(dataRegionName, PersistentPageMemoryStorageEngineConfiguration.KEY));
+                ctx.addIssue(unableToFindDataRegionIssue(
+                        ctx.currentKey(),
+                        dataRegionName,
+                        PersistentPageMemoryStorageEngineConfiguration.KEY)
+                );
             }
         } else {
-            ctx.addIssue(new ValidationIssue(String.format("Unknown data storage '%s'", newOwner)));
+            ctx.addIssue(new ValidationIssue(ctx.currentKey(), String.format("Unknown data storage '%s'", newOwner)));
         }
     }
 
@@ -76,7 +84,10 @@ public class PageMemoryDataRegionValidatorImpl implements Validator<PageMemoryDa
         return engineConfig.defaultRegion().name().equals(dataRegionName) || engineConfig.regions().get(dataRegionName) != null;
     }
 
-    private static ValidationIssue unableToFindDataRegionIssue(String dataRegionName, RootKey<?, ?> rootKey) {
-        return new ValidationIssue(String.format("Unable to find data region '%s' in configuration '%s'", dataRegionName, rootKey));
+    private static ValidationIssue unableToFindDataRegionIssue(String validationKey, String dataRegionName, RootKey<?, ?> rootKey) {
+        return new ValidationIssue(
+                validationKey,
+                String.format("Unable to find data region '%s' in configuration '%s'", dataRegionName, rootKey)
+        );
     }
 }

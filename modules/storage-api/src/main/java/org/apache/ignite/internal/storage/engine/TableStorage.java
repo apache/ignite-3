@@ -79,6 +79,13 @@ public interface TableStorage {
     void dropIndex(String indexName);
 
     /**
+     * Returns {@code true} if this storage is volatile (i.e. stores its data in memory), or {@code false} if it's persistent.
+     *
+     * @return {@code true} if this storage is volatile (i.e. stores its data in memory), or {@code false} if it's persistent.
+     */
+    boolean isVolatile();
+
+    /**
      * Returns the table configuration.
      */
     TableConfiguration configuration();

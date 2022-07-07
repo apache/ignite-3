@@ -85,6 +85,11 @@ public class TestConcurrentHashMapTableStorage implements TableStorage {
         throw new UnsupportedOperationException("Not supported yet");
     }
 
+    @Override
+    public boolean isVolatile() {
+        return true;
+    }
+
     /** {@inheritDoc} */
     @Override
     public TableConfiguration configuration() {

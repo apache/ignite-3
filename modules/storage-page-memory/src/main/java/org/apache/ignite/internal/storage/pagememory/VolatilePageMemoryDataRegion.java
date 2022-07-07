@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import org.apache.ignite.internal.pagememory.DataRegion;
@@ -40,6 +39,8 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  */
 class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemory> {
     private static final int FREE_LIST_GROUP_ID = 0;
+
+    private static final int FREE_LIST_PARTITION_ID = 0;
 
     private final VolatilePageMemoryDataRegionConfiguration cfg;
 
@@ -103,10 +104,11 @@ class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemory> {
     }
 
     private TableFreeList createTableFreeList(PageMemory pageMemory) throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID, INDEX_PARTITION, FLAG_AUX);
+        long metaPageId = pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
 
         return new TableFreeList(
-                VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID,
+                FREE_LIST_GROUP_ID,
+                FREE_LIST_PARTITION_ID,
                 pageMemory,
                 PageLockListenerNoOp.INSTANCE,
                 metaPageId,
@@ -117,12 +119,15 @@ class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemory> {
         );
     }
 
-    private static VersionChainFreeList createVersionChainFreeList(PageMemory pageMemory, ReuseList reuseList)
-            throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID, INDEX_PARTITION, FLAG_AUX);
+    private static VersionChainFreeList createVersionChainFreeList(
+            PageMemory pageMemory,
+            ReuseList reuseList
+    ) throws IgniteInternalCheckedException {
+        long metaPageId = pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
 
         return new VersionChainFreeList(
-                VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID,
+                FREE_LIST_GROUP_ID,
+                FREE_LIST_PARTITION_ID,
                 pageMemory,
                 reuseList,
                 PageLockListenerNoOp.INSTANCE,
@@ -134,12 +139,19 @@ class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemory> {
         );
     }
 
-    private static RowVersionFreeList createRowVersionFreeList(PageMemory pageMemory, ReuseList reuseList)
-            throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID, INDEX_PARTITION, FLAG_AUX);
+    private static RowVersionFreeList createRowVersionFreeList(
+            PageMemory pageMemory,
+            ReuseList reuseList
+    ) throws IgniteInternalCheckedException {
+        long metaPageId = pageMemory.allocatePage(
+                FREE_LIST_GROUP_ID,
+                FREE_LIST_PARTITION_ID,
+                FLAG_AUX
+        );
 
         return new RowVersionFreeList(
-                VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID,
+                FREE_LIST_GROUP_ID,
+                FREE_LIST_PARTITION_ID,
                 pageMemory,
                 reuseList,
                 PageLockListenerNoOp.INSTANCE,

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getBytes;
@@ -47,55 +46,45 @@ import org.jetbrains.annotations.Nullable;
  * {@link BplusTree} implementation for storage-page-memory module.
  */
 public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
-    private final int partId;
-
     /**
      * Constructor.
      *
      * @param grpId Group ID.
      * @param grpName Group name.
+     * @param partId Partition ID.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
      * @param globalRmvId Global remove ID.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
-     * @param partId Partition id.
      * @param initNew {@code True} if new tree should be created.
      */
     public TableTree(
             int grpId,
             String grpName,
+            int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
-            int partId,
             boolean initNew
     ) throws IgniteInternalCheckedException {
         super(
                 "TableTree_" + grpId,
                 grpId,
                 grpName,
+                partId,
                 pageMem,
                 lockLsnr,
-                FLAG_AUX,
                 globalRmvId,
                 metaPageId,
                 reuseList
         );
 
-        this.partId = partId;
-
         setIos(TableInnerIo.VERSIONS, TableLeafIo.VERSIONS, TableMetaIo.VERSIONS);
 
         initTree(initNew);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-        return pageMem.allocatePage(grpId, partId, defaultPageFlag);
     }
 
     /** {@inheritDoc} */

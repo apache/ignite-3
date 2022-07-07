@@ -53,12 +53,14 @@ public class ExistingDataStorageValidator implements Validator<ExistingDataStora
         String newValue = ctx.getNewValue();
 
         if (!dataStorages.contains(newValue)) {
-            ctx.addIssue(new ValidationIssue(String.format(
-                    "Non-existent data storage [dataStorage=%s, existDataStorages=%s, key=%s]",
-                    newValue,
-                    dataStorages,
-                    ctx.currentKey()
-            )));
+            ctx.addIssue(new ValidationIssue(
+                    ctx.currentKey(),
+                    String.format(
+                            "Non-existent data storage [dataStorage=%s, existDataStorages=%s, key=%s]",
+                            newValue,
+                            dataStorages,
+                            ctx.currentKey()
+                    )));
         }
     }
 }

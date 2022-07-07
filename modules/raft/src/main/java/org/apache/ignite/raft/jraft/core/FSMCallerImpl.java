@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static java.util.stream.Collectors.toList;
+
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
@@ -24,7 +26,8 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -57,14 +60,12 @@ import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
 
-import static java.util.stream.Collectors.toList;
-
 /**
  * The finite state machine caller implementation.
  */
 public class FSMCallerImpl implements FSMCaller {
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(FSMCallerImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(FSMCallerImpl.class);
 
     /**
      * Task type

@@ -17,21 +17,19 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import static java.nio.file.Files.createDirectories;
-import static java.nio.file.Files.createFile;
-import static java.nio.file.Files.list;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.IgniteUtils.deleteIfExists;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.startsWith;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.FileWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -50,7 +48,7 @@ public class CheckpointMarkersStorageTest {
 
     @Test
     void testFailCreateCheckpointDir() throws Exception {
-        Path testFile = createFile(workDir.resolve("testFile"));
+        Path testFile = Files.createFile(workDir.resolve("testFile"));
 
         try (FileWriter fileWriter = new FileWriter(testFile.toFile(), StandardCharsets.UTF_8)) {
             fileWriter.write("testString");
@@ -63,50 +61,50 @@ public class CheckpointMarkersStorageTest {
                 () -> new CheckpointMarkersStorage(testFile)
         );
 
-        assertThat(exception.getMessage(), startsWith("Could not create directory for checkpoint metadata"));
+        assertThat(exception.getMessage(), containsString("Could not create directory for checkpoint metadata"));
     }
 
     @Test
     void testNotOnlyMarkersFiles() throws Exception {
-        createFile(createDirectories(cpDir()).resolve("test"));
+        Files.createFile(Files.createDirectories(cpDir()).resolve("test"));
 
         IgniteInternalCheckedException exception = assertThrows(
                 IgniteInternalCheckedException.class,
                 () -> new CheckpointMarkersStorage(workDir)
         );
 
-        assertThat(exception.getMessage(), startsWith("Not checkpoint markers found, they need to be removed manually"));
+        assertThat(exception.getMessage(), containsString("Not checkpoint markers found, they need to be removed manually"));
     }
 
     @Test
     void testTmpMarkersFiles() throws Exception {
-        createDirectories(cpDir());
+        Files.createDirectories(cpDir());
 
         UUID id = UUID.randomUUID();
 
-        createFile(cpDir().resolve(startMarkerFileName(id) + ".tmp"));
-        createFile(cpDir().resolve(endMarkerFileName(id) + ".tmp"));
+        Files.createFile(cpDir().resolve(startMarkerFileName(id) + ".tmp"));
+        Files.createFile(cpDir().resolve(endMarkerFileName(id) + ".tmp"));
 
         IgniteInternalCheckedException exception = assertThrows(
                 IgniteInternalCheckedException.class,
                 () -> new CheckpointMarkersStorage(workDir)
         );
 
-        assertThat(exception.getMessage(), startsWith("Not checkpoint markers found, they need to be removed manually"));
+        assertThat(exception.getMessage(), containsString("Not checkpoint markers found, they need to be removed manually"));
     }
 
     @Test
     void testCheckpointWithoutEndMarker() throws Exception {
-        createDirectories(cpDir());
+        Files.createDirectories(cpDir());
 
-        createFile(startMarkerFilePath(UUID.randomUUID()));
+        Files.createFile(startMarkerFilePath(UUID.randomUUID()));
 
         IgniteInternalCheckedException exception = assertThrows(
                 IgniteInternalCheckedException.class,
                 () -> new CheckpointMarkersStorage(workDir)
         );
 
-        assertThat(exception.getMessage(), startsWith("Found incomplete checkpoints"));
+        assertThat(exception.getMessage(), containsString("Found incomplete checkpoints"));
     }
 
     @Test
@@ -118,10 +116,12 @@ public class CheckpointMarkersStorageTest {
         markersStorage.onCheckpointBegin(id0);
         markersStorage.onCheckpointEnd(id0);
 
-        assertThat(
-                list(cpDir()).collect(toSet()),
-                equalTo(Set.of(startMarkerFilePath(id0), endMarkerFilePath(id0)))
-        );
+        try (Stream<Path> files = Files.list(cpDir())) {
+            assertThat(
+                    files.collect(toSet()),
+                    containsInAnyOrder(startMarkerFilePath(id0), endMarkerFilePath(id0))
+            );
+        }
 
         deleteIfExists(cpDir());
 
@@ -130,14 +130,14 @@ public class CheckpointMarkersStorageTest {
                 () -> markersStorage.onCheckpointBegin(UUID.randomUUID())
         );
 
-        assertThat(exception.getMessage(), startsWith("Could not create start checkpoint marker"));
+        assertThat(exception.getMessage(), containsString("Could not create start checkpoint marker"));
 
         exception = assertThrows(
                 IgniteInternalCheckedException.class,
                 () -> markersStorage.onCheckpointEnd(id0)
         );
 
-        assertThat(exception.getMessage(), startsWith("Could not create end checkpoint marker"));
+        assertThat(exception.getMessage(), containsString("Could not create end checkpoint marker"));
     }
 
     @Test
@@ -157,10 +157,12 @@ public class CheckpointMarkersStorageTest {
         markersStorage.onCheckpointBegin(id2);
         markersStorage.onCheckpointEnd(id2);
 
-        assertThat(
-                list(cpDir()).collect(toSet()),
-                equalTo(Set.of(startMarkerFilePath(id2), endMarkerFilePath(id2)))
-        );
+        try (Stream<Path> files = Files.list(cpDir())) {
+            assertThat(
+                    files.collect(toSet()),
+                    containsInAnyOrder(startMarkerFilePath(id2), endMarkerFilePath(id2))
+            );
+        }
     }
 
     private Path cpDir() {
