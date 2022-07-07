@@ -20,13 +20,14 @@ package org.apache.ignite.cli.core.exception.handler;
 import org.apache.ignite.cli.config.ConfigStoringException;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Handler for {@link ConfigStoringException}.
  */
 public class ConfigStoringExceptionHandler implements ExceptionHandler<ConfigStoringException> {
-    private static final IgniteLogger log = IgniteLogger.forClass(ConfigStoringExceptionHandler.class);
+    private static final IgniteLogger log = Loggers.forClass(ConfigStoringExceptionHandler.class);
 
     @Override
     public int handle(ExceptionWriter err, ConfigStoringException e) {

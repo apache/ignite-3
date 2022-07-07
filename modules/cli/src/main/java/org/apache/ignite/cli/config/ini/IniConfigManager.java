@@ -29,13 +29,14 @@ import org.apache.ignite.cli.config.ConfigInitializationException;
 import org.apache.ignite.cli.config.ConfigManager;
 import org.apache.ignite.cli.config.Profile;
 import org.apache.ignite.cli.config.ProfileNotFoundException;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Implementation of {@link ConfigManager} based on {@link IniFile}.
  */
 public class IniConfigManager implements ConfigManager {
-    private static final IgniteLogger log = IgniteLogger.forClass(IniConfigManager.class);
+    private static final IgniteLogger log = Loggers.forClass(IniConfigManager.class);
 
     private static final String INTERNAL_SECTION_NAME = "ignitecli_internal";
 
