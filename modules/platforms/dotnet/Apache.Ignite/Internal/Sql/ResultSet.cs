@@ -95,10 +95,13 @@ namespace Apache.Ignite.Internal.Sql
 
             _buffer.Dispose();
 
-            using var writer = new PooledArrayBufferWriter();
-            Write(writer.GetMessageWriter());
+            if (_resourceId != null)
+            {
+                using var writer = new PooledArrayBufferWriter();
+                Write(writer.GetMessageWriter());
 
-            await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
+                await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
+            }
         }
 
         /// <inheritdoc/>

@@ -29,7 +29,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestSimpleQuery()
         {
-            await using IResultSet resultSet = await Client.Sql.ExecuteAsync(null, "SELECT ?", 1);
+            await using IResultSet resultSet = await Client.Sql.ExecuteAsync(null, "SELECT 1", 1);
 
             Assert.AreEqual(-1, resultSet.AffectedRows);
         }

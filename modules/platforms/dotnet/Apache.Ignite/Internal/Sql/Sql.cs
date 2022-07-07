@@ -76,6 +76,8 @@ namespace Apache.Ignite.Internal.Sql
                 w.Write(statement.Query);
                 w.Write(statement.Prepared);
 
+                w.WriteObjectArrayWithTypes(args);
+
                 w.Flush();
                 return writer;
             }
