@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Type;
