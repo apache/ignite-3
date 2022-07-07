@@ -17,8 +17,15 @@
 
 namespace Apache.Ignite.Sql
 {
-    public interface ISqlStatement
+    /// <summary>
+    /// Query result set.
+    /// </summary>
+    public interface IResultSet
     {
-
+        /// <summary>
+        /// Gets the number of rows affected by the DML statement execution (such as "INSERT", "UPDATE", etc.),
+        /// or 0 if the statement returns nothing (such as "ALTER TABLE", etc), or -1 if not applicable.
+        /// </summary>
+        long AffectedRows { get; }
     }
 }

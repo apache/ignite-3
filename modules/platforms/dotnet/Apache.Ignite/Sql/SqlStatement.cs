@@ -21,10 +21,15 @@ namespace Apache.Ignite.Sql
     using System.Collections.Generic;
 
     /// <summary>
-    /// SQL statement configuration.
+    /// SQL statement.
     /// </summary>
-    public sealed record SqlStatementConfiguration
+    public sealed record SqlStatement
     {
+        /// <summary>
+        /// Gets or sets the query text.
+        /// </summary>
+        public string Query { get; set; } = string.Empty;
+
         /// <summary>
         /// Gets or sets the query timeout (zero means no timeout).
         /// </summary>
@@ -43,6 +48,6 @@ namespace Apache.Ignite.Sql
         /// <summary>
         /// Gets the property bag.
         /// </summary>
-        public Dictionary<string, object?> Properties { get; } = new();
+        public Dictionary<string, object?> Properties { get; } = new(); // TODO: shallow clone issue when using "with {}" ?
     }
 }

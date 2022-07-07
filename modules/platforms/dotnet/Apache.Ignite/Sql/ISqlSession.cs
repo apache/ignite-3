@@ -17,8 +17,21 @@
 
 namespace Apache.Ignite.Sql
 {
-    public interface ISqlSession
-    {
+    using System.Threading.Tasks;
+    using Transactions;
 
+    /// <summary>
+    /// SQL Session executes queries and holds default query settings.
+    /// </summary>
+    public interface ISqlSession // TODO: Rename to ISession, along with other things?
+    {
+        /// <summary>
+        /// Executes single SQL statement.
+        /// </summary>
+        /// <param name="transaction">Optional transaction.</param>
+        /// <param name="statement">Statement to execute.</param>
+        /// <param name="args">Arguments for the statement.</param>
+        /// <returns>SQL result set.</returns>
+        Task<IResultSet> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object[] args);
     }
 }

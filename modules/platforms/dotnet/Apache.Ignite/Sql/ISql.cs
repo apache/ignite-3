@@ -28,13 +28,5 @@ namespace Apache.Ignite.Sql
         /// <param name="configuration">Optional session configuration.</param>
         /// <returns>SQL session.</returns>
         ISqlSession CreateSession(SqlSessionConfiguration? configuration = null);
-
-        /// <summary>
-        /// Creates an SQL statement.
-        /// </summary>
-        /// <param name="query">Query text.</param>
-        /// <param name="statementConfiguration">Optional statement configuration. Overrides session configuration.</param>
-        /// <returns>SQL statement.</returns>
-        ISqlStatement CreateStatement(string query, SqlStatementConfiguration? statementConfiguration = null);
     }
 }
