@@ -32,6 +32,8 @@ namespace Apache.Ignite.Internal.Sql
     /// </summary>
     internal sealed class ResultSet : IResultSet<IIgniteTuple>
     {
+        private record BufferHolder(PooledBuffer Buffer, int Offset);
+
         private readonly ClientSocket _socket;
 
         private readonly long? _resourceId;
@@ -40,7 +42,7 @@ namespace Apache.Ignite.Internal.Sql
 
         private volatile bool _closed;
 
-        private PooledBuffer _buffer;
+        private volatile BufferHolder? _buffer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ResultSet"/> class.
@@ -64,7 +66,7 @@ namespace Apache.Ignite.Internal.Sql
 
             if (HasRowSet)
             {
-                _buffer = buf;
+                _buffer = new BufferHolder(buf, reader.Position.GetInteger());
             }
             else
             {
@@ -93,7 +95,7 @@ namespace Apache.Ignite.Internal.Sql
                 return;
             }
 
-            _buffer.Dispose();
+            _buffer?.Buffer.Dispose();
 
             if (_resourceId != null)
             {
