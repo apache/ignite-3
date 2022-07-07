@@ -22,12 +22,13 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorCloseCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorHasNextCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCommand;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -39,7 +40,7 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
  */
 public class CursorImpl<T> implements Cursor<T> {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(CursorImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(CursorImpl.class);
 
     /** Future that runs meta storage service operation that provides cursor. */
     private final CompletableFuture<IgniteUuid> initOp;

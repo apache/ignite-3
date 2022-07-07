@@ -21,7 +21,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.core.Scheduler;
 import org.apache.ignite.raft.jraft.option.CopyOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -41,7 +42,7 @@ import org.apache.ignite.raft.jraft.util.Utils;
  */
 public class RemoteFileCopier {
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RemoteFileCopier.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RemoteFileCopier.class);
 
     private long readId;
     private RaftClientService rpcService;

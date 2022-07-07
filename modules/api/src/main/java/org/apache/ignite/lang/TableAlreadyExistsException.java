@@ -17,6 +17,8 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_ALREADY_EXISTS_ERR;
+
 /**
  * This exception is thrown when a new table failed to be created, because a table with same name already exists.
  */
@@ -27,6 +29,6 @@ public class TableAlreadyExistsException extends IgniteException {
      * @param name Table name.
      */
     public TableAlreadyExistsException(String name) {
-        super(IgniteStringFormatter.format("Table already exists [name={}]", name));
+        super(TABLE_ALREADY_EXISTS_ERR, "Table already exists [name=" + name + ']');
     }
 }

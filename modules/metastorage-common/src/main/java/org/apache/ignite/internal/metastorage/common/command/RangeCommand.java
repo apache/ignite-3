@@ -48,6 +48,9 @@ public final class RangeCommand implements WriteCommand {
     @NotNull
     private final IgniteUuid cursorId;
 
+    /** Whether to include tombstone entries. */
+    private final boolean includeTombstones;
+
     /**
      * Constructor.
      *
@@ -81,11 +84,33 @@ public final class RangeCommand implements WriteCommand {
             @NotNull String requesterNodeId,
             @NotNull IgniteUuid cursorId
     ) {
+        this(keyFrom, keyTo, revUpperBound, requesterNodeId, cursorId, false);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param keyFrom           Start key of range (inclusive).
+     * @param keyTo             End key of range (exclusive).
+     * @param revUpperBound     The upper bound for entry revision. {@code -1} means latest revision.
+     * @param requesterNodeId   Id of the node that requests range.
+     * @param cursorId          Id of cursor that is associated with the current command.
+     * @param includeTombstones Whether to include tombstones.
+     */
+    public RangeCommand(
+            @NotNull ByteArray keyFrom,
+            @Nullable ByteArray keyTo,
+            long revUpperBound,
+            @NotNull String requesterNodeId,
+            @NotNull IgniteUuid cursorId,
+            boolean includeTombstones
+    ) {
         this.keyFrom = keyFrom.bytes();
         this.keyTo = keyTo == null ? null : keyTo.bytes();
         this.revUpperBound = revUpperBound;
         this.requesterNodeId = requesterNodeId;
         this.cursorId = cursorId;
+        this.includeTombstones = includeTombstones;
     }
 
     /**
@@ -122,5 +147,12 @@ public final class RangeCommand implements WriteCommand {
     @NotNull
     public IgniteUuid getCursorId() {
         return cursorId;
+    }
+
+    /**
+     * Returns the boolean value indicating whether this range command is supposed to include tombstone entries into the cursor.
+     */
+    public boolean includeTombstones() {
+        return includeTombstones;
     }
 }

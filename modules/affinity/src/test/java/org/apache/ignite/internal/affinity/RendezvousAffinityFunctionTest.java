@@ -31,8 +31,9 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.NotNull;
@@ -43,7 +44,7 @@ import org.junit.jupiter.api.Test;
  */
 public class RendezvousAffinityFunctionTest {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RendezvousAffinityFunctionTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RendezvousAffinityFunctionTest.class);
 
     /** Affinity deviation ratio. */
     public static final double AFFINITY_DEVIATION_RATIO = 0.2;

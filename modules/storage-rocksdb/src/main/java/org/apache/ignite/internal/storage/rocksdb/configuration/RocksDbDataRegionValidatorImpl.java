@@ -40,11 +40,13 @@ public class RocksDbDataRegionValidatorImpl implements Validator<RocksDbDataRegi
         assert engineConfig != null;
 
         if (!contains(engineConfig, dataRegion)) {
-            ctx.addIssue(new ValidationIssue(String.format(
-                    "Unable to find data region '%s' in configuration '%s'",
-                    dataRegion,
-                    RocksDbStorageEngineConfiguration.KEY
-            )));
+            ctx.addIssue(new ValidationIssue(
+                    ctx.currentKey(),
+                    String.format(
+                            "Unable to find data region '%s' in configuration '%s'",
+                            dataRegion,
+                            RocksDbStorageEngineConfiguration.KEY
+                    )));
         }
     }
 

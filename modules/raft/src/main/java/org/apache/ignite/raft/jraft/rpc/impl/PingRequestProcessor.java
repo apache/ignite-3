@@ -17,7 +17,8 @@
 package org.apache.ignite.raft.jraft.rpc.impl;
 
 import java.util.concurrent.Executor;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
@@ -28,7 +29,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
  * Ping request processor.
  */
 public class PingRequestProcessor implements RpcProcessor<PingRequest> {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(PingRequestProcessor.class);
+    private static final IgniteLogger LOG = Loggers.forClass(PingRequestProcessor.class);
     
     /** The executor */
     private final Executor executor;

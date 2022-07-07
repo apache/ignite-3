@@ -23,9 +23,10 @@ import static org.apache.ignite.lang.IgniteSystemProperties.getString;
 
 import java.lang.reflect.Method;
 import java.nio.file.Path;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -80,7 +81,7 @@ public abstract class BaseIgniteAbstractTest {
      */
     @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     protected BaseIgniteAbstractTest() {
-        log = IgniteLogger.forClass(getClass());
+        log = Loggers.forClass(getClass());
     }
 
     /**
