@@ -28,7 +28,7 @@ namespace Apache.Ignite.Internal.Sql
     /// <summary>
     /// SQL API.
     /// </summary>
-    internal class Sql : ISql
+    internal sealed class Sql : ISql
     {
         /** Underlying connection. */
         private readonly ClientFailoverSocket _socket;
@@ -52,7 +52,7 @@ namespace Apache.Ignite.Internal.Sql
             using var bufferWriter = Write();
             using var buf = await _socket.DoOutInOpAsync(ClientOp.SqlExec, tx, bufferWriter).ConfigureAwait(false);
 
-            return Read(buf);
+            return new ResultSet(_socket, buf);
 
             PooledArrayBufferWriter Write()
             {
@@ -77,14 +77,6 @@ namespace Apache.Ignite.Internal.Sql
 
                 w.Flush();
                 return writer;
-            }
-
-            static IResultSet Read(in PooledBuffer buf)
-            {
-                var reader = buf.GetReader();
-
-                // TODO
-                return (IResultSet)reader.ReadObjectWithType()!;
             }
         }
     }
