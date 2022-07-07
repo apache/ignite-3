@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader.checkHeaderPageSize;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader.readHeader;
-import static org.apache.ignite.internal.util.IgniteUtils.readableSize;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -71,7 +71,7 @@ class FilePageStoreFactory {
 
                 fileIo.force();
             } else {
-                checkHeader(header);
+                checkHeaderPageSize(header, pageSize);
             }
 
             return createPageStore(filePath, header);
@@ -85,7 +85,7 @@ class FilePageStoreFactory {
             FilePageStoreHeader header
     ) throws IgniteInternalCheckedException {
         if (header.version() == FilePageStore.VERSION_1) {
-            return new FilePageStore(filePath, fileIoFactory, pageSize);
+            return new FilePageStore(header, filePath, fileIoFactory);
         }
 
         throw new IgniteInternalCheckedException(String.format(
@@ -93,15 +93,5 @@ class FilePageStoreFactory {
                 header.version(),
                 filePath
         ));
-    }
-
-    private void checkHeader(FilePageStoreHeader header) throws IOException {
-        if (header.pageSize() != pageSize) {
-            throw new IOException(String.format(
-                    "Invalid file pageSize [expected=%s, actual=%s]",
-                    readableSize(pageSize, false),
-                    readableSize(header.pageSize(), false)
-            ));
-        }
     }
 }

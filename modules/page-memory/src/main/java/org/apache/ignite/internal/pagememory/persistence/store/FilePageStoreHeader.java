@@ -19,6 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.nio.ByteOrder.nativeOrder;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
+import static org.apache.ignite.internal.util.IgniteUtils.readableSize;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -27,6 +28,9 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link FilePageStore} header.
+ *
+ * <p>Total length in bytes {@link #headerSize()}.
+ *
  * <ul>
  *     <li>{@link #SIGNATURE signature} (8 byte)</li>
  *     <li>{@link #version version} (4 byte)</li>
@@ -50,7 +54,7 @@ class FilePageStoreHeader {
      * @param version File page store version.
      * @param pageSize Page size in bytes.
      */
-    public FilePageStoreHeader(int version, int pageSize) {
+    FilePageStoreHeader(int version, int pageSize) {
         assert pageSize >= COMMON_HEADER_SIZE : pageSize;
 
         this.version = version;
@@ -60,28 +64,28 @@ class FilePageStoreHeader {
     /**
      * Returns the version of the file page store.
      */
-    public int version() {
+    int version() {
         return version;
     }
 
     /**
      * Returns the page size in bytes.
      */
-    public int pageSize() {
+    int pageSize() {
         return pageSize;
     }
 
     /**
      * Returns the size (aligned to {@link #pageSize()}) of the header in bytes.
      */
-    public int headerSize() {
+    int headerSize() {
         return pageSize;
     }
 
     /**
      * Converts the file page store header (aligned to {@link #pageSize()}) to a {@link ByteBuffer} for writing to a file.
      */
-    public ByteBuffer toByteBuffer() {
+    ByteBuffer toByteBuffer() {
         return ByteBuffer.allocate(headerSize()).order(nativeOrder()).rewind()
                 .putLong(SIGNATURE)
                 .putInt(version)
@@ -95,7 +99,7 @@ class FilePageStoreHeader {
      * @param fileIo File page store fileIo.
      * @throws IOException If there are errors when reading the file page store header.
      */
-    public static @Nullable FilePageStoreHeader readHeader(FileIo fileIo) throws IOException {
+    static @Nullable FilePageStoreHeader readHeader(FileIo fileIo) throws IOException {
         if (fileIo.size() < COMMON_HEADER_SIZE) {
             return null;
         }
@@ -115,5 +119,39 @@ class FilePageStoreHeader {
         }
 
         return new FilePageStoreHeader(buffer.getInt(), buffer.getInt());
+    }
+
+    /**
+     * Checks the {@link FilePageStoreHeader#pageSize() page size in bytes}.
+     *
+     * @param header File page store header.
+     * @param pageSize Expected page size in bytes.
+     * @throws IOException If the page size in bytes does not match the page size in bytes from the header.
+     */
+    static void checkHeaderPageSize(FilePageStoreHeader header, int pageSize) throws IOException {
+        if (header.pageSize() != pageSize) {
+            throw new IOException(String.format(
+                    "Invalid file pageSize [expected=%s, actual=%s]",
+                    readableSize(pageSize, false),
+                    readableSize(header.pageSize(), false)
+            ));
+        }
+    }
+
+    /**
+     * Checks the {@link FilePageStoreHeader#version() version}.
+     *
+     * @param header File page store header.
+     * @param version Expected version.
+     * @throws IOException If the version does not match the version from the header.
+     */
+    static void checkHeaderVersion(FilePageStoreHeader header, int version) throws IOException {
+        if (header.version() != version) {
+            throw new IOException(String.format(
+                    "Invalid file version [expected=%s, actual=%s]",
+                    version,
+                    header.version()
+            ));
+        }
     }
 }
