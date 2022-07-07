@@ -127,7 +127,7 @@ public enum NativeTypeSpec {
     /**
      * Native type representing a string.
      */
-    STRING("string") {
+    STRING("string", false) {
         /** {@inheritDoc} */
         @Override
         public Object objectValue(InternalTuple tup, int colIdx) {
@@ -138,7 +138,7 @@ public enum NativeTypeSpec {
     /**
      * Native type representing an arbitrary byte array.
      */
-    BYTES("blob") {
+    BYTES("blob", false) {
         /** {@inheritDoc} */
         @Override
         public Object objectValue(InternalTuple tup, int colIdx) {
@@ -218,15 +218,6 @@ public enum NativeTypeSpec {
 
     /** Single-token type description. */
     private final String desc;
-
-    /**
-     * Constructs a varlength type with the given type description.
-     *
-     * @param desc Type description.
-     */
-    NativeTypeSpec(String desc) {
-        this(desc, false);
-    }
 
     /**
      * Constructs a type with the given description and size.
