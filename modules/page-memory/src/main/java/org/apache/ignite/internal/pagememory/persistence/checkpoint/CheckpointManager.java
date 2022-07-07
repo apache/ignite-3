@@ -102,7 +102,7 @@ public class CheckpointManager {
         checkpointMarkersStorage = new CheckpointMarkersStorage(storagePath);
 
         checkpointWorkflow = new CheckpointWorkflow(
-                checkpointConfig,
+                igniteInstanceName,
                 checkpointMarkersStorage,
                 checkpointReadWriteLock,
                 dataRegions

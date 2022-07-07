@@ -24,8 +24,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesQueue;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 
 /**
@@ -72,7 +71,7 @@ public class CheckpointPagesWriterFactory {
      * Returns instance of page checkpoint writer.
      *
      * @param tracker Checkpoint metrics tracker.
-     * @param cpPages List of pages to write.
+     * @param checkpointDirtyPagesQueue Checkpoint dirty pages queue to write.
      * @param updStores Updated page store storage.
      * @param doneWriteFut Write done future.
      * @param beforePageWrite Before page write callback.
@@ -81,7 +80,7 @@ public class CheckpointPagesWriterFactory {
      */
     CheckpointPagesWriter build(
             CheckpointMetricsTracker tracker,
-            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> cpPages,
+            CheckpointDirtyPagesQueue checkpointDirtyPagesQueue,
             ConcurrentMap<PageStore, LongAdder> updStores,
             CompletableFuture<?> doneWriteFut,
             Runnable beforePageWrite,
@@ -92,7 +91,7 @@ public class CheckpointPagesWriterFactory {
         return new CheckpointPagesWriter(
                 log,
                 tracker,
-                cpPages,
+                checkpointDirtyPagesQueue,
                 updStores,
                 doneWriteFut,
                 beforePageWrite,
