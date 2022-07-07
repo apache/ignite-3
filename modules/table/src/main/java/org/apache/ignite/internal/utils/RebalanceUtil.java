@@ -29,11 +29,12 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.affinity.AffinityUtils;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.If;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 
@@ -43,7 +44,7 @@ import org.jetbrains.annotations.NotNull;
 public class RebalanceUtil {
 
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RebalanceUtil.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RebalanceUtil.class);
 
     /** Return code of metastore multi-invoke which identifies,
      * that pending key was updated to new value (i.e. there is no active rebalance at the moment of call).

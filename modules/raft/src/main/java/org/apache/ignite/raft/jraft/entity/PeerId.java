@@ -17,7 +17,8 @@
 package org.apache.ignite.raft.jraft.entity;
 
 import java.io.Serializable;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.core.ElectionPriority;
@@ -35,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
 public class PeerId implements Copiable<PeerId>, Serializable, Checksum {
     private static final long serialVersionUID = 8083529734784884641L;
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(PeerId.class);
+    private static final IgniteLogger LOG = Loggers.forClass(PeerId.class);
 
     /**
      * Peer address.

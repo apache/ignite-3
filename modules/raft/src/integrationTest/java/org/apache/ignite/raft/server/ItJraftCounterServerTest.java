@@ -51,6 +51,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -59,7 +61,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
@@ -88,7 +89,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     /**
      * The logger.
      */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ItJraftCounterServerTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ItJraftCounterServerTest.class);
 
     /**
      * Counter group name 0.
@@ -149,7 +150,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     void before() {
         LOG.info(">>>>>>>>>>>>>>> Start test method: {}", testInfo.getTestMethod().orElseThrow().getName());
 
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
     }
 
     /**

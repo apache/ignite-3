@@ -17,6 +17,8 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
+
 /**
  * Exception is thrown when appropriate table can`t be found.
  */
@@ -27,6 +29,6 @@ public class TableNotFoundException extends IgniteException {
      * @param name Table name.
      */
     public TableNotFoundException(String name) {
-        super(IgniteStringFormatter.format("Table does not exist [name={}]", name));
+        super(TABLE_NOT_FOUND_ERR, "Table does not exist [name=" + name + ']');
     }
 }

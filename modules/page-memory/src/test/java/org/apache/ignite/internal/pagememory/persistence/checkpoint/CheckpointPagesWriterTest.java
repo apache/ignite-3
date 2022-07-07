@@ -47,12 +47,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -60,7 +61,7 @@ import org.mockito.ArgumentCaptor;
  * For {@link CheckpointPagesWriter} testing.
  */
 public class CheckpointPagesWriterTest {
-    private final IgniteLogger log = IgniteLogger.forClass(CheckpointPagesWriterTest.class);
+    private final IgniteLogger log = Loggers.forClass(CheckpointPagesWriterTest.class);
 
     @Test
     void testWritePages() throws Exception {

@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Random;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
@@ -53,7 +54,6 @@ import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,7 +72,7 @@ public class UpgradingRowAdapterTest {
     public void initRandom() {
         long seed = System.currentTimeMillis();
 
-        IgniteLogger.forClass(UpgradingRowAdapterTest.class).info("Using seed: " + seed + "L; //");
+        Loggers.forClass(UpgradingRowAdapterTest.class).info("Using seed: " + seed + "L; //");
 
         rnd = new Random(seed);
     }
