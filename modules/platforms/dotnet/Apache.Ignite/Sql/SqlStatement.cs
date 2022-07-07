@@ -27,6 +27,26 @@ namespace Apache.Ignite.Sql
     public sealed record SqlStatement
     {
         /// <summary>
+        /// Default SQL schema name.
+        /// </summary>
+        public const string DefaultSchema = "PUBLIC";
+
+        /// <summary>
+        /// Default number of rows per data page.
+        /// </summary>
+        public const int DefaultPageSize = 1024;
+
+        /// <summary>
+        /// Default query timeout (zero means no timeout).
+        /// </summary>
+        public static readonly TimeSpan DefaultTimeout = TimeSpan.Zero;
+
+        /// <summary>
+        /// Cached instance of empty properties.
+        /// </summary>
+        private static readonly Dictionary<string, object?> EmptyProperties = new();
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="SqlStatement"/> class.
         /// </summary>
         /// <param name="query">Query text.</param>
@@ -41,15 +61,11 @@ namespace Apache.Ignite.Sql
             int? pageSize = null,
             IReadOnlyDictionary<string, object?>? properties = null)
         {
-            // TODO:
-            // 1. Get rid of sessions FULLY - do not make sense for now
-            // 2. Put defaults in this class
-            // 3. Implicit conversion from string.
             Query = query;
-            Timeout = timeout;
-            Schema = schema;
-            PageSize = pageSize;
-            Properties = properties == null ? new Dictionary<string, object?>() : new(properties);
+            Timeout = timeout ?? DefaultTimeout;
+            Schema = schema ?? DefaultSchema;
+            PageSize = pageSize ?? DefaultPageSize;
+            Properties = properties == null || properties == EmptyProperties ? EmptyProperties : new(properties);
         }
 
         /// <summary>
@@ -67,17 +83,17 @@ namespace Apache.Ignite.Sql
         /// <summary>
         /// Gets the query timeout (zero means no timeout).
         /// </summary>
-        public TimeSpan? Timeout { get; init; }
+        public TimeSpan Timeout { get; init; }
 
         /// <summary>
         /// Gets the SQL schema name.
         /// </summary>
-        public string? Schema { get; init; }
+        public string Schema { get; init; }
 
         /// <summary>
         /// Gets the number of rows per data page.
         /// </summary>
-        public int? PageSize { get; init; }
+        public int PageSize { get; init; }
 
         /// <summary>
         /// Gets the property bag.

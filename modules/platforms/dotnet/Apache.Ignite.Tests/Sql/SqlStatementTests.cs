@@ -42,5 +42,24 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("select 1", statement2.Query);
             Assert.IsFalse(statement2.Properties.ContainsKey("foo"));
         }
+
+        [Test]
+        public void TestDefaultPropertyValues()
+        {
+            var s = new SqlStatement(string.Empty);
+
+            Assert.AreEqual(SqlStatement.DefaultTimeout, s.Timeout);
+            Assert.AreEqual(SqlStatement.DefaultSchema, s.Schema);
+            Assert.AreEqual(SqlStatement.DefaultPageSize, s.PageSize);
+        }
+
+        [Test]
+        public void TestImplicitCast()
+        {
+            SqlStatement s1 = "foo";
+            SqlStatement s2 = SqlStatement.ToSqlStatement("foo");
+
+            Assert.AreEqual(s1, s2);
+        }
     }
 }

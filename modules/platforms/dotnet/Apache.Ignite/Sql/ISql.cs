@@ -17,16 +17,21 @@
 
 namespace Apache.Ignite.Sql
 {
+    using System.Threading.Tasks;
+    using Transactions;
+
     /// <summary>
     /// Ignite SQL query facade.
     /// </summary>
     public interface ISql
     {
         /// <summary>
-        /// Creates an SQL session to execute queries.
+        /// Executes single SQL statement.
         /// </summary>
-        /// <param name="configuration">Optional session configuration.</param>
-        /// <returns>SQL session.</returns>
-        ISqlSession CreateSession(SqlSessionConfiguration? configuration = null);
+        /// <param name="transaction">Optional transaction.</param>
+        /// <param name="statement">Statement to execute.</param>
+        /// <param name="args">Arguments for the statement.</param>
+        /// <returns>SQL result set.</returns>
+        Task<IResultSet> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object[] args);
     }
 }
