@@ -105,7 +105,7 @@ namespace Apache.Ignite.Internal.Sql
         {
             // TODO: Allowed only once.
             // TODO: Throw when no row set.
-            throw new System.NotImplementedException();
+            throw new NotImplementedException();
         }
 
         private void Write(MessagePackWriter writer)

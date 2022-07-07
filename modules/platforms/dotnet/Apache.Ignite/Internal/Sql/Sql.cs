@@ -52,7 +52,7 @@ namespace Apache.Ignite.Internal.Sql
             using var bufferWriter = Write();
             var (buf, socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.SqlExec, tx, bufferWriter).ConfigureAwait(false);
 
-            return new ResultSet(_socket, buf);
+            return new ResultSet(socket, buf);
 
             PooledArrayBufferWriter Write()
             {
