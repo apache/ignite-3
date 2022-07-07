@@ -22,8 +22,7 @@ import jakarta.inject.Singleton;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cliconfig.CliConfigCall;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.cliconfig.profile.CliConfigCreateProfileCommand;
-import org.apache.ignite.cli.commands.cliconfig.profile.CliConfigUseCommand;
+import org.apache.ignite.cli.commands.cliconfig.profile.CliConfigProfileCommand;
 import org.apache.ignite.cli.commands.decorators.ConfigDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
@@ -36,8 +35,7 @@ import picocli.CommandLine.Option;
 @Command(name = "config", subcommands = {
         CliConfigGetSubCommand.class,
         CliConfigSetSubCommand.class,
-        CliConfigCreateProfileCommand.class,
-        CliConfigUseCommand.class
+        CliConfigProfileCommand.class,
 })
 @Singleton
 public class CliConfigSubCommand extends BaseCommand implements Callable<Integer> {

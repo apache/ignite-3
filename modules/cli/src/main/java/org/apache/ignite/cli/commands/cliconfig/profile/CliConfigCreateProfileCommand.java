@@ -29,7 +29,7 @@ import picocli.CommandLine.Option;
 /**
  * Command for create CLI profile.
  */
-@Command(name = "create-profile", description = "Create profile command.")
+@Command(name = "create", description = "Create profile command.")
 public class CliConfigCreateProfileCommand extends BaseCommand implements Callable<Integer> {
     @Option(names = {"--name", "-n"}, required = true, description = "Name of new profile.")
     private String profileName;
