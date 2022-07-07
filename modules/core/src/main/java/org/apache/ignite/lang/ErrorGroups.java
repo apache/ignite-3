@@ -27,11 +27,15 @@ public class ErrorGroups {
         /** Unknown error group. */
         public static final ErrorGroup COMMON_ERR_GROUP = ErrorGroup.newGroup("CMN", 1);
 
-        /** Unknown error. */
-        public static final int UNKNOWN_ERR = COMMON_ERR_GROUP.registerErrorCode(1);
+        /** Unexpected error. */
+        public static final int UNEXPECTED_ERR = COMMON_ERR_GROUP.registerErrorCode(1);
 
         /** Node stopping error. */
         public static final int NODE_STOPPING_ERR = COMMON_ERR_GROUP.registerErrorCode(2);
+
+        /** Unknown error. */
+        @Deprecated
+        public static final int UNKNOWN_ERR = COMMON_ERR_GROUP.registerErrorCode(0xFFFF);
     }
 
     /** Tables error group. */
@@ -136,7 +140,7 @@ public class ErrorGroups {
         public static final int WATCH_STOPPING_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(7);
 
         /** Failed to deploy or update a watcher. */
-        public static final int DEPLOYING_WATCH_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(7);
+        public static final int DEPLOYING_WATCH_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(8);
 
         /** Failed to iterate over meta storage cursor. */
         public static final int CURSOR_EXECUTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(9);
