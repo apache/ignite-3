@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Collections.Specialized;
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
@@ -60,8 +61,7 @@ namespace Apache.Ignite.Internal.Sql
             WasApplied = reader.ReadBoolean();
             AffectedRows = reader.ReadInt64();
 
-            // TODO
-            Metadata = reader.ReadObjectWithType();
+            Metadata = ReadMeta(reader);
 
             if (HasRowSet)
             {
@@ -108,6 +108,20 @@ namespace Apache.Ignite.Internal.Sql
             // TODO: Allowed only once.
             // TODO: Throw when no row set.
             throw new NotImplementedException();
+        }
+
+        private static ResultSetMetadata ReadMeta(ref MessagePackReader reader)
+        {
+            var size = reader.ReadArrayHeader();
+
+            var columns = new List<IColumnMetadata>(size);
+
+            for (int i = 0; i < size; i++)
+            {
+                columns.Add(new ColumnMetadata());
+            }
+
+            return new ResultSetMetadata(columns);
         }
 
         private void Write(MessagePackWriter writer)

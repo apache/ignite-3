@@ -20,5 +20,28 @@ namespace Apache.Ignite.Internal.Sql
     using System.Collections.Generic;
     using Ignite.Sql;
 
-    internal sealed record ResultSetMetadata(IReadOnlyDictionary<string, IColumnMetadata> Columns) : IResultSetMetadata;
+    internal sealed record ResultSetMetadata(IReadOnlyList<IColumnMetadata> Columns) : IResultSetMetadata
+    {
+        private Dictionary<string, int>? _indices;
+
+        /// <inheritdoc/>
+        public int IndexOf(string columnName)
+        {
+            var indices = _indices;
+
+            if (indices == null)
+            {
+                indices = new Dictionary<string, int>(Columns.Count);
+
+                for (var i = 0; i < Columns.Count; i++)
+                {
+                    indices[Columns[i].Name] = i;
+                }
+
+                _indices = indices;
+            }
+
+            return indices.TryGetValue(columnName, out var idx) ? idx : -1;
+        }
+    }
 }

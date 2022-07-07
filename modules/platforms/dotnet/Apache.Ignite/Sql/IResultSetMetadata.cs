@@ -27,6 +27,13 @@ namespace Apache.Ignite.Sql
         /// <summary>
         /// Gets the columns in the same order as they appear in the result set data.
         /// </summary>
-        public IReadOnlyDictionary<string, IColumnMetadata> Columns { get; }
+        public IReadOnlyList<IColumnMetadata> Columns { get; }
+
+        /// <summary>
+        /// Gets the index of the specified column, or -1 when there is no column with the specified name.
+        /// </summary>
+        /// <param name="columnName">Column name.</param>
+        /// <returns>Column index.</returns>
+        public int IndexOf(string columnName);
     }
 }
