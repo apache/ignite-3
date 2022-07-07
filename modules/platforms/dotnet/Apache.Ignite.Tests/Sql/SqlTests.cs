@@ -17,8 +17,10 @@
 
 namespace Apache.Ignite.Tests.Sql
 {
+    using System.Collections.Generic;
     using System.Threading.Tasks;
     using Ignite.Sql;
+    using Ignite.Table;
     using NUnit.Framework;
 
     /// <summary>
@@ -30,6 +32,7 @@ namespace Apache.Ignite.Tests.Sql
         public async Task TestSimpleQuery()
         {
             await using IResultSet resultSet = await Client.Sql.ExecuteAsync(null, "SELECT 1", 1);
+            var rows = await ToListAsync(resultSet);
 
             Assert.AreEqual(-1, resultSet.AffectedRows);
             Assert.IsFalse(resultSet.WasApplied);
@@ -39,6 +42,21 @@ namespace Apache.Ignite.Tests.Sql
                 "ResultSetMetadata { Columns = { ColumnMetadata { Name = 1, Type = Int32, Precision = 10, Scale = 0, " +
                 "Nullable = False, Origin =  } } }",
                 resultSet.Metadata?.ToString());
+
+            Assert.AreEqual(1, rows.Count);
+            Assert.AreEqual("TODO", rows[0]);
+        }
+
+        private static async Task<List<IIgniteTuple>> ToListAsync(IResultSet resultSet)
+        {
+            var res = new List<IIgniteTuple>();
+
+            await foreach (var row in resultSet)
+            {
+                res.Add(row);
+            }
+
+            return res;
         }
     }
 }
