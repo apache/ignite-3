@@ -19,7 +19,12 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static org.mockito.Mockito.mock;
 
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
 
 /**
  * Useful class for testing a checkpoint.
@@ -56,5 +61,14 @@ public class CheckpointTestUtils {
                 return checkpointHeldByCurrentThread;
             }
         };
+    }
+
+    /**
+     * Collects dirty pages into a list.
+     *
+     * @param dirtyPagesView Checkpoint dirty pages view.
+     */
+    public static List<FullPageId> toListDirtyPageIds(CheckpointDirtyPagesView dirtyPagesView) {
+        return IntStream.range(0, dirtyPagesView.size()).mapToObj(dirtyPagesView::get).collect(Collectors.toList());
     }
 }

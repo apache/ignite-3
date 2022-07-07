@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getVersion;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.TRY_AGAIN_TAG;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.EMPTY;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 
@@ -38,6 +38,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesQueue;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.QueueResult;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
@@ -51,8 +53,13 @@ public class CheckpointPagesWriter implements Runnable {
     /** Checkpoint specific metrics tracker. */
     private final CheckpointMetricsTracker tracker;
 
-    /** Collection of page IDs to write under this task. Overall pages to write may be greater than this collection. */
-    private final IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds;
+    /**
+     * Queue of dirty page IDs to write under this task.
+     *
+     * <p>Overall pages to write may be greater than this queue, since it may be necessary to retire write some pages due to unsuccessful
+     * page write lock acquisition
+     */
+    private final CheckpointDirtyPagesQueue writePageIds;
 
     /** Page store used to write -> Count of written pages. */
     private final ConcurrentMap<PageStore, LongAdder> updStores;
@@ -79,7 +86,7 @@ public class CheckpointPagesWriter implements Runnable {
      * Creates task for write pages.
      *
      * @param tracker Checkpoint metrics tracker.
-     * @param writePageIds Collection of page IDs to write.
+     * @param writePageIds Queue of dirty page IDs to write.
      * @param updStores Updating storage.
      * @param doneFut Done future.
      * @param beforePageWrite Action to be performed before every page write.
@@ -92,7 +99,7 @@ public class CheckpointPagesWriter implements Runnable {
     CheckpointPagesWriter(
             IgniteLogger log,
             CheckpointMetricsTracker tracker,
-            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds,
+            CheckpointDirtyPagesQueue writePageIds,
             ConcurrentMap<PageStore, LongAdder> updStores,
             CompletableFuture<?> doneFut,
             Runnable beforePageWrite,
@@ -117,13 +124,13 @@ public class CheckpointPagesWriter implements Runnable {
     @Override
     public void run() {
         try {
-            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> pagesToRetry = writePages(writePageIds);
+            CheckpointDirtyPagesQueue pagesToRetry = writePages(writePageIds);
 
             if (pagesToRetry.isEmpty()) {
                 doneFut.complete(null);
             } else {
                 if (log.isInfoEnabled()) {
-                    log.info(pagesToRetry.initialSize() + " checkpoint pages were not written yet due to "
+                    log.info(pagesToRetry.size() + " checkpoint pages were not written yet due to "
                             + "unsuccessful page write lock acquisition and will be retried");
                 }
 
@@ -139,28 +146,26 @@ public class CheckpointPagesWriter implements Runnable {
     }
 
     /**
-     * Writes pages.
+     * Writes dirty pages.
      *
-     * @param writePageIds Collections of pages to write.
-     * @return pagesToRetry Pages which should be retried.
+     * @param writePageIds Queue of dirty pages to write.
+     * @return pagesToRetry Queue dirty pages which should be retried.
      */
-    private IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePages(
-            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds
-    ) throws IgniteInternalCheckedException {
+    private CheckpointDirtyPagesQueue writePages(CheckpointDirtyPagesQueue writePageIds) throws IgniteInternalCheckedException {
         Map<PersistentPageMemory, List<FullPageId>> pagesToRetry = new HashMap<>();
 
         Map<PersistentPageMemory, PageStoreWriter> pageStoreWriters = new HashMap<>();
 
         ByteBuffer tmpWriteBuf = threadBuf.get();
 
-        IgniteConcurrentMultiPairQueue.Result<PersistentPageMemory, FullPageId> res = new IgniteConcurrentMultiPairQueue.Result<>();
+        QueueResult res = new QueueResult();
 
         while (!shutdownNow.getAsBoolean() && writePageIds.next(res)) {
             beforePageWrite.run();
 
-            FullPageId fullId = res.getValue();
+            FullPageId fullId = res.dirtyPage();
 
-            PersistentPageMemory pageMemory = res.getKey();
+            PersistentPageMemory pageMemory = res.pageMemory();
 
             tmpWriteBuf.rewind();
 
@@ -169,7 +174,7 @@ public class CheckpointPagesWriter implements Runnable {
             pageMemory.checkpointWritePage(fullId, tmpWriteBuf, pageStoreWriter, tracker);
         }
 
-        return pagesToRetry.isEmpty() ? EMPTY : new IgniteConcurrentMultiPairQueue<>(pagesToRetry);
+        return pagesToRetry.isEmpty() ? EMPTY.toQueue() : new CheckpointDirtyPages(pagesToRetry).toQueue();
     }
 
     /**

@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.checkpoint;
+package org.apache.ignite.internal.util;
 
 import static java.util.Collections.synchronizedCollection;
 import static java.util.concurrent.ThreadLocalRandom.current;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.EMPTY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreaded;
+import static org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.EMPTY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -33,7 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.Result;
+import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

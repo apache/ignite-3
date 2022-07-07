@@ -24,9 +24,13 @@ import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
  * Holder of information about dirty pages by {@link PersistentPageMemory} for checkpoint.
+ *
+ * <p>Due to page replacements, the total number of pages may change when they are written to disk.
+ *
+ * <p>Total number of dirty pages can only decrease due to page replacement, but should not increase.
  */
-class CheckpointDirtyPagesInfoHolder {
-    /** Total number of dirty pages. */
+class DataRegionsDirtyPages {
+    /** Total number of dirty pages for all data regions at the time of data collection. */
     final int dirtyPageCount;
 
     /** Collection of dirty pages per {@link PersistentPageMemory} distribution. */
@@ -36,13 +40,11 @@ class CheckpointDirtyPagesInfoHolder {
      * Constructor.
      *
      * @param dirtyPages Collection of dirty pages per {@link PersistentPageMemory} distribution.
-     * @param dirtyPageCount Total number of dirty pages.
      */
-    public CheckpointDirtyPagesInfoHolder(
-            Collection<IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>>> dirtyPages,
-            int dirtyPageCount
+    public DataRegionsDirtyPages(
+            Collection<IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>>> dirtyPages
     ) {
         this.dirtyPages = dirtyPages;
-        this.dirtyPageCount = dirtyPageCount;
+        this.dirtyPageCount = dirtyPages.stream().mapToInt(tuple -> tuple.getValue().size()).sum();
     }
 }
