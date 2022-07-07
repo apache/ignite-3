@@ -367,9 +367,9 @@ namespace Apache.Ignite.Internal
 
                 for (var port = e.Port; port <= e.PortRange + e.Port; port++)
                 {
-                    foreach (var ip in GetIps(e.Host))
+                    foreach (var ip in GetIps(host))
                     {
-                        yield return new SocketEndpoint(new IPEndPoint(ip, port), e.Host);
+                        yield return new SocketEndpoint(new IPEndPoint(ip, port), host);
                     }
                 }
             }
