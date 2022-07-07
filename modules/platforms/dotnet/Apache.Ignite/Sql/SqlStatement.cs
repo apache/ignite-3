@@ -53,6 +53,13 @@ namespace Apache.Ignite.Sql
         }
 
         /// <summary>
+        /// Converts a query string to an instance of <see cref="SqlStatement"/>.
+        /// </summary>
+        /// <param name="query">Query string.</param>
+        /// <returns>Statement.</returns>
+        public static implicit operator SqlStatement(string query) => ToSqlStatement(query);
+
+        /// <summary>
         /// Gets the query text.
         /// </summary>
         public string Query { get; init; }
@@ -76,5 +83,12 @@ namespace Apache.Ignite.Sql
         /// Gets the property bag.
         /// </summary>
         public IReadOnlyDictionary<string, object?> Properties { get; init; }
+
+        /// <summary>
+        /// Converts a query string to an instance of <see cref="SqlStatement"/>.
+        /// </summary>
+        /// <param name="query">Query string.</param>
+        /// <returns>Statement.</returns>
+        public static SqlStatement ToSqlStatement(string query) => new(query);
     }
 }
