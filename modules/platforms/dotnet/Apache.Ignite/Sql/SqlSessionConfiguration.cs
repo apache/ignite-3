@@ -23,7 +23,7 @@ namespace Apache.Ignite.Sql
     /// <summary>
     /// SQL session configuration.
     /// </summary>
-    public record SqlSessionConfiguration
+    public sealed record SqlSessionConfiguration
     {
         /// <summary>
         /// Default SQL schema name.
