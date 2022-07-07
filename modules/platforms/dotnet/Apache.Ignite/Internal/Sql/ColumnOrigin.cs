@@ -15,26 +15,9 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Sql
+namespace Apache.Ignite.Internal.Sql
 {
-    /// <summary>
-    /// SQL column origin.
-    /// </summary>
-    public interface IColumnOrigin
-    {
-        /// <summary>
-        /// Gets the column name.
-        /// </summary>
-        string ColumnName { get; }
+    using Ignite.Sql;
 
-        /// <summary>
-        /// Gets the table name.
-        /// </summary>
-        string TableName { get; }
-
-        /// <summary>
-        /// Gets the schema name.
-        /// </summary>
-        string SchemaName { get; }
-    }
+    internal sealed record ColumnOrigin(string ColumnName, string SchemaName, string TableName) : IColumnOrigin;
 }

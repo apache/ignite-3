@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal.Sql
 {
     using System;
     using System.Collections.Generic;
-    using System.Collections.Specialized;
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
@@ -61,7 +60,7 @@ namespace Apache.Ignite.Internal.Sql
             WasApplied = reader.ReadBoolean();
             AffectedRows = reader.ReadInt64();
 
-            Metadata = ReadMeta(reader);
+            Metadata = ReadMeta(ref reader);
 
             if (HasRowSet)
             {
@@ -118,7 +117,20 @@ namespace Apache.Ignite.Internal.Sql
 
             for (int i = 0; i < size; i++)
             {
-                columns.Add(new ColumnMetadata());
+                var name = reader.ReadString();
+                var nullable = reader.ReadBoolean();
+                var type = (SqlColumnType)reader.ReadInt32();
+                var scale = reader.ReadInt32();
+                var precision = reader.ReadInt32();
+
+                var origin = reader.ReadBoolean()
+                    ? new ColumnOrigin(
+                        ColumnName: reader.TryReadNil() ? name : reader.ReadString(),
+                        SchemaName: reader.TryReadInt(out var idx) ? columns[idx].Origin!.SchemaName : reader.ReadString(),
+                        TableName: reader.TryReadInt(out idx) ? columns[idx].Origin!.TableName : reader.ReadString())
+                    : null;
+
+                columns.Add(new ColumnMetadata(name, type, precision, scale, nullable, origin));
             }
 
             return new ResultSetMetadata(columns);
