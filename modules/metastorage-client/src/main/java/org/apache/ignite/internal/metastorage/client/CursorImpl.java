@@ -59,7 +59,7 @@ public class CursorImpl<T> implements Cursor<T> {
      * @param initOp                Future that runs meta storage service operation that provides cursor.
      * @param fn                    Function transforming the element of type {@link M} to the type of {@link T}.
      */
-    <M> CursorImpl(
+    public <M> CursorImpl(
             RaftGroupService metaStorageRaftGrpSvc,
             CompletableFuture<IgniteUuid> initOp,
             Function<M, T> fn
@@ -78,7 +78,7 @@ public class CursorImpl<T> implements Cursor<T> {
      *                              {@link Iterable} of elements of type {@link M}.
      * @param fn                    Function transforming the element of type {@link M} to the type of {@link T}.
      */
-    <M> CursorImpl(
+    public <M> CursorImpl(
             RaftGroupService metaStorageRaftGrpSvc,
             CompletableFuture<IgniteUuid> initOp,
             Function<Object, Iterable<M>> internalCacheFn,
@@ -95,6 +95,8 @@ public class CursorImpl<T> implements Cursor<T> {
         try {
             initOp.thenCompose(
                     cursorId -> metaStorageRaftGrpSvc.run(new CursorCloseCommand(cursorId))).get();
+
+            ((InnerIterator) it).close();
         } catch (InterruptedException | ExecutionException e) {
             if (e.getCause() != null && e.getCause().getClass().equals(NodeStoppingException.class)) {
                 return;
@@ -187,6 +189,10 @@ public class CursorImpl<T> implements Cursor<T> {
 
                 throw new IgniteInternalException(e);
             }
+        }
+
+        public void close() {
+            internalCacheIterator = null;
         }
     }
 }

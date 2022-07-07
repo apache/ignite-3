@@ -167,6 +167,8 @@ public final class RangeCommand implements WriteCommand {
         }
 
         /**
+         * Setter for key to.
+         *
          * @param keyTo Key to.
          * @return This for chaining.
          */
@@ -177,6 +179,8 @@ public final class RangeCommand implements WriteCommand {
         }
 
         /**
+         * Setter for upper bound revision.
+         *
          * @param revUpperBound Upper bound revision.
          * @return This for chaining.
          */
@@ -187,6 +191,8 @@ public final class RangeCommand implements WriteCommand {
         }
 
         /**
+         * Setter for include tombstones.
+         *
          * @param includeTombstones Whether to include tombstones.
          * @return This for chaining.
          */
@@ -197,6 +203,8 @@ public final class RangeCommand implements WriteCommand {
         }
 
         /**
+         * Setter for batch size.
+         *
          * @param batchSize Batch size.
          * @return This for chaining.
          */
@@ -207,6 +215,8 @@ public final class RangeCommand implements WriteCommand {
         }
 
         /**
+         * Build method.
+         *
          * @return Range command.
          */
         public RangeCommand build() {
