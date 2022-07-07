@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Sql
 {
     using System.Collections.Generic;
+    using System.Text;
     using Ignite.Sql;
 
     internal sealed record ResultSetMetadata(IReadOnlyList<IColumnMetadata> Columns) : IResultSetMetadata
@@ -42,6 +43,16 @@ namespace Apache.Ignite.Internal.Sql
             }
 
             return indices.TryGetValue(columnName, out var idx) ? idx : -1;
+        }
+
+        private bool PrintMembers(StringBuilder builder)
+        {
+            builder
+                .Append("Columns = { ")
+                .Append(string.Join(", ", Columns))
+                .Append(" }");
+
+            return true;
         }
     }
 }
