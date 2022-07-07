@@ -182,7 +182,7 @@ public class ClientTupleTest {
         data.put("time", time);
         data.put("datetime", datetime);
         data.put("timestamp", timestamp);
-        data.put("number", 8);
+        data.put("number", 9);
         data.put("boolean", true);
         data.put("biginteger", bi);
         data.put("duration", duration);
@@ -231,7 +231,7 @@ public class ClientTupleTest {
         assertEquals(time, tuple.timeValue("time"));
         assertEquals(datetime, tuple.datetimeValue("datetime"));
         assertEquals(timestamp, tuple.timestampValue("timestamp"));
-        assertEquals(8.8, tuple.value("number"));
+        assertEquals(Integer.valueOf(9), tuple.value("number"));
         assertEquals(true, tuple.value("boolean"));
         assertEquals(bi, tuple.value("biginteger"));
         assertEquals(duration, tuple.durationValue(18));
