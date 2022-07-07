@@ -41,6 +41,10 @@ namespace Apache.Ignite.Sql
             int? pageSize = null,
             IReadOnlyDictionary<string, object?>? properties = null)
         {
+            // TODO:
+            // 1. Get rid of sessions FULLY - do not make sense for now
+            // 2. Put defaults in this class
+            // 3. Implicit conversion from string.
             Query = query;
             Timeout = timeout;
             Schema = schema;
