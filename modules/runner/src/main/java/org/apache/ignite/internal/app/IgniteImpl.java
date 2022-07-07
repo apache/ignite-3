@@ -350,10 +350,6 @@ public class IgniteImpl implements Ignite {
         var modulesProvider = new ServiceLoaderModulesProvider();
         List<ConfigurationModule> modules = modulesProvider.modules(classLoader);
 
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Configuration modules loaded: {}", modules);
-        }
-
         if (modules.isEmpty()) {
             throw new IllegalStateException("No configuration modules were loaded, this means Ignite cannot start. "
                     + "Please make sure that the classloader for loading services is correct.");
@@ -361,10 +357,8 @@ public class IgniteImpl implements Ignite {
 
         var configModules = new ConfigurationModules(modules);
 
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Local root keys: {}", configModules.local().rootKeys());
-            LOG.info("Distributed root keys: {}", configModules.distributed().rootKeys());
-        }
+        LOG.info("Configuration modules loaded [modules={}, localRoots={}, distRoots={}]",
+                modules, configModules.local().rootKeys(), configModules.distributed().rootKeys());
 
         return configModules;
     }

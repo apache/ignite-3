@@ -105,7 +105,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
                     lastWakeUpTime = System.currentTimeMillis();
                 }
 
-                log.debug(getName() + " has been started");
+                log.debug("Detector worker has been started [thread={}]", getName());
 
                 while (true) {
                     try {
@@ -115,7 +115,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
                         final long pause = now - PRECISION - lastWakeUpTime;
 
                         if (pause >= threshold) {
-                            log.warn("Possible too long JVM pause: " + pause + " milliseconds");
+                            log.warn("Possible too long JVM pause [duration={}ms]", pause);
 
                             synchronized (LongJvmPauseDetector.this) {
                                 final int next = (int) (longPausesCnt % EVT_CNT);
@@ -137,9 +137,9 @@ public class LongJvmPauseDetector implements IgniteComponent {
                         }
                     } catch (InterruptedException e) {
                         if (workerRef.compareAndSet(this, null)) {
-                            log.error(getName() + " has been interrupted", e);
+                            log.error("Thread has been interrupted [thread={}]", e, getName());
                         } else {
-                            log.debug(getName() + " has been stopped");
+                            log.debug("Thread has been stopped [thread={}]", getName());
                         }
 
                         break;
@@ -149,7 +149,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
         };
 
         if (!workerRef.compareAndSet(null, worker)) {
-            log.warn(LongJvmPauseDetector.class.getSimpleName() + " already started");
+            log.warn("{} already started", LongJvmPauseDetector.class.getSimpleName());
 
             return;
         }
@@ -157,7 +157,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
         worker.setDaemon(true);
         worker.start();
 
-        log.debug("LongJVMPauseDetector was successfully started");
+        log.debug("{} was successfully started", LongJvmPauseDetector.class.getSimpleName());
     }
 
     /** {@inheritDoc} */

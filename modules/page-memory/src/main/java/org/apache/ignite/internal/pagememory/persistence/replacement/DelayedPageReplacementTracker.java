@@ -186,7 +186,7 @@ public class DelayedPageReplacementTracker {
 
                 while (locked.contains(id)) {
                     if (log.isDebugEnabled()) {
-                        log.debug("Found replaced page [" + id + "] which is being written to page store, wait for finish replacement");
+                        log.debug("Found replaced page which is being written to page store, wait for finish replacement [id={}]", id);
                     }
 
                     try {

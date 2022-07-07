@@ -394,7 +394,7 @@ public final class Commons {
             try {
                 ((AutoCloseable) o).close();
             } catch (Exception e) {
-                log.warn("Failed to close resource: " + e.getMessage(), e);
+                log.warn("Failed to close resource", e);
             }
         }
     }

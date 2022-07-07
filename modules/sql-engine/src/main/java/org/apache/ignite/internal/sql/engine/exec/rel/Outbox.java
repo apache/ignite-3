@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
@@ -40,6 +42,8 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * A part of exchange.
  */
 public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, SingleNode<RowT>, Downstream<RowT> {
+    private static final IgniteLogger LOG = Loggers.forClass(Outbox.class);
+
     private final ExchangeService exchange;
 
     private final MailboxRegistry registry;
@@ -156,7 +160,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         try {
             sendError(e);
         } catch (IgniteInternalCheckedException ex) {
-            log.error("Error occurred during send error message", e);
+            LOG.error("Unable to send error message", e);
         } finally {
             Commons.closeQuiet(this);
         }
@@ -209,7 +213,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         try {
             exchange.closeInbox(nodeId, queryId(), targetFragmentId, exchangeId);
         } catch (IgniteInternalCheckedException e) {
-            log.error("Failed to send cancel message", e);
+            LOG.error("Unable to send cancel message", e);
         }
     }
 

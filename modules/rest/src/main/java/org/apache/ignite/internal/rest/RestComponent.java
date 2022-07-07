@@ -56,7 +56,7 @@ public class RestComponent implements IgniteComponent {
     private static final String LOCALHOST = "localhost";
 
     /** Ignite logger. */
-    private final IgniteLogger log = Loggers.forClass(RestComponent.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RestComponent.class);
 
     /** Factories that produce beans needed for REST controllers. */
     private final List<RestFactory> restFactories;
@@ -89,22 +89,23 @@ public class RestComponent implements IgniteComponent {
             try {
                 port = portCandidate;
                 context = buildMicronautContext(portCandidate).start();
-                log.info("REST protocol started successfully");
+                LOG.info("REST protocol started successfully");
                 return;
             } catch (ApplicationStartupException e) {
                 BindException bindException = findBindException(e);
                 if (bindException != null) {
-                    log.error("Got exception " + bindException + " during node start on port "
-                            + portCandidate + " , trying again");
+                    LOG.error("Got exception during node start, going to try again [port={}, reason={}]", portCandidate, portCandidate);
                     continue;
                 }
                 throw new RuntimeException(e);
             }
         }
 
+        LOG.error("Unable to start REST endpoint. All ports are in use [ports=[{}, {}]]", desiredPort, (desiredPort + portRange));
+
         String msg = "Cannot start REST endpoint. " + "All ports in range [" + desiredPort + ", " + (desiredPort + portRange)
                 + "] are in use.";
-        log.error(msg);
+
         throw new RuntimeException(msg);
     }
 

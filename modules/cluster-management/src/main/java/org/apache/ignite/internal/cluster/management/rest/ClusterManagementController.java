@@ -45,7 +45,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 @Controller("/management/v1/cluster/init")
 @Tag(name = "clusterManagement")
 public class ClusterManagementController {
-    private static final IgniteLogger log = Loggers.forClass(ClusterManagementController.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementController.class);
 
     private final ClusterInitializer clusterInitializer;
 
@@ -75,8 +75,8 @@ public class ClusterManagementController {
     })
     @Consumes(MediaType.APPLICATION_JSON)
     public CompletableFuture<Void> init(@Body InitCommand initCommand) throws ExecutionException, InterruptedException {
-        if (log.isInfoEnabled()) {
-            log.info("Received init command:\n\tMeta Storage nodes: {}\n\tCMG nodes: {}", initCommand.metaStorageNodes(),
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Received init command [metaStorageNodes={}, cmgNodes={}]", initCommand.metaStorageNodes(),
                     initCommand.cmgNodes());
         }
 

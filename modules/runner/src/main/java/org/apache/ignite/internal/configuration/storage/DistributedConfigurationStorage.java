@@ -324,7 +324,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                 }
             });
         } else {
-            LOG.warn("Configuration listener has already been set.");
+            LOG.warn("Configuration listener has already been set");
         }
     }
 

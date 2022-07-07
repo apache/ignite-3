@@ -93,11 +93,11 @@ public class ClusterInitializer {
             // check that provided Meta Storage nodes are present in the topology
             List<ClusterNode> msNodes = resolveNodes(clusterService, metaStorageNodeNames);
 
-            LOG.info("Resolved MetaStorage nodes: {}", msNodes);
+            LOG.info("Resolved MetaStorage nodes[nodes={}]", msNodes);
 
             List<ClusterNode> cmgNodes = resolveNodes(clusterService, cmgNodeNames);
 
-            LOG.info("Resolved CMG nodes: {}", cmgNodes);
+            LOG.info("Resolved CMG nodes[nodes={}]", cmgNodes);
 
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()
                     .metaStorageNodes(metaStorageNodeNames)
@@ -109,10 +109,10 @@ public class ClusterInitializer {
                     .handle((v, e) -> {
                         if (e == null) {
                             LOG.info(
-                                    "Init message sent successfully:\n\tCMG nodes: {}\n\tMetaStorage nodes: {}\n\tCluster name: {}",
+                                    "Cluster initialized [clusterName={}, cmgNodes={}, msNodes={}]",
+                                    initMessage.clusterName(),
                                     initMessage.cmgNodes(),
-                                    initMessage.metaStorageNodes(),
-                                    initMessage.clusterName()
+                                    initMessage.metaStorageNodes()
                             );
 
                             return CompletableFuture.<Void>completedFuture(null);
@@ -121,7 +121,7 @@ public class ClusterInitializer {
                                 e = e.getCause();
                             }
 
-                            LOG.error("Initialization failed: {}", e, e.getMessage());
+                            LOG.error("Initialization failed [reason={}]", e, e.getMessage());
 
                             if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
                                 return CompletableFuture.<Void>failedFuture(e);

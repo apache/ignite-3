@@ -486,7 +486,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                                 throw new IgniteInternalException(e);
                             } catch (Exception e) {
                                 if (e instanceof IgniteInternalException && e.getCause().getCause() instanceof RejectedExecutionException) {
-                                    LOG.warn("Cursor close command was rejected because raft executor has been already stopped.");
+                                    LOG.warn("Cursor close command was rejected because raft executor has been already stopped");
                                     return;
                                 }
 

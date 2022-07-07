@@ -258,7 +258,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         synchronized (raftServiceLock) {
             if (raftService == null) {
                 // Raft service has not been started
-                LOG.info("Init command received, starting the CMG on: {}", msg.cmgNodes());
+                LOG.info("Init command received, starting the CMG [nodes={}]", msg.cmgNodes());
 
                 raftService = startCmgRaftService(msg.cmgNodes());
             } else {
@@ -283,7 +283,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                                         e = e.getCause();
                                     }
 
-                                    LOG.error("Error when initializing the CMG: {}", e, e.getMessage());
+                                    LOG.error("Error when initializing the CMG", e);
 
                                     response = msgFactory.initErrorMessage()
                                             .cause(e.getMessage())
@@ -350,7 +350,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                         // to being unable to send ClusterState messages should not fail the CMG service startup.
                         sendClusterState(state, clusterService.topologyService().allMembers());
                     } else {
-                        LOG.error("Error when executing onLeaderElected callback: {}", e, e.getMessage());
+                        LOG.error("Error when executing onLeaderElected callback", e);
                     }
                 });
     }
@@ -377,7 +377,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private void handleCancelInit(CancelInitMessage msg) {
-        LOG.info("CMG initialization cancelled, reason: " + msg.reason());
+        LOG.info("CMG initialization cancelled [reason={}]", msg.reason());
 
         destroyCmg();
     }
@@ -417,7 +417,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         synchronized (raftServiceLock) {
             if (raftService == null) {
-                LOG.info("ClusterStateMessage received, starting the CMG on {}", state.cmgNodes());
+                LOG.info("ClusterStateMessage received, starting the CMG [nodes={}]", state.cmgNodes());
 
                 raftService = initCmgRaftService(state);
             } else {
@@ -444,11 +444,12 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                                     return CompletableFuture.<CmgRaftService>failedFuture(e);
                                 }
 
-                                LOG.warn("CMG service could not be started on previous attempts: {}. "
-                                        + "Re-creating the CMG Raft service", e, e.getMessage());
+                                LOG.warn("CMG service could not be started on previous attempts. "
+                                        + "Re-creating the CMG Raft service [reason={}]", e, e.getMessage());
                             } else {
-                                LOG.warn("CMG has been started on {}, but the cluster state is different: {}. "
-                                        + "Re-creating the CMG Raft service", service.nodeNames(), state.cmgNodes());
+                                LOG.warn("CMG service started, but the cluster state is different. "
+                                        + "Re-creating the CMG Raft service [localState={}, clusterState={}]",
+                                        service.nodeNames(), state.cmgNodes());
 
                                 destroyCmg();
                             }
@@ -464,7 +465,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         return service.startJoinCluster(clusterTag)
                 .whenComplete((v, e) -> {
                     if (e == null) {
-                        LOG.info("Successfully joined the cluster \"{}\"", clusterTag.clusterName());
+                        LOG.info("Successfully joined the cluster [name={}]", clusterTag.clusterName());
 
                         joinFuture.complete(null);
                     } else {
@@ -522,11 +523,11 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                                 sendClusterState(state, member)
                                         .whenComplete((v, e) -> {
                                             if (e != null) {
-                                                LOG.warn("Error when sending ClusterState: {}", e, e.getMessage());
+                                                LOG.warn("Unable to send cluster state", e);
                                             }
                                         });
                             } else {
-                                LOG.info("Cannot send the cluster state to a newly added node {} because cluster state is empty", member);
+                                LOG.info("Unable to send cluster state to a newly added node. Cluster state is empty [node={}]", member);
                             }
                         });
             }
@@ -576,7 +577,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         return result.whenComplete((v, e) -> {
             if (e != null) {
-                LOG.warn("Unable to send message {} to {}", e, msg.getClass(), node);
+                LOG.warn("Unable to send message [msg={}, target={}]", e, msg.getClass(), node);
             }
         });
     }
@@ -589,7 +590,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     } else if (attempts == 1) {
                         result.completeExceptionally(e);
                     } else {
-                        LOG.debug("Exception when sending message to {}, retrying", e, node.name());
+                        LOG.debug("Unable to send message, going to retry [targetNode={}]", e, node.name());
 
                         scheduledExecutor.schedule(() -> sendWithRetry(node, msg, result, attempts - 1), 500, TimeUnit.MILLISECONDS);
                     }

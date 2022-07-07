@@ -493,7 +493,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 executeFragment(plan, createContext(initiatorNode, desc));
             } catch (Throwable ex) {
-                LOG.error("Failed to start query fragment", ex);
+                LOG.error("Unable to start query fragment", ex);
 
                 try {
                     msgSrvc.send(
@@ -505,7 +505,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                     .build()
                     );
                 } catch (Exception e) {
-                    LOG.error("Error occurred during send error message", e);
+                    LOG.error("Unable to send error message", e);
 
                     close(true);
                 }

@@ -386,7 +386,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (replicasCtx.oldValue() != null && replicasCtx.oldValue() > 0) {
                 TableConfiguration tblCfg = replicasCtx.config(TableConfiguration.class);
 
-                LOG.info("Received update for replicas number for table={} from replicas={} to replicas={}",
+                LOG.info("Received update for replicas number [table={}, oldNumber={}, newNumber={}]",
                         tblCfg.name().value(), replicasCtx.oldValue(), replicasCtx.newValue());
 
                 int partCnt = tblCfg.partitions().value();
@@ -505,7 +505,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
                                     .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
                     ).exceptionally(th -> {
-                        LOG.error("Failed to update raft groups one the node", th);
+                        LOG.error("Unable to update raft groups on the node", th);
 
                         return null;
                     });
@@ -544,7 +544,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     raftMgr.stopRaftGroup(partitionRaftGroupName(table.tableId(), p));
                 }
             } catch (Exception e) {
-                LOG.error("Failed to stop a table {}", e, table.name());
+                LOG.error("Unable to stop table [name={}]", e, table.name());
             }
         }
 
@@ -752,7 +752,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     if (ex instanceof TableAlreadyExistsException) {
                         tblFut.completeExceptionally(ex);
                     } else {
-                        LOG.error(IgniteStringFormatter.format("Table wasn't created [name={}]", name), ex);
+                        LOG.error("Unable to create table [name={}]", ex, name);
 
                         tblFut.completeExceptionally(ex);
 
@@ -858,7 +858,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (ex instanceof TableNotFoundException) {
                             tblFut.completeExceptionally(ex);
                         } else {
-                            LOG.error(IgniteStringFormatter.format("Table wasn't altered [name={}]", name), ex);
+                            LOG.error("Unable to modify table [name={}]", ex, name);
 
                             tblFut.completeExceptionally(ex);
                         }
@@ -952,7 +952,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 if (ex instanceof TableNotFoundException) {
                                     dropTblFut.completeExceptionally(ex);
                                 } else {
-                                    LOG.error(IgniteStringFormatter.format("Table wasn't dropped [name={}]", name), ex);
+                                    LOG.error("Unable to drop table [name={}]", ex, name);
 
                                     dropTblFut.completeExceptionally(ex);
                                 }
@@ -1313,8 +1313,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             .collect(Collectors.toList());
 
                     try {
-                        LOG.info("Received update on pending key={} for partition={}, table={}, "
-                                        + "check if current node={} should start new raft group node for partition rebalance.",
+                        LOG.info("Received update on pending assignments. Check if new raft group should be started"
+                                        + " [key={}, partition={}, table={}, localMemberAddress={}]",
                                 pendingAssignmentsWatchEvent.key(), part, tbl.name(), localMember.address());
 
                         raftMgr.startRaftGroupNode(
@@ -1358,7 +1358,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             @Override
             public void onError(@NotNull Throwable e) {
-                LOG.error("Error while processing pending assignments event", e);
+                LOG.error("Unable to process pending assignments event", e);
             }
         });
 
@@ -1413,7 +1413,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             @Override
             public void onError(@NotNull Throwable e) {
-                LOG.error("Error while processing stable assignments event", e);
+                LOG.error("Unable to process stable assignments event", e);
             }
         });
     }

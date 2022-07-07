@@ -118,7 +118,7 @@ public class PlannerHelper {
 
             return igniteRel;
         } catch (Throwable ex) {
-            LOG.error("Unexpected error at query optimizer.", ex);
+            LOG.error("Unexpected error at query optimizer", ex);
 
             if (LOG.isDebugEnabled()) {
                 LOG.error(planner.dump());
