@@ -17,8 +17,32 @@
 
 namespace Apache.Ignite.Sql
 {
+    using System;
+    using System.Collections.Generic;
+
+    /// <summary>
+    /// SQL statement configuration.
+    /// </summary>
     public sealed record SqlStatementConfiguration
     {
+        /// <summary>
+        /// Gets or sets the query timeout (zero means no timeout).
+        /// </summary>
+        public TimeSpan? Timeout { get; set; }
 
+        /// <summary>
+        /// Gets or sets the SQL schema name.
+        /// </summary>
+        public string? Schema { get; set; }
+
+        /// <summary>
+        /// Gets or sets the number of rows per data page.
+        /// </summary>
+        public int? PageSize { get; set; }
+
+        /// <summary>
+        /// Gets the property bag.
+        /// </summary>
+        public Dictionary<string, object?> Properties { get; } = new();
     }
 }
