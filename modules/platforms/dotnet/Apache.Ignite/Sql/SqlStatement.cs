@@ -26,28 +26,50 @@ namespace Apache.Ignite.Sql
     public sealed record SqlStatement
     {
         /// <summary>
-        /// Gets or sets the query text.
+        /// Initializes a new instance of the <see cref="SqlStatement"/> class.
         /// </summary>
-        public string Query { get; set; } = string.Empty;
+        /// <param name="query">Query text.</param>
+        /// <param name="timeout">Timeout.</param>
+        /// <param name="schema">Schema.</param>
+        /// <param name="pageSize">Page size.</param>
+        /// <param name="properties">Properties.</param>
+        public SqlStatement(
+            string query,
+            TimeSpan? timeout = null,
+            string? schema = null,
+            int? pageSize = null,
+            IReadOnlyDictionary<string, object?>? properties = null)
+        {
+            Query = query;
+            Timeout = timeout;
+            Schema = schema;
+            PageSize = pageSize;
+            Properties = properties == null ? new Dictionary<string, object?>() : new(properties);
+        }
 
         /// <summary>
-        /// Gets or sets the query timeout (zero means no timeout).
+        /// Gets the query text.
         /// </summary>
-        public TimeSpan? Timeout { get; set; }
+        public string Query { get; init; }
 
         /// <summary>
-        /// Gets or sets the SQL schema name.
+        /// Gets the query timeout (zero means no timeout).
         /// </summary>
-        public string? Schema { get; set; }
+        public TimeSpan? Timeout { get; init; }
 
         /// <summary>
-        /// Gets or sets the number of rows per data page.
+        /// Gets the SQL schema name.
         /// </summary>
-        public int? PageSize { get; set; }
+        public string? Schema { get; init; }
+
+        /// <summary>
+        /// Gets the number of rows per data page.
+        /// </summary>
+        public int? PageSize { get; init; }
 
         /// <summary>
         /// Gets the property bag.
         /// </summary>
-        public Dictionary<string, object?> Properties { get; } = new(); // TODO: shallow clone issue when using "with {}" ?
+        public IReadOnlyDictionary<string, object?> Properties { get; init; }
     }
 }

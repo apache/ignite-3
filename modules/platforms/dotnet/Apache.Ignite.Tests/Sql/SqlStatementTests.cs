@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Sql
 {
+    using System.Collections.Generic;
     using Ignite.Sql;
     using NUnit.Framework;
 
@@ -28,16 +29,17 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public void TestStatementCloneCreatesSeparatePropertyDictionary()
         {
-            var statement1 = new SqlStatement
+            var statement1 = new SqlStatement(
+                query: "select 1",
+                properties: new Dictionary<string, object?> { ["foo"] = "bar" });
+
+            var statement2 = statement1 with
             {
-                Query = "select 1",
-                Properties = { ["foo"] = "bar" }
+                Properties = new Dictionary<string, object?> { ["a"] = "b" }
             };
 
-            var statement2 = statement1 with { Query = "select 2" };
-            statement2.Properties.Clear();
-
             Assert.AreEqual("bar", statement1.Properties["foo"]);
+            Assert.IsFalse(statement2.Properties.ContainsKey("foo"));
         }
     }
 }

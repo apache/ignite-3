@@ -30,7 +30,7 @@ namespace Apache.Ignite.Tests.Sql
         public async Task TestSimpleQuery()
         {
             await using ISqlSession session = Client.Sql.CreateSession();
-            await using IResultSet resultSet = await session.ExecuteAsync(null, new SqlStatement { Query = "SELECT ?" }, 1);
+            await using IResultSet resultSet = await session.ExecuteAsync(null, new("SELECT ?"), 1);
 
             Assert.AreEqual(-1, resultSet.AffectedRows);
         }
