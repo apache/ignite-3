@@ -30,7 +30,7 @@ namespace Apache.Ignite.Internal.Sql
     /// <summary>
     /// SQL result set.
     /// </summary>
-    internal sealed class ResultSet : IResultSet<IIgniteTuple>
+    internal sealed class ResultSet : IResultSet<IIgniteTuple>, IAsyncEnumerator<IIgniteTuple>
     {
         private record BufferHolder(PooledBuffer Buffer, int Offset);
 
@@ -88,6 +88,9 @@ namespace Apache.Ignite.Internal.Sql
         public bool WasApplied { get; }
 
         /// <inheritdoc/>
+        public IIgniteTuple Current { get; }
+
+        /// <inheritdoc/>
         public async ValueTask DisposeAsync()
         {
             if (_closed)
@@ -109,8 +112,15 @@ namespace Apache.Ignite.Internal.Sql
         /// <inheritdoc/>
         public IAsyncEnumerator<IIgniteTuple> GetAsyncEnumerator(CancellationToken cancellationToken = default)
         {
-            // TODO: Allowed only once.
+            // TODO: Allowed to be called only once.
             // TODO: Throw when no row set.
+            // TODO: Deserialize and set Current.
+            return this;
+        }
+
+        /// <inheritdoc/>
+        public ValueTask<bool> MoveNextAsync()
+        {
             throw new NotImplementedException();
         }
 
