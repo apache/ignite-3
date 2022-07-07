@@ -96,6 +96,7 @@ public class CheckpointWorkflowTest {
         DataRegion<PersistentPageMemory> dataRegion2 = () -> pageMemory2;
 
         workflow = new CheckpointWorkflow(
+                "test",
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 List.of(dataRegion0, dataRegion1)
@@ -177,7 +178,7 @@ public class CheckpointWorkflowTest {
 
         DataRegion<PersistentPageMemory> dataRegion = () -> pageMemory;
 
-        workflow = new CheckpointWorkflow(markersStorage, readWriteLock, List.of(dataRegion));
+        workflow = new CheckpointWorkflow("test", markersStorage, readWriteLock, List.of(dataRegion));
 
         workflow.start();
 
@@ -307,7 +308,7 @@ public class CheckpointWorkflowTest {
 
         DataRegion<PersistentPageMemory> dataRegion = () -> pageMemory;
 
-        workflow = new CheckpointWorkflow(markersStorage, readWriteLock, List.of(dataRegion));
+        workflow = new CheckpointWorkflow("test", markersStorage, readWriteLock, List.of(dataRegion));
 
         workflow.start();
 
@@ -381,7 +382,7 @@ public class CheckpointWorkflowTest {
                 of(66, 33, 0), of(66, 33, 1), of(66, 33, 2)
         );
 
-        workflow = new CheckpointWorkflow(mock(CheckpointMarkersStorage.class), newReadWriteLock(log), List.of());
+        workflow = new CheckpointWorkflow("test", mock(CheckpointMarkersStorage.class), newReadWriteLock(log), List.of());
 
         workflow.start();
 
@@ -427,7 +428,7 @@ public class CheckpointWorkflowTest {
         FullPageId[] dirtyPages0 = IntStream.range(0, count).mapToObj(i -> of(0, 0, count - i)).toArray(FullPageId[]::new);
         FullPageId[] dirtyPages1 = IntStream.range(0, count).mapToObj(i -> of(1, 1, i)).toArray(FullPageId[]::new);
 
-        workflow = new CheckpointWorkflow(mock(CheckpointMarkersStorage.class), newReadWriteLock(log), List.of());
+        workflow = new CheckpointWorkflow("test", mock(CheckpointMarkersStorage.class), newReadWriteLock(log), List.of());
 
         workflow.start();
 

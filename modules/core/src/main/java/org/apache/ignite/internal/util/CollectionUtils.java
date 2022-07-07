@@ -159,11 +159,11 @@ public final class CollectionUtils {
     }
 
     /**
-     * Union collections.
+     * Concatenates collections.
      *
      * @param collections Collections.
-     * @param <T> Type of the elements of collections.
-     * @return Immutable union of collections.
+     * @param <T> Type of the elements of lists.
+     * @return Immutable collection concatenation.
      */
     @SafeVarargs
     public static <T> Collection<T> concat(Collection<T>... collections) {

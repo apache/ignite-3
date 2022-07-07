@@ -42,6 +42,7 @@ import java.util.concurrent.ForkJoinWorkerThread;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -87,11 +88,13 @@ class CheckpointWorkflow {
     /**
      * Constructor.
      *
+     * @param igniteInstanceName Ignite instance name.
      * @param checkpointMarkersStorage Checkpoint marker storage.
      * @param checkpointReadWriteLock Checkpoint read write lock.
      * @param dataRegions Persistent data regions for the checkpointing, doesn't copy.
      */
     public CheckpointWorkflow(
+            String igniteInstanceName,
             CheckpointMarkersStorage checkpointMarkersStorage,
             CheckpointReadWriteLock checkpointReadWriteLock,
             Collection<? extends DataRegion<PersistentPageMemory>> dataRegions
@@ -105,7 +108,7 @@ class CheckpointWorkflow {
                 pool -> {
                     ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
 
-                    worker.setName("checkpoint-pages-sorter-" + worker.getPoolIndex());
+                    worker.setName(NamedThreadFactory.threadPrefix(igniteInstanceName, "checkpoint-pages-sorter") + worker.getPoolIndex());
 
                     return worker;
                 },
