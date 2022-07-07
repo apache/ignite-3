@@ -72,7 +72,7 @@ public class BinaryTupleSchema {
          * Constructor.
          *
          * @param type Element data type.
-         * @param nullable True for nullable elements, false for non-nullable,
+         * @param nullable True for nullable elements, false for non-nullable.
          */
         public Element(NativeType type, boolean nullable) {
             typeSpec = type.spec();
