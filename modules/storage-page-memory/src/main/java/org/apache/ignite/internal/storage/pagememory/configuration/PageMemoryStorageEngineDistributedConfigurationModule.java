@@ -27,8 +27,10 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-page-memory.
@@ -43,14 +45,15 @@ public class PageMemoryStorageEngineDistributedConfigurationModule implements Co
     /** {@inheritDoc} */
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(PageMemoryStorageEngineConfiguration.KEY);
+        return List.of(VolatilePageMemoryStorageEngineConfiguration.KEY, PersistentPageMemoryStorageEngineConfiguration.KEY);
     }
 
     /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
-                PageMemoryDataStorageConfigurationSchema.class,
+                VolatilePageMemoryDataStorageConfigurationSchema.class,
+                PersistentPageMemoryDataStorageConfigurationSchema.class,
                 UnsafeMemoryAllocatorConfigurationSchema.class
         );
     }

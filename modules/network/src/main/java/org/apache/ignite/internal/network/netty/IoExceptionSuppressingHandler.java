@@ -20,7 +20,8 @@ package org.apache.ignite.internal.network.netty;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.io.IOException;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Netty handler for suppressing IO exceptions that can happen if a remote peer abruptly closes the connection.
@@ -30,7 +31,7 @@ class IoExceptionSuppressingHandler extends ChannelInboundHandlerAdapter {
     public static final String NAME = "io-exception-suppressing-handler";
 
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(IoExceptionSuppressingHandler.class);
+    private static final IgniteLogger LOG = Loggers.forClass(IoExceptionSuppressingHandler.class);
 
     /** {@inheritDoc} */
     @Override

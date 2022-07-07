@@ -28,6 +28,7 @@ import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Validation context implementation.
@@ -61,13 +62,13 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
     /**
      * Constructor.
      *
-     * @param oldRoots    Old roots.
-     * @param newRoots    New roots.
-     * @param otherRoots  Provider for arbitrary roots that might not be accociated with the same storage.
-     * @param val         New value of currently validated configuration.
-     * @param currentKey  Key corresponding to the value.
+     * @param oldRoots Old roots.
+     * @param newRoots New roots.
+     * @param otherRoots Provider for arbitrary roots that might not be accociated with the same storage.
+     * @param val New value of currently validated configuration.
+     * @param currentKey Key corresponding to the value.
      * @param currentPath List representation of {@code currentKey}.
-     * @param issues      List of issues, should be used as a write-only collection.
+     * @param issues List of issues, should be used as a write-only collection.
      */
     ValidationContextImpl(
             SuperRoot oldRoots,
@@ -131,5 +132,25 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
     @Override
     public void addIssue(ValidationIssue issue) {
         issues.add(issue);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> @Nullable T getOldOwner() {
+        return findOwner(oldRoots);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> @Nullable T getNewOwner() {
+        return findOwner(newRoots);
+    }
+
+    private <T> @Nullable T findOwner(SuperRoot superRoot) {
+        try {
+            return currentPath.size() <= 1 ? null : find(currentPath.subList(0, currentPath.size() - 1), superRoot, true);
+        } catch (KeyNotFoundException ignore) {
+            return null;
+        }
     }
 }

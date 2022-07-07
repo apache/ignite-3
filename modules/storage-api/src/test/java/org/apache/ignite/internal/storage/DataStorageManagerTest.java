@@ -87,9 +87,9 @@ public class DataStorageManagerTest {
                 dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
         );
 
-        // Checks that the current default is "pagememory" even if we have one engine and it's not "pagememory".
+        // Checks that the current default is "aimem" even if we have one engine and it's not "aimem".
         // TODO: IGNITE-17197 Uncomment after the ticket is resolved.
-        // assertThat("pagememory", equalTo(dataStorageManager.defaultDataStorage()));
+        // assertThat("aimem", equalTo(dataStorageManager.defaultDataStorage()));
     }
 
     @Test
@@ -105,7 +105,7 @@ public class DataStorageManagerTest {
         );
 
         // TODO: IGNITE-17197 Uncomment after the ticket is resolved.
-        // assertThat("pagememory", equalTo(dataStorageManager.defaultDataStorage()));
+        // assertThat("aimem", equalTo(dataStorageManager.defaultDataStorage()));
 
         tablesConfig.defaultDataStorage().update(FIRST).get(1, TimeUnit.SECONDS);
         assertThat(FIRST, equalTo(dataStorageManager.defaultDataStorage()));

@@ -34,9 +34,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -125,7 +125,7 @@ import org.apache.ignite.raft.jraft.util.concurrent.LongHeldDetectingReadWriteLo
  * The raft replica node implementation.
  */
 public class NodeImpl implements Node, RaftServerService {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(NodeImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(NodeImpl.class);
 
     // Max retry times when applying tasks.
     private static final int MAX_APPLY_RETRY_TIMES = 3;
@@ -406,6 +406,7 @@ public class NodeImpl implements Node, RaftServerService {
             }
             Requires.requireTrue(this.stage == Stage.STAGE_CATCHING_UP, "Stage is not in STAGE_CATCHING_UP");
             if (success) {
+                LOG.info("Catch up for peer={} was finished", peer);
                 this.addingPeers.remove(peer);
                 if (this.addingPeers.isEmpty()) {
                     nextStage();
@@ -496,6 +497,7 @@ public class NodeImpl implements Node, RaftServerService {
             Requires.requireTrue(isBusy(), "Not in busy stage");
             switch (this.stage) {
                 case STAGE_CATCHING_UP:
+                    LOG.info("Catch up phase to change peers from={} to={} was successfully finished", oldPeers, newPeers);
                     if (this.nchanges > 0) {
                         this.stage = Stage.STAGE_JOINT;
                         this.node.unsafeApplyConfiguration(new Configuration(this.newPeers, this.newLearners),

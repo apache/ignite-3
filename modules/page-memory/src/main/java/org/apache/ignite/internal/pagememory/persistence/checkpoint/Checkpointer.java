@@ -40,11 +40,11 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
-import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -54,7 +54,6 @@ import org.apache.ignite.internal.util.worker.WorkProgressDispatcher;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
@@ -82,7 +81,7 @@ import org.jetbrains.annotations.Nullable;
  * <li>Finish the checkpoint.
  * </ul>
  */
-public class Checkpointer extends IgniteWorker implements IgniteComponent {
+public class Checkpointer extends IgniteWorker {
     private static final String CHECKPOINT_STARTED_LOG_FORMAT = "Checkpoint started ["
             + "checkpointId=%s, "
             + "checkpointBeforeWriteLockTime=%dms, "
@@ -169,7 +168,7 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
                     30_000,
                     MILLISECONDS,
                     new LinkedBlockingQueue<>(),
-                    new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io")
+                    new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", log)
             );
         } else {
             checkpointWritePagesPool = null;
@@ -364,7 +363,7 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
      */
     boolean writePages(
             CheckpointMetricsTracker tracker,
-            IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> checkpointPages,
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> checkpointPages,
             CheckpointProgressImpl currentCheckpointProgress,
             WorkProgressDispatcher workProgressDispatcher,
             BooleanSupplier shutdownNow
@@ -611,8 +610,9 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Starts the checkpointer.
+     */
     public void start() {
         if (runner() != null) {
             return;
@@ -623,8 +623,9 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
         new IgniteThread(this).start();
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Stops the checkpointer.
+     */
     public void stop() throws Exception {
         // Let's write the data.
         shutdownCheckpointer(true);

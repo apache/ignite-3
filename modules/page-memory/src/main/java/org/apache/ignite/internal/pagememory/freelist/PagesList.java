@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.Storable;
@@ -61,7 +62,6 @@ import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -182,10 +182,9 @@ public abstract class PagesList extends DataStructure {
      *
      * @param name Structure name (for debug purpose).
      * @param grpId Group ID.
+     * @param partId Partition ID.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
-     * @param defaultPageFlag Default flag value for allocated pages. One of {@link PageIdAllocator#FLAG_DATA} or {@link
-     * PageIdAllocator#FLAG_AUX}.
      * @param log Logger.
      * @param buckets Number of buckets.
      * @param metaPageId Metadata page ID.
@@ -193,14 +192,14 @@ public abstract class PagesList extends DataStructure {
     protected PagesList(
             String name,
             int grpId,
+            int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
-            byte defaultPageFlag,
             IgniteLogger log,
             int buckets,
             long metaPageId
     ) {
-        super(name, grpId, null, pageMem, lockLsnr, defaultPageFlag);
+        super(name, grpId, null, partId, pageMem, lockLsnr, FLAG_AUX);
 
         this.log = log;
 

@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
-
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.AbstractFreeList;
@@ -28,14 +27,13 @@ import org.apache.ignite.internal.pagememory.freelist.FreeList;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link FreeList} implementation for storage-page-memory module.
  */
 public class TableFreeList extends AbstractFreeList<TableDataRow> {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(TableFreeList.class);
+    private static final IgniteLogger LOG = Loggers.forClass(TableFreeList.class);
 
     private final IoStatisticsHolder statHolder;
 
@@ -54,6 +52,7 @@ public class TableFreeList extends AbstractFreeList<TableDataRow> {
      */
     public TableFreeList(
             int grpId,
+            int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
             long metaPageId,
@@ -64,11 +63,11 @@ public class TableFreeList extends AbstractFreeList<TableDataRow> {
     ) throws IgniteInternalCheckedException {
         super(
                 grpId,
+                partId,
                 "TableFreeList_" + grpId,
                 pageMem,
                 null,
                 lockLsnr,
-                FLAG_AUX,
                 LOG,
                 metaPageId,
                 initNew,
@@ -77,12 +76,6 @@ public class TableFreeList extends AbstractFreeList<TableDataRow> {
         );
 
         this.statHolder = statHolder;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-        return pageMem.allocatePage(grpId, INDEX_PARTITION, defaultPageFlag);
     }
 
     /**

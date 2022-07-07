@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.freelist;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
@@ -42,10 +41,10 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
-import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
+import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
@@ -68,7 +67,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
     private static final int BATCH_SIZE = 100;
 
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
-    private PageMemoryDataRegionConfiguration dataRegionCfg;
+    private VolatilePageMemoryDataRegionConfiguration dataRegionCfg;
 
     @Nullable
     private PageMemory pageMemory;
@@ -142,23 +141,17 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
 
         return new AbstractFreeList<>(
                 0,
+                1,
                 "freelist",
                 pageMemory,
                 null,
                 PageLockListenerNoOp.INSTANCE,
-                FLAG_AUX,
                 log,
                 metaPageId,
                 true,
                 null,
                 PageEvictionTrackerNoOp.INSTANCE
         ) {
-            /** {@inheritDoc} */
-            @Override
-            protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-                return pageMemory.allocatePage(grpId, 0, FLAG_AUX);
-            }
-
             /** {@inheritDoc} */
             @Override
             public void insertDataRow(TestDataRow row, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
@@ -178,7 +171,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
 
         ioRegistry.load(TestDataPageIo.VERSIONS);
 
-        return new PageMemoryNoStoreImpl(
+        return new VolatilePageMemory(
                 dataRegionCfg,
                 ioRegistry,
                 pageSize

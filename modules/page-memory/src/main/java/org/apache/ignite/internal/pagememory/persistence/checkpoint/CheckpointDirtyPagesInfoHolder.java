@@ -19,27 +19,27 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import java.util.Collection;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
- * Holder of information about dirty pages by {@link PageMemoryImpl} for checkpoint.
+ * Holder of information about dirty pages by {@link PersistentPageMemory} for checkpoint.
  */
 class CheckpointDirtyPagesInfoHolder {
     /** Total number of dirty pages. */
     final int dirtyPageCount;
 
-    /** Collection of dirty pages per {@link PageMemoryImpl} distribution. */
-    final Collection<IgniteBiTuple<PageMemoryImpl, Collection<FullPageId>>> dirtyPages;
+    /** Collection of dirty pages per {@link PersistentPageMemory} distribution. */
+    final Collection<IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>>> dirtyPages;
 
     /**
      * Constructor.
      *
-     * @param dirtyPages Collection of dirty pages per {@link PageMemoryImpl} distribution.
+     * @param dirtyPages Collection of dirty pages per {@link PersistentPageMemory} distribution.
      * @param dirtyPageCount Total number of dirty pages.
      */
     public CheckpointDirtyPagesInfoHolder(
-            Collection<IgniteBiTuple<PageMemoryImpl, Collection<FullPageId>>> dirtyPages,
+            Collection<IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>>> dirtyPages,
             int dirtyPageCount
     ) {
         this.dirtyPages = dirtyPages;

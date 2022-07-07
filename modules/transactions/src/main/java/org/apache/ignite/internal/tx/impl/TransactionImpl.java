@@ -26,10 +26,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -44,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TransactionImpl implements InternalTransaction {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(TransactionImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(TransactionImpl.class);
 
     /** The id. */
     private final UUID id;

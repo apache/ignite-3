@@ -31,8 +31,9 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMes
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.InitCompleteMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.StringUtils;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
@@ -41,7 +42,7 @@ import org.apache.ignite.network.NetworkMessage;
  * Class for performing cluster initialization.
  */
 public class ClusterInitializer {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ClusterInitializer.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterInitializer.class);
 
     private final ClusterService clusterService;
 

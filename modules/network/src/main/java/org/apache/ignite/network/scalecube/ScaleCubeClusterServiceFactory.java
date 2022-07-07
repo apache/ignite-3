@@ -33,6 +33,8 @@ import org.apache.ignite.configuration.schemas.network.ClusterMembershipView;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.configuration.schemas.network.ScaleCubeView;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
@@ -41,7 +43,6 @@ import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -56,7 +57,7 @@ import org.apache.ignite.network.NodeFinderFactory;
  */
 public class ScaleCubeClusterServiceFactory {
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ScaleCubeClusterServiceFactory.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ScaleCubeClusterServiceFactory.class);
 
     /**
      * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.

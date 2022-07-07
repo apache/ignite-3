@@ -20,13 +20,16 @@ package org.apache.ignite.internal.storage.pagememory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.PageMemoryMvPartitionStorage;
@@ -39,9 +42,7 @@ import org.jetbrains.annotations.TestOnly;
  * Abstract table storage implementation based on {@link PageMemory}.
  */
 // TODO: IGNITE-16642 Support indexes.
-public abstract class AbstractPageMemoryTableStorage implements TableStorage {
-    protected final AbstractPageMemoryDataRegion dataRegion;
-
+public abstract class AbstractPageMemoryTableStorage implements TableStorage, MvTableStorage {
     protected final TableConfiguration tableCfg;
 
     /** List of objects to be closed on the {@link #stop}. */
@@ -51,14 +52,14 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage {
 
     protected volatile AtomicReferenceArray<PartitionStorage> partitions;
 
+    protected volatile AtomicReferenceArray<MvPartitionStorage> mvPartitions;
+
     /**
      * Constructor.
      *
-     * @param tableCfg – Table configuration.
-     * @param dataRegion – Data region for the table.
+     * @param tableCfg Table configuration.
      */
-    public AbstractPageMemoryTableStorage(TableConfiguration tableCfg, AbstractPageMemoryDataRegion dataRegion) {
-        this.dataRegion = dataRegion;
+    public AbstractPageMemoryTableStorage(TableConfiguration tableCfg) {
         this.tableCfg = tableCfg;
     }
 
@@ -74,6 +75,8 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage {
         TableView tableView = tableCfg.value();
 
         partitions = new AtomicReferenceArray<>(tableView.partitions());
+
+        mvPartitions = new AtomicReferenceArray<>(tableView.partitions());
 
         started = true;
     }
@@ -151,18 +154,62 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage {
      */
     protected abstract VolatilePageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException;
 
+    /** {@inheritDoc} */
+    @Override
+    public MvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
+        MvPartitionStorage partition = getMvPartition(partitionId);
+
+        if (partition != null) {
+            return partition;
+        }
+
+        partition = createMvPartitionStorage(partitionId);
+
+        mvPartitions.set(partitionId, partition);
+
+        return partition;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public MvPartitionStorage getMvPartition(int partitionId) {
+        assert started : "Storage has not started yet";
+
+        if (partitionId < 0 || partitionId >= mvPartitions.length()) {
+            throw new IllegalArgumentException(S.toString(
+                    "Unable to access partition with id outside of configured range",
+                    "table", tableCfg.name().value(), false,
+                    "partitionId", partitionId, false,
+                    "partitions", mvPartitions.length(), false
+            ));
+        }
+
+        return mvPartitions.get(partitionId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<?> destroyPartition(int partitionId) throws StorageException {
+        assert started : "Storage has not started yet";
+
+        MvPartitionStorage partition = getMvPartition(partitionId);
+
+        if (partition != null) {
+            mvPartitions.set(partitionId, null);
+
+            // TODO: IGNITE-17197 Actually destroy the partition.
+            //partition.destroy();
+        }
+
+        // TODO: IGNITE-17197 Convert this to true async code.
+        return CompletableFuture.completedFuture(null);
+    }
+
     /**
      * This API is not yet ready. But we need to test mv storages anyways.
      */
     @TestOnly
-    public PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        return new PageMemoryMvPartitionStorage(partitionId,
-                tableCfg.value(),
-                dataRegion,
-                ((VolatilePageMemoryDataRegion) dataRegion).versionChainFreeList(),
-                ((VolatilePageMemoryDataRegion) dataRegion).rowVersionFreeList()
-        );
-    }
+    public abstract PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId);
 
     /**
      * Closes all {@link #partitions} and {@link #autoCloseables}.

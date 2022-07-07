@@ -20,17 +20,16 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import java.nio.file.Path;
 import java.util.Collection;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
-import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,7 +49,7 @@ import org.jetbrains.annotations.Nullable;
  *     <li>Synchronizing collected pages with disk using {@link FilePageStoreManager}.</li>
  * </ul>
  */
-public class CheckpointManager implements IgniteComponent {
+public class CheckpointManager {
     /** Checkpoint worker. */
     private final Checkpointer checkpointer;
 
@@ -85,7 +84,7 @@ public class CheckpointManager implements IgniteComponent {
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             PageMemoryCheckpointConfiguration checkpointConfig,
             FilePageStoreManager filePageStoreManager,
-            Collection<? extends PageMemoryDataRegion> dataRegions,
+            Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
             Path storagePath,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
@@ -95,7 +94,7 @@ public class CheckpointManager implements IgniteComponent {
         long logReadLockThresholdTimeout = checkpointConfigView.logReadLockThresholdTimeout();
 
         ReentrantReadWriteLockWithTracking reentrantReadWriteLockWithTracking = logReadLockThresholdTimeout > 0
-                ? new ReentrantReadWriteLockWithTracking(IgniteLogger.forClass(CheckpointReadWriteLock.class), logReadLockThresholdTimeout)
+                ? new ReentrantReadWriteLockWithTracking(Loggers.forClass(CheckpointReadWriteLock.class), logReadLockThresholdTimeout)
                 : new ReentrantReadWriteLockWithTracking();
 
         CheckpointReadWriteLock checkpointReadWriteLock = new CheckpointReadWriteLock(reentrantReadWriteLockWithTracking);
@@ -110,13 +109,13 @@ public class CheckpointManager implements IgniteComponent {
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
-                IgniteLogger.forClass(CheckpointPagesWriterFactory.class),
+                Loggers.forClass(CheckpointPagesWriterFactory.class),
                 (fullPage, buf, tag) -> filePageStoreManager.write(fullPage.groupId(), fullPage.pageId(), buf, tag, true),
                 pageSize
         );
 
         checkpointer = new Checkpointer(
-                IgniteLogger.forClass(Checkpoint.class),
+                Loggers.forClass(Checkpoint.class),
                 igniteInstanceName,
                 workerListener,
                 longJvmPauseDetector,
@@ -126,7 +125,7 @@ public class CheckpointManager implements IgniteComponent {
         );
 
         checkpointTimeoutLock = new CheckpointTimeoutLock(
-                IgniteLogger.forClass(CheckpointTimeoutLock.class),
+                Loggers.forClass(CheckpointTimeoutLock.class),
                 checkpointReadWriteLock,
                 checkpointConfigView.readLockTimeout(),
                 () -> safeToUpdateAllPageMemories(dataRegions),
@@ -134,8 +133,9 @@ public class CheckpointManager implements IgniteComponent {
         );
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Starts a checkpoint manger.
+     */
     public void start() {
         checkpointWorkflow.start();
 
@@ -144,8 +144,9 @@ public class CheckpointManager implements IgniteComponent {
         checkpointTimeoutLock.start();
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Stops a checkpoint manger.
+     */
     public void stop() throws Exception {
         IgniteUtils.closeAll(
                 checkpointTimeoutLock::stop,
@@ -167,7 +168,7 @@ public class CheckpointManager implements IgniteComponent {
      * @param listener Listener.
      * @param dataRegion Persistent data region for which listener is corresponded to, {@code null} for all regions.
      */
-    public void addCheckpointListener(CheckpointListener listener, PageMemoryDataRegion dataRegion) {
+    public void addCheckpointListener(CheckpointListener listener, DataRegion<PersistentPageMemory> dataRegion) {
         checkpointWorkflow.addCheckpointListener(listener, dataRegion);
     }
 
@@ -191,14 +192,14 @@ public class CheckpointManager implements IgniteComponent {
     }
 
     /**
-     * Returns {@link true} if it is safe for all {@link PageMemoryDataRegion data regions} to update their {@link PageMemory}.
+     * Returns {@link true} if it is safe for all {@link DataRegion data regions} to update their {@link PageMemory}.
      *
      * @param dataRegions Data regions.
-     * @see PageMemoryImpl#safeToUpdate()
+     * @see PersistentPageMemory#safeToUpdate()
      */
-    static boolean safeToUpdateAllPageMemories(Collection<? extends PageMemoryDataRegion> dataRegions) {
-        for (PageMemoryDataRegion dataRegion : dataRegions) {
-            if (dataRegion.persistent() && !((PageMemoryImpl) dataRegion.pageMemory()).safeToUpdate()) {
+    static boolean safeToUpdateAllPageMemories(Collection<? extends DataRegion<PersistentPageMemory>> dataRegions) {
+        for (DataRegion<PersistentPageMemory> dataRegion : dataRegions) {
+            if (!dataRegion.pageMemory().safeToUpdate()) {
                 return false;
             }
         }

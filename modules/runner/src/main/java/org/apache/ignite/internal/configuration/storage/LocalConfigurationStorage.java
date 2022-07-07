@@ -31,13 +31,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.future.InFlightFutures;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Local configuration storage.
@@ -50,7 +51,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     private static final ByteArray VERSION_KEY = new ByteArray(LOC_PREFIX + "$version");
 
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(LocalConfigurationStorage.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LocalConfigurationStorage.class);
 
     /** Vault manager. */
     private final VaultManager vaultMgr;
@@ -64,7 +65,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     /** End key in range for searching local configuration keys. */
     private static final ByteArray LOC_KEYS_END_RANGE = ByteArray.fromString(incrementLastChar(LOC_PREFIX));
 
-    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("loc-cfg"));
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("loc-cfg", LOG));
 
     private final InFlightFutures futureTracker = new InFlightFutures();
 

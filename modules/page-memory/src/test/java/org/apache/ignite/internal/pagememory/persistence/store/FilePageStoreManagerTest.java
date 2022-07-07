@@ -17,19 +17,14 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
-import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_DATA;
-import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_IDX;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.startsWith;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.emptyArray;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -43,11 +38,13 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -56,7 +53,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class FilePageStoreManagerTest {
-    private final IgniteLogger log = IgniteLogger.forClass(FilePageStoreManagerTest.class);
+    private final IgniteLogger log = Loggers.forClass(FilePageStoreManagerTest.class);
 
     @WorkDirectory
     private Path workDir;
@@ -79,7 +76,7 @@ public class FilePageStoreManagerTest {
 
         IgniteInternalCheckedException exception = assertThrows(IgniteInternalCheckedException.class, this::createManager);
 
-        assertThat(exception.getMessage(), startsWith("Could not create work directory for page stores"));
+        assertThat(exception.getMessage(), containsString("Could not create work directory for page stores"));
     }
 
     @Test
@@ -109,23 +106,28 @@ public class FilePageStoreManagerTest {
                     () -> manager.initialize("test", 0, 2)
             );
 
-            assertThat(exception.getMessage(), startsWith("Failed to initialize group working directory"));
+            assertThat(exception.getMessage(), containsString("Failed to initialize group working directory"));
 
             Files.delete(testGroupDir);
 
             assertDoesNotThrow(() -> manager.initialize("test", 0, 2));
 
             assertTrue(Files.isDirectory(testGroupDir));
-            assertThat(Files.list(testGroupDir).collect(toList()), empty());
+
+            try (Stream<Path> files = Files.list(testGroupDir)) {
+                assertThat(files.count(), is(0L));
+            }
 
             for (FilePageStore filePageStore : manager.getStores(0)) {
                 filePageStore.ensure();
             }
 
-            assertThat(
-                    Files.list(testGroupDir).map(Path::getFileName).map(Path::toString).collect(toSet()),
-                    equalTo(Set.of("index.bin", "part-0.bin", "part-1.bin"))
-            );
+            try (Stream<Path> files = Files.list(testGroupDir)) {
+                assertThat(
+                        files.map(Path::getFileName).map(Path::toString).collect(toSet()),
+                        containsInAnyOrder("part-0.bin", "part-1.bin")
+                );
+            }
         } finally {
             manager.stop();
         }
@@ -145,7 +147,7 @@ public class FilePageStoreManagerTest {
             Collection<FilePageStore> stores = manager.getStores(0);
 
             assertNotNull(stores);
-            assertEquals(3, stores.size());
+            assertEquals(2, stores.size());
             assertDoesNotThrow(() -> Set.copyOf(stores));
 
             // Checks getStore.
@@ -157,7 +159,6 @@ public class FilePageStoreManagerTest {
             assertTrue(pageStores.add(partitionPageStore0));
             assertTrue(stores.contains(partitionPageStore0));
 
-            assertEquals(TYPE_DATA, partitionPageStore0.type());
             assertTrue(partitionPageStore0.filePath().endsWith("db/group-test/part-0.bin"));
 
             FilePageStore partitionPageStore1 = manager.getStore(0, 1);
@@ -165,29 +166,20 @@ public class FilePageStoreManagerTest {
             assertTrue(pageStores.add(partitionPageStore1));
             assertTrue(stores.contains(partitionPageStore1));
 
-            assertEquals(TYPE_DATA, partitionPageStore1.type());
             assertTrue(partitionPageStore1.filePath().endsWith("db/group-test/part-1.bin"));
-
-            FilePageStore idxPageStore = manager.getStore(0, INDEX_PARTITION);
-
-            assertTrue(pageStores.add(idxPageStore));
-            assertTrue(stores.contains(idxPageStore));
-
-            assertEquals(TYPE_IDX, idxPageStore.type());
-            assertTrue(idxPageStore.filePath().endsWith("db/group-test/index.bin"));
 
             IgniteInternalCheckedException exception = assertThrows(IgniteInternalCheckedException.class, () -> manager.getStore(1, 0));
 
             assertThat(
                     exception.getMessage(),
-                    startsWith("Failed to get file page store for the given group ID (group has not been started)")
+                    containsString("Failed to get file page store for the given group ID (group has not been started)")
             );
 
             exception = assertThrows(IgniteInternalCheckedException.class, () -> manager.getStore(0, 2));
 
             assertThat(
                     exception.getMessage(),
-                    startsWith("Failed to get file page store for the given partition ID (partition has not been created)")
+                    containsString("Failed to get file page store for the given partition ID (partition has not been created)")
             );
         } finally {
             manager.stop();
@@ -208,19 +200,16 @@ public class FilePageStoreManagerTest {
             }
 
             manager0.stopAllGroupFilePageStores(false);
-
-            assertFalse(waitForCondition(
-                    () -> workDir.resolve("db/group-test0").toFile().listFiles().length == 0,
-                    10,
-                    100
-            ));
-
-            assertThat(
-                    Files.list(workDir.resolve("db/group-test0")).map(Path::getFileName).map(Path::toString).collect(toSet()),
-                    equalTo(Set.of("index.bin", "part-0.bin"))
-            );
         } finally {
+            // Waits for all asynchronous operations to complete.
             manager0.stop();
+        }
+
+        try (Stream<Path> files = Files.list(workDir.resolve("db/group-test0"))) {
+            assertThat(
+                    files.map(Path::getFileName).map(Path::toString).collect(toSet()),
+                    containsInAnyOrder("part-0.bin")
+            );
         }
 
         // Checks with clean files.
@@ -235,15 +224,12 @@ public class FilePageStoreManagerTest {
             }
 
             manager1.stopAllGroupFilePageStores(true);
-
-            assertTrue(waitForCondition(
-                    () -> workDir.resolve("db/group-test1").toFile().listFiles().length == 0,
-                    10,
-                    100
-            ));
         } finally {
+            // Waits for all asynchronous operations to complete.
             manager1.stop();
         }
+
+        assertThat(workDir.resolve("db/group-test1").toFile().listFiles(), emptyArray());
     }
 
     private FilePageStoreManager createManager() throws Exception {

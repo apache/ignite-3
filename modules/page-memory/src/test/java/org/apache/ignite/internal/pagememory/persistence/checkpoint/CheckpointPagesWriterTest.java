@@ -19,7 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
-import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.TRY_AGAIN_TAG;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.TRY_AGAIN_TAG;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -47,12 +47,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -60,11 +61,11 @@ import org.mockito.ArgumentCaptor;
  * For {@link CheckpointPagesWriter} testing.
  */
 public class CheckpointPagesWriterTest {
-    private final IgniteLogger log = IgniteLogger.forClass(CheckpointPagesWriterTest.class);
+    private final IgniteLogger log = Loggers.forClass(CheckpointPagesWriterTest.class);
 
     @Test
     void testWritePages() throws Exception {
-        PageMemoryImpl pageMemory = createPageMemoryImpl(3);
+        PersistentPageMemory pageMemory = createPageMemoryImpl(3);
 
         FullPageId fullPageId0 = new FullPageId(pageId(0, FLAG_DATA, 0), 0);
         FullPageId fullPageId1 = new FullPageId(pageId(0, FLAG_DATA, 1), 0);
@@ -73,7 +74,7 @@ public class CheckpointPagesWriterTest {
         FullPageId fullPageId4 = new FullPageId(pageId(1, FLAG_DATA, 4), 0);
         FullPageId fullPageId5 = new FullPageId(pageId(1, FLAG_DATA, 5), 0);
 
-        IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> writePageIds = new IgniteConcurrentMultiPairQueue<>(
+        IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds = new IgniteConcurrentMultiPairQueue<>(
                 Map.of(pageMemory, List.of(fullPageId0, fullPageId1, fullPageId2, fullPageId3, fullPageId4, fullPageId5))
         );
 
@@ -137,7 +138,7 @@ public class CheckpointPagesWriterTest {
     void testFailWritePages() throws Exception {
         CompletableFuture<?> doneFuture = new CompletableFuture<>();
 
-        PageMemoryImpl pageMemory = mock(PageMemoryImpl.class);
+        PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
 
         doThrow(IgniteInternalCheckedException.class)
                 .when(pageMemory)
@@ -173,7 +174,7 @@ public class CheckpointPagesWriterTest {
     void testShutdownNow() throws Exception {
         CompletableFuture<?> doneFuture = new CompletableFuture<>();
 
-        PageMemoryImpl pageMemory = mock(PageMemoryImpl.class);
+        PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
 
         AtomicInteger checkpointWritePageCount = new AtomicInteger();
 
@@ -190,7 +191,7 @@ public class CheckpointPagesWriterTest {
                         any(CheckpointMetricsTracker.class)
                 );
 
-        IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> writePageIds = new IgniteConcurrentMultiPairQueue<>(
+        IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds = new IgniteConcurrentMultiPairQueue<>(
                 Map.of(pageMemory, List.of(new FullPageId(0, 0), new FullPageId(1, 0)))
         );
 
@@ -216,13 +217,13 @@ public class CheckpointPagesWriterTest {
     }
 
     /**
-     * Returns mocked instance of {@link PageMemoryImpl}.
+     * Returns mocked instance of {@link PersistentPageMemory}.
      *
-     * @param tryAgainTagFirstPageCount Number of first pages for which the tag value will be {@link PageMemoryImpl#TRY_AGAIN_TAG}.
+     * @param tryAgainTagFirstPageCount Number of first pages for which the tag value will be {@link PersistentPageMemory#TRY_AGAIN_TAG}.
      * @throws Exception If failed.
      */
-    private static PageMemoryImpl createPageMemoryImpl(int tryAgainTagFirstPageCount) throws Exception {
-        PageMemoryImpl pageMemory = mock(PageMemoryImpl.class);
+    private static PersistentPageMemory createPageMemoryImpl(int tryAgainTagFirstPageCount) throws Exception {
+        PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
 
         AtomicInteger pageCount = new AtomicInteger();
 

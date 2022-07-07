@@ -24,13 +24,14 @@ import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * A {@link java.util.concurrent.ExecutorService} that witch can print error message for failed execution.
  */
 public class LogThreadPoolExecutor extends ThreadPoolExecutor {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(LogThreadPoolExecutor.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LogThreadPoolExecutor.class);
 
     private final String name;
 

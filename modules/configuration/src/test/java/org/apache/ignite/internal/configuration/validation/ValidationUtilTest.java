@@ -22,6 +22,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.validation.ValidationUtilTest.PolyValidatedChildConfigurationSchema.DEFAULT_POLY_TYPE;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 
 import java.lang.annotation.Annotation;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
@@ -266,12 +268,86 @@ public class ValidationUtilTest {
         );
     }
 
-    private static class ExValidationIssue extends ValidationIssue {
-        final String currentKey;
+    @Test
+    void testGetOwner() {
+        var rootsNode = new SuperRoot(key -> null, Map.of(ValidatedRootConfiguration.KEY, root));
 
+        Validator<InnerValidation, Object> innerValidator = new Validator<>() {
+            /** {@inheritDoc} */
+            @Override
+            public void validate(InnerValidation annotation, ValidationContext<Object> ctx) {
+                Object oldOwner = ctx.getOldOwner();
+                Object newOwner = ctx.getOldOwner();
+
+                // Checks that the nested configuration owner is ValidatedRootView.
+                if (!(oldOwner instanceof ValidatedRootView)) {
+                    ctx.addIssue(new ExValidationIssue("Wrong inner owner", ctx.currentKey(), null, oldOwner));
+                }
+
+                // Checks that the nested configuration owner is ValidatedRootView.
+                if (!(newOwner instanceof ValidatedRootView)) {
+                    ctx.addIssue(new ExValidationIssue("Wrong inner owner", ctx.currentKey(), null, newOwner));
+                }
+            }
+        };
+
+        Validator<LeafValidation, Object> leafValidator = new Validator<>() {
+            /** {@inheritDoc} */
+            @Override
+            public void validate(LeafValidation annotation, ValidationContext<Object> ctx) {
+                Object oldOwner = ctx.getOldOwner();
+                Object newOwner = ctx.getOldOwner();
+
+                // Checks that the owner of the primitive (leaf) configuration is either ValidatedChildView or PolyValidatedChildView.
+                if (!(oldOwner instanceof ValidatedChildView) && !(oldOwner instanceof PolyValidatedChildView)) {
+                    ctx.addIssue(new ExValidationIssue("Wrong leaf owner", ctx.currentKey(), null, oldOwner));
+                }
+
+                // Checks that the owner of the primitive (leaf) configuration is either ValidatedChildView or PolyValidatedChildView.
+                if (!(newOwner instanceof ValidatedChildView) && !(newOwner instanceof PolyValidatedChildView)) {
+                    ctx.addIssue(new ExValidationIssue("Wrong leaf owner", ctx.currentKey(), null, newOwner));
+                }
+            }
+        };
+
+        Validator<NamedListValidation, NamedListView<?>> namedListValidator = new Validator<>() {
+            /** {@inheritDoc} */
+            @Override
+            public void validate(NamedListValidation annotation, ValidationContext<NamedListView<?>> ctx) {
+                Object oldOwner = ctx.getOldOwner();
+                Object newOwner = ctx.getOldOwner();
+
+                // Checks that the named list configuration owner is ValidatedRootView.
+                if (!(oldOwner instanceof ValidatedRootView)) {
+                    ctx.addIssue(new ExValidationIssue("Wrong list owner", ctx.currentKey(), null, oldOwner));
+                }
+
+                // Checks that the named list configuration owner is ValidatedRootView.
+                if (!(newOwner instanceof ValidatedRootView)) {
+                    ctx.addIssue(new ExValidationIssue("Wrong list owner", ctx.currentKey(), null, newOwner));
+                }
+            }
+        };
+
+        Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = Map.of(
+                InnerValidation.class, Set.of(innerValidator),
+                LeafValidation.class, Set.of(leafValidator),
+                NamedListValidation.class, Set.of(namedListValidator)
+        );
+
+        List<ValidationIssue> validationIssues = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
+
+        // Checks that for a nested/leaf/named configuration their owners will be correctly returned.
+        assertThat(validationIssues, empty());
+    }
+
+    private static class ExValidationIssue extends ValidationIssue {
+
+        @IgniteToStringInclude
         @Nullable
         final Object oldVal;
 
+        @IgniteToStringInclude
         final Object newVal;
 
         ExValidationIssue(
@@ -280,8 +356,7 @@ public class ValidationUtilTest {
                 @Nullable Object oldVal,
                 Object newVal
         ) {
-            super(message);
-            this.currentKey = currentKey;
+            super(currentKey, message);
             this.oldVal = oldVal;
             this.newVal = newVal;
         }
@@ -299,7 +374,7 @@ public class ValidationUtilTest {
 
             ExValidationIssue that = (ExValidationIssue) o;
 
-            return Objects.equals(currentKey, that.currentKey)
+            return Objects.equals(key(), that.key())
                     && Objects.equals(oldVal, that.oldVal)
                     && Objects.equals(newVal, that.newVal);
         }
@@ -307,20 +382,20 @@ public class ValidationUtilTest {
         /** {@inheritDoc} */
         @Override
         public int hashCode() {
-            return Objects.hash(currentKey, oldVal, newVal);
+            return Objects.hash(key(), oldVal, newVal);
         }
 
         /** {@inheritDoc} */
         @Override
         public String toString() {
-            return S.toString(ExValidationIssue.class, this);
+            return S.toString(ExValidationIssue.class, this, message());
         }
 
         static int compareByCurrentKey(ValidationIssue o1, ValidationIssue o2) {
             ExValidationIssue ex1 = (ExValidationIssue) o1;
             ExValidationIssue ex2 = (ExValidationIssue) o2;
 
-            return ex1.currentKey.compareTo(ex2.currentKey);
+            return ex1.key().compareTo(ex2.key());
         }
 
         static List<ExValidationIssue> sortedByCurrentKey(List<ValidationIssue> issues) {

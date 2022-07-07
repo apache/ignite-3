@@ -28,7 +28,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.Status;
@@ -40,7 +41,7 @@ import org.apache.ignite.raft.jraft.util.Bits;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 
 public class MockStateMachine extends StateMachineAdapter {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(MockStateMachine.class);
+    private static final IgniteLogger LOG = Loggers.forClass(MockStateMachine.class);
 
     private final Lock lock = new ReentrantLock();
     private volatile int onStartFollowingTimes = 0;

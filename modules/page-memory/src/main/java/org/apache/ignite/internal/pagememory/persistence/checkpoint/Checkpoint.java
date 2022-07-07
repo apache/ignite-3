@@ -18,14 +18,14 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 
 /**
  * Data class of checkpoint information.
  */
 class Checkpoint {
     /** Checkpoint pages. */
-    final IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> dirtyPages;
+    final IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPages;
 
     /** Checkpoint progress status. */
     final CheckpointProgressImpl progress;
@@ -40,7 +40,7 @@ class Checkpoint {
      * @param progress Checkpoint progress status.
      */
     Checkpoint(
-            IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> dirtyPages,
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPages,
             CheckpointProgressImpl progress
     ) {
         this.dirtyPages = dirtyPages;

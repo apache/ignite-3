@@ -29,9 +29,10 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.affinity.AffinityUtils;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.If;
-import org.apache.ignite.internal.metastorage.client.StatementResult;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterNode;
@@ -42,9 +43,33 @@ import org.jetbrains.annotations.NotNull;
  */
 public class RebalanceUtil {
 
+    /** Logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(RebalanceUtil.class);
+
+    /** Return code of metastore multi-invoke which identifies,
+     * that pending key was updated to new value (i.e. there is no active rebalance at the moment of call).
+     */
+    private static final int PENDING_KEY_UPDATED = 0;
+
+    /** Return code of metastore multi-invoke which identifies,
+     * that planned key was updated to new value (i.e. there is an active rebalance at the moment of call).
+     */
+    private static final int PLANNED_KEY_UPDATED = 1;
+
+    /** Return code of metastore multi-invoke which identifies,
+     * that planned key was removed, because current rebalance is already have the same target.
+     */
+    private static final int PLANNED_KEY_REMOVED = 2;
+
+    /** Return code of metastore multi-invoke which identifies,
+     * that this trigger event was already processed by another node and must be skipped.
+     */
+    private static final int OUTDATED_UPDATE_RECEIVED = 3;
+
     /**
      * Update keys that related to rebalance algorithm in Meta Storage. Keys are specific for partition.
      *
+     * @param tableName Table name.
      * @param partId Unique identifier of a partition.
      * @param baselineNodes Nodes in baseline.
      * @param partitions Number of partitions in a table.
@@ -53,8 +78,8 @@ public class RebalanceUtil {
      * @param metaStorageMgr Meta Storage manager.
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
-    public static @NotNull CompletableFuture<StatementResult> updatePendingAssignmentsKeys(
-            String partId, Collection<ClusterNode> baselineNodes,
+    public static @NotNull CompletableFuture<Void> updatePendingAssignmentsKeys(
+            String tableName, String partId, Collection<ClusterNode> baselineNodes,
             int partitions, int replicas, long revision, MetaStorageManager metaStorageMgr, int partNum) {
         ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
 
@@ -84,16 +109,47 @@ public class RebalanceUtil {
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsBytes),
                                 put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
-                        ).yield(),
+                        ).yield(PENDING_KEY_UPDATED),
                         If.iif(value(partAssignmentsPendingKey).ne(partAssignmentsBytes),
                                 ops(
                                         put(partAssignmentsPlannedKey, partAssignmentsBytes),
                                         put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
-                                ).yield(),
-                                ops(remove(partAssignmentsPlannedKey)).yield())),
-                ops().yield());
+                                ).yield(PLANNED_KEY_UPDATED),
+                                ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED))),
+                ops().yield(OUTDATED_UPDATE_RECEIVED));
 
-        return metaStorageMgr.invoke(iif);
+        return metaStorageMgr.invoke(iif).thenAccept(sr -> {
+            switch (sr.getAsInt()) {
+                case PENDING_KEY_UPDATED:
+                    LOG.info(
+                            "Update metastore pending partitions key={} for partition={}, table={} to {}",
+                            partAssignmentsPendingKey.toString(), partNum, tableName,
+                            ByteUtils.fromBytes(partAssignmentsBytes));
+
+                    break;
+                case PLANNED_KEY_UPDATED:
+                    LOG.info(
+                            "Update metastore planned partitions key={} for partition={}, table={} to {}",
+                            partAssignmentsPlannedKey, partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
+
+                    break;
+                case PLANNED_KEY_REMOVED:
+                    LOG.info(
+                            "Remove planned key={} for partition={}, table={} due to the fact, "
+                                    + "that current pending key has the same value as planned={}",
+                            partAssignmentsPlannedKey.toString(), partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
+
+                    break;
+                case OUTDATED_UPDATE_RECEIVED:
+                    LOG.debug(
+                            "Received outdated rebalance trigger event with revision={} for partition={}, table={}",
+                            revision, partNum, tableName);
+
+                    break;
+                default:
+                    throw new IllegalStateException("Unknown return code for rebalance metastore multi-invoke");
+            }
+        });
     }
 
     /** Key prefix for pending assignments. */

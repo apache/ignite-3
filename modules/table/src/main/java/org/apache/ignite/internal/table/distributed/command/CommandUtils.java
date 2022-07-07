@@ -23,10 +23,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -36,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CommandUtils {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(CommandUtils.class);
+    private static final IgniteLogger LOG = Loggers.forClass(CommandUtils.class);
 
     /**
      * Writes a list of rows to byte array.

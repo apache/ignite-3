@@ -63,11 +63,8 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.fun.SqlLibrary;
-import org.apache.calcite.sql.fun.SqlLibraryOperatorTableFactory;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
-import org.apache.calcite.sql.util.SqlOperatorTables;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
@@ -80,6 +77,7 @@ import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
@@ -109,7 +107,6 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
@@ -155,14 +152,7 @@ public final class Commons {
                     .withSqlConformance(IgniteSqlConformance.INSTANCE)
                     .withTypeCoercionFactory(IgniteTypeCoercion::new))
             // Dialects support.
-            .operatorTable(SqlOperatorTables.chain(
-                    SqlLibraryOperatorTableFactory.INSTANCE
-                            .getOperatorTable(
-                                    SqlLibrary.STANDARD,
-                                    SqlLibrary.POSTGRESQL,
-                                    SqlLibrary.ORACLE,
-                                    SqlLibrary.MYSQL),
-                    IgniteSqlOperatorTable.instance()))
+            .operatorTable(IgniteSqlOperatorTable.INSTANCE)
             // Context provides a way to store data within the planner session that can be accessed in planner rules.
             .context(Contexts.empty())
             // Custom cost factory to use during optimization

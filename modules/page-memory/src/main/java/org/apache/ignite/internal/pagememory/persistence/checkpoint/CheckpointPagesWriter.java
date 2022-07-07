@@ -20,7 +20,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getVersion;
-import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.TRY_AGAIN_TAG;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.TRY_AGAIN_TAG;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.EMPTY;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
@@ -34,12 +34,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Implementation of page writer which able to store pages to disk during checkpoint.
@@ -52,7 +52,7 @@ public class CheckpointPagesWriter implements Runnable {
     private final CheckpointMetricsTracker tracker;
 
     /** Collection of page IDs to write under this task. Overall pages to write may be greater than this collection. */
-    private final IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> writePageIds;
+    private final IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds;
 
     /** Page store used to write -> Count of written pages. */
     private final ConcurrentMap<PageStore, LongAdder> updStores;
@@ -92,7 +92,7 @@ public class CheckpointPagesWriter implements Runnable {
     CheckpointPagesWriter(
             IgniteLogger log,
             CheckpointMetricsTracker tracker,
-            IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> writePageIds,
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds,
             ConcurrentMap<PageStore, LongAdder> updStores,
             CompletableFuture<?> doneFut,
             Runnable beforePageWrite,
@@ -117,7 +117,7 @@ public class CheckpointPagesWriter implements Runnable {
     @Override
     public void run() {
         try {
-            IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> pagesToRetry = writePages(writePageIds);
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> pagesToRetry = writePages(writePageIds);
 
             if (pagesToRetry.isEmpty()) {
                 doneFut.complete(null);
@@ -144,23 +144,23 @@ public class CheckpointPagesWriter implements Runnable {
      * @param writePageIds Collections of pages to write.
      * @return pagesToRetry Pages which should be retried.
      */
-    private IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> writePages(
-            IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> writePageIds
+    private IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePages(
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds
     ) throws IgniteInternalCheckedException {
-        Map<PageMemoryImpl, List<FullPageId>> pagesToRetry = new HashMap<>();
+        Map<PersistentPageMemory, List<FullPageId>> pagesToRetry = new HashMap<>();
 
-        Map<PageMemoryImpl, PageStoreWriter> pageStoreWriters = new HashMap<>();
+        Map<PersistentPageMemory, PageStoreWriter> pageStoreWriters = new HashMap<>();
 
         ByteBuffer tmpWriteBuf = threadBuf.get();
 
-        IgniteConcurrentMultiPairQueue.Result<PageMemoryImpl, FullPageId> res = new IgniteConcurrentMultiPairQueue.Result<>();
+        IgniteConcurrentMultiPairQueue.Result<PersistentPageMemory, FullPageId> res = new IgniteConcurrentMultiPairQueue.Result<>();
 
         while (!shutdownNow.getAsBoolean() && writePageIds.next(res)) {
             beforePageWrite.run();
 
             FullPageId fullId = res.getValue();
 
-            PageMemoryImpl pageMemory = res.getKey();
+            PersistentPageMemory pageMemory = res.getKey();
 
             tmpWriteBuf.rewind();
 
@@ -179,8 +179,8 @@ public class CheckpointPagesWriter implements Runnable {
      * @param pagesToRetry Pages that need to be rewritten.
      */
     private PageStoreWriter createPageStoreWriter(
-            PageMemoryImpl pageMemory,
-            Map<PageMemoryImpl, List<FullPageId>> pagesToRetry
+            PersistentPageMemory pageMemory,
+            Map<PersistentPageMemory, List<FullPageId>> pagesToRetry
     ) {
         return new PageStoreWriter() {
             /** {@inheritDoc} */

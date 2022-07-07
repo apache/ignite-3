@@ -23,7 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
@@ -38,7 +39,7 @@ import org.junit.jupiter.api.TestInfo;
  */
 class ItNodeRestartsTest {
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ItNodeRestartsTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ItNodeRestartsTest.class);
 
     /** Created {@link ClusterService}s. Needed for resource management. */
     private List<ClusterService> services;

@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.META_PAGE_ID;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
-import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.INVALID_REL_PTR;
-import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.PAGE_OVERHEAD;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.INVALID_REL_PTR;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 
 import java.util.HashSet;
@@ -31,8 +30,8 @@ import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.persistence.LoadedPagesMap;
 import org.apache.ignite.internal.pagememory.persistence.PageHeader;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.Segment;
 import org.apache.ignite.internal.pagememory.persistence.PagePool;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.Segment;
 import org.apache.ignite.internal.pagememory.persistence.ReplaceCandidate;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
@@ -118,7 +117,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
                 final boolean dirty = PageHeader.dirty(absPageAddr);
 
-                if (relRmvAddr == rndAddr || pinned || skip || fullId.pageId() == META_PAGE_ID || dirty) {
+                if (relRmvAddr == rndAddr || pinned || skip || dirty) {
                     i--;
 
                     continue;

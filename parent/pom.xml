@@ -81,6 +81,7 @@
         <typesafe.version>1.4.1</typesafe.version>
         <hamcrest.version>2.2</hamcrest.version>
         <hamcrest.optional.version>2.0.0</hamcrest.optional.version>
+        <hamcrest.path.version>1.0.1</hamcrest.path.version>
         <scalecube.version>2.6.12</scalecube.version>
         <calcite.version>1.30.0</calcite.version>
         <immutables.version>2.8.8</immutables.version>
@@ -100,6 +101,8 @@
         <fastutil.version>8.5.6</fastutil.version>
         <kryo.version>4.0.1</kryo.version>
         <bytebuddy.version>1.12.8</bytebuddy.version>
+        <mock-server.version>5.13.2</mock-server.version>
+        <archunit.version>0.23.1</archunit.version>
 
         <!-- Plugins versions -->
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
@@ -769,6 +772,20 @@
             </dependency>
 
             <dependency>
+                <groupId>com.tngtech.archunit</groupId>
+                <artifactId>archunit</artifactId>
+                <version>${archunit.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.tngtech.archunit</groupId>
+                <artifactId>archunit-junit5</artifactId>
+                <version>${archunit.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>com.google.testing.compile</groupId>
                 <artifactId>compile-testing</artifactId>
                 <version>${compile.testing.library.version}</version>
@@ -796,6 +813,18 @@
                 <groupId>com.github.npathai</groupId>
                 <artifactId>hamcrest-optional</artifactId>
                 <version>${hamcrest.optional.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.hamcrest</groupId>
+                        <artifactId>hamcrest-core</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>ca.seinesoftware</groupId>
+                <artifactId>hamcrest-path</artifactId>
+                <version>${hamcrest.path.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.hamcrest</groupId>
@@ -895,6 +924,12 @@
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy</artifactId>
                 <version>${bytebuddy.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.mock-server</groupId>
+                <artifactId>mockserver-netty</artifactId>
+                <version>${mock-server.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -1524,6 +1559,7 @@
                         <exclude>deliveries/deb/control</exclude>
                         <exclude>**/*.bat</exclude> <!-- Files in bat format -->
                         <exclude>**/*.ini</exclude> <!-- Files in ini format -->
+                        <exclude>modules/runner/src/integrationTest/sql/**</exclude> <!-- SQL logic tests. -->
                     </excludes>
                 </configuration>
             </plugin>

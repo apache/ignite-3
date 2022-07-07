@@ -73,11 +73,13 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
+import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.IgniteSql;
@@ -90,7 +92,7 @@ import org.apache.ignite.tx.IgniteTransactions;
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ClientInboundMessageHandler.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
     /** Ignite tables API. */
     private final IgniteTables igniteTables;
@@ -115,6 +117,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
     /** SQL. */
     private final IgniteSql sql;
+
+    /** SQL query cursor handler. */
+    private final JdbcQueryCursorHandler jdbcQueryCursorHandler;
 
     /** Context. */
     private ClientContext clientContext;
@@ -152,7 +157,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         this.clusterService = clusterService;
         this.sql = sql;
 
-        jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables));
+        jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables), resources);
+        jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
     }
 
     /** {@inheritDoc} */
@@ -398,14 +404,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             case ClientOp.JDBC_EXEC_BATCH:
                 return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler);
 
-            case ClientOp.SQL_EXEC_PS_BATCH:
+            case ClientOp.JDBC_SQL_EXEC_PS_BATCH:
                 return ClientJdbcPreparedStmntBatchRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_NEXT:
-                return ClientJdbcFetchRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcFetchRequest.process(in, out, jdbcQueryCursorHandler);
 
             case ClientOp.JDBC_CURSOR_CLOSE:
-                return ClientJdbcCloseRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcCloseRequest.process(in, out, jdbcQueryCursorHandler);
 
             case ClientOp.JDBC_TABLE_META:
                 return ClientJdbcTableMetadataRequest.process(in, out, jdbcQueryEventHandler);
@@ -420,7 +426,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientJdbcPrimaryKeyMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_QUERY_META:
-                return ClientJdbcQueryMetadataRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcQueryMetadataRequest.process(in, out, jdbcQueryCursorHandler);
 
             case ClientOp.TX_BEGIN:
                 return ClientTransactionBeginRequest.process(out, igniteTransactions, resources);

@@ -20,6 +20,8 @@ package org.apache.ignite.internal.causality;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -362,8 +364,7 @@ public class VersionedValueTest {
 
         assertThrowsWithCause(() -> vv.get(0L).join(), IgniteInternalException.class);
 
-        assertEquals(exceptionMsg, exceptionRef.get().getMessage());
-        assertEquals(successfulCompletionsCount, actualSuccessfulCompletionsCount.get());
+        assertThat(exceptionRef.get().getMessage(), containsString(exceptionMsg));
     }
 
     /**

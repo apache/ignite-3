@@ -35,6 +35,8 @@ import java.util.EnumSet;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.processing.Generated;
 import jdk.jfr.Experimental;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Columns;
@@ -49,7 +51,6 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.table.mapper.Mapper;
 
 /**
@@ -58,7 +59,7 @@ import org.apache.ignite.table.mapper.Mapper;
 @Experimental
 public class AsmMarshallerGenerator implements MarshallerFactory {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(AsmMarshallerGenerator.class);
+    private static final IgniteLogger LOG = Loggers.forClass(AsmMarshallerGenerator.class);
 
     /** Marshaller package name. */
     public static final String MARSHALLER_PACKAGE_NAME = "org.apache.ignite.internal.schema.marshaller";

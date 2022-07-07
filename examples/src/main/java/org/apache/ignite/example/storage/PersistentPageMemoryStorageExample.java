@@ -37,7 +37,7 @@ package org.apache.ignite.example.storage;
  *     </li>
  *     <li>
  *         Add configuration for a persistent data region of the PageMemory storage engine using the CLI tool (if not done yet):<br>
- *         {@code ignite cluster config update "pageMemory.regions.persistent:{persistent=true}"}
+ *         {@code ignite cluster config update "aipersist.regions.persistent"}
  *     </li>
  *     <li>Run the example in the IDE.</li>
  *     <li>
@@ -54,6 +54,6 @@ public class PersistentPageMemoryStorageExample {
      * @throws Exception If failed.
      */
     public static void main(String[] args) throws Exception {
-        new StorageEngineExample("pagememory", "persistent").run();
+        new StorageEngineExample("aipersist", "persistent").run();
     }
 }

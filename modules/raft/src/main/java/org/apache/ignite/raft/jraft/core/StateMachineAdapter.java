@@ -16,7 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.StateMachine;
@@ -34,7 +35,7 @@ public abstract class StateMachineAdapter implements StateMachine {
     protected volatile long leaderTerm = -1;
 
     /** The logger */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(StateMachineAdapter.class);
+    private static final IgniteLogger LOG = Loggers.forClass(StateMachineAdapter.class);
 
     @Override
     public void onShutdown() {

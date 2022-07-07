@@ -27,9 +27,11 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
@@ -58,7 +60,7 @@ public class RaftServerImpl implements RaftServer {
     private static final int QUEUE_SIZE = 1000;
 
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RaftServerImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RaftServerImpl.class);
 
     private final RaftMessagesFactory clientMsgFactory;
 
@@ -173,7 +175,7 @@ public class RaftServerImpl implements RaftServer {
     /** {@inheritDoc} */
     @Override
     public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr,
-            List<Peer> initialConf) {
+            List<Peer> initialConf, RaftGroupOptions groupOptions) {
         if (listeners.containsKey(groupId)) {
             return false;
         }
@@ -185,8 +187,14 @@ public class RaftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public boolean startRaftGroup(String groupId, RaftGroupEventsListener evLsnr, RaftGroupListener lsnr, List<Peer> initialConf) {
-        return startRaftGroup(groupId, lsnr, initialConf);
+    public boolean startRaftGroup(
+            String groupId,
+            RaftGroupEventsListener evLsnr,
+            RaftGroupListener lsnr,
+            List<Peer> initialConf,
+            RaftGroupOptions groupOptions
+    ) {
+        return startRaftGroup(groupId, lsnr, initialConf, groupOptions);
     }
 
     /** {@inheritDoc} */

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
-import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.segmentIndex;
+import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.segmentIndex;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -25,9 +25,9 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
-import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Delayed page writes tracker. Provides delayed write implementations and allows to check if page is actually being written to page store.

@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
+import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
-import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
+import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
@@ -34,15 +35,26 @@ import org.apache.ignite.internal.storage.pagememory.mv.VersionChainFreeList;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Implementation of {@link AbstractPageMemoryDataRegion} for in-memory case.
+ * Implementation of {@link DataRegion} for in-memory case.
  */
-class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
+class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemory> {
     private static final int FREE_LIST_GROUP_ID = 0;
 
-    private TableFreeList tableFreeList;
+    private static final int FREE_LIST_PARTITION_ID = 0;
 
-    private VersionChainFreeList versionChainFreeList;
-    private RowVersionFreeList rowVersionFreeList;
+    private final VolatilePageMemoryDataRegionConfiguration cfg;
+
+    private final PageIoRegistry ioRegistry;
+
+    private final int pageSize;
+
+    private volatile VolatilePageMemory pageMemory;
+
+    private volatile TableFreeList tableFreeList;
+
+    private volatile VersionChainFreeList versionChainFreeList;
+
+    private volatile RowVersionFreeList rowVersionFreeList;
 
     /**
      * Constructor.
@@ -52,28 +64,23 @@ class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
      * @param pageSize Page size in bytes.
      */
     public VolatilePageMemoryDataRegion(
-            PageMemoryDataRegionConfiguration cfg,
+            VolatilePageMemoryDataRegionConfiguration cfg,
             PageIoRegistry ioRegistry,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
-        super(cfg, ioRegistry, pageSize);
+        this.cfg = cfg;
+        this.ioRegistry = ioRegistry;
+        this.pageSize = pageSize;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Starts the in-memory data region.
+     */
     public void start() {
-        assert !persistent() : cfg.value().name();
-
-        PageMemory pageMemory = new PageMemoryNoStoreImpl(
-                cfg,
-                ioRegistry,
-                pageSize
-        );
+        VolatilePageMemory pageMemory = new VolatilePageMemory(cfg, ioRegistry, pageSize);
 
         pageMemory.start();
-
-        this.pageMemory = pageMemory;
 
         try {
             this.tableFreeList = createTableFreeList(pageMemory);
@@ -92,13 +99,16 @@ class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error creating a RowVersionFreeList", e);
         }
+
+        this.pageMemory = pageMemory;
     }
 
     private TableFreeList createTableFreeList(PageMemory pageMemory) throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID, INDEX_PARTITION, FLAG_AUX);
+        long metaPageId = pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
 
         return new TableFreeList(
-                VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID,
+                FREE_LIST_GROUP_ID,
+                FREE_LIST_PARTITION_ID,
                 pageMemory,
                 PageLockListenerNoOp.INSTANCE,
                 metaPageId,
@@ -109,12 +119,15 @@ class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
         );
     }
 
-    private static VersionChainFreeList createVersionChainFreeList(PageMemory pageMemory, ReuseList reuseList)
-            throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID, INDEX_PARTITION, FLAG_AUX);
+    private static VersionChainFreeList createVersionChainFreeList(
+            PageMemory pageMemory,
+            ReuseList reuseList
+    ) throws IgniteInternalCheckedException {
+        long metaPageId = pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
 
         return new VersionChainFreeList(
-                VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID,
+                FREE_LIST_GROUP_ID,
+                FREE_LIST_PARTITION_ID,
                 pageMemory,
                 reuseList,
                 PageLockListenerNoOp.INSTANCE,
@@ -126,12 +139,19 @@ class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
         );
     }
 
-    private static RowVersionFreeList createRowVersionFreeList(PageMemory pageMemory, ReuseList reuseList)
-            throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID, INDEX_PARTITION, FLAG_AUX);
+    private static RowVersionFreeList createRowVersionFreeList(
+            PageMemory pageMemory,
+            ReuseList reuseList
+    ) throws IgniteInternalCheckedException {
+        long metaPageId = pageMemory.allocatePage(
+                FREE_LIST_GROUP_ID,
+                FREE_LIST_PARTITION_ID,
+                FLAG_AUX
+        );
 
         return new RowVersionFreeList(
-                VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID,
+                FREE_LIST_GROUP_ID,
+                FREE_LIST_PARTITION_ID,
                 pageMemory,
                 reuseList,
                 PageLockListenerNoOp.INSTANCE,
@@ -140,45 +160,70 @@ class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
                 null,
                 PageEvictionTrackerNoOp.INSTANCE,
                 IoStatisticsHolderNoOp.INSTANCE
+        );
+    }
+
+    /**
+     * Starts the in-memory data region.
+     */
+    public void stop() throws Exception {
+        closeAll(
+                pageMemory != null ? () -> pageMemory.stop(true) : null,
+                tableFreeList != null ? tableFreeList::close : null,
+                versionChainFreeList != null ? versionChainFreeList::close : null,
+                rowVersionFreeList != null ? rowVersionFreeList::close : null
         );
     }
 
     /** {@inheritDoc} */
     @Override
-    public void stop() {
-        super.stop();
+    public VolatilePageMemory pageMemory() {
+        checkDataRegionStarted();
 
-        if (tableFreeList != null) {
-            tableFreeList.close();
-        }
-        if (versionChainFreeList != null) {
-            versionChainFreeList.close();
-        }
-        if (rowVersionFreeList != null) {
-            rowVersionFreeList.close();
-        }
+        return pageMemory;
     }
 
     /**
      * Returns table free list.
      *
-     * <p>NOTE: Free list must be one for the in-memory data region.
+     * @throws StorageException If the data region did not start.
      */
     public TableFreeList tableFreeList() {
+        checkDataRegionStarted();
+
         return tableFreeList;
     }
 
     /**
      * Returns version chain free list.
+     *
+     * @throws StorageException If the data region did not start.
      */
     public VersionChainFreeList versionChainFreeList() {
+        checkDataRegionStarted();
+
         return versionChainFreeList;
     }
 
     /**
      * Returns version chain free list.
+     *
+     * @throws StorageException If the data region did not start.
      */
     public RowVersionFreeList rowVersionFreeList() {
+        checkDataRegionStarted();
+
         return rowVersionFreeList;
+    }
+
+    /**
+     * Checks that the data region has started.
+     *
+     * @throws StorageException If the data region did not start.
+     */
+    private void checkDataRegionStarted() {
+        if (pageMemory == null) {
+            throw new StorageException("Data region not started");
+        }
     }
 }

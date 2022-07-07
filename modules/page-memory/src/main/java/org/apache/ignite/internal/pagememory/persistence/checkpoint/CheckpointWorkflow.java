@@ -39,12 +39,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.Future;
-import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -63,7 +62,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>{@link CheckpointWorkflow#markCheckpointEnd} - Finalization of last checkpoint.
  */
-class CheckpointWorkflow implements IgniteComponent {
+class CheckpointWorkflow {
     /**
      * Starting from this number of dirty pages in checkpoint, array will be sorted with {@link Arrays#parallelSort(Comparable[])} in case
      * of {@link CheckpointWriteOrder#SEQUENTIAL}.
@@ -80,13 +79,13 @@ class CheckpointWorkflow implements IgniteComponent {
     private final CheckpointReadWriteLock checkpointReadWriteLock;
 
     /** Persistent data regions for the checkpointing. */
-    private final Collection<? extends PageMemoryDataRegion> dataRegions;
+    private final Collection<? extends DataRegion<PersistentPageMemory>> dataRegions;
 
     /** Checkpoint write order configuration. */
     private final CheckpointWriteOrder checkpointWriteOrder;
 
     /** Collections of checkpoint listeners. */
-    private final List<IgniteBiTuple<CheckpointListener, PageMemoryDataRegion>> listeners = new CopyOnWriteArrayList<>();
+    private final List<IgniteBiTuple<CheckpointListener, DataRegion<PersistentPageMemory>>> listeners = new CopyOnWriteArrayList<>();
 
     /**
      * Constructor.
@@ -100,7 +99,7 @@ class CheckpointWorkflow implements IgniteComponent {
             PageMemoryCheckpointConfiguration checkpointConfig,
             CheckpointMarkersStorage checkpointMarkersStorage,
             CheckpointReadWriteLock checkpointReadWriteLock,
-            Collection<? extends PageMemoryDataRegion> dataRegions
+            Collection<? extends DataRegion<PersistentPageMemory>> dataRegions
     ) {
         PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
 
@@ -111,13 +110,16 @@ class CheckpointWorkflow implements IgniteComponent {
         this.dataRegions = dataRegions;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Starts a checkpoint workflow.
+     */
     public void start() {
+        // No-op.
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Stops a checkpoint workflow.
+     */
     public void stop() {
         listeners.clear();
     }
@@ -190,7 +192,7 @@ class CheckpointWorkflow implements IgniteComponent {
 
             tracker.onSplitAndSortCheckpointPagesStart();
 
-            IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> dirtyPages0 = splitAndSortCheckpointPagesIfNeeded(dirtyPages);
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPages0 = splitAndSortCheckpointPagesIfNeeded(dirtyPages);
 
             tracker.onSplitAndSortCheckpointPagesEnd();
 
@@ -210,10 +212,8 @@ class CheckpointWorkflow implements IgniteComponent {
         synchronized (this) {
             chp.progress.clearCounters();
 
-            for (PageMemoryDataRegion dataRegion : dataRegions) {
-                assert dataRegion.persistent() : dataRegion;
-
-                ((PageMemoryImpl) dataRegion.pageMemory()).finishCheckpoint();
+            for (DataRegion<PersistentPageMemory> dataRegion : dataRegions) {
+                dataRegion.pageMemory().finishCheckpoint();
             }
         }
 
@@ -234,8 +234,8 @@ class CheckpointWorkflow implements IgniteComponent {
      * @param listener Listener.
      * @param dataRegion Persistent data region for which listener is corresponded to, {@code null} for all regions.
      */
-    public void addCheckpointListener(CheckpointListener listener, @Nullable PageMemoryDataRegion dataRegion) {
-        assert dataRegion == null || (dataRegion.persistent() && dataRegions.contains(dataRegion)) : dataRegion;
+    public void addCheckpointListener(CheckpointListener listener, @Nullable DataRegion<PersistentPageMemory> dataRegion) {
+        assert dataRegion == null || dataRegions.contains(dataRegion) : dataRegion;
 
         listeners.add(new IgniteBiTuple<>(listener, dataRegion));
     }
@@ -246,7 +246,7 @@ class CheckpointWorkflow implements IgniteComponent {
      * @param listener Listener.
      */
     public void removeCheckpointListener(CheckpointListener listener) {
-        listeners.remove(new IgniteBiTuple<CheckpointListener, PageMemoryDataRegion>() {
+        listeners.remove(new IgniteBiTuple<CheckpointListener, DataRegion<PersistentPageMemory>>() {
             /** {@inheritDoc} */
             @Override
             public boolean equals(Object o) {
@@ -260,7 +260,7 @@ class CheckpointWorkflow implements IgniteComponent {
      *
      * @param dataRegions Data regions.
      */
-    public List<CheckpointListener> collectCheckpointListeners(Collection<? extends PageMemoryDataRegion> dataRegions) {
+    public List<CheckpointListener> collectCheckpointListeners(Collection<? extends DataRegion<PersistentPageMemory>> dataRegions) {
         return listeners.stream()
                 .filter(tuple -> tuple.getValue() == null || dataRegions.contains(tuple.getValue()))
                 .map(IgniteBiTuple::getKey)
@@ -268,21 +268,19 @@ class CheckpointWorkflow implements IgniteComponent {
     }
 
     private CheckpointDirtyPagesInfoHolder beginCheckpoint(
-            Collection<? extends PageMemoryDataRegion> dataRegions,
+            Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
             CompletableFuture<?> allowToReplace
     ) {
-        Collection<IgniteBiTuple<PageMemoryImpl, Collection<FullPageId>>> pages = new ArrayList<>(dataRegions.size());
+        Collection<IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>>> pages = new ArrayList<>(dataRegions.size());
 
         int pageCount = 0;
 
-        for (PageMemoryDataRegion dataRegion : dataRegions) {
-            assert dataRegion.persistent() : dataRegion;
-
-            Collection<FullPageId> dirtyPages = ((PageMemoryImpl) dataRegion.pageMemory()).beginCheckpoint(allowToReplace);
+        for (DataRegion<PersistentPageMemory> dataRegion : dataRegions) {
+            Collection<FullPageId> dirtyPages = dataRegion.pageMemory().beginCheckpoint(allowToReplace);
 
             pageCount += dirtyPages.size();
 
-            pages.add(new IgniteBiTuple<>((PageMemoryImpl) dataRegion.pageMemory(), dirtyPages));
+            pages.add(new IgniteBiTuple<>(dataRegion.pageMemory(), dirtyPages));
         }
 
         return new CheckpointDirtyPagesInfoHolder(pages, pageCount);
@@ -317,14 +315,14 @@ class CheckpointWorkflow implements IgniteComponent {
         return execPool;
     }
 
-    private IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> splitAndSortCheckpointPagesIfNeeded(
+    private IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> splitAndSortCheckpointPagesIfNeeded(
             CheckpointDirtyPagesInfoHolder dirtyPages
     ) throws IgniteInternalCheckedException {
-        Set<IgniteBiTuple<PageMemoryImpl, FullPageId[]>> cpPagesPerRegion = new HashSet<>();
+        Set<IgniteBiTuple<PersistentPageMemory, FullPageId[]>> cpPagesPerRegion = new HashSet<>();
 
         int realPagesArrSize = 0;
 
-        for (IgniteBiTuple<PageMemoryImpl, Collection<FullPageId>> regPages : dirtyPages.dirtyPages) {
+        for (IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>> regPages : dirtyPages.dirtyPages) {
             FullPageId[] pages = new FullPageId[regPages.getValue().size()];
 
             int pagePos = 0;
@@ -349,7 +347,7 @@ class CheckpointWorkflow implements IgniteComponent {
 
             ForkJoinPool pool = null;
 
-            for (IgniteBiTuple<PageMemoryImpl, FullPageId[]> pagesPerReg : cpPagesPerRegion) {
+            for (IgniteBiTuple<PersistentPageMemory, FullPageId[]> pagesPerReg : cpPagesPerRegion) {
                 if (pagesPerReg.getValue().length >= parallelSortThreshold) {
                     pool = parallelSortInIsolatedPool(pagesPerReg.get2(), cmp, pool);
                 } else {

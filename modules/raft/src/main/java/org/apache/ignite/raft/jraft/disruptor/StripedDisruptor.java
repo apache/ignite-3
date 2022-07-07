@@ -28,8 +28,9 @@ import com.lmax.disruptor.dsl.ProducerType;
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Stripe Disruptor is a set of queues which process several independent groups in one queue (in the stripe).
@@ -39,7 +40,7 @@ import org.apache.ignite.lang.IgniteLogger;
  */
 public class StripedDisruptor<T extends GroupAware> {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(StripedDisruptor.class);
+    private static final IgniteLogger LOG = Loggers.forClass(StripedDisruptor.class);
 
     /** Array of disruptors. Each Disruptor in the appropriate stripe. */
     private final Disruptor<T>[] disruptors;
@@ -79,7 +80,7 @@ public class StripedDisruptor<T extends GroupAware> {
             Disruptor<T> disruptor = DisruptorBuilder.<T>newInstance()
                 .setRingBufferSize(bufferSize)
                 .setEventFactory(eventFactory)
-                .setThreadFactory(new NamedThreadFactory(stripeName, true))
+                .setThreadFactory(new NamedThreadFactory(stripeName, true, LOG))
                 .setProducerType(ProducerType.MULTI)
                 .setWaitStrategy(new BlockingWaitStrategy())
                 .build();

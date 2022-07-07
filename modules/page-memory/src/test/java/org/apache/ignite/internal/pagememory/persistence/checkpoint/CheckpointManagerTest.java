@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import static org.apache.ignite.internal.pagememory.PageMemoryTestUtils.newDataRegion;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager.safeToUpdateAllPageMemories;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,10 +30,9 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
+import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
-import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -55,7 +53,9 @@ public class CheckpointManagerTest {
 
     @Test
     void testSimple() throws Exception {
-        PageMemoryDataRegion dataRegion = newDataRegion(true, mock(PageMemoryImpl.class));
+        PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
+
+        DataRegion<PersistentPageMemory> dataRegion = () -> pageMemory;
 
         CheckpointManager checkpointManager = new CheckpointManager(
                 "test",
@@ -86,23 +86,33 @@ public class CheckpointManagerTest {
 
     @Test
     void testSafeToUpdateAllPageMemories() {
-        PageMemoryDataRegion dataRegion0 = newDataRegion(false, mock(PageMemoryNoStoreImpl.class));
+        assertTrue(safeToUpdateAllPageMemories(List.of()));
 
-        assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion0)));
+        AtomicBoolean safeToUpdate0 = new AtomicBoolean();
+        AtomicBoolean safeToUpdate1 = new AtomicBoolean();
 
-        AtomicBoolean safeToUpdate = new AtomicBoolean();
+        PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
+        PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
-        PageMemoryImpl pageMemoryImpl = mock(PageMemoryImpl.class);
+        when(pageMemory0.safeToUpdate()).then(answer -> safeToUpdate0.get());
+        when(pageMemory1.safeToUpdate()).then(answer -> safeToUpdate1.get());
 
-        when(pageMemoryImpl.safeToUpdate()).then(answer -> safeToUpdate.get());
+        DataRegion<PersistentPageMemory> dataRegion0 = () -> pageMemory0;
+        DataRegion<PersistentPageMemory> dataRegion1 = () -> pageMemory1;
 
-        PageMemoryDataRegion dataRegion1 = newDataRegion(true, pageMemoryImpl);
-
+        assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion0)));
         assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion1)));
         assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion0, dataRegion1)));
 
-        safeToUpdate.set(true);
+        safeToUpdate0.set(true);
 
+        assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion0)));
+        assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion1)));
+        assertFalse(safeToUpdateAllPageMemories(List.of(dataRegion0, dataRegion1)));
+
+        safeToUpdate1.set(true);
+
+        assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion0)));
         assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion1)));
         assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion0, dataRegion1)));
     }
