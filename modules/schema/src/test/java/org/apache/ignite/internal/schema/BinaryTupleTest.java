@@ -34,7 +34,7 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -616,7 +616,7 @@ public class BinaryTupleTest {
     /** Get a pseudo-random number generator. */
     private Random getRng() {
         long seed = System.currentTimeMillis();
-        IgniteLogger.forClass(BinaryTupleTest.class).info("Using seed: " + seed + "L; //");
+        Loggers.forClass(BinaryTupleTest.class).info("Using seed: " + seed + "L; //");
         return new Random(seed);
     }
 
