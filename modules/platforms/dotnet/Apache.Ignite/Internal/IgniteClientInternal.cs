@@ -23,11 +23,11 @@ namespace Apache.Ignite.Internal
     using System.Threading.Tasks;
     using Ignite.Compute;
     using Ignite.Network;
+    using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Transactions;
     using Network;
     using Proto;
-    using Sql;
     using Table;
 
     /// <summary>
@@ -53,8 +53,7 @@ namespace Apache.Ignite.Internal
 
             Compute = new Compute.Compute(socket, tables);
 
-            // TODO
-            Sql = null!;
+            Sql = new Sql.Sql(socket);
         }
 
         /// <inheritdoc/>
