@@ -59,7 +59,9 @@ namespace Apache.Ignite.Internal.Sql
             _hasMorePages = reader.ReadBoolean();
             WasApplied = reader.ReadBoolean();
             AffectedRows = reader.ReadInt64();
-            AffectedRows = reader.ReadInt64();
+
+            // TODO
+            Metadata = reader.ReadObjectWithType();
 
             if (HasRowSet)
             {
