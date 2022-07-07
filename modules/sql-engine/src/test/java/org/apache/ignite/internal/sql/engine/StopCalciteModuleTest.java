@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -25,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -56,6 +58,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.RowAssembler;
@@ -102,6 +105,9 @@ public class StopCalciteModuleTest {
     TableManager tableManager;
 
     @Mock
+    SchemaManager schemaManager;
+
+    @Mock
     DataStorageManager dataStorageManager;
 
     @Mock
@@ -142,6 +148,8 @@ public class StopCalciteModuleTest {
         schemaReg = new SchemaRegistryImpl((v) -> schemaDesc, () -> INITIAL_SCHEMA_VERSION, schemaDesc);
 
         when(tbl.name()).thenReturn("PUBLIC.TEST");
+
+        when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaReg));
 
         // Mock create table (notify on register listener).
         doAnswer(invocation -> {
@@ -196,6 +204,7 @@ public class StopCalciteModuleTest {
                 testRevisionRegister,
                 clusterSrvc,
                 tableManager,
+                schemaManager,
                 dataStorageManager,
                 Map::of
         );

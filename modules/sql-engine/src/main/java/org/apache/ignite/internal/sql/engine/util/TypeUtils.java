@@ -46,6 +46,7 @@ import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NumberNativeType;
+import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -411,11 +412,23 @@ public class TypeUtils {
             case DATE:
                 return factory.createSqlType(SqlTypeName.DATE);
             case TIME:
-                return factory.createSqlType(SqlTypeName.TIME);
+                assert nativeType instanceof TemporalNativeType;
+
+                var time = (TemporalNativeType) nativeType;
+
+                return factory.createSqlType(SqlTypeName.TIME, time.precision());
             case TIMESTAMP:
-                return factory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
+                assert nativeType instanceof TemporalNativeType;
+
+                var ts = (TemporalNativeType) nativeType;
+
+                return factory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, ts.precision());
             case DATETIME:
-                return factory.createSqlType(SqlTypeName.TIMESTAMP);
+                assert nativeType instanceof TemporalNativeType;
+
+                var dt = (TemporalNativeType) nativeType;
+
+                return factory.createSqlType(SqlTypeName.TIMESTAMP, dt.precision());
             default:
                 throw new IllegalStateException("Unexpected native type " + nativeType);
         }

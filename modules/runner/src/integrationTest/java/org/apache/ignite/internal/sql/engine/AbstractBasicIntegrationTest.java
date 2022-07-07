@@ -297,6 +297,8 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
                 () -> assertEquals(expectedMeta.name(), actualMeta.name(), "name"),
                 () -> assertEquals(expectedMeta.nullable(), actualMeta.nullable(), "nullable"),
                 () -> assertSame(expectedMeta.type(), actualMeta.type(), "type"),
+                () -> assertEquals(expectedMeta.precision(), actualMeta.precision(), "precision"),
+                () -> assertEquals(expectedMeta.scale(), actualMeta.scale(), "scale"),
                 () -> assertSame(expectedMeta.valueClass(), actualMeta.valueClass(), "value class"),
                 () -> {
                     if (expectedMeta.origin() == null) {

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.unmodifiableMap;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
@@ -39,6 +40,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -121,6 +123,7 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
@@ -132,6 +135,10 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTables, IgniteTablesInternal,
         IgniteComponent {
+    // TODO get rid of this in future? IGNITE-17307
+    /** Timeout to complete the tablesByIdVv on revision update. */
+    private static final long TABLES_COMPLETE_TIMEOUT = 120;
+
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
 
@@ -166,6 +173,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Versioned store for tables by id. */
     private final VersionedValue<Map<UUID, TableImpl>> tablesByIdVv;
+
+    /** Set of futures that should complete before completion of {@link #tablesByIdVv}, after completion this set is cleared. */
+    private final Set<CompletableFuture<?>> beforeTablesVvComplete = new ConcurrentHashSet<>();
 
     /** Resolver that resolves a network address to node id. */
     private final Function<NetworkAddress, String> netAddrResolver;
@@ -227,9 +237,26 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             return node.id();
         };
+
         clusterNodeResolver = topologyService::getByAddress;
 
         tablesByIdVv = new VersionedValue<>(null, HashMap::new);
+
+        registry.accept(token -> {
+            List<CompletableFuture<?>> futures = new ArrayList<>(beforeTablesVvComplete);
+
+            beforeTablesVvComplete.clear();
+
+            return CompletableFuture.allOf(futures.toArray(new CompletableFuture[] {}))
+                    .orTimeout(TABLES_COMPLETE_TIMEOUT, TimeUnit.SECONDS)
+                    .whenComplete((v, e) -> {
+                        if (e != null) {
+                            tablesByIdVv.completeExceptionally(token, e);
+                        } else {
+                            tablesByIdVv.complete(token);
+                        }
+                    });
+        });
 
         rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                 new NamedThreadFactory("rebalance-scheduler", LOG));
@@ -266,7 +293,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         schemaManager.listen(SchemaEvent.CREATE, new EventListener<>() {
             /** {@inheritDoc} */
             @Override
-            public boolean notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable exception) {
+            public CompletableFuture<Boolean> notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable exception) {
                 if (tablesByIdVv.latest().get(parameters.tableId()) != null) {
                     fireEvent(
                             TableEvent.ALTER,
@@ -274,19 +301,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     );
                 }
 
-                return false;
+                return completedFuture(false);
             }
         });
-    }
-
-    /**
-     * Completes all table futures.
-     * TODO: Get rid of it after IGNITE-17062.
-     *
-     * @param causalityToken Causality token.
-     */
-    public void onSqlSchemaReady(long causalityToken) {
-        tablesByIdVv.complete(causalityToken);
     }
 
     /**
@@ -414,7 +431,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             busyLock.leaveBusy();
         }
 
-        return CompletableFuture.completedFuture(null);
+        return completedFuture(null);
     }
 
     /**
@@ -550,7 +567,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tableStorage.start();
 
-
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
                 partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage);
 
@@ -568,9 +584,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return completedFuture(val);
         });
 
-        schemaManager.schemaRegistry(causalityToken, tblId)
+        CompletableFuture<?> schemaFut = schemaManager.schemaRegistry(causalityToken, tblId)
                 .thenAccept(table::schemaView)
-                .thenRun(() -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null));
+                .thenCompose(v -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table)));
+
+        beforeTablesVvComplete.add(schemaFut);
 
         // TODO should be reworked in IGNITE-16763
         return tablesByIdVv.get(causalityToken).thenRun(() -> completeApiCreateFuture(table));
@@ -622,13 +640,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             TableImpl table = tablesByIdVv.latest().get(tblId);
 
             assert table != null : IgniteStringFormatter.format("There is no table with the name specified [name={}, id={}]",
-                    name, tblId);
+                name, tblId);
 
             table.internalTable().storage().destroy();
 
-            fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table), null);
+            CompletableFuture<?> fut = schemaManager.dropRegistry(causalityToken, table.tableId())
+                    .thenCompose(v -> fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table)));
 
-            schemaManager.dropRegistry(causalityToken, table.tableId());
+            beforeTablesVvComplete.add(fut);
         } catch (Exception e) {
             fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, tblId, name), e);
         }
@@ -983,7 +1002,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         tableFuts[i++] = tableAsyncInternal(tblId, false);
                     }
 
-                    return CompletableFuture.allOf(tableFuts).thenApply(unused -> {
+                    return allOf(tableFuts).thenApply(unused -> {
                         var tables = new ArrayList<Table>(tableIds.size());
 
                         try {
@@ -1142,9 +1161,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         EventListener<TableEventParameters> clo = new EventListener<>() {
             @Override
-            public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
+            public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
                 if (!id.equals(parameters.tableId())) {
-                    return false;
+                    return completedFuture(false);
                 }
 
                 if (e == null) {
@@ -1153,7 +1172,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     getTblFut.completeExceptionally(e);
                 }
 
-                return true;
+                return completedFuture(true);
             }
 
             @Override

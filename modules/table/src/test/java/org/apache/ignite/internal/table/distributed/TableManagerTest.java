@@ -564,7 +564,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
 
-            return CompletableFuture.completedFuture(raftGrpSrvcMock);
+            return completedFuture(raftGrpSrvcMock);
         });
 
         when(ts.getByAddress(any(NetworkAddress.class))).thenReturn(new ClusterNode(
@@ -601,27 +601,22 @@ public class TableManagerTest extends IgniteAbstractTest {
                     && ctx.newValue().get(tableDefinition.canonicalName()) == null;
 
             if (!createTbl && !dropTbl) {
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
 
             if (phaser != null) {
                 phaser.arriveAndAwaitAdvance();
             }
 
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         });
 
         CountDownLatch createTblLatch = new CountDownLatch(1);
 
-        AtomicLong token = new AtomicLong();
-
         tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
-
             createTblLatch.countDown();
 
-            token.set(parameters.causalityToken());
-
-            return true;
+            return completedFuture(true);
         });
 
         CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.canonicalName(),
@@ -635,8 +630,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertTrue(createTblLatch.await(10, TimeUnit.SECONDS));
 
         assertFalse(tbl2Fut.isDone());
-
-        tableManager.onSqlSchemaReady(token.get());
 
         TableImpl tbl2 = (TableImpl) tbl2Fut.get();
 
@@ -776,13 +769,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         sm.start();
 
-        //TODO: Get rid of it after IGNITE-17062.
         if (!waitingSqlSchema) {
-            tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
-                tableManager.onSqlSchemaReady(parameters.causalityToken());
-
-                return false;
-            });
+            tableManager.listen(TableEvent.CREATE, (parameters, exception) -> completedFuture(false));
         }
 
         tableManager.start();

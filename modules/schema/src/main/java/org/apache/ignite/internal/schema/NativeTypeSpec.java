@@ -201,8 +201,9 @@ public enum NativeTypeSpec {
         }
     },
 
+
     /**
-     * Native type representing a timestamp in milliseconds since Jan 1, 1970 00:00:00.000 (with no timezone).
+     * Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision.
      */
     TIMESTAMP("timestamp", true) {
         /** {@inheritDoc} */
