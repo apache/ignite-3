@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Sql
 {
+    using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Sql;
     using NUnit.Framework;
@@ -32,6 +33,11 @@ namespace Apache.Ignite.Tests.Sql
             await using IResultSet resultSet = await Client.Sql.ExecuteAsync(null, "SELECT 1", 1);
 
             Assert.AreEqual(-1, resultSet.AffectedRows);
+            Assert.IsFalse(resultSet.WasApplied);
+            Assert.IsTrue(resultSet.HasRowSet);
+
+            var col = resultSet.Metadata!.Columns.Single().ToString();
+            Assert.AreEqual("ColumnMetadata { Name = 1, Type = Int32, Precision = 10, Scale = 0, Nullable = False, Origin =  }", col);
         }
     }
 }
