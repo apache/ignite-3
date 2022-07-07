@@ -203,14 +203,14 @@ public class ColumnType {
     }
 
     /**
-     * Returns timezone-free datetime encoded as (date, time) with the default time precision of 0 (seconds).
+     * Returns timezone-free datetime encoded as (date, time) with the default time precision of 6 (microseconds).
      *
      * @return Native type.
-     * @see TemporalColumnType#DEFAULT_TIME_PRECISION
+     * @see TemporalColumnType#DEFAULT_TIMESTAMP_PRECISION
      * @see #datetime(int)
      */
     public static TemporalColumnType datetime() {
-        return new TemporalColumnType(ColumnTypeSpec.DATETIME, TemporalColumnType.DEFAULT_TIME_PRECISION);
+        return new TemporalColumnType(ColumnTypeSpec.DATETIME, TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION);
     }
 
     /**
@@ -461,14 +461,14 @@ public class ColumnType {
      */
     public static class TemporalColumnType extends ColumnType {
         /**
-         * Default TIME type precision: microseconds.
+         * Default TIMESTAMP type precision: microseconds.
          *
          * <p>SQL99 part 2 section 6.1 syntax rule 30
          */
         public static final int DEFAULT_TIMESTAMP_PRECISION = 6;
 
         /**
-         * Default TIMESTAMP type precision: seconds.
+         * Default TIME type precision: seconds.
          *
          * <p>SQL99 part 2 section 6.1 syntax rule 30
          */

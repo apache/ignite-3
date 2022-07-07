@@ -117,7 +117,7 @@ public class NativeTypeTest {
         assertEquals(6, time(4).sizeInBytes());
         assertEquals(6, time(9).sizeInBytes());
 
-        assertEquals(7, datetime().sizeInBytes());
+        assertEquals(9, datetime().sizeInBytes());
         assertEquals(7, datetime(0).sizeInBytes());
         assertEquals(7, datetime(3).sizeInBytes());
         assertEquals(9, datetime(4).sizeInBytes());
@@ -128,7 +128,7 @@ public class NativeTypeTest {
         assertEquals(12, timestamp(1).sizeInBytes());
         assertEquals(12, timestamp(9).sizeInBytes());
 
-        assertEquals(0, datetime().compareTo(datetime(0)));
+        assertEquals(0, datetime().compareTo(datetime(6)));
         assertEquals(0, time().compareTo(time(0)));
         assertEquals(0, timestamp().compareTo(timestamp(6)));
     }
@@ -174,7 +174,7 @@ public class NativeTypeTest {
         assertEquals(STRING, from(ColumnType.string()));
 
         assertEquals(time(), from(ColumnType.time(ColumnType.TemporalColumnType.DEFAULT_TIME_PRECISION)));
-        assertEquals(datetime(), from(ColumnType.datetime(ColumnType.TemporalColumnType.DEFAULT_TIME_PRECISION)));
+        assertEquals(datetime(), from(ColumnType.datetime(ColumnType.TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION)));
         assertEquals(timestamp(), from(ColumnType.timestamp(ColumnType.TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION)));
 
         for (int i = 1; i < 800; i += 100) {
