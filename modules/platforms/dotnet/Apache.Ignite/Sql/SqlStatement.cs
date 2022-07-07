@@ -54,18 +54,21 @@ namespace Apache.Ignite.Sql
         /// <param name="timeout">Timeout.</param>
         /// <param name="schema">Schema.</param>
         /// <param name="pageSize">Page size.</param>
+        /// <param name="prepared">Prepared statement mode.</param>
         /// <param name="properties">Properties.</param>
         public SqlStatement(
             string query,
             TimeSpan? timeout = null,
             string? schema = null,
             int? pageSize = null,
+            bool prepared = false,
             IReadOnlyDictionary<string, object?>? properties = null)
         {
             Query = query;
             Timeout = timeout ?? DefaultTimeout;
             Schema = schema ?? DefaultSchema;
             PageSize = pageSize ?? DefaultPageSize;
+            Prepared = prepared;
             Properties = properties == null || properties == EmptyProperties ? EmptyProperties : new(properties);
         }
 
@@ -97,6 +100,11 @@ namespace Apache.Ignite.Sql
         public int PageSize { get; init; }
 
         /// <summary>
+        /// Gets a value indicating whether this is a prepared statement.
+        /// </summary>
+        public bool Prepared { get; init; }
+
+        /// <summary>
         /// Gets the property bag.
         /// </summary>
         public IReadOnlyDictionary<string, object?> Properties { get; init; }
@@ -110,7 +118,9 @@ namespace Apache.Ignite.Sql
 
         private bool PrintMembers(StringBuilder builder)
         {
-            builder.Append($"Query = {Query}, Timeout = {Timeout}, Schema = {Schema}, PageSize = {PageSize}, Properties = {{");
+            builder
+                .Append($"Query = {Query}, Timeout = {Timeout}, Schema = {Schema}, PageSize = {PageSize}, Prepared = {Prepared}, ")
+                .Append("Properties = {");
 
             var first = true;
 

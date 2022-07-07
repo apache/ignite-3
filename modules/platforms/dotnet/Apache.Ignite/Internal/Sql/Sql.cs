@@ -59,6 +59,22 @@ namespace Apache.Ignite.Internal.Sql
                 var writer = new PooledArrayBufferWriter();
                 var w = writer.GetMessageWriter();
 
+                w.WriteTx(tx);
+                w.Write(statement.Schema);
+                w.Write(statement.PageSize);
+                w.Write((long)statement.Timeout.TotalMilliseconds);
+
+                w.WriteMapHeader(statement.Properties.Count);
+
+                foreach (var (key, val) in statement.Properties)
+                {
+                    w.Write(key);
+                    w.WriteObjectWithType(val);
+                }
+
+                w.Write(statement.Query);
+                w.Write(statement.Prepared);
+
                 w.Flush();
                 return writer;
             }
