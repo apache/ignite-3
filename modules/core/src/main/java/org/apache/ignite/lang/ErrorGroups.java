@@ -29,6 +29,9 @@ public class ErrorGroups {
 
         /** Unknown error. */
         public static final int UNKNOWN_ERR = COMMON_ERR_GROUP.registerErrorCode(1);
+
+        /** Node stopping error. */
+        public static final int NODE_STOPPING_ERR = COMMON_ERR_GROUP.registerErrorCode(2);
     }
 
     /** Tables error group. */
@@ -129,7 +132,16 @@ public class ErrorGroups {
         /** Failed to iterate over the underlying key value storage. */
         public static final int WATCH_EXECUTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(6);
 
+        /** Failed to stop a watcher. */
+        public static final int WATCH_STOPPING_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(7);
+
+        /** Failed to deploy or update a watcher. */
+        public static final int DEPLOYING_WATCH_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(7);
+
+        /** Failed to iterate over meta storage cursor. */
+        public static final int CURSOR_EXECUTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(9);
+
         /** Failed to close a cursor. */
-        public static final int CURSOR_CLOSING_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(7);
+        public static final int CURSOR_CLOSING_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(10);
     }
 }

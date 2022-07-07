@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.client;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.WATCH_STOPPING_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -498,7 +499,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
                                 v.cursor.close();
                             } catch (InterruptedException e) {
-                                throw new IgniteInternalException(e);
+                                throw new IgniteInternalException(WATCH_STOPPING_ERR, e);
                             } catch (Exception e) {
                                 if (e instanceof IgniteInternalException && e.getCause().getCause() instanceof RejectedExecutionException) {
                                     LOG.debug("Cursor close command was rejected because raft executor has been already stopped");
