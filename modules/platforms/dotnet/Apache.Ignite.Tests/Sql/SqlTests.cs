@@ -15,19 +15,24 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Sql
+namespace Apache.Ignite.Tests.Sql
 {
-    using System;
+    using System.Threading.Tasks;
+    using Ignite.Sql;
+    using NUnit.Framework;
 
     /// <summary>
-    /// Query result set.
+    /// Tests for SQL API: <see cref="ISql"/>.
     /// </summary>
-    public interface IResultSet : IAsyncDisposable
+    public class SqlTests : IgniteTestsBase
     {
-        /// <summary>
-        /// Gets the number of rows affected by the DML statement execution (such as "INSERT", "UPDATE", etc.),
-        /// or 0 if the statement returns nothing (such as "ALTER TABLE", etc), or -1 if not applicable.
-        /// </summary>
-        long AffectedRows { get; }
+        [Test]
+        public async Task TestSimpleQuery()
+        {
+            await using ISqlSession session = Client.Sql.CreateSession();
+            await using IResultSet resultSet = await session.ExecuteAsync(null, new SqlStatement { Query = "SELECT ?" }, 1);
+
+            Assert.AreEqual(-1, resultSet.AffectedRows);
+        }
     }
 }

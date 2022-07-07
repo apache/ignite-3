@@ -15,19 +15,29 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Sql
+namespace Apache.Ignite.Tests.Sql
 {
-    using System;
+    using Ignite.Sql;
+    using NUnit.Framework;
 
     /// <summary>
-    /// Query result set.
+    /// Tests <see cref="SqlStatement"/>.
     /// </summary>
-    public interface IResultSet : IAsyncDisposable
+    public class SqlStatementTests
     {
-        /// <summary>
-        /// Gets the number of rows affected by the DML statement execution (such as "INSERT", "UPDATE", etc.),
-        /// or 0 if the statement returns nothing (such as "ALTER TABLE", etc), or -1 if not applicable.
-        /// </summary>
-        long AffectedRows { get; }
+        [Test]
+        public void TestStatementCloneCreatesSeparatePropertyDictionary()
+        {
+            var statement1 = new SqlStatement
+            {
+                Query = "select 1",
+                Properties = { ["foo"] = "bar" }
+            };
+
+            var statement2 = statement1 with { Query = "select 2" };
+            statement2.Properties.Clear();
+
+            Assert.AreEqual("bar", statement1.Properties["foo"]);
+        }
     }
 }

@@ -17,13 +17,14 @@
 
 namespace Apache.Ignite.Sql
 {
+    using System;
     using System.Threading.Tasks;
     using Transactions;
 
     /// <summary>
     /// SQL Session executes queries and holds default query settings.
     /// </summary>
-    public interface ISqlSession // TODO: Rename to ISession, along with other things?
+    public interface ISqlSession : IAsyncDisposable // TODO: Rename to ISession, along with other things?
     {
         /// <summary>
         /// Executes single SQL statement.
