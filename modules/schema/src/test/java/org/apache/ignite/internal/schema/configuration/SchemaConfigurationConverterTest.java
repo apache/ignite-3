@@ -168,7 +168,6 @@ public class SchemaConfigurationConverterTest {
         data.put("datetime", datetime);
         data.put("timestamp", timestamp);
         data.put("number", bi);
-        data.put("biginteger", bi);
         data.put("duration", duration);
         data.put("period", period);
 
@@ -187,10 +186,8 @@ public class SchemaConfigurationConverterTest {
                 .withDefaultValueExpression(data.get("float")).build());
         allColumns.add(SchemaBuilders.column("double", ColumnType.DOUBLE).asNullable(true)
                 .withDefaultValueExpression(data.get("double")).build());
-        allColumns.add(SchemaBuilders.column("number", ColumnType.numberOf()).asNullable(true)
+        allColumns.add(SchemaBuilders.column("number", ColumnType.numberOf(2)).asNullable(true)
                 .withDefaultValueExpression(data.get("number")).build());
-        allColumns.add(SchemaBuilders.column("biginteger", ColumnType.numberOf()).asNullable(true)
-                .withDefaultValueExpression(data.get("biginteger")).build());
         //not supported yet
         //SchemaBuilders.column("UUIDVAL" ...
         //SchemaBuilders.column("BITSET" ...
@@ -213,7 +210,7 @@ public class SchemaConfigurationConverterTest {
                 .withDefaultValueExpression(data.get("duration")).build());
 
         // exclude types : ColumnType.UINTx and not supported, -ColumnType.BOOLEAN
-        assertEquals(allColumns.size() + 4, ColumnTypeSpec.values().length, "Some data types are not covered.");
+        assertEquals(allColumns.size() + 4 + 1, ColumnTypeSpec.values().length, "Some data types are not covered.");
 
         TableDefinitionBuilder allTypesTblBuilder = SchemaBuilders.tableBuilder("SNAME", "ALLTYPES")
                 .columns(allColumns).withPrimaryKey("ID");
@@ -240,10 +237,6 @@ public class SchemaConfigurationConverterTest {
             String colName = col.name().toLowerCase();
             Object expVal = data.get(colName);
             assertNotNull(expVal, "Default missed for: " + colName);
-
-            if ("biginteger".equals(colName) || "number".equals(colName)) {
-                continue;
-            }
 
             col.validate(expVal);
             assertTrue(col.nullable());
