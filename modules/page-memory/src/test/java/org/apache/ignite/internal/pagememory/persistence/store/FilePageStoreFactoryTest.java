@@ -22,19 +22,28 @@ import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader.readHeader;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
+import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
+import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
+import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -45,23 +54,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class FilePageStoreFactoryTest {
     private static final int PAGE_SIZE = 1024;
 
+    private static PageIoRegistry ioRegistry;
+
     @WorkDirectory
     private Path workDir;
 
-    @Test
-    void testInvalidFilePageSize() throws Exception {
-        Path testFilePath = workDir.resolve("test");
+    @BeforeAll
+    static void beforeAll() {
+        ioRegistry = new PageIoRegistry();
 
-        try (FileIo fileIo = createFileIo(testFilePath)) {
-            fileIo.writeFully(new FilePageStoreHeader(VERSION_1, PAGE_SIZE * 2).toByteBuffer(), 0);
+        ioRegistry.loadFromServiceLoader();
+    }
 
-            Exception exception = assertThrows(
-                    IgniteInternalCheckedException.class,
-                    () -> createFilePageStoreFactory().createPageStore(testFilePath)
-            );
-
-            assertThat(exception.getCause().getMessage(), startsWith("Invalid file pageSize"));
-        }
+    @AfterAll
+    static void afterAll() {
+        ioRegistry = null;
     }
 
     @Test
@@ -88,7 +95,15 @@ public class FilePageStoreFactoryTest {
                 FilePageStore filePageStore = createFilePageStoreFactory().createPageStore(testFilePath);
                 FileIo fileIo = createFileIo(testFilePath)
         ) {
+            assertNull(readHeader(fileIo));
+
+            assertEquals(1, filePageStore.pages());
+
+            filePageStore.ensure();
+
             checkHeader(readHeader(fileIo));
+
+            assertEquals(1, filePageStore.pages());
         }
     }
 
@@ -98,22 +113,74 @@ public class FilePageStoreFactoryTest {
 
         Path testFilePath = workDir.resolve("test");
 
-        filePageStoreFactory.createPageStore(testFilePath).close();
+        try (FilePageStore pageStore = filePageStoreFactory.createPageStore(testFilePath)) {
+            pageStore.ensure();
+        }
 
         try (
-                FilePageStore filePageStore = createFilePageStoreFactory().createPageStore(testFilePath);
-                FileIo fileIo = createFileIo(testFilePath)
+                FilePageStore filePageStore = filePageStoreFactory.createPageStore(testFilePath);
+                FileIo fileIo = createFileIo(testFilePath);
         ) {
+            assertEquals(1, filePageStore.pages());
+
+            checkHeader(readHeader(fileIo));
+        }
+    }
+
+    @Test
+    void testCreateExistsFilePageStoreWithChangePageCount() throws Exception {
+        FilePageStoreFactory filePageStoreFactory = createFilePageStoreFactory();
+
+        Path testFilePath = workDir.resolve("test");
+
+        try (
+                FilePageStore pageStore = filePageStoreFactory.createPageStore(testFilePath);
+                FileIo fileIo = createFileIo(testFilePath);
+        ) {
+            pageStore.ensure();
+
+            writePageCount(fileIo, 3);
+
+            fileIo.force();
+        }
+
+        try (
+                FilePageStore filePageStore = filePageStoreFactory.createPageStore(testFilePath);
+                FileIo fileIo = createFileIo(testFilePath);
+        ) {
+            assertEquals(3, filePageStore.pages());
+
             checkHeader(readHeader(fileIo));
         }
     }
 
     private static FilePageStoreFactory createFilePageStoreFactory() {
-        return new FilePageStoreFactory(new RandomAccessFileIoFactory(), PAGE_SIZE);
+        return new FilePageStoreFactory(new RandomAccessFileIoFactory(), ioRegistry, PAGE_SIZE);
     }
 
     private static FileIo createFileIo(Path filePath) throws Exception {
         return new RandomAccessFileIo(filePath, CREATE, WRITE, READ);
+    }
+
+    private static void writePageCount(FileIo fileIo, int pageCount) throws Exception {
+        ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
+
+        try {
+            PartitionMetaIo partitionMetaIo = PartitionMetaIo.VERSIONS.latest();
+
+            partitionMetaIo.initNewPage(
+                    bufferAddress(buffer),
+                    pageId(0, (byte) 0, 0),
+                    PAGE_SIZE
+            );
+
+            partitionMetaIo.setPageCount(bufferAddress(buffer), pageCount);
+
+            // Must be after the file header.
+            fileIo.writeFully(buffer.rewind(), PAGE_SIZE);
+        } finally {
+            freeBuffer(buffer);
+        }
     }
 
     private static void checkHeader(FilePageStoreHeader header) {

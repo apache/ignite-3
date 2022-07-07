@@ -20,6 +20,7 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static java.nio.ByteOrder.nativeOrder;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getCrc;
+import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -63,31 +64,35 @@ public class FilePageStoreTest {
 
         // Checks uninitialized store.
 
-        FilePageStore filePageStore0 = createFilePageStore(testFilePath0);
-        FilePageStore filePageStore1 = createFilePageStore(testFilePath1);
+        try (
+                FilePageStore filePageStore0 = createFilePageStore(testFilePath0);
+                FilePageStore filePageStore1 = createFilePageStore(testFilePath1);
+        ) {
+            assertDoesNotThrow(() -> filePageStore0.stop(false));
+            assertDoesNotThrow(() -> filePageStore1.stop(true));
 
-        assertDoesNotThrow(() -> filePageStore0.stop(false));
-        assertDoesNotThrow(() -> filePageStore1.stop(true));
-
-        assertTrue(Files.exists(testFilePath0));
-        assertFalse(Files.exists(testFilePath1));
+            assertFalse(Files.exists(testFilePath0));
+            assertFalse(Files.exists(testFilePath1));
+        }
 
         // Checks initialized store.
 
         Path testFilePath2 = workDir.resolve("test2");
         Path testFilePath3 = workDir.resolve("test3");
 
-        FilePageStore filePageStore2 = createFilePageStore(testFilePath2);
-        FilePageStore filePageStore3 = createFilePageStore(testFilePath3);
+        try (
+                FilePageStore filePageStore2 = createFilePageStore(testFilePath2);
+                FilePageStore filePageStore3 = createFilePageStore(testFilePath3);
+        ) {
+            filePageStore2.ensure();
+            filePageStore3.ensure();
 
-        filePageStore2.ensure();
-        filePageStore3.ensure();
+            assertDoesNotThrow(() -> filePageStore2.stop(false));
+            assertTrue(Files.exists(testFilePath2));
 
-        assertDoesNotThrow(() -> filePageStore2.stop(false));
-        assertTrue(Files.exists(testFilePath2));
-
-        assertDoesNotThrow(() -> filePageStore3.stop(true));
-        assertFalse(Files.exists(testFilePath3));
+            assertDoesNotThrow(() -> filePageStore3.stop(true));
+            assertFalse(Files.exists(testFilePath3));
+        }
     }
 
     @Test
@@ -96,21 +101,21 @@ public class FilePageStoreTest {
 
         // Checks uninitialized store.
 
-        FilePageStore filePageStore0 = createFilePageStore(testFilePath0);
-
-        assertDoesNotThrow(filePageStore0::close);
-        assertTrue(Files.exists(testFilePath0));
+        try (FilePageStore filePageStore0 = createFilePageStore(testFilePath0)) {
+            assertDoesNotThrow(filePageStore0::close);
+            assertFalse(Files.exists(testFilePath0));
+        }
 
         // Checks initialized store.
 
         Path testFilePath1 = workDir.resolve("test0");
 
-        FilePageStore filePageStore1 = createFilePageStore(testFilePath1);
+        try (FilePageStore filePageStore1 = createFilePageStore(testFilePath1)) {
+            filePageStore1.ensure();
 
-        filePageStore1.ensure();
-
-        assertDoesNotThrow(filePageStore1::close);
-        assertTrue(Files.exists(testFilePath1));
+            assertDoesNotThrow(filePageStore1::close);
+            assertTrue(Files.exists(testFilePath1));
+        }
     }
 
     @Test
@@ -119,60 +124,44 @@ public class FilePageStoreTest {
 
         // Checks uninitialized store with not exists file.
 
-        FilePageStore filePageStore0 = new FilePageStore(
-                new FilePageStoreHeader(FilePageStore.VERSION_1, PAGE_SIZE),
-                testFilePath,
-                new RandomAccessFileIoFactory()
-        );
-
-        assertFalse(filePageStore0.exists());
+        try (FilePageStore filePageStore0 = createFilePageStore(testFilePath)) {
+            assertFalse(filePageStore0.exists());
+        }
 
         // Checks uninitialized store with existent file.
 
-        FilePageStore filePageStore1 = new FilePageStore(
-                new FilePageStoreHeader(FilePageStore.VERSION_1, PAGE_SIZE),
-                Files.createFile(testFilePath),
-                new RandomAccessFileIoFactory()
-        );
-
-        assertFalse(filePageStore1.exists());
-
-        // Checks uninitialized store.
-
-        assertTrue(createFilePageStore(testFilePath).exists());
+        try (FilePageStore filePageStore1 = createFilePageStore(Files.createFile(testFilePath))) {
+            assertFalse(filePageStore1.exists());
+        }
 
         // Checks initialized store.
 
-        FilePageStore filePageStore2 = createFilePageStore(testFilePath);
+        try (FilePageStore filePageStore2 = createFilePageStore(testFilePath)) {
+            filePageStore2.ensure();
 
-        filePageStore2.ensure();
-
-        assertTrue(filePageStore2.exists());
+            assertTrue(filePageStore2.exists());
+        }
 
         // Checks after closing the initialized store.
 
-        filePageStore2.close();
-
-        FilePageStore filePageStore3 = createFilePageStore(testFilePath);
-
-        assertTrue(filePageStore3.exists());
+        try (FilePageStore filePageStore3 = createFilePageStore(testFilePath)) {
+            assertTrue(filePageStore3.exists());
+        }
     }
 
     @Test
     void testEnsure() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        FilePageStore filePageStore0 = createFilePageStore(testFilePath);
+        try (FilePageStore filePageStore0 = createFilePageStore(testFilePath)) {
+            assertDoesNotThrow(filePageStore0::ensure);
+            assertDoesNotThrow(filePageStore0::ensure);
+        }
 
-        assertDoesNotThrow(filePageStore0::ensure);
-        assertDoesNotThrow(filePageStore0::ensure);
-
-        filePageStore0.close();
-
-        FilePageStore filePageStore1 = createFilePageStore(testFilePath);
-
-        assertDoesNotThrow(filePageStore1::ensure);
-        assertDoesNotThrow(filePageStore1::ensure);
+        try (FilePageStore filePageStore1 = createFilePageStore(testFilePath)) {
+            assertDoesNotThrow(filePageStore1::ensure);
+            assertDoesNotThrow(filePageStore1::ensure);
+        }
     }
 
     @Test
@@ -181,191 +170,187 @@ public class FilePageStoreTest {
 
         // Checks allocation without writing pages.
 
-        FilePageStore filePageStore0 = createFilePageStore(testFilePath);
+        try (FilePageStore filePageStore0 = createFilePageStore(testFilePath, 0)) {
+            assertEquals(0, filePageStore0.pages());
 
-        assertEquals(0, filePageStore0.pages());
+            assertEquals(0, filePageStore0.allocatePage());
 
-        assertEquals(0, filePageStore0.allocatePage());
+            assertEquals(1, filePageStore0.pages());
 
-        assertEquals(1, filePageStore0.pages());
+            assertEquals(1, filePageStore0.allocatePage());
 
-        assertEquals(1, filePageStore0.allocatePage());
+            assertEquals(2, filePageStore0.pages());
+        }
 
-        assertEquals(2, filePageStore0.pages());
+        try (FilePageStore filePageStore1 = createFilePageStore(testFilePath, 2)) {
+            assertEquals(2, filePageStore1.pages());
 
-        filePageStore0.close();
+            filePageStore1.ensure();
 
-        FilePageStore filePageStore1 = createFilePageStore(testFilePath);
+            assertEquals(2, filePageStore1.pages());
 
-        assertEquals(0, filePageStore1.pages());
+            assertEquals(2, filePageStore1.allocatePage());
 
-        filePageStore1.ensure();
-
-        assertEquals(0, filePageStore1.pages());
-
-        assertEquals(0, filePageStore1.allocatePage());
-
-        assertEquals(1, filePageStore1.pages());
-
-        assertEquals(1, filePageStore1.allocatePage());
-
-        assertEquals(2, filePageStore1.pages());
-
-        filePageStore1.close();
+            assertEquals(3, filePageStore1.pages());
+        }
 
         // Checks allocation with writing pages.
 
-        FilePageStore filePageStore2 = createFilePageStore(testFilePath);
+        try (FilePageStore filePageStore2 = createFilePageStore(testFilePath, 0)) {
+            assertEquals(0, filePageStore2.pages());
 
-        assertEquals(0, filePageStore2.pages());
+            filePageStore2.write(createPageId(filePageStore2), createPageByteBuffer(), 0, true);
 
-        filePageStore2.write(createPageId(filePageStore2), createPageByteBuffer(), 0, true);
+            assertEquals(1, filePageStore2.pages());
 
-        assertEquals(1, filePageStore2.pages());
+            filePageStore2.write(createPageId(filePageStore2), createPageByteBuffer(), 0, true);
 
-        filePageStore2.write(createPageId(filePageStore2), createPageByteBuffer(), 0, true);
+            assertEquals(2, filePageStore2.pages());
+        }
 
-        assertEquals(2, filePageStore2.pages());
+        try (FilePageStore filePageStore3 = createFilePageStore(testFilePath, 0)) {
+            assertEquals(0, filePageStore3.pages());
 
-        filePageStore2.close();
+            filePageStore3.ensure();
 
-        FilePageStore filePageStore3 = createFilePageStore(testFilePath);
+            assertEquals(0, filePageStore3.pages());
+        }
 
-        assertEquals(0, filePageStore3.pages());
+        try (FilePageStore filePageStore4 = createFilePageStore(testFilePath, 2)) {
+            assertEquals(2, filePageStore4.pages());
 
-        filePageStore3.ensure();
+            filePageStore4.ensure();
 
-        assertEquals(2, filePageStore3.pages());
+            assertEquals(2, filePageStore4.pages());
 
-        assertEquals(2, filePageStore3.allocatePage());
+            assertEquals(2, filePageStore4.allocatePage());
 
-        assertEquals(3, filePageStore3.pages());
+            assertEquals(3, filePageStore4.pages());
+        }
     }
 
     @Test
     void testSync() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        FilePageStore filePageStore = createFilePageStore(testFilePath);
+        try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
+            assertDoesNotThrow(filePageStore::sync);
 
-        assertDoesNotThrow(filePageStore::sync);
+            filePageStore.write(createPageId(filePageStore), createPageByteBuffer(), 0, true);
 
-        filePageStore.write(createPageId(filePageStore), createPageByteBuffer(), 0, true);
-
-        assertDoesNotThrow(filePageStore::sync);
-        assertEquals(2 * PAGE_SIZE, testFilePath.toFile().length());
+            assertDoesNotThrow(filePageStore::sync);
+            assertEquals(2 * PAGE_SIZE, testFilePath.toFile().length());
+        }
     }
 
     @Test
     void testSize() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        FilePageStore filePageStore0 = createFilePageStore(testFilePath);
+        try (FilePageStore filePageStore0 = createFilePageStore(testFilePath)) {
+            assertEquals(0, filePageStore0.size());
 
-        assertEquals(0, filePageStore0.size());
+            filePageStore0.ensure();
 
-        filePageStore0.ensure();
+            assertEquals(PAGE_SIZE, filePageStore0.size());
 
-        assertEquals(PAGE_SIZE, filePageStore0.size());
+            filePageStore0.write(createPageId(filePageStore0), createPageByteBuffer(), 0, true);
 
-        filePageStore0.write(createPageId(filePageStore0), createPageByteBuffer(), 0, true);
+            assertEquals(2 * PAGE_SIZE, filePageStore0.size());
+        }
 
-        assertEquals(2 * PAGE_SIZE, filePageStore0.size());
+        try (FilePageStore filePageStore1 = createFilePageStore(testFilePath)) {
+            assertEquals(0, filePageStore1.size());
 
-        filePageStore0.close();
+            filePageStore1.ensure();
 
-        FilePageStore filePageStore1 = createFilePageStore(testFilePath);
-
-        assertEquals(0, filePageStore1.size());
-
-        filePageStore1.ensure();
-
-        assertEquals(2 * PAGE_SIZE, filePageStore1.size());
+            assertEquals(2 * PAGE_SIZE, filePageStore1.size());
+        }
     }
 
     @Test
     void testPageOffset() throws Exception {
-        FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"));
-
-        assertEquals(PAGE_SIZE, filePageStore.pageOffset(pageId(0, FLAG_DATA, 0)));
-        assertEquals(2 * PAGE_SIZE, filePageStore.pageOffset(pageId(0, FLAG_DATA, 1)));
-        assertEquals(3 * PAGE_SIZE, filePageStore.pageOffset(pageId(0, FLAG_DATA, 2)));
+        try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"))) {
+            assertEquals(PAGE_SIZE, filePageStore.pageOffset(pageId(0, FLAG_DATA, 0)));
+            assertEquals(2 * PAGE_SIZE, filePageStore.pageOffset(pageId(0, FLAG_DATA, 1)));
+            assertEquals(3 * PAGE_SIZE, filePageStore.pageOffset(pageId(0, FLAG_DATA, 2)));
+        }
     }
 
     @Test
     void testWrite() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        FilePageStore filePageStore = createFilePageStore(testFilePath);
+        try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
+            filePageStore.ensure();
 
-        filePageStore.ensure();
+            long expPageId = createPageId(filePageStore);
 
-        long expPageId = createPageId(filePageStore);
+            ByteBuffer pageByteBuffer = createPageByteBuffer();
 
-        ByteBuffer pageByteBuffer = createPageByteBuffer();
+            PageWriteListener pageWriteListener = spy(new PageWriteListener() {
+                /** {@inheritDoc} */
+                @Override
+                public void accept(long pageId, ByteBuffer buf) {
+                    assertEquals(expPageId, pageId);
 
-        PageWriteListener pageWriteListener = spy(new PageWriteListener() {
-            /** {@inheritDoc} */
-            @Override
-            public void accept(long pageId, ByteBuffer buf) {
-                assertEquals(expPageId, pageId);
+                    assertSame(pageByteBuffer, buf);
 
-                assertSame(pageByteBuffer, buf);
+                    assertEquals(PAGE_SIZE, testFilePath.toFile().length());
 
-                assertEquals(PAGE_SIZE, testFilePath.toFile().length());
+                    assertNotEquals(0, PageIo.getCrc(pageByteBuffer));
+                }
+            });
 
-                assertNotEquals(0, PageIo.getCrc(pageByteBuffer));
-            }
-        });
+            filePageStore.addWriteListener(pageWriteListener);
 
-        filePageStore.addWriteListener(pageWriteListener);
+            filePageStore.write(expPageId, pageByteBuffer, 0, true);
 
-        filePageStore.write(expPageId, pageByteBuffer, 0, true);
+            verify(pageWriteListener, times(1)).accept(anyLong(), any(ByteBuffer.class));
 
-        verify(pageWriteListener, times(1)).accept(anyLong(), any(ByteBuffer.class));
+            assertEquals(2 * PAGE_SIZE, testFilePath.toFile().length());
 
-        assertEquals(2 * PAGE_SIZE, testFilePath.toFile().length());
-
-        assertEquals(0, PageIo.getCrc(pageByteBuffer));
+            assertEquals(0, PageIo.getCrc(pageByteBuffer));
+        }
     }
 
     @Test
     void testRead() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        FilePageStore filePageStore = createFilePageStore(testFilePath);
+        try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
+            filePageStore.ensure();
 
-        filePageStore.ensure();
+            long expPageId = createPageId(filePageStore);
 
-        long expPageId = createPageId(filePageStore);
+            ByteBuffer pageByteBuffer = createPageByteBuffer();
 
-        ByteBuffer pageByteBuffer = createPageByteBuffer();
+            // Puts random bytes after: type (2 byte) + version (2 byte) + crc (4 byte).
+            pageByteBuffer.position(8).put(randomBytes(128));
 
-        // Puts random bytes after: type (2 byte) + version (2 byte) + crc (4 byte).
-        pageByteBuffer.position(8).put(randomBytes(128));
+            PageWriteListener pageWriteListener = spy(new PageWriteListener() {
+                /** {@inheritDoc} */
+                @Override
+                public void accept(long pageId, ByteBuffer buf) {
+                    // No-op.
+                }
+            });
 
-        PageWriteListener pageWriteListener = spy(new PageWriteListener() {
-            /** {@inheritDoc} */
-            @Override
-            public void accept(long pageId, ByteBuffer buf) {
-                // No-op.
-            }
-        });
+            filePageStore.addWriteListener(pageWriteListener);
 
-        filePageStore.addWriteListener(pageWriteListener);
+            filePageStore.write(expPageId, pageByteBuffer.rewind(), 0, true);
 
-        filePageStore.write(expPageId, pageByteBuffer.rewind(), 0, true);
+            ByteBuffer readBuffer = ByteBuffer.allocate(PAGE_SIZE).order(pageByteBuffer.order());
 
-        ByteBuffer readBuffer = ByteBuffer.allocate(PAGE_SIZE).order(pageByteBuffer.order());
+            assertTrue(filePageStore.read(expPageId, readBuffer, false));
+            assertEquals(pageByteBuffer.rewind(), readBuffer.rewind());
+            assertEquals(0, getCrc(readBuffer));
 
-        assertTrue(filePageStore.read(expPageId, readBuffer, false));
-        assertEquals(pageByteBuffer.rewind(), readBuffer.rewind());
-        assertEquals(0, getCrc(readBuffer));
+            readBuffer = ByteBuffer.allocate(PAGE_SIZE).order(pageByteBuffer.order());
 
-        readBuffer = ByteBuffer.allocate(PAGE_SIZE).order(pageByteBuffer.order());
-
-        assertTrue(filePageStore.read(expPageId, readBuffer, true));
-        assertNotEquals(0, getCrc(readBuffer));
+            assertTrue(filePageStore.read(expPageId, readBuffer, true));
+            assertNotEquals(0, getCrc(readBuffer));
+        }
     }
 
     private static byte[] randomBytes(int len) {
@@ -388,7 +373,20 @@ public class FilePageStoreTest {
         return pageId(pageId(0, FLAG_DATA, (int) filePageStore.allocatePage()));
     }
 
-    private static FilePageStore createFilePageStore(Path filePath) throws Exception {
-        return new FilePageStoreFactory(new RandomAccessFileIoFactory(), PAGE_SIZE).createPageStore(filePath);
+    private static FilePageStore createFilePageStore(Path filePath, int pageCount) {
+        FilePageStoreHeader header = new FilePageStoreHeader(VERSION_1, PAGE_SIZE);
+
+        return new FilePageStore(
+                header.version(),
+                header.pageSize(),
+                header.headerSize(),
+                pageCount,
+                filePath,
+                new RandomAccessFileIoFactory()
+        );
+    }
+
+    private static FilePageStore createFilePageStore(Path filePath) {
+        return createFilePageStore(filePath, 0);
     }
 }

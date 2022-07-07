@@ -34,6 +34,7 @@ import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager;
 import org.apache.ignite.internal.util.IgniteStripedLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -81,6 +82,9 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /** Group directory initialization lock. */
     private final IgniteStripedLock initGroupDirLock = new IgniteStripedLock(Math.max(Runtime.getRuntime().availableProcessors(), 8));
 
+    /** Page IO registry. */
+    private final PageIoRegistry ioRegistry;
+
     /**
      * Constructor.
      *
@@ -88,6 +92,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param igniteInstanceName Name of the Ignite instance.
      * @param storagePath Storage path.
      * @param filePageStoreFileIoFactory {@link FileIo} factory for file page store.
+     * @param ioRegistry Page IO registry.
      * @param pageSize Page size in bytes.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -96,6 +101,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
             String igniteInstanceName,
             Path storagePath,
             FileIoFactory filePageStoreFileIoFactory,
+            PageIoRegistry ioRegistry,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) throws IgniteInternalCheckedException {
@@ -103,6 +109,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
         this.filePageStoreFileIoFactory = filePageStoreFileIoFactory;
         this.dbDir = storagePath.resolve("db");
         this.pageSize = pageSize;
+        this.ioRegistry = ioRegistry;
 
         try {
             createDirectories(dbDir);
@@ -299,7 +306,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
     ) throws IgniteInternalCheckedException {
         Path groupWorkDir = ensureGroupWorkDir(grpName);
 
-        FilePageStoreFactory filePageStoreFactory = new FilePageStoreFactory(filePageStoreFileIoFactory, pageSize);
+        FilePageStoreFactory filePageStoreFactory = new FilePageStoreFactory(filePageStoreFileIoFactory, ioRegistry, pageSize);
 
         List<FilePageStore> partitionFilePageStores = new ArrayList<>(partitions);
 

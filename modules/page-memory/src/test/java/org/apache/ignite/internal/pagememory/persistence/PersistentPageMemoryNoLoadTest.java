@@ -53,6 +53,8 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreMana
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -63,12 +65,26 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelfTest {
+    private static PageIoRegistry ioRegistry;
+
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
     private PersistentPageMemoryDataRegionConfiguration dataRegionCfg;
+
+    @BeforeAll
+    static void beforeAll() {
+        ioRegistry = new PageIoRegistry();
+
+        ioRegistry.loadFromServiceLoader();
+    }
 
     @BeforeEach
     void setUp() throws Exception {
         dataRegionCfg.change(c -> c.changeSize(MAX_MEMORY_SIZE)).get(1, SECONDS);
+    }
+
+    @AfterAll
+    static void afterAll() {
+        ioRegistry = null;
     }
 
     /** {@inheritDoc} */
@@ -216,10 +232,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             @Nullable FilePageStoreManager filePageStoreManager,
             @Nullable CheckpointManager checkpointManager
     ) {
-        PageIoRegistry ioRegistry = new PageIoRegistry();
-
-        ioRegistry.loadFromServiceLoader();
-
         return new PersistentPageMemory(
                 dataRegionCfg,
                 ioRegistry,
@@ -274,7 +286,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     }
 
     private static FilePageStoreManager createFilePageStoreManager(Path storagePath) throws Exception {
-        return new FilePageStoreManager(log, "test", storagePath, new RandomAccessFileIoFactory(), PAGE_SIZE);
+        return new FilePageStoreManager(log, "test", storagePath, new RandomAccessFileIoFactory(), ioRegistry, PAGE_SIZE);
     }
 
     private static void initGroupFilePageStores(FilePageStoreManager filePageStoreManager) throws Exception {

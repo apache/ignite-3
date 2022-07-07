@@ -42,9 +42,12 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -55,8 +58,22 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class FilePageStoreManagerTest {
     private final IgniteLogger log = Loggers.forClass(FilePageStoreManagerTest.class);
 
+    private static PageIoRegistry ioRegistry;
+
     @WorkDirectory
     private Path workDir;
+
+    @BeforeAll
+    static void beforeAll() {
+        ioRegistry = new PageIoRegistry();
+
+        ioRegistry.loadFromServiceLoader();
+    }
+
+    @AfterAll
+    static void afterAll() {
+        ioRegistry = null;
+    }
 
     @Test
     void testCreateManager() throws Exception {
@@ -233,6 +250,6 @@ public class FilePageStoreManagerTest {
     }
 
     private FilePageStoreManager createManager() throws Exception {
-        return new FilePageStoreManager(log, "test", workDir, new RandomAccessFileIoFactory(), 1024);
+        return new FilePageStoreManager(log, "test", workDir, new RandomAccessFileIoFactory(), ioRegistry, 1024);
     }
 }

@@ -111,6 +111,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     igniteInstanceName,
                     storagePath,
                     fileIoFactory,
+                    ioRegistry,
                     pageSize
             );
 
