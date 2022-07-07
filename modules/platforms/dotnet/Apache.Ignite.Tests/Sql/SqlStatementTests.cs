@@ -71,9 +71,16 @@ namespace Apache.Ignite.Tests.Sql
                 timeout: TimeSpan.FromSeconds(1),
                 schema: "schema2",
                 pageSize: 256,
-                properties: new Dictionary<string, object?> { { "a", 1 } });
+                properties: new Dictionary<string, object?>
+                {
+                    { "a", 1 },
+                    { "b", TimeSpan.FromHours(2) }
+                });
 
-            Assert.AreEqual("too", s.ToString());
+            var expected = "SqlStatement { Query = select foo from bar, Timeout = 00:00:01, Schema = schema2, PageSize = 256, " +
+                           "Properties = { a = 1, b = 02:00:00 } }";
+
+            Assert.AreEqual(expected, s.ToString());
         }
     }
 }

@@ -20,6 +20,7 @@ namespace Apache.Ignite.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Text;
 
     /// <summary>
     /// SQL statement.
@@ -106,5 +107,27 @@ namespace Apache.Ignite.Sql
         /// <param name="query">Query string.</param>
         /// <returns>Statement.</returns>
         public static SqlStatement ToSqlStatement(string query) => new(query);
+
+        private bool PrintMembers(StringBuilder builder)
+        {
+            builder.Append($"Query = {Query}, Timeout = {Timeout}, Schema = {Schema}, PageSize = {PageSize}, Properties = {{");
+
+            var first = true;
+
+            foreach (var (key, val) in Properties)
+            {
+                builder
+                    .Append(first ? " " : ", ")
+                    .Append(key)
+                    .Append(" = ")
+                    .Append(val);
+
+                first = false;
+            }
+
+            builder.Append(" }");
+
+            return true;
+        }
     }
 }
