@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// ReSharper disable AutoPropertyCanBeMadeGetOnly.Global
 namespace Apache.Ignite.Sql
 {
     using System;

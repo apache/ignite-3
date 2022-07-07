@@ -39,6 +39,7 @@ namespace Apache.Ignite.Tests.Sql
             };
 
             Assert.AreEqual("bar", statement1.Properties["foo"]);
+            Assert.AreEqual("select 1", statement2.Query);
             Assert.IsFalse(statement2.Properties.ContainsKey("foo"));
         }
     }
