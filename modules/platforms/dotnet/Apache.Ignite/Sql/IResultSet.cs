@@ -25,6 +25,16 @@ namespace Apache.Ignite.Sql
     public interface IResultSet : IAsyncDisposable
     {
         /// <summary>
+        /// Gets result set metadata when <see cref="HasRowSet"/> is <c>true</c>, otherwise <c>null</c>.
+        /// </summary>
+        object? Metadata { get; } // TODO
+
+        /// <summary>
+        /// Gets a value indicating whether this result set contains a collection of rows.
+        /// </summary>
+        bool HasRowSet { get; }
+
+        /// <summary>
         /// Gets the number of rows affected by the DML statement execution (such as "INSERT", "UPDATE", etc.),
         /// or 0 if the statement returns nothing (such as "ALTER TABLE", etc), or -1 if not applicable.
         /// </summary>
