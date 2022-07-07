@@ -88,7 +88,15 @@ namespace Apache.Ignite.Internal.Sql
         public bool WasApplied { get; }
 
         /// <inheritdoc/>
-        public IIgniteTuple Current { get; }
+        public IIgniteTuple Current
+        {
+            get
+            {
+                // TODO: Throw when no row set
+                // TODO: Throw when GetEnumerator not called.
+                throw new Exception("TODO");
+            }
+        }
 
         /// <inheritdoc/>
         public async ValueTask DisposeAsync()
