@@ -18,8 +18,10 @@
 namespace Apache.Ignite.Internal.Sql
 {
     using System.Threading.Tasks;
+    using Common;
     using Ignite.Sql;
     using Ignite.Transactions;
+    using Proto;
 
     /// <summary>
     /// SQL API.
@@ -39,9 +41,13 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
-        public Task<IResultSet> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object[] args)
+        public async Task<IResultSet> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object[] args)
         {
-            throw new System.NotImplementedException();
+            IgniteArgumentCheck.NotNull(statement, nameof(statement));
+
+            await _socket.DoOutInOpAsync(ClientOp.SqlExec, null).ConfigureAwait(false);
+
+            return null!;
         }
     }
 }
