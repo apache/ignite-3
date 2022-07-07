@@ -97,7 +97,7 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
                             typeFactory.createSqlType(
                                     SqlTypeName.DECIMAL,
                                     typeFactory.getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL),
-                                    typeFactory.getTypeSystem().getMaxScale(SqlTypeName.DECIMAL)
+                                    argumentType.getScale()
                             ), argumentType.isNullable());
 
                     break;
