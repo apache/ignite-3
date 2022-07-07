@@ -42,7 +42,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.cluster.management.MockNode;
-import org.apache.ignite.internal.rest.api.ErrorResult;
+import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterService;
@@ -124,8 +124,9 @@ public class ItClusterManagementControllerTest {
         // Then
         assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
         // And
-        var errorResult = getErrorResult(thrown);
-        assertEquals("INVALID_ARGUMENT", errorResult.type());
+        var problem = getProblem(thrown);
+        assertEquals(400, problem.status());
+        assertEquals("Node \"nodename\" is not present in the physical topology", problem.detail());
     }
 
     @Test
@@ -157,8 +158,8 @@ public class ItClusterManagementControllerTest {
         // Then
         assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.INTERNAL_SERVER_ERROR))));
         // And
-        var errorResult = getErrorResult(thrown);
-        assertEquals("SERVER_ERROR", errorResult.type());
+        var problem = getProblem(thrown);
+        assertEquals(500, problem.status());
 
     }
 
@@ -169,7 +170,7 @@ public class ItClusterManagementControllerTest {
         return new ClusterManagementRestFactory(clusterService);
     }
 
-    private ErrorResult getErrorResult(HttpClientResponseException exception) {
-        return exception.getResponse().getBody(ErrorResult.class).orElseThrow();
+    private Problem getProblem(HttpClientResponseException exception) {
+        return exception.getResponse().getBody(Problem.class).orElseThrow();
     }
 }

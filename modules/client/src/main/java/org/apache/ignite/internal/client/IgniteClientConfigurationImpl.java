@@ -21,6 +21,7 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.client.IgniteClientAddressFinder;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.RetryPolicy;
+import org.apache.ignite.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -51,15 +52,20 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** Retry policy. */
     private final RetryPolicy retryPolicy;
 
+    private final LoggerFactory loggerFactory;
+
     /**
      * Constructor.
      *
-     * @param addressFinder             Address finder.
-     * @param addresses                 Addresses.
-     * @param connectTimeout            Socket connect timeout.
+     * @param addressFinder Address finder.
+     * @param addresses  Addresses.
+     * @param connectTimeout Socket connect timeout.
+     * @param reconnectThrottlingPeriod Reconnect throttling period, in milliseconds.
+     * @param reconnectThrottlingRetries Reconnect throttling retries.
      * @param asyncContinuationExecutor Async continuation executor.
-     * @param heartbeatInterval         Heartbeat message interval.
-     * @param retryPolicy               Retry policy.
+     * @param heartbeatInterval Heartbeat message interval.
+     * @param retryPolicy Retry policy.
+     * @param loggerFactory Logger factory which will be used to create a logger instance for this this particular client when needed.
      */
     public IgniteClientConfigurationImpl(
             IgniteClientAddressFinder addressFinder,
@@ -69,7 +75,9 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             int reconnectThrottlingRetries,
             Executor asyncContinuationExecutor,
             long heartbeatInterval,
-            RetryPolicy retryPolicy) {
+            RetryPolicy retryPolicy,
+            LoggerFactory loggerFactory
+    ) {
         this.addressFinder = addressFinder;
 
         //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
@@ -81,6 +89,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.asyncContinuationExecutor = asyncContinuationExecutor;
         this.heartbeatInterval = heartbeatInterval;
         this.retryPolicy = retryPolicy;
+        this.loggerFactory = loggerFactory;
     }
 
     /** {@inheritDoc} */
@@ -123,6 +132,12 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public long heartbeatInterval() {
         return heartbeatInterval;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable LoggerFactory loggerFactory() {
+        return loggerFactory;
     }
 
     /** {@inheritDoc} */

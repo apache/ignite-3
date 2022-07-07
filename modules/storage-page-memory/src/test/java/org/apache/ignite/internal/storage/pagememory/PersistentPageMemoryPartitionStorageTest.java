@@ -34,6 +34,7 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.AbstractPartitionStorageTest;
@@ -96,7 +97,7 @@ public class PersistentPageMemoryPartitionStorageTest extends AbstractPartitionS
     void setUp() throws Exception {
         String nodeName = "test-node";
 
-        longJvmPauseDetector = new LongJvmPauseDetector(nodeName);
+        longJvmPauseDetector = new LongJvmPauseDetector(nodeName, Loggers.forClass(LongJvmPauseDetector.class));
 
         longJvmPauseDetector.start();
 

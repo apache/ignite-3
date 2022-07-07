@@ -35,11 +35,10 @@ class CliConfigSubCommandTest extends CliCommandTestBase {
     void noKey() {
         execute();
 
-        String expectedResult = "ignite.cluster-url=test_cluster_url" + System.lineSeparator()
-                + "ignite.jdbc-url=test_jdbc_url" + System.lineSeparator();
         assertAll(
                 this::assertExitCodeIsZero,
-                () -> assertOutputIs(expectedResult),
+                () -> assertOutputContains("ignite.cluster-url=test_cluster_url"),
+                () -> assertOutputContains("ignite.jdbc-url=test_jdbc_url"),
                 this::assertErrOutputIsEmpty
         );
     }

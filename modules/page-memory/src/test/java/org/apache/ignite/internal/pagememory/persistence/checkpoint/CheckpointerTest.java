@@ -19,9 +19,10 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.lang.System.nanoTime;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.DIRTY_PAGE_COMPARATOR;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.EMPTY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -49,17 +50,19 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -69,7 +72,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class CheckpointerTest {
-    private final IgniteLogger log = IgniteLogger.forClass(CheckpointerTest.class);
+    private final IgniteLogger log = Loggers.forClass(CheckpointerTest.class);
 
     @InjectConfiguration("mock : {threads=1, frequency=1000, frequencyDeviation=0}")
     private PageMemoryCheckpointConfiguration checkpointConfig;
@@ -300,10 +303,10 @@ public class CheckpointerTest {
 
     @Test
     void testDoCheckpoint() throws Exception {
-        IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPages = dirtyPages(
+        CheckpointDirtyPages dirtyPages = spy(dirtyPages(
                 mock(PersistentPageMemory.class),
                 new FullPageId(0, 0), new FullPageId(1, 0), new FullPageId(2, 0)
-        );
+        ));
 
         Checkpointer checkpointer = spy(new Checkpointer(
                 log,
@@ -317,8 +320,7 @@ public class CheckpointerTest {
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
 
-        assertTrue(dirtyPages.isEmpty());
-
+        verify(dirtyPages, times(1)).toQueue();
         verify(checkpointer, times(1)).startCheckpointProgress();
 
         assertEquals(checkpointer.currentProgress().currentCheckpointPagesCount(), 3);
@@ -363,16 +365,13 @@ public class CheckpointerTest {
         );
     }
 
-    private IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPages(
-            PersistentPageMemory pageMemory,
-            FullPageId... fullPageIds
-    ) {
-        return fullPageIds.length == 0 ? EMPTY : new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(fullPageIds)));
+    private CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, FullPageId... fullPageIds) {
+        Arrays.sort(fullPageIds, DIRTY_PAGE_COMPARATOR);
+
+        return new CheckpointDirtyPages(List.of(new IgniteBiTuple<>(pageMemory, Arrays.asList(fullPageIds))));
     }
 
-    private CheckpointWorkflow createCheckpointWorkflow(
-            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPages
-    ) throws Exception {
+    private CheckpointWorkflow createCheckpointWorkflow(CheckpointDirtyPages dirtyPages) throws Exception {
         CheckpointWorkflow mock = mock(CheckpointWorkflow.class);
 
         when(mock.markCheckpointBegin(anyLong(), any(CheckpointProgressImpl.class), any(CheckpointMetricsTracker.class)))

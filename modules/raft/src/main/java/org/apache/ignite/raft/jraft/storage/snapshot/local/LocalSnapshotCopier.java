@@ -26,8 +26,9 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.FileSource;
 import org.apache.ignite.raft.jraft.entity.LocalFileMetaOutter.LocalFileMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -49,7 +50,7 @@ import org.apache.ignite.raft.jraft.util.Utils;
  * Copy another machine snapshot to local.
  */
 public class LocalSnapshotCopier extends SnapshotCopier {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(LocalSnapshotCopier.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LocalSnapshotCopier.class);
 
     private final Lock lock = new ReentrantLock();
     /**

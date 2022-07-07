@@ -36,6 +36,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
@@ -67,7 +69,6 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
@@ -77,7 +78,7 @@ import org.jetbrains.annotations.Nullable;
  * ExecutionServiceImpl. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEventHandler {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ExecutionServiceImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ExecutionServiceImpl.class);
 
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 

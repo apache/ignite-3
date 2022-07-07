@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -36,7 +38,7 @@ import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTuple;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
@@ -93,17 +95,17 @@ public class ClientTupleTest {
 
     @Test
     public void testSetThrowsWhenColumnIsNotPresent() {
-        var ex = assertThrows(IgniteException.class, () -> getBuilder().set("x", "y"));
-        assertEquals("Column is not present in schema: X", ex.getMessage());
+        var ex = assertThrows(ColumnNotFoundException.class, () -> getBuilder().set("x", "y"));
+        assertThat(ex.getMessage(), containsString("Column 'X' does not exist"));
     }
 
     @Test
     public void testValueThrowsWhenColumnIsNotPresent() {
-        var ex = assertThrows(IgniteException.class, () -> getBuilder().value("x"));
-        assertEquals("Column is not present in schema: X", ex.getMessage());
+        var ex = assertThrows(ColumnNotFoundException.class, () -> getBuilder().value("x"));
+        assertThat(ex.getMessage(), containsString("Column 'X' does not exist"));
 
         var ex2 = assertThrows(IndexOutOfBoundsException.class, () -> getBuilder().value(100));
-        assertEquals("Index 100 out of bounds for length 2", ex2.getMessage());
+        assertThat(ex2.getMessage(), containsString("Index 100 out of bounds for length 2"));
     }
 
     @Test

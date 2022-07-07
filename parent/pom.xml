@@ -102,6 +102,7 @@
         <kryo.version>4.0.1</kryo.version>
         <bytebuddy.version>1.12.8</bytebuddy.version>
         <mock-server.version>5.13.2</mock-server.version>
+        <archunit.version>0.23.1</archunit.version>
 
         <!-- Plugins versions -->
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
@@ -768,6 +769,20 @@
                 <groupId>io.micronaut</groupId>
                 <artifactId>micronaut-http-client</artifactId>
                 <version>${micronaut.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.tngtech.archunit</groupId>
+                <artifactId>archunit</artifactId>
+                <version>${archunit.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.tngtech.archunit</groupId>
+                <artifactId>archunit-junit5</artifactId>
+                <version>${archunit.version}</version>
                 <scope>test</scope>
             </dependency>
 
@@ -1544,6 +1559,7 @@
                         <exclude>deliveries/deb/rules</exclude>
                         <exclude>deliveries/deb/control</exclude>
                         <exclude>**/*.bat</exclude> <!-- Files in bat format -->
+                        <exclude>modules/runner/src/integrationTest/sql/**</exclude> <!-- SQL logic tests. -->
                     </excludes>
                 </configuration>
             </plugin>

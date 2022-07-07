@@ -40,10 +40,10 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
-import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
-import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesQueue;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -53,7 +53,6 @@ import org.apache.ignite.internal.util.worker.WorkProgressDispatcher;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
@@ -168,7 +167,7 @@ public class Checkpointer extends IgniteWorker {
                     30_000,
                     MILLISECONDS,
                     new LinkedBlockingQueue<>(),
-                    new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io")
+                    new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", log)
             );
         } else {
             checkpointWritePagesPool = null;
@@ -355,7 +354,7 @@ public class Checkpointer extends IgniteWorker {
      * Writes dirty pages to the appropriate stores.
      *
      * @param tracker Checkpoint metrics tracker.
-     * @param checkpointPages Checkpoint pages to write.
+     * @param checkpointDirtyPages Checkpoint dirty pages to write.
      * @param currentCheckpointProgress Current checkpoint progress.
      * @param workProgressDispatcher Work progress dispatcher.
      * @param shutdownNow Checker of stop operation.
@@ -363,7 +362,7 @@ public class Checkpointer extends IgniteWorker {
      */
     boolean writePages(
             CheckpointMetricsTracker tracker,
-            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> checkpointPages,
+            CheckpointDirtyPages checkpointDirtyPages,
             CheckpointProgressImpl currentCheckpointProgress,
             WorkProgressDispatcher workProgressDispatcher,
             BooleanSupplier shutdownNow
@@ -379,10 +378,12 @@ public class Checkpointer extends IgniteWorker {
 
         tracker.onPagesWriteStart();
 
+        CheckpointDirtyPagesQueue checkpointDirtyPagesQueue = checkpointDirtyPages.toQueue();
+
         for (int i = 0; i < checkpointWritePageThreads; i++) {
             CheckpointPagesWriter write = checkpointPagesWriterFactory.build(
                     tracker,
-                    checkpointPages,
+                    checkpointDirtyPagesQueue,
                     updStores,
                     futures[i] = new CompletableFuture<>(),
                     workProgressDispatcher::updateHeartbeat,

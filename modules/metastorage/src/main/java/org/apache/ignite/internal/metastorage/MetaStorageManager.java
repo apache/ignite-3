@@ -666,12 +666,25 @@ public class MetaStorageManager implements IgniteComponent {
      * @see MetaStorageService#range(ByteArray, ByteArray)
      */
     public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo) throws NodeStoppingException {
+        return range(keyFrom, keyTo, false);
+    }
+
+    /**
+     * Retrieves entries for the given key range in lexicographic order.
+     *
+     * @see MetaStorageService#range(ByteArray, ByteArray, boolean)
+     */
+    public @NotNull Cursor<Entry> range(
+            @NotNull ByteArray keyFrom,
+            @Nullable ByteArray keyTo,
+            boolean includeTombstones
+    ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return new CursorWrapper<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo)));
+            return new CursorWrapper<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, includeTombstones)));
         } finally {
             busyLock.leaveBusy();
         }

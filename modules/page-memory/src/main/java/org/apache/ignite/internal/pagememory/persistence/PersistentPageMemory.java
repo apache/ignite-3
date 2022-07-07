@@ -74,6 +74,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
@@ -99,7 +101,6 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -132,7 +133,7 @@ import org.jetbrains.annotations.TestOnly;
 @SuppressWarnings({"LockAcquiredButNotSafelyReleased"})
 public class PersistentPageMemory implements PageMemory {
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(PersistentPageMemory.class);
+    private static final IgniteLogger LOG = Loggers.forClass(PersistentPageMemory.class);
 
     /** Full relative pointer mask. */
     public static final long RELATIVE_PTR_MASK = 0xFFFFFFFFFFFFFFL;
@@ -2094,7 +2095,7 @@ public class PersistentPageMemory implements PageMemory {
 
         safeToUpdate.set(true);
 
-        return CollectionUtils.union(collections);
+        return CollectionUtils.concat(collections);
     }
 
     /**

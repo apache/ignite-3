@@ -18,14 +18,15 @@ package org.apache.ignite.raft.jraft.util;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  *
  */
 public final class ExecutorServiceHelper {
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ExecutorServiceHelper.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ExecutorServiceHelper.class);
 
     /**
      * @see #shutdownAndAwaitTermination(ExecutorService, long)

@@ -16,21 +16,22 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import java.io.IOException;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import org.apache.ignite.lang.IgniteLogger;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.io.IOException;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.junit.jupiter.api.Test;
+
 public class FutureTest {
-    private static final IgniteLogger log = IgniteLogger.forClass(FutureImpl.class);
+    private static final IgniteLogger log = Loggers.forClass(FutureImpl.class);
 
     private static final class NotifyFutureRunner implements Runnable {
         FutureImpl<Boolean> future;

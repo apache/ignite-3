@@ -54,13 +54,15 @@ import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.rest.RestComponent;
-import org.apache.ignite.internal.rest.api.RestFactory;
+import org.apache.ignite.internal.rest.RestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
@@ -81,7 +83,6 @@ import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
@@ -104,7 +105,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class IgniteImpl implements Ignite {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteImpl.class);
 
     /**
      * Path to the persistent storage used by the {@link VaultService} component.
@@ -204,7 +205,7 @@ public class IgniteImpl implements Ignite {
     IgniteImpl(String name, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
         this.name = name;
 
-        longJvmPauseDetector = new LongJvmPauseDetector(name);
+        longJvmPauseDetector = new LongJvmPauseDetector(name, Loggers.forClass(LongJvmPauseDetector.class));
 
         lifecycleManager = new LifecycleManager(name);
 
