@@ -224,7 +224,13 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return new CursorImpl<>(
                 metaStorageRaftGrpSvc,
                 metaStorageRaftGrpSvc.run(
-                        new RangeCommand(keyFrom, keyTo, revUpperBound, localNodeId, uuidGenerator.randomUuid(), includeTombstones)),
+                        RangeCommand.builder(keyFrom, localNodeId, uuidGenerator.randomUuid())
+                                .keyTo(keyTo)
+                                .revUpperBound(revUpperBound)
+                                .includeTombstones(includeTombstones)
+                                .build()
+                ),
+                MetaStorageServiceImpl::multipleEntryResultForCache,
                 MetaStorageServiceImpl::singleEntryResult
         );
     }
@@ -241,7 +247,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return new CursorImpl<>(
             metaStorageRaftGrpSvc,
             metaStorageRaftGrpSvc.run(
-                new RangeCommand(keyFrom, keyTo, localNodeId, uuidGenerator.randomUuid())),
+                RangeCommand.builder(keyFrom, localNodeId, uuidGenerator.randomUuid()).keyTo(keyTo).build()),
+            MetaStorageServiceImpl::multipleEntryResultForCache,
             MetaStorageServiceImpl::singleEntryResult
         );
     }
@@ -408,6 +415,12 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         }
 
         return res;
+    }
+
+    private static List<SingleEntryResponse> multipleEntryResultForCache(Object obj) {
+        MultipleEntryResponse resp = (MultipleEntryResponse) obj;
+
+        return resp.entries();
     }
 
     private static Entry singleEntryResult(Object obj) {

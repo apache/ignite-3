@@ -23,11 +23,16 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * Range command for MetaStorageCommandListener that retrieves entries for the given key range in lexicographic order. Entries will be
  * filtered out by upper bound of given revision number.
  */
 public final class RangeCommand implements WriteCommand {
+    /** Default value for {@link #batchSize}. */
+    public static final int DEFAULT_BATCH_SIZE = 100;
+
     /** Start key of range (inclusive). Couldn't be {@code null}. */
     @NotNull
     private final byte[] keyFrom;
@@ -51,41 +56,8 @@ public final class RangeCommand implements WriteCommand {
     /** Whether to include tombstone entries. */
     private final boolean includeTombstones;
 
-    /**
-     * Constructor.
-     *
-     * @param keyFrom         Start key of range (inclusive).
-     * @param keyTo           End key of range (exclusive).
-     * @param requesterNodeId Id of the node that requests range.
-     * @param cursorId        Id of cursor that is associated with the current command.
-     */
-    public RangeCommand(
-            @NotNull ByteArray keyFrom,
-            @Nullable ByteArray keyTo,
-            @NotNull String requesterNodeId,
-            @NotNull IgniteUuid cursorId
-    ) {
-        this(keyFrom, keyTo, -1L, requesterNodeId, cursorId);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param keyFrom         Start key of range (inclusive).
-     * @param keyTo           End key of range (exclusive).
-     * @param revUpperBound   The upper bound for entry revision. {@code -1} means latest revision.
-     * @param requesterNodeId Id of the node that requests range.
-     * @param cursorId        Id of cursor that is associated with the current command.
-     */
-    public RangeCommand(
-            @NotNull ByteArray keyFrom,
-            @Nullable ByteArray keyTo,
-            long revUpperBound,
-            @NotNull String requesterNodeId,
-            @NotNull IgniteUuid cursorId
-    ) {
-        this(keyFrom, keyTo, revUpperBound, requesterNodeId, cursorId, false);
-    }
+    /** Maximum size of the batch that is sent in single response message. */
+    private final int batchSize;
 
     /**
      * Constructor.
@@ -96,6 +68,7 @@ public final class RangeCommand implements WriteCommand {
      * @param requesterNodeId   Id of the node that requests range.
      * @param cursorId          Id of cursor that is associated with the current command.
      * @param includeTombstones Whether to include tombstones.
+     * @param batchSize         Maximum size of the batch that is sent in single response message.
      */
     public RangeCommand(
             @NotNull ByteArray keyFrom,
@@ -103,7 +76,8 @@ public final class RangeCommand implements WriteCommand {
             long revUpperBound,
             @NotNull String requesterNodeId,
             @NotNull IgniteUuid cursorId,
-            boolean includeTombstones
+            boolean includeTombstones,
+            int batchSize
     ) {
         this.keyFrom = keyFrom.bytes();
         this.keyTo = keyTo == null ? null : keyTo.bytes();
@@ -111,6 +85,7 @@ public final class RangeCommand implements WriteCommand {
         this.requesterNodeId = requesterNodeId;
         this.cursorId = cursorId;
         this.includeTombstones = includeTombstones;
+        this.batchSize = batchSize;
     }
 
     /**
@@ -154,5 +129,74 @@ public final class RangeCommand implements WriteCommand {
      */
     public boolean includeTombstones() {
         return includeTombstones;
+    }
+
+    public int batchSize() {
+        return batchSize;
+    }
+
+    public static RangeCommandBuilder builder(@NotNull ByteArray keyFrom, @NotNull String requesterNodeId, @NotNull IgniteUuid cursorId) {
+        return new RangeCommandBuilder(keyFrom, requesterNodeId, cursorId);
+    }
+
+    /**
+     * The builder.
+     */
+    public static class RangeCommandBuilder {
+        private final ByteArray keyFrom;
+
+        private ByteArray keyTo;
+
+        private long revUpperBound = -1L;
+
+        private final String requesterNodeId;
+
+        private final IgniteUuid cursorId;
+
+        private boolean includeTombstones = false;
+
+        private int batchSize = DEFAULT_BATCH_SIZE;
+
+        public RangeCommandBuilder(@NotNull ByteArray keyFrom, @NotNull String requesterNodeId, @NotNull IgniteUuid cursorId) {
+            this.keyFrom = keyFrom;
+            this.requesterNodeId = requesterNodeId;
+            this.cursorId = cursorId;
+        }
+
+        public RangeCommandBuilder keyTo(ByteArray keyTo) {
+            this.keyTo = keyTo;
+
+            return this;
+        }
+
+        public RangeCommandBuilder revUpperBound(long revUpperBound) {
+            this.revUpperBound = revUpperBound;
+
+            return this;
+        }
+
+        public RangeCommandBuilder includeTombstones(boolean includeTombstones) {
+            this.includeTombstones = includeTombstones;
+
+            return this;
+        }
+
+        public RangeCommandBuilder batchSize(int batchSize) {
+            this.batchSize = batchSize;
+
+            return this;
+        }
+
+        public RangeCommand build() {
+            return new RangeCommand(
+                requireNonNull(keyFrom),
+                keyTo,
+                revUpperBound,
+                requireNonNull(requesterNodeId),
+                requireNonNull(cursorId),
+                includeTombstones,
+                batchSize
+            );
+        }
     }
 }
