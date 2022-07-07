@@ -25,6 +25,7 @@ import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelDataTypeSystemImpl;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.schema.definition.ColumnType.TemporalColumnType;
 
 /**
  * Ignite type system.
@@ -46,27 +47,66 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
 
     /** {@inheritDoc} */
     @Override
+    public int getMaxPrecision(SqlTypeName typeName) {
+        switch (typeName) {
+            case TIME:
+            case TIME_WITH_LOCAL_TIME_ZONE:
+            case TIMESTAMP:
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                return TemporalColumnType.MAX_TIME_PRECISION;
+            default:
+                return super.getMaxPrecision(typeName);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int getDefaultPrecision(SqlTypeName typeName) {
+        switch (typeName) {
+            case TIMESTAMP: // DATETIME
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE: // TIMESTAMP
+                return TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION;
+            default:
+                return super.getDefaultPrecision(typeName);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public RelDataType deriveSumType(RelDataTypeFactory typeFactory, RelDataType argumentType) {
         RelDataType sumType;
+        // This method is used to derive types for aggregate functions only.
+        // We allow type widening for aggregates to prevent unwanted number overflow.
+        //
+        // SQL`99 part 2 section 9.3 syntax rule 3:
+        // Shortly, the standard says both, the return type and the argument type, must be of the same kind,
+        // but doesn't restrict them being exactly of the same type.
         if (argumentType instanceof BasicSqlType) {
             switch (argumentType.getSqlTypeName()) {
                 case INTEGER:
                 case TINYINT:
                 case SMALLINT:
-                    sumType = typeFactory.createSqlType(SqlTypeName.BIGINT);
+                    sumType = typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.BIGINT),
+                            argumentType.isNullable());
 
                     break;
 
                 case BIGINT:
                 case DECIMAL:
-                    sumType = typeFactory.createSqlType(SqlTypeName.DECIMAL);
+                    sumType = typeFactory.createTypeWithNullability(
+                            typeFactory.createSqlType(
+                                    SqlTypeName.DECIMAL,
+                                    typeFactory.getTypeSystem().getMaxPrecision(SqlTypeName.DECIMAL),
+                                    argumentType.getScale()
+                            ), argumentType.isNullable());
 
                     break;
 
                 case REAL:
                 case FLOAT:
                 case DOUBLE:
-                    sumType = typeFactory.createSqlType(SqlTypeName.DOUBLE);
+                    sumType = typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.DOUBLE),
+                            argumentType.isNullable());
 
                     break;
 
