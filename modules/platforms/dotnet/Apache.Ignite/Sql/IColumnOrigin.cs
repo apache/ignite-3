@@ -19,8 +19,6 @@ namespace Apache.Ignite.Sql
 {
     /// <summary>
     /// SQL column origin.
-    /// <para />
-    /// For example, for "select foo as bar" query, column name will be "bar", but origin name will be "foo".
     /// </summary>
     public interface IColumnOrigin
     {
