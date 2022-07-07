@@ -33,6 +33,7 @@ import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
+//TODO: Change org.apache.ignite.cli.commands.CliCommandTestBase after fix https://github.com/remkop/picocli/issues/1733
 @MicronautTest
 @Disabled
 class PicocliBugTest {
