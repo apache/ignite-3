@@ -30,7 +30,7 @@ namespace Apache.Ignite.Internal.Sql
     /// <summary>
     /// SQL result set.
     /// </summary>
-    internal sealed class ResultSet : IResultSet
+    internal sealed class ResultSet : IResultSet<IIgniteTuple>
     {
         private readonly ClientSocket _socket;
 

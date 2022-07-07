@@ -19,12 +19,13 @@ namespace Apache.Ignite.Sql
 {
     using System;
     using System.Collections.Generic;
-    using Table;
 
     /// <summary>
     /// Query result set.
     /// </summary>
-    public interface IResultSet : IAsyncDisposable, IAsyncEnumerable<IIgniteTuple>
+    /// <typeparam name="T">Row type.</typeparam>
+    public interface IResultSet<out T> : IAsyncDisposable, IAsyncEnumerable<T>
+        where T : class // TODO: Remove class constraint (IGNITE-16355)
     {
         /// <summary>
         /// Gets result set metadata when <see cref="HasRowSet"/> is <c>true</c>, otherwise <c>null</c>.

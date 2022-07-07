@@ -17,10 +17,12 @@
 
 namespace Apache.Ignite.Internal.Sql
 {
+    using System;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
     using Ignite.Sql;
+    using Ignite.Table;
     using Ignite.Transactions;
     using Proto;
     using Transactions;
@@ -43,7 +45,7 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
-        public async Task<IResultSet> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object[] args)
+        public async Task<IResultSet<IIgniteTuple>> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object[] args)
         {
             IgniteArgumentCheck.NotNull(statement, nameof(statement));
 
@@ -81,6 +83,14 @@ namespace Apache.Ignite.Internal.Sql
                 w.Flush();
                 return writer;
             }
+        }
+
+        /// <inheritdoc/>
+        public Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object[] args)
+            where T : class
+        {
+            // TODO: IGNITE-17333 SQL ResultSet object mapping
+            throw new NotSupportedException();
         }
     }
 }

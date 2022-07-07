@@ -31,7 +31,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestSimpleQuery()
         {
-            await using IResultSet resultSet = await Client.Sql.ExecuteAsync(null, "SELECT 1", 1);
+            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(null, "SELECT 1", 1);
             var rows = await ToListAsync(resultSet);
 
             Assert.AreEqual(-1, resultSet.AffectedRows);
@@ -47,7 +47,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("TODO", rows[0]);
         }
 
-        private static async Task<List<IIgniteTuple>> ToListAsync(IResultSet resultSet)
+        private static async Task<List<IIgniteTuple>> ToListAsync(IResultSet<IIgniteTuple> resultSet)
         {
             var res = new List<IIgniteTuple>();
 
