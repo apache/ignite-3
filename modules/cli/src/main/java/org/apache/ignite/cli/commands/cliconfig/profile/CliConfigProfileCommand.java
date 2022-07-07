@@ -19,6 +19,9 @@ package org.apache.ignite.cli.commands.cliconfig.profile;
 
 import picocli.CommandLine.Command;
 
+/**
+ * Root profile command.
+ */
 @Command(name = "profile",
         description = "Create profile command.",
         subcommands = {
