@@ -74,7 +74,7 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
-        public object? Metadata { get; }
+        public IResultSetMetadata? Metadata { get; }
 
         /// <inheritdoc/>
         public bool HasRowSet { get; }

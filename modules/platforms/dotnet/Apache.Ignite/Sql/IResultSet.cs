@@ -29,7 +29,7 @@ namespace Apache.Ignite.Sql
         /// <summary>
         /// Gets result set metadata when <see cref="HasRowSet"/> is <c>true</c>, otherwise <c>null</c>.
         /// </summary>
-        object? Metadata { get; } // TODO
+        IResultSetMetadata? Metadata { get; }
 
         /// <summary>
         /// Gets a value indicating whether this result set contains a collection of rows.
