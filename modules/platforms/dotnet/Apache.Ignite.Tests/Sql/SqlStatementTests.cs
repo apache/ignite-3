@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Sql
 {
+    using System;
     using System.Collections.Generic;
     using Ignite.Sql;
     using NUnit.Framework;
@@ -60,6 +61,19 @@ namespace Apache.Ignite.Tests.Sql
             SqlStatement s2 = SqlStatement.ToSqlStatement("foo");
 
             Assert.AreEqual(s1, s2);
+        }
+
+        [Test]
+        public void TestToString()
+        {
+            var s = new SqlStatement(
+                query: "select foo from bar",
+                timeout: TimeSpan.FromSeconds(1),
+                schema: "schema2",
+                pageSize: 256,
+                properties: new Dictionary<string, object?> { { "a", 1 } });
+
+            Assert.AreEqual("too", s.ToString());
         }
     }
 }
