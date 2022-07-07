@@ -18,11 +18,13 @@
 namespace Apache.Ignite.Sql
 {
     using System;
+    using System.Collections.Generic;
+    using Table;
 
     /// <summary>
     /// Query result set.
     /// </summary>
-    public interface IResultSet : IAsyncDisposable
+    public interface IResultSet : IAsyncDisposable, IAsyncEnumerable<IIgniteTuple>
     {
         /// <summary>
         /// Gets result set metadata when <see cref="HasRowSet"/> is <c>true</c>, otherwise <c>null</c>.
@@ -39,5 +41,10 @@ namespace Apache.Ignite.Sql
         /// or 0 if the statement returns nothing (such as "ALTER TABLE", etc), or -1 if not applicable.
         /// </summary>
         long AffectedRows { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether a conditional query (such as "CREATE TABLE IF NOT EXISTS") was applied successfully.
+        /// </summary>
+        bool WasApplied { get; }
     }
 }

@@ -50,7 +50,7 @@ namespace Apache.Ignite.Internal.Sql
             var tx = transaction.ToInternal();
 
             using var bufferWriter = Write();
-            using var buf = await _socket.DoOutInOpAsync(ClientOp.SqlExec, tx, bufferWriter).ConfigureAwait(false);
+            var (buf, socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.SqlExec, tx, bufferWriter).ConfigureAwait(false);
 
             return new ResultSet(_socket, buf);
 

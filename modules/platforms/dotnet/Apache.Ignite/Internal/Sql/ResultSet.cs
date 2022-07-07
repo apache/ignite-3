@@ -17,42 +17,108 @@
 
 namespace Apache.Ignite.Internal.Sql
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
     using Ignite.Sql;
+    using Ignite.Table;
+    using MessagePack;
+    using Proto;
 
     /// <summary>
     /// SQL result set.
     /// </summary>
     internal sealed class ResultSet : IResultSet
     {
-        private readonly ClientFailoverSocket _socket;
+        private readonly ClientSocket _socket;
 
         private readonly long? _resourceId;
+
+        private volatile bool _hasMorePages;
+
+        private volatile bool _closed;
+
+        private PooledBuffer _buffer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ResultSet"/> class.
         /// </summary>
         /// <param name="socket">Socket.</param>
         /// <param name="buf">Buffer to read initial data from.</param>
-        public ResultSet(ClientFailoverSocket socket, PooledBuffer buf)
+        public ResultSet(ClientSocket socket, PooledBuffer buf)
         {
             _socket = socket;
 
             var reader = buf.GetReader();
 
             _resourceId = reader.TryReadNil() ? null : reader.ReadInt64();
+
+            HasRowSet = reader.ReadBoolean();
+            _hasMorePages = reader.ReadBoolean();
+            WasApplied = reader.ReadBoolean();
             AffectedRows = reader.ReadInt64();
+            AffectedRows = reader.ReadInt64();
+
+            if (HasRowSet)
+            {
+                _buffer = buf;
+            }
+            else
+            {
+                buf.Dispose();
+                _closed = true;
+            }
         }
+
+        /// <inheritdoc/>
+        public object? Metadata { get; }
+
+        /// <inheritdoc/>
+        public bool HasRowSet { get; }
 
         /// <inheritdoc/>
         public long AffectedRows { get; }
 
         /// <inheritdoc/>
-        public ValueTask DisposeAsync()
+        public bool WasApplied { get; }
+
+        /// <inheritdoc/>
+        public async ValueTask DisposeAsync()
         {
-            // TODO: Close server-side resources.
+            if (_closed)
+            {
+                return;
+            }
+
+            _buffer.Dispose();
+
+            using var writer = new PooledArrayBufferWriter();
+            Write(writer.GetMessageWriter());
+
+            await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
+        }
+
+        /// <inheritdoc/>
+        public IAsyncEnumerator<IIgniteTuple> GetAsyncEnumerator(CancellationToken cancellationToken = default)
+        {
+            // TODO: Allowed only once.
+            // TODO: Throw when no row set.
             throw new System.NotImplementedException();
+        }
+
+        private void Write(MessagePackWriter writer)
+        {
+            var resourceId = _resourceId;
+
+            if (resourceId == null)
+            {
+                throw new InvalidOperationException("ResultSet does not have rows or is closed.");
+            }
+
+            writer.Write(_resourceId!.Value);
+            writer.Flush();
         }
     }
 }

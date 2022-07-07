@@ -136,8 +136,23 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
-        /// <returns>Response data.</returns>
+        /// <returns>Response data and socket.</returns>
         public async Task<PooledBuffer> DoOutInOpAsync(ClientOp clientOp, PooledArrayBufferWriter? request = null)
+        {
+            var (buffer, _) = await DoOutInOpAndGetSocketAsync(clientOp, request).ConfigureAwait(false);
+
+            return buffer;
+        }
+
+        /// <summary>
+        /// Performs an in-out operation.
+        /// </summary>
+        /// <param name="clientOp">Client op code.</param>
+        /// <param name="request">Request data.</param>
+        /// <returns>Response data and socket.</returns>
+        public async Task<(PooledBuffer Buffer, ClientSocket Socket)> DoOutInOpAndGetSocketAsync(
+            ClientOp clientOp,
+            PooledArrayBufferWriter? request = null)
         {
             var attempt = 0;
             List<Exception>? errors = null;
@@ -147,8 +162,9 @@ namespace Apache.Ignite.Internal
                 try
                 {
                     var socket = await GetSocketAsync().ConfigureAwait(false);
+                    var buffer = await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
 
-                    return await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+                    return (buffer, socket);
                 }
                 catch (Exception e)
                 {
