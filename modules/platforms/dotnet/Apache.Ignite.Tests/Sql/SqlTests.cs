@@ -55,12 +55,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestGetAllMultiplePages()
         {
-            await Client.Sql.ExecuteAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
-
-            for (var i = 0; i < 10; i++)
-            {
-                await Client.Sql.ExecuteAsync(null, "INSERT INTO TEST VALUES (?, ?)", i, "s-" + i);
-            }
+            await CreateTestTable(10);
 
             var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
             await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
@@ -69,6 +64,26 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual(10, rows.Count);
             Assert.AreEqual("IgniteTuple [ID=0, VAL=s-0]", rows[0].ToString());
             Assert.AreEqual("IgniteTuple [ID=9, VAL=s-9]", rows[9].ToString());
+        }
+
+        [Test]
+        public async Task TestEnumerateMultiplePages()
+        {
+            await CreateTestTable(10);
+
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
+
+            var i = 0;
+
+            await foreach (var row in resultSet)
+            {
+                Assert.AreEqual(i, row["ID"]);
+                Assert.AreEqual("s-" + i, row["VAL"]);
+                i++;
+            }
+
+            Assert.AreEqual(10, i);
         }
 
         [Test]
@@ -81,6 +96,16 @@ namespace Apache.Ignite.Tests.Sql
         public void TestPutSqlGetKv()
         {
             Assert.Fail("TODO");
+        }
+
+        private async Task CreateTestTable(int count)
+        {
+            await Client.Sql.ExecuteAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
+
+            for (var i = 0; i < count; i++)
+            {
+                await Client.Sql.ExecuteAsync(null, "INSERT INTO TEST VALUES (?, ?)", i, "s-" + i);
+            }
         }
     }
 }
