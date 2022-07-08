@@ -1166,7 +1166,7 @@ public class PersistentPageMemory implements PageMemory {
                 assert getVersion(page + PAGE_OVERHEAD) != 0 : dumpPage(pageId, fullId.groupId());
                 assert getType(page + PAGE_OVERHEAD) != 0 : hexLong(pageId);
             } catch (AssertionError ex) {
-                LOG.error("Failed to unlock page [fullPageId={}, binPage={}]", fullId, toHexString(page, systemPageSize()));
+                LOG.debug("Failed to unlock page [fullPageId={}, binPage={}]", fullId, toHexString(page, systemPageSize()));
 
                 throw ex;
             }
@@ -1689,7 +1689,7 @@ public class PersistentPageMemory implements PageMemory {
             }
 
             if (gen == Integer.MAX_VALUE) {
-                LOG.warn("Partition tag overflow [grpId={}, partId={}]", grpId, partId);
+                LOG.debug("Partition tag overflow [grpId={}, partId={}]", grpId, partId);
 
                 partGenerationMap.put(grpPart, 0);
 

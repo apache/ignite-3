@@ -248,7 +248,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
                 log.info("Cleanup cache stores [total={}, cleanFiles={}]", partitionPageStores.size(), cleanFiles);
             } catch (Exception e) {
-                log.error("Failed to gracefully stop page store managers", e);
+                log.info("Failed to gracefully stop page store managers", e);
             }
         };
 

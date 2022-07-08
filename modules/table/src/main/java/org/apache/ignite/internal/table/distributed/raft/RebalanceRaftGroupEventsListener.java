@@ -148,7 +148,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     }
                 } catch (InterruptedException | ExecutionException e) {
                     // TODO: IGNITE-14693
-                    LOG.error("Unable to start rebalance [partition={}, table={}, term={}]",
+                    LOG.info("Unable to start rebalance [partition={}, table={}, term={}]",
                             e, partNum, tblConfiguration.name().value(), term);
                 } finally {
                     busyLock.leaveBusy();
@@ -200,12 +200,12 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             assert status.getRaftError() == RaftError.ECATCHUP : "According to the JRaft protocol, RaftError.ECATCHUP is expected.";
 
-            LOG.warn("Error occurred during rebalance [partId={}]", partId);
+            LOG.debug("Error occurred during rebalance [partId={}]", partId);
 
             if (rebalanceAttempts.incrementAndGet() < REBALANCE_RETRY_THRESHOLD) {
                 scheduleChangePeers(peers, term);
             } else {
-                LOG.error("Number of retries for rebalance exceeded the threshold [partId={}, threshold={}]", partId,
+                LOG.info("Number of retries for rebalance exceeded the threshold [partId={}, threshold={}]", partId,
                         REBALANCE_RETRY_THRESHOLD);
 
                 // TODO: currently we just retry intent to change peers according to the rebalance infinitely, until new leader is elected,
@@ -302,7 +302,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             rebalanceAttempts.set(0);
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
-            LOG.error("Unable to commit partition configuration to metastore [table = {}, partition = {}]",
+            LOG.info("Unable to commit partition configuration to metastore [table = {}, partition = {}]",
                     e, tblConfiguration.name(), partNum);
         }
     }

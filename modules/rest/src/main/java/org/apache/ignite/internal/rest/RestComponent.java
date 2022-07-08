@@ -94,14 +94,14 @@ public class RestComponent implements IgniteComponent {
             } catch (ApplicationStartupException e) {
                 BindException bindException = findBindException(e);
                 if (bindException != null) {
-                    LOG.error("Got exception during node start, going to try again [port={}, reason={}]", portCandidate, portCandidate);
+                    LOG.info("Got exception during node start, going to try again [port={}, reason={}]", portCandidate, portCandidate);
                     continue;
                 }
                 throw new RuntimeException(e);
             }
         }
 
-        LOG.error("Unable to start REST endpoint. All ports are in use [ports=[{}, {}]]", desiredPort, (desiredPort + portRange));
+        LOG.debug("Unable to start REST endpoint. All ports are in use [ports=[{}, {}]]", desiredPort, (desiredPort + portRange));
 
         String msg = "Cannot start REST endpoint. " + "All ports in range [" + desiredPort + ", " + (desiredPort + portRange)
                 + "] are in use.";

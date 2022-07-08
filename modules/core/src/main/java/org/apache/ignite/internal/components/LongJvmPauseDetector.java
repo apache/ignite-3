@@ -137,7 +137,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
                         }
                     } catch (InterruptedException e) {
                         if (workerRef.compareAndSet(this, null)) {
-                            log.error("Thread has been interrupted [thread={}]", e, getName());
+                            log.debug("Thread has been interrupted [thread={}]", e, getName());
                         } else {
                             log.debug("Thread has been stopped [thread={}]", getName());
                         }
@@ -149,7 +149,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
         };
 
         if (!workerRef.compareAndSet(null, worker)) {
-            log.warn("{} already started", LongJvmPauseDetector.class.getSimpleName());
+            log.debug("{} already started", LongJvmPauseDetector.class.getSimpleName());
 
             return;
         }

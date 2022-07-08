@@ -201,7 +201,7 @@ public class IgnitionImpl implements Ignition {
         if (prevNode != null) {
             String errMsg = "Node with name=[" + nodeName + "] already exists.";
 
-            LOG.error(errMsg);
+            LOG.debug(errMsg);
 
             throw new IgniteException(errMsg);
         }

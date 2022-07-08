@@ -283,7 +283,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                                         e = e.getCause();
                                     }
 
-                                    LOG.error("Error when initializing the CMG", e);
+                                    LOG.debug("Error when initializing the CMG", e);
 
                                     response = msgFactory.initErrorMessage()
                                             .cause(e.getMessage())
@@ -350,7 +350,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                         // to being unable to send ClusterState messages should not fail the CMG service startup.
                         sendClusterState(state, clusterService.topologyService().allMembers());
                     } else {
-                        LOG.error("Error when executing onLeaderElected callback", e);
+                        LOG.info("Error when executing onLeaderElected callback", e);
                     }
                 });
     }
@@ -444,10 +444,10 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                                     return CompletableFuture.<CmgRaftService>failedFuture(e);
                                 }
 
-                                LOG.warn("CMG service could not be started on previous attempts. "
+                                LOG.debug("CMG service could not be started on previous attempts. "
                                         + "Re-creating the CMG Raft service [reason={}]", e, e.getMessage());
                             } else {
-                                LOG.warn("CMG service started, but the cluster state is different. "
+                                LOG.debug("CMG service started, but the cluster state is different. "
                                         + "Re-creating the CMG Raft service [localState={}, clusterState={}]",
                                         service.nodeNames(), state.cmgNodes());
 
@@ -523,7 +523,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                                 sendClusterState(state, member)
                                         .whenComplete((v, e) -> {
                                             if (e != null) {
-                                                LOG.warn("Unable to send cluster state", e);
+                                                LOG.info("Unable to send cluster state", e);
                                             }
                                         });
                             } else {
@@ -577,7 +577,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         return result.whenComplete((v, e) -> {
             if (e != null) {
-                LOG.warn("Unable to send message [msg={}, target={}]", e, msg.getClass(), node);
+                LOG.info("Unable to send message [msg={}, target={}]", e, msg.getClass(), node);
             }
         });
     }

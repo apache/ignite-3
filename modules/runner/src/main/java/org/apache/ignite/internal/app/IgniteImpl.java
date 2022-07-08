@@ -490,9 +490,9 @@ public class IgniteImpl implements Ignite {
     }
 
     private RuntimeException handleStartException(Throwable e) {
-        String errMsg = "Unable to start node=[" + name + "].";
+        String errMsg = "Unable to start node=[" + name + "]";
 
-        LOG.error(errMsg, e);
+        LOG.debug(errMsg, e);
 
         lifecycleManager.stopNode();
 

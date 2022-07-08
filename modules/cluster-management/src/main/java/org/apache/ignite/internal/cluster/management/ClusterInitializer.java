@@ -121,12 +121,12 @@ public class ClusterInitializer {
                                 e = e.getCause();
                             }
 
-                            LOG.error("Initialization failed [reason={}]", e, e.getMessage());
+                            LOG.info("Initialization failed [reason={}]", e, e.getMessage());
 
                             if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
                                 return CompletableFuture.<Void>failedFuture(e);
                             } else {
-                                LOG.error("Critical error encountered, rolling back the init procedure");
+                                LOG.debug("Critical error encountered, rolling back the init procedure");
 
                                 return cancelInit(cmgNodes, e);
                             }
@@ -145,7 +145,7 @@ public class ClusterInitializer {
 
         return sendMessage(nodes, cancelMessage)
                 .exceptionally(nestedEx -> {
-                    LOG.error("Error when canceling init", nestedEx);
+                    LOG.debug("Error when canceling init", nestedEx);
 
                     e.addSuppressed(nestedEx);
 

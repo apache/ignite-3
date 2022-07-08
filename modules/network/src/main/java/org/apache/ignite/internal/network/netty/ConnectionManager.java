@@ -278,7 +278,7 @@ public class ConnectionManager {
         try {
             stopFut.join();
         } catch (Exception e) {
-            LOG.warn("Failed to stop connection manager [reason={}]", e.getMessage());
+            LOG.debug("Failed to stop connection manager [reason={}]", e.getMessage());
         }
     }
 

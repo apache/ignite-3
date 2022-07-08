@@ -162,7 +162,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
             return true;
         } catch (IgniteInternalException e) {
-            LOG.error("Failed to restore snapshot [path={}]", path, e);
+            LOG.debug("Failed to restore snapshot [path={}]", path, e);
 
             return false;
         }

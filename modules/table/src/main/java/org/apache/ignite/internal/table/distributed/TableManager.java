@@ -505,7 +505,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
                                     .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
                     ).exceptionally(th -> {
-                        LOG.error("Unable to update raft groups on the node", th);
+                        LOG.debug("Unable to update raft groups on the node", th);
 
                         return null;
                     });
@@ -544,7 +544,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     raftMgr.stopRaftGroup(partitionRaftGroupName(table.tableId(), p));
                 }
             } catch (Exception e) {
-                LOG.error("Unable to stop table [name={}]", e, table.name());
+                LOG.info("Unable to stop table [name={}]", e, table.name());
             }
         }
 
@@ -752,7 +752,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     if (ex instanceof TableAlreadyExistsException) {
                         tblFut.completeExceptionally(ex);
                     } else {
-                        LOG.error("Unable to create table [name={}]", ex, name);
+                        LOG.debug("Unable to create table [name={}]", ex, name);
 
                         tblFut.completeExceptionally(ex);
 
@@ -858,7 +858,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (ex instanceof TableNotFoundException) {
                             tblFut.completeExceptionally(ex);
                         } else {
-                            LOG.error("Unable to modify table [name={}]", ex, name);
+                            LOG.debug("Unable to modify table [name={}]", ex, name);
 
                             tblFut.completeExceptionally(ex);
                         }
@@ -952,7 +952,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 if (ex instanceof TableNotFoundException) {
                                     dropTblFut.completeExceptionally(ex);
                                 } else {
-                                    LOG.error("Unable to drop table [name={}]", ex, name);
+                                    LOG.debug("Unable to drop table [name={}]", ex, name);
 
                                     dropTblFut.completeExceptionally(ex);
                                 }
@@ -1358,7 +1358,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             @Override
             public void onError(@NotNull Throwable e) {
-                LOG.error("Unable to process pending assignments event", e);
+                LOG.warn("Unable to process pending assignments event", e);
             }
         });
 
@@ -1413,7 +1413,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             @Override
             public void onError(@NotNull Throwable e) {
-                LOG.error("Unable to process stable assignments event", e);
+                LOG.warn("Unable to process stable assignments event", e);
             }
         });
     }
@@ -1440,13 +1440,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     try {
                         if (err != null) {
                             if (recoverable(err)) {
-                                LOG.warn("Recoverable error received during changePeersAsync invocation, retrying", err);
+                                LOG.debug("Recoverable error received during changePeersAsync invocation, retrying", err);
                             } else {
                                 // TODO: Ideally, rebalance, which has initiated this invocation should be canceled,
                                 // TODO: https://issues.apache.org/jira/browse/IGNITE-17056
                                 // TODO: Also it might be reasonable to delegate such exceptional case to a general failure handler.
                                 // TODO: At the moment, we repeat such intents as well.
-                                LOG.error("Unrecoverable error received during changePeersAsync invocation, retrying", err);
+                                LOG.debug("Unrecoverable error received during changePeersAsync invocation, retrying", err);
                             }
                             return movePartition(raftGroupServiceSupplier).apply(peers, term);
                         }

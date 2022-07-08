@@ -79,7 +79,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
                     try {
                         qryTask.run();
                     } catch (Throwable e) {
-                        LOG.warn("Uncaught exception", e);
+                        LOG.debug("Uncaught exception", e);
 
                         /*
                          * No exceptions are rethrown here to preserve the current thread from being destroyed,

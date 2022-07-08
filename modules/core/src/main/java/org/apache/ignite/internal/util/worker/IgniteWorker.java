@@ -114,7 +114,7 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
             // Catch everything to make sure that it gets logged properly and
             // not to kill any threads from the underlying thread pool.
 
-            log.error("Runtime error caught during ignite runnable execution [worker={}]", this, e);
+            log.warn("Runtime error caught during ignite runnable execution [worker={}]", this, e);
 
             if (e instanceof Error) {
                 throw e;

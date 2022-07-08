@@ -160,7 +160,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         try {
             sendError(e);
         } catch (IgniteInternalCheckedException ex) {
-            LOG.error("Unable to send error message", e);
+            LOG.info("Unable to send error message", e);
         } finally {
             Commons.closeQuiet(this);
         }
@@ -213,7 +213,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         try {
             exchange.closeInbox(nodeId, queryId(), targetFragmentId, exchangeId);
         } catch (IgniteInternalCheckedException e) {
-            LOG.error("Unable to send cancel message", e);
+            LOG.info("Unable to send cancel message", e);
         }
     }
 

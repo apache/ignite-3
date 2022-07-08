@@ -148,7 +148,7 @@ public class MessageServiceImpl implements MessageService {
 
             ClusterNode node = topSrvc.getByAddress(addr);
             if (node == null) {
-                LOG.warn("Received a message from a node that has not yet"
+                LOG.debug("Received a message from a node that has not yet"
                         + " joined the cluster [addr={}, msg={}]", addr, msg);
 
                 return;

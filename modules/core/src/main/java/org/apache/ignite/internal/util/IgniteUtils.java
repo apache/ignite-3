@@ -615,7 +615,7 @@ public class IgniteUtils {
         var err = new Exception(IgniteStringFormatter.format(msg, params));
 
         if (log != null) {
-            log.error(reason, err);
+            log.warn(reason, err);
         } else {
             System.err.println("[" + LocalDateTime.now().format(SHORT_DATE_FMT) + "] (err) " + reason);
 
@@ -648,9 +648,9 @@ public class IgniteUtils {
             // or something wrong happened. Anyway, let's try to be over-diagnosing
             if (log != null) {
                 if (e instanceof AtomicMoveNotSupportedException) {
-                    log.warn("Atomic move not supported. Falling back to non-atomic move [reason={}]", e.getMessage());
+                    log.info("Atomic move not supported. Falling back to non-atomic move [reason={}]", e.getMessage());
                 } else {
-                    log.warn("Unable to move atomically. Falling back to non-atomic move [reason={}]", e.getMessage());
+                    log.info("Unable to move atomically. Falling back to non-atomic move [reason={}]", e.getMessage());
                 }
 
                 if (targetPath.toFile().exists() && log.isInfoEnabled()) {
@@ -761,7 +761,7 @@ public class IgniteUtils {
                 worker.join();
             } catch (Exception e) {
                 if (log != null && log.isWarnEnabled()) {
-                    log.warn("Unable to cancel ignite worker [worker={}, reason={}]", worker.toString(), e.getMessage());
+                    log.debug("Unable to cancel ignite worker [worker={}, reason={}]", worker.toString(), e.getMessage());
                 }
             }
         }

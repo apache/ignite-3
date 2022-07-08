@@ -164,7 +164,7 @@ public class ScaleCubeClusterServiceFactory {
                     throw new IgniteInternalException("Unable to stop the ClusterService", e.getCause());
                 } catch (TimeoutException e) {
                     // Failed to leave gracefully
-                    LOG.warn("Failed to wait for ScaleCube cluster shutdown [reason={}]", e.getMessage(), e);
+                    LOG.debug("Failed to wait for ScaleCube cluster shutdown [reason={}]", e.getMessage(), e);
                 }
 
                 connectionMgr.stop();

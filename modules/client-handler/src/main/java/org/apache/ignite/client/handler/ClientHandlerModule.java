@@ -216,7 +216,7 @@ public class ClientHandlerModule implements IgniteComponent {
             String msg = "Cannot start thin client connector endpoint. "
                     + "All ports are in use [ports=[" + desiredPort + ", " + (desiredPort + portRange) + "]]";
 
-            LOG.error(msg);
+            LOG.debug(msg);
 
             throw new IgniteException(msg);
         }
