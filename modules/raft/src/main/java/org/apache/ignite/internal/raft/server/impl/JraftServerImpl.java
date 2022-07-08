@@ -489,7 +489,10 @@ public class JraftServerImpl implements RaftServer {
                     public CommandClosure<WriteCommand> next() {
                         @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) iter.done();
                         ByteBuffer data = iter.getData();
-                        WriteCommand command = JDKMarshaller.DEFAULT.unmarshall(data.array());
+
+                        WriteCommand command = done == null
+                            ? JDKMarshaller.DEFAULT.unmarshall(data.array())
+                            : done.command();
 
                         return new CommandClosure<>() {
                             @Override
