@@ -21,10 +21,12 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 
@@ -317,6 +319,20 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
     public Instant timestampValue(int index) {
         seek(index);
         return begin == 0 ? null : timestampValue(begin, end);
+    }
+
+    public Duration durationValue(int col) {
+        throw new UnsupportedOperationException("not implemented");
+    }
+
+    /**
+     * Reads value for specified column.
+     *
+     * @param col Column index.
+     * @return Column value.
+     */
+    public Period periodValue(int col) {
+        throw new UnsupportedOperationException("not implemented");
     }
 
     /**
