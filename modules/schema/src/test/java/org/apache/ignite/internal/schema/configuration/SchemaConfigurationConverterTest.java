@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.configuration;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
+import static org.apache.ignite.schema.definition.ColumnType.TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -206,7 +207,7 @@ public class SchemaConfigurationConverterTest {
                 ColumnType.TemporalColumnType.datetime()).asNullable(true).withDefaultValueExpression(data.get("datetime")).build());
         allColumns.add(SchemaBuilders.column("timestamp",
                 ColumnType.TemporalColumnType.timestamp()).asNullable(true).withDefaultValueExpression(data.get("timestamp")).build());
-        allColumns.add(SchemaBuilders.column("duration", ColumnType.duration()).asNullable(true)
+        allColumns.add(SchemaBuilders.column("duration", ColumnType.duration(DEFAULT_TIMESTAMP_PRECISION)).asNullable(true)
                 .withDefaultValueExpression(data.get("duration")).build());
 
         // exclude types : ColumnType.UINTx and not supported, -ColumnType.BOOLEAN

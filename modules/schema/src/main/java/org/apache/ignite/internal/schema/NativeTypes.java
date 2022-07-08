@@ -212,7 +212,7 @@ public class NativeTypes {
      * @return Native type.
      */
     public static NativeType duration() {
-        return TemporalNativeType.duration(ColumnType.TemporalColumnType.DEFAULT_TIME_PRECISION);
+        return TemporalNativeType.duration(ColumnType.TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION);
     }
 
     /**
