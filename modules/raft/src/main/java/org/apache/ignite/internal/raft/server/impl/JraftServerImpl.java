@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.raft.server.impl;
 
-import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
@@ -75,6 +73,8 @@ import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
+
+import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
 
 /**
  * Raft server implementation on top of forked JRaft library.
@@ -491,8 +491,8 @@ public class JraftServerImpl implements RaftServer {
                         ByteBuffer data = iter.getData();
 
                         WriteCommand command = done == null
-                            ? JDKMarshaller.DEFAULT.unmarshall(data.array())
-                            : done.command();
+                                ? JDKMarshaller.DEFAULT.unmarshall(data.array())
+                                : done.command();
 
                         return new CommandClosure<>() {
                             @Override
