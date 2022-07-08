@@ -73,7 +73,7 @@ public class RaftOptions implements Copiable<RaftOptions> {
     /**
      * Call fsync when need
      */
-    private boolean sync = true;
+    private boolean sync = false;
 
     /**
      * Sync log meta, snapshot meta and raft meta
