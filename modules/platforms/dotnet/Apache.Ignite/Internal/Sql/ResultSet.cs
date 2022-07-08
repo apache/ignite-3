@@ -96,12 +96,20 @@ namespace Apache.Ignite.Internal.Sql
                 throw NoResultSetException();
             }
 
-            using var buf = _buffer.Value;
+            // First page is included in the initial response.
+            var res = ReadPage(_buffer.Value, _bufferOffset, Metadata.Columns, null, _hasMorePages);
 
-            // TODO: Retrieve all pages.
-            await Task.Yield();
+            if (_hasMorePages)
+            {
+                while (true)
+                {
+                    // TODO: Read next page flag.
+                    var buf = await FetchNextPage().ConfigureAwait(false);
+                    ReadPage(buf, 0, Metadata.Columns, res, false);
+                }
+            }
 
-            return ReadPage(_buffer.Value, _bufferOffset, Metadata!.Columns);
+            return res;
         }
 
         /// <inheritdoc/>
@@ -182,25 +190,33 @@ namespace Apache.Ignite.Internal.Sql
             }
         }
 
-        private static List<IIgniteTuple> ReadPage(PooledBuffer buf, int offset, IReadOnlyList<IColumnMetadata> cols)
+        private static List<IIgniteTuple> ReadPage(
+            PooledBuffer buf,
+            int offset,
+            IReadOnlyList<IColumnMetadata> cols,
+            List<IIgniteTuple>? res,
+            bool hasMorePages)
         {
-            var reader = buf.GetReader(offset);
-            var pageSize = reader.ReadArrayHeader();
-            var res = new List<IIgniteTuple>(pageSize);
-
-            for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
+            using (buf)
             {
-                var row = new IgniteTuple(cols.Count);
+                var reader = buf.GetReader(offset);
+                var pageSize = reader.ReadArrayHeader();
+                res ??= new List<IIgniteTuple>(hasMorePages ? pageSize * 2 : pageSize);
 
-                foreach (var col in cols)
+                for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
                 {
-                    row[col.Name] = ReadValue(ref reader, col.Type);
+                    var row = new IgniteTuple(cols.Count);
+
+                    foreach (var col in cols)
+                    {
+                        row[col.Name] = ReadValue(ref reader, col.Type);
+                    }
+
+                    res.Add(row);
                 }
 
-                res.Add(row);
+                return res;
             }
-
-            return res;
         }
 
         private static object? ReadValue(ref MessagePackReader reader, SqlColumnType type)
@@ -280,13 +296,21 @@ namespace Apache.Ignite.Internal.Sql
             }
         }
 
+        private async Task<PooledBuffer> FetchNextPage()
+        {
+            using var writer = new PooledArrayBufferWriter();
+            WriteId(writer.GetMessageWriter());
+
+            return await _socket.DoOutInOpAsync(ClientOp.SqlCursorNextPage, writer).ConfigureAwait(false);
+        }
+
         private void WriteId(MessagePackWriter writer)
         {
             var resourceId = _resourceId;
 
             if (resourceId == null)
             {
-                throw new InvalidOperationException("ResultSet does not have rows or is closed.");
+                throw new IgniteClientException("ResultSet does not have rows or is closed.");
             }
 
             writer.Write(_resourceId!.Value);
