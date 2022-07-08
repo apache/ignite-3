@@ -61,4 +61,8 @@ public class TableConfigurationSchema {
     /** Indices configuration. */
     @NamedConfigValue
     public TableIndexConfigurationSchema indices;
+
+    /** Configuration for Raft groups corresponding to table partitions. */
+    @ConfigValue
+    public RaftConfigurationSchema raft;
 }

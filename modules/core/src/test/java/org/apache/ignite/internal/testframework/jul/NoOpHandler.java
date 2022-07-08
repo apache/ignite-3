@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.deprecated;
+package org.apache.ignite.internal.testframework.jul;
 
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;

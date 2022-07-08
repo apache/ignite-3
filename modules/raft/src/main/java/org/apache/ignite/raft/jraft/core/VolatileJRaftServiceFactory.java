@@ -16,12 +16,16 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
-import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
+import org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget;
+import org.apache.ignite.raft.jraft.storage.impl.UnlimitedBudget;
+import org.apache.ignite.raft.jraft.storage.impl.VolatileLogStorage;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
 import org.apache.ignite.raft.jraft.util.Requires;
@@ -31,11 +35,35 @@ import org.apache.ignite.raft.jraft.util.StringUtils;
  * The factory for JRaft services producing volatile stores. Useful for Raft groups hosting partitions of in-memory tables.
  */
 public class VolatileJRaftServiceFactory implements JRaftServiceFactory {
+    private final RaftGroupOptions groupOptions;
+
+    public VolatileJRaftServiceFactory(RaftGroupOptions groupOptions) {
+        this.groupOptions = groupOptions;
+    }
+
     @Override
     public LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions) {
         Requires.requireTrue(StringUtils.isNotBlank(groupId), "Blank group id.");
 
-        return new LocalLogStorage(raftOptions);
+        return new VolatileLogStorage(createLogStorageBudget());
+    }
+
+    private LogStorageBudget createLogStorageBudget() {
+        if (groupOptions.volatileLogStoreBudgetClassName() != null) {
+            String className = groupOptions.volatileLogStoreBudgetClassName();
+            return instantiate(className);
+        } else {
+            return new UnlimitedBudget();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T instantiate(String className) {
+        try {
+            return (T) Class.forName(className).getConstructor().newInstance();
+        } catch (ReflectiveOperationException e) {
+            throw new IgniteInternalException("Cannot instantiate '" + className + "'", e);
+        }
     }
 
     @Override

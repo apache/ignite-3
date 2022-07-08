@@ -31,23 +31,23 @@ import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
-import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.VolatileStorage;
 import org.apache.ignite.raft.jraft.util.Describer;
 import org.apache.ignite.raft.jraft.util.Requires;
 
 /**
- * Stores log in heap.
+ * Stores RAFT log in memory.
  */
-public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
-    private static final IgniteLogger LOG = Loggers.forClass(LocalLogStorage.class);
+public class VolatileLogStorage implements LogStorage, Describer, VolatileStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(VolatileLogStorage.class);
+
+    private final LogStorageBudget budget;
 
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
     private final Lock readLock = this.readWriteLock.readLock();
     private final Lock writeLock = this.readWriteLock.writeLock();
 
-    // TODO asch the test hangs if the implementation is changed to TreeMap, investigate why IGNITE-14832
     private final NavigableMap<Long, LogEntry> log = new ConcurrentSkipListMap<>();
 
     private LogEntryEncoder logEntryEncoder;
@@ -58,18 +58,22 @@ public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
 
     private volatile boolean initialized = false;
 
-    public LocalLogStorage(final RaftOptions raftOptions) {
+    public VolatileLogStorage(LogStorageBudget budget) {
         super();
+
+        this.budget = budget;
     }
 
     @Override
     public boolean init(final LogStorageOptions opts) {
         Requires.requireNonNull(opts.getConfigurationManager(), "Null conf manager");
         Requires.requireNonNull(opts.getLogEntryCodecFactory(), "Null log entry codec factory");
+
         this.writeLock.lock();
+
         try {
             if (initialized) {
-                LOG.warn("LocalLogStorage init() was already called.");
+                LOG.warn("VolatileLogStorage init() was already called.");
                 return true;
             }
             this.initialized = true;
@@ -79,8 +83,7 @@ public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
             Requires.requireNonNull(this.logEntryEncoder, "Null log entry encoder");
 
             return true;
-        }
-        finally {
+        } finally {
             this.writeLock.unlock();
         }
     }
@@ -88,12 +91,11 @@ public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
     @Override
     public void shutdown() {
         this.writeLock.lock();
-        try {
 
+        try {
             this.initialized = false;
             this.log.clear();
-        }
-        finally {
+        } finally {
             this.writeLock.unlock();
         }
     }
@@ -101,10 +103,10 @@ public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
     @Override
     public long getFirstLogIndex() {
         this.readLock.lock();
+
         try {
             return this.firstLogIndex;
-        }
-        finally {
+        } finally {
             this.readLock.unlock();
         }
     }
@@ -112,11 +114,10 @@ public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
     @Override
     public long getLastLogIndex() {
         this.readLock.lock();
-        try {
 
+        try {
             return this.lastLogIndex;
-        }
-        finally {
+        } finally {
             this.readLock.unlock();
         }
     }
@@ -124,14 +125,14 @@ public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
     @Override
     public LogEntry getEntry(final long index) {
         this.readLock.lock();
+
         try {
             if (index < getFirstLogIndex()) {
                 return null;
             }
 
             return log.get(index);
-        }
-        finally {
+        } finally {
             this.readLock.unlock();
         }
     }
@@ -148,6 +149,7 @@ public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
     @Override
     public boolean appendEntry(final LogEntry entry) {
         this.readLock.lock();
+
         try {
             if (!initialized) {
                 LOG.warn("DB not initialized or destroyed.");
@@ -159,9 +161,10 @@ public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
             lastLogIndex = log.lastKey();
             firstLogIndex = log.firstKey();
 
+            budget.onAppended(entry);
+
             return true;
-        }
-        finally {
+        } finally {
             this.readLock.unlock();
         }
     }
@@ -171,28 +174,41 @@ public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
         if (entries == null || entries.isEmpty()) {
             return 0;
         }
+
         final int entriesCount = entries.size();
+
         this.readLock.lock();
+
         try {
             if (!initialized) {
                 LOG.warn("DB not initialized or destroyed.");
                 return 0;
             }
 
+            int appended = 0;
             for (LogEntry logEntry : entries) {
+
                 log.put(logEntry.getId().getIndex(), logEntry);
+
+                appended++;
             }
 
             lastLogIndex = log.lastKey();
             firstLogIndex = log.firstKey();
 
-            return entriesCount;
-        }
-        catch (Exception e) {
+            budget.onAppended(entries.subList(0, appended));
+
+            if (appended < entriesCount) {
+                throw new LogStorageOverflowException(entriesCount - appended);
+            }
+
+            return appended;
+        } catch (LogStorageOverflowException e) {
+            throw e;
+        } catch (Exception e) {
             LOG.error("Fail to append entry.", e);
             return 0;
-        }
-        finally {
+        } finally {
             this.readLock.unlock();
         }
     }
@@ -200,6 +216,7 @@ public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
     @Override
     public boolean truncatePrefix(final long firstIndexKept) {
         this.readLock.lock();
+
         try {
             SortedMap<Long, LogEntry> map = log.headMap(firstIndexKept);
 
@@ -207,9 +224,10 @@ public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
 
             firstLogIndex = log.isEmpty() ? 1 : log.firstKey();
 
+            budget.onTruncatedPrefix(firstIndexKept);
+
             return true;
-        }
-        finally {
+        } finally {
             this.readLock.unlock();
         }
     }
@@ -224,12 +242,12 @@ public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
 
             lastLogIndex = log.isEmpty() ? 0 : log.lastKey();
 
+            budget.onTruncatedSuffix(lastIndexKept);
+
             return true;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             LOG.error("Fail to truncateSuffix {}.", e, lastIndexKept);
-        }
-        finally {
+        } finally {
             this.readLock.unlock();
         }
         return false;
@@ -240,7 +258,9 @@ public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
         if (nextLogIndex <= 0) {
             throw new IllegalArgumentException("Invalid next log index.");
         }
+
         this.writeLock.lock();
+
         try {
             LogEntry entry = getEntry(nextLogIndex);
 
@@ -255,9 +275,10 @@ public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
                 LOG.warn("Entry not found for nextLogIndex {} when reset.", nextLogIndex);
             }
 
+            budget.onReset();
+
             return appendEntry(entry);
-        }
-        finally {
+        } finally {
             this.writeLock.unlock();
         }
     }
@@ -265,14 +286,13 @@ public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
     @Override
     public void describe(final Printer out) {
         this.readLock.lock();
+
         try {
             out.println("firstLogIndex=" + firstLogIndex);
             out.println("lastLogIndex=" + lastLogIndex);
-        }
-        catch (final Exception e) {
+        } catch (final Exception e) {
             out.println(e);
-        }
-        finally {
+        } finally {
             this.readLock.unlock();
         }
     }

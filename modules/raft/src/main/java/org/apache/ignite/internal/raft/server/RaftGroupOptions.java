@@ -17,12 +17,17 @@
 
 package org.apache.ignite.internal.raft.server;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Options specific to a Raft group that is being started.
  */
 public class RaftGroupOptions {
     /** Whether volatile stores should be used for the corresponding Raft Group. Classic Raft uses persistent ones. */
     private final boolean volatileStores;
+
+    @Nullable
+    private final String volatileLogStoreBudgetClassName;
 
     /**
      * Returns default options as defined by classic Raft (so stores are persistent).
@@ -39,7 +44,7 @@ public class RaftGroupOptions {
      * @return Options with persistent Raft stores.
      */
     public static RaftGroupOptions forPersistentStores() {
-        return new RaftGroupOptions(false);
+        return new RaftGroupOptions(false, null);
     }
 
     /**
@@ -47,8 +52,8 @@ public class RaftGroupOptions {
      *
      * @return Options with volatile Raft stores.
      */
-    public static RaftGroupOptions forVolatileStores() {
-        return new RaftGroupOptions(true);
+    public static RaftGroupOptions forVolatileStores(@Nullable String volatileLogStoreBudgetClassName) {
+        return new RaftGroupOptions(true, volatileLogStoreBudgetClassName);
     }
 
     /**
@@ -57,12 +62,13 @@ public class RaftGroupOptions {
      * @param isVolatile Whether the table is configured as volatile (in-memory) or not.
      * @return Options derived from table configuration.
      */
-    public static RaftGroupOptions forTable(boolean isVolatile) {
-        return isVolatile ? forVolatileStores() : forPersistentStores();
+    public static RaftGroupOptions forTable(boolean isVolatile, @Nullable String volatileLogStoreBudgetClassName) {
+        return isVolatile ? forVolatileStores(volatileLogStoreBudgetClassName) : forPersistentStores();
     }
 
-    private RaftGroupOptions(boolean volatileStores) {
+    private RaftGroupOptions(boolean volatileStores, @Nullable String volatileLogStoreBudgetClassName) {
         this.volatileStores = volatileStores;
+        this.volatileLogStoreBudgetClassName = volatileLogStoreBudgetClassName;
     }
 
     /**
@@ -74,5 +80,16 @@ public class RaftGroupOptions {
      */
     public boolean volatileStores() {
         return volatileStores;
+    }
+
+    /**
+     * Returns name of a class implementing {@link org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget} that
+     * will be used by volatile Raft log storage (if it's used).
+     *
+     * @return Name of a budget class.
+     */
+    @Nullable
+    public String volatileLogStoreBudgetClassName() {
+        return volatileLogStoreBudgetClassName;
     }
 }

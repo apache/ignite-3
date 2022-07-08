@@ -220,5 +220,4 @@ public interface LogManager extends Lifecycle<LogManagerOptions>, Describer {
      * @return status
      */
     Status checkConsistency();
-
 }

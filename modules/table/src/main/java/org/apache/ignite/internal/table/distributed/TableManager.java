@@ -500,7 +500,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     busyLock,
                                     movePartition(() -> internalTbl.partitionRaftGroupService(partId)),
                                     rebalanceScheduler),
-                            groupOptionsForInternalTable(internalTbl)
+                            groupOptionsForInternalTable(internalTbl, tblCfg)
                     ).thenAccept(
                             updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
                                     .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
@@ -520,8 +520,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         CompletableFuture.allOf(futures).join();
     }
 
-    private RaftGroupOptions groupOptionsForInternalTable(InternalTable internalTbl) {
-        return RaftGroupOptions.forTable(internalTbl.storage().isVolatile());
+    private RaftGroupOptions groupOptionsForInternalTable(InternalTable internalTbl, ExtendedTableConfiguration tableConfig) {
+        return RaftGroupOptions.forTable(internalTbl.storage().isVolatile(), tableConfig.raft().logStorageBudgetClass().value());
     }
 
     /** {@inheritDoc} */
@@ -1323,7 +1323,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 deltaPeers,
                                 raftGrpLsnrSupplier,
                                 raftGrpEvtsLsnrSupplier,
-                                groupOptionsForInternalTable(tbl.internalTable())
+                                groupOptionsForInternalTable(tbl.internalTable(), tblCfg)
                         );
                     } catch (NodeStoppingException e) {
                         // no-op
