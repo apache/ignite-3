@@ -91,6 +91,7 @@ namespace Apache.Ignite.Internal.Sql
         /// <inheritdoc/>
         public async Task<List<IIgniteTuple>> GetAllAsync()
         {
+            // TODO: Allowed only once.
             if (_buffer == null || Metadata == null)
             {
                 throw NoResultSetException();
@@ -190,34 +191,6 @@ namespace Apache.Ignite.Internal.Sql
             return new ResultSetMetadata(columns);
         }
 
-        private static IEnumerable<IIgniteTuple> EnumeratePage(PooledBuffer buf, int offset, IReadOnlyList<IColumnMetadata> cols)
-        {
-            var reader = buf.GetReader(offset);
-            var pageSize = reader.ReadArrayHeader();
-            offset += (int)reader.Consumed;
-
-            for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
-            {
-                yield return ReadRow();
-            }
-
-            IgniteTuple ReadRow()
-            {
-                // Can't use ref struct reader from above inside iterator block (CS4013).
-                // Use a new reader for every row (stack allocated).
-                var reader = buf.GetReader(offset);
-                var row = new IgniteTuple(cols.Count);
-
-                foreach (var col in cols)
-                {
-                    row[col.Name] = ReadValue(ref reader, col.Type);
-                }
-
-                offset += (int)reader.Consumed;
-                return row;
-            }
-        }
-
         private static object? ReadValue(ref MessagePackReader reader, SqlColumnType type)
         {
             if (reader.TryReadNil())
@@ -284,17 +257,69 @@ namespace Apache.Ignite.Internal.Sql
                 throw NoResultSetException();
             }
 
-            // TODO: Fetch all pages.
-            await Task.Delay(1).ConfigureAwait(false);
+            var hasMore = _hasMorePages;
+            var cols = Metadata.Columns;
 
-            using var buf = _buffer.Value;
-
-            foreach (var row in EnumeratePage(buf, _bufferOffset, Metadata.Columns))
+            // TODO: Use single do-while loop.
+            foreach (var row in EnumeratePage(_buffer.Value, _bufferOffset))
             {
                 yield return row;
             }
 
+            while (hasMore)
+            {
+                var pageBuf = await FetchNextPage().ConfigureAwait(false);
+
+                foreach (var row in EnumeratePage(pageBuf, 0))
+                {
+                    yield return row;
+                }
+            }
+
             _closed = true;
+
+            IEnumerable<IIgniteTuple> EnumeratePage(PooledBuffer buf, int offset)
+            {
+                using (buf)
+                {
+                    var reader = buf.GetReader(offset);
+                    var pageSize = reader.ReadArrayHeader();
+                    offset += (int)reader.Consumed;
+
+                    for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
+                    {
+                        yield return ReadRow();
+                    }
+
+                    ReadHasMore();
+                }
+
+                IgniteTuple ReadRow()
+                {
+                    // Can't use ref struct reader from above inside iterator block (CS4013).
+                    // Use a new reader for every row (stack allocated).
+                    var reader = buf.GetReader(offset);
+                    var row = new IgniteTuple(cols.Count);
+
+                    foreach (var col in cols)
+                    {
+                        row[col.Name] = ReadValue(ref reader, col.Type);
+                    }
+
+                    offset += (int)reader.Consumed;
+                    return row;
+                }
+
+                void ReadHasMore()
+                {
+                    var reader = buf.GetReader(offset);
+
+                    if (!reader.End)
+                    {
+                        hasMore = reader.ReadBoolean();
+                    }
+                }
+            }
         }
 
         private async Task<PooledBuffer> FetchNextPage()
