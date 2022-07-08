@@ -97,16 +97,13 @@ namespace Apache.Ignite.Internal.Sql
             }
 
             // First page is included in the initial response.
-            var res = ReadPage(_buffer.Value, _bufferOffset, Metadata.Columns, null, _hasMorePages);
+            var hasMore = _hasMorePages;
+            var res = ReadPage(_buffer.Value, _bufferOffset, Metadata.Columns, null, ref hasMore);
 
-            if (_hasMorePages)
+            while (hasMore)
             {
-                while (true)
-                {
-                    // TODO: Read next page flag.
-                    var buf = await FetchNextPage().ConfigureAwait(false);
-                    ReadPage(buf, 0, Metadata.Columns, res, false);
-                }
+                var buf = await FetchNextPage().ConfigureAwait(false);
+                ReadPage(buf, 0, Metadata.Columns, res, ref hasMore);
             }
 
             return res;
@@ -195,7 +192,7 @@ namespace Apache.Ignite.Internal.Sql
             int offset,
             IReadOnlyList<IColumnMetadata> cols,
             List<IIgniteTuple>? res,
-            bool hasMorePages)
+            ref bool hasMorePages)
         {
             using (buf)
             {
@@ -213,6 +210,11 @@ namespace Apache.Ignite.Internal.Sql
                     }
 
                     res.Add(row);
+                }
+
+                if (!reader.End)
+                {
+                    hasMorePages = reader.ReadBoolean();
                 }
 
                 return res;
