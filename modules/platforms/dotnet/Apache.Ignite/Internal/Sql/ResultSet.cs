@@ -89,7 +89,7 @@ namespace Apache.Ignite.Internal.Sql
         public bool WasApplied { get; }
 
         /// <inheritdoc/>
-        public async Task<List<IIgniteTuple>> GetAllAsync()
+        public async ValueTask<List<IIgniteTuple>> GetAllAsync()
         {
             // TODO: Allowed only once.
             if (_buffer == null || Metadata == null)

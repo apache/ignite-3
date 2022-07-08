@@ -53,6 +53,6 @@ namespace Apache.Ignite.Sql
         /// Gets all result set rows as list.
         /// </summary>
         /// <returns>All result set rows as list.</returns>
-        Task<List<T>> GetAllAsync(); // TODO: Measure against IAsyncEnumerable approach.
+        ValueTask<List<T>> GetAllAsync(); // TODO: Measure against IAsyncEnumerable approach.
     }
 }
