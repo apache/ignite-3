@@ -97,18 +97,47 @@ namespace Apache.Ignite.Internal.Sql
             }
 
             // First page is included in the initial response.
+            var cols = Metadata.Columns;
             var hasMore = _hasMorePages;
-            var res = ReadPage(_buffer.Value, _bufferOffset, Metadata.Columns, null, ref hasMore);
+            List<IIgniteTuple>? res = null;
+
+            ReadPage(_buffer.Value, _bufferOffset);
 
             while (hasMore)
             {
-                var buf = await FetchNextPage().ConfigureAwait(false);
-                ReadPage(buf, 0, Metadata.Columns, res, ref hasMore);
+                ReadPage(await FetchNextPage().ConfigureAwait(false), 0);
             }
 
             _closed = true;
 
-            return res;
+            return res!;
+
+            void ReadPage(PooledBuffer buf, int offset)
+            {
+                using (buf)
+                {
+                    var reader = buf.GetReader(offset);
+                    var pageSize = reader.ReadArrayHeader();
+                    res ??= new List<IIgniteTuple>(hasMore ? pageSize * 2 : pageSize);
+
+                    for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
+                    {
+                        var row = new IgniteTuple(cols.Count);
+
+                        foreach (var col in cols)
+                        {
+                            row[col.Name] = ReadValue(ref reader, col.Type);
+                        }
+
+                        res.Add(row);
+                    }
+
+                    if (!reader.End)
+                    {
+                        hasMore = reader.ReadBoolean();
+                    }
+                }
+            }
         }
 
         /// <inheritdoc/>
@@ -186,40 +215,6 @@ namespace Apache.Ignite.Internal.Sql
 
                 offset += (int)reader.Consumed;
                 return row;
-            }
-        }
-
-        private static List<IIgniteTuple> ReadPage(
-            PooledBuffer buf,
-            int offset,
-            IReadOnlyList<IColumnMetadata> cols,
-            List<IIgniteTuple>? res,
-            ref bool hasMorePages)
-        {
-            using (buf)
-            {
-                var reader = buf.GetReader(offset);
-                var pageSize = reader.ReadArrayHeader();
-                res ??= new List<IIgniteTuple>(hasMorePages ? pageSize * 2 : pageSize);
-
-                for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
-                {
-                    var row = new IgniteTuple(cols.Count);
-
-                    foreach (var col in cols)
-                    {
-                        row[col.Name] = ReadValue(ref reader, col.Type);
-                    }
-
-                    res.Add(row);
-                }
-
-                if (!reader.End)
-                {
-                    hasMorePages = reader.ReadBoolean();
-                }
-
-                return res;
             }
         }
 
