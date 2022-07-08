@@ -44,7 +44,7 @@ namespace Apache.Ignite.Tests.Sql
                 resultSet.Metadata?.ToString());
 
             Assert.AreEqual(1, rows.Count);
-            Assert.AreEqual("TODO", rows[0]);
+            Assert.AreEqual("IgniteTuple [1=1]", rows[0].ToString());
         }
 
         private static async Task<List<IIgniteTuple>> ToListAsync(IResultSet<IIgniteTuple> resultSet)

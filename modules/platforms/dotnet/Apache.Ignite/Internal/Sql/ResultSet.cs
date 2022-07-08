@@ -40,7 +40,7 @@ namespace Apache.Ignite.Internal.Sql
 
         private readonly int _bufferOffset;
 
-        private volatile bool _hasMorePages;
+        private readonly bool _hasMorePages;
 
         private volatile bool _closed;
 
@@ -67,7 +67,7 @@ namespace Apache.Ignite.Internal.Sql
             if (HasRowSet)
             {
                 _buffer = buf;
-                _bufferOffset = reader.Position.GetInteger();
+                _bufferOffset = (int)reader.Consumed;
             }
             else
             {
@@ -141,8 +141,8 @@ namespace Apache.Ignite.Internal.Sql
         private static IEnumerable<IIgniteTuple> ReadPage(PooledBuffer buf, int offset, IReadOnlyList<IColumnMetadata> cols)
         {
             var reader = buf.GetReader(offset);
-            var pageSize = reader.ReadInt32();
-            offset = reader.Position.GetInteger();
+            var pageSize = reader.ReadArrayHeader();
+            offset += (int)reader.Consumed;
 
             for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
             {
@@ -161,13 +161,18 @@ namespace Apache.Ignite.Internal.Sql
                     row[col.Name] = ReadValue(ref reader, col.Type);
                 }
 
-                offset = reader.Position.GetInteger();
+                offset += (int)reader.Consumed;
                 return row;
             }
         }
 
-        private static object ReadValue(ref MessagePackReader reader, SqlColumnType type)
+        private static object? ReadValue(ref MessagePackReader reader, SqlColumnType type)
         {
+            if (reader.TryReadNil())
+            {
+                return null;
+            }
+
             switch (type)
             {
                 case SqlColumnType.Boolean:
