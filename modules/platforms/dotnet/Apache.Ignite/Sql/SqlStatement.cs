@@ -21,6 +21,7 @@ namespace Apache.Ignite.Sql
     using System;
     using System.Collections.Generic;
     using System.Text;
+    using Internal.Common;
 
     /// <summary>
     /// SQL statement.
@@ -64,6 +65,9 @@ namespace Apache.Ignite.Sql
             bool prepared = false,
             IReadOnlyDictionary<string, object?>? properties = null)
         {
+            IgniteArgumentCheck.NotNull(query, nameof(query));
+            IgniteArgumentCheck.Ensure(pageSize is null or > 0, nameof(pageSize), "Page size must be positive.");
+
             Query = query;
             Timeout = timeout ?? DefaultTimeout;
             Schema = schema ?? DefaultSchema;

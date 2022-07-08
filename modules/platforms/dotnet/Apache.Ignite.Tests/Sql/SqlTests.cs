@@ -67,6 +67,8 @@ namespace Apache.Ignite.Tests.Sql
             var rows = await resultSet.GetAllAsync();
 
             Assert.AreEqual(10, rows.Count);
+            Assert.AreEqual("IgniteTuple [ID=0, VAL=s-0]", rows[0].ToString());
+            Assert.AreEqual("IgniteTuple [ID=9, VAL=s-9]", rows[9].ToString());
         }
 
         [Test]
