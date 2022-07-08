@@ -30,22 +30,19 @@ namespace Apache.Ignite.Internal.Sql
     /// <summary>
     /// SQL result set.
     /// </summary>
-    internal sealed class ResultSet : IResultSet<IIgniteTuple>, IAsyncEnumerator<IIgniteTuple>
+    internal sealed class ResultSet : IResultSet<IIgniteTuple>
     {
-        private record Page(PooledBuffer Buffer, int BufferOffset, int Count)
-        {
-            public int Index { get; set; }
-        }
-
         private readonly ClientSocket _socket;
 
         private readonly long? _resourceId;
 
+        private readonly PooledBuffer? _buffer;
+
+        private readonly int _bufferOffset;
+
         private volatile bool _hasMorePages;
 
         private volatile bool _closed;
-
-        private volatile Page? _currentPage;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ResultSet"/> class.
@@ -69,8 +66,8 @@ namespace Apache.Ignite.Internal.Sql
 
             if (HasRowSet)
             {
-                var pageSize = reader.ReadInt32();
-                _currentPage = new Page(buf, reader.Position.GetInteger(), pageSize);
+                _buffer = buf;
+                _bufferOffset = reader.Position.GetInteger();
             }
             else
             {
@@ -92,17 +89,6 @@ namespace Apache.Ignite.Internal.Sql
         public bool WasApplied { get; }
 
         /// <inheritdoc/>
-        public IIgniteTuple Current
-        {
-            get
-            {
-                // TODO: Throw when no row set
-                // TODO: Throw when GetEnumerator not called.
-                throw new Exception("TODO");
-            }
-        }
-
-        /// <inheritdoc/>
         public async ValueTask DisposeAsync()
         {
             if (_closed)
@@ -110,7 +96,7 @@ namespace Apache.Ignite.Internal.Sql
                 return;
             }
 
-            _currentPage?.Buffer.Dispose();
+            _buffer?.Dispose();
 
             if (_resourceId != null)
             {
@@ -122,19 +108,8 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
-        public IAsyncEnumerator<IIgniteTuple> GetAsyncEnumerator(CancellationToken cancellationToken = default)
-        {
-            // TODO: Allowed to be called only once.
-            // TODO: Throw when no row set.
-            // TODO: Deserialize and set Current.
-            return this;
-        }
-
-        /// <inheritdoc/>
-        public ValueTask<bool> MoveNextAsync()
-        {
-            throw new NotImplementedException();
-        }
+        public IAsyncEnumerator<IIgniteTuple> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
+            EnumerateRows().GetAsyncEnumerator(cancellationToken);
 
         private static ResultSetMetadata ReadMeta(ref MessagePackReader reader)
         {
@@ -174,6 +149,34 @@ namespace Apache.Ignite.Internal.Sql
 
             writer.Write(_resourceId!.Value);
             writer.Flush();
+        }
+
+        private async IAsyncEnumerable<IIgniteTuple> EnumerateRows()
+        {
+            // TODO: Allowed to be called only once.
+            // TODO: Throw when no row set.
+            // TODO: Deserialize and set Current.
+            if (_buffer == null)
+            {
+                throw new Exception("TODO");
+            }
+
+            foreach (var row in ReadBuffer(_buffer.Value, _bufferOffset))
+            {
+                yield return row;
+            }
+
+            await Task.Delay(1).ConfigureAwait(false);
+
+            yield return null!;
+
+            IEnumerable<IIgniteTuple> ReadBuffer(PooledBuffer buf, int offset)
+            {
+                var reader = buf.GetReader(offset);
+                var pageSize = reader.ReadInt32();
+
+                yield break;
+            }
         }
     }
 }
