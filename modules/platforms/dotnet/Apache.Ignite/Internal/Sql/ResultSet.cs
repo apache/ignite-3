@@ -89,6 +89,20 @@ namespace Apache.Ignite.Internal.Sql
         public bool WasApplied { get; }
 
         /// <inheritdoc/>
+        public async Task<List<IIgniteTuple>> GetAllAsync()
+        {
+            if (_buffer == null || Metadata == null)
+            {
+                throw NoResultSetException();
+            }
+
+            // TODO: Retrieve all pages.
+            await Task.Yield();
+
+            return ReadPage(_buffer.Value, _bufferOffset, Metadata!.Columns);
+        }
+
+        /// <inheritdoc/>
         public async ValueTask DisposeAsync()
         {
             if (_closed)
@@ -138,7 +152,7 @@ namespace Apache.Ignite.Internal.Sql
             return new ResultSetMetadata(columns);
         }
 
-        private static IEnumerable<IIgniteTuple> ReadPage(PooledBuffer buf, int offset, IReadOnlyList<IColumnMetadata> cols)
+        private static IEnumerable<IIgniteTuple> EnumeratePage(PooledBuffer buf, int offset, IReadOnlyList<IColumnMetadata> cols)
         {
             var reader = buf.GetReader(offset);
             var pageSize = reader.ReadArrayHeader();
@@ -164,6 +178,27 @@ namespace Apache.Ignite.Internal.Sql
                 offset += (int)reader.Consumed;
                 return row;
             }
+        }
+
+        private static List<IIgniteTuple> ReadPage(PooledBuffer buf, int offset, IReadOnlyList<IColumnMetadata> cols)
+        {
+            var reader = buf.GetReader(offset);
+            var pageSize = reader.ReadArrayHeader();
+            var res = new List<IIgniteTuple>(pageSize);
+
+            for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
+            {
+                var row = new IgniteTuple(cols.Count);
+
+                foreach (var col in cols)
+                {
+                    row[col.Name] = ReadValue(ref reader, col.Type);
+                }
+
+                res.Add(row);
+            }
+
+            return res;
         }
 
         private static object? ReadValue(ref MessagePackReader reader, SqlColumnType type)
@@ -220,20 +255,22 @@ namespace Apache.Ignite.Internal.Sql
             }
         }
 
+        private static IgniteClientException NoResultSetException() => new("Query has no result set.");
+
         private async IAsyncEnumerable<IIgniteTuple> EnumerateRows()
         {
             // TODO: Allowed to be called only once.
             // TODO: Throw when no row set.
             // TODO: Deserialize and set Current.
-            if (_buffer == null)
+            if (_buffer == null || Metadata == null)
             {
-                throw new Exception("TODO");
+                throw NoResultSetException();
             }
 
             // TODO: Fetch all pages.
             await Task.Delay(1).ConfigureAwait(false);
 
-            foreach (var row in ReadPage(_buffer.Value, _bufferOffset, Metadata!.Columns))
+            foreach (var row in EnumeratePage(_buffer.Value, _bufferOffset, Metadata.Columns))
             {
                 yield return row;
             }

@@ -19,12 +19,13 @@ namespace Apache.Ignite.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Threading.Tasks;
 
     /// <summary>
     /// Query result set.
     /// </summary>
     /// <typeparam name="T">Row type.</typeparam>
-    public interface IResultSet<out T> : IAsyncDisposable, IAsyncEnumerable<T>
+    public interface IResultSet<T> : IAsyncDisposable, IAsyncEnumerable<T>
         where T : class // TODO: Remove class constraint (IGNITE-16355)
     {
         /// <summary>
@@ -47,5 +48,11 @@ namespace Apache.Ignite.Sql
         /// Gets a value indicating whether a conditional query (such as "CREATE TABLE IF NOT EXISTS") was applied successfully.
         /// </summary>
         bool WasApplied { get; }
+
+        /// <summary>
+        /// Gets all result set rows as list.
+        /// </summary>
+        /// <returns>All result set rows as list.</returns>
+        Task<List<T>> GetAllAsync(); // TODO: Measure against IAsyncEnumerable approach.
     }
 }
