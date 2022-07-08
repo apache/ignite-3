@@ -1312,7 +1312,7 @@ public class Replicator implements ThreadId.OnError {
         final AppendEntriesRequest request,
         final AppendEntriesResponse response, final long rpcSendTime,
         final long startTimeMs, final Replicator r) {
-        if (response.timestamp() != null) {
+        if (response != null && response.timestamp() != null) {
             r.options.getNode().clockTick(response.timestamp());
         }
         if (inflight.startIndex != request.prevLogIndex() + 1) {

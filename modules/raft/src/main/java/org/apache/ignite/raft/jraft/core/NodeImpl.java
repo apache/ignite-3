@@ -36,6 +36,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.hlc.PhysicalTimeProvider;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.Peer;
@@ -533,7 +534,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
-    public NodeImpl(final String groupId, final PeerId serverId) {
+    public NodeImpl(final String groupId, final PeerId serverId, HybridClock clock) {
         super();
         if (groupId != null) {
             Utils.verifyGroupId(groupId);
@@ -545,7 +546,7 @@ public class NodeImpl implements Node, RaftServerService {
         updateLastLeaderTimestamp(Utils.monotonicMs());
         this.confCtx = new ConfigurationCtx(this);
         this.wakingCandidate = null;
-        this.clock = new HybridClock();
+        this.clock = clock;
     }
 
     public HybridTimestamp clockNow() {
@@ -2823,6 +2824,8 @@ public class NodeImpl implements Node, RaftServerService {
 
             if (response.timestamp() != null) {
                 clock.tick(response.timestamp());
+            } else {
+                System.out.println("handlePreVoteResponse_null");
             }
         }
         finally {

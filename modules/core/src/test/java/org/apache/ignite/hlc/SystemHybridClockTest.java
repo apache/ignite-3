@@ -28,9 +28,9 @@ import org.mockito.MockedStatic;
 
 /**
  * Tests of a Hybrid Logical Clock implementation.
- * {@link HybridClock}
+ * {@link SystemHybridClock}
  */
-class HybridClockTest {
+class SystemHybridClockTest {
     /**
      * Mock of a system clock.
      */
@@ -42,13 +42,13 @@ class HybridClockTest {
     }
 
     /**
-     * Tests a {@link HybridClock#now()}.
+     * Tests a {@link SystemHybridClock#now()}.
      */
     @Test
     public void testNow() {
         clockMock = mockToEpochMilli(100);
 
-        HybridClock clock = new HybridClock();
+        SystemHybridClock clock = new SystemHybridClock(new SystemTimeProvider());
 
         assertTimestampEquals(100, new HybridTimestamp(100, 1), clock::now);
 
@@ -60,13 +60,13 @@ class HybridClockTest {
     }
 
     /**
-     * Tests a {@link HybridClock#tick(HybridTimestamp)}.
+     * Tests a {@link SystemHybridClock#tick(HybridTimestamp)}.
      */
     @Test
     public void testTick() {
         clockMock = mockToEpochMilli(100);
 
-        HybridClock clock = new HybridClock();
+        SystemHybridClock clock = new SystemHybridClock(new SystemTimeProvider());
 
         assertTimestampEquals(100, new HybridTimestamp(100, 1),
                 () -> clock.tick(new HybridTimestamp(50, 1)));
