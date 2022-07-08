@@ -48,7 +48,7 @@ public final class EntryImpl implements Entry {
      * @param rev     Revision.
      * @param updCntr Update counter.
      */
-    public EntryImpl(@NotNull ByteArray key, @Nullable byte[] val, long rev, long updCntr) {
+    EntryImpl(@NotNull ByteArray key, @Nullable byte[] val, long rev, long updCntr) {
         this.key = key;
         this.val = val;
         this.rev = rev;
