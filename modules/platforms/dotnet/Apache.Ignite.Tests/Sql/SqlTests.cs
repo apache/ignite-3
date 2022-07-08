@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Tests.Sql
 {
-    using System.Collections.Generic;
     using System.Threading.Tasks;
     using Ignite.Sql;
     using Ignite.Table;
@@ -28,11 +27,17 @@ namespace Apache.Ignite.Tests.Sql
     /// </summary>
     public class SqlTests : IgniteTestsBase
     {
+        [SetUp]
+        public async Task SetUp()
+        {
+            await Client.Sql.ExecuteAsync(null, "DROP TABLE IF EXISTS TEST");
+        }
+
         [Test]
         public async Task TestSimpleQuery()
         {
             await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(null, "SELECT 1", 1);
-            var rows = await ToListAsync(resultSet);
+            var rows = await resultSet.GetAllAsync();
 
             Assert.AreEqual(-1, resultSet.AffectedRows);
             Assert.IsFalse(resultSet.WasApplied);
@@ -47,16 +52,33 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("IgniteTuple [1=1]", rows[0].ToString());
         }
 
-        private static async Task<List<IIgniteTuple>> ToListAsync(IResultSet<IIgniteTuple> resultSet)
+        [Test]
+        public async Task TestGetAllMultiplePages()
         {
-            var res = new List<IIgniteTuple>();
+            await Client.Sql.ExecuteAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
 
-            await foreach (var row in resultSet)
+            for (var i = 0; i < 10; i++)
             {
-                res.Add(row);
+                await Client.Sql.ExecuteAsync(null, "INSERT INTO TEST VALUES (?, ?)", i, "s-" + i);
             }
 
-            return res;
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
+            var rows = await resultSet.GetAllAsync();
+
+            Assert.AreEqual(10, rows.Count);
+        }
+
+        [Test]
+        public void TestPutKvGetSql()
+        {
+            Assert.Fail("TODO");
+        }
+
+        [Test]
+        public void TestPutSqlGetKv()
+        {
+            Assert.Fail("TODO");
         }
     }
 }
