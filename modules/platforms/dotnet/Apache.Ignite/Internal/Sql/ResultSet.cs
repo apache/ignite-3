@@ -161,21 +161,36 @@ namespace Apache.Ignite.Internal.Sql
                 throw new Exception("TODO");
             }
 
+            // TODO: Fetch all pages.
+            await Task.Delay(1).ConfigureAwait(false);
+
             foreach (var row in ReadBuffer(_buffer.Value, _bufferOffset))
             {
                 yield return row;
             }
 
-            await Task.Delay(1).ConfigureAwait(false);
-
-            yield return null!;
-
             IEnumerable<IIgniteTuple> ReadBuffer(PooledBuffer buf, int offset)
             {
+                var cols = Metadata!.Columns;
                 var reader = buf.GetReader(offset);
                 var pageSize = reader.ReadInt32();
 
-                yield break;
+                for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
+                {
+                    var row = new IgniteTuple(Metadata.Columns.Count);
+
+                    foreach (var col in cols)
+                    {
+                        row[col.Name] = ReadValue(ref reader, col.Type);
+                    }
+
+                    yield return row;
+                }
+            }
+
+            object ReadValue(ref MessagePackReader reader, SqlColumnType type)
+            {
+
             }
         }
     }
