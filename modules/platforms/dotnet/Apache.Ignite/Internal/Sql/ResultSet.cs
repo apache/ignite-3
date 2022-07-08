@@ -106,6 +106,8 @@ namespace Apache.Ignite.Internal.Sql
                 ReadPage(buf, 0, Metadata.Columns, res, ref hasMore);
             }
 
+            _closed = true;
+
             return res;
         }
 
@@ -296,6 +298,8 @@ namespace Apache.Ignite.Internal.Sql
             {
                 yield return row;
             }
+
+            _closed = true;
         }
 
         private async Task<PooledBuffer> FetchNextPage()
