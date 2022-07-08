@@ -35,10 +35,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Objects;
@@ -109,6 +111,8 @@ public class ColumnBindingTest {
                 new Column("bytesCol", BYTES, false),
                 new Column("numberCol", NativeTypes.numberOf(21), false),
                 new Column("decimalCol", NativeTypes.decimalOf(19, 3), false),
+                new Column("durationCol", NativeTypes.duration(2), false),
+                new Column("periodCol", NativeTypes.PERIOD, false),
         };
 
         final Pair<RowAssembler, Row> mocks = createMocks();
@@ -356,6 +360,8 @@ public class ColumnBindingTest {
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendDateTime(Mockito.any(LocalDateTime.class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendTime(Mockito.any(LocalTime.class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendTimestamp(Mockito.any(Instant.class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendDuration(Mockito.any(Duration.class));
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendPeriod(Mockito.any(Period.class));
 
         Mockito.doAnswer(rowAnswer).when(mockedRow).byteValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).byteValueBoxed(Mockito.anyInt());
@@ -374,6 +380,8 @@ public class ColumnBindingTest {
         Mockito.doAnswer(rowAnswer).when(mockedRow).timeValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).dateTimeValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).timestampValue(Mockito.anyInt());
+        Mockito.doAnswer(rowAnswer).when(mockedRow).durationValue(Mockito.anyInt());
+        Mockito.doAnswer(rowAnswer).when(mockedRow).periodValue(Mockito.anyInt());
 
         Mockito.doAnswer(rowAnswer).when(mockedRow).uuidValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).bitmaskValue(Mockito.anyInt());

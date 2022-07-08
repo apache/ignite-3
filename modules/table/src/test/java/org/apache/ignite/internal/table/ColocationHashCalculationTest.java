@@ -22,12 +22,14 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT8;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.time.Period;
 import java.util.Random;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.RowTest;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
@@ -66,16 +68,19 @@ public class ColocationHashCalculationTest {
     public void simple() {
         SchemaDescriptor schema = new SchemaDescriptor(42,
                 new Column[]{
-                        new Column(0, "id0", INT8, false),
+                        // note! column order is depends on {@link Columns#COLUMN_COMPARATOR}
+                        new Column(3, "id0", INT8, false),
                         new Column(1, "id1", INT32, false),
-                        new Column(2, "id2", STRING, false),
+                        new Column(2, "id3", NativeTypes.PERIOD, false),
+                        new Column(0, "id2", STRING, false),
                 },
-                new Column[]{new Column(3, "val", INT32, true).copy(3)});
+                new Column[]{new Column(4, "val", INT32, true).copy(4)});
 
         RowAssembler rasm = new RowAssembler(schema, 1, 0);
 
         rasm.appendByte((byte) 1);
         rasm.appendInt(2);
+        rasm.appendPeriod(Period.ofDays(5));
         rasm.appendString("key_" + 3);
         rasm.appendInt(0);
 
@@ -84,6 +89,7 @@ public class ColocationHashCalculationTest {
         HashCalculator hashCalc = new HashCalculator();
         hashCalc.appendByte((byte) 1);
         hashCalc.appendInt(2);
+        hashCalc.appendPeriod(Period.ofDays(5));
         hashCalc.appendString("key_" + 3);
 
         assertEquals(hashCalc.hash(), colocationHash(r));

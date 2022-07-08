@@ -17,10 +17,12 @@
 
 package org.apache.ignite.client;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.UUID;
@@ -300,6 +302,30 @@ public class CustomTuple implements Tuple {
     /** {@inheritDoc} */
     @Override
     public Instant timestampValue(int columnIndex) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Duration durationValue(String columnName) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Duration durationValue(int columnIndex) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Period periodValue(String columnName) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Period periodValue(int columnIndex) {
         throw new UnsupportedOperationException();
     }
 

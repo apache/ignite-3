@@ -22,6 +22,12 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
@@ -255,6 +261,22 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
             case NUMBER:
                 return INT + ((BigInteger) val).toByteArray().length;
 
+            case DATE:
+                return INT + BYTE + BYTE;
+
+            case DATETIME:
+                return INT + 5 * BYTE + INT;
+
+            case TIME:
+                return 3 * BYTE + INT;
+
+            case DURATION:
+            case TIMESTAMP:
+                return LONG + INT;
+
+            case PERIOD:
+                return 3 * INT;
+
             default:
                 throw new InvalidTypeException("Unexpected type " + type);
         }
@@ -274,6 +296,8 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
             case BYTES:
             case TIME:
             case DATETIME:
+            case DATE:
+            case DURATION:
             case TIMESTAMP:
             case NUMBER:
             case BITMASK:
@@ -456,6 +480,63 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
                 break;
             }
+            case DATE: {
+                LocalDate date = (LocalDate) val;
+
+                buf.putInt(date.getYear());
+                buf.put((byte) date.getMonthValue());
+                buf.put((byte) date.getDayOfMonth());
+
+                break;
+            }
+            case DATETIME: {
+                LocalDateTime date = (LocalDateTime) val;
+
+                buf.putInt(date.getYear());
+                buf.put((byte) date.getMonthValue());
+                buf.put((byte) date.getDayOfMonth());
+                buf.put((byte) date.getHour());
+                buf.put((byte) date.getMinute());
+                buf.put((byte) date.getSecond());
+                buf.putInt(date.getNano());
+
+                break;
+            }
+            case TIME: {
+                LocalTime time = (LocalTime) val;
+
+                buf.put((byte) time.getHour());
+                buf.put((byte) time.getMinute());
+                buf.put((byte) time.getSecond());
+                buf.putInt(time.getNano());
+
+                break;
+            }
+            case TIMESTAMP: {
+                Instant timeStamp = (Instant) val;
+
+                buf.putLong(timeStamp.getEpochSecond());
+                buf.putInt(timeStamp.getNano());
+
+                break;
+            }
+            case DURATION: {
+                Duration dur = (Duration) val;
+
+                buf.putLong(dur.getSeconds());
+                buf.putInt(dur.getNano());
+
+                break;
+            }
+            case PERIOD: {
+                Period period = (Period) val;
+
+                buf.putInt(period.getYears());
+                buf.putInt(period.getMonths());
+                buf.putInt(period.getDays());
+
+                break;
+            }
 
             default:
                 throw new InvalidTypeException("Unexpected type " + type);
@@ -498,6 +579,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
             }
             case TIME:
             case DATETIME:
+            case DURATION:
             case TIMESTAMP: {
                 int precision = ((TemporalNativeType) type).precision();
 
@@ -655,11 +737,53 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
             case BYTES:
                 return readByteArray(buf);
 
+            case DATE:
+                return readDate(buf);
+
             case BITMASK:
                 return BitSet.valueOf(readByteArray(buf));
 
             case NUMBER:
                 return new BigInteger(readByteArray(buf));
+
+            case DATETIME: {
+                int years = buf.getInt();
+                byte months = buf.get();
+                byte days = buf.get();
+                byte hours = buf.get();
+                byte minutes = buf.get();
+                byte seconds = buf.get();
+                int nanos = buf.getInt();
+
+                return LocalDateTime.of(years, months, days, hours, minutes, seconds, nanos);
+            }
+            case TIME: {
+                byte hour = buf.get();
+                byte minute = buf.get();
+                byte second = buf.get();
+                int nanos = buf.getInt();
+
+                return LocalTime.of(hour, minute, second, nanos);
+            }
+            case TIMESTAMP: {
+                long second = buf.getLong();
+                int nanos = buf.getInt();
+
+                return Instant.ofEpochSecond(second, nanos);
+            }
+            case DURATION: {
+                long seconds = buf.getLong();
+                int nanos = buf.getInt();
+
+                return Duration.ofSeconds(seconds, nanos);
+            }
+            case PERIOD: {
+                int years = buf.getInt();
+                int months = buf.getInt();
+                int days = buf.getInt();
+
+                return Period.of(years, months, days);
+            }
 
             default:
                 throw new InvalidTypeException("Unexpected type " + type);
@@ -713,6 +837,14 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
                 int precision = buf.getInt();
 
                 return NativeTypes.timestamp(precision);
+            }
+            case DURATION: {
+                int precision = buf.getInt();
+
+                return NativeTypes.duration(precision);
+            }
+            case PERIOD: {
+                return NativeTypes.PERIOD;
             }
             case NUMBER: {
                 int precision = buf.getInt();
@@ -771,5 +903,15 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
         buf.get(arr);
 
         return arr;
+    }
+
+    /**
+     * Convert buffer into LocalDate representation.
+     *
+     * @param buf  Byte buffer.
+     * @return LocalDate instance.
+     */
+    private LocalDate readDate(ByteBuffer buf) {
+        return LocalDate.of(buf.getInt(), buf.get(), buf.get());
     }
 }

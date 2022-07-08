@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import java.util.Objects;
+
 /**
  * Ignite-specific extension type codes.
  */
@@ -45,6 +47,36 @@ public class ClientMsgPackType {
     /** Bit mask. */
     public static final byte BITMASK = 8;
 
+    /** Duration. */
+    public static final byte DURATION = 9;
+
+    /** Period. */
+    public static final byte PERIOD = 10;
+
     /** Absent value for a column. */
-    public static final byte NO_VALUE = 10;
+    public static final byte NO_VALUE = 100;
+
+    /** Variable type size. */
+    private static final int UNKNOWN_SIZE = -1;
+
+    /** Size per type. */
+    private static final int [] sizePerType = {UNKNOWN_SIZE, UNKNOWN_SIZE, UNKNOWN_SIZE, 16, 6, 7, 13, 12, UNKNOWN_SIZE, 12, 12};
+
+    /**
+     * Returns size if it belongs to constant len object, throws exception otherwise.
+     *
+     * @param type Type for which the size should be defined.
+     * @return Size or throws exception if fails.
+     */
+    public static int sizeForType(byte type) {
+        Objects.checkIndex(type, sizePerType.length);
+
+        int size = sizePerType[type];
+
+        if (size == UNKNOWN_SIZE) {
+            throw new IllegalArgumentException("Size can`t be defined for type=" + type);
+        }
+
+        return size;
+    }
 }

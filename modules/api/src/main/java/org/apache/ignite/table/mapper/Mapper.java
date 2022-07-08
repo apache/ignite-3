@@ -17,10 +17,12 @@
 
 package org.apache.ignite.table.mapper;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
@@ -177,6 +179,8 @@ public interface Mapper<T> {
                                    || LocalDate.class == type
                                    || LocalTime.class == type
                                    || LocalDateTime.class == type
+                                   || Duration.class == type
+                                   || Period.class == type
                                    || Instant.class == type
                                    || Number.class
                                               .isAssignableFrom(type)); // Byte, Short, Integer, Long, Float, Double, BigInteger, BigDecimal

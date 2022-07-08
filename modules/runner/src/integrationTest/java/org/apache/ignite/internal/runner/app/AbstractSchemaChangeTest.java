@@ -161,7 +161,7 @@ abstract class AbstractSchemaChangeTest {
      * Check unsupported nullability change.
      */
     @Test
-    public void testChangeColumnsNullability() throws Exception {
+    public void testChangeColumnsNullability() {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -173,7 +173,7 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Returns grid nodes.
      */
-    protected List<Ignite> startGrid() throws Exception {
+    protected List<Ignite> startGrid() {
         List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .collect(toList());

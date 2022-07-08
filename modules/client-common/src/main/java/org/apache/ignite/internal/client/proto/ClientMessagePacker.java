@@ -28,10 +28,12 @@ import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 
@@ -368,6 +370,21 @@ public class ClientMessagePacker implements AutoCloseable {
      * <p>Should be followed by {@link #writePayload(byte[])} method to write the extension body.
      *
      * @param extType    the extension type tag to be written.
+     */
+    public void packExtensionTypeHeader(byte extType) {
+        assert !closed : "Packer is closed";
+
+        int payloadLen = ClientMsgPackType.sizeForType(extType);
+
+        packExtensionTypeHeader(extType, payloadLen);
+    }
+
+    /**
+     * Writes Extension value header.
+     *
+     * <p>Should be followed by {@link #writePayload(byte[])} method to write the extension body.
+     *
+     * @param extType    the extension type tag to be written.
      * @param payloadLen number of bytes of a payload binary to be written.
      */
     public void packExtensionTypeHeader(byte extType, int payloadLen) {
@@ -490,9 +507,7 @@ public class ClientMessagePacker implements AutoCloseable {
      * @param val UUID value.
      */
     public void packUuid(UUID val) {
-        assert !closed : "Packer is closed";
-
-        packExtensionTypeHeader(ClientMsgPackType.UUID, 16);
+        packExtensionTypeHeader(ClientMsgPackType.UUID);
 
         buf.writeLong(val.getMostSignificantBits());
         buf.writeLong(val.getLeastSignificantBits());
@@ -605,9 +620,7 @@ public class ClientMessagePacker implements AutoCloseable {
      * @param val Date value.
      */
     public void packDate(LocalDate val) {
-        assert !closed : "Packer is closed";
-
-        packExtensionTypeHeader(ClientMsgPackType.DATE, 6);
+        packExtensionTypeHeader(ClientMsgPackType.DATE);
 
         buf.writeInt(val.getYear());
         buf.writeByte(val.getMonthValue());
@@ -620,9 +633,7 @@ public class ClientMessagePacker implements AutoCloseable {
      * @param val Time value.
      */
     public void packTime(LocalTime val) {
-        assert !closed : "Packer is closed";
-
-        packExtensionTypeHeader(ClientMsgPackType.TIME, 7);
+        packExtensionTypeHeader(ClientMsgPackType.TIME);
 
         buf.writeByte(val.getHour());
         buf.writeByte(val.getMinute());
@@ -636,9 +647,7 @@ public class ClientMessagePacker implements AutoCloseable {
      * @param val Datetime value.
      */
     public void packDateTime(LocalDateTime val) {
-        assert !closed : "Packer is closed";
-
-        packExtensionTypeHeader(ClientMsgPackType.DATETIME, 13);
+        packExtensionTypeHeader(ClientMsgPackType.DATETIME);
 
         buf.writeInt(val.getYear());
         buf.writeByte(val.getMonthValue());
@@ -655,12 +664,35 @@ public class ClientMessagePacker implements AutoCloseable {
      * @param val Timestamp value.
      */
     public void packTimestamp(Instant val) {
-        assert !closed : "Packer is closed";
-
-        packExtensionTypeHeader(ClientMsgPackType.TIMESTAMP, 12);
+        packExtensionTypeHeader(ClientMsgPackType.TIMESTAMP);
 
         buf.writeLong(val.getEpochSecond());
         buf.writeInt(val.getNano());
+    }
+
+    /**
+     * Writes a duration.
+     *
+     * @param val Duration value.
+     */
+    public void packDuration(Duration val) {
+        packExtensionTypeHeader(ClientMsgPackType.DURATION);
+
+        buf.writeLong(val.getSeconds());
+        buf.writeInt(val.getNano());
+    }
+
+    /**
+     * Writes a period.
+     *
+     * @param val Period value.
+     */
+    public void packPeriod(Period val) {
+        packExtensionTypeHeader(ClientMsgPackType.PERIOD);
+
+        buf.writeInt(val.getYears());
+        buf.writeInt(val.getMonths());
+        buf.writeInt(val.getDays());
     }
 
     /**
@@ -702,6 +734,12 @@ public class ClientMessagePacker implements AutoCloseable {
 
         if (val instanceof Long) {
             packLong((long) val);
+
+            return;
+        }
+
+        if (val instanceof Boolean) {
+            packBoolean((boolean) val);
 
             return;
         }
@@ -780,6 +818,18 @@ public class ClientMessagePacker implements AutoCloseable {
             return;
         }
 
+        if (val instanceof Duration) {
+            packDuration((Duration) val);
+
+            return;
+        }
+
+        if (val instanceof Period) {
+            packPeriod((Period) val);
+
+            return;
+        }
+
         throw new UnsupportedOperationException(
                 "Unsupported type, can't serialize: " + val.getClass());
     }
@@ -799,67 +849,73 @@ public class ClientMessagePacker implements AutoCloseable {
         Class<?> cls = obj.getClass();
 
         if (cls == Boolean.class) {
-            packInt(ClientDataType.BOOLEAN);
+            packInt(ClientDataType.BOOLEAN.type());
             packBoolean((Boolean) obj);
         } else if (cls == Byte.class) {
-            packInt(ClientDataType.INT8);
+            packInt(ClientDataType.INT8.type());
             packByte((Byte) obj);
         } else if (cls == Short.class) {
-            packInt(ClientDataType.INT16);
+            packInt(ClientDataType.INT16.type());
             packShort((Short) obj);
         } else if (cls == Integer.class) {
-            packInt(ClientDataType.INT32);
+            packInt(ClientDataType.INT32.type());
             packInt((Integer) obj);
         } else if (cls == Long.class) {
-            packInt(ClientDataType.INT64);
+            packInt(ClientDataType.INT64.type());
             packLong((Long) obj);
         } else if (cls == Float.class) {
-            packInt(ClientDataType.FLOAT);
+            packInt(ClientDataType.FLOAT.type());
             packFloat((Float) obj);
         } else if (cls == Double.class) {
-            packInt(ClientDataType.DOUBLE);
+            packInt(ClientDataType.DOUBLE.type());
             packDouble((Double) obj);
         } else if (cls == String.class) {
-            packInt(ClientDataType.STRING);
+            packInt(ClientDataType.STRING.type());
             packString((String) obj);
         } else if (cls == UUID.class) {
-            packInt(ClientDataType.UUID);
+            packInt(ClientDataType.UUID.type());
             packUuid((UUID) obj);
         } else if (cls == LocalDate.class) {
-            packInt(ClientDataType.DATE);
+            packInt(ClientDataType.DATE.type());
             packDate((LocalDate) obj);
         } else if (cls == LocalTime.class) {
-            packInt(ClientDataType.TIME);
+            packInt(ClientDataType.TIME.type());
             packTime((LocalTime) obj);
         } else if (cls == LocalDateTime.class) {
-            packInt(ClientDataType.DATETIME);
+            packInt(ClientDataType.DATETIME.type());
             packDateTime((LocalDateTime) obj);
         } else if (cls == Instant.class) {
-            packInt(ClientDataType.TIMESTAMP);
+            packInt(ClientDataType.TIMESTAMP.type());
             packTimestamp((Instant) obj);
         } else if (cls == byte[].class) {
-            packInt(ClientDataType.BYTES);
+            packInt(ClientDataType.BYTES.type());
 
             packBinaryHeader(((byte[]) obj).length);
             writePayload((byte[]) obj);
         } else if (cls == Date.class) {
-            packInt(ClientDataType.DATE);
+            packInt(ClientDataType.DATE.type());
             packDate(((Date) obj).toLocalDate());
         } else if (cls == Time.class) {
-            packInt(ClientDataType.TIME);
+            packInt(ClientDataType.TIME.type());
             packTime(((Time) obj).toLocalTime());
         } else if (cls == Timestamp.class) {
-            packInt(ClientDataType.TIMESTAMP);
+            packInt(ClientDataType.TIMESTAMP.type());
             packTimestamp(((java.util.Date) obj).toInstant());
         } else if (cls == BigDecimal.class) {
-            packInt(ClientDataType.DECIMAL);
+            packInt(ClientDataType.DECIMAL.type());
             packDecimal(((BigDecimal) obj));
         } else if (cls == BigInteger.class) {
-            packInt(ClientDataType.BIGINTEGER);
+            packInt(ClientDataType.BIGINTEGER.type());
             packBigInteger(((BigInteger) obj));
         } else if (cls == BitSet.class) {
-            packInt(ClientDataType.BITMASK);
+            packInt(ClientDataType.BITMASK.type());
             packBitSet((BitSet) obj);
+        } else if (cls == Duration.class) {
+            packInt(ClientDataType.DURATION.type());
+            packDuration(((Duration) obj));
+        } else if (cls == Period.class) {
+            packInt(ClientDataType.PERIOD.type());
+            packPeriod(((Period) obj));
         } else {
             throw new UnsupportedOperationException("Custom objects are not supported");
         }

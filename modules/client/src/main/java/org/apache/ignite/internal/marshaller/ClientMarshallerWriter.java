@@ -19,10 +19,12 @@ package org.apache.ignite.internal.marshaller;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -150,5 +152,17 @@ public class ClientMarshallerWriter implements MarshallerWriter {
     @Override
     public void writeDateTime(LocalDateTime val) {
         packer.packDateTime(val);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeDuration(Duration val) {
+        packer.packDuration(val);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writePeriod(Period val) {
+        packer.packPeriod(val);
     }
 }

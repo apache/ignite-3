@@ -80,7 +80,7 @@ public class ClientTableCommon {
 
             packer.packArrayHeader(4);
             packer.packString(col.name());
-            packer.packInt(getClientDataType(col.type().spec()));
+            packer.packInt(getClientDataType(col.type().spec()).type());
             packer.packBoolean(schema.isKeyColumn(colIdx));
             packer.packBoolean(col.nullable());
         }
@@ -411,7 +411,7 @@ public class ClientTableCommon {
 
     private static void readAndSetColumnValue(ClientMessageUnpacker unpacker, Tuple tuple, Column col) {
         try {
-            int type = getClientDataType(col.type().spec());
+            int type = getClientDataType(col.type().spec()).type();
             Object val = unpacker.unpackObject(type);
             tuple.set(col.name(), val);
         } catch (MessageTypeException e) {
@@ -419,7 +419,7 @@ public class ClientTableCommon {
         }
     }
 
-    private static int getClientDataType(NativeTypeSpec spec) {
+    private static ClientDataType getClientDataType(NativeTypeSpec spec) {
         switch (spec) {
             case INT8:
                 return ClientDataType.INT8;
@@ -468,6 +468,12 @@ public class ClientTableCommon {
 
             case TIMESTAMP:
                 return ClientDataType.TIMESTAMP;
+
+            case DURATION:
+                return ClientDataType.DURATION;
+
+            case PERIOD:
+                return ClientDataType.PERIOD;
 
             default:
                 throw new IgniteException("Unsupported native type: " + spec);

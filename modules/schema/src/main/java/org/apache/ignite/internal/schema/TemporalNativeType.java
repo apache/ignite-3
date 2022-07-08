@@ -37,6 +37,18 @@ public class TemporalNativeType extends NativeType {
     }
 
     /**
+     * Creates DURATION type.
+     *
+     * @param precision Fractional seconds precision.
+     * @return Native type.
+     */
+    static TemporalNativeType duration(int precision) {
+        int size = (precision == 0) ? 8 : 12;
+
+        return new TemporalNativeType(NativeTypeSpec.DURATION, size, precision);
+    }
+
+    /**
      * Creates DATETIME type.
      *
      * @param precision Fractional seconds precision.

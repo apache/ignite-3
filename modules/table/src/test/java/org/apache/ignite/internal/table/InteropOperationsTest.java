@@ -27,10 +27,12 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -95,7 +97,8 @@ public class InteropOperationsTest {
                 NativeTypes.INT8, NativeTypes.INT16, NativeTypes.INT32, NativeTypes.INT64,
                 NativeTypes.FLOAT, NativeTypes.DOUBLE, NativeTypes.UUID, NativeTypes.STRING,
                 NativeTypes.BYTES, NativeTypes.DATE, NativeTypes.time(), NativeTypes.timestamp(), NativeTypes.datetime(),
-                NativeTypes.numberOf(2), NativeTypes.decimalOf(5, 2), NativeTypes.bitmaskOf(8)
+                NativeTypes.numberOf(2), NativeTypes.decimalOf(5, 2), NativeTypes.bitmaskOf(8),
+                NativeTypes.duration(), NativeTypes.PERIOD
         };
 
         List<Column> valueCols = new ArrayList<>(types.length * 2);
@@ -395,6 +398,10 @@ public class InteropOperationsTest {
                 res.set(colName, LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC));
             } else if (NativeTypes.timestamp().equals(type)) {
                 res.set(colName, Instant.ofEpochSecond(id));
+            } else if (NativeTypes.duration().equals(type)) {
+                res.set(colName, Duration.ofSeconds(id));
+            } else if (NativeTypes.PERIOD.equals(type)) {
+                res.set(colName, Period.ofDays(id));
             } else if (NativeTypes.numberOf(2).equals(type)) {
                 res.set(colName, BigInteger.valueOf(id));
             } else if (NativeTypes.decimalOf(5, 2).equals(type)) {
@@ -460,6 +467,10 @@ public class InteropOperationsTest {
                 assertEquals(expected.datetimeValue(colName), t.datetimeValue(colName));
             } else if (NativeTypes.timestamp().equals(type)) {
                 assertEquals(expected.timestampValue(colName), expected.timestampValue(colName));
+            } else if (NativeTypes.duration().equals(type)) {
+                assertEquals(expected.durationValue(colName), expected.durationValue(colName));
+            } else if (NativeTypes.PERIOD.equals(type)) {
+                assertEquals(expected.periodValue(colName), expected.periodValue(colName));
             } else if (NativeTypes.numberOf(2).equals(type)) {
                 assertEquals((BigInteger) expected.value(colName), t.value(colName));
             } else if (NativeTypes.decimalOf(5, 2).equals(type)) {
@@ -504,6 +515,10 @@ public class InteropOperationsTest {
         private LocalDateTime fdatetimeN;
         private Instant ftimestamp;
         private Instant ftimestampN;
+        private Duration fduration;
+        private Duration fdurationN;
+        private Period fperiod;
+        private Period fperiodN;
         private BigInteger fnumber;
         private BigInteger fnumberN;
         private BigDecimal fdecimal;
@@ -542,6 +557,10 @@ public class InteropOperationsTest {
             fdatetimeN = (nulls) ? LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC) : null;
             ftimestamp = Instant.ofEpochSecond(id);
             ftimestampN = (nulls) ? Instant.ofEpochSecond(id) : null;
+            fduration = Duration.ofSeconds(id);
+            fdurationN = (nulls) ? Duration.ofSeconds(id) : null;
+            fperiod = Period.ofDays(id);
+            fperiodN = (nulls) ? Period.ofDays(id) : null;
             fnumber = BigInteger.valueOf(id);
             fnumberN = (nulls) ? BigInteger.valueOf(id) : null;
             fdecimal = BigDecimal.valueOf(id * 100).movePointLeft(2);
@@ -576,7 +595,9 @@ public class InteropOperationsTest {
                     && Objects.equals(ftimestamp, value.ftimestamp) && Objects.equals(ftimestampN, value.ftimestampN)
                     && Objects.equals(fnumber, value.fnumber) && Objects.equals(fnumberN, value.fnumberN)
                     && Objects.equals(fdecimal, value.fdecimal) && Objects.equals(fdecimalN, value.fdecimalN)
-                    && Objects.equals(fbitmask, value.fbitmask) && Objects.equals(fbitmaskN, value.fbitmaskN);
+                    && Objects.equals(fbitmask, value.fbitmask) && Objects.equals(fbitmaskN, value.fbitmaskN)
+                    && Objects.equals(fduration, value.fduration) && Objects.equals(fdurationN, value.fdurationN)
+                    && Objects.equals(fperiod, value.fperiod) && Objects.equals(fperiodN, value.fperiodN);
         }
     }
 
@@ -611,6 +632,10 @@ public class InteropOperationsTest {
         private LocalDateTime fdatetimeN;
         private Instant ftimestamp;
         private Instant ftimestampN;
+        private Duration fduration;
+        private Duration fdurationN;
+        private Period fperiod;
+        private Period fperiodN;
         private BigInteger fnumber;
         private BigInteger fnumberN;
         private BigDecimal fdecimal;
@@ -653,6 +678,10 @@ public class InteropOperationsTest {
             fdatetimeN = (nulls) ? LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC) : null;
             ftimestamp = Instant.ofEpochSecond(id);
             ftimestampN = (nulls) ? Instant.ofEpochSecond(id) : null;
+            fduration = Duration.ofSeconds(id);
+            fdurationN = (nulls) ? Duration.ofSeconds(id) : null;
+            fperiod = Period.ofDays(id);
+            fperiodN = (nulls) ? Period.ofDays(id) : null;
             fnumber = BigInteger.valueOf(id);
             fnumberN = (nulls) ? BigInteger.valueOf(id) : null;
             new BigDecimal(fnumber, 2);
@@ -688,7 +717,9 @@ public class InteropOperationsTest {
                     && Objects.equals(ftimestampN, row.ftimestampN) && Objects.equals(fnumber, row.fnumber)
                     && Objects.equals(fnumberN, row.fnumberN) && Objects.equals(fdecimal, row.fdecimal)
                     && Objects.equals(fdecimalN, row.fdecimalN) && Objects.equals(fbitmask, row.fbitmask)
-                    && Objects.equals(fbitmaskN, row.fbitmaskN);
+                    && Objects.equals(fbitmaskN, row.fbitmaskN)
+                    && Objects.equals(fduration, row.fduration) && Objects.equals(fdurationN, row.fdurationN)
+                    && Objects.equals(fperiod, row.fperiod) && Objects.equals(fperiodN, row.fperiodN);
         }
     }
 }

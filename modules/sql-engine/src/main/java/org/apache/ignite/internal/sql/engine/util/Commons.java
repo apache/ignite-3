@@ -27,10 +27,12 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -684,6 +686,12 @@ public final class Commons {
             case TIMESTAMP:
                 return Instant.class;
 
+            case DURATION:
+                return Duration.class;
+
+            case PERIOD:
+                return Period.class;
+
             default:
                 throw new IllegalArgumentException("Unsupported type " + type.spec());
         }
@@ -721,11 +729,13 @@ public final class Commons {
 
             case UUID:
             case DATE:
+            case PERIOD:
                 return -1;
 
             case TIME:
             case DATETIME:
             case TIMESTAMP:
+            case DURATION:
                 return ((TemporalNativeType) type).precision();
 
             case BYTES:
@@ -763,6 +773,8 @@ public final class Commons {
             case BYTES:
             case STRING:
             case BITMASK:
+            case DURATION:
+            case PERIOD:
                 return Integer.MIN_VALUE;
 
             case DECIMAL:

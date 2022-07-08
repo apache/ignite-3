@@ -281,9 +281,9 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
         sql("CREATE TABLE test2 (k int PRIMARY KEY, a int, b int)");
 
         IgniteException ex = assertThrows(IgniteException.class, () -> sql(
-                        "MERGE INTO test2 USING test1 ON test1.a = test2.a "
-                                + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
-                                + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
+                "MERGE INTO test2 USING test1 ON test1.a = test2.a "
+                        + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
+                        + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
 
         assertTrue(ex.getCause().getMessage().contains("Failed to MERGE some keys due to keys conflict"));
     }

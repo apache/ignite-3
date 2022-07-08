@@ -19,10 +19,15 @@ package org.apache.ignite.internal.schema.serializer;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collections;
@@ -47,7 +52,7 @@ public class AbstractSerializerTest {
     public void schemaSerializeTest() {
         AbstractSchemaSerializer assembler = SchemaSerializerImpl.INSTANCE;
 
-        SchemaDescriptor desc = new SchemaDescriptor(100500,
+        SchemaDescriptor desc = new SchemaDescriptor(7,
                 new Column[]{
                         new Column("A", NativeTypes.INT8, false),
                         new Column("B", NativeTypes.INT16, false),
@@ -65,7 +70,11 @@ public class AbstractSerializerTest {
                         new Column("D1", NativeTypes.bitmaskOf(256), false),
                         new Column("E1", NativeTypes.datetime(8), false),
                         new Column("F1", NativeTypes.time(8), false),
-                        new Column("G1", NativeTypes.timestamp(8), true)
+                        new Column("G1", NativeTypes.timestamp(8), true),
+                        new Column("G2", NativeTypes.blobOf(21), false),
+                        new Column("G3", NativeTypes.duration(1), false),
+                        new Column("G4", NativeTypes.PERIOD, false),
+                        new Column("H", NativeTypes.DATE, false, () -> LocalDate.now())
                 }
         );
 
@@ -98,7 +107,7 @@ public class AbstractSerializerTest {
             new Column(4, "B1", NativeTypes.INT64, false),
         };
 
-        SchemaDescriptor desc = new SchemaDescriptor(100500, keyCols, valCols);
+        SchemaDescriptor desc = new SchemaDescriptor(7, keyCols, valCols);
 
         byte[] serialize = assembler.serialize(desc);
 
@@ -126,7 +135,15 @@ public class AbstractSerializerTest {
     public void defaultValueSerializeTest() {
         AbstractSchemaSerializer assembler = SchemaSerializerImpl.INSTANCE;
 
-        SchemaDescriptor desc = new SchemaDescriptor(100500,
+        var localDateTime = LocalDateTime.now();
+        var localTime = LocalTime.now();
+        var timeStamp = Instant.now();
+        var duration = Duration.ofNanos(7);
+        var period = Period.ofMonths(13);
+        var date = LocalDate.now();
+        var blob = new byte[]{1, 2};
+
+        SchemaDescriptor desc = new SchemaDescriptor(7,
                 new Column[]{
                         new Column("A", NativeTypes.INT8, false, () -> (byte) 1),
                         new Column("B", NativeTypes.INT16, false, () -> (short) 1),
@@ -135,19 +152,25 @@ public class AbstractSerializerTest {
                         new Column("E", NativeTypes.UUID, false, () -> new UUID(12, 34)),
                         new Column("F", NativeTypes.FLOAT, false, () -> 1.0f),
                         new Column("G", NativeTypes.DOUBLE, false, () -> 1.0d),
-                        new Column("H", NativeTypes.DATE, false),
+                        new Column("H", NativeTypes.DATE, false, () -> date),
                 },
                 new Column[]{
                         new Column("A1", NativeTypes.stringOf(128), false, () -> "test"),
                         new Column("B1", NativeTypes.numberOf(255), false, () -> BigInteger.TEN),
                         new Column("C1", NativeTypes.decimalOf(128, 64), false, () -> BigDecimal.TEN),
-                        new Column("D1", NativeTypes.bitmaskOf(256), false, BitSet::new)
+                        new Column("D1", NativeTypes.bitmaskOf(256), false, BitSet::new),
+                        new Column("E1", NativeTypes.datetime(8), false, () -> localDateTime),
+                        new Column("F1", NativeTypes.time(8), false, () -> localTime),
+                        new Column("G1", NativeTypes.timestamp(8), true, () -> timeStamp),
+                        new Column("G2", NativeTypes.blobOf(21), false, () -> blob),
+                        new Column("G3", NativeTypes.duration(1), false, () -> duration),
+                        new Column("G4", NativeTypes.PERIOD, false, () -> period)
                 }
         );
 
-        byte[] serialize = assembler.serialize(desc);
+        byte[] serialized = assembler.serialize(desc);
 
-        SchemaDescriptor deserialize = assembler.deserialize(serialize);
+        SchemaDescriptor deserialize = assembler.deserialize(serialized);
 
         //key columns
         assertEquals(deserialize.column("A").defaultValue(), (byte) 1);
@@ -157,13 +180,19 @@ public class AbstractSerializerTest {
         assertEquals(deserialize.column("E").defaultValue(), new UUID(12, 34));
         assertEquals(deserialize.column("F").defaultValue(), 1.0f);
         assertEquals(deserialize.column("G").defaultValue(), 1.0d);
-        assertNull(deserialize.column("H").defaultValue());
+        assertEquals(deserialize.column("H").defaultValue(), date);
 
         //value columns
         assertEquals(deserialize.column("A1").defaultValue(), "test");
         assertEquals(deserialize.column("B1").defaultValue(), BigInteger.TEN);
         assertEquals(deserialize.column("C1").defaultValue(), BigDecimal.TEN);
         assertEquals(deserialize.column("D1").defaultValue(), new BitSet());
+        assertEquals(deserialize.column("E1").defaultValue(), localDateTime);
+        assertEquals(deserialize.column("F1").defaultValue(), localTime);
+        assertEquals(deserialize.column("G1").defaultValue(), timeStamp);
+        assertArrayEquals((byte[]) deserialize.column("G2").defaultValue(), blob);
+        assertEquals(deserialize.column("G3").defaultValue(), duration);
+        assertEquals(deserialize.column("G4").defaultValue(), period);
     }
 
     /**

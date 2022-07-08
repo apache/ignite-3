@@ -20,10 +20,12 @@ package org.apache.ignite.internal.util;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -77,6 +79,10 @@ public class HashCalculator {
             appendString((String) v);
         } else if (v.getClass() == BitSet.class) {
             appendBitmask((BitSet) v);
+        } else if (v.getClass() == Duration.class) {
+            appendDuration((Duration) v);
+        } else if (v.getClass() == Period.class) {
+            appendPeriod((Period) v);
         } else {
             throw new IgniteInternalException("Unsupported value type: [cls=" + v.getClass() + ']');
         }
@@ -239,6 +245,27 @@ public class HashCalculator {
     public void appendTimestamp(Instant v) {
         appendLong(v.getEpochSecond());
         appendLong(v.getNano());
+    }
+
+    /**
+     * Append Duration to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
+    public void appendDuration(Duration v) {
+        appendLong(v.getSeconds());
+        appendLong(v.getNano());
+    }
+
+    /**
+     * Append Period to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
+    public void appendPeriod(Period v) {
+        appendInt(v.getYears());
+        appendInt(v.getMonths());
+        appendInt(v.getDays());
     }
 
     /**

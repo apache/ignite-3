@@ -35,8 +35,10 @@ import static org.apache.ignite.internal.client.proto.ClientDataType.STRING;
 import static org.apache.ignite.internal.client.proto.ClientDataType.TIME;
 import static org.apache.ignite.internal.client.proto.ClientDataType.TIMESTAMP;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.BinaryMode;
@@ -64,6 +66,36 @@ public class ClientSchema {
 
     /** Columns map by name. */
     private final Map<String, ClientColumn> map = new HashMap<>();
+
+    /** Client type into marshaller mode type mapping. */
+    private static BinaryMode[] typeMapping;
+
+    static {
+        {
+            int maxPos = Arrays.stream(ClientDataType.values()).mapToInt(ClientDataType::type).max()
+                    .orElseThrow(NoSuchElementException::new);
+
+            typeMapping = new BinaryMode[maxPos + 1];
+
+            typeMapping[INT8.type()] = BinaryMode.BYTE;
+            typeMapping[INT16.type()] = BinaryMode.SHORT;
+            typeMapping[INT32.type()] = BinaryMode.INT;
+            typeMapping[INT64.type()] = BinaryMode.LONG;
+            typeMapping[FLOAT.type()] = BinaryMode.FLOAT;
+            typeMapping[DOUBLE.type()] = BinaryMode.DOUBLE;
+            typeMapping[ClientDataType.UUID.type()] = BinaryMode.UUID;
+            typeMapping[STRING.type()] = BinaryMode.STRING;
+            typeMapping[BYTES.type()] = BinaryMode.BYTE_ARR;
+            typeMapping[DECIMAL.type()] = BinaryMode.DECIMAL;
+            typeMapping[BIGINTEGER.type()] = BinaryMode.NUMBER;
+            typeMapping[NUMBER.type()] = BinaryMode.NUMBER;
+            typeMapping[BITMASK.type()] = BinaryMode.BITSET;
+            typeMapping[DATE.type()] = BinaryMode.DATE;
+            typeMapping[TIME.type()] = BinaryMode.TIME;
+            typeMapping[DATETIME.type()] = BinaryMode.DATETIME;
+            typeMapping[TIMESTAMP.type()] = BinaryMode.TIMESTAMP;
+        }
+    }
 
     /**
      * Constructor.
@@ -173,62 +205,16 @@ public class ClientSchema {
     }
 
     private static BinaryMode mode(int dataType) {
-        switch (dataType) {
-            case BOOLEAN:
-                throw new IgniteException("TODO: " + dataType);
+        if (dataType == BOOLEAN.type()) {
+            throw new IgniteException("TODO: " + dataType);
+        }
 
-            case INT8:
-                return BinaryMode.BYTE;
+        BinaryMode type = typeMapping[dataType];
 
-            case INT16:
-                return BinaryMode.SHORT;
-
-            case INT32:
-                return BinaryMode.INT;
-
-            case INT64:
-                return BinaryMode.LONG;
-
-            case FLOAT:
-                return BinaryMode.FLOAT;
-
-            case DOUBLE:
-                return BinaryMode.DOUBLE;
-
-            case ClientDataType.UUID:
-                return BinaryMode.UUID;
-
-            case STRING:
-                return BinaryMode.STRING;
-
-            case BYTES:
-                return BinaryMode.BYTE_ARR;
-
-            case DECIMAL:
-                return BinaryMode.DECIMAL;
-
-            // Falls through.
-            case BIGINTEGER:
-            case NUMBER:
-                return BinaryMode.NUMBER;
-
-            case BITMASK:
-                return BinaryMode.BITSET;
-
-            case DATE:
-                return BinaryMode.DATE;
-
-            case TIME:
-                return BinaryMode.TIME;
-
-            case DATETIME:
-                return BinaryMode.DATETIME;
-
-            case TIMESTAMP:
-                return BinaryMode.TIMESTAMP;
-
-            default:
-                throw new IgniteException("Unknown client data type: " + dataType);
+        if (type == null) {
+            throw new IgniteException("Unknown client data type: " + dataType);
+        } else {
+            return type;
         }
     }
 }

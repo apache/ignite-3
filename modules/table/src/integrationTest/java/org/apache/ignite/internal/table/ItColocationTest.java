@@ -33,9 +33,11 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashSet;
@@ -193,6 +195,10 @@ public class ItColocationTest {
                 return NativeTypes.datetime();
             case TIMESTAMP:
                 return NativeTypes.timestamp();
+            case DURATION:
+                return NativeTypes.duration();
+            case PERIOD:
+                return NativeTypes.PERIOD;
             default:
                 throw new IllegalStateException("Unexpected type: " + type);
         }
@@ -237,6 +243,10 @@ public class ItColocationTest {
                 return ((LocalDateTime) generateValueByType(i, NativeTypeSpec.DATETIME))
                         .atZone(TimeZone.getDefault().toZoneId())
                         .toInstant();
+            case DURATION:
+                return Duration.ofSeconds(i);
+            case PERIOD:
+                return Period.ofMonths(i);
             default:
                 throw new IllegalStateException("Unexpected type: " + type);
         }

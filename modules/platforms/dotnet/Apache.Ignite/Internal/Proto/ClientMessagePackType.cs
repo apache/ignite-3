@@ -63,8 +63,18 @@ namespace Apache.Ignite.Internal.Proto
         Bitmask = 8,
 
         /// <summary>
+        /// Duration.
+        /// </summary>
+        Duration = 9,
+
+        /// <summary>
+        /// Period.
+        /// </summary>
+        Period = 10,
+
+        /// <summary>
         /// Absent value for a column.
         /// </summary>
-        NoValue = 10
+        NoValue = 100
     }
 }
