@@ -96,6 +96,8 @@ namespace Apache.Ignite.Internal.Sql
                 throw NoResultSetException();
             }
 
+            using var buf = _buffer.Value;
+
             // TODO: Retrieve all pages.
             await Task.Yield();
 
@@ -270,7 +272,9 @@ namespace Apache.Ignite.Internal.Sql
             // TODO: Fetch all pages.
             await Task.Delay(1).ConfigureAwait(false);
 
-            foreach (var row in EnumeratePage(_buffer.Value, _bufferOffset, Metadata.Columns))
+            using var buf = _buffer.Value;
+
+            foreach (var row in EnumeratePage(buf, _bufferOffset, Metadata.Columns))
             {
                 yield return row;
             }
