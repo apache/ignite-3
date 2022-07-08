@@ -142,9 +142,18 @@ namespace Apache.Ignite.Internal.Sql
         {
             var reader = buf.GetReader(offset);
             var pageSize = reader.ReadInt32();
+            offset = reader.Position.GetInteger();
 
             for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
             {
+                yield return ReadRow();
+            }
+
+            IgniteTuple ReadRow()
+            {
+                // Can't use ref struct reader from above inside iterator block (CS4013).
+                // Use a new reader for every row (stack allocated).
+                var reader = buf.GetReader(offset);
                 var row = new IgniteTuple(cols.Count);
 
                 foreach (var col in cols)
@@ -152,7 +161,8 @@ namespace Apache.Ignite.Internal.Sql
                     row[col.Name] = ReadValue(ref reader, col.Type);
                 }
 
-                yield return row;
+                offset = reader.Position.GetInteger();
+                return row;
             }
         }
 
