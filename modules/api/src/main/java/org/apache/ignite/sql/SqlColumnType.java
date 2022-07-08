@@ -54,7 +54,7 @@ public enum SqlColumnType {
     /** Timezone-free datetime. */
     DATETIME,
 
-    /** Number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone). Tick unit depends on precision. */
+    /** Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision. */
     TIMESTAMP,
 
     /** 128-bit UUID. */

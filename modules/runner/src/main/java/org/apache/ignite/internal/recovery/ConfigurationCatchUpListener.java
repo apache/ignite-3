@@ -20,7 +20,7 @@ package org.apache.ignite.internal.recovery;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
 
@@ -81,8 +81,8 @@ public class ConfigurationCatchUpListener implements ConfigurationStorageRevisio
      *
      * @param appliedRevision Applied revision.
      */
-    private void checkRevisionUpToDate(long appliedRevision) {
-        cfgStorage.lastRevision().thenAccept(rev -> {
+    private CompletableFuture<?> checkRevisionUpToDate(long appliedRevision) {
+        return cfgStorage.lastRevision().thenAccept(rev -> {
             synchronized (targetRevisionUpdateMutex) {
                 assert rev >= appliedRevision : IgniteStringFormatter.format(
                     "Configuration revision must be greater than local node applied revision [msRev={}, appliedRev={}",
@@ -109,10 +109,10 @@ public class ConfigurationCatchUpListener implements ConfigurationStorageRevisio
 
         if (targetRev >= 0) {
             if (isConfigurationUpToDate(targetRev, appliedRevision)) {
-                checkRevisionUpToDate(appliedRevision);
+                return checkRevisionUpToDate(appliedRevision);
             }
         } else {
-            checkRevisionUpToDate(appliedRevision);
+            return checkRevisionUpToDate(appliedRevision);
         }
 
         return CompletableFuture.completedFuture(null);

@@ -18,7 +18,8 @@ package org.apache.ignite.raft.jraft.conf;
 
 import java.util.LinkedList;
 import java.util.ListIterator;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.util.Requires;
 
 /**
@@ -26,7 +27,7 @@ import org.apache.ignite.raft.jraft.util.Requires;
  */
 public class ConfigurationManager {
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ConfigurationManager.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ConfigurationManager.class);
 
     private final LinkedList<ConfigurationEntry> configurations = new LinkedList<>();
     private ConfigurationEntry snapshot = new ConfigurationEntry();

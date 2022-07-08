@@ -35,6 +35,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -53,7 +55,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -74,7 +75,7 @@ import org.mockito.Mockito;
  * Distributed transaction test using a single partition table.
  */
 public class ItTxDistributedTestSingleNode extends TxAbstractTest {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ItTxDistributedTestSingleNode.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ItTxDistributedTestSingleNode.class);
 
     public static final int NODE_PORT_BASE = 20_000;
 

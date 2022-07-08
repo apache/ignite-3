@@ -18,14 +18,15 @@ package org.apache.ignite.raft.jraft.util;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * A collection of utility methods to retrieve and parse the values of the Java system properties.
  */
 public final class SystemPropertyUtil {
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(SystemPropertyUtil.class);
+    private static final IgniteLogger LOG = Loggers.forClass(SystemPropertyUtil.class);
 
     /**
      * Returns {@code true} if and only if the system property with the specified {@code key} exists.

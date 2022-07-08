@@ -39,6 +39,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.If;
@@ -47,7 +49,6 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
@@ -61,7 +62,7 @@ import org.apache.ignite.raft.jraft.error.RaftError;
  */
 public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener {
     /** Ignite logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RebalanceRaftGroupEventsListener.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RebalanceRaftGroupEventsListener.class);
 
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;

@@ -19,6 +19,8 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.AbstractFreeList;
@@ -29,14 +31,13 @@ import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainDataIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link AbstractFreeList} for {@link VersionChain} instances.
  */
 public class VersionChainFreeList extends AbstractFreeList<VersionChain> {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(VersionChainFreeList.class);
+    private static final IgniteLogger LOG = Loggers.forClass(VersionChainFreeList.class);
 
     private final PageEvictionTracker evictionTracker;
 

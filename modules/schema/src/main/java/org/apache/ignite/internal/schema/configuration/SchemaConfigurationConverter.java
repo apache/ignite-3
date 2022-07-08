@@ -23,18 +23,11 @@ import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurat
 import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.SORTED_INDEX_TYPE;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnChange;
@@ -516,60 +509,4 @@ public class SchemaConfigurationConverter {
     public static TableChange dropColumn(String columnName, TableChange tblChange) {
         return tblChange.changeColumns(colChg -> colChg.delete(columnName));
     }
-
-    /**
-     * Gets ColumnType type for given class.
-     *
-     * @param cls Class.
-     * @return ColumnType type or null.
-     */
-    public static ColumnType columnType(Class<?> cls) {
-        assert cls != null;
-
-        // Primitives.
-        if (cls == byte.class) {
-            return ColumnType.INT8;
-        } else if (cls == short.class) {
-            return ColumnType.INT16;
-        } else if (cls == int.class) {
-            return ColumnType.INT32;
-        } else if (cls == long.class) {
-            return ColumnType.INT64;
-        } else if (cls == float.class) {
-            return ColumnType.FLOAT;
-        } else if (cls == double.class) {
-            return ColumnType.DOUBLE;
-        } else if (cls == Byte.class) { // Boxed primitives.
-            return ColumnType.INT8;
-        } else if (cls == Short.class) {
-            return ColumnType.INT16;
-        } else if (cls == Integer.class) {
-            return ColumnType.INT32;
-        } else if (cls == Long.class) {
-            return ColumnType.INT64;
-        } else if (cls == Float.class) {
-            return ColumnType.FLOAT;
-        } else if (cls == Double.class) {
-            return ColumnType.DOUBLE;
-        } else if (cls == LocalDate.class) { // Temporal types.
-            return ColumnType.DATE;
-        } else if (cls == LocalTime.class) {
-            return ColumnType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
-        } else if (cls == LocalDateTime.class) {
-            return ColumnType.datetime(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
-        } else if (cls == Instant.class) {
-            return ColumnType.timestamp(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
-        } else if (cls == String.class) { // Other types
-            return ColumnType.string();
-        } else if (cls == UUID.class) {
-            return ColumnType.UUID;
-        } else if (cls == BigInteger.class) {
-            return ColumnType.numberOf();
-        } else if (cls == BigDecimal.class) {
-            return ColumnType.decimalOf();
-        }
-
-        throw new IllegalArgumentException("Type " + cls.getName() + " is not supported.");
-    }
-
 }

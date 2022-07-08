@@ -32,6 +32,8 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
@@ -46,7 +48,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * PlannerHelper.
@@ -54,7 +55,7 @@ import org.apache.ignite.lang.IgniteLogger;
  */
 public class PlannerHelper {
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(PlannerHelper.class);
+    private static final IgniteLogger LOG = Loggers.forClass(PlannerHelper.class);
 
     /**
      * Default constructor.

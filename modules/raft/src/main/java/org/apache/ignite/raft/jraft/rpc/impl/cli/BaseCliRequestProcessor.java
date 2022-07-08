@@ -18,10 +18,11 @@ package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
 import java.util.List;
 import java.util.concurrent.Executor;
-import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -38,7 +39,7 @@ import org.apache.ignite.raft.jraft.util.StringUtils;
  */
 public abstract class BaseCliRequestProcessor<T extends Message> extends RpcRequestProcessor<T> {
 
-    protected static final IgniteLogger LOG = IgniteLogger.forClass(BaseCliRequestProcessor.class);
+    protected static final IgniteLogger LOG = Loggers.forClass(BaseCliRequestProcessor.class);
 
     public BaseCliRequestProcessor(Executor executor, RaftMessagesFactory msgFactory) {
         super(executor, msgFactory);

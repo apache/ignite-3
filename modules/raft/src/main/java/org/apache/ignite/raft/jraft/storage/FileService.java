@@ -22,7 +22,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RetryAgainException;
@@ -41,7 +42,7 @@ import org.apache.ignite.raft.jraft.util.Utils;
  * File reader service.
  */
 public final class FileService {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(FileService.class);
+    private static final IgniteLogger LOG = Loggers.forClass(FileService.class);
 
     private static final FileService INSTANCE = new FileService(new RaftMessagesFactory()); // TODO asch fixme IGNITE-14832
 

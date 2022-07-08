@@ -105,14 +105,13 @@ public class NativeTypeTest {
     }
 
     /**
-     * ValidateTemporalTypesLength.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Validate data size of datetime types.
      */
     @Test
     public void validateTemporalTypesLength() {
         assertEquals(3, DATE.sizeInBytes());
 
-        assertEquals(6, time().sizeInBytes());
+        assertEquals(4, time().sizeInBytes());
         assertEquals(4, time(0).sizeInBytes());
         assertEquals(4, time(3).sizeInBytes());
         assertEquals(6, time(4).sizeInBytes());
@@ -130,7 +129,7 @@ public class NativeTypeTest {
         assertEquals(12, timestamp(9).sizeInBytes());
 
         assertEquals(0, datetime().compareTo(datetime(6)));
-        assertEquals(0, time().compareTo(time(6)));
+        assertEquals(0, time().compareTo(time(0)));
         assertEquals(0, timestamp().compareTo(timestamp(6)));
     }
 
@@ -174,9 +173,9 @@ public class NativeTypeTest {
         assertEquals(BYTES, from(ColumnType.blobOf()));
         assertEquals(STRING, from(ColumnType.string()));
 
-        assertEquals(time(), from(ColumnType.time(ColumnType.TemporalColumnType.DEFAULT_PRECISION)));
-        assertEquals(datetime(), from(ColumnType.datetime(ColumnType.TemporalColumnType.DEFAULT_PRECISION)));
-        assertEquals(timestamp(), from(ColumnType.timestamp(ColumnType.TemporalColumnType.DEFAULT_PRECISION)));
+        assertEquals(time(), from(ColumnType.time(ColumnType.TemporalColumnType.DEFAULT_TIME_PRECISION)));
+        assertEquals(datetime(), from(ColumnType.datetime(ColumnType.TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION)));
+        assertEquals(timestamp(), from(ColumnType.timestamp(ColumnType.TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION)));
 
         for (int i = 1; i < 800; i += 100) {
             assertEquals(blobOf(i), from(ColumnType.blobOf(i)));

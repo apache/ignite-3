@@ -17,7 +17,8 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.Executor;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 
 /**
@@ -29,7 +30,7 @@ public abstract class RpcRequestProcessor<T extends Message> implements RpcProce
     /**
      * The logger.
      */
-    protected static final IgniteLogger LOG = IgniteLogger.forClass(RpcRequestProcessor.class);
+    protected static final IgniteLogger LOG = Loggers.forClass(RpcRequestProcessor.class);
 
     private final Executor executor;
 

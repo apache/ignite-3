@@ -35,7 +35,7 @@ import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
 import org.apache.ignite.internal.jdbc.proto.ClientMessage;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -93,7 +93,7 @@ public class TcpIgniteClient implements IgniteClient {
                 ? (LoggerFactory) System::getLogger
                 : cfg.loggerFactory();
 
-        var log = IgniteLogger.forClass(TcpIgniteClient.class, loggerFactory);
+        var log = Loggers.forClass(TcpIgniteClient.class, loggerFactory);
 
         ch = new ReliableChannel(chFactory, cfg, log);
         tables = new ClientTables(ch);
