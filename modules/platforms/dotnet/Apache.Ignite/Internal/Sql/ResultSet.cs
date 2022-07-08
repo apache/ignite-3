@@ -259,40 +259,43 @@ namespace Apache.Ignite.Internal.Sql
 
             var hasMore = _hasMorePages;
             var cols = Metadata.Columns;
+            var buf = _buffer.Value;
+            var offset = _bufferOffset;
 
-            // TODO: Use single do-while loop.
-            foreach (var row in EnumeratePage(_buffer.Value, _bufferOffset))
+            while (true)
             {
-                yield return row;
-            }
-
-            while (hasMore)
-            {
-                var pageBuf = await FetchNextPage().ConfigureAwait(false);
-
-                foreach (var row in EnumeratePage(pageBuf, 0))
+                using (buf)
                 {
-                    yield return row;
+                    foreach (var row in EnumeratePage())
+                    {
+                        yield return row;
+                    }
                 }
+
+                if (!hasMore)
+                {
+                    break;
+                }
+
+                buf = await FetchNextPage().ConfigureAwait(false);
+                offset = 0;
             }
 
             _closed = true;
 
-            IEnumerable<IIgniteTuple> EnumeratePage(PooledBuffer buf, int offset)
+            IEnumerable<IIgniteTuple> EnumeratePage()
             {
-                using (buf)
+                // ReSharper disable AccessToModifiedClosure
+                var reader = buf.GetReader(offset);
+                var pageSize = reader.ReadArrayHeader();
+                offset += (int)reader.Consumed;
+
+                for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
                 {
-                    var reader = buf.GetReader(offset);
-                    var pageSize = reader.ReadArrayHeader();
-                    offset += (int)reader.Consumed;
-
-                    for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
-                    {
-                        yield return ReadRow();
-                    }
-
-                    ReadHasMore();
+                    yield return ReadRow();
                 }
+
+                ReadHasMore();
 
                 IgniteTuple ReadRow()
                 {
@@ -319,6 +322,8 @@ namespace Apache.Ignite.Internal.Sql
                         hasMore = reader.ReadBoolean();
                     }
                 }
+
+                // ReSharper restore AccessToModifiedClosure
             }
         }
 
