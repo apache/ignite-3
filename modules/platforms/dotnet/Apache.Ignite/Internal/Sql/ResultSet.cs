@@ -32,7 +32,10 @@ namespace Apache.Ignite.Internal.Sql
     /// </summary>
     internal sealed class ResultSet : IResultSet<IIgniteTuple>, IAsyncEnumerator<IIgniteTuple>
     {
-        private record BufferHolder(PooledBuffer Buffer, int Offset);
+        private record Page(PooledBuffer Buffer, int BufferOffset, int Count)
+        {
+            public int Index { get; set; }
+        }
 
         private readonly ClientSocket _socket;
 
@@ -42,7 +45,7 @@ namespace Apache.Ignite.Internal.Sql
 
         private volatile bool _closed;
 
-        private volatile BufferHolder? _buffer;
+        private volatile Page? _currentPage;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ResultSet"/> class.
@@ -62,11 +65,12 @@ namespace Apache.Ignite.Internal.Sql
             WasApplied = reader.ReadBoolean();
             AffectedRows = reader.ReadInt64();
 
-            Metadata = ReadMeta(ref reader);
+            Metadata = HasRowSet ? ReadMeta(ref reader) : null;
 
             if (HasRowSet)
             {
-                _buffer = new BufferHolder(buf, reader.Position.GetInteger());
+                var pageSize = reader.ReadInt32();
+                _currentPage = new Page(buf, reader.Position.GetInteger(), pageSize);
             }
             else
             {
@@ -106,7 +110,7 @@ namespace Apache.Ignite.Internal.Sql
                 return;
             }
 
-            _buffer?.Buffer.Dispose();
+            _currentPage?.Buffer.Dispose();
 
             if (_resourceId != null)
             {
