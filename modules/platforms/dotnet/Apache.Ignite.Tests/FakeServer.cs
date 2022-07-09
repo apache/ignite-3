@@ -56,6 +56,7 @@ namespace Apache.Ignite.Tests
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
             _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            _listener.NoDelay = true;
 
             _listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
             _listener.Listen(backlog: 1);
@@ -152,6 +153,7 @@ namespace Apache.Ignite.Tests
             while (!_cts.IsCancellationRequested)
             {
                 using Socket handler = _listener.Accept();
+                handler.NoDelay = true;
 
                 // Read handshake.
                 using var magic = ReceiveBytes(handler, 4);
