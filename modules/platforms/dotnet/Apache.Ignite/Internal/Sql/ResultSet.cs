@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
@@ -79,6 +80,14 @@ namespace Apache.Ignite.Internal.Sql
                 _bufferReleased = 1;
                 _resourceClosed = true;
             }
+        }
+
+        /// <summary>
+        /// Finalizes an instance of the <see cref="ResultSet"/> class.
+        /// </summary>
+        ~ResultSet()
+        {
+            Dispose();
         }
 
         /// <inheritdoc/>
@@ -142,10 +151,10 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
+        [SuppressMessage("Microsoft.Usage", "CA1816:CallGCSuppressFinalizeCorrectly", Justification = "SuppressFinalize in DisposeAsync")]
         public void Dispose()
         {
-            // TODO: Make sure to release _buffer only once! Releasing pooled array twice is very dangerous.
-            // It is safer not no release it at all.
+            DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
 
         /// <inheritdoc/>
@@ -160,6 +169,8 @@ namespace Apache.Ignite.Internal.Sql
 
                 await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
             }
+
+            GC.SuppressFinalize(this);
         }
 
         /// <inheritdoc/>
