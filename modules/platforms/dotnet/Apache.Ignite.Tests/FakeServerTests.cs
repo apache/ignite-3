@@ -88,8 +88,9 @@ namespace Apache.Ignite.Tests
                 await using var res = await client.Sql.ExecuteAsync(null, "select 1");
                 var count = 0;
 
-                await foreach (var unused in res)
+                await foreach (var row in res)
                 {
+                    Assert.AreEqual(count, row[0]);
                     count++;
                 }
 

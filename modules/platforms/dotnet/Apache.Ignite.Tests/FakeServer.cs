@@ -299,7 +299,7 @@ namespace Apache.Ignite.Tests
                         writer.WriteArrayHeader(500); // Page size.
                         for (int i = 0; i < 500; i++)
                         {
-                            writer.Write(i); // Row of one.
+                            writer.Write(i + 512); // Row of one.
                         }
 
                         writer.Write(false); // Has next.
