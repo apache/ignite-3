@@ -24,6 +24,7 @@ namespace Apache.Ignite.Tests
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
+    using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
     using Ignite.Sql;
@@ -109,7 +110,7 @@ namespace Apache.Ignite.Tests
             return buf;
         }
 
-        private static void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload)
+        private static void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, int resultCode = 0)
         {
             var size = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(3 + payload.Length));
             socket.Send(size);
@@ -119,7 +120,7 @@ namespace Apache.Ignite.Tests
 
             writer.Write(0); // Message type.
             writer.Write(requestId);
-            writer.Write(0); // Success.
+            writer.Write(resultCode); // Success.
 
             writer.Flush();
 
@@ -171,10 +172,8 @@ namespace Apache.Ignite.Tests
                         break;
                     }
 
-                    // Assume fixint8.
-                    var opCode = (ClientOp)msg[0];
-
-                    var reader = new MessagePackReader(msg.AsMemory(1));
+                    var reader = new MessagePackReader(msg.AsMemory());
+                    var opCode = (ClientOp)reader.ReadInt32();
                     var requestId = reader.ReadInt64();
 
                     _ops.Enqueue(opCode);
@@ -296,8 +295,11 @@ namespace Apache.Ignite.Tests
                     }
 
                     // Fake error message for any other op code.
-                    handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
-                    handler.Send(new byte[] { 0, (byte)requestId, 1, 160 | 4, (byte)Err[0], (byte)Err[1], (byte)Err[2], (byte)Err[3] });
+                    var errWriter = new ArrayBufferWriter<byte>();
+                    var w = new MessagePackWriter(errWriter);
+                    w.Write(Err);
+                    w.Flush();
+                    Send(handler, requestId, errWriter.WrittenMemory, 1);
                 }
 
                 handler.Disconnect(true);
