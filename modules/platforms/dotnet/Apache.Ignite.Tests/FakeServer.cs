@@ -24,7 +24,6 @@ namespace Apache.Ignite.Tests
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
-    using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
     using Ignite.Sql;
