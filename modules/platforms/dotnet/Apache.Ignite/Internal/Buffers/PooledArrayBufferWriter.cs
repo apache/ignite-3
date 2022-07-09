@@ -191,6 +191,8 @@ namespace Apache.Ignite.Internal.Buffers
                 }
             }
 
+            // Arrays from ArrayPool are sized to powers of 2, so we don't need to implement the same logic here.
+            // Even if requested size is 1 byte more than current, we'll get at lest 2x bigger array.
             var newBuf = ArrayPool<byte>.Shared.Rent(newSize);
 
             Array.Copy(_buffer, newBuf, _index);

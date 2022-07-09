@@ -29,7 +29,7 @@ namespace Apache.Ignite.Sql
     /// Page size is defined in <see cref="SqlStatement.PageSize"/>.
     /// </summary>
     /// <typeparam name="T">Row type.</typeparam>
-    public interface IResultSet<T> : IAsyncDisposable, IAsyncEnumerable<T>
+    public interface IResultSet<T> : IAsyncEnumerable<T>, IAsyncDisposable, IDisposable
         where T : class // TODO: Remove class constraint (IGNITE-16355)
     {
         /// <summary>

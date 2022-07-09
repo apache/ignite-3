@@ -96,24 +96,14 @@ namespace Apache.Ignite.Internal.Sql
         /// <inheritdoc/>
         public async ValueTask<List<IIgniteTuple>> GetAllAsync()
         {
-            if (_buffer == null || Metadata == null)
-            {
-                throw NoResultSetException();
-            }
-
-            if (_iterated)
-            {
-                throw ResultSetIteratedException();
-            }
-
-            _iterated = true;
+            ValidateAndSetIteratorState();
 
             // First page is included in the initial response.
-            var cols = Metadata.Columns;
+            var cols = Metadata!.Columns;
             var hasMore = _hasMorePages;
             List<IIgniteTuple>? res = null;
 
-            ReadPage(_buffer.Value, _bufferOffset);
+            ReadPage(_buffer!.Value, _bufferOffset);
             _bufferReleased = true;
 
             while (hasMore)
@@ -154,6 +144,13 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
+        public void Dispose()
+        {
+            // TODO: Make sure to release _buffer only once! Releasing pooled array twice is very dangerous.
+            // It is safer not no release it at all.
+        }
+
+        /// <inheritdoc/>
         public async ValueTask DisposeAsync()
         {
             if (!_bufferReleased)
@@ -173,17 +170,7 @@ namespace Apache.Ignite.Internal.Sql
         /// <inheritdoc/>
         public IAsyncEnumerator<IIgniteTuple> GetAsyncEnumerator(CancellationToken cancellationToken = default)
         {
-            if (_buffer == null || Metadata == null)
-            {
-                throw NoResultSetException();
-            }
-
-            if (_iterated)
-            {
-                throw ResultSetIteratedException();
-            }
-
-            _iterated = true;
+            ValidateAndSetIteratorState();
 
             return EnumerateRows().GetAsyncEnumerator(cancellationToken);
         }
@@ -268,10 +255,6 @@ namespace Apache.Ignite.Internal.Sql
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }
         }
-
-        private static IgniteClientException NoResultSetException() => new("Query has no result set.");
-
-        private static IgniteClientException ResultSetIteratedException() => new("Query result set can not be iterated more than once.");
 
         private async IAsyncEnumerable<IIgniteTuple> EnumerateRows()
         {
@@ -366,6 +349,21 @@ namespace Apache.Ignite.Internal.Sql
 
             writer.Write(_resourceId!.Value);
             writer.Flush();
+        }
+
+        private void ValidateAndSetIteratorState()
+        {
+            if (!HasRowSet)
+            {
+                throw new IgniteClientException("Query has no result set.");
+            }
+
+            if (_iterated)
+            {
+                throw new IgniteClientException("Query result set can not be iterated more than once.");
+            }
+
+            _iterated = true;
         }
     }
 }
