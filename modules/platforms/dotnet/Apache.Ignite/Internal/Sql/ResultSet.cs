@@ -350,7 +350,12 @@ namespace Apache.Ignite.Internal.Sql
 
             if (resourceId == null)
             {
-                throw new IgniteClientException("ResultSet does not have rows or is closed.");
+                throw new IgniteClientException("Query has no result set.");
+            }
+
+            if (_resourceClosed)
+            {
+                throw new ObjectDisposedException(nameof(ResultSet));
             }
 
             writer.Write(_resourceId!.Value);

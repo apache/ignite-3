@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Sql
 {
+    using System;
     using System.Threading.Tasks;
     using Ignite.Sql;
     using Ignite.Table;
@@ -106,17 +107,30 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public void TestIterateAfterDisposeThrows()
+        public async Task TestIterateAfterDisposeThrows()
         {
-            Assert.Fail("TODO");
+            await CreateTestTable(3);
+
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 1);
+            var resultSet = await Client.Sql.ExecuteAsync(null, statement);
+            var resultSet2 = await Client.Sql.ExecuteAsync(null, statement);
+
+            await resultSet.DisposeAsync();
+            await resultSet2.DisposeAsync();
+
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await resultSet.GetAllAsync());
+
+            var enumerator = resultSet2.GetAsyncEnumerator();
+            await enumerator.MoveNextAsync(); // Skip first element.
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await enumerator.MoveNextAsync());
         }
 
         [Test]
         public async Task TestMultipleDisposeIsAllowed()
         {
-            await CreateTestTable(10);
+            await CreateTestTable(3);
 
-            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 1);
             await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
 
             resultSet.Dispose();
