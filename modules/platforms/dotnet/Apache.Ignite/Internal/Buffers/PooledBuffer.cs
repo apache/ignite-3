@@ -84,7 +84,6 @@ namespace Apache.Ignite.Internal.Buffers
         /// </summary>
         public void Dispose()
         {
-            // NOTE: Double return is the most dangerous situation https://github.com/dotnet/runtime/issues/7532.
             ByteArrayPool.Return(_bytes);
         }
     }

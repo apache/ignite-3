@@ -17,24 +17,56 @@
 
 namespace Apache.Ignite.Internal.Buffers
 {
+    using System;
     using System.Buffers;
+    using System.Collections.Concurrent;
 
     /// <summary>
     /// Wrapper for the standard <see cref="ArrayPool{T}.Shared"/> with safety checks in debug mode.
     /// </summary>
     internal static class ByteArrayPool
     {
+#if DEBUG
+        /// <summary>
+        /// Track pooled arrays in debug mode to detect double-return - the most dangerous scenario which can cause application-wide
+        /// memory corruption, when the same array is returned from the pool twice and used concurrently.
+        ///
+        /// In the future there should be some built-in ways to detect this:
+        /// https://github.com/dotnet/runtime/issues/7532.
+        /// </summary>
+        private static readonly ConcurrentDictionary<byte[], object?> ReturnedArrays = new();
+#endif
+
         /// <summary>
         /// Retrieves a buffer that is at least the requested length.
         /// </summary>
         /// <param name="minimumLength">The minimum length of the array.</param>
         /// <returns>An byte array that is at least <paramref name="minimumLength" /> in length.</returns>
-        public static byte[] Rent(int minimumLength) => ArrayPool<byte>.Shared.Rent(minimumLength);
+        public static byte[] Rent(int minimumLength)
+        {
+            var bytes = ArrayPool<byte>.Shared.Rent(minimumLength);
+
+#if DEBUG
+            ReturnedArrays.TryRemove(bytes, out _);
+#endif
+
+            return bytes;
+        }
 
         /// <summary>
         /// Returns an array to the pool that was previously obtained using the <see cref="Rent" /> method.
         /// </summary>
         /// <param name="array">A buffer to return to the pool that was previously obtained using the <see cref="Rent" /> method.</param>
-        public static void Return(byte[] array) => ArrayPool<byte>.Shared.Return(array);
+        public static void Return(byte[] array)
+        {
+#if DEBUG
+            if (!ReturnedArrays.TryAdd(array, null))
+            {
+                throw new InvalidOperationException("Double return detected for pooled array: " + array);
+            }
+#endif
+
+            ArrayPool<byte>.Shared.Return(array);
+        }
     }
 }
