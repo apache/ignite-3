@@ -59,12 +59,14 @@ namespace Apache.Ignite.Internal.Buffers
         /// </summary>
         /// <param name="offset">Offset.</param>
         /// <returns><see cref="MessagePackReader"/> for this buffer.</returns>
-        public MessagePackReader GetReader(int offset = 0)
-        {
-            Debug.Assert(offset >= 0, "offset >= 0");
+        public MessagePackReader GetReader(int offset = 0) => new(AsMemory(offset));
 
-            return new(new ReadOnlyMemory<byte>(_bytes, _position + offset, _length - offset));
-        }
+        /// <summary>
+        /// Gets this buffer contents as memory.
+        /// </summary>
+        /// <param name="offset">Offset.</param>
+        /// <returns>Memory of byte.</returns>
+        public ReadOnlyMemory<byte> AsMemory(int offset = 0) => new(_bytes, _position + offset, _length - offset);
 
         /// <summary>
         /// Gets a slice of the current buffer.

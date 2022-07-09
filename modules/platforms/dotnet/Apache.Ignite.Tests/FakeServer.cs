@@ -27,6 +27,7 @@ namespace Apache.Ignite.Tests
     using System.Threading;
     using System.Threading.Tasks;
     using Ignite.Sql;
+    using Internal.Buffers;
     using Internal.Network;
     using Internal.Proto;
     using MessagePack;
@@ -86,13 +87,16 @@ namespace Apache.Ignite.Tests
             _cts.Dispose();
         }
 
-        private static int ReceiveMessageSize(Socket handler) =>
-            IPAddress.NetworkToHostOrder(BitConverter.ToInt32(ReceiveBytes(handler, 4)));
+        private static int ReceiveMessageSize(Socket handler)
+        {
+            using var buf = ReceiveBytes(handler, 4);
+            return IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buf.AsMemory().Span));
+        }
 
-        private static byte[] ReceiveBytes(Socket socket, int size)
+        private static PooledBuffer ReceiveBytes(Socket socket, int size)
         {
             int received = 0;
-            var buf = new byte[size];
+            var buf = ByteArrayPool.Rent(size);
 
             while (received < size)
             {
@@ -106,7 +110,7 @@ namespace Apache.Ignite.Tests
                 received += res;
             }
 
-            return buf;
+            return new PooledBuffer(buf, 0, size);
         }
 
         private static void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, int resultCode = 0)
@@ -140,9 +144,9 @@ namespace Apache.Ignite.Tests
                 using Socket handler = _listener.Accept();
 
                 // Read handshake.
-                ReceiveBytes(handler, 4); // Magic.
+                using var magic = ReceiveBytes(handler, 4);
                 var msgSize = ReceiveMessageSize(handler);
-                ReceiveBytes(handler, msgSize);
+                using var handshake = ReceiveBytes(handler, msgSize);
 
                 // Write handshake response.
                 handler.Send(ProtoCommon.MagicBytes);
@@ -164,7 +168,7 @@ namespace Apache.Ignite.Tests
                 while (!_cts.IsCancellationRequested)
                 {
                     msgSize = ReceiveMessageSize(handler);
-                    var msg = ReceiveBytes(handler, msgSize);
+                    using var msg = ReceiveBytes(handler, msgSize);
 
                     if (_shouldDropConnection(++requestCount))
                     {
