@@ -47,9 +47,12 @@ namespace Apache.Ignite.Tests
 
         private readonly Func<int, bool> _shouldDropConnection;
 
-        private readonly ConcurrentQueue<ClientOp> _ops = new();
+        private readonly ConcurrentQueue<ClientOp>? _ops;
 
-        public FakeServer(Func<int, bool>? shouldDropConnection = null, string nodeName = "fake-server")
+        public FakeServer(
+            Func<int, bool>? shouldDropConnection = null,
+            string nodeName = "fake-server",
+            bool trackOps = true)
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
             _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
@@ -58,6 +61,11 @@ namespace Apache.Ignite.Tests
             _listener.Listen(backlog: 1);
 
             Node = new ClusterNode("id-" + nodeName, nodeName, (IPEndPoint)_listener.LocalEndPoint);
+
+            if (trackOps)
+            {
+                _ops = new();
+            }
 
             Task.Run(ListenLoop);
         }
@@ -117,7 +125,7 @@ namespace Apache.Ignite.Tests
 
         private static void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, int resultCode = 0)
         {
-            var header = new PooledArrayBufferWriter();
+            using var header = new PooledArrayBufferWriter();
             var writer = new MessagePackWriter(header);
 
             writer.Write(0); // Message type.
@@ -183,7 +191,7 @@ namespace Apache.Ignite.Tests
                     var opCode = (ClientOp)reader.ReadInt32();
                     var requestId = reader.ReadInt64();
 
-                    _ops.Enqueue(opCode);
+                    _ops?.Enqueue(opCode);
 
                     if (opCode == ClientOp.TablesGet)
                     {
@@ -199,7 +207,7 @@ namespace Apache.Ignite.Tests
 
                         if (tableName == ExistingTableName)
                         {
-                            var arrayBufferWriter = new PooledArrayBufferWriter();
+                            using var arrayBufferWriter = new PooledArrayBufferWriter();
                             var writer = new MessagePackWriter(arrayBufferWriter);
                             writer.Write(Guid.Empty);
                             writer.Flush();
@@ -212,7 +220,7 @@ namespace Apache.Ignite.Tests
 
                     if (opCode == ClientOp.SchemasGet)
                     {
-                        var arrayBufferWriter = new PooledArrayBufferWriter();
+                        using var arrayBufferWriter = new PooledArrayBufferWriter();
                         var writer = new MessagePackWriter(arrayBufferWriter);
                         writer.WriteMapHeader(1);
                         writer.Write(1); // Version.
@@ -240,7 +248,7 @@ namespace Apache.Ignite.Tests
 
                     if (opCode == ClientOp.ComputeExecute)
                     {
-                        var arrayBufferWriter = new PooledArrayBufferWriter();
+                        using var arrayBufferWriter = new PooledArrayBufferWriter();
                         var writer = new MessagePackWriter(arrayBufferWriter);
                         writer.WriteObjectWithType(Node.Name);
                         writer.Flush();
@@ -252,7 +260,7 @@ namespace Apache.Ignite.Tests
 
                     if (opCode == ClientOp.SqlExec)
                     {
-                        var arrayBufferWriter = new PooledArrayBufferWriter();
+                        using var arrayBufferWriter = new PooledArrayBufferWriter();
                         var writer = new MessagePackWriter(arrayBufferWriter);
 
                         writer.Write(1); // ResourceId.
@@ -284,7 +292,7 @@ namespace Apache.Ignite.Tests
 
                     if (opCode == ClientOp.SqlCursorNextPage)
                     {
-                        var arrayBufferWriter = new PooledArrayBufferWriter();
+                        using var arrayBufferWriter = new PooledArrayBufferWriter();
                         var writer = new MessagePackWriter(arrayBufferWriter);
 
                         writer.WriteArrayHeader(500); // Page size.
@@ -302,7 +310,7 @@ namespace Apache.Ignite.Tests
                     }
 
                     // Fake error message for any other op code.
-                    var errWriter = new PooledArrayBufferWriter();
+                    using var errWriter = new PooledArrayBufferWriter();
                     var w = new MessagePackWriter(errWriter);
                     w.Write(Err);
                     w.Flush();
