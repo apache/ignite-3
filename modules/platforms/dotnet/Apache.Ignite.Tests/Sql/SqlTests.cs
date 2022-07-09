@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Sql
 {
     using System;
+    using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Sql;
     using Ignite.Table;
@@ -139,9 +140,17 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public void TestPutKvGetSql()
+        public async Task TestPutKvGetSql()
         {
-            Assert.Fail("TODO");
+            await CreateTestTable(0);
+
+            var table = await Client.Tables.GetTableAsync("PUBLIC.TEST");
+            await table!.RecordBinaryView.UpsertAsync(null, new IgniteTuple { ["ID"] = 1, ["VAL"] = "v" });
+
+            await using var res = await Client.Sql.ExecuteAsync(null, "SELECT VAL FROM TEST WHERE ID = ?", 1);
+            var row = (await res.GetAllAsync()).Single();
+
+            Assert.AreEqual("IgniteTuple [VAL=v]", row.ToString());
         }
 
         [Test]
