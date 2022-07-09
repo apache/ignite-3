@@ -24,6 +24,7 @@ namespace Apache.Ignite.Benchmarks.Sql
     using Ignite.Table;
     using Tests;
 
+    [MemoryDiagnoser]
     public class ResultSetBenchmarks
     {
         private FakeServer? _server;
