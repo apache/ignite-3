@@ -106,6 +106,24 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public void TestIterateAfterDisposeThrows()
+        {
+            Assert.Fail("TODO");
+        }
+
+        [Test]
+        public async Task TestMultipleDisposeIsAllowed()
+        {
+            await CreateTestTable(10);
+
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
+
+            resultSet.Dispose();
+            await resultSet.DisposeAsync();
+        }
+
+        [Test]
         public void TestPutKvGetSql()
         {
             Assert.Fail("TODO");
