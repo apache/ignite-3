@@ -266,7 +266,6 @@ namespace Apache.Ignite.Internal.Sql
 
         private async IAsyncEnumerable<IIgniteTuple> EnumerateRows()
         {
-            // TODO: Rewrite this in a simpler way - manual state machine. Should be shorter and faster.
             var hasMore = _hasMorePages;
             var cols = Metadata!.Columns;
             var offset = _bufferOffset;
