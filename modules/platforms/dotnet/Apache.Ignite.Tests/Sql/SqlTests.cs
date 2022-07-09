@@ -90,6 +90,20 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public async Task TestLinqAsyncMultiplePages()
+        {
+            await CreateTestTable(10);
+
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
+
+            var rows = await resultSet.Where(x => (int)x["ID"]! < 5).ToArrayAsync();
+            Assert.AreEqual(5, rows.Length);
+            Assert.AreEqual("IgniteTuple [ID=0, VAL=s-0]", rows[0].ToString());
+            Assert.AreEqual("IgniteTuple [ID=4, VAL=s-4]", rows[4].ToString());
+        }
+
+        [Test]
         public async Task TestMultipleEnumerationThrows()
         {
             // GetAll -> GetAsyncEnumerator.
