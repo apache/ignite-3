@@ -51,7 +51,7 @@ namespace Apache.Ignite.Benchmarks.Sql
             _client?.Dispose();
         }
 
-        [Benchmark]
+        [Benchmark(Baseline = true)]
         public async Task ToListAsync()
         {
             await using var resultSet = await _client!.Sql.ExecuteAsync(null, "select 1");
