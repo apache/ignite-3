@@ -109,6 +109,28 @@ namespace Apache.Ignite.Tests
             return buf;
         }
 
+        private static void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload)
+        {
+            var size = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(3 + payload.Length));
+            socket.Send(size);
+
+            var header = new ArrayBufferWriter<byte>();
+            var writer = new MessagePackWriter(header);
+
+            writer.Write(0); // Message type.
+            writer.Write(requestId);
+            writer.Write(0); // Success.
+
+            writer.Flush();
+
+            socket.Send(header.WrittenSpan);
+
+            if (!payload.IsEmpty)
+            {
+                socket.Send(payload.Span);
+            }
+        }
+
         private void ListenLoop()
         {
             int requestCount = 0;
@@ -151,34 +173,32 @@ namespace Apache.Ignite.Tests
 
                     // Assume fixint8.
                     var opCode = (ClientOp)msg[0];
-                    var requestId = msg[1];
+
+                    var reader = new MessagePackReader(msg.AsMemory(1));
+                    var requestId = reader.ReadInt64();
 
                     _ops.Enqueue(opCode);
 
                     if (opCode == ClientOp.TablesGet)
                     {
-                        handler.Send(new byte[] { 0, 0, 0, 4 }); // Size.
-                        handler.Send(new byte[] { 0, requestId, 0, 128 }); // Empty map.
+                        // Empty map.
+                        Send(handler, requestId, new byte[] { 128 }.AsMemory());
 
                         continue;
                     }
 
                     if (opCode == ClientOp.TableGet)
                     {
-                        var reader = new MessagePackReader(msg.AsMemory()[2..]);
                         var tableName = reader.ReadString();
 
                         if (tableName == ExistingTableName)
                         {
-                            handler.Send(new byte[] { 0, 0, 0, 21 }); // Size.
-                            handler.Send(new byte[] { 0, requestId, 0 });
-
                             var arrayBufferWriter = new ArrayBufferWriter<byte>();
                             var writer = new MessagePackWriter(arrayBufferWriter);
                             writer.Write(Guid.Empty);
                             writer.Flush();
 
-                            handler.Send(arrayBufferWriter.WrittenSpan);
+                            Send(handler, requestId, arrayBufferWriter.WrittenMemory);
 
                             continue;
                         }
@@ -186,9 +206,6 @@ namespace Apache.Ignite.Tests
 
                     if (opCode == ClientOp.SchemasGet)
                     {
-                        handler.Send(new byte[] { 0, 0, 0, 6 }); // Size.
-                        handler.Send(new byte[] { 0, requestId, 0 });
-
                         var arrayBufferWriter = new ArrayBufferWriter<byte>();
                         var writer = new MessagePackWriter(arrayBufferWriter);
                         writer.WriteMapHeader(1);
@@ -196,23 +213,21 @@ namespace Apache.Ignite.Tests
                         writer.WriteArrayHeader(0); // Columns.
                         writer.Flush();
 
-                        handler.Send(arrayBufferWriter.WrittenSpan);
+                        Send(handler, requestId, arrayBufferWriter.WrittenMemory);
 
                         continue;
                     }
 
                     if (opCode == ClientOp.TupleUpsert)
                     {
-                        handler.Send(new byte[] { 0, 0, 0, 3 }); // Size.
-                        handler.Send(new byte[] { 0, requestId, 0 }); // No payload.
+                        Send(handler, requestId, ReadOnlyMemory<byte>.Empty);
 
                         continue;
                     }
 
                     if (opCode == ClientOp.TxBegin)
                     {
-                        handler.Send(new byte[] { 0, 0, 0, 4 }); // Size.
-                        handler.Send(new byte[] { 0, requestId, 0, 0 }); // Tx id.
+                        Send(handler, requestId, new byte[] { 0 }.AsMemory());
 
                         continue;
                     }
@@ -221,12 +236,10 @@ namespace Apache.Ignite.Tests
                     {
                         var arrayBufferWriter = new ArrayBufferWriter<byte>();
                         var writer = new MessagePackWriter(arrayBufferWriter);
-                        writer.Write(Node.Name);
+                        writer.WriteObjectWithType(Node.Name);
                         writer.Flush();
 
-                        handler.Send(new byte[] { 0, 0, 0, (byte)(4 + arrayBufferWriter.WrittenCount) }); // Size.
-                        handler.Send(new byte[] { 0, requestId, 0, (byte)ClientDataType.String });
-                        handler.Send(arrayBufferWriter.WrittenSpan);
+                        Send(handler, requestId, arrayBufferWriter.WrittenMemory);
 
                         continue;
                     }
@@ -258,10 +271,7 @@ namespace Apache.Ignite.Tests
 
                         writer.Flush();
 
-                        var size = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(3 + arrayBufferWriter.WrittenCount));
-                        handler.Send(size); // Size.
-                        handler.Send(new byte[] { 0, requestId, 0 }); // Header.
-                        handler.Send(arrayBufferWriter.WrittenSpan);
+                        Send(handler, requestId, arrayBufferWriter.WrittenMemory);
 
                         continue;
                     }
@@ -278,20 +288,16 @@ namespace Apache.Ignite.Tests
                         }
 
                         writer.Write(false); // Has next.
-
                         writer.Flush();
 
-                        var size = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(3 + arrayBufferWriter.WrittenCount));
-                        handler.Send(size); // Size.
-                        handler.Send(new byte[] { 0, requestId, 0 }); // Header.
-                        handler.Send(arrayBufferWriter.WrittenSpan);
+                        Send(handler, requestId, arrayBufferWriter.WrittenMemory);
 
                         continue;
                     }
 
                     // Fake error message for any other op code.
                     handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
-                    handler.Send(new byte[] { 0, requestId, 1, 160 | 4, (byte)Err[0], (byte)Err[1], (byte)Err[2], (byte)Err[3] });
+                    handler.Send(new byte[] { 0, (byte)requestId, 1, 160 | 4, (byte)Err[0], (byte)Err[1], (byte)Err[2], (byte)Err[3] });
                 }
 
                 handler.Disconnect(true);
