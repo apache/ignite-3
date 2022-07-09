@@ -23,6 +23,10 @@ namespace Apache.Ignite.Sql
 
     /// <summary>
     /// Query result set.
+    /// <para />
+    /// Can not be enumerated more than once. The implementation is lazy and retrieves data pages on demand
+    /// (while iterating with <see cref="IAsyncEnumerable{T}"/> or when <see cref="GetAllAsync"/> is called).
+    /// Page size is defined in <see cref="SqlStatement.PageSize"/>.
     /// </summary>
     /// <typeparam name="T">Row type.</typeparam>
     public interface IResultSet<T> : IAsyncDisposable, IAsyncEnumerable<T>
@@ -51,6 +55,9 @@ namespace Apache.Ignite.Sql
 
         /// <summary>
         /// Gets all result set rows as list.
+        /// <para />
+        /// Can not be called multiple times - the underlying server-side result set is closed as soon
+        /// as the last page of data is retrieved, and client-side buffer is also released to reduce memory usage.
         /// </summary>
         /// <returns>All result set rows as list.</returns>
         ValueTask<List<T>> GetAllAsync(); // TODO: Measure against IAsyncEnumerable approach.
