@@ -18,12 +18,11 @@
 namespace Apache.Ignite.Internal.Buffers
 {
     using System;
-    using System.Buffers;
     using System.Diagnostics;
     using MessagePack;
 
     /// <summary>
-    /// Pooled byte buffer. Wraps a byte array rented from <see cref="ArrayPool{T}.Shared"/>,
+    /// Pooled byte buffer. Wraps a byte array rented from <see cref="ByteArrayPool"/>,
     /// returns it to the pool on <see cref="Dispose"/>.
     /// </summary>
     internal readonly struct PooledBuffer : IDisposable
@@ -86,7 +85,7 @@ namespace Apache.Ignite.Internal.Buffers
         public void Dispose()
         {
             // NOTE: Double return is the most dangerous situation https://github.com/dotnet/runtime/issues/7532.
-            ArrayPool<byte>.Shared.Return(_bytes);
+            ByteArrayPool.Return(_bytes);
         }
     }
 }
