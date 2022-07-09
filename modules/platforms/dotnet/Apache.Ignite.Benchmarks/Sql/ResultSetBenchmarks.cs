@@ -24,6 +24,13 @@ namespace Apache.Ignite.Benchmarks.Sql
     using Ignite.Table;
     using Tests;
 
+    /// <summary>
+    /// Results on Intel Core i7-9700K, .NET SDK 6.0.301, Ubuntu 20.04:
+    /// |          Method |     Mean |     Error |   StdDev |    Gen 0 |   Gen 1 | Allocated |
+    /// |---------------- |---------:|----------:|---------:|---------:|--------:|----------:|
+    /// |     GetAllAsync | 4.868 ms | 0.5497 ms | 1.621 ms | 109.3750 | 50.7813 |    639 KB |
+    /// | AsyncEnumerable | 5.525 ms | 0.6118 ms | 1.804 ms | 109.3750 | 50.7813 |    640 KB |.
+    /// </summary>
     [MemoryDiagnoser]
     public class ResultSetBenchmarks
     {
