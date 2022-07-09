@@ -30,12 +30,6 @@ namespace Apache.Ignite.Benchmarks.Sql
     /// |---------------- |---------:|--------:|--------:|--------:|--------:|----------:|
     /// |     ToListAsync | 387.8 us | 7.32 us | 8.72 us | 62.5000 | 22.4609 |    383 KB |
     /// | AsyncEnumerable | 522.8 us | 9.84 us | 9.20 us | 62.5000 | 22.4609 |    384 KB |.
-    /// <para />
-    /// Same box, Windows 10:
-    /// |          Method |     Mean |    Error |   StdDev |   Gen 0 |   Gen 1 | Allocated |
-    /// |---------------- |---------:|---------:|---------:|--------:|--------:|----------:|
-    /// |     ToListAsync | 372.7 us |  4.00 us |  3.74 us | 62.5000 | 22.9492 |    383 KB |
-    /// | AsyncEnumerable | 542.8 us | 10.77 us | 22.23 us | 62.5000 | 23.4375 |    384 KB |.
     /// </summary>
     [MemoryDiagnoser]
     public class ResultSetBenchmarks
