@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Tests
 {
     using System;
-    using System.Buffers;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
@@ -113,9 +112,12 @@ namespace Apache.Ignite.Tests
             return new PooledBuffer(buf, 0, size);
         }
 
+        private static void Send(Socket socket, long requestId, PooledArrayBufferWriter writer, int resultCode = 0)
+            => Send(socket, requestId, writer.GetWrittenMemory().Slice(PooledArrayBufferWriter.ReservedPrefixSize), resultCode);
+
         private static void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, int resultCode = 0)
         {
-            var header = new ArrayBufferWriter<byte>();
+            var header = new PooledArrayBufferWriter();
             var writer = new MessagePackWriter(header);
 
             writer.Write(0); // Message type.
@@ -124,10 +126,11 @@ namespace Apache.Ignite.Tests
 
             writer.Flush();
 
-            var size = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(header.WrittenCount + payload.Length));
+            var headerMem = header.GetWrittenMemory().Slice(PooledArrayBufferWriter.ReservedPrefixSize);
+            var size = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(headerMem.Length + payload.Length));
             socket.Send(size);
 
-            socket.Send(header.WrittenSpan);
+            socket.Send(headerMem.Span);
 
             if (!payload.IsEmpty)
             {
@@ -151,8 +154,8 @@ namespace Apache.Ignite.Tests
                 // Write handshake response.
                 handler.Send(ProtoCommon.MagicBytes);
 
-                var handshakeBufferWriter = new ArrayBufferWriter<byte>();
-                var handshakeWriter = new MessagePackWriter(handshakeBufferWriter);
+                using var handshakeBufferWriter = new PooledArrayBufferWriter();
+                var handshakeWriter = handshakeBufferWriter.GetMessageWriter();
                 handshakeWriter.Write(0); // Idle timeout.
                 handshakeWriter.Write(Node.Id); // Node id.
                 handshakeWriter.Write(Node.Name); // Node name (consistent id).
@@ -160,10 +163,11 @@ namespace Apache.Ignite.Tests
                 handshakeWriter.WriteMapHeader(0); // Extensions.
                 handshakeWriter.Flush();
 
-                handler.Send(new byte[] { 0, 0, 0, (byte)(4 + handshakeBufferWriter.WrittenCount) }); // Size.
+                var handshakeMem = handshakeBufferWriter.GetWrittenMemory().Slice(PooledArrayBufferWriter.ReservedPrefixSize);
+                handler.Send(new byte[] { 0, 0, 0, (byte)(4 + handshakeMem.Length) }); // Size.
                 handler.Send(new byte[] { 3, 0, 0, 0 }); // Version and success flag.
 
-                handler.Send(handshakeBufferWriter.WrittenSpan);
+                handler.Send(handshakeMem.Span);
 
                 while (!_cts.IsCancellationRequested)
                 {
@@ -195,12 +199,12 @@ namespace Apache.Ignite.Tests
 
                         if (tableName == ExistingTableName)
                         {
-                            var arrayBufferWriter = new ArrayBufferWriter<byte>();
+                            var arrayBufferWriter = new PooledArrayBufferWriter();
                             var writer = new MessagePackWriter(arrayBufferWriter);
                             writer.Write(Guid.Empty);
                             writer.Flush();
 
-                            Send(handler, requestId, arrayBufferWriter.WrittenMemory);
+                            Send(handler, requestId, arrayBufferWriter);
 
                             continue;
                         }
@@ -208,14 +212,14 @@ namespace Apache.Ignite.Tests
 
                     if (opCode == ClientOp.SchemasGet)
                     {
-                        var arrayBufferWriter = new ArrayBufferWriter<byte>();
+                        var arrayBufferWriter = new PooledArrayBufferWriter();
                         var writer = new MessagePackWriter(arrayBufferWriter);
                         writer.WriteMapHeader(1);
                         writer.Write(1); // Version.
                         writer.WriteArrayHeader(0); // Columns.
                         writer.Flush();
 
-                        Send(handler, requestId, arrayBufferWriter.WrittenMemory);
+                        Send(handler, requestId, arrayBufferWriter);
 
                         continue;
                     }
@@ -236,19 +240,19 @@ namespace Apache.Ignite.Tests
 
                     if (opCode == ClientOp.ComputeExecute)
                     {
-                        var arrayBufferWriter = new ArrayBufferWriter<byte>();
+                        var arrayBufferWriter = new PooledArrayBufferWriter();
                         var writer = new MessagePackWriter(arrayBufferWriter);
                         writer.WriteObjectWithType(Node.Name);
                         writer.Flush();
 
-                        Send(handler, requestId, arrayBufferWriter.WrittenMemory);
+                        Send(handler, requestId, arrayBufferWriter);
 
                         continue;
                     }
 
                     if (opCode == ClientOp.SqlExec)
                     {
-                        var arrayBufferWriter = new ArrayBufferWriter<byte>();
+                        var arrayBufferWriter = new PooledArrayBufferWriter();
                         var writer = new MessagePackWriter(arrayBufferWriter);
 
                         writer.Write(1); // ResourceId.
@@ -273,14 +277,14 @@ namespace Apache.Ignite.Tests
 
                         writer.Flush();
 
-                        Send(handler, requestId, arrayBufferWriter.WrittenMemory);
+                        Send(handler, requestId, arrayBufferWriter);
 
                         continue;
                     }
 
                     if (opCode == ClientOp.SqlCursorNextPage)
                     {
-                        var arrayBufferWriter = new ArrayBufferWriter<byte>();
+                        var arrayBufferWriter = new PooledArrayBufferWriter();
                         var writer = new MessagePackWriter(arrayBufferWriter);
 
                         writer.WriteArrayHeader(500); // Page size.
@@ -292,17 +296,17 @@ namespace Apache.Ignite.Tests
                         writer.Write(false); // Has next.
                         writer.Flush();
 
-                        Send(handler, requestId, arrayBufferWriter.WrittenMemory);
+                        Send(handler, requestId, arrayBufferWriter);
 
                         continue;
                     }
 
                     // Fake error message for any other op code.
-                    var errWriter = new ArrayBufferWriter<byte>();
+                    var errWriter = new PooledArrayBufferWriter();
                     var w = new MessagePackWriter(errWriter);
                     w.Write(Err);
                     w.Flush();
-                    Send(handler, requestId, errWriter.WrittenMemory, 1);
+                    Send(handler, requestId, errWriter, 1);
                 }
 
                 handler.Disconnect(true);
