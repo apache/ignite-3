@@ -52,7 +52,7 @@ namespace Apache.Ignite.Tests
         public FakeServer(
             Func<int, bool>? shouldDropConnection = null,
             string nodeName = "fake-server",
-            bool trackOps = true)
+            bool disableOpsTracking = false)
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
             _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
@@ -62,7 +62,7 @@ namespace Apache.Ignite.Tests
 
             Node = new ClusterNode("id-" + nodeName, nodeName, (IPEndPoint)_listener.LocalEndPoint);
 
-            if (trackOps)
+            if (!disableOpsTracking)
             {
                 _ops = new();
             }
@@ -72,7 +72,7 @@ namespace Apache.Ignite.Tests
 
         public IClusterNode Node { get; }
 
-        internal IList<ClientOp> ClientOps => _ops.ToList();
+        internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
         {

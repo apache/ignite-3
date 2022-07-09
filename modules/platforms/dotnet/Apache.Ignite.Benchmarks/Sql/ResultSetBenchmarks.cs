@@ -40,7 +40,7 @@ namespace Apache.Ignite.Benchmarks.Sql
         [GlobalSetup]
         public async Task GlobalSetup()
         {
-            _server = new FakeServer();
+            _server = new FakeServer(disableOpsTracking: true);
             _client = await _server.ConnectClientAsync();
         }
 
