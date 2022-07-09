@@ -17,9 +17,8 @@
 
 namespace Apache.Ignite.Internal.Buffers
 {
-    using System;
     using System.Buffers;
-    using System.Collections.Concurrent;
+    using System.Runtime.CompilerServices;
 
     /// <summary>
     /// Wrapper for the standard <see cref="ArrayPool{T}.Shared"/> with safety checks in debug mode.
@@ -34,7 +33,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// In the future there should be some built-in ways to detect this:
         /// https://github.com/dotnet/runtime/issues/7532.
         /// </summary>
-        private static readonly ConcurrentDictionary<byte[], object?> ReturnedArrays = new();
+        private static readonly ConditionalWeakTable<byte[], object?> ReturnedArrays = new();
 #endif
 
         /// <summary>
@@ -47,7 +46,7 @@ namespace Apache.Ignite.Internal.Buffers
             var bytes = ArrayPool<byte>.Shared.Rent(minimumLength);
 
 #if DEBUG
-            ReturnedArrays.TryRemove(bytes, out _);
+            ReturnedArrays.Remove(bytes);
 #endif
 
             return bytes;
@@ -60,10 +59,8 @@ namespace Apache.Ignite.Internal.Buffers
         public static void Return(byte[] array)
         {
 #if DEBUG
-            if (!ReturnedArrays.TryAdd(array, null))
-            {
-                throw new InvalidOperationException("Double return detected for pooled array: " + array);
-            }
+            // Will throw when key exists.
+            ReturnedArrays.Add(array, null);
 #endif
 
             ArrayPool<byte>.Shared.Return(array);
