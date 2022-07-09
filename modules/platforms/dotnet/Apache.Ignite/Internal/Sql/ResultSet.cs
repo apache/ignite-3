@@ -171,8 +171,22 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
-        public IAsyncEnumerator<IIgniteTuple> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
-            EnumerateRows().GetAsyncEnumerator(cancellationToken);
+        public IAsyncEnumerator<IIgniteTuple> GetAsyncEnumerator(CancellationToken cancellationToken = default)
+        {
+            if (_buffer == null || Metadata == null)
+            {
+                throw NoResultSetException();
+            }
+
+            if (_iterated)
+            {
+                throw ResultSetIteratedException();
+            }
+
+            _iterated = true;
+
+            return EnumerateRows().GetAsyncEnumerator(cancellationToken);
+        }
 
         private static ResultSetMetadata ReadMeta(ref MessagePackReader reader)
         {
@@ -261,21 +275,9 @@ namespace Apache.Ignite.Internal.Sql
 
         private async IAsyncEnumerable<IIgniteTuple> EnumerateRows()
         {
-            if (_buffer == null || Metadata == null)
-            {
-                throw NoResultSetException();
-            }
-
-            if (_iterated)
-            {
-                throw ResultSetIteratedException();
-            }
-
-            _iterated = true;
-
             var hasMore = _hasMorePages;
-            var cols = Metadata.Columns;
-            var buf = _buffer.Value;
+            var cols = Metadata!.Columns;
+            var buf = _buffer!.Value;
             var offset = _bufferOffset;
 
             while (true)

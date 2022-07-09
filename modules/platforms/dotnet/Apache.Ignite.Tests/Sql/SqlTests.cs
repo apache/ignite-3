@@ -87,6 +87,25 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public async Task TestMultipleEnumerationThrows()
+        {
+            // GetAll -> GetAsyncEnumerator.
+            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(null, "SELECT 1", 1);
+            await resultSet.GetAllAsync();
+
+            var ex = Assert.Throws<IgniteClientException>(() => resultSet.GetAsyncEnumerator());
+            Assert.AreEqual("Query result set can not be iterated more than once.", ex!.Message);
+            Assert.ThrowsAsync<IgniteClientException>(async () => await resultSet.GetAllAsync());
+
+            // GetAsyncEnumerator -> GetAll.
+            await using IResultSet<IIgniteTuple> resultSet2 = await Client.Sql.ExecuteAsync(null, "SELECT 1", 1);
+            _ = resultSet2.GetAsyncEnumerator();
+
+            Assert.ThrowsAsync<IgniteClientException>(async () => await resultSet2.GetAllAsync());
+            Assert.Throws<IgniteClientException>(() => resultSet2.GetAsyncEnumerator());
+        }
+
+        [Test]
         public void TestPutKvGetSql()
         {
             Assert.Fail("TODO");
