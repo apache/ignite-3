@@ -31,6 +31,7 @@ namespace Apache.Ignite.Tests.Sql
         [SetUp]
         public async Task SetUp()
         {
+            // TODO: Don't re-create tables for every test, just clean it.
             await Client.Sql.ExecuteAsync(null, "DROP TABLE IF EXISTS TEST");
         }
 
@@ -144,9 +145,14 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public void TestPutSqlGetKv()
+        public async Task TestPutSqlGetKv()
         {
-            Assert.Fail("TODO");
+            await CreateTestTable(2);
+
+            var table = await Client.Tables.GetTableAsync("PUBLIC.TEST");
+            var res = await table!.RecordBinaryView.GetAsync(null, new IgniteTuple { ["ID"] = 1 });
+
+            Assert.AreEqual("s-1", res!["VAL"]);
         }
 
         private async Task CreateTestTable(int count)
