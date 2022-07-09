@@ -29,11 +29,15 @@ namespace Apache.Ignite.Tests.Sql
     /// </summary>
     public class SqlTests : IgniteTestsBase
     {
-        [SetUp]
-        public async Task SetUp()
+        [OneTimeSetUp]
+        public async Task CreateTestTable()
         {
-            // TODO: Don't re-create tables for every test, just clean it.
-            await Client.Sql.ExecuteAsync(null, "DROP TABLE IF EXISTS TEST");
+            await Client.Sql.ExecuteAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
+
+            for (var i = 0; i < 10; i++)
+            {
+                await Client.Sql.ExecuteAsync(null, "INSERT INTO TEST VALUES (?, ?)", i, "s-" + i);
+            }
         }
 
         [Test]
@@ -58,8 +62,6 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestGetAllMultiplePages()
         {
-            await CreateTestTable(10);
-
             var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
             await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
             var rows = await resultSet.ToListAsync();
@@ -72,8 +74,6 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestEnumerateMultiplePages()
         {
-            await CreateTestTable(10);
-
             var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
             await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
 
@@ -92,8 +92,6 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestLinqAsyncMultiplePages()
         {
-            await CreateTestTable(10);
-
             var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
             await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
 
@@ -125,8 +123,6 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestIterateAfterDisposeThrows()
         {
-            await CreateTestTable(3);
-
             var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 1);
             var resultSet = await Client.Sql.ExecuteAsync(null, statement);
             var resultSet2 = await Client.Sql.ExecuteAsync(null, statement);
@@ -144,8 +140,6 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestMultipleDisposeIsAllowed()
         {
-            await CreateTestTable(3);
-
             var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 1);
             await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
 
@@ -154,38 +148,12 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestPutKvGetSql()
-        {
-            await CreateTestTable(0);
-
-            var table = await Client.Tables.GetTableAsync("PUBLIC.TEST");
-            await table!.RecordBinaryView.UpsertAsync(null, new IgniteTuple { ["ID"] = 1, ["VAL"] = "v" });
-
-            await using var res = await Client.Sql.ExecuteAsync(null, "SELECT VAL FROM TEST WHERE ID = ?", 1);
-            var row = (await res.ToListAsync()).Single();
-
-            Assert.AreEqual("IgniteTuple [VAL=v]", row.ToString());
-        }
-
-        [Test]
         public async Task TestPutSqlGetKv()
         {
-            await CreateTestTable(2);
-
             var table = await Client.Tables.GetTableAsync("PUBLIC.TEST");
             var res = await table!.RecordBinaryView.GetAsync(null, new IgniteTuple { ["ID"] = 1 });
 
             Assert.AreEqual("s-1", res!["VAL"]);
-        }
-
-        private async Task CreateTestTable(int count)
-        {
-            await Client.Sql.ExecuteAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
-
-            for (var i = 0; i < count; i++)
-            {
-                await Client.Sql.ExecuteAsync(null, "INSERT INTO TEST VALUES (?, ?)", i, "s-" + i);
-            }
         }
     }
 }
