@@ -112,9 +112,6 @@ namespace Apache.Ignite.Tests
 
         private static void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, int resultCode = 0)
         {
-            var size = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(3 + payload.Length));
-            socket.Send(size);
-
             var header = new ArrayBufferWriter<byte>();
             var writer = new MessagePackWriter(header);
 
@@ -123,6 +120,9 @@ namespace Apache.Ignite.Tests
             writer.Write(resultCode); // Success.
 
             writer.Flush();
+
+            var size = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(header.WrittenCount + payload.Length));
+            socket.Send(size);
 
             socket.Send(header.WrittenSpan);
 
