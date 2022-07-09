@@ -85,11 +85,16 @@ namespace Apache.Ignite.Tests
 
             for (int i = 0; i < 100; i++)
             {
-                var res = await client.Sql.ExecuteAsync(null, "select 1");
-                var rows = await res.GetAllAsync();
+                await using var res = await client.Sql.ExecuteAsync(null, "select 1");
+                var count = 0;
+
+                await foreach (var unused in res)
+                {
+                    count++;
+                }
 
                 Assert.IsTrue(res.HasRowSet);
-                Assert.AreEqual(1012, rows.Count);
+                Assert.AreEqual(1012, count);
             }
         }
     }
