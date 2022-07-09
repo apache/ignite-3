@@ -42,7 +42,11 @@ namespace Apache.Ignite.Internal.Sql
 
         private readonly bool _hasMorePages;
 
-        private volatile bool _closed;
+        private bool _resourceClosed;
+
+        private bool _bufferReleased;
+
+        private bool _iterated;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ResultSet"/> class.
@@ -72,7 +76,8 @@ namespace Apache.Ignite.Internal.Sql
             else
             {
                 buf.Dispose();
-                _closed = true;
+                _resourceClosed = true;
+                _bufferReleased = true;
             }
         }
 
@@ -91,11 +96,17 @@ namespace Apache.Ignite.Internal.Sql
         /// <inheritdoc/>
         public async ValueTask<List<IIgniteTuple>> GetAllAsync()
         {
-            // TODO: Allowed only once.
             if (_buffer == null || Metadata == null)
             {
                 throw NoResultSetException();
             }
+
+            if (_iterated)
+            {
+                throw ResultSetIteratedException();
+            }
+
+            _iterated = true;
 
             // First page is included in the initial response.
             var cols = Metadata.Columns;
@@ -103,13 +114,14 @@ namespace Apache.Ignite.Internal.Sql
             List<IIgniteTuple>? res = null;
 
             ReadPage(_buffer.Value, _bufferOffset);
+            _bufferReleased = true;
 
             while (hasMore)
             {
                 ReadPage(await FetchNextPage().ConfigureAwait(false), 0);
             }
 
-            _closed = true;
+            _resourceClosed = true;
 
             return res!;
 
@@ -144,14 +156,12 @@ namespace Apache.Ignite.Internal.Sql
         /// <inheritdoc/>
         public async ValueTask DisposeAsync()
         {
-            if (_closed)
+            if (!_bufferReleased)
             {
-                return;
+                _buffer?.Dispose();
             }
 
-            _buffer?.Dispose();
-
-            if (_resourceId != null)
+            if (_resourceId != null && !_resourceClosed)
             {
                 using var writer = new PooledArrayBufferWriter();
                 WriteId(writer.GetMessageWriter());
@@ -247,15 +257,21 @@ namespace Apache.Ignite.Internal.Sql
 
         private static IgniteClientException NoResultSetException() => new("Query has no result set.");
 
+        private static IgniteClientException ResultSetIteratedException() => new("Query result set can not be iterated more than once.");
+
         private async IAsyncEnumerable<IIgniteTuple> EnumerateRows()
         {
-            // TODO: Allowed to be called only once.
-            // TODO: Throw when no row set.
-            // TODO: Deserialize and set Current.
             if (_buffer == null || Metadata == null)
             {
                 throw NoResultSetException();
             }
+
+            if (_iterated)
+            {
+                throw ResultSetIteratedException();
+            }
+
+            _iterated = true;
 
             var hasMore = _hasMorePages;
             var cols = Metadata.Columns;
@@ -272,6 +288,8 @@ namespace Apache.Ignite.Internal.Sql
                     }
                 }
 
+                _bufferReleased = true; // First page buffer.
+
                 if (!hasMore)
                 {
                     break;
@@ -281,7 +299,7 @@ namespace Apache.Ignite.Internal.Sql
                 offset = 0;
             }
 
-            _closed = true;
+            _resourceClosed = true;
 
             IEnumerable<IIgniteTuple> EnumeratePage()
             {
