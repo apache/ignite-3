@@ -26,15 +26,15 @@ namespace Apache.Ignite.Benchmarks.Sql
 
     /// <summary>
     /// Results on Intel Core i7-9700K, .NET SDK 6.0.301, Ubuntu 20.04:
-    /// |          Method |     Mean |     Error |   StdDev |   Gen 0 |   Gen 1 | Allocated |
-    /// |---------------- |---------:|----------:|---------:|--------:|--------:|----------:|
-    /// |     GetAllAsync | 4.118 ms | 0.5637 ms | 1.662 ms | 62.5000 | 23.4375 |    383 KB |
-    /// | AsyncEnumerable | 5.039 ms | 0.6565 ms | 1.936 ms | 62.5000 | 23.4375 |    384 KB |.
+    /// |          Method |     Mean |   Error |  StdDev |   Gen 0 |   Gen 1 | Allocated |
+    /// |---------------- |---------:|--------:|--------:|--------:|--------:|----------:|
+    /// |     ToListAsync | 387.8 us | 7.32 us | 8.72 us | 62.5000 | 22.4609 |    383 KB |
+    /// | AsyncEnumerable | 522.8 us | 9.84 us | 9.20 us | 62.5000 | 22.4609 |    384 KB |.
     /// <para />
     /// Same box, Windows 10:
     /// |          Method |     Mean |    Error |   StdDev |   Gen 0 |   Gen 1 | Allocated |
     /// |---------------- |---------:|---------:|---------:|--------:|--------:|----------:|
-    /// |     GetAllAsync | 372.7 us |  4.00 us |  3.74 us | 62.5000 | 22.9492 |    383 KB |
+    /// |     ToListAsync | 372.7 us |  4.00 us |  3.74 us | 62.5000 | 22.9492 |    383 KB |
     /// | AsyncEnumerable | 542.8 us | 10.77 us | 22.23 us | 62.5000 | 23.4375 |    384 KB |.
     /// </summary>
     [MemoryDiagnoser]
@@ -58,10 +58,10 @@ namespace Apache.Ignite.Benchmarks.Sql
         }
 
         [Benchmark]
-        public async Task GetAllAsync()
+        public async Task ToListAsync()
         {
             await using var resultSet = await _client!.Sql.ExecuteAsync(null, "select 1");
-            var rows = await resultSet.GetAllAsync();
+            var rows = await resultSet.ToListAsync();
 
             if (rows.Count != 1012)
             {

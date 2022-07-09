@@ -103,7 +103,7 @@ namespace Apache.Ignite.Internal.Sql
         public bool WasApplied { get; }
 
         /// <inheritdoc/>
-        public async ValueTask<List<IIgniteTuple>> GetAllAsync()
+        public async ValueTask<List<IIgniteTuple>> ToListAsync()
         {
             ValidateAndSetIteratorState();
 

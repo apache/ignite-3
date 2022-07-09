@@ -40,7 +40,7 @@ namespace Apache.Ignite.Tests.Sql
         public async Task TestSimpleQuery()
         {
             await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(null, "SELECT 1", 1);
-            var rows = await resultSet.GetAllAsync();
+            var rows = await resultSet.ToListAsync();
 
             Assert.AreEqual(-1, resultSet.AffectedRows);
             Assert.IsFalse(resultSet.WasApplied);
@@ -62,7 +62,7 @@ namespace Apache.Ignite.Tests.Sql
 
             var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
             await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
-            var rows = await resultSet.GetAllAsync();
+            var rows = await resultSet.ToListAsync();
 
             Assert.AreEqual(10, rows.Count);
             Assert.AreEqual("IgniteTuple [ID=0, VAL=s-0]", rows[0].ToString());
@@ -94,17 +94,17 @@ namespace Apache.Ignite.Tests.Sql
         {
             // GetAll -> GetAsyncEnumerator.
             await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT 1", 1);
-            await resultSet.GetAllAsync();
+            await resultSet.ToListAsync();
 
             var ex = Assert.Throws<IgniteClientException>(() => resultSet.GetAsyncEnumerator());
             Assert.AreEqual("Query result set can not be iterated more than once.", ex!.Message);
-            Assert.ThrowsAsync<IgniteClientException>(async () => await resultSet.GetAllAsync());
+            Assert.ThrowsAsync<IgniteClientException>(async () => await resultSet.ToListAsync());
 
             // GetAsyncEnumerator -> GetAll.
             await using var resultSet2 = await Client.Sql.ExecuteAsync(null, "SELECT 1", 1);
             _ = resultSet2.GetAsyncEnumerator();
 
-            Assert.ThrowsAsync<IgniteClientException>(async () => await resultSet2.GetAllAsync());
+            Assert.ThrowsAsync<IgniteClientException>(async () => await resultSet2.ToListAsync());
             Assert.Throws<IgniteClientException>(() => resultSet2.GetAsyncEnumerator());
         }
 
@@ -120,7 +120,7 @@ namespace Apache.Ignite.Tests.Sql
             await resultSet.DisposeAsync();
             await resultSet2.DisposeAsync();
 
-            Assert.ThrowsAsync<ObjectDisposedException>(async () => await resultSet.GetAllAsync());
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await resultSet.ToListAsync());
 
             var enumerator = resultSet2.GetAsyncEnumerator();
             await enumerator.MoveNextAsync(); // Skip first element.
@@ -148,7 +148,7 @@ namespace Apache.Ignite.Tests.Sql
             await table!.RecordBinaryView.UpsertAsync(null, new IgniteTuple { ["ID"] = 1, ["VAL"] = "v" });
 
             await using var res = await Client.Sql.ExecuteAsync(null, "SELECT VAL FROM TEST WHERE ID = ?", 1);
-            var row = (await res.GetAllAsync()).Single();
+            var row = (await res.ToListAsync()).Single();
 
             Assert.AreEqual("IgniteTuple [VAL=v]", row.ToString());
         }
