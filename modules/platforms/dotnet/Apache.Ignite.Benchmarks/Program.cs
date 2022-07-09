@@ -18,13 +18,13 @@
 namespace Apache.Ignite.Benchmarks
 {
     using BenchmarkDotNet.Running;
-    using Sql;
+    using Table.Serialization;
 
     internal static class Program
     {
         private static void Main()
         {
-            BenchmarkRunner.Run<ResultSetBenchmarks>();
+            BenchmarkRunner.Run<SerializerHandlerReadBenchmarks>();
         }
     }
 }
