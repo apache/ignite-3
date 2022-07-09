@@ -43,9 +43,9 @@ namespace Apache.Ignite.Internal.Sql
 
         private readonly bool _hasMorePages;
 
-        private bool _resourceClosed; // TODO: Use interlocked to ensure exactly once release.
+        private bool _resourceClosed;
 
-        private int _bufferReleased; // TODO: Use interlocked to ensure exactly once release.
+        private int _bufferReleased;
 
         private bool _iterated;
 
@@ -168,6 +168,8 @@ namespace Apache.Ignite.Internal.Sql
                 WriteId(writer.GetMessageWriter());
 
                 await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
+
+                _resourceClosed = true;
             }
 
             GC.SuppressFinalize(this);
@@ -372,6 +374,8 @@ namespace Apache.Ignite.Internal.Sql
 
         private void ReleaseBuffer()
         {
+            // ResultSet is not thread safe, so we don't need Interlocked with correct usage.
+            // However, double release of pooled buffers is very dangerous, so we protect against that anyway.
             if (Interlocked.CompareExchange(ref _bufferReleased, 1, 0) == 0)
             {
                 _buffer?.Dispose();
