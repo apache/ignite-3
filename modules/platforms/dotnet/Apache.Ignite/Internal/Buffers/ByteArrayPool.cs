@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Buffers
 {
     using System.Buffers;
-    using System.Runtime.CompilerServices;
 
     /// <summary>
     /// Wrapper for the standard <see cref="ArrayPool{T}.Shared"/> with safety checks in debug mode.
@@ -33,7 +32,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// In the future there should be some built-in ways to detect this:
         /// https://github.com/dotnet/runtime/issues/7532.
         /// </summary>
-        private static readonly ConditionalWeakTable<byte[], object?> ReturnedArrays = new();
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<byte[], object?> ReturnedArrays = new();
 #endif
 
         /// <summary>
