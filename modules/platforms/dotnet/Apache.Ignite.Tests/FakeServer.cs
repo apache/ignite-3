@@ -89,7 +89,6 @@ namespace Apache.Ignite.Tests
         public void Dispose()
         {
             _cts.Cancel();
-            _listener.Disconnect(true);
             _listener.Dispose();
             _cts.Dispose();
         }
