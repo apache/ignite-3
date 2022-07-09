@@ -42,9 +42,9 @@ namespace Apache.Ignite.Internal.Sql
 
         private readonly bool _hasMorePages;
 
-        private bool _resourceClosed;
+        private bool _resourceClosed; // TODO: Use interlocked to ensure exactly once release.
 
-        private bool _bufferReleased;
+        private int _bufferReleased; // TODO: Use interlocked to ensure exactly once release.
 
         private bool _iterated;
 
@@ -76,8 +76,8 @@ namespace Apache.Ignite.Internal.Sql
             else
             {
                 buf.Dispose();
+                _bufferReleased = 1;
                 _resourceClosed = true;
-                _bufferReleased = true;
             }
         }
 
@@ -104,11 +104,12 @@ namespace Apache.Ignite.Internal.Sql
             List<IIgniteTuple>? res = null;
 
             ReadPage(_buffer!.Value, _bufferOffset);
-            _bufferReleased = true;
+            ReleaseBuffer();
 
             while (hasMore)
             {
-                ReadPage(await FetchNextPage().ConfigureAwait(false), 0);
+                using var pageBuf = await FetchNextPage().ConfigureAwait(false);
+                ReadPage(pageBuf, 0);
             }
 
             _resourceClosed = true;
@@ -117,28 +118,25 @@ namespace Apache.Ignite.Internal.Sql
 
             void ReadPage(PooledBuffer buf, int offset)
             {
-                using (buf)
+                var reader = buf.GetReader(offset);
+                var pageSize = reader.ReadArrayHeader();
+                res ??= new List<IIgniteTuple>(hasMore ? pageSize * 2 : pageSize);
+
+                for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
                 {
-                    var reader = buf.GetReader(offset);
-                    var pageSize = reader.ReadArrayHeader();
-                    res ??= new List<IIgniteTuple>(hasMore ? pageSize * 2 : pageSize);
+                    var row = new IgniteTuple(cols.Count);
 
-                    for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
+                    foreach (var col in cols)
                     {
-                        var row = new IgniteTuple(cols.Count);
-
-                        foreach (var col in cols)
-                        {
-                            row[col.Name] = ReadValue(ref reader, col.Type);
-                        }
-
-                        res.Add(row);
+                        row[col.Name] = ReadValue(ref reader, col.Type);
                     }
 
-                    if (!reader.End)
-                    {
-                        hasMore = reader.ReadBoolean();
-                    }
+                    res.Add(row);
+                }
+
+                if (!reader.End)
+                {
+                    hasMore = reader.ReadBoolean();
                 }
             }
         }
@@ -153,10 +151,7 @@ namespace Apache.Ignite.Internal.Sql
         /// <inheritdoc/>
         public async ValueTask DisposeAsync()
         {
-            if (!_bufferReleased)
-            {
-                _buffer?.Dispose();
-            }
+            ReleaseBuffer();
 
             if (_resourceId != null && !_resourceClosed)
             {
@@ -260,33 +255,31 @@ namespace Apache.Ignite.Internal.Sql
         {
             var hasMore = _hasMorePages;
             var cols = Metadata!.Columns;
-            var buf = _buffer!.Value;
             var offset = _bufferOffset;
 
-            while (true)
+            // First page.
+            foreach (var row in EnumeratePage(_buffer!.Value))
             {
-                using (buf)
-                {
-                    foreach (var row in EnumeratePage())
-                    {
-                        yield return row;
-                    }
-                }
+                yield return row;
+            }
 
-                _bufferReleased = true; // First page buffer.
+            ReleaseBuffer();
 
-                if (!hasMore)
-                {
-                    break;
-                }
-
-                buf = await FetchNextPage().ConfigureAwait(false);
+            // Next pages.
+            while (hasMore)
+            {
+                using var buffer = await FetchNextPage().ConfigureAwait(false);
                 offset = 0;
+
+                foreach (var row in EnumeratePage(buffer))
+                {
+                    yield return row;
+                }
             }
 
             _resourceClosed = true;
 
-            IEnumerable<IIgniteTuple> EnumeratePage()
+            IEnumerable<IIgniteTuple> EnumeratePage(PooledBuffer buf)
             {
                 // ReSharper disable AccessToModifiedClosure
                 var reader = buf.GetReader(offset);
@@ -364,6 +357,14 @@ namespace Apache.Ignite.Internal.Sql
             }
 
             _iterated = true;
+        }
+
+        private void ReleaseBuffer()
+        {
+            if (Interlocked.CompareExchange(ref _bufferReleased, 1, 0) == 0)
+            {
+                _buffer?.Dispose();
+            }
         }
     }
 }
