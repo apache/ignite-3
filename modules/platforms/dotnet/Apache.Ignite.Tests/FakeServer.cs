@@ -250,7 +250,7 @@ namespace Apache.Ignite.Tests
                         writer.Write(0); // Precision.
                         writer.Write(false); // No origin.
 
-                        writer.Write(512); // Page size.
+                        writer.WriteArrayHeader(512); // Page size.
                         for (int i = 0; i < 512; i++)
                         {
                             writer.Write(i); // Row of one.
@@ -258,7 +258,31 @@ namespace Apache.Ignite.Tests
 
                         writer.Flush();
 
-                        handler.Send(new byte[] { 0, 0, 0, (byte)(3 + arrayBufferWriter.WrittenCount) }); // Size.
+                        var size = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(3 + arrayBufferWriter.WrittenCount));
+                        handler.Send(size); // Size.
+                        handler.Send(new byte[] { 0, requestId, 0 }); // Header.
+                        handler.Send(arrayBufferWriter.WrittenSpan);
+
+                        continue;
+                    }
+
+                    if (opCode == ClientOp.SqlCursorNextPage)
+                    {
+                        var arrayBufferWriter = new ArrayBufferWriter<byte>();
+                        var writer = new MessagePackWriter(arrayBufferWriter);
+
+                        writer.WriteArrayHeader(500); // Page size.
+                        for (int i = 0; i < 500; i++)
+                        {
+                            writer.Write(i); // Row of one.
+                        }
+
+                        writer.Write(false); // Has next.
+
+                        writer.Flush();
+
+                        var size = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(3 + arrayBufferWriter.WrittenCount));
+                        handler.Send(size); // Size.
                         handler.Send(new byte[] { 0, requestId, 0 }); // Header.
                         handler.Send(arrayBufferWriter.WrittenSpan);
 

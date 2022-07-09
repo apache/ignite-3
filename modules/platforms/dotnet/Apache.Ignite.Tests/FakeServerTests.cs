@@ -84,8 +84,10 @@ namespace Apache.Ignite.Tests
             using var client = await server.ConnectClientAsync(new());
 
             var res = await client.Sql.ExecuteAsync(null, "select 1");
+            var rows = await res.GetAllAsync();
 
             Assert.IsTrue(res.HasRowSet);
+            Assert.AreEqual(1012, rows.Count);
         }
     }
 }
