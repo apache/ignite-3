@@ -80,7 +80,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestFakeServerExecutesSql()
         {
-            using var server = new FakeServer();
+            using var server = new FakeServer(disableOpsTracking: true);
             using var client = await server.ConnectClientAsync(new());
 
             for (int i = 0; i < 100; i++)
