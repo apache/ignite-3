@@ -23,6 +23,7 @@ namespace Apache.Ignite.Internal.Sql
 
     internal sealed record ResultSetMetadata(IReadOnlyList<IColumnMetadata> Columns) : IResultSetMetadata
     {
+        /** Column index by name. Initialized on first access. */
         private Dictionary<string, int>? _indices;
 
         /// <inheritdoc/>
