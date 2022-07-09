@@ -25,11 +25,11 @@ namespace Apache.Ignite.Benchmarks.Sql
     using Tests;
 
     /// <summary>
-    /// Results on Intel Core i7-9700K, .NET SDK 6.0.301, Ubuntu 20.04:
-    /// |          Method |     Mean |   Error |  StdDev |   Gen 0 |   Gen 1 | Allocated |
-    /// |---------------- |---------:|--------:|--------:|--------:|--------:|----------:|
-    /// |     ToListAsync | 387.8 us | 7.32 us | 8.72 us | 62.5000 | 22.4609 |    383 KB |
-    /// | AsyncEnumerable | 522.8 us | 9.84 us | 9.20 us | 62.5000 | 22.4609 |    384 KB |.
+    /// Results on Intel Core i7-9700K, .NET 6.0.6 (6.0.622.26707); GC = Concurrent Workstation, Ubuntu 20.04:
+    /// |          Method |     Mean |   Error |  StdDev | Ratio | RatioSD |   Gen 0 |   Gen 1 | Allocated |
+    /// |---------------- |---------:|--------:|--------:|------:|--------:|--------:|--------:|----------:|
+    /// |     ToListAsync | 249.3 us | 4.85 us | 5.40 us |  1.00 |    0.00 | 64.4531 | 24.4141 |    391 KB |
+    /// | AsyncEnumerable | 349.5 us | 6.96 us | 7.45 us |  1.40 |    0.04 | 64.4531 | 25.3906 |    392 KB |.
     /// </summary>
     [MemoryDiagnoser]
     public class ResultSetBenchmarks
