@@ -76,5 +76,16 @@ namespace Apache.Ignite.Tests
             // Reconnect by FailoverSocket logic.
             await client.Tables.GetTablesAsync();
         }
+
+        [Test]
+        public async Task TestFakeServerExecutesSql()
+        {
+            using var server = new FakeServer();
+            using var client = await server.ConnectClientAsync(new());
+
+            var res = await client.Sql.ExecuteAsync(null, "select 1");
+
+            Assert.IsTrue(res.HasRowSet);
+        }
     }
 }

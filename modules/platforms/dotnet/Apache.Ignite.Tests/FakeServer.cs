@@ -26,6 +26,7 @@ namespace Apache.Ignite.Tests
     using System.Net.Sockets;
     using System.Threading;
     using System.Threading.Tasks;
+    using Ignite.Sql;
     using Internal.Network;
     using Internal.Proto;
     using MessagePack;
@@ -225,6 +226,40 @@ namespace Apache.Ignite.Tests
 
                         handler.Send(new byte[] { 0, 0, 0, (byte)(4 + arrayBufferWriter.WrittenCount) }); // Size.
                         handler.Send(new byte[] { 0, requestId, 0, (byte)ClientDataType.String });
+                        handler.Send(arrayBufferWriter.WrittenSpan);
+
+                        continue;
+                    }
+
+                    if (opCode == ClientOp.SqlExec)
+                    {
+                        var arrayBufferWriter = new ArrayBufferWriter<byte>();
+                        var writer = new MessagePackWriter(arrayBufferWriter);
+
+                        writer.Write(1); // ResourceId.
+                        writer.Write(true); // HasRowSet.
+                        writer.Write(true); // hasMore.
+                        writer.Write(false); // WasApplied.
+                        writer.Write(0); // AffectedRows.
+
+                        writer.WriteArrayHeader(1); // Meta.
+                        writer.Write("ID"); // Column name.
+                        writer.Write(false); // Nullable.
+                        writer.Write((int)SqlColumnType.Int32);
+                        writer.Write(0); // Scale.
+                        writer.Write(0); // Precision.
+                        writer.Write(false); // No origin.
+
+                        writer.Write(512); // Page size.
+                        for (int i = 0; i < 512; i++)
+                        {
+                            writer.Write(i); // Row of one.
+                        }
+
+                        writer.Flush();
+
+                        handler.Send(new byte[] { 0, 0, 0, (byte)(3 + arrayBufferWriter.WrittenCount) }); // Size.
+                        handler.Send(new byte[] { 0, requestId, 0 }); // Header.
                         handler.Send(arrayBufferWriter.WrittenSpan);
 
                         continue;
