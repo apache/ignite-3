@@ -29,9 +29,6 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public class ListLogger : IIgniteLogger
     {
-        [SuppressMessage("Microsoft.Design", "CA1034:NestedTypesShouldNotBeVisible", Justification = "Tests.")]
-        public record Entry(string Message, LogLevel Level, string? Category);
-
         /** */
         private readonly List<Entry> _entries = new();
 
@@ -129,5 +126,8 @@ namespace Apache.Ignite.Tests
         {
             return EnabledLevels.Contains(level);
         }
+
+        [SuppressMessage("Microsoft.Design", "CA1034:NestedTypesShouldNotBeVisible", Justification = "Tests.")]
+        public record Entry(string Message, LogLevel Level, string? Category);
     }
 }
