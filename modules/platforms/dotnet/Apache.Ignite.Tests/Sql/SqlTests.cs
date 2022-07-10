@@ -22,6 +22,7 @@ namespace Apache.Ignite.Tests.Sql
     using System.Threading.Tasks;
     using Ignite.Sql;
     using Ignite.Table;
+    using Internal.Sql;
     using NUnit.Framework;
 
     /// <summary>
@@ -183,8 +184,32 @@ namespace Apache.Ignite.Tests.Sql
             Assert.IsNull(createRes.Metadata);
 
             // Insert data.
+            for (var i = 0; i < 10; i++)
+            {
+                var insertRes = await Client.Sql.ExecuteAsync(null, "INSERT INTO TestDdlDml VALUES (?, ?)", i, "hello " + i);
+
+                Assert.IsFalse(insertRes.HasRowSet);
+                Assert.IsFalse(insertRes.WasApplied);
+                Assert.IsNull(insertRes.Metadata);
+                Assert.AreEqual(1, insertRes.AffectedRows);
+            }
 
             // Query data.
+            var selectRes = await Client.Sql.ExecuteAsync(null, "SELECT VAL as MYVALUE, ID, ID + 1 FROM TestDdlDml ORDER BY ID");
+
+            Assert.IsTrue(selectRes.HasRowSet);
+            Assert.IsFalse(selectRes.WasApplied);
+            Assert.AreEqual(-1, selectRes.AffectedRows);
+
+            var columns = selectRes.Metadata!.Columns;
+            Assert.AreEqual(3, columns.Count);
+
+            Assert.AreEqual("MYVALUE", columns[0].Name);
+            Assert.AreEqual("VAL", columns[0].Origin!.ColumnName);
+            Assert.AreEqual("PUBLIC", columns[0].Origin!.SchemaName);
+            Assert.AreEqual("TESTDDLDML", columns[0].Origin!.TableName);
+            Assert.IsTrue(columns[0].Nullable);
+            Assert.AreEqual(SqlColumnType.String, columns[0].Type);
 
             // Update data.
 
