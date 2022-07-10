@@ -120,9 +120,13 @@ namespace Apache.Ignite.Sql
         /// <returns>Statement.</returns>
         public static SqlStatement ToSqlStatement(string query) => new(query);
 
-        private bool PrintMembers(StringBuilder builder)
+        /// <inheritdoc />
+        public override string ToString()
         {
+            var builder = new StringBuilder();
+
             builder
+                .Append("SqlStatement { ")
                 .Append($"Query = {Query}, Timeout = {Timeout}, Schema = {Schema}, PageSize = {PageSize}, Prepared = {Prepared}, ")
                 .Append("Properties = {");
 
@@ -139,9 +143,9 @@ namespace Apache.Ignite.Sql
                 first = false;
             }
 
-            builder.Append(" }");
+            builder.Append(" } }");
 
-            return true;
+            return builder.ToString();
         }
     }
 }
