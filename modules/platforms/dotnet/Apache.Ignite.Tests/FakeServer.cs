@@ -147,6 +147,105 @@ namespace Apache.Ignite.Tests
             }
         }
 
+        private static void SqlCursorNextPage(Socket handler, long requestId)
+        {
+            using var arrayBufferWriter = new PooledArrayBufferWriter();
+            var writer = new MessagePackWriter(arrayBufferWriter);
+
+            writer.WriteArrayHeader(500); // Page size.
+            for (int i = 0; i < 500; i++)
+            {
+                writer.Write(i + 512); // Row of one.
+            }
+
+            writer.Write(false); // Has next.
+            writer.Flush();
+
+            Send(handler, requestId, arrayBufferWriter);
+        }
+
+        private static void SqlExec(Socket handler, long requestId, MessagePackReader reader)
+        {
+            var props = new Dictionary<string, object?>();
+
+            props["txId"] = reader.TryReadNil() ? null : reader.ReadInt64();
+            props["schema"] = reader.TryReadNil() ? null : reader.ReadString();
+            props["pageSize"] = reader.TryReadNil() ? null : reader.ReadInt32();
+            props["timeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64();
+
+            var propCount = reader.ReadMapHeader();
+
+            for (int i = 0; i < propCount; i++)
+            {
+                props[reader.ReadString()] = reader.ReadObjectWithType();
+            }
+
+            var sql = reader.ReadString();
+            props["sql"] = sql;
+            props["prepared"] = reader.ReadBoolean();
+
+            using var arrayBufferWriter = new PooledArrayBufferWriter();
+            var writer = new MessagePackWriter(arrayBufferWriter);
+
+            writer.Write(1); // ResourceId.
+
+            if (sql == "SELECT PROPS")
+            {
+                writer.Write(true); // HasRowSet.
+                writer.Write(false); // hasMore.
+                writer.Write(false); // WasApplied.
+                writer.Write(0); // AffectedRows.
+
+                writer.WriteArrayHeader(2); // Meta.
+
+                writer.Write("NAME"); // Column name.
+                writer.Write(false); // Nullable.
+                writer.Write((int)SqlColumnType.String);
+                writer.Write(0); // Scale.
+                writer.Write(0); // Precision.
+                writer.Write(false); // No origin.
+
+                writer.Write("VAL"); // Column name.
+                writer.Write(false); // Nullable.
+                writer.Write((int)SqlColumnType.String);
+                writer.Write(0); // Scale.
+                writer.Write(0); // Precision.
+                writer.Write(false); // No origin.
+
+                writer.WriteArrayHeader(props.Count);
+                foreach (var (key, val) in props)
+                {
+                    writer.Write(key);
+                    writer.Write(val?.ToString() ?? string.Empty);
+                }
+            }
+            else
+            {
+                writer.Write(true); // HasRowSet.
+                writer.Write(true); // hasMore.
+                writer.Write(false); // WasApplied.
+                writer.Write(0); // AffectedRows.
+
+                writer.WriteArrayHeader(1); // Meta.
+                writer.Write("ID"); // Column name.
+                writer.Write(false); // Nullable.
+                writer.Write((int)SqlColumnType.Int32);
+                writer.Write(0); // Scale.
+                writer.Write(0); // Precision.
+                writer.Write(false); // No origin.
+
+                writer.WriteArrayHeader(512); // Page size.
+                for (int i = 0; i < 512; i++)
+                {
+                    writer.Write(i); // Row of one.
+                }
+            }
+
+            writer.Flush();
+
+            Send(handler, requestId, arrayBufferWriter);
+        }
+
         private void ListenLoop()
         {
             int requestCount = 0;
@@ -262,52 +361,13 @@ namespace Apache.Ignite.Tests
 
                     if (opCode == ClientOp.SqlExec)
                     {
-                        using var arrayBufferWriter = new PooledArrayBufferWriter();
-                        var writer = new MessagePackWriter(arrayBufferWriter);
-
-                        writer.Write(1); // ResourceId.
-                        writer.Write(true); // HasRowSet.
-                        writer.Write(true); // hasMore.
-                        writer.Write(false); // WasApplied.
-                        writer.Write(0); // AffectedRows.
-
-                        writer.WriteArrayHeader(1); // Meta.
-                        writer.Write("ID"); // Column name.
-                        writer.Write(false); // Nullable.
-                        writer.Write((int)SqlColumnType.Int32);
-                        writer.Write(0); // Scale.
-                        writer.Write(0); // Precision.
-                        writer.Write(false); // No origin.
-
-                        writer.WriteArrayHeader(512); // Page size.
-                        for (int i = 0; i < 512; i++)
-                        {
-                            writer.Write(i); // Row of one.
-                        }
-
-                        writer.Flush();
-
-                        Send(handler, requestId, arrayBufferWriter);
-
+                        SqlExec(handler, requestId, reader);
                         continue;
                     }
 
                     if (opCode == ClientOp.SqlCursorNextPage)
                     {
-                        using var arrayBufferWriter = new PooledArrayBufferWriter();
-                        var writer = new MessagePackWriter(arrayBufferWriter);
-
-                        writer.WriteArrayHeader(500); // Page size.
-                        for (int i = 0; i < 500; i++)
-                        {
-                            writer.Write(i + 512); // Row of one.
-                        }
-
-                        writer.Write(false); // Has next.
-                        writer.Flush();
-
-                        Send(handler, requestId, arrayBufferWriter);
-
+                        SqlCursorNextPage(handler, requestId);
                         continue;
                     }
 
