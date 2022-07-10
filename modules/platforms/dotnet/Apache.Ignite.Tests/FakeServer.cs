@@ -168,11 +168,13 @@ namespace Apache.Ignite.Tests
         {
             var props = new Dictionary<string, object?>();
 
-            props["txId"] = reader.TryReadNil() ? null : reader.ReadInt64();
+            // ReSharper disable RedundantCast (does not build on older SDKs)
+            props["txId"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
             props["schema"] = reader.TryReadNil() ? null : reader.ReadString();
-            props["pageSize"] = reader.TryReadNil() ? null : reader.ReadInt32();
-            props["timeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64();
+            props["pageSize"] = reader.TryReadNil() ? (int?)null : reader.ReadInt32();
+            props["timeoutMs"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
 
+            // ReSharper restore RedundantCast
             var propCount = reader.ReadMapHeader();
 
             for (int i = 0; i < propCount; i++)
