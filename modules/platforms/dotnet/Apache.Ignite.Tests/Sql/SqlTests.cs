@@ -46,9 +46,10 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [OneTimeTearDown]
-        public async Task DeleteTestTable()
+        public async Task DeleteTestTables()
         {
             await Client.Sql.ExecuteAsync(null, "DROP TABLE TEST");
+            await Client.Sql.ExecuteAsync(null, "DROP TABLE IF EXISTS TestDdlDml");
         }
 
         [Test]
@@ -166,6 +167,19 @@ namespace Apache.Ignite.Tests.Sql
             var res = await table!.RecordBinaryView.GetAsync(null, new IgniteTuple { ["ID"] = 1 });
 
             Assert.AreEqual("s-1", res!["VAL"]);
+        }
+
+        [Test]
+        public async Task TestDdlDml()
+        {
+            await using var createRes = await Client.Sql.ExecuteAsync(null, "CREATE TABLE TestDdlDml(ID INT PRIMARY KEY, VAL VARCHAR)");
+
+            Assert.IsTrue(createRes.WasApplied);
+            Assert.AreEqual(-1, createRes.AffectedRows);
+            Assert.IsFalse(createRes.HasRowSet);
+            Assert.Throws<IgniteClientException>(() => createRes.GetAsyncEnumerator());
+            Assert.ThrowsAsync<IgniteClientException>(async () => await createRes.ToListAsync());
+            Assert.IsNull(createRes.Metadata);
         }
     }
 }
