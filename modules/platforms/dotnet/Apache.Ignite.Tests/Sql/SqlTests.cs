@@ -22,7 +22,6 @@ namespace Apache.Ignite.Tests.Sql
     using System.Threading.Tasks;
     using Ignite.Sql;
     using Ignite.Table;
-    using Internal.Sql;
     using NUnit.Framework;
 
     /// <summary>
