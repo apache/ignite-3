@@ -172,6 +172,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestDdlDml()
         {
+            // Create table.
             await using var createRes = await Client.Sql.ExecuteAsync(null, "CREATE TABLE TestDdlDml(ID INT PRIMARY KEY, VAL VARCHAR)");
 
             Assert.IsTrue(createRes.WasApplied);
@@ -180,6 +181,28 @@ namespace Apache.Ignite.Tests.Sql
             Assert.Throws<IgniteClientException>(() => createRes.GetAsyncEnumerator());
             Assert.ThrowsAsync<IgniteClientException>(async () => await createRes.ToListAsync());
             Assert.IsNull(createRes.Metadata);
+
+            // Insert data.
+
+            // Query data.
+
+            // Update data.
+
+            // Drop table.
+            Assert.Fail("TODO");
+        }
+
+        [Test]
+        public void TestStatementProperties()
+        {
+            Assert.Fail("TODO");
+        }
+
+        [Test]
+        public void TestInvalidSqlThrowsException()
+        {
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await Client.Sql.ExecuteAsync(null, "select x from bad"));
+            StringAssert.Contains("From line 1, column 15 to line 1, column 17: Object 'BAD' not found", ex!.Message);
         }
     }
 }
