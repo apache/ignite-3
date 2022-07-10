@@ -215,15 +215,25 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("ID", columns[1].Origin!.ColumnName);
             Assert.AreEqual("PUBLIC", columns[1].Origin!.SchemaName);
             Assert.AreEqual("TESTDDLDML", columns[1].Origin!.TableName);
-            Assert.False(columns[1].Nullable);
+            Assert.IsFalse(columns[1].Nullable);
 
             Assert.AreEqual("ID + 1", columns[2].Name);
             Assert.IsNull(columns[2].Origin);
 
             // Update data.
+            var updateRes = await Client.Sql.ExecuteAsync(null, "UPDATE TESTDDLDML SET VAL='upd' WHERE ID < 5");
+
+            Assert.IsFalse(updateRes.WasApplied);
+            Assert.IsFalse(updateRes.HasRowSet);
+            Assert.IsNull(updateRes.Metadata);
+            Assert.AreEqual(5, updateRes.AffectedRows);
 
             // Drop table.
-            Assert.Fail("TODO");
+            var deleteRes = await Client.Sql.ExecuteAsync(null, "DROP TABLE TESTDDLDML");
+
+            Assert.IsFalse(deleteRes.HasRowSet);
+            Assert.IsNull(deleteRes.Metadata);
+            Assert.IsTrue(deleteRes.WasApplied);
         }
 
         [Test]
