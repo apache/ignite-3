@@ -46,14 +46,18 @@ namespace Apache.Ignite.Internal.Sql
             return indices.TryGetValue(columnName, out var idx) ? idx : -1;
         }
 
-        private bool PrintMembers(StringBuilder builder)
+        /// <inheritdoc/>
+        public override string ToString()
         {
+            var builder = new StringBuilder();
+
             builder
+                .Append("ResultSetMetadata { ")
                 .Append("Columns = { ")
                 .Append(string.Join(", ", Columns))
-                .Append(" }");
+                .Append(" } }");
 
-            return true;
+            return builder.ToString();
         }
     }
 }
