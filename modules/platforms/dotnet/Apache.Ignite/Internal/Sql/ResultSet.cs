@@ -60,7 +60,8 @@ namespace Apache.Ignite.Internal.Sql
 
             var reader = buf.GetReader();
 
-            _resourceId = reader.TryReadNil() ? null : reader.ReadInt64();
+            // ReSharper disable once RedundantCast (required on .NET Core 3.1).
+            _resourceId = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
 
             HasRowSet = reader.ReadBoolean();
             _hasMorePages = reader.ReadBoolean();
