@@ -32,13 +32,23 @@ namespace Apache.Ignite.Tests.Sql
         [OneTimeSetUp]
         public async Task CreateTestTable()
         {
-            await Client.Sql.ExecuteAsync(null, "CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
-            await Client.Sql.ExecuteAsync(null, "DELETE FROM TEST");
+            var createRes = await Client.Sql.ExecuteAsync(null, "CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
+
+            if (!createRes.WasApplied)
+            {
+                await Client.Sql.ExecuteAsync(null, "DELETE FROM TEST");
+            }
 
             for (var i = 0; i < 10; i++)
             {
                 await Client.Sql.ExecuteAsync(null, "INSERT INTO TEST VALUES (?, ?)", i, "s-" + i);
             }
+        }
+
+        [OneTimeTearDown]
+        public async Task DeleteTestTable()
+        {
+            await Client.Sql.ExecuteAsync(null, "DROP TABLE TEST");
         }
 
         [Test]
