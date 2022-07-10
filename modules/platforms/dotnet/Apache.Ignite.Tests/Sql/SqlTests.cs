@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Sql
 {
     using System;
+    using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Sql;
@@ -236,16 +237,40 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public void TestStatementProperties()
-        {
-            Assert.Fail("TODO");
-        }
-
-        [Test]
         public void TestInvalidSqlThrowsException()
         {
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await Client.Sql.ExecuteAsync(null, "select x from bad"));
             StringAssert.Contains("From line 1, column 15 to line 1, column 17: Object 'BAD' not found", ex!.Message);
+        }
+
+        [Test]
+        public async Task TestStatementProperties()
+        {
+            using var server = new FakeServer();
+            using var client = await server.ConnectClientAsync();
+
+            var sqlStatement = new SqlStatement(
+                query: "SELECT PROPS",
+                timeout: TimeSpan.FromSeconds(123),
+                schema: "schema-1",
+                pageSize: 987,
+                prepared: true,
+                properties: new Dictionary<string, object?> { { "prop1", 10 }, { "prop-2", "xyz" } });
+
+            var res = await client.Sql.ExecuteAsync(null, sqlStatement);
+            var rows = await res.ToListAsync();
+            var props = rows.ToDictionary(x => (string)x["NAME"]!, x => (string)x["VAL"]!);
+
+            Assert.IsTrue(res.HasRowSet);
+            Assert.AreEqual(8, props.Count);
+
+            Assert.AreEqual("schema-1", props["schema"]);
+            Assert.AreEqual("987", props["pageSize"]);
+            Assert.AreEqual("123000", props["timeoutMs"]);
+            Assert.AreEqual("SELECT PROPS", props["sql"]);
+            Assert.AreEqual("True", props["prepared"]);
+            Assert.AreEqual("10", props["prop1"]);
+            Assert.AreEqual("xyz", props["prop-2"]);
         }
     }
 }
