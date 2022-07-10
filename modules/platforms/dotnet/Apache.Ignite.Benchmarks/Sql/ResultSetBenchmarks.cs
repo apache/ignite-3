@@ -25,6 +25,8 @@ namespace Apache.Ignite.Benchmarks.Sql
     using Tests;
 
     /// <summary>
+    /// Measures SQL result set enumeration with two pages of data (two network requests per enumeration).
+    /// <para />
     /// Results on Intel Core i7-9700K, .NET 6.0.6 (6.0.622.26707); GC = Concurrent Workstation, Ubuntu 20.04:
     /// |          Method |     Mean |   Error |  StdDev | Ratio | RatioSD |   Gen 0 |   Gen 1 | Allocated |
     /// |---------------- |---------:|--------:|--------:|------:|--------:|--------:|--------:|----------:|

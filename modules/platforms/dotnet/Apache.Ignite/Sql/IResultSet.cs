@@ -24,6 +24,9 @@ namespace Apache.Ignite.Sql
     /// <summary>
     /// Query result set.
     /// <para />
+    /// Implements <see cref="IAsyncEnumerable{T}"/>: use <c>await foreach (var row in resultSet)</c> to consume,
+    /// or call <see cref="ToListAsync"/> to get all rows as a list.
+    /// <para />
     /// Can not be enumerated more than once. The implementation is lazy and retrieves data pages on demand
     /// (while iterating with <see cref="IAsyncEnumerable{T}"/> or when <see cref="ToListAsync"/> is called).
     /// Page size is defined in <see cref="SqlStatement.PageSize"/>.
