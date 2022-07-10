@@ -32,7 +32,8 @@ namespace Apache.Ignite.Tests.Sql
         [OneTimeSetUp]
         public async Task CreateTestTable()
         {
-            await Client.Sql.ExecuteAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
+            await Client.Sql.ExecuteAsync(null, "CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
+            await Client.Sql.ExecuteAsync(null, "DELETE FROM TEST");
 
             for (var i = 0; i < 10; i++)
             {
@@ -43,7 +44,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestSimpleQuery()
         {
-            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(null, "SELECT 1", 1);
+            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(null, "select 1 as num, 'hello' as str", 1);
             var rows = await resultSet.ToListAsync();
 
             Assert.AreEqual(-1, resultSet.AffectedRows);
@@ -51,12 +52,13 @@ namespace Apache.Ignite.Tests.Sql
             Assert.IsTrue(resultSet.HasRowSet);
 
             Assert.AreEqual(
-                "ResultSetMetadata { Columns = { ColumnMetadata { Name = 1, Type = Int32, Precision = 10, Scale = 0, " +
-                "Nullable = False, Origin =  } } }",
+                "ResultSetMetadata { Columns = { " +
+                "ColumnMetadata { Name = NUM, Type = Int32, Precision = 10, Scale = 0, Nullable = False, Origin =  }, " +
+                "ColumnMetadata { Name = STR, Type = String, Precision = 5, Scale = -2147483648, Nullable = False, Origin =  } } }",
                 resultSet.Metadata?.ToString());
 
             Assert.AreEqual(1, rows.Count);
-            Assert.AreEqual("IgniteTuple [1=1]", rows[0].ToString());
+            Assert.AreEqual("IgniteTuple { NUM = 1, STR = hello }", rows[0].ToString());
         }
 
         [Test]
@@ -67,8 +69,8 @@ namespace Apache.Ignite.Tests.Sql
             var rows = await resultSet.ToListAsync();
 
             Assert.AreEqual(10, rows.Count);
-            Assert.AreEqual("IgniteTuple [ID=0, VAL=s-0]", rows[0].ToString());
-            Assert.AreEqual("IgniteTuple [ID=9, VAL=s-9]", rows[9].ToString());
+            Assert.AreEqual("IgniteTuple { ID = 0, VAL = s-0 }", rows[0].ToString());
+            Assert.AreEqual("IgniteTuple { ID = 9, VAL = s-9 }", rows[9].ToString());
         }
 
         [Test]
@@ -97,8 +99,8 @@ namespace Apache.Ignite.Tests.Sql
 
             var rows = await resultSet.Where(x => (int)x["ID"]! < 5).ToArrayAsync();
             Assert.AreEqual(5, rows.Length);
-            Assert.AreEqual("IgniteTuple [ID=0, VAL=s-0]", rows[0].ToString());
-            Assert.AreEqual("IgniteTuple [ID=4, VAL=s-4]", rows[4].ToString());
+            Assert.AreEqual("IgniteTuple { ID = 0, VAL = s-0 }", rows[0].ToString());
+            Assert.AreEqual("IgniteTuple { ID = 4, VAL = s-4 }", rows[4].ToString());
         }
 
         [Test]
