@@ -27,11 +27,13 @@ namespace Apache.Ignite.Benchmarks.Sql
     /// <summary>
     /// Measures SQL result set enumeration with two pages of data (two network requests per enumeration).
     /// <para />
-    /// Results on Intel Core i7-9700K, .NET 6.0.6 (6.0.622.26707); GC = Concurrent Workstation, Ubuntu 20.04:
-    /// |          Method |     Mean |   Error |  StdDev | Ratio | RatioSD |   Gen 0 |   Gen 1 | Allocated |
-    /// |---------------- |---------:|--------:|--------:|------:|--------:|--------:|--------:|----------:|
-    /// |     ToListAsync | 249.3 us | 4.85 us | 5.40 us |  1.00 |    0.00 | 64.4531 | 24.4141 |    391 KB |
-    /// | AsyncEnumerable | 349.5 us | 6.96 us | 7.45 us |  1.40 |    0.04 | 64.4531 | 25.3906 |    392 KB |.
+    /// Results on Intel Core i7-9700K, GC = Concurrent Workstation, Ubuntu 20.04:
+    /// |          Method |       Runtime |     Mean |    Error |   StdDev | Ratio |   Gen 0 |   Gen 1 | Allocated |
+    /// |---------------- |-------------- |---------:|---------:|---------:|------:|--------:|--------:|----------:|
+    /// |     ToListAsync |      .NET 6.0 | 259.1 us |  5.16 us |  4.03 us |  0.64 | 64.4531 | 23.9258 |    391 KB |
+    /// | AsyncEnumerable |      .NET 6.0 | 361.2 us |  7.22 us |  7.73 us |  0.89 | 64.4531 | 25.3906 |    392 KB |
+    /// |     ToListAsync | .NET Core 3.1 | 405.7 us |  8.07 us | 10.50 us |  1.00 | 62.5000 | 23.4375 |    383 KB |
+    /// | AsyncEnumerable | .NET Core 3.1 | 543.1 us | 10.82 us | 15.17 us |  1.34 | 62.5000 | 22.4609 |    384 KB |.
     /// </summary>
     [MemoryDiagnoser]
     public class ResultSetBenchmarks
