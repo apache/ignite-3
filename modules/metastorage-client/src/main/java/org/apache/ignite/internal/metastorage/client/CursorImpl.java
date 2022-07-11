@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
-import static java.util.Collections.singleton;
-
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -34,6 +32,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Meta storage service side implementation of cursor.
@@ -64,9 +63,7 @@ public class CursorImpl<T> implements Cursor<T> {
             CompletableFuture<IgniteUuid> initOp,
             Function<M, T> fn
     ) {
-        this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
-        this.initOp = initOp;
-        this.it = new InnerIterator(e -> singleton(e), fn);
+        this(metaStorageRaftGrpSvc, initOp, null, fn);
     }
 
     /**
@@ -75,13 +72,14 @@ public class CursorImpl<T> implements Cursor<T> {
      * @param metaStorageRaftGrpSvc Meta storage raft group service.
      * @param initOp                Future that runs meta storage service operation that provides cursor.
      * @param internalCacheFn       Function transforming the result of {@link CursorNextCommand} to the
-     *                              {@link Iterable} of elements of type {@link M}.
+     *                              {@link Iterable} of elements of type {@link M}. If {@code null}, this means
+     *                              that the result of {@link CursorNextCommand} can be cast to object of type {@link M}.
      * @param fn                    Function transforming the element of type {@link M} to the type of {@link T}.
      */
     public <M> CursorImpl(
             RaftGroupService metaStorageRaftGrpSvc,
             CompletableFuture<IgniteUuid> initOp,
-            Function<Object, Iterable<M>> internalCacheFn,
+            @Nullable Function<Object, Iterable<M>> internalCacheFn,
             Function<M, T> fn
     ) {
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
@@ -124,13 +122,15 @@ public class CursorImpl<T> implements Cursor<T> {
      * Extension of {@link Iterator}.
      */
     private class InnerIterator<M> implements Iterator<T> {
+        @Nullable
         private final Function<Object, Iterable<M>> internalCacheFn;
 
         private final Function<M, T> fn;
 
+        @Nullable
         private Iterator<M> internalCacheIterator;
 
-        public InnerIterator(Function<Object, Iterable<M>> internalCacheFn, Function<M, T> fn) {
+        public InnerIterator(@Nullable Function<Object, Iterable<M>> internalCacheFn, Function<M, T> fn) {
             this.internalCacheFn = internalCacheFn;
             this.fn = fn;
         }
@@ -168,9 +168,15 @@ public class CursorImpl<T> implements Cursor<T> {
                             .thenCompose(cursorId -> metaStorageRaftGrpSvc.run(new CursorNextCommand(cursorId)))
                             .get();
 
-                    internalCacheIterator = internalCacheFn.apply(res).iterator();
+                    if (internalCacheFn == null) {
+                        M next = (M) res;
 
-                    return fn.apply(internalCacheIterator.next());
+                        return fn.apply(next);
+                    } else {
+                        internalCacheIterator = internalCacheFn.apply(res).iterator();
+
+                        return fn.apply(internalCacheIterator.next());
+                    }
                 }
             } catch (InterruptedException | ExecutionException e) {
                 Throwable cause = e.getCause();
