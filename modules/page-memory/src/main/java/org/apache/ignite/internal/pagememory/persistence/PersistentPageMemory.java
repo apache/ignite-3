@@ -1689,7 +1689,7 @@ public class PersistentPageMemory implements PageMemory {
             }
 
             if (gen == Integer.MAX_VALUE) {
-                LOG.debug("Partition tag overflow [grpId={}, partId={}]", grpId, partId);
+                LOG.info("Partition tag overflow [grpId={}, partId={}]", grpId, partId);
 
                 partGenerationMap.put(grpPart, 0);
 

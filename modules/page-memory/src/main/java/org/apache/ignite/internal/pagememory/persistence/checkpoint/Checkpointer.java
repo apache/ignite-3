@@ -182,7 +182,7 @@ public class Checkpointer extends IgniteWorker {
                 waitCheckpointEvent();
 
                 if (isCancelled() || shutdownNow) {
-                    log.debug("Skipping last checkpoint because node is stopping");
+                    log.info("Skipping last checkpoint because node is stopping");
 
                     return;
                 }
@@ -645,7 +645,7 @@ public class Checkpointer extends IgniteWorker {
         try {
             join();
         } catch (InterruptedException ignore) {
-            log.debug("Was interrupted while waiting for checkpointer shutdown, will not wait for checkpoint to finish");
+            log.info("Was interrupted while waiting for checkpointer shutdown, will not wait for checkpoint to finish");
 
             Thread.currentThread().interrupt();
 

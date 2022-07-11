@@ -94,7 +94,7 @@ public class RestComponent implements IgniteComponent {
             } catch (ApplicationStartupException e) {
                 BindException bindException = findBindException(e);
                 if (bindException != null) {
-                    LOG.info("Got exception during node start, going to try again [port={}, reason={}]", portCandidate, portCandidate);
+                    LOG.debug("Got exception during node start, going to try again [port={}]", portCandidate);
                     continue;
                 }
                 throw new RuntimeException(e);
