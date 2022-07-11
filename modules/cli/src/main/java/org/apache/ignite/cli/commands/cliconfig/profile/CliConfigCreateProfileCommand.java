@@ -15,40 +15,44 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.cliconfig;
+package org.apache.ignite.cli.commands.cliconfig.profile;
 
 import jakarta.inject.Inject;
-import java.util.Map;
 import java.util.concurrent.Callable;
-import org.apache.ignite.cli.call.cliconfig.CliConfigSetCall;
-import org.apache.ignite.cli.call.cliconfig.CliConfigSetCallInput;
+import org.apache.ignite.cli.call.cliconfig.profile.CliConfigCreateProfileCall;
+import org.apache.ignite.cli.call.cliconfig.profile.CliConfigCreateProfileCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Parameters;
 
 /**
- * Command to set CLI configuration parameters.
+ * Command for create CLI profile.
  */
-@Command(name = "set")
-public class CliConfigSetSubCommand extends BaseCommand implements Callable<Integer> {
-    @Parameters(arity = "1..*")
-    private Map<String, String> parameters;
-
-    @Option(names = {"--profile", "-p"}, description = "Set property in specified profile.")
+@Command(name = "create", description = "Create profile command.")
+public class CliConfigCreateProfileCommand extends BaseCommand implements Callable<Integer> {
+    @Option(names = {"--name", "-n"}, required = true, description = "Name of new profile.")
     private String profileName;
 
+    @Option(names = {"--copy-from", "-c"}, description = "Profile whose content will be copied to new one.")
+    private String copyFrom;
+
+    @Option(names = {"--activate", "-a"}, description = "Activate new profile as current or not.")
+    private boolean activate;
+
+
     @Inject
-    private CliConfigSetCall call;
+    private CliConfigCreateProfileCall call;
 
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new CliConfigSetCallInput(parameters, profileName))
-                .output(spec.commandLine().getOut())
+                .inputProvider(CliConfigCreateProfileCallInput.builder()
+                        .profileName(profileName)
+                        .copyFrom(copyFrom)
+                        .activate(activate)::build)
                 .errOutput(spec.commandLine().getErr())
-                .build()
-                .runPipeline();
+                .output(spec.commandLine().getOut())
+                .build().runPipeline();
     }
 }

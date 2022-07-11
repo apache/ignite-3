@@ -15,29 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.call.cliconfig;
+package org.apache.ignite.cli.config;
 
-import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.apache.ignite.cli.config.ConfigManager;
-import org.apache.ignite.cli.config.ConfigManagerProvider;
-import org.apache.ignite.cli.config.Profile;
-import org.apache.ignite.cli.core.call.Call;
-import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.call.StringCallInput;
+import org.apache.ignite.cli.config.ini.IniConfigManager;
 
 /**
- * Gets entire CLI configuration.
+ * Provider for {@link ConfigManager}.
  */
 @Singleton
-public class CliConfigCall implements Call<StringCallInput, Profile> {
-    @Inject
-    private ConfigManagerProvider configManagerProvider;
+public class CachedConfigManagerProvider implements ConfigManagerProvider {
+    private final ConfigManager configManager = new IniConfigManager(ConfigConstants.getConfigFile());
 
     @Override
-    public DefaultCallOutput<Profile> execute(StringCallInput input) {
-        ConfigManager configManager = configManagerProvider.get();
-        String profile = input.getString();
-        return DefaultCallOutput.success(profile == null ? configManager.getCurrentProfile() : configManager.getProfile(profile));
+    public ConfigManager get() {
+        return configManager;
     }
 }

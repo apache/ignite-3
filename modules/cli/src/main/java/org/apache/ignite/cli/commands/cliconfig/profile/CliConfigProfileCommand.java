@@ -15,40 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.cliconfig;
+package org.apache.ignite.cli.commands.cliconfig.profile;
 
 import jakarta.inject.Inject;
-import java.util.Map;
 import java.util.concurrent.Callable;
-import org.apache.ignite.cli.call.cliconfig.CliConfigSetCall;
-import org.apache.ignite.cli.call.cliconfig.CliConfigSetCallInput;
+import org.apache.ignite.cli.call.cliconfig.profile.CliConfigUseCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.cli.core.call.StringCallInput;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Parameters;
 
 /**
- * Command to set CLI configuration parameters.
+ * Root profile command.
  */
-@Command(name = "set")
-public class CliConfigSetSubCommand extends BaseCommand implements Callable<Integer> {
-    @Parameters(arity = "1..*")
-    private Map<String, String> parameters;
-
-    @Option(names = {"--profile", "-p"}, description = "Set property in specified profile.")
+@Command(name = "profile",
+        description = "Create profile command.",
+        subcommands = {
+                CliConfigCreateProfileCommand.class,
+                CliConfigShowProfileCommand.class
+        })
+public class CliConfigProfileCommand extends BaseCommand implements Callable<Integer> {
+    @Option(names = {"--set-current", "-s"}, description = "Name of profile which should be activated as default.")
     private String profileName;
 
     @Inject
-    private CliConfigSetCall call;
+    private CliConfigUseCall call;
 
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new CliConfigSetCallInput(parameters, profileName))
-                .output(spec.commandLine().getOut())
+                .inputProvider(() -> new StringCallInput(profileName))
                 .errOutput(spec.commandLine().getErr())
-                .build()
-                .runPipeline();
+                .output(spec.commandLine().getOut())
+                .build().runPipeline();
     }
 }

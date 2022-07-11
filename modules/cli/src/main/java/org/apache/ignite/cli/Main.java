@@ -28,7 +28,7 @@ import java.util.HashMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.cli.commands.TopLevelCliCommand;
 import org.apache.ignite.cli.commands.TopLevelCliReplCommand;
-import org.apache.ignite.cli.config.Config;
+import org.apache.ignite.cli.config.ConfigDefaultValueProvider;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
 import org.apache.ignite.cli.core.exception.handler.DefaultExceptionHandlers;
@@ -113,8 +113,7 @@ public class Main {
     private static int executeCommand(String[] args, MicronautFactory micronautFactory) throws Exception {
         CommandLine cmd = new CommandLine(TopLevelCliCommand.class, micronautFactory);
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
-        Config config = micronautFactory.create(Config.class);
-        cmd.setDefaultValueProvider(new CommandLine.PropertiesDefaultProvider(config.getProperties()));
+        cmd.setDefaultValueProvider(micronautFactory.create(ConfigDefaultValueProvider.class));
         return cmd.execute(args);
     }
 

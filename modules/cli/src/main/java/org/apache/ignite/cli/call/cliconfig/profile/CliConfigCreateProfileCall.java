@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.call.cliconfig;
+package org.apache.ignite.cli.call.cliconfig.profile;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -23,21 +23,36 @@ import org.apache.ignite.cli.config.ConfigManager;
 import org.apache.ignite.cli.config.ConfigManagerProvider;
 import org.apache.ignite.cli.config.Profile;
 import org.apache.ignite.cli.core.call.Call;
+import org.apache.ignite.cli.core.call.CallOutput;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.call.StringCallInput;
 
 /**
- * Gets entire CLI configuration.
+ * Create CLI profile.
  */
 @Singleton
-public class CliConfigCall implements Call<StringCallInput, Profile> {
+public class CliConfigCreateProfileCall implements Call<CliConfigCreateProfileCallInput, String> {
+
     @Inject
     private ConfigManagerProvider configManagerProvider;
 
     @Override
-    public DefaultCallOutput<Profile> execute(StringCallInput input) {
+    public CallOutput<String> execute(CliConfigCreateProfileCallInput input) {
         ConfigManager configManager = configManagerProvider.get();
-        String profile = input.getString();
-        return DefaultCallOutput.success(profile == null ? configManager.getCurrentProfile() : configManager.getProfile(profile));
+        Profile copyFrom = null;
+        if (input.getCopyFrom() != null) {
+            copyFrom = configManager.getProfile(input.getCopyFrom());
+        }
+
+        String profileName = input.getName();
+        Profile newProfile = configManager.createProfile(profileName);
+
+        if (copyFrom != null) {
+            newProfile.setProperties(copyFrom);
+        }
+
+        if (input.isActivate()) {
+            configManager.setCurrentProfile(profileName);
+        }
+        return DefaultCallOutput.success("Profile " + profileName + " was created successfully.");
     }
 }

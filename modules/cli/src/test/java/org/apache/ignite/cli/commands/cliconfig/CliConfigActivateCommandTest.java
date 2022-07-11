@@ -17,58 +17,52 @@
 
 package org.apache.ignite.cli.commands.cliconfig;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.cli.commands.CliCommandTestBase;
+import org.apache.ignite.cli.commands.cliconfig.profile.CliConfigProfileCommand;
 import org.apache.ignite.cli.config.ini.IniConfigManager;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class CliConfigSubCommandTest extends CliCommandTestBase {
-
+class CliConfigActivateCommandTest extends CliCommandTestBase {
     @Inject
-    TestConfigManagerProvider configManagerProvider;
+    private TestConfigManagerProvider configManagerProvider;
+
+    @Override
+    protected Class<?> getCommandClass() {
+        return CliConfigProfileCommand.class;
+    }
 
     @BeforeEach
     public void setup() {
         configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithInternalPart());
     }
 
-
-    @Override
-    protected Class<?> getCommandClass() {
-        return CliConfigSubCommand.class;
-    }
-
     @Test
-    @DisplayName("Displays all keys")
-    void noKey() {
-        execute();
-
-        String expectedResult = "server=127.0.0.1" + System.lineSeparator()
-                + "port=8080" + System.lineSeparator()
-                + "file=\"apache.ignite\"" + System.lineSeparator();
+    public void activateTest() {
+        execute("--set-current owner");
 
         assertAll(
                 this::assertExitCodeIsZero,
-                () -> assertOutputIs(expectedResult),
-                this::assertErrOutputIsEmpty
+                () -> assertOutputContains("Profile owner was activated successfully"),
+                this::assertErrOutputIsEmpty,
+                () -> assertThat(configManagerProvider.get().getCurrentProfile().getName()).isEqualTo("owner")
         );
     }
 
     @Test
-    public void testWithProfile() {
-        execute("--profile owner");
-
-        String expectedResult = "name=John Smith" + System.lineSeparator()
-                + "organization=Apache Ignite" + System.lineSeparator();
+    public void activateWithNotExistedProfileTest() {
+        execute("--set-current notExist");
 
         assertAll(
-                this::assertExitCodeIsZero,
-                () -> assertOutputIs(expectedResult),
-                this::assertErrOutputIsEmpty
+                () -> assertExitCodeIs(1),
+                () -> assertErrOutputContains("Profile notExist not found"),
+                this::assertOutputIsEmpty,
+                () -> assertThat(configManagerProvider.get().getCurrentProfile().getName()).isEqualTo("database")
         );
     }
+
 }

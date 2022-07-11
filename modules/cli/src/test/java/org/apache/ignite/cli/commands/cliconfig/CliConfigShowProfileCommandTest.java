@@ -21,53 +21,43 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.cli.commands.CliCommandTestBase;
+import org.apache.ignite.cli.commands.cliconfig.profile.CliConfigShowProfileCommand;
 import org.apache.ignite.cli.config.ini.IniConfigManager;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class CliConfigSubCommandTest extends CliCommandTestBase {
+class CliConfigShowProfileCommandTest extends CliCommandTestBase {
 
     @Inject
     TestConfigManagerProvider configManagerProvider;
 
+    @Override
+    protected Class<?> getCommandClass() {
+        return CliConfigShowProfileCommand.class;
+    }
+
     @BeforeEach
-    public void setup() {
+    void configManagerRefresh() {
         configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithInternalPart());
     }
 
-
-    @Override
-    protected Class<?> getCommandClass() {
-        return CliConfigSubCommand.class;
-    }
-
     @Test
-    @DisplayName("Displays all keys")
-    void noKey() {
+    public void testWithInternalSection() {
         execute();
 
-        String expectedResult = "server=127.0.0.1" + System.lineSeparator()
-                + "port=8080" + System.lineSeparator()
-                + "file=\"apache.ignite\"" + System.lineSeparator();
-
         assertAll(
-                this::assertExitCodeIsZero,
-                () -> assertOutputIs(expectedResult),
+                () -> assertOutputContains("Current profile: database"),
                 this::assertErrOutputIsEmpty
         );
     }
 
     @Test
-    public void testWithProfile() {
-        execute("--profile owner");
-
-        String expectedResult = "name=John Smith" + System.lineSeparator()
-                + "organization=Apache Ignite" + System.lineSeparator();
+    public void testWithoutInternalSection() {
+        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithoutInternalPart());
+        execute();
 
         assertAll(
-                this::assertExitCodeIsZero,
-                () -> assertOutputIs(expectedResult),
+                () -> assertOutputContains("Current profile: owner"),
                 this::assertErrOutputIsEmpty
         );
     }

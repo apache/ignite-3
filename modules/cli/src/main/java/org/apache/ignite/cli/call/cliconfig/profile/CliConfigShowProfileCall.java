@@ -15,29 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.call.cliconfig;
+package org.apache.ignite.cli.call.cliconfig.profile;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.apache.ignite.cli.config.ConfigManager;
 import org.apache.ignite.cli.config.ConfigManagerProvider;
-import org.apache.ignite.cli.config.Profile;
 import org.apache.ignite.cli.core.call.Call;
+import org.apache.ignite.cli.core.call.CallOutput;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.call.StringCallInput;
+import org.apache.ignite.cli.core.call.EmptyCallInput;
 
 /**
- * Gets entire CLI configuration.
+ * Get current profile call.
  */
 @Singleton
-public class CliConfigCall implements Call<StringCallInput, Profile> {
+public class CliConfigShowProfileCall implements Call<EmptyCallInput, String> {
+
     @Inject
-    private ConfigManagerProvider configManagerProvider;
+    private ConfigManagerProvider provider;
 
     @Override
-    public DefaultCallOutput<Profile> execute(StringCallInput input) {
-        ConfigManager configManager = configManagerProvider.get();
-        String profile = input.getString();
-        return DefaultCallOutput.success(profile == null ? configManager.getCurrentProfile() : configManager.getProfile(profile));
+    public CallOutput<String> execute(EmptyCallInput input) {
+        String profileName = provider.get().getCurrentProfile().getName();
+        return DefaultCallOutput.success("Current profile: " + profileName);
     }
 }

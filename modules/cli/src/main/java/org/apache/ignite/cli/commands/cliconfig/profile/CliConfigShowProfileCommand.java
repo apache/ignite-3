@@ -15,51 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.connect;
+package org.apache.ignite.cli.commands.cliconfig.profile;
 
 import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
-import org.apache.ignite.cli.call.connect.ConnectCall;
-import org.apache.ignite.cli.call.connect.ConnectCallInput;
+import java.util.concurrent.Callable;
+import org.apache.ignite.cli.call.cliconfig.profile.CliConfigShowProfileCall;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.config.ConfigConstants;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import picocli.CommandLine.Command;
-import picocli.CommandLine.Parameters;
+import org.apache.ignite.cli.core.call.EmptyCallInput;
+import picocli.CommandLine;
 
 /**
- * Connects to the Ignite 3 node.
+ * Show current profile command.
  */
-@Command(name = "connect", description = "Connect to Ignite 3 node.")
-@Singleton
-public class ConnectCommand extends BaseCommand implements Runnable {
-
-    /**
-     * Cluster url option.
-     */
-    @Parameters(
-            description = "Ignite node url.",
-            descriptionKey = ConfigConstants.CLUSTER_URL
-    )
-    private String nodeUrl;
+@CommandLine.Command(name = "show", description = "Show current default profile.")
+public class CliConfigShowProfileCommand extends BaseCommand implements Callable<Integer> {
 
     @Inject
-    private ConnectCall connectCall;
+    private CliConfigShowProfileCall call;
 
-    /** {@inheritDoc} */
     @Override
-    public void run() {
-        CallExecutionPipeline.builder(connectCall)
-                .inputProvider(this::buildCallInput)
+    public Integer call() throws Exception {
+        return CallExecutionPipeline.builder(call)
+                .inputProvider(EmptyCallInput::new)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .build()
                 .runPipeline();
-    }
-
-    private ConnectCallInput buildCallInput() {
-        return ConnectCallInput.builder()
-                .nodeUrl(nodeUrl)
-                .build();
     }
 }

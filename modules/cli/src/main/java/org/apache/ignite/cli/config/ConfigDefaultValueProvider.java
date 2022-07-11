@@ -15,29 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.call.cliconfig;
+package org.apache.ignite.cli.config;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.apache.ignite.cli.config.ConfigManager;
-import org.apache.ignite.cli.config.ConfigManagerProvider;
-import org.apache.ignite.cli.config.Profile;
-import org.apache.ignite.cli.core.call.Call;
-import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.call.StringCallInput;
+import picocli.CommandLine;
 
 /**
- * Gets entire CLI configuration.
+ * Implementation of {@link CommandLine.IDefaultValueProvider} based on CLI config API.
  */
 @Singleton
-public class CliConfigCall implements Call<StringCallInput, Profile> {
+public class ConfigDefaultValueProvider implements CommandLine.IDefaultValueProvider {
     @Inject
     private ConfigManagerProvider configManagerProvider;
 
     @Override
-    public DefaultCallOutput<Profile> execute(StringCallInput input) {
-        ConfigManager configManager = configManagerProvider.get();
-        String profile = input.getString();
-        return DefaultCallOutput.success(profile == null ? configManager.getCurrentProfile() : configManager.getProfile(profile));
+    public String defaultValue(CommandLine.Model.ArgSpec argSpec) throws Exception {
+        return configManagerProvider.get().getCurrentProperty(argSpec.descriptionKey());
     }
 }
