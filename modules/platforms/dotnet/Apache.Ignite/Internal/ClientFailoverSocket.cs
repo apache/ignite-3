@@ -30,6 +30,7 @@ namespace Apache.Ignite.Internal
     using Buffers;
     using Log;
     using Proto;
+    using Transactions;
 
     /// <summary>
     /// Client socket wrapper with reconnect/failover functionality.
@@ -107,10 +108,66 @@ namespace Apache.Ignite.Internal
         /// Performs an in-out operation.
         /// </summary>
         /// <param name="clientOp">Client op code.</param>
+        /// <param name="tx">Transaction.</param>
         /// <param name="request">Request data.</param>
         /// <returns>Response data.</returns>
+        public async Task<PooledBuffer> DoOutInOpAsync(
+            ClientOp clientOp,
+            Transaction? tx,
+            PooledArrayBufferWriter? request = null)
+        {
+            if (tx == null)
+            {
+                // Use failover socket with reconnect and retry behavior.
+                return await DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+            }
+
+            if (tx.FailoverSocket != this)
+            {
+                throw new IgniteClientException("Specified transaction belongs to a different IgniteClient instance.");
+            }
+
+            // Use tx-specific socket without retry and failover.
+            return await tx.Socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Performs an in-out operation.
+        /// </summary>
+        /// <param name="clientOp">Client op code.</param>
+        /// <param name="request">Request data.</param>
+        /// <returns>Response data and socket.</returns>
         public async Task<PooledBuffer> DoOutInOpAsync(ClientOp clientOp, PooledArrayBufferWriter? request = null)
         {
+            var (buffer, _) = await DoOutInOpAndGetSocketAsync(clientOp, null, request).ConfigureAwait(false);
+
+            return buffer;
+        }
+
+        /// <summary>
+        /// Performs an in-out operation.
+        /// </summary>
+        /// <param name="clientOp">Client op code.</param>
+        /// <param name="tx">Transaction.</param>
+        /// <param name="request">Request data.</param>
+        /// <returns>Response data and socket.</returns>
+        public async Task<(PooledBuffer Buffer, ClientSocket Socket)> DoOutInOpAndGetSocketAsync(
+            ClientOp clientOp,
+            Transaction? tx = null,
+            PooledArrayBufferWriter? request = null)
+        {
+            if (tx != null)
+            {
+                if (tx.FailoverSocket != this)
+                {
+                    throw new IgniteClientException("Specified transaction belongs to a different IgniteClient instance.");
+                }
+
+                // Use tx-specific socket without retry and failover.
+                var buffer = await tx.Socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+                return (buffer, tx.Socket);
+            }
+
             var attempt = 0;
             List<Exception>? errors = null;
 
@@ -119,8 +176,9 @@ namespace Apache.Ignite.Internal
                 try
                 {
                     var socket = await GetSocketAsync().ConfigureAwait(false);
+                    var buffer = await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
 
-                    return await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+                    return (buffer, socket);
                 }
                 catch (Exception e)
                 {
@@ -367,9 +425,9 @@ namespace Apache.Ignite.Internal
 
                 for (var port = e.Port; port <= e.PortRange + e.Port; port++)
                 {
-                    foreach (var ip in GetIps(e.Host))
+                    foreach (var ip in GetIps(host))
                     {
-                        yield return new SocketEndpoint(new IPEndPoint(ip, port), e.Host);
+                        yield return new SocketEndpoint(new IPEndPoint(ip, port), host);
                     }
                 }
             }

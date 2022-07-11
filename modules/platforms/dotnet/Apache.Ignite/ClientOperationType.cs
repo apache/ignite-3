@@ -18,6 +18,7 @@
 namespace Apache.Ignite
 {
     using Compute;
+    using Sql;
     using Table;
 
     /// <summary>
@@ -114,5 +115,10 @@ namespace Apache.Ignite
         /// Compute (<see cref="ICompute.ExecuteAsync{T}"/>, <see cref="ICompute.BroadcastAsync{T}"/>).
         /// </summary>
         ComputeExecute,
+
+        /// <summary>
+        /// SQL (<see cref="ISql.ExecuteAsync"/>, <see cref="ISql.ExecuteAsync{T}"/>).
+        /// </summary>
+        SqlExecute
     }
 }

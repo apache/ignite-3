@@ -84,9 +84,14 @@ namespace Apache.Ignite.Table
         /// <inheritdoc />
         public override string ToString()
         {
+            if (FieldCount == 0)
+            {
+                return nameof(IgniteTuple) + " { }";
+            }
+
             var sb = new StringBuilder();
 
-            sb.Append(nameof(IgniteTuple)).Append(" [");
+            sb.Append(nameof(IgniteTuple)).Append(" { ");
 
             for (var i = 0; i < FieldCount; i++)
             {
@@ -95,10 +100,10 @@ namespace Apache.Ignite.Table
                     sb.Append(", ");
                 }
 
-                sb.Append(GetName(i)).Append('=').Append(this[i]);
+                sb.Append(GetName(i)).Append(" = ").Append(this[i]);
             }
 
-            sb.Append(']');
+            sb.Append(" }");
 
             return sb.ToString();
         }
