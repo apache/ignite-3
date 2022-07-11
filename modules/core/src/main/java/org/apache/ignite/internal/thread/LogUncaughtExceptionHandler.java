@@ -33,6 +33,6 @@ public final class LogUncaughtExceptionHandler implements Thread.UncaughtExcepti
     /** {@inheritDoc} */
     @Override
     public void uncaughtException(Thread t, Throwable e) {
-        log.debug("Uncaught exception [thread={}]", e, t);
+        log.warn("Uncaught exception [thread={}]", e, t);
     }
 }
