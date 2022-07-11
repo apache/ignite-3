@@ -34,7 +34,7 @@ namespace Apache.Ignite.Internal.Buffers
     /// the final array with <c>MessagePackWriter.FlushAndGetArray</c>. We want to avoid all array allocations,
     /// so we implement our own <see cref="IBufferWriter{T}"/> here.
     /// <para />
-    /// Based on <see cref="ArrayBufferWriter{T}"/>, but uses <see cref="ArrayPool{T}.Shared"/> to allocate arrays.
+    /// Based on <see cref="ArrayBufferWriter{T}"/>, but uses <see cref="ByteArrayPool"/> to allocate arrays.
     /// <para />
     /// Not a struct because <see cref="GetMessageWriter"/> will cause boxing.
     /// </summary>
@@ -62,7 +62,7 @@ namespace Apache.Ignite.Internal.Buffers
         {
             // NOTE: Shared pool has 1M elements limit before .NET 6.
             // https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-6/#buffering
-            _buffer = ArrayPool<byte>.Shared.Rent(initialCapacity);
+            _buffer = ByteArrayPool.Rent(initialCapacity);
             _index = ReservedPrefixSize;
         }
 
@@ -151,7 +151,7 @@ namespace Apache.Ignite.Internal.Buffers
         {
             if (!_disposed)
             {
-                ArrayPool<byte>.Shared.Return(_buffer);
+                ByteArrayPool.Return(_buffer);
                 _disposed = true;
             }
         }
@@ -191,11 +191,13 @@ namespace Apache.Ignite.Internal.Buffers
                 }
             }
 
-            var newBuf = ArrayPool<byte>.Shared.Rent(newSize);
+            // Arrays from ArrayPool are sized to powers of 2, so we don't need to implement the same logic here.
+            // Even if requested size is 1 byte more than current, we'll get at lest 2x bigger array.
+            var newBuf = ByteArrayPool.Rent(newSize);
 
             Array.Copy(_buffer, newBuf, _index);
 
-            ArrayPool<byte>.Shared.Return(_buffer);
+            ByteArrayPool.Return(_buffer);
 
             _buffer = newBuf;
         }

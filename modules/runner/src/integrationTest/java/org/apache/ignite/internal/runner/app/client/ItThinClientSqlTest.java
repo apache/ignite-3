@@ -245,7 +245,6 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    @Disabled("IGNITE-16952")
     void testFetchNextPage() {
         Session session = client().sql().createSession();
 
@@ -261,19 +260,19 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         assertEquals(4, asyncResultSet.currentPageSize());
         assertTrue(asyncResultSet.hasMorePages());
-        assertEquals(1, asyncResultSet.currentPage().iterator().next().intValue(0));
+        assertEquals(0, asyncResultSet.currentPage().iterator().next().intValue(0));
 
         asyncResultSet.fetchNextPage().toCompletableFuture().join();
 
         assertEquals(4, asyncResultSet.currentPageSize());
         assertTrue(asyncResultSet.hasMorePages());
-        assertEquals(5, asyncResultSet.currentPage().iterator().next().intValue(0));
+        assertEquals(4, asyncResultSet.currentPage().iterator().next().intValue(0));
 
         asyncResultSet.fetchNextPage().toCompletableFuture().join();
 
         assertEquals(2, asyncResultSet.currentPageSize());
         assertFalse(asyncResultSet.hasMorePages());
-        assertEquals(9, asyncResultSet.currentPage().iterator().next().intValue(0));
+        assertEquals(8, asyncResultSet.currentPage().iterator().next().intValue(0));
     }
 
     @Test

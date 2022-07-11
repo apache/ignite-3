@@ -18,12 +18,11 @@
 namespace Apache.Ignite.Internal.Buffers
 {
     using System;
-    using System.Buffers;
     using System.Diagnostics;
     using MessagePack;
 
     /// <summary>
-    /// Pooled byte buffer. Wraps a byte array rented from <see cref="ArrayPool{T}.Shared"/>,
+    /// Pooled byte buffer. Wraps a byte array rented from <see cref="ByteArrayPool"/>,
     /// returns it to the pool on <see cref="Dispose"/>.
     /// </summary>
     internal readonly struct PooledBuffer : IDisposable
@@ -58,8 +57,16 @@ namespace Apache.Ignite.Internal.Buffers
         /// <summary>
         /// Gets a <see cref="MessagePackReader"/> for this buffer.
         /// </summary>
+        /// <param name="offset">Offset.</param>
         /// <returns><see cref="MessagePackReader"/> for this buffer.</returns>
-        public MessagePackReader GetReader() => new(new ReadOnlyMemory<byte>(_bytes, _position, _length));
+        public MessagePackReader GetReader(int offset = 0) => new(AsMemory(offset));
+
+        /// <summary>
+        /// Gets this buffer contents as memory.
+        /// </summary>
+        /// <param name="offset">Offset.</param>
+        /// <returns>Memory of byte.</returns>
+        public ReadOnlyMemory<byte> AsMemory(int offset = 0) => new(_bytes, _position + offset, _length - offset);
 
         /// <summary>
         /// Gets a slice of the current buffer.
@@ -79,7 +86,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// </summary>
         public void Dispose()
         {
-            ArrayPool<byte>.Shared.Return(_bytes);
+            ByteArrayPool.Return(_bytes);
         }
     }
 }
