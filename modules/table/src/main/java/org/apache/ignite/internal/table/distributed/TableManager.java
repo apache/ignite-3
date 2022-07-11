@@ -505,7 +505,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
                                     .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
                     ).exceptionally(th -> {
-                        LOG.debug("Unable to update raft groups on the node", th);
+                        LOG.warn("Unable to update raft groups on the node", th);
 
                         return null;
                     });

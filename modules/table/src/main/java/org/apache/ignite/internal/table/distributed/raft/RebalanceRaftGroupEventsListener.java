@@ -148,7 +148,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     }
                 } catch (InterruptedException | ExecutionException e) {
                     // TODO: IGNITE-14693
-                    LOG.info("Unable to start rebalance [partition={}, table={}, term={}]",
+                    LOG.warn("Unable to start rebalance [partition={}, table={}, term={}]",
                             e, partNum, tblConfiguration.name().value(), term);
                 } finally {
                     busyLock.leaveBusy();
@@ -295,14 +295,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     doOnNewPeersConfigurationApplied(peers);
                 }
 
-                LOG.info("Rebalance finished [partition={}, table={}, appliedPeers={}, plannedPeers={}]",
+                LOG.info("Rebalance finished [partition={}, table={}, appliedPeers={}]",
                         partNum, tblConfiguration.name().value(), appliedPeers);
             }
 
             rebalanceAttempts.set(0);
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
-            LOG.info("Unable to commit partition configuration to metastore [table = {}, partition = {}]",
+            LOG.warn("Unable to commit partition configuration to metastore [table = {}, partition = {}]",
                     e, tblConfiguration.name(), partNum);
         }
     }

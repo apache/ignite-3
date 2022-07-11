@@ -78,7 +78,7 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
 
         // Then
         assertAll(
-                () -> assertErrOutputIs("Could not connect to URL: http://localhost:11111" + System.lineSeparator())
+                () -> assertErrOutputIs("Could not connect to URL [url=http://localhost:11111]" + System.lineSeparator())
         );
         // And prompt is
         String prompt = Ansi.OFF.string(promptProvider.getPrompt());

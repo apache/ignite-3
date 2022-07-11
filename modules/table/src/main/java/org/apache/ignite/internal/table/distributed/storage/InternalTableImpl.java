@@ -650,7 +650,7 @@ public class InternalTableImpl implements InternalTable {
 
                 if (closeCursor) {
                     scanInitOp.thenRun(() -> raftGrpSvc.run(new ScanCloseCommand(scanId))).exceptionally(closeT -> {
-                        LOG.info("Unable to close scan", closeT);
+                        LOG.warn("Unable to close scan", closeT);
 
                         return null;
                     });
