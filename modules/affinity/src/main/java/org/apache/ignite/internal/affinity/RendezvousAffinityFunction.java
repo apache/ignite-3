@@ -29,8 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.BiPredicate;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -54,7 +55,7 @@ import org.apache.ignite.network.ClusterNode;
  */
 public class RendezvousAffinityFunction {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RendezvousAffinityFunction.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RendezvousAffinityFunction.class);
 
     /** Comparator. */
     private static final Comparator<IgniteBiTuple<Long, ClusterNode>> COMPARATOR = new HashComparator();

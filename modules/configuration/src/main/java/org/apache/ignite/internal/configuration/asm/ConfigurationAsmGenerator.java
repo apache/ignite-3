@@ -69,7 +69,6 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.po
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
-import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.objectweb.asm.Opcodes.H_NEWINVOKESPECIAL;
 import static org.objectweb.asm.Type.getMethodDescriptor;
 import static org.objectweb.asm.Type.getMethodType;
@@ -1329,7 +1328,7 @@ public class ConfigurationAsmGenerator {
                     .expression(keyVar)
                     .defaultCase(throwException(NoSuchElementException.class, keyVar));
 
-            for (Field schemaField : union(schemaFields, internalFields)) {
+            for (Field schemaField : concat(schemaFields, internalFields)) {
                 if (isInjectedName(schemaField)) {
                     continue;
                 }
@@ -1489,7 +1488,7 @@ public class ConfigurationAsmGenerator {
                     .expression(keyVar)
                     .defaultCase(throwException(NoSuchElementException.class, keyVar));
 
-            for (Field schemaField : union(schemaFields, internalFields)) {
+            for (Field schemaField : concat(schemaFields, internalFields)) {
                 if (isInjectedName(schemaField)) {
                     continue;
                 }

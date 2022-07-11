@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.temporal.ChronoUnit;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
@@ -129,7 +130,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals(1.5f, res.zfloat);
         assertEquals(1.6, res.zdouble);
         assertEquals(localDate, res.zdate);
-        assertEquals(localTime.withNano(truncateNanosToMicros(localTime.getNano())), res.ztime);
+        assertEquals(localTime.truncatedTo(ChronoUnit.SECONDS), res.ztime);
         assertEquals(instant.with(NANO_OF_SECOND, truncateNanosToMicros(instant.getNano())), res.ztimestamp);
         assertEquals("foo", res.zstring);
         assertArrayEquals(new byte[]{1, 2}, res.zbytes);
@@ -184,7 +185,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals(1.17f, res.floatValue("zfloat"));
         assertEquals(1.18, res.doubleValue("zdouble"));
         assertEquals(localDate, res.dateValue("zdate"));
-        assertEquals(localTime.withNano(truncateNanosToMicros(localTime.getNano())), res.timeValue("ztime"));
+        assertEquals(localTime.truncatedTo(ChronoUnit.SECONDS), res.timeValue("ztime"));
         assertEquals(instant.with(NANO_OF_SECOND, truncateNanosToMicros(instant.getNano())), res.timestampValue("ztimestamp"));
         assertEquals("119", res.stringValue("zstring"));
         assertEquals(120, ((byte[]) res.value("zbytes"))[0]);

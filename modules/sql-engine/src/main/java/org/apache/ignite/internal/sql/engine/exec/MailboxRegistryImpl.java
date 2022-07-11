@@ -24,11 +24,12 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Mailbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.jetbrains.annotations.Nullable;
@@ -38,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandler {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(MailboxRegistryImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(MailboxRegistryImpl.class);
 
     private static final Predicate<Mailbox<?>> ALWAYS_TRUE = o -> true;
 

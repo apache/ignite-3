@@ -153,6 +153,46 @@ namespace Apache.Ignite.Tests.Proto
             Assert.AreEqual("abc", res1.Item4);
         }
 
+        [Test]
+        public void TestTryReadInt()
+        {
+            WriteRead(
+                buf =>
+                {
+                    var w = buf.GetMessageWriter();
+
+                    w.Write(3);
+                    w.Write(short.MaxValue);
+                    w.Write(int.MaxValue);
+                    w.WriteNoValue();
+                    w.Write("abc");
+
+                    w.Flush();
+                },
+                m =>
+                {
+                    var r = new MessagePackReader(m);
+                    int i;
+
+                    Assert.IsTrue(r.TryReadInt(out i));
+                    Assert.AreEqual(3, i);
+
+                    Assert.IsTrue(r.TryReadInt(out i));
+                    Assert.AreEqual(short.MaxValue, i);
+
+                    Assert.IsTrue(r.TryReadInt(out i));
+                    Assert.AreEqual(int.MaxValue, i);
+
+                    Assert.IsFalse(r.TryReadInt(out i));
+                    Assert.IsTrue(r.TryReadNoValue());
+
+                    Assert.IsFalse(r.TryReadInt(out i));
+                    Assert.AreEqual("abc", r.ReadString());
+
+                    return new object();
+                });
+        }
+
         private static T WriteRead<T>(Action<PooledArrayBufferWriter> write, Func<ReadOnlyMemory<byte>, T> read)
         {
             var bufferWriter = new PooledArrayBufferWriter();

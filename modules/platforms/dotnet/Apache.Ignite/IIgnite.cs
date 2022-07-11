@@ -21,6 +21,7 @@ namespace Apache.Ignite
     using System.Threading.Tasks;
     using Compute;
     using Network;
+    using Sql;
     using Table;
     using Transactions;
 
@@ -46,6 +47,11 @@ namespace Apache.Ignite
         /// Gets the compute API.
         /// </summary>
         ICompute Compute { get; }
+
+        /// <summary>
+        /// Gets the SQL API.
+        /// </summary>
+        ISql Sql { get; }
 
         /// <summary>
         /// Gets the cluster nodes.

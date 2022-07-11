@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Random;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
@@ -37,7 +38,6 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.util.HashCalculator;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,7 +57,7 @@ public class ColocationHashCalculationTest {
     public void initRandom() {
         long seed = System.currentTimeMillis();
 
-        IgniteLogger.forClass(RowTest.class).info("Using seed: " + seed + "L; //");
+        Loggers.forClass(RowTest.class).info("Using seed: " + seed + "L; //");
 
         rnd = new Random(seed);
     }

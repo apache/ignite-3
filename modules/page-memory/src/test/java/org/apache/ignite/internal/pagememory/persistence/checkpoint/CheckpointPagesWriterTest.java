@@ -47,12 +47,14 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesQueue;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -60,7 +62,7 @@ import org.mockito.ArgumentCaptor;
  * For {@link CheckpointPagesWriter} testing.
  */
 public class CheckpointPagesWriterTest {
-    private final IgniteLogger log = IgniteLogger.forClass(CheckpointPagesWriterTest.class);
+    private final IgniteLogger log = Loggers.forClass(CheckpointPagesWriterTest.class);
 
     @Test
     void testWritePages() throws Exception {
@@ -73,9 +75,9 @@ public class CheckpointPagesWriterTest {
         FullPageId fullPageId4 = new FullPageId(pageId(1, FLAG_DATA, 4), 0);
         FullPageId fullPageId5 = new FullPageId(pageId(1, FLAG_DATA, 5), 0);
 
-        IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds = new IgniteConcurrentMultiPairQueue<>(
+        CheckpointDirtyPagesQueue writePageIds = new CheckpointDirtyPages(
                 Map.of(pageMemory, List.of(fullPageId0, fullPageId1, fullPageId2, fullPageId3, fullPageId4, fullPageId5))
-        );
+        ).toQueue();
 
         Runnable beforePageWrite = mock(Runnable.class);
 
@@ -151,7 +153,7 @@ public class CheckpointPagesWriterTest {
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 log,
                 new CheckpointMetricsTracker(),
-                new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(new FullPageId(0, 0)))),
+                new CheckpointDirtyPages(Map.of(pageMemory, List.of(new FullPageId(0, 0)))).toQueue(),
                 new ConcurrentHashMap<>(),
                 doneFuture,
                 () -> {
@@ -190,9 +192,9 @@ public class CheckpointPagesWriterTest {
                         any(CheckpointMetricsTracker.class)
                 );
 
-        IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds = new IgniteConcurrentMultiPairQueue<>(
+        CheckpointDirtyPagesQueue writePageIds = new CheckpointDirtyPages(
                 Map.of(pageMemory, List.of(new FullPageId(0, 0), new FullPageId(1, 0)))
-        );
+        ).toQueue();
 
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 log,

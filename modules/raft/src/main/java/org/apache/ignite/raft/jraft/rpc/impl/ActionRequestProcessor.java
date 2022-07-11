@@ -22,26 +22,27 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.rpc.ActionRequest;
-import org.apache.ignite.raft.jraft.rpc.Message;
-import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
 import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.ActionRequest;
+import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 
@@ -49,7 +50,7 @@ import org.apache.ignite.raft.jraft.util.JDKMarshaller;
  * Process action request.
  */
 public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ActionRequestProcessor.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ActionRequestProcessor.class);
 
     private final Executor executor;
 

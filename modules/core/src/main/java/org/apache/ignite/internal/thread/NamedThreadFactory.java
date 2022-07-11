@@ -20,7 +20,7 @@ package org.apache.ignite.internal.thread;
 import java.util.Objects;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
 
 /**
  * Named thread factory with prefix.
@@ -91,5 +91,4 @@ public class NamedThreadFactory implements ThreadFactory {
     public static String threadPrefix(String nodeName, String poolName) {
         return IgniteThread.threadPrefix(nodeName, poolName);
     }
-
 }

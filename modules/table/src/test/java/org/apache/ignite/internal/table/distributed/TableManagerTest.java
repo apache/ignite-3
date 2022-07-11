@@ -79,6 +79,8 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
@@ -103,7 +105,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -137,7 +138,7 @@ import org.mockito.quality.Strictness;
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest extends IgniteAbstractTest {
-    private static IgniteLogger LOG = IgniteLogger.forClass(TableManagerTest.class);
+    private static IgniteLogger LOG = Loggers.forClass(TableManagerTest.class);
 
     /** The name of the table which is preconfigured. */
     private static final String PRECONFIGURED_TABLE_NAME = "t1";
@@ -563,7 +564,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
 
-            return CompletableFuture.completedFuture(raftGrpSrvcMock);
+            return completedFuture(raftGrpSrvcMock);
         });
 
         when(ts.getByAddress(any(NetworkAddress.class))).thenReturn(new ClusterNode(
@@ -600,27 +601,22 @@ public class TableManagerTest extends IgniteAbstractTest {
                     && ctx.newValue().get(tableDefinition.canonicalName()) == null;
 
             if (!createTbl && !dropTbl) {
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
 
             if (phaser != null) {
                 phaser.arriveAndAwaitAdvance();
             }
 
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         });
 
         CountDownLatch createTblLatch = new CountDownLatch(1);
 
-        AtomicLong token = new AtomicLong();
-
         tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
-
             createTblLatch.countDown();
 
-            token.set(parameters.causalityToken());
-
-            return true;
+            return completedFuture(true);
         });
 
         CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.canonicalName(),
@@ -634,8 +630,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertTrue(createTblLatch.await(10, TimeUnit.SECONDS));
 
         assertFalse(tbl2Fut.isDone());
-
-        tableManager.onSqlSchemaReady(token.get());
 
         TableImpl tbl2 = (TableImpl) tbl2Fut.get();
 
@@ -775,13 +769,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         sm.start();
 
-        //TODO: Get rid of it after IGNITE-17062.
         if (!waitingSqlSchema) {
-            tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
-                tableManager.onSqlSchemaReady(parameters.causalityToken());
-
-                return false;
-            });
+            tableManager.listen(TableEvent.CREATE, (parameters, exception) -> completedFuture(false));
         }
 
         tableManager.start();

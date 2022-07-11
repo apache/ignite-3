@@ -26,11 +26,18 @@ import org.apache.ignite.cli.core.call.CallInput;
 public class CliConfigSetCallInput implements CallInput {
     private final Map<String, String> parameters;
 
-    public CliConfigSetCallInput(Map<String, String> parameters) {
+    private final String profileName;
+
+    public CliConfigSetCallInput(Map<String, String> parameters, String profileName) {
         this.parameters = parameters;
+        this.profileName = profileName;
     }
 
     public Map<String, String> getParameters() {
         return parameters;
+    }
+
+    public String getProfileName() {
+        return profileName;
     }
 }

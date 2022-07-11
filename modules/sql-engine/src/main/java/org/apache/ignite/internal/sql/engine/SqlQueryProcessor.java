@@ -38,7 +38,10 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.EventListener;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
@@ -65,7 +68,6 @@ import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.SqlException;
@@ -77,7 +79,7 @@ import org.jetbrains.annotations.Nullable;
  *  TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class SqlQueryProcessor implements QueryProcessor {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(SqlQueryProcessor.class);
+    private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
 
     /** Size of the cache for query plans. */
     public static final int PLAN_CACHE_SIZE = 1024;
@@ -85,6 +87,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     private final ClusterService clusterSrvc;
 
     private final TableManager tableManager;
+
+    private final SchemaManager schemaManager;
 
     private final Consumer<Function<Long, CompletableFuture<?>>> registry;
 
@@ -108,19 +112,21 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile PrepareService prepareSvc;
 
-    private volatile SqlSchemaManager schemaManager;
+    private volatile SqlSchemaManager sqlSchemaManager;
 
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<Function<Long, CompletableFuture<?>>> registry,
             ClusterService clusterSrvc,
             TableManager tableManager,
+            SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier
     ) {
         this.registry = registry;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
+        this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
     }
@@ -154,16 +160,16 @@ public class SqlQueryProcessor implements QueryProcessor {
                 msgSrvc
         ));
 
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, registry);
+        SqlSchemaManagerImpl sqlSchemaManager = new SqlSchemaManagerImpl(tableManager, schemaManager, registry);
 
-        schemaManager.registerListener(prepareSvc);
+        sqlSchemaManager.registerListener(prepareSvc);
 
         this.prepareSvc = prepareSvc;
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
                 msgSrvc,
-                schemaManager,
+                sqlSchemaManager,
                 tableManager,
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
@@ -177,11 +183,11 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.executionSrvc = executionSrvc;
 
-        registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaManager));
-        registerTableListener(TableEvent.ALTER, new TableUpdatedListener(schemaManager));
-        registerTableListener(TableEvent.DROP, new TableDroppedListener(schemaManager));
+        registerTableListener(TableEvent.CREATE, new TableCreatedListener(sqlSchemaManager));
+        registerTableListener(TableEvent.ALTER, new TableUpdatedListener(sqlSchemaManager));
+        registerTableListener(TableEvent.DROP, new TableDroppedListener(sqlSchemaManager));
 
-        this.schemaManager = schemaManager;
+        this.sqlSchemaManager = sqlSchemaManager;
 
         services.forEach(LifecycleAware::start);
     }
@@ -289,7 +295,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var schemaName = session.queryProperties().get(QueryProperty.DEFAULT_SCHEMA);
 
-        SchemaPlus schema = schemaManager.schema(schemaName);
+        SchemaPlus schema = sqlSchemaManager.schema(schemaName);
 
         if (schema == null) {
             return CompletableFuture.failedFuture(new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName)));
@@ -377,7 +383,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             String sql,
             Object... params
     ) {
-        SchemaPlus schema = schemaManager.schema(schemaName);
+        SchemaPlus schema = sqlSchemaManager.schema(schemaName);
 
         if (schema == null) {
             throw new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName));
@@ -446,14 +452,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         /** {@inheritDoc} */
         @Override
-        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
-            schemaHolder.onTableCreated(
+        public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+            return schemaHolder.onTableCreated(
                     "PUBLIC",
                     parameters.table(),
                     parameters.causalityToken()
-            );
-
-            return false;
+                )
+                .thenApply(v -> false);
         }
     }
 
@@ -466,14 +471,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         /** {@inheritDoc} */
         @Override
-        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
-            schemaHolder.onTableUpdated(
+        public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+            return schemaHolder.onTableUpdated(
                     "PUBLIC",
                     parameters.table(),
                     parameters.causalityToken()
-            );
-
-            return false;
+                )
+                .thenApply(v -> false);
         }
     }
 
@@ -486,14 +490,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         /** {@inheritDoc} */
         @Override
-        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
-            schemaHolder.onTableDropped(
+        public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+            return schemaHolder.onTableDropped(
                     "PUBLIC",
                     parameters.tableName(),
                     parameters.causalityToken()
-            );
-
-            return false;
+                )
+                .thenApply(v -> false);
         }
     }
 }

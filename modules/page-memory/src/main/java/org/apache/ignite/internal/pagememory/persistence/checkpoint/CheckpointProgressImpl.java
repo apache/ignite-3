@@ -178,10 +178,10 @@ class CheckpointProgressImpl implements CheckpointProgress {
     /**
      * Initialize all counters before checkpoint.
      *
-     * @param pagesSize Number of dirty pages in current checkpoint at the beginning of checkpoint.
+     * @param checkpointPages Number of dirty pages in current checkpoint at the beginning of checkpoint.
      */
-    public void initCounters(int pagesSize) {
-        currCheckpointPagesCnt = pagesSize;
+    public void initCounters(int checkpointPages) {
+        currCheckpointPagesCnt = checkpointPages;
 
         writtenPagesCntr.set(0);
         syncedPagesCntr.set(0);

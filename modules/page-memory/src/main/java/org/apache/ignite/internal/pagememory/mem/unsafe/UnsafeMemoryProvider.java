@@ -20,12 +20,13 @@ package org.apache.ignite.internal.pagememory.mem.unsafe;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.pagememory.mem.MemoryAllocator;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class UnsafeMemoryProvider implements DirectMemoryProvider {
     /** Logger.*/
-    private static final IgniteLogger LOG = IgniteLogger.forClass(UnsafeMemoryProvider.class);
+    private static final IgniteLogger LOG = Loggers.forClass(UnsafeMemoryProvider.class);
 
     /** Array with memory regions sizes. */
     private long[] sizes;
