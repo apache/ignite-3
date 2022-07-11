@@ -88,6 +88,8 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         checkpointTimeoutLock.checkpointReadLock();
 
         try {
+            // TODO: IGNITE-17295 вот тут надо поменять, мол что не через pm все это делаем и тд тп
+
             PartitionMeta partitionMeta = getOrCreatePartitionMeta(tableView, partId, partitionFilePageStore);
 
             TableFreeList tableFreeList = createTableFreeList(tableView, partId, partitionMeta);
@@ -154,6 +156,8 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         PersistentPageMemory pageMemoryImpl = dataRegion.pageMemory();
 
         int grpId = groupId(tableView);
+
+        // TODO: IGNITE-17295 вот тут надо править
 
         boolean allocatePartMetaPage = filePageStore.pages() == 0;
 

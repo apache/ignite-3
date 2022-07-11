@@ -925,19 +925,21 @@ public class PersistentPageMemory implements PageMemory {
 
             int tag = 0;
 
-            for (Segment seg : segments) {
-                seg.writeLock().lock();
+            for (Segment segment : segments) {
+                segment.writeLock().lock();
 
                 try {
-                    int newTag = seg.incrementPartGeneration(grpId, partId);
+                    int newTag = segment.incrementPartGeneration(grpId, partId);
 
                     if (tag == 0) {
                         tag = newTag;
                     }
 
                     assert tag == newTag;
+
+                    segment.dirtyPartitions.remove(new GroupPartitionId(grpId, partId));
                 } finally {
-                    seg.writeLock().unlock();
+                    segment.writeLock().unlock();
                 }
             }
 
@@ -950,7 +952,7 @@ public class PersistentPageMemory implements PageMemory {
      *
      * @param grpId Group ID.
      */
-    public void onCacheGroupDestroyed(int grpId) {
+    public void onGroupDestroyed(int grpId) {
         for (Segment seg : segments) {
             seg.writeLock().lock();
 
@@ -1127,6 +1129,8 @@ public class PersistentPageMemory implements PageMemory {
             assert getVersion(tmpAbsPtr + PAGE_OVERHEAD) != 0 :
                     "Invalid state. Version is 0! pageId = " + hexLong(fullId.pageId());
 
+            // TODO: IGNITE-17295 вот тут можно конечно, но как понять для новой то?
+
             dirty(absPtr, false);
             tempBufferPointer(absPtr, tmpRelPtr);
             // info for checkpoint buffer cleaner.
@@ -1170,6 +1174,8 @@ public class PersistentPageMemory implements PageMemory {
 
                 assert getVersion(page + PAGE_OVERHEAD) != 0 : dumpPage(pageId, fullId.groupId());
                 assert getType(page + PAGE_OVERHEAD) != 0 : hexLong(pageId);
+
+                // TODO: IGNITE-17295 вот тут думаю можно добавить
             } catch (AssertionError ex) {
                 LOG.error("Failed to unlock page [fullPageId=" + fullId + ", binPage=" + toHexString(page, systemPageSize()) + ']');
 
@@ -1250,6 +1256,8 @@ public class PersistentPageMemory implements PageMemory {
                     if (seg.dirtyPagesCntr.incrementAndGet() >= seg.maxDirtyPages) {
                         safeToUpdate.set(false);
                     }
+
+                    seg.dirtyPartitions.add(new GroupPartitionId(pageId.groupId(), pageId.partitionId()));
                 }
             }
         } else {
@@ -1337,6 +1345,9 @@ public class PersistentPageMemory implements PageMemory {
 
         /** Atomic size counter for {@link #dirtyPages}. */
         private final AtomicLong dirtyPagesCntr = new AtomicLong();
+
+        /** Partitions for which {@link #dirtyPages dirty pages} have appeared since the last checkpoint. */
+        private volatile Set<GroupPartitionId> dirtyPartitions = ConcurrentHashMap.newKeySet();
 
         /** Wrapper of pages of current checkpoint. */
         @Nullable
@@ -1464,6 +1475,8 @@ public class PersistentPageMemory implements PageMemory {
             dirtyPages = ConcurrentHashMap.newKeySet();
 
             dirtyPagesCntr.set(0);
+
+            dirtyPartitions = ConcurrentHashMap.newKeySet();
         }
 
         /**
@@ -1554,18 +1567,14 @@ public class PersistentPageMemory implements PageMemory {
                 loadedPages.remove(grpId, effectivePageId(pageId));
             }
 
-            CheckpointPages cpPages = checkpointPages;
+            CheckpointPages checkpointPages = this.checkpointPages;
 
-            if (cpPages != null) {
-                cpPages.markAsSaved(new FullPageId(pageId, grpId));
+            if (checkpointPages != null) {
+                checkpointPages.markAsSaved(new FullPageId(pageId, grpId));
             }
 
-            Collection<FullPageId> dirtyPages = this.dirtyPages;
-
-            if (dirtyPages != null) {
-                if (dirtyPages.remove(new FullPageId(pageId, grpId))) {
-                    dirtyPagesCntr.decrementAndGet();
-                }
+            if (dirtyPages.remove(new FullPageId(pageId, grpId))) {
+                dirtyPagesCntr.decrementAndGet();
             }
 
             return relPtr;

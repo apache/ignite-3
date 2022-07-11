@@ -353,6 +353,23 @@ public class FilePageStoreTest {
         }
     }
 
+    @Test
+    void testHeaderSize() {
+        Path testFilePath = workDir.resolve("test");
+
+        assertEquals(PAGE_SIZE, createFilePageStore(testFilePath).headerSize());
+
+        assertEquals(
+                2 * PAGE_SIZE,
+                createFilePageStore(testFilePath, 0, new FilePageStoreHeader(VERSION_1, 2 * PAGE_SIZE)).headerSize()
+        );
+
+        assertEquals(
+                3 * PAGE_SIZE,
+                createFilePageStore(testFilePath, 0, new FilePageStoreHeader(VERSION_1, 3 * PAGE_SIZE)).headerSize()
+        );
+    }
+
     private static byte[] randomBytes(int len) {
         byte[] res = new byte[len];
 
@@ -373,9 +390,15 @@ public class FilePageStoreTest {
         return pageId(pageId(0, FLAG_DATA, (int) filePageStore.allocatePage()));
     }
 
-    private static FilePageStore createFilePageStore(Path filePath, int pageCount) {
-        FilePageStoreHeader header = new FilePageStoreHeader(VERSION_1, PAGE_SIZE);
+    private static FilePageStore createFilePageStore(Path filePath) {
+        return createFilePageStore(filePath, 0);
+    }
 
+    private static FilePageStore createFilePageStore(Path filePath, int pageCount) {
+        return createFilePageStore(filePath, pageCount, new FilePageStoreHeader(VERSION_1, PAGE_SIZE));
+    }
+
+    private static FilePageStore createFilePageStore(Path filePath, int pageCount, FilePageStoreHeader header) {
         return new FilePageStore(
                 header.version(),
                 header.pageSize(),
@@ -384,9 +407,5 @@ public class FilePageStoreTest {
                 filePath,
                 new RandomAccessFileIoFactory()
         );
-    }
-
-    private static FilePageStore createFilePageStore(Path filePath) {
-        return createFilePageStore(filePath, 0);
     }
 }

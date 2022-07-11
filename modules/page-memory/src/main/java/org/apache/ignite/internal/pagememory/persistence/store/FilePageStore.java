@@ -632,4 +632,11 @@ public class FilePageStore implements PageStore {
     private long allocatedBytes() {
         return (long) pageCount.get() * pageSize;
     }
+
+    /**
+     * Returns file page store header size.
+     */
+    public int headerSize() {
+        return headerSize;
+    }
 }
