@@ -242,6 +242,8 @@ public abstract class QueryChecker {
 
     private List<Type> expectedColumnTypes;
 
+    private List<MetadataMatcher> metadataMatchers;
+
     private boolean ordered;
 
     private Object[] params = OBJECT_EMPTY_ARRAY;
@@ -322,6 +324,17 @@ public abstract class QueryChecker {
     }
 
     /**
+     * Sets columns metadata.
+     *
+     * @return This.
+     */
+    public QueryChecker columnMetadata(MetadataMatcher... matchers) {
+        metadataMatchers = Arrays.asList(matchers);
+
+        return this;
+    }
+
+    /**
      * Sets plan.
      *
      * @return This.
@@ -377,7 +390,23 @@ public abstract class QueryChecker {
             assertThat("Column types don't match", colTypes, equalTo(expectedColumnTypes));
         }
 
-        var res = CursorUtils.getAllFromCursor(cur);
+        if (metadataMatchers != null) {
+            List<ColumnMetadata> columnMetadata = cur.metadata().columns();
+
+            Iterator<ColumnMetadata> valueIterator = columnMetadata.iterator();
+            Iterator<MetadataMatcher> matcherIterator = metadataMatchers.iterator();
+
+            while (matcherIterator.hasNext() && valueIterator.hasNext()) {
+                MetadataMatcher matcher = matcherIterator.next();
+                ColumnMetadata actualElement = valueIterator.next();
+
+                matcher.check(actualElement);
+            }
+
+            assertEquals(metadataMatchers.size(), columnMetadata.size(), "Column metadata doesn't match");
+        }
+
+        var res = getAllFromCursor(cur);
 
         if (expectedResult != null) {
             if (!ordered) {

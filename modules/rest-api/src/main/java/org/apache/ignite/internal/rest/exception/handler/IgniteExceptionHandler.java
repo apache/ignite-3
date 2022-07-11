@@ -38,27 +38,32 @@ import org.apache.ignite.lang.IgniteException;
 @Singleton
 @Requires(classes = {IgniteException.class, ExceptionHandler.class})
 public class IgniteExceptionHandler implements ExceptionHandler<IgniteException, HttpResponse<? extends Problem>> {
-
     @Override
     public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteException exception) {
-        //TODO: set code, traceId when https://issues.apache.org/jira/browse/IGNITE-17281 is done
-
         if (exception.getCause() instanceof IllegalArgumentException) {
             return HttpProblemResponse.from(
-                    Problem.fromHttpCode(HttpCode.BAD_REQUEST).detail(exception.getCause().getMessage())
+                    Problem.fromHttpCode(HttpCode.BAD_REQUEST)
+                            .detail(exception.getMessage())
+                            .traceId(exception.traceId())
+                            .code(exception.codeAsString())
             );
         }
 
         if (exception.getCause() instanceof ConfigurationValidationException) {
             return HttpProblemResponse.from(
                     ValidationProblem.fromHttpCode(HttpCode.BAD_REQUEST)
-                            .detail("Validation did not pass")
+                            .detail(exception.getMessage())
                             .invalidParams(mapValidationIssuesToRestFormat((ConfigurationValidationException) exception.getCause()))
+                            .traceId(exception.traceId())
+                            .code(exception.codeAsString())
             );
         }
 
         return HttpProblemResponse.from(
-                Problem.fromHttpCode(HttpCode.INTERNAL_ERROR).detail(exception.getMessage())
+                Problem.fromHttpCode(HttpCode.INTERNAL_ERROR)
+                        .detail(exception.getMessage())
+                        .traceId(exception.traceId())
+                        .code(exception.codeAsString())
         );
     }
 
@@ -68,5 +73,4 @@ public class IgniteExceptionHandler implements ExceptionHandler<IgniteException,
                 .map(validationIssue -> new InvalidParam(validationIssue.key(), validationIssue.message()))
                 .collect(Collectors.toList());
     }
-
 }

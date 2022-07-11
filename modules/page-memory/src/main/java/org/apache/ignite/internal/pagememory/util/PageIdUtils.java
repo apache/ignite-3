@@ -187,7 +187,7 @@ public final class PageIdUtils {
      * Extracts partition ID from the page ID.
      *
      * @param pageId Page ID.
-     * @return Partition.
+     * @return Partition ID.
      */
     public static int partitionId(long pageId) {
         return (int) ((pageId >>> PAGE_IDX_SIZE) & PART_ID_MASK);

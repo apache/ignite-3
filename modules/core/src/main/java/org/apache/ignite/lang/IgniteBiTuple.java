@@ -27,6 +27,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,16 +37,17 @@ import org.jetbrains.annotations.Nullable;
  * @param <V1> First element type.
  * @param <V2> Second element type.
  */
-public class IgniteBiTuple<V1, V2> implements Map<V1, V2>, Map.Entry<V1, V2>,
-        Iterable<Object>, Externalizable, Cloneable {
+public class IgniteBiTuple<V1, V2> implements Map<V1, V2>, Map.Entry<V1, V2>, Iterable<Object>, Externalizable, Cloneable {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
     /** First value. */
-    private V1 val1;
+    @IgniteToStringInclude
+    private @Nullable V1 val1;
 
     /** Second value. */
-    private V2 val2;
+    @IgniteToStringInclude
+    private @Nullable V2 val2;
 
     /**
      * Empty constructor required by {@link Externalizable}.
@@ -75,19 +78,15 @@ public class IgniteBiTuple<V1, V2> implements Map<V1, V2>, Map.Entry<V1, V2>,
 
     /**
      * Gets first value.
-     *
-     * @return First value.
      */
-    public V1 get1() {
+    public @Nullable V1 get1() {
         return val1;
     }
 
     /**
      * Gets second value.
-     *
-     * @return Second value.
      */
-    public V2 get2() {
+    public @Nullable V2 get2() {
         return val2;
     }
 
@@ -121,16 +120,14 @@ public class IgniteBiTuple<V1, V2> implements Map<V1, V2>, Map.Entry<V1, V2>,
     }
 
     /** {@inheritDoc} */
-    @Nullable
     @Override
-    public V1 getKey() {
+    public @Nullable V1 getKey() {
         return val1;
     }
 
     /** {@inheritDoc} */
-    @Nullable
     @Override
-    public V2 getValue() {
+    public @Nullable V2 getValue() {
         return val2;
     }
 
@@ -151,14 +148,15 @@ public class IgniteBiTuple<V1, V2> implements Map<V1, V2>, Map.Entry<V1, V2>,
             /** Next index. */
             private int nextIdx = 1;
 
+            /** {@inheritDoc} */
             @Override
             public boolean hasNext() {
                 return nextIdx < 3;
             }
 
-            @Nullable
+            /** {@inheritDoc} */
             @Override
-            public Object next() {
+            public @Nullable Object next() {
                 if (!hasNext()) {
                     throw new NoSuchElementException();
                 }
@@ -176,6 +174,7 @@ public class IgniteBiTuple<V1, V2> implements Map<V1, V2>, Map.Entry<V1, V2>,
                 return res;
             }
 
+            /** {@inheritDoc} */
             @Override
             public void remove() {
                 throw new UnsupportedOperationException();
@@ -208,16 +207,14 @@ public class IgniteBiTuple<V1, V2> implements Map<V1, V2>, Map.Entry<V1, V2>,
     }
 
     /** {@inheritDoc} */
-    @Nullable
     @Override
-    public V2 get(Object key) {
+    public @Nullable V2 get(Object key) {
         return containsKey(key) ? val2 : null;
     }
 
     /** {@inheritDoc} */
-    @Nullable
     @Override
-    public V2 put(V1 key, V2 val) {
+    public @Nullable V2 put(V1 key, V2 val) {
         V2 old = containsKey(key) ? val2 : null;
 
         set(key, val);
@@ -226,9 +223,8 @@ public class IgniteBiTuple<V1, V2> implements Map<V1, V2>, Map.Entry<V1, V2>,
     }
 
     /** {@inheritDoc} */
-    @Nullable
     @Override
-    public V2 remove(Object key) {
+    public @Nullable V2 remove(Object key) {
         if (containsKey(key)) {
             V2 v2 = val2;
 
@@ -347,6 +343,6 @@ public class IgniteBiTuple<V1, V2> implements Map<V1, V2>, Map.Entry<V1, V2>,
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return "S.toString(IgniteBiTuple.class, this)";
+        return S.toString(IgniteBiTuple.class, this);
     }
 }

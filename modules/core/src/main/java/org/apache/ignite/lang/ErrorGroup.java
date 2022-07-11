@@ -29,6 +29,9 @@ import java.util.UUID;
  * Each group can be identified by a name and an integer number that both must be unique across all error groups.
  */
 public class ErrorGroup {
+    /** Additional prefix that is used in a human-readable format of ignite errors. */
+    public static final String ERR_PREFIX = "IGN-";
+
     /** List of all registered error groups. */
     private static final Int2ObjectMap<ErrorGroup> registeredGroups = new Int2ObjectOpenHashMap<>();
 
@@ -110,8 +113,13 @@ public class ErrorGroup {
      * @return New error group.
      * @throws IllegalArgumentException If the specified name or group code already registered.
      *      or {@code groupCode} is greater than 0xFFFF or less than or equal to 0.
+     *      Also, this exception is thrown if the given {@code groupName} is {@code null} or empty.
      */
     public static synchronized ErrorGroup newGroup(String groupName, int groupCode) {
+        if (groupName == null || groupName.isEmpty()) {
+            throw new IllegalArgumentException("Group name is null or empty");
+        }
+
         String grpName = groupName.toUpperCase(Locale.ENGLISH);
 
         if (registeredGroups.containsKey(groupCode)) {
@@ -187,7 +195,7 @@ public class ErrorGroup {
      * @return New error message with predefined prefix.
      */
     public static String errorMessage(UUID traceId, String groupName, int code, String message) {
-        return "IGN-" + groupName + '-' + extractErrorCode(code) + " Trace ID:" + traceId + ((message != null) ? ' ' + message : "");
+        return ERR_PREFIX + groupName + '-' + extractErrorCode(code) + " Trace ID:" + traceId + ((message != null) ? ' ' + message : "");
     }
 
     /**
@@ -214,9 +222,10 @@ public class ErrorGroup {
     public static String errorMessageFromCause(UUID traceId, String groupName, int code, Throwable cause) {
         String c = (cause != null && cause.getMessage() != null) ? cause.getMessage() : null;
 
-        return (c != null && c.startsWith("IGN-")) ? c :  errorMessage(traceId, groupName, code, c);
+        return (c != null && c.startsWith(ERR_PREFIX)) ? c :  errorMessage(traceId, groupName, code, c);
     }
 
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return "ErrorGroup [name=" + name() + ", code=" + code() + ']';

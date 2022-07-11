@@ -2095,7 +2095,7 @@ public class PersistentPageMemory implements PageMemory {
 
         safeToUpdate.set(true);
 
-        return CollectionUtils.union(collections);
+        return CollectionUtils.concat(collections);
     }
 
     /**
