@@ -195,7 +195,7 @@ public class ErrorGroup {
      * @return New error message with predefined prefix.
      */
     public static String errorMessage(UUID traceId, String groupName, int code, String message) {
-        return ERR_PREFIX + groupName + '-' + extractErrorCode(code) + " Trace ID:" + traceId + ((message != null) ? ' ' + message : "");
+        return ERR_PREFIX + groupName + '-' + extractErrorCode(code) + " TraceId:" + traceId + ((message != null) ? ' ' + message : "");
     }
 
     /**
@@ -222,7 +222,7 @@ public class ErrorGroup {
     public static String errorMessageFromCause(UUID traceId, String groupName, int code, Throwable cause) {
         String c = (cause != null && cause.getMessage() != null) ? cause.getMessage() : null;
 
-        return (c != null && c.startsWith(ERR_PREFIX)) ? c :  errorMessage(traceId, groupName, code, c);
+        return (c != null && c.startsWith(ERR_PREFIX)) ? c : errorMessage(traceId, groupName, code, c);
     }
 
     /** {@inheritDoc} */
