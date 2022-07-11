@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -224,8 +226,13 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return new CursorImpl<>(
                 metaStorageRaftGrpSvc,
                 metaStorageRaftGrpSvc.run(
-                        new RangeCommand(keyFrom, keyTo, revUpperBound, localNodeId, uuidGenerator.randomUuid(), includeTombstones)),
-                MetaStorageServiceImpl::singleEntryResult
+                        RangeCommand.builder(keyFrom, localNodeId, uuidGenerator.randomUuid())
+                                .keyTo(keyTo)
+                                .revUpperBound(revUpperBound)
+                                .includeTombstones(includeTombstones)
+                                .build()
+                ),
+                MetaStorageServiceImpl::multipleEntryResultForCache
         );
     }
 
@@ -241,8 +248,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return new CursorImpl<>(
             metaStorageRaftGrpSvc,
             metaStorageRaftGrpSvc.run(
-                new RangeCommand(keyFrom, keyTo, localNodeId, uuidGenerator.randomUuid())),
-            MetaStorageServiceImpl::singleEntryResult
+                RangeCommand.builder(keyFrom, localNodeId, uuidGenerator.randomUuid()).keyTo(keyTo).build()),
+            MetaStorageServiceImpl::multipleEntryResultForCache
         );
     }
 
@@ -408,6 +415,14 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         }
 
         return res;
+    }
+
+    private static List<Entry> multipleEntryResultForCache(Object obj) {
+        MultipleEntryResponse resp = (MultipleEntryResponse) obj;
+
+        return resp.entries().stream()
+            .map(MetaStorageServiceImpl::singleEntryResult)
+            .collect(toList());
     }
 
     private static Entry singleEntryResult(Object obj) {
