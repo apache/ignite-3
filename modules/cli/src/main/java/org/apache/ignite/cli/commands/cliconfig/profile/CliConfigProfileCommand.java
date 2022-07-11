@@ -36,18 +36,18 @@ import picocli.CommandLine.Option;
                 CliConfigShowProfileCommand.class
         })
 public class CliConfigProfileCommand extends BaseCommand implements Callable<Integer> {
-        @Option(names = {"--set-current", "-s"}, description = "Name of profile which should be activated as default.")
-        private String profileName;
+    @Option(names = {"--set-current", "-s"}, description = "Name of profile which should be activated as default.")
+    private String profileName;
 
-        @Inject
-        private CliConfigUseCall call;
+    @Inject
+    private CliConfigUseCall call;
 
-        @Override
-        public Integer call() {
-                return CallExecutionPipeline.builder(call)
-                        .inputProvider(() -> new StringCallInput(profileName))
-                        .errOutput(spec.commandLine().getErr())
-                        .output(spec.commandLine().getOut())
-                        .build().runPipeline();
-        }
+    @Override
+    public Integer call() {
+        return CallExecutionPipeline.builder(call)
+                .inputProvider(() -> new StringCallInput(profileName))
+                .errOutput(spec.commandLine().getErr())
+                .output(spec.commandLine().getOut())
+                .build().runPipeline();
+    }
 }
