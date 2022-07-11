@@ -24,6 +24,10 @@ import static org.hamcrest.CoreMatchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.Arrays;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -209,11 +213,23 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void testSequentialInserts() {
+    public void testSequentialInserts() throws SQLException {
         sql("CREATE TABLE t(x INTEGER PRIMARY KEY, y int)");
 
-        for (int i = 0; i < 10_000; i++) {
-            sql("INSERT INTO t VALUES (?,?)", i, i);
+
+        try (
+                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800");
+                PreparedStatement statement = conn.prepareStatement("INSERT INTO t VALUES (?,?)")
+        ) {
+            for (int i = 0; i < 10_000; i++) {
+
+                statement.setInt(1, i);
+                statement.setInt(2, i);
+
+                statement.addBatch();
+            }
+
+            statement.executeBatch();
         }
 
         assertEquals(10_000L, sql("SELECT count(*) FROM t").get(0).get(0));

@@ -376,7 +376,9 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         switch (columnFamilyType(cfName)) {
             case META:
             case PARTITION:
-                return new ColumnFamilyDescriptor(cfName.getBytes(UTF_8), new ColumnFamilyOptions());
+                ColumnFamilyOptions options = new ColumnFamilyOptions();
+                options.useFixedLengthPrefixExtractor(16);
+                return new ColumnFamilyDescriptor(cfName.getBytes(UTF_8), options);
 
             case SORTED_INDEX:
                 var indexDescriptor = new SortedIndexDescriptor(sortedIndexName(cfName), tableCfg.value());
