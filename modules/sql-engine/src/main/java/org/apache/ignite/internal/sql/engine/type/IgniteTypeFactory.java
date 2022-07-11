@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -45,7 +44,6 @@ import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.IntervalSqlType;
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.schema.definition.ColumnType;
 
 /**
@@ -163,30 +161,75 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     }
 
     /**
-     * Gets ColumnType type for given class.
+     * Gets ColumnType type for RelDataType.
      *
      * @param relType Rel type.
      * @return ColumnType type or null.
      */
-    public ColumnType columnType(RelDataType relType) {
-        assert relType != null;
+    public static ColumnType relDataTypeToColumnType(RelDataType relType) {
+        assert relType instanceof BasicSqlType
+                || relType instanceof IntervalSqlType : "Not supported.";
 
-        Type javaType = getResultClass(relType);
+        switch (relType.getSqlTypeName()) {
+            case BOOLEAN:
+                //TODO: https://issues.apache.org/jira/browse/IGNITE-17298
+                throw new IllegalArgumentException("Type is not supported yet.");
+            case TINYINT:
+                return ColumnType.INT8;
+            case SMALLINT:
+                return ColumnType.INT16;
+            case INTEGER:
+                return ColumnType.INT32;
+            case BIGINT:
+                return ColumnType.INT64;
+            case DECIMAL:
+                assert relType.getPrecision() != PRECISION_NOT_SPECIFIED;
 
-        if (javaType == byte[].class) {
-            return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.blobOf() :
-                ColumnType.blobOf(relType.getPrecision());
-        } else if (javaType == String.class) {
-            return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.string() :
-                ColumnType.stringOf(relType.getPrecision());
-        } else if (javaType == BigInteger.class) {
-            return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.numberOf() :
-                ColumnType.numberOf(relType.getPrecision());
-        } else if (javaType == BigDecimal.class) {
-            return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.decimalOf() :
-                ColumnType.decimalOf(relType.getPrecision(), relType.getScale());
-        } else {
-            return SchemaConfigurationConverter.columnType((Class<?>) javaType);
+                return ColumnType.decimalOf(relType.getPrecision(), relType.getScale());
+            case FLOAT:
+            case REAL:
+                return ColumnType.FLOAT;
+            case DOUBLE:
+                return ColumnType.DOUBLE;
+            case DATE:
+                return ColumnType.DATE;
+            case TIME:
+            case TIME_WITH_LOCAL_TIME_ZONE:
+                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.time() :
+                        ColumnType.time(relType.getPrecision());
+            case TIMESTAMP:
+                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.datetime() :
+                        ColumnType.datetime(relType.getPrecision());
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.timestamp() :
+                        ColumnType.timestamp(relType.getPrecision());
+            case INTERVAL_YEAR:
+            case INTERVAL_YEAR_MONTH:
+            case INTERVAL_MONTH:
+                //TODO: https://issues.apache.org/jira/browse/IGNITE-17219
+                throw new IllegalArgumentException("Type is not supported yet.");
+            case INTERVAL_DAY:
+            case INTERVAL_DAY_HOUR:
+            case INTERVAL_DAY_MINUTE:
+            case INTERVAL_DAY_SECOND:
+            case INTERVAL_HOUR:
+            case INTERVAL_HOUR_MINUTE:
+            case INTERVAL_HOUR_SECOND:
+            case INTERVAL_MINUTE:
+            case INTERVAL_MINUTE_SECOND:
+            case INTERVAL_SECOND:
+                //TODO: https://issues.apache.org/jira/browse/IGNITE-17219
+                throw new IllegalArgumentException("Type is not supported yet.");
+            case VARCHAR:
+            case CHAR:
+                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.string() :
+                        ColumnType.stringOf(relType.getPrecision());
+            case BINARY:
+            case VARBINARY:
+                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.blobOf() :
+                        ColumnType.blobOf(relType.getPrecision());
+            default:
+                throw new IllegalArgumentException("Type is not supported.");
         }
     }
 

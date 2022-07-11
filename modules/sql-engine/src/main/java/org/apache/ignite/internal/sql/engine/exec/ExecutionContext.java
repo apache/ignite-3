@@ -31,6 +31,8 @@ import java.util.function.Consumer;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
@@ -41,7 +43,6 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,7 +50,7 @@ import org.jetbrains.annotations.Nullable;
  * Runtime context allowing access to the tables in a database.
  */
 public class ExecutionContext<RowT> extends AbstractQueryContext implements DataContext {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ExecutionContext.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ExecutionContext.class);
 
     private static final TimeZone TIME_ZONE = TimeZone.getDefault(); // TODO DistributedSqlConfiguration#timeZone
 

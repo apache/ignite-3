@@ -70,10 +70,11 @@ import org.apache.ignite.hlc.SystemHybridClock;
 import org.apache.ignite.hlc.SystemTimeProvider;
 import org.apache.ignite.hlc.TestHybridClock;
 import org.apache.ignite.hlc.TestTimeProvider;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -140,7 +141,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItNodeTest {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ItNodeTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ItNodeTest.class);
 
     private static DumpThread dumpThread;
 

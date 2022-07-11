@@ -24,11 +24,12 @@ import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 import java.nio.ByteBuffer;
 import java.util.List;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.direct.DirectMarshallingUtils;
 import org.apache.ignite.internal.network.direct.DirectMessageReader;
 import org.apache.ignite.internal.network.message.ClassDescriptorListMessage;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageReader;
@@ -41,7 +42,7 @@ public class InboundDecoder extends ByteToMessageDecoder {
     public static final String NAME = "inbound-decoder";
 
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(InboundDecoder.class);
+    private static final IgniteLogger LOG = Loggers.forClass(InboundDecoder.class);
 
     /** Message reader channel attribute key. */
     private static final AttributeKey<MessageReader> READER_KEY = AttributeKey.valueOf("READER");

@@ -75,10 +75,11 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.IgniteSql;
@@ -91,7 +92,7 @@ import org.apache.ignite.tx.IgniteTransactions;
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ClientInboundMessageHandler.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
     /** Ignite tables API. */
     private final IgniteTables igniteTables;

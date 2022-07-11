@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
+import static org.apache.ignite.internal.util.CollectionUtils.concat;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -85,7 +87,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                     Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(rel.condition());
 
                     if (!CollectionUtils.nullOrEmpty(rel.projects())) {
-                        corrIds = new HashSet<>(CollectionUtils.union(corrIds, RexUtils.extractCorrelationIds(rel.projects())));
+                        corrIds = new HashSet<>(concat(corrIds, RexUtils.extractCorrelationIds(rel.projects())));
                     }
 
                     RelTraitSet traits = rel.getCluster().traitSetOf(IgniteConvention.INSTANCE)
@@ -133,7 +135,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                     Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(rel.condition());
 
                     if (!CollectionUtils.nullOrEmpty(rel.projects())) {
-                        corrIds = new HashSet<>(CollectionUtils.union(corrIds, RexUtils.extractCorrelationIds(rel.projects())));
+                        corrIds = new HashSet<>(concat(corrIds, RexUtils.extractCorrelationIds(rel.projects())));
                     }
 
                     RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)

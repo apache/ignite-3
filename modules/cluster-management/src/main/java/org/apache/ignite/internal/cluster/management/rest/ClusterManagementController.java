@@ -32,11 +32,12 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.rest.exception.InvalidArgumentClusterInitializationException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.MediaType;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Cluster management controller.
@@ -44,7 +45,7 @@ import org.apache.ignite.lang.IgniteLogger;
 @Controller("/management/v1/cluster/init")
 @Tag(name = "clusterManagement")
 public class ClusterManagementController {
-    private static final IgniteLogger log = IgniteLogger.forClass(ClusterManagementController.class);
+    private static final IgniteLogger log = Loggers.forClass(ClusterManagementController.class);
 
     private final ClusterInitializer clusterInitializer;
 

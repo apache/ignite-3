@@ -45,11 +45,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
@@ -83,7 +84,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class RaftGroupServiceTest {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RaftGroupServiceTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RaftGroupServiceTest.class);
 
     /** */
     private static final List<Peer> NODES = Stream.of(20000, 20001, 20002)

@@ -30,7 +30,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.jar.JarFile;
 import org.apache.ignite.client.ClientArchTest.ClassesWithLibsLocationProvider;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
 
 /**
  * This test ensures static logger is not used in the modules the client module relies on.

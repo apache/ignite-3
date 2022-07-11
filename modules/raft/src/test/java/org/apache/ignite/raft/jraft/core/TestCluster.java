@@ -41,10 +41,10 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.PhysicalTimeProvider;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -63,6 +63,7 @@ import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
+import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
@@ -78,7 +79,7 @@ public class TestCluster {
      */
     public static final int ELECTION_TIMEOUT_MILLIS = 1000;
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(TestCluster.class);
+    private static final IgniteLogger LOG = Loggers.forClass(TestCluster.class);
 
     private final String dataPath;
     private final String name;

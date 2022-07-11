@@ -22,15 +22,17 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorCloseCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorHasNextCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCommand;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Meta storage service side implementation of cursor.
@@ -39,7 +41,7 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
  */
 public class CursorImpl<T> implements Cursor<T> {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(CursorImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(CursorImpl.class);
 
     /** Future that runs meta storage service operation that provides cursor. */
     private final CompletableFuture<IgniteUuid> initOp;
@@ -49,19 +51,22 @@ public class CursorImpl<T> implements Cursor<T> {
 
     private final Iterator<T> it;
 
-    private final Function<Object, T> fn;
-
     /**
      * Constructor.
      *
      * @param metaStorageRaftGrpSvc Meta storage raft group service.
      * @param initOp                Future that runs meta storage service operation that provides cursor.
+     * @param fn                    Function transforming the result of {@link CursorNextCommand} to the type of {@link T},
+     *                              or to the {@link Iterable} of type {@link T} if needed.
      */
-    CursorImpl(RaftGroupService metaStorageRaftGrpSvc, CompletableFuture<IgniteUuid> initOp, Function<Object, T> fn) {
+    CursorImpl(
+            RaftGroupService metaStorageRaftGrpSvc,
+            CompletableFuture<IgniteUuid> initOp,
+            Function<Object, Object> fn
+    ) {
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
         this.initOp = initOp;
-        this.it = new InnerIterator();
-        this.fn = fn;
+        this.it = new InnerIterator(fn);
     }
 
     /** {@inheritDoc} */
@@ -70,6 +75,8 @@ public class CursorImpl<T> implements Cursor<T> {
         try {
             initOp.thenCompose(
                     cursorId -> metaStorageRaftGrpSvc.run(new CursorCloseCommand(cursorId))).get();
+
+            ((InnerIterator) it).close();
         } catch (InterruptedException | ExecutionException e) {
             if (e.getCause() != null && e.getCause().getClass().equals(NodeStoppingException.class)) {
                 return;
@@ -97,12 +104,26 @@ public class CursorImpl<T> implements Cursor<T> {
      * Extension of {@link Iterator}.
      */
     private class InnerIterator implements Iterator<T> {
+        private final Function<Object, Object> fn;
+
+        @Nullable
+        private Iterator<T> internalCacheIterator;
+
+        public InnerIterator(Function<Object, Object> fn) {
+            this.fn = fn;
+        }
+
         /** {@inheritDoc} */
         @Override
         public boolean hasNext() {
             try {
-                return initOp.thenCompose(
-                        cursorId -> metaStorageRaftGrpSvc.<Boolean>run(new CursorHasNextCommand(cursorId))).get();
+                if (internalCacheIterator != null && internalCacheIterator.hasNext()) {
+                    return true;
+                } else {
+                    return initOp
+                            .thenCompose(cursorId -> metaStorageRaftGrpSvc.<Boolean>run(new CursorHasNextCommand(cursorId)))
+                            .get();
+                }
             } catch (InterruptedException | ExecutionException e) {
                 if (e.getCause() != null && e.getCause().getClass().equals(NodeStoppingException.class)) {
                     return false;
@@ -118,10 +139,23 @@ public class CursorImpl<T> implements Cursor<T> {
         @Override
         public T next() {
             try {
-                Object res = initOp.thenCompose(
-                        cursorId -> metaStorageRaftGrpSvc.run(new CursorNextCommand(cursorId))).get();
+                if (internalCacheIterator != null && internalCacheIterator.hasNext()) {
+                    return internalCacheIterator.next();
+                } else {
+                    Object res = initOp
+                            .thenCompose(cursorId -> metaStorageRaftGrpSvc.run(new CursorNextCommand(cursorId)))
+                            .get();
 
-                return fn.apply(res);
+                    Object transformed = fn.apply(res);
+
+                    if (transformed instanceof Iterable) {
+                        internalCacheIterator = ((Iterable<T>) transformed).iterator();
+
+                        return internalCacheIterator.next();
+                    } else {
+                        return (T) transformed;
+                    }
+                }
             } catch (InterruptedException | ExecutionException e) {
                 Throwable cause = e.getCause();
 
@@ -139,6 +173,10 @@ public class CursorImpl<T> implements Cursor<T> {
 
                 throw new IgniteInternalException(e);
             }
+        }
+
+        public void close() {
+            internalCacheIterator = null;
         }
     }
 }

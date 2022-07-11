@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.AbstractFreeList;
@@ -29,14 +31,13 @@ import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.storage.pagememory.mv.io.RowVersionDataIo;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link AbstractFreeList} for {@link RowVersion} instances.
  */
 public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RowVersionFreeList.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RowVersionFreeList.class);
 
     private final PageEvictionTracker evictionTracker;
 

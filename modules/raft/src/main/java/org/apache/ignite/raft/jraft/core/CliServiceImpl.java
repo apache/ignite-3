@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -26,7 +28,8 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.CliService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -59,13 +62,11 @@ import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
 
-import static java.util.stream.Collectors.toList;
-
 /**
  * Cli service implementation.
  */
 public class CliServiceImpl implements CliService {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(CliServiceImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(CliServiceImpl.class);
 
     private CliOptions cliOptions;
 

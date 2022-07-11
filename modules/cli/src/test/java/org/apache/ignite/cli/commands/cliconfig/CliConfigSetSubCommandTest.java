@@ -22,18 +22,26 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.cli.commands.CliCommandTestBase;
-import org.apache.ignite.cli.config.Config;
+import org.apache.ignite.cli.config.ConfigConstants;
+import org.apache.ignite.cli.config.ConfigManager;
+import org.apache.ignite.cli.config.ini.IniConfigManager;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class CliConfigSetSubCommandTest extends CliCommandTestBase {
 
     @Inject
-    Config config;
+    TestConfigManagerProvider configManagerProvider;
 
     @Override
     protected Class<?> getCommandClass() {
         return CliConfigSetSubCommand.class;
+    }
+
+    @BeforeEach
+    public void setup() {
+        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithInternalPart());
     }
 
     @Test
@@ -66,13 +74,13 @@ class CliConfigSetSubCommandTest extends CliCommandTestBase {
     @DisplayName("Sets single value")
     void singleKeySet() {
         // When executed with key
-        execute("ignite.cluster-url=test");
+        execute(ConfigConstants.CLUSTER_URL + "=" + "test");
 
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertOutputIsEmpty,
                 this::assertErrOutputIsEmpty,
-                () -> assertThat(config.getProperty("ignite.cluster-url")).isEqualTo("test")
+                () -> assertThat(configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL)).isEqualTo("test")
         );
     }
 
@@ -82,12 +90,46 @@ class CliConfigSetSubCommandTest extends CliCommandTestBase {
         // When executed with multiple keys
         execute("ignite.cluster-url=test", "ignite.jdbc-url=test2");
 
+        ConfigManager configManager = configManagerProvider.get();
+
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertOutputIsEmpty,
                 this::assertErrOutputIsEmpty,
-                () -> assertThat(config.getProperty("ignite.cluster-url")).isEqualTo("test"),
-                () -> assertThat(config.getProperty("ignite.jdbc-url")).isEqualTo("test2")
+                () -> assertThat(configManager.getCurrentProperty(ConfigConstants.CLUSTER_URL)).isEqualTo("test"),
+                () -> assertThat(configManager.getCurrentProperty(ConfigConstants.JDBC_URL)).isEqualTo("test2")
+        );
+    }
+
+    @Test
+    @DisplayName("Set with profile")
+    public void testWithProfile() {
+        // When executed with multiple keys
+        execute("ignite.cluster-url=test ignite.jdbc-url=test2 --profile owner");
+
+        ConfigManager configManager = configManagerProvider.get();
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertOutputIsEmpty,
+                this::assertErrOutputIsEmpty,
+                () -> assertThat(configManager.getCurrentProperty(ConfigConstants.CLUSTER_URL)).isNotEqualTo("test"),
+                () -> assertThat(configManager.getCurrentProperty(ConfigConstants.JDBC_URL)).isNotEqualTo("test2"),
+                () -> assertThat(configManager.getProfile("owner").getProperty(ConfigConstants.CLUSTER_URL)).isEqualTo("test"),
+                () -> assertThat(configManager.getProfile("owner").getProperty(ConfigConstants.JDBC_URL)).isEqualTo("test2"));
+    }
+
+    @Test
+    public void testWithNotExistedProfile() {
+        execute("ignite.cluster-url=test ignite.jdbc-url=test2 --profile notExist");
+
+        ConfigManager configManager = configManagerProvider.get();
+
+        assertAll(
+                () -> assertExitCodeIs(1),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Profile notExist not found"),
+                () -> assertThat(configManager.getCurrentProperty(ConfigConstants.CLUSTER_URL)).isNotEqualTo("test")
         );
     }
 }

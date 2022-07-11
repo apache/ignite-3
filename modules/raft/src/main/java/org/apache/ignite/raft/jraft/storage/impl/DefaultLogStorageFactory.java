@@ -27,9 +27,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.LogStorageFactory;
@@ -48,7 +49,7 @@ import org.rocksdb.util.SizeUnit;
 
 /** Implementation of the {@link LogStorageFactory} that creates {@link RocksDbSharedLogStorage}s. */
 public class DefaultLogStorageFactory implements LogStorageFactory {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(DefaultLogStorageFactory.class);
+    private static final IgniteLogger LOG = Loggers.forClass(DefaultLogStorageFactory.class);
 
     /** Database path. */
     private final Path path;

@@ -20,7 +20,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.error.RetryAgainException;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
@@ -30,7 +31,7 @@ import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
  */
 public class LocalDirReader implements FileReader {
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(LocalDirReader.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LocalDirReader.class);
 
     private final String path;
 

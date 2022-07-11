@@ -23,11 +23,11 @@ import static org.apache.ignite.lang.IgniteSystemProperties.getInteger;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**

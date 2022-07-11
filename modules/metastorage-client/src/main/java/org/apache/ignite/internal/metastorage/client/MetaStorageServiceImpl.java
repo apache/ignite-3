@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -28,6 +30,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.common.StatementInfo;
 import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
@@ -58,7 +62,6 @@ import org.apache.ignite.internal.metastorage.common.command.cursor.CursorsClose
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -71,7 +74,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class MetaStorageServiceImpl implements MetaStorageService {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(MetaStorageServiceImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(MetaStorageServiceImpl.class);
 
     /** IgniteUuid generator. */
     private static final IgniteUuidGenerator uuidGenerator = new IgniteUuidGenerator(UUID.randomUUID(), 0);
@@ -223,8 +226,13 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return new CursorImpl<>(
                 metaStorageRaftGrpSvc,
                 metaStorageRaftGrpSvc.run(
-                        new RangeCommand(keyFrom, keyTo, revUpperBound, localNodeId, uuidGenerator.randomUuid(), includeTombstones)),
-                MetaStorageServiceImpl::singleEntryResult
+                        RangeCommand.builder(keyFrom, localNodeId, uuidGenerator.randomUuid())
+                                .keyTo(keyTo)
+                                .revUpperBound(revUpperBound)
+                                .includeTombstones(includeTombstones)
+                                .build()
+                ),
+                MetaStorageServiceImpl::multipleEntryResultForCache
         );
     }
 
@@ -240,8 +248,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return new CursorImpl<>(
             metaStorageRaftGrpSvc,
             metaStorageRaftGrpSvc.run(
-                new RangeCommand(keyFrom, keyTo, localNodeId, uuidGenerator.randomUuid())),
-            MetaStorageServiceImpl::singleEntryResult
+                RangeCommand.builder(keyFrom, localNodeId, uuidGenerator.randomUuid()).keyTo(keyTo).build()),
+            MetaStorageServiceImpl::multipleEntryResultForCache
         );
     }
 
@@ -407,6 +415,14 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         }
 
         return res;
+    }
+
+    private static List<Entry> multipleEntryResultForCache(Object obj) {
+        MultipleEntryResponse resp = (MultipleEntryResponse) obj;
+
+        return resp.entries().stream()
+            .map(MetaStorageServiceImpl::singleEntryResult)
+            .collect(toList());
     }
 
     private static Entry singleEntryResult(Object obj) {

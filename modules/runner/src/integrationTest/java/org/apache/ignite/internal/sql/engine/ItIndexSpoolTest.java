@@ -22,8 +22,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
 import java.util.List;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
@@ -36,7 +37,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Index spool test.
  */
 public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(AbstractBasicIntegrationTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(AbstractBasicIntegrationTest.class);
 
     /**
      * After each.

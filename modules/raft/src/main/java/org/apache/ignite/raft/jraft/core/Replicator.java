@@ -34,7 +34,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.CatchUpClosure;
@@ -75,7 +76,7 @@ import org.apache.ignite.raft.jraft.util.internal.ThrowUtil;
  */
 public class Replicator implements ThreadId.OnError {
     /** The log. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(Replicator.class);
+    private static final IgniteLogger LOG = Loggers.forClass(Replicator.class);
 
     private final RaftClientService rpcService;
     // Next sending log index

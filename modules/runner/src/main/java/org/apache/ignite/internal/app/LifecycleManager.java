@@ -20,16 +20,17 @@ package org.apache.ignite.internal.app;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.ReverseIterator;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 
 /**
  * Class for managing the lifecycle of Ignite components.
  */
 class LifecycleManager {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(LifecycleManager.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LifecycleManager.class);
 
     /** Ignite node name. */
     private final String nodeName;

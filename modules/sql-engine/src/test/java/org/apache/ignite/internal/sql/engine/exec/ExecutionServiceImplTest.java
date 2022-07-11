@@ -49,6 +49,8 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
@@ -78,7 +80,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -89,7 +90,7 @@ import org.junit.jupiter.api.Test;
  * Test class to verify {@link ExecutionServiceImplTest}.
  */
 public class ExecutionServiceImplTest {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ExecutionServiceImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ExecutionServiceImpl.class);
 
     /** Timeout in ms for async operations. */
     private static final long TIMEOUT_IN_MS = 2_000;
