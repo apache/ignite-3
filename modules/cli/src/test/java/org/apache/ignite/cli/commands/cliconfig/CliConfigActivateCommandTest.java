@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.cli.commands.CliCommandTestBase;
-import org.apache.ignite.cli.commands.cliconfig.profile.CliConfigUseCommand;
+import org.apache.ignite.cli.commands.cliconfig.profile.CliConfigProfileCommand;
 import org.apache.ignite.cli.config.ini.IniConfigManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,7 +33,7 @@ class CliConfigActivateCommandTest extends CliCommandTestBase {
 
     @Override
     protected Class<?> getCommandClass() {
-        return CliConfigUseCommand.class;
+        return CliConfigProfileCommand.class;
     }
 
     @BeforeEach
@@ -43,7 +43,7 @@ class CliConfigActivateCommandTest extends CliCommandTestBase {
 
     @Test
     public void activateTest() {
-        execute("owner");
+        execute("--set-current owner");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -55,7 +55,7 @@ class CliConfigActivateCommandTest extends CliCommandTestBase {
 
     @Test
     public void activateWithNotExistedProfileTest() {
-        execute("notExist");
+        execute("--set-current notExist");
 
         assertAll(
                 () -> assertExitCodeIs(1),
