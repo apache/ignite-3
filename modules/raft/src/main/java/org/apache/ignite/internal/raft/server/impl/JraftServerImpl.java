@@ -30,6 +30,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
@@ -93,6 +95,9 @@ public class JraftServerImpl implements RaftServer {
 
     /** Started groups. */
     private ConcurrentMap<String, RaftGroupService> groups = new ConcurrentHashMap<>();
+
+    /** Lock storage, needed to prevent concurrent start of the same raft group. */
+    private ConcurrentHashMap<String, Lock> startGroupInProgressLocks = new ConcurrentHashMap<>();
 
     /** Node manager. */
     private final NodeManager nodeManager;
@@ -315,7 +320,7 @@ public class JraftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized boolean startRaftGroup(
+    public boolean startRaftGroup(
             String groupId,
             RaftGroupListener lsnr,
             @Nullable List<Peer> initialConf,
@@ -326,89 +331,113 @@ public class JraftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized boolean startRaftGroup(
-            String groupId,
+    public boolean startRaftGroup(
+            String grpId,
             RaftGroupEventsListener evLsnr,
             RaftGroupListener lsnr,
             @Nullable List<Peer> initialConf,
             RaftGroupOptions groupOptions
     ) {
-        if (groups.containsKey(groupId)) {
+        // fast track to check if group with the same name is already created.
+        if (groups.containsKey(grpId)) {
             return false;
         }
 
-        // Thread pools are shared by all raft groups.
-        NodeOptions nodeOptions = opts.copy();
+        Lock lock = groupLock(grpId);
 
-        // TODO: IGNITE-17083 - Do not create paths for volatile stores at all when we get rid of snapshot storage on FS.
-        Path serverDataPath = getServerDataPath(groupId);
+        lock.lock();
 
         try {
-            Files.createDirectories(serverDataPath);
-        } catch (IOException e) {
-            throw new IgniteInternalException(e);
+            // double check if group wasn't created before receiving the lock.
+            if (groups.containsKey(grpId)) {
+                return false;
+            }
+
+            // Thread pools are shared by all raft groups.
+            NodeOptions nodeOptions = opts.copy();
+
+            // TODO: IGNITE-17083 - Do not create paths for volatile stores at all when we get rid of snapshot storage on FS.
+            Path serverDataPath = getServerDataPath(grpId);
+
+            try {
+                Files.createDirectories(serverDataPath);
+            } catch (IOException e) {
+                throw new IgniteInternalException(e);
+            }
+
+            nodeOptions.setLogUri(grpId);
+
+            nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
+
+            nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
+
+                nodeOptions.setFsm(new DelegatingStateMachine(lsnr));
+
+                nodeOptions.setRaftGrpEvtsLsnr(evLsnr);
+
+            LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory() == null
+                    ? this.logStorageFactory : groupOptions.getLogStorageFactory();
+
+            IgniteJraftServiceFactory serviceFactory = new IgniteJraftServiceFactory(logStorageFactory);
+
+            if (groupOptions.snapshotStorageFactory() != null) {
+                serviceFactory.setSnapshotStorageFactory(groupOptions.snapshotStorageFactory());
+            }
+
+            if (groupOptions.raftMetaStorageFactory() != null) {
+                serviceFactory.setRaftMetaStorageFactory(groupOptions.raftMetaStorageFactory());
+            }
+
+            nodeOptions.setServiceFactory(serviceFactory);
+
+            if (initialConf != null) {
+                List<PeerId> mapped = initialConf.stream().map(PeerId::fromPeer).collect(Collectors.toList());
+
+                nodeOptions.setInitialConf(new Configuration(mapped, null));
+            }
+
+            IgniteRpcClient client = new IgniteRpcClient(service);
+
+            nodeOptions.setRpcClient(client);
+
+            NetworkAddress addr = service.topologyService().localMember().address();
+
+            var peerId = new PeerId(addr.host(), addr.port(), 0, ElectionPriority.DISABLED);
+
+            var server = new RaftGroupService(grpId, peerId, nodeOptions, rpcServer, nodeManager);
+
+            server.start();
+
+            groups.put(grpId, server);
+
+            return true;
+        } finally {
+            lock.unlock();
         }
-
-        nodeOptions.setLogUri(groupId);
-
-        nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
-
-        nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
-
-        nodeOptions.setFsm(new DelegatingStateMachine(lsnr));
-
-        nodeOptions.setRaftGrpEvtsLsnr(evLsnr);
-
-        LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory() == null
-                ? this.logStorageFactory : groupOptions.getLogStorageFactory();
-
-        IgniteJraftServiceFactory serviceFactory = new IgniteJraftServiceFactory(logStorageFactory);
-
-        if (groupOptions.snapshotStorageFactory() != null) {
-            serviceFactory.setSnapshotStorageFactory(groupOptions.snapshotStorageFactory());
-        }
-
-        if (groupOptions.raftMetaStorageFactory() != null) {
-            serviceFactory.setRaftMetaStorageFactory(groupOptions.raftMetaStorageFactory());
-        }
-
-        nodeOptions.setServiceFactory(serviceFactory);
-
-        if (initialConf != null) {
-            List<PeerId> mapped = initialConf.stream().map(PeerId::fromPeer).collect(Collectors.toList());
-
-            nodeOptions.setInitialConf(new Configuration(mapped, null));
-        }
-
-        IgniteRpcClient client = new IgniteRpcClient(service);
-
-        nodeOptions.setRpcClient(client);
-
-        NetworkAddress addr = service.topologyService().localMember().address();
-
-        var peerId = new PeerId(addr.host(), addr.port(), 0, ElectionPriority.DISABLED);
-
-        var server = new RaftGroupService(groupId, peerId, nodeOptions, rpcServer, nodeManager);
-
-        server.start();
-
-        groups.put(groupId, server);
-
-        return true;
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean stopRaftGroup(String groupId) {
-        RaftGroupService svc = groups.remove(groupId);
+    public boolean stopRaftGroup(String grpId) {
+        Lock lock = groupLock(grpId);
 
-        boolean stopped = svc != null;
+        lock.lock();
 
-        if (stopped) {
-            svc.shutdown();
+        try {
+            RaftGroupService svc = groups.remove(grpId);
+
+            boolean stopped = svc != null;
+
+            if (stopped) {
+                svc.shutdown();
+
+                startGroupInProgressLocks.remove(grpId);
+            }
+
+            return stopped;
+        } finally {
+            lock.unlock();
         }
-
-        return stopped;
     }
 
     /** {@inheritDoc} */
@@ -464,6 +493,25 @@ public class JraftServerImpl implements RaftServer {
         IgniteRpcClient client = (IgniteRpcClient) groups.get(groupId).getNodeOptions().getRpcClient();
 
         client.stopBlock();
+    }
+
+    /**
+     * Initialize (if needed) and receive per-group lock,
+     * to prevent concurrent start of the same raft group.
+     *
+     * @param grpId Group id.
+     * @return lock
+     */
+    private Lock groupLock(String grpId) {
+        var newGroupLock = new ReentrantLock();
+
+        Lock lock;
+
+        if ((lock = startGroupInProgressLocks.putIfAbsent(grpId, newGroupLock)) == null) {
+            lock = newGroupLock;
+        }
+
+        return lock;
     }
 
     /**
