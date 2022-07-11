@@ -67,6 +67,8 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static java.util.stream.Collectors.toList;
+
 /**
  * {@link MetaStorageService} implementation.
  */
@@ -230,8 +232,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                                 .includeTombstones(includeTombstones)
                                 .build()
                 ),
-                MetaStorageServiceImpl::multipleEntryResultForCache,
-                MetaStorageServiceImpl::singleEntryResult
+                MetaStorageServiceImpl::multipleEntryResultForCache
         );
     }
 
@@ -248,8 +249,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             metaStorageRaftGrpSvc,
             metaStorageRaftGrpSvc.run(
                 RangeCommand.builder(keyFrom, localNodeId, uuidGenerator.randomUuid()).keyTo(keyTo).build()),
-            MetaStorageServiceImpl::multipleEntryResultForCache,
-            MetaStorageServiceImpl::singleEntryResult
+            MetaStorageServiceImpl::multipleEntryResultForCache
         );
     }
 
@@ -417,10 +417,12 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return res;
     }
 
-    private static List<SingleEntryResponse> multipleEntryResultForCache(Object obj) {
+    private static List<Entry> multipleEntryResultForCache(Object obj) {
         MultipleEntryResponse resp = (MultipleEntryResponse) obj;
 
-        return resp.entries();
+        return resp.entries().stream()
+            .map(MetaStorageServiceImpl::singleEntryResult)
+            .collect(toList());
     }
 
     private static Entry singleEntryResult(Object obj) {

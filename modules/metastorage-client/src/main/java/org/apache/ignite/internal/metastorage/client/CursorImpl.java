@@ -56,35 +56,17 @@ public class CursorImpl<T> implements Cursor<T> {
      *
      * @param metaStorageRaftGrpSvc Meta storage raft group service.
      * @param initOp                Future that runs meta storage service operation that provides cursor.
-     * @param fn                    Function transforming the element of type {@link M} to the type of {@link T}.
+     * @param fn                    Function transforming the result of {@link CursorNextCommand} to the type of {@link T},
+     *                              or to the {@link Iterable} of type {@link T} if needed.
      */
-    public <M> CursorImpl(
+    CursorImpl(
             RaftGroupService metaStorageRaftGrpSvc,
             CompletableFuture<IgniteUuid> initOp,
-            Function<M, T> fn
-    ) {
-        this(metaStorageRaftGrpSvc, initOp, null, fn);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param metaStorageRaftGrpSvc Meta storage raft group service.
-     * @param initOp                Future that runs meta storage service operation that provides cursor.
-     * @param internalCacheFn       Function transforming the result of {@link CursorNextCommand} to the
-     *                              {@link Iterable} of elements of type {@link M}. If {@code null}, this means
-     *                              that the result of {@link CursorNextCommand} can be cast to object of type {@link M}.
-     * @param fn                    Function transforming the element of type {@link M} to the type of {@link T}.
-     */
-    public <M> CursorImpl(
-            RaftGroupService metaStorageRaftGrpSvc,
-            CompletableFuture<IgniteUuid> initOp,
-            @Nullable Function<Object, Iterable<M>> internalCacheFn,
-            Function<M, T> fn
+            Function<Object, Object> fn
     ) {
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
         this.initOp = initOp;
-        this.it = new InnerIterator(internalCacheFn, fn);
+        this.it = new InnerIterator(fn);
     }
 
     /** {@inheritDoc} */
@@ -121,17 +103,13 @@ public class CursorImpl<T> implements Cursor<T> {
     /**
      * Extension of {@link Iterator}.
      */
-    private class InnerIterator<M> implements Iterator<T> {
-        @Nullable
-        private final Function<Object, Iterable<M>> internalCacheFn;
-
-        private final Function<M, T> fn;
+    private class InnerIterator implements Iterator<T> {
+        private final Function<Object, Object> fn;
 
         @Nullable
-        private Iterator<M> internalCacheIterator;
+        private Iterator<T> internalCacheIterator;
 
-        public InnerIterator(@Nullable Function<Object, Iterable<M>> internalCacheFn, Function<M, T> fn) {
-            this.internalCacheFn = internalCacheFn;
+        public InnerIterator(Function<Object, Object> fn) {
             this.fn = fn;
         }
 
@@ -162,20 +140,20 @@ public class CursorImpl<T> implements Cursor<T> {
         public T next() {
             try {
                 if (internalCacheIterator != null && internalCacheIterator.hasNext()) {
-                    return fn.apply(internalCacheIterator.next());
+                    return internalCacheIterator.next();
                 } else {
                     Object res = initOp
                             .thenCompose(cursorId -> metaStorageRaftGrpSvc.run(new CursorNextCommand(cursorId)))
                             .get();
 
-                    if (internalCacheFn == null) {
-                        M next = (M) res;
+                    Object transformed = fn.apply(res);
 
-                        return fn.apply(next);
+                    if (transformed instanceof Iterable) {
+                        internalCacheIterator = ((Iterable<T>) transformed).iterator();
+
+                        return internalCacheIterator.next();
                     } else {
-                        internalCacheIterator = internalCacheFn.apply(res).iterator();
-
-                        return fn.apply(internalCacheIterator.next());
+                        return (T) transformed;
                     }
                 }
             } catch (InterruptedException | ExecutionException e) {
