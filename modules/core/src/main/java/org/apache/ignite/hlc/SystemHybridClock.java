@@ -17,14 +17,15 @@
 
 package org.apache.ignite.hlc;
 
-import java.time.Clock;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * A Hybrid Logical Clock.
  */
-public class SystemHybridClock implements HybridClock{
+public class SystemHybridClock implements HybridClock {
+    /** Physical time provider. */
     private final PhysicalTimeProvider physicalTimeProvider;
+
     /** Latest timestamp. */
     private HybridTimestamp latestTime;
 
@@ -37,11 +38,8 @@ public class SystemHybridClock implements HybridClock{
         this.latestTime = new HybridTimestamp(physicalTimeProvider.getPhysicalTime(), 0);
     }
 
-    /**
-     * Creates a timestamp for new event.
-     *
-     * @return The hybrid timestamp.
-     */
+    /** {@inheritDoc} */
+    @Override
     public synchronized HybridTimestamp now() {
         long currentTimeMillis = physicalTimeProvider.getPhysicalTime();
 
@@ -54,12 +52,8 @@ public class SystemHybridClock implements HybridClock{
         return latestTime;
     }
 
-    /**
-     * Creates a timestamp for a received event.
-     *
-     * @param requestTime Timestamp from request.
-     * @return The hybrid timestamp.
-     */
+    /** {@inheritDoc} */
+    @Override
     public synchronized HybridTimestamp tick(HybridTimestamp requestTime) {
         HybridTimestamp now = new HybridTimestamp(physicalTimeProvider.getPhysicalTime(), -1);
 
