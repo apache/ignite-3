@@ -34,11 +34,12 @@ public class ClusterStatusDecorator implements Decorator<ClusterStatus, Terminal
     public TerminalOutput decorate(ClusterStatus data) {
         return data.isInitialized()
                 ? () -> ansi(
-                        "[name: %s, nodes: %d, status: %s, cmgNodes: %s]",
+                        "[name: %s, nodes: %d, status: %s, cmgNodes: %s, msNodes: %s]",
                         data.getName(),
                         data.getNodeCount(),
                         fg(Color.GREEN).mark("active"),
-                        data.getCmgNodes()
+                        data.getCmgNodes(),
+                        data.getMsNodes()
                 )
                 : () -> ansi("[nodes: %d, status: %s]", data.getNodeCount(), fg(Color.RED).mark("not initialized"));
     }

@@ -61,6 +61,7 @@ public class ClusterStatusCall implements Call<StatusCallInput, ClusterStatus> {
             clusterStatusBuilder
                     .initialized(true)
                     .name(clusterState.getClusterTag().getClusterName())
+                    .metadataStorageNodes(clusterState.getMsNodes())
                     .cmgNodes(clusterState.getCmgNodes());
         } catch (ApiException e) {
             if (e.getCode() == 404) { // NOT_FOUND means the cluster is not initialized yet

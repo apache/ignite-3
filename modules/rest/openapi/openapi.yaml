@@ -257,9 +257,14 @@ components:
       - clusterTag
       - cmgNodes
       - igniteVersion
+      - msNodes
       type: object
       properties:
         cmgNodes:
+          type: array
+          items:
+            type: string
+        msNodes:
           type: array
           items:
             type: string

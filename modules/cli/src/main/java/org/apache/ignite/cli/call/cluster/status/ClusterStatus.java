@@ -36,14 +36,17 @@ public class ClusterStatus {
 
     private final List<String> cmgNodes;
 
+    private final List<String> metadataStorageNodes;
+
     private ClusterStatus(int nodeCount, boolean initialized, String name,
-            boolean connected, String nodeUrl, List<String> cmgNodes) {
+            boolean connected, String nodeUrl, List<String> cmgNodes, List<String> metadataStorageNodes) {
         this.nodeCount = nodeCount;
         this.initialized = initialized;
         this.name = name;
         this.connected = connected;
         this.nodeUrl = nodeUrl;
         this.cmgNodes = cmgNodes;
+        this.metadataStorageNodes = metadataStorageNodes;
     }
 
     public int getNodeCount() {
@@ -70,6 +73,10 @@ public class ClusterStatus {
         return cmgNodes;
     }
 
+    public List<String> getMsNodes() {
+        return cmgNodes;
+    }
+
     /**
      * Builder for {@link ClusterStatus}.
      */
@@ -92,6 +99,8 @@ public class ClusterStatus {
         private String connectedNodeUrl;
 
         private List<String> cmgNodes;
+
+        private List<String> metadataStorageNodes;
 
         private ClusterStatusBuilder() {
 
@@ -127,8 +136,13 @@ public class ClusterStatus {
             return this;
         }
 
+        public ClusterStatusBuilder metadataStorageNodes(List<String> metadataStorageNodes) {
+            this.metadataStorageNodes = metadataStorageNodes;
+            return this;
+        }
+
         public ClusterStatus build() {
-            return new ClusterStatus(nodeCount, initialized, name, connected, connectedNodeUrl, cmgNodes);
+            return new ClusterStatus(nodeCount, initialized, name, connected, connectedNodeUrl, cmgNodes, metadataStorageNodes);
         }
     }
 }

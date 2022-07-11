@@ -164,7 +164,7 @@ public class ItClusterManagementControllerTest {
                 client.toBlocking().retrieve("state", ClusterStateDto.class);
 
         // Then cluster state is valid
-        assertThat(state.metaStorageNodes(), is(equalTo(List.of(cluster.get(0).clusterService().localConfiguration().getName()))));
+        assertThat(state.msNodes(), is(equalTo(List.of(cluster.get(0).clusterService().localConfiguration().getName()))));
         assertThat(state.cmgNodes(), is(equalTo(List.of(cluster.get(0).clusterService().localConfiguration().getName()))));
         assertThat(state.clusterTag().clusterName(), is(equalTo("cluster")));
 

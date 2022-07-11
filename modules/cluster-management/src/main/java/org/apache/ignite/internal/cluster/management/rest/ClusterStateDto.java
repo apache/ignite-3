@@ -41,19 +41,19 @@ class ClusterStateDto {
      * Creates a new cluster state.
      *
      * @param cmgNodes Node names that host the CMG.
-     * @param metaStorageNodes Node names that host the Meta Storage.
+     * @param msNodes Node names that host the Meta Storage.
      * @param igniteVersion Version of Ignite nodes that comprise this cluster.
      * @param clusterTag Cluster tag.
      */
     @JsonCreator
     public ClusterStateDto(
             @JsonProperty("cmgNodes") Collection<String> cmgNodes,
-            @JsonProperty("metaStorageNodes") Collection<String> metaStorageNodes,
+            @JsonProperty("msNodes") Collection<String> msNodes,
             @JsonProperty("igniteVersion") IgniteProductVersionDto igniteVersion,
             @JsonProperty("clusterTag") ClusterTagDto clusterTag
     ) {
         this.cmgNodes = cmgNodes;
-        this.msNodes = metaStorageNodes;
+        this.msNodes = msNodes;
         this.igniteVersion = igniteVersion;
         this.clusterTag = clusterTag;
     }
@@ -64,7 +64,7 @@ class ClusterStateDto {
     }
 
     @JsonProperty
-    public Collection<String> metaStorageNodes() {
+    public Collection<String> msNodes() {
         return msNodes;
     }
 

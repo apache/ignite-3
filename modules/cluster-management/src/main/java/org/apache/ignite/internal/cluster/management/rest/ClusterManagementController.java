@@ -75,7 +75,7 @@ public class ClusterManagementController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Return cluster state",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON,
-                            schema = @Schema(name = "ClusterState", implementation = ClusterStateDto.class))),
+                            schema = @Schema(implementation = ClusterStateDto.class))),
             @ApiResponse(responseCode = "404", description = "Cluster state not found, it means that the cluster is not initialized"),
             @ApiResponse(responseCode = "500", description = "Internal error",
                     content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
