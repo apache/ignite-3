@@ -38,7 +38,10 @@ public class IgniteInternalCheckedExceptionHandler
     @Override
     public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteInternalCheckedException exception) {
         return HttpProblemResponse.from(
-                Problem.fromHttpCode(HttpCode.INTERNAL_ERROR).detail(exception.getMessage())
+                Problem.fromHttpCode(HttpCode.INTERNAL_ERROR)
+                        .traceId(exception.traceId())
+                        .code(exception.codeAsString())
+                        .detail(exception.getMessage())
         );
     }
 }

@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.rest.configuration;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -104,7 +106,7 @@ public abstract class ConfigurationControllerBaseTest {
 
         var problem = getProblem(thrown);
         assertEquals(400, problem.status());
-        assertEquals("Configuration value 'no-such-root' has not been found", problem.detail());
+        assertThat(problem.detail(), containsString("Configuration value 'no-such-root' has not been found"));
     }
 
     @Test
@@ -120,7 +122,7 @@ public abstract class ConfigurationControllerBaseTest {
 
         var problem = getProblem(thrown);
         assertEquals(400, problem.status());
-        assertEquals("'root.subCfg' configuration doesn't have the 'no-such-bar' sub-configuration", problem.detail());
+        assertThat(problem.detail(), containsString("'root.subCfg' configuration doesn't have the 'no-such-bar' sub-configuration"));
     }
 
     @Test
@@ -136,7 +138,7 @@ public abstract class ConfigurationControllerBaseTest {
 
         var problem = getValidationProblem(thrown);
         assertEquals(400, problem.status());
-        assertEquals("Validation did not pass", problem.detail());
+        assertThat(problem.detail(), containsString("ValidationIssue [key=root.foo, message=Error word]"));
         assertEquals("Error word", problem.invalidParams().stream().findFirst().get().reason()); // todo: check name and reason
     }
 

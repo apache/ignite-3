@@ -17,6 +17,7 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
 import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.errorMessageFromCause;
@@ -210,6 +211,16 @@ public class IgniteInternalException extends RuntimeException {
      */
     public int code() {
         return code;
+    }
+
+    /**
+     * Returns a human-readable string represents a full error code.
+     * Returned string has the following format: IGN-XXX-nnn, where XXX is a group name and nnn is an unique error code within a group.
+     *
+     * @return Full error code in a human-readable format.
+     */
+    public String codeAsString() {
+        return ERR_PREFIX + groupName() + '-' + errorCode();
     }
 
     /**
