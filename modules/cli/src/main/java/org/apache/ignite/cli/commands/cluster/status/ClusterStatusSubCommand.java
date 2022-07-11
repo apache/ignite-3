@@ -41,10 +41,7 @@ public class ClusterStatusSubCommand extends BaseCommand implements Callable<Int
      * Cluster url option.
      */
     @SuppressWarnings("PMD.UnusedPrivateField")
-    @Option(
-            names = {"--cluster-url"}, description = "Url to cluster node.",
-            descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
-    )
+    @Option(names = {"--cluster-url"}, description = "Url to cluster node.", descriptionKey = "ignite.cluster-url")
     private String clusterUrl;
 
     @Inject

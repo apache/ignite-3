@@ -41,10 +41,7 @@ public class ClusterConfigUpdateSubCommand extends BaseCommand implements Callab
     /**
      * Cluster url option.
      */
-    @Option(
-            names = {"--cluster-url"}, description = "Url to Ignite node.",
-            descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
-    )
+    @Option(names = {"--cluster-url"}, description = "Url to Ignite node.", descriptionKey = "ignite.cluster-url")
     private String clusterUrl;
 
     /**

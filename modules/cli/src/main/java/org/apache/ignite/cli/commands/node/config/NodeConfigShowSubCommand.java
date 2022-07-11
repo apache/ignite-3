@@ -43,10 +43,7 @@ public class NodeConfigShowSubCommand extends BaseCommand implements Callable<In
     /**
      * Node url option.
      */
-    @Option(
-            names = {"--node-url"}, description = "Url to ignite node.",
-            descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
-    )
+    @Option(names = {"--node-url"}, description = "Url to ignite node.", descriptionKey = "ignite.cluster-url")
     private String nodeUrl;
 
     @Inject

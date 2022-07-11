@@ -40,10 +40,7 @@ public class NodeStatusSubCommand extends BaseCommand implements Callable<Intege
      * Node url option.
      */
     @SuppressWarnings("PMD.UnusedPrivateField")
-    @Option(
-            names = {"--node-url"}, description = "Url to node.",
-            descriptionKey = "ignite.node-url", defaultValue = "http://localhost:10300"
-    )
+    @Option(names = {"--node-url"}, description = "Url to node.", descriptionKey = "ignite.node-url")
     private String nodeUrl;
 
     @Inject

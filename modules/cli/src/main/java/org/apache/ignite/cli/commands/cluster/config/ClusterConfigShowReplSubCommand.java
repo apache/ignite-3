@@ -47,9 +47,7 @@ public class ClusterConfigShowReplSubCommand extends BaseCommand implements Runn
     /**
      * Node url option.
      */
-    @Option(
-            names = {"--cluster-url"}, description = "Url to Ignite node."
-    )
+    @Option(names = {"--cluster-url"}, description = "Url to Ignite node.")
     private String clusterUrl;
 
     @Inject
