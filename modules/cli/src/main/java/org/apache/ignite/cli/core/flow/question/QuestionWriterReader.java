@@ -15,30 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.repl.executor;
-
-import io.micronaut.configuration.picocli.MicronautFactory;
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
-import org.jline.terminal.Terminal;
-import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
+package org.apache.ignite.cli.core.flow.question;
 
 /**
- * Provider of {@link ReplExecutor}.
+ * Question writer and reader interface.
  */
-@Singleton
-public class ReplExecutorProvider {
-    private PicocliCommandsFactory factory;
+public interface QuestionWriterReader {
 
-    @Inject
-    private Terminal terminal;
+    /**
+     * Write question to output.
+     *
+     * @param question text.
+     */
+    void writeQuestion(String question);
 
-    public ReplExecutor get() {
-        return new ReplExecutor(factory, terminal);
-    }
-
-    public void injectFactory(MicronautFactory micronautFactory) {
-        factory = new PicocliCommandsFactory(micronautFactory);
-        factory.setTerminal(terminal);
-    }
+    /**
+     * Read answer from input.
+     *
+     * @return user answer.
+     */
+    String readAnswer();
 }

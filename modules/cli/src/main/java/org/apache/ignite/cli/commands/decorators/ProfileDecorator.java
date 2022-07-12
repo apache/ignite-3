@@ -15,30 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.repl.executor;
+package org.apache.ignite.cli.commands.decorators;
 
-import io.micronaut.configuration.picocli.MicronautFactory;
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
-import org.jline.terminal.Terminal;
-import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
+import java.util.stream.Collectors;
+import org.apache.ignite.cli.config.Profile;
+import org.apache.ignite.cli.core.decorator.Decorator;
+import org.apache.ignite.cli.core.decorator.TerminalOutput;
 
 /**
- * Provider of {@link ReplExecutor}.
+ * Decorator for printing {@link Profile}.
  */
-@Singleton
-public class ReplExecutorProvider {
-    private PicocliCommandsFactory factory;
-
-    @Inject
-    private Terminal terminal;
-
-    public ReplExecutor get() {
-        return new ReplExecutor(factory, terminal);
-    }
-
-    public void injectFactory(MicronautFactory micronautFactory) {
-        factory = new PicocliCommandsFactory(micronautFactory);
-        factory.setTerminal(terminal);
+public class ProfileDecorator implements Decorator<Profile, TerminalOutput> {
+    @Override
+    public TerminalOutput decorate(Profile data) {
+        return () -> data.getAll().entrySet().stream()
+                .map(entry -> entry.getKey() + "=" + entry.getValue())
+                .collect(Collectors.joining(System.lineSeparator()));
     }
 }

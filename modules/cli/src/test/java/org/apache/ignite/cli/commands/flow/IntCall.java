@@ -15,20 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators.core;
+package org.apache.ignite.cli.commands.flow;
 
-/**
- * Interface for transformation command output to terminal output.
- *
- * @param <CommandDataT> type of command output.
- * @param <TerminalDataT> type of terminal output.
- */
-public interface Decorator<CommandDataT, TerminalDataT extends TerminalOutput> {
-    /**
-     * Interface for transforming command output to terminal output.
-     *
-     * @param data incoming data object.
-     * @return Decorated object with type {@link TerminalDataT}.
-     */
-    TerminalDataT decorate(CommandDataT data);
+import org.apache.ignite.cli.core.call.Call;
+import org.apache.ignite.cli.core.call.CallOutput;
+import org.apache.ignite.cli.core.call.DefaultCallOutput;
+
+class IntCall implements Call<IntCallInput, String> {
+
+    @Override
+    public CallOutput<String> execute(IntCallInput input) {
+        return DefaultCallOutput.success("|" + input.value + "|");
+    }
 }

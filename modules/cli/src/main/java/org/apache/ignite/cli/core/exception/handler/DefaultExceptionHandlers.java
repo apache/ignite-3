@@ -28,6 +28,7 @@ public class DefaultExceptionHandlers extends ExceptionHandlers {
      * Constructor.
      */
     public DefaultExceptionHandlers() {
+        addExceptionHandler(new FlowInterruptExceptionHandler());
         addExceptionHandler(new SqlExceptionHandler());
         addExceptionHandler(new TimeoutExceptionHandler());
         addExceptionHandler(new IgniteClientExceptionHandler());

@@ -30,11 +30,11 @@ import org.apache.ignite.rest.client.invoker.Configuration;
  * Shows node configuration from ignite cluster.
  */
 @Singleton
-public class NodeConfigShowCall implements Call<NodeConfigShowCallInput, String> {
+public class NodeConfigShowCall implements Call<NodeConfigShowCallInput, JsonString> {
 
     /** {@inheritDoc} */
     @Override
-    public DefaultCallOutput<String> execute(NodeConfigShowCallInput input) {
+    public DefaultCallOutput<JsonString> execute(NodeConfigShowCallInput input) {
         NodeConfigurationApi client = createApiClient(input);
 
         try {
@@ -44,8 +44,10 @@ public class NodeConfigShowCall implements Call<NodeConfigShowCallInput, String>
         }
     }
 
-    private String readNodeConfig(NodeConfigurationApi api, NodeConfigShowCallInput input) throws ApiException {
-        return input.getSelector() != null ? api.getNodeConfigurationByPath(input.getSelector()) : api.getNodeConfiguration();
+    private JsonString readNodeConfig(NodeConfigurationApi api, NodeConfigShowCallInput input) throws ApiException {
+        return JsonString.fromString(input.getSelector() != null
+                ? api.getNodeConfigurationByPath(input.getSelector())
+                : api.getNodeConfiguration());
     }
 
     private NodeConfigurationApi createApiClient(NodeConfigShowCallInput input) {

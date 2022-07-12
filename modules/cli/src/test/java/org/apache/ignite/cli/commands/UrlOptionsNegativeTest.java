@@ -28,6 +28,8 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.cli.commands.cliconfig.TestConfigManagerHelper;
+import org.apache.ignite.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigShowReplSubCommand;
 import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigShowSubCommand;
 import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigUpdateReplSubCommand;
@@ -37,6 +39,7 @@ import org.apache.ignite.cli.commands.configuration.node.NodeConfigShowSubComman
 import org.apache.ignite.cli.commands.configuration.node.NodeConfigUpdateReplSubCommand;
 import org.apache.ignite.cli.commands.configuration.node.NodeConfigUpdateSubCommand;
 import org.apache.ignite.cli.commands.connect.ConnectCommand;
+import org.apache.ignite.cli.config.ini.IniConfigManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -61,7 +64,11 @@ public class UrlOptionsNegativeTest {
 
     private int exitCode = Integer.MIN_VALUE;
 
+    @Inject
+    TestConfigManagerProvider configManagerProvider;
+
     private void setUp(Class<?> cmdClass) {
+        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithInternalPart());
         cmd = new CommandLine(cmdClass, new MicronautFactory(context));
         sout = new StringWriter();
         serr = new StringWriter();
@@ -226,10 +233,22 @@ public class UrlOptionsNegativeTest {
                 .isEmpty();
     }
 
+    private void assertErrOutputIsEmpty() {
+        assertThat(serr.toString())
+                .as("Check command output")
+                .isEmpty();
+    }
+
     private void assertErrOutputIs(String expectedErrOutput) {
         assertThat(serr.toString())
                 .as("Check command error output")
                 .isEqualTo(expectedErrOutput);
+    }
+
+    private void assertOutputContains(String expectedOutput) {
+        assertThat(sout.toString())
+                .as("Expected command output to contain: " + expectedOutput + " but was " + sout.toString())
+                .contains(expectedOutput);
     }
 
 }

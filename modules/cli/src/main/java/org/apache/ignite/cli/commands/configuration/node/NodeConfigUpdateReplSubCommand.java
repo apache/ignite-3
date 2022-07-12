@@ -22,7 +22,8 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.cli.call.configuration.NodeConfigUpdateCall;
 import org.apache.ignite.cli.call.configuration.NodeConfigUpdateCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.repl.Session;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -56,24 +57,27 @@ public class NodeConfigUpdateReplSubCommand extends BaseCommand implements Runna
     @Inject
     private Session session;
 
+    @Inject
+    private ConnectToClusterQuestion question;
+
     /** {@inheritDoc} */
     @Override
     public void run() {
-        var input = NodeConfigUpdateCallInput.builder().config(config);
-        if (session.isConnectedToNode()) {
-            input.nodeUrl(session.getNodeUrl());
-        } else if (nodeUrl != null) {
-            input.nodeUrl(nodeUrl);
-        } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--cluster-url' option.");
-            return;
-        }
-
-        CallExecutionPipeline.builder(call)
-                .inputProvider(input::build)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
+        question.callWithConnectQuestion(spec,
+                        this::getNodeUrl,
+                        s -> NodeConfigUpdateCallInput.builder().config(config).nodeUrl(getNodeUrl()).build(),
+                        call)
                 .build()
-                .runPipeline();
+                .call(Flowable.empty());
+    }
+
+    private String getNodeUrl() {
+        String s = null;
+        if (session.isConnectedToNode()) {
+            s = session.getNodeUrl();
+        } else if (nodeUrl != null) {
+            s = nodeUrl;
+        }
+        return s;
     }
 }

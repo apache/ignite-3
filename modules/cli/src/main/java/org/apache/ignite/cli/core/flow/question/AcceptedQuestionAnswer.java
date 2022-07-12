@@ -15,30 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.repl.executor;
-
-import io.micronaut.configuration.picocli.MicronautFactory;
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
-import org.jline.terminal.Terminal;
-import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
+package org.apache.ignite.cli.core.flow.question;
 
 /**
- * Provider of {@link ReplExecutor}.
+ * Accepted question answer implementation.
+ *
+ * @param <I> type of input.
+ * @param <O> type of output.
  */
-@Singleton
-public class ReplExecutorProvider {
-    private PicocliCommandsFactory factory;
-
-    @Inject
-    private Terminal terminal;
-
-    public ReplExecutor get() {
-        return new ReplExecutor(factory, terminal);
+public class AcceptedQuestionAnswer<I, O> extends QuestionAnswer<I, O> {
+    public AcceptedQuestionAnswer(AnswerAction<I, O> action) {
+        super(AcceptedQuestionAnswer::isAccepted, action);
     }
 
-    public void injectFactory(MicronautFactory micronautFactory) {
-        factory = new PicocliCommandsFactory(micronautFactory);
-        factory.setTerminal(terminal);
+    private static boolean isAccepted(String answer) {
+        return answer.equalsIgnoreCase("y") || answer.equalsIgnoreCase("yes") || answer.isBlank();
     }
 }

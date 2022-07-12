@@ -15,33 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.exception;
-
-import java.io.PrintWriter;
+package org.apache.ignite.cli.core.flow;
 
 /**
- * Writer for exception error messages.
+ * Represents a flow that accepts one flowable and produces a result flowable.
+ * Flow shouldn't throw any exception but should return exception as result in output {@link Flowable}.
+ *
+ * @param <I> Input type.
+ * @param <O> Output type.
  */
-public interface ExceptionWriter {
+public interface Flow<I, O> {
     /**
-     * Write provided exception message.
+     * Start flow execution.
      *
-     * @param errMessage error message.
+     * @param input input flowable.
+     * @return output flowable.
      */
-    void write(String errMessage);
+    Flowable<O> call(Flowable<I> input);
 
     /**
-     * Helper mapper.
+     * Flow composition method.
      *
-     * @param pw {@link PrintWriter} instance.
-     * @return {@link ExceptionWriter} instance based on {@param pw}.
+     * @param next flow which will be executed after currecnt instance with result of it.
+     * @param <OT> new output type.
+     * @return output flowable of {@param next}
      */
-    static ExceptionWriter fromPrintWriter(PrintWriter pw) {
-        return pw::println;
-    }
-
-
-    static ExceptionWriter nullWriter() {
-        return fromPrintWriter(new PrintWriter(PrintWriter.nullWriter()));
+    default <OT> Flow<I, OT> composite(Flow<O, OT> next) {
+        return input -> {
+            Flowable<O> outputFlowable = Flow.this.call(input);
+            return next.call(outputFlowable);
+        };
     }
 }

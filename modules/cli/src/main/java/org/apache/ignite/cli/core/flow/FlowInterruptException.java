@@ -15,30 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.repl.executor;
-
-import io.micronaut.configuration.picocli.MicronautFactory;
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
-import org.jline.terminal.Terminal;
-import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
+package org.apache.ignite.cli.core.flow;
 
 /**
- * Provider of {@link ReplExecutor}.
+ * Internal exception which shows that {@link Flow} was interrupted.
  */
-@Singleton
-public class ReplExecutorProvider {
-    private PicocliCommandsFactory factory;
-
-    @Inject
-    private Terminal terminal;
-
-    public ReplExecutor get() {
-        return new ReplExecutor(factory, terminal);
-    }
-
-    public void injectFactory(MicronautFactory micronautFactory) {
-        factory = new PicocliCommandsFactory(micronautFactory);
-        factory.setTerminal(terminal);
-    }
+public class FlowInterruptException extends RuntimeException {
 }

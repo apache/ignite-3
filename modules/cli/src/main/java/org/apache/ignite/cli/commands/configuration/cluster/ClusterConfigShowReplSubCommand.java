@@ -21,11 +21,11 @@ import jakarta.inject.Inject;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.JsonDecorator;
-import org.apache.ignite.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.cli.core.exception.handler.IgniteCliApiExceptionHandler;
+import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.repl.Session;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import picocli.CommandLine.Command;
@@ -58,27 +58,29 @@ public class ClusterConfigShowReplSubCommand extends BaseCommand implements Runn
     @Inject
     private Session session;
 
+    @Inject
+    private ConnectToClusterQuestion question;
+
     @Override
     public void run() {
-        var input = ClusterConfigShowCallInput.builder().selector(selector);
-        if (session.isConnectedToNode()) {
-            input.clusterUrl(session.getNodeUrl());
-        } else if (clusterUrl != null) {
-            input.clusterUrl(clusterUrl);
-        } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--cluster-url' option.");
-            return;
-        }
-
-        CallExecutionPipeline.builder(call)
-                .inputProvider(input::build)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .decorator(new JsonDecorator())
+        question.callWithConnectQuestion(spec,
+                        this::getClusterUrl,
+                        unused -> ClusterConfigShowCallInput.builder().selector(selector).clusterUrl(getClusterUrl()).build(),
+                        call)
                 .exceptionHandler(new ShowConfigReplExceptionHandler())
                 .build()
-                .runPipeline();
+                .call(Flowable.empty());
     }
+
+    private String getClusterUrl() {
+        if (session.isConnectedToNode()) {
+            return session.getNodeUrl();
+        } else if (clusterUrl != null) {
+            return clusterUrl;
+        }
+        return null;
+    }
+
 
     private static class ShowConfigReplExceptionHandler extends IgniteCliApiExceptionHandler {
         @Override

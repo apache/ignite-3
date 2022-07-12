@@ -22,7 +22,8 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.cli.call.configuration.ClusterConfigUpdateCall;
 import org.apache.ignite.cli.call.configuration.ClusterConfigUpdateCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.repl.Session;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -56,24 +57,27 @@ public class ClusterConfigUpdateReplSubCommand extends BaseCommand implements Ru
     @Inject
     private Session session;
 
+    @Inject
+    private ConnectToClusterQuestion question;
+
     /** {@inheritDoc} */
     @Override
     public void run() {
-        var input = ClusterConfigUpdateCallInput.builder().config(config);
-        if (session.isConnectedToNode()) {
-            input.clusterUrl(session.getNodeUrl());
-        } else if (clusterUrl != null) {
-            input.clusterUrl(clusterUrl);
-        } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--cluster-url' option.");
-            return;
-        }
-
-        CallExecutionPipeline.builder(call)
-                .inputProvider(input::build)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
+        question.callWithConnectQuestion(spec,
+                        this::getClusterUrl,
+                        s -> ClusterConfigUpdateCallInput.builder().config(config).clusterUrl(getClusterUrl()).build(),
+                        call)
                 .build()
-                .runPipeline();
+                .call(Flowable.empty());
+    }
+
+    private String getClusterUrl() {
+        String s = null;
+        if (session.isConnectedToNode()) {
+            s = session.getNodeUrl();
+        } else if (clusterUrl != null) {
+            s = clusterUrl;
+        }
+        return s;
     }
 }

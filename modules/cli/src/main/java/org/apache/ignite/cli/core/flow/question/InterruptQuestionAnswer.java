@@ -15,30 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.repl.executor;
+package org.apache.ignite.cli.core.flow.question;
 
-import io.micronaut.configuration.picocli.MicronautFactory;
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
-import org.jline.terminal.Terminal;
-import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
+import org.apache.ignite.cli.core.flow.Flowable;
 
 /**
- * Provider of {@link ReplExecutor}.
+ * Interrupt question answer.
+ *
+ * @param <T> answer
  */
-@Singleton
-public class ReplExecutorProvider {
-    private PicocliCommandsFactory factory;
-
-    @Inject
-    private Terminal terminal;
-
-    public ReplExecutor get() {
-        return new ReplExecutor(factory, terminal);
-    }
-
-    public void injectFactory(MicronautFactory micronautFactory) {
-        factory = new PicocliCommandsFactory(micronautFactory);
-        factory.setTerminal(terminal);
+public class InterruptQuestionAnswer<I, O> extends QuestionAnswer<I, O> {
+    public InterruptQuestionAnswer() {
+        super(s -> true, (a, i) -> Flowable.interrupt());
     }
 }

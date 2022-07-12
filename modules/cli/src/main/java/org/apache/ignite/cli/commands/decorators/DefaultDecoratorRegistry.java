@@ -17,28 +17,27 @@
 
 package org.apache.ignite.cli.commands.decorators;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.ignite.cli.call.configuration.JsonString;
-import org.apache.ignite.cli.core.decorator.Decorator;
-import org.apache.ignite.cli.core.decorator.TerminalOutput;
+import org.apache.ignite.cli.call.status.Status;
+import org.apache.ignite.cli.config.Profile;
+import org.apache.ignite.cli.core.decorator.DecoratorRegistry;
+import org.apache.ignite.cli.sql.SqlQueryResult;
+import org.apache.ignite.cli.sql.table.Table;
 
 /**
- * Pretty json decorator.
+ * Default set of {@link org.apache.ignite.cli.core.decorator.Decorator}.
  */
-public class JsonDecorator implements Decorator<JsonString, TerminalOutput> {
+public class DefaultDecoratorRegistry extends DecoratorRegistry {
 
-    /** {@inheritDoc} */
-    @Override
-    public TerminalOutput decorate(JsonString json) {
-        ObjectMapper mapper = new ObjectMapper();
-        return () -> {
-            try {
-                return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(mapper.readValue(json.getValue(), JsonNode.class));
-            } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
-            }
-        };
+    /**
+     * Constructor.
+     */
+    public DefaultDecoratorRegistry() {
+        add(JsonString.class, new JsonDecorator());
+        add(Profile.class, new ProfileDecorator());
+        add(Table.class, new TableDecorator());
+        add(SqlQueryResult.class, new SqlQueryResultDecorator());
+        add(Status.class, new StatusDecorator());
+
     }
 }

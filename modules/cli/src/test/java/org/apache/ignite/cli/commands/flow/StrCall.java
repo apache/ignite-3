@@ -15,30 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.repl.executor;
+package org.apache.ignite.cli.commands.flow;
 
-import io.micronaut.configuration.picocli.MicronautFactory;
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
-import org.jline.terminal.Terminal;
-import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
+import org.apache.ignite.cli.core.call.Call;
+import org.apache.ignite.cli.core.call.CallOutput;
+import org.apache.ignite.cli.core.call.DefaultCallOutput;
 
-/**
- * Provider of {@link ReplExecutor}.
- */
-@Singleton
-public class ReplExecutorProvider {
-    private PicocliCommandsFactory factory;
+class StrCall implements Call<StrCallInput, String> {
 
-    @Inject
-    private Terminal terminal;
-
-    public ReplExecutor get() {
-        return new ReplExecutor(factory, terminal);
-    }
-
-    public void injectFactory(MicronautFactory micronautFactory) {
-        factory = new PicocliCommandsFactory(micronautFactory);
-        factory.setTerminal(terminal);
+    @Override
+    public CallOutput<String> execute(StrCallInput input) {
+        return DefaultCallOutput.success("You are unlucky, your number |" + input.value + "|");
     }
 }
