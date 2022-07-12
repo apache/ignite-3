@@ -67,8 +67,6 @@ import java.util.function.BooleanSupplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.hlc.SystemHybridClock;
-import org.apache.ignite.hlc.SystemTimeProvider;
-import org.apache.ignite.hlc.TestHybridClock;
 import org.apache.ignite.hlc.TestTimeProvider;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -2801,148 +2799,6 @@ public class ItNodeTest {
     }
 
     @Test
-    public void testHlcPropagation() throws Exception {
-        // start five nodes
-        List<PeerId> peers = TestUtils.generatePeers(2);
-
-        cluster = new TestCluster("unitest", dataPath, peers, 3_000, testInfo);
-
-        List<TestTimeProvider> timeProviders = new ArrayList<>();
-        List<TestHybridClock> clocks = new ArrayList<>();
-
-        for (PeerId peer : peers) {
-            RaftOptions opts = new RaftOptions();
-            opts.setElectionHeartbeatFactor(4); // Election timeout divisor.
-            TestTimeProvider timeProvider = new TestTimeProvider(0);
-            timeProviders.add(timeProvider);
-            TestHybridClock clock = new TestHybridClock(timeProvider);
-            clocks.add(clock);
-            assertTrue(cluster.start(peer.getEndpoint(), false, 300, false, null, opts, clock));
-        }
-
-        List<NodeImpl> nodes = cluster.getNodes();
-
-        List<RpcClientEx> senders = new ArrayList<>();
-
-        for (NodeImpl node : nodes) {
-            RpcClientEx rpcClientEx = sender(node);
-            senders.add(rpcClientEx);
-            rpcClientEx.recordMessages((msg, nodeId) -> true);
-        }
-
-        cluster.waitLeader();
-        Node leader = cluster.getLeader();
-        cluster.ensureLeader(leader);
-
-        RpcClientEx client = sender(leader);
-
-        RequestVoteRequestImpl preVoteRequest = client.recordedMessages().stream()
-                .map(arr -> arr[0])
-                .filter(o -> {
-                    if (o instanceof RequestVoteRequestImpl) {
-                        RequestVoteRequestImpl m = (RequestVoteRequestImpl) o;
-
-                        if (m.preVote()) {
-                            return true;
-                        }
-
-                        return false;
-                    }
-
-                    return false;
-                })
-                .map(o -> (RequestVoteRequestImpl) o)
-                .findFirst().get();
-
-        RequestVoteResponseImpl requestPreVoteResponse = client.recordedMessages().stream()
-                .map(arr -> arr[0])
-                .filter(o -> {
-                    if (o instanceof RequestVoteResponseImpl) {
-                        RequestVoteResponseImpl m = (RequestVoteResponseImpl) o;
-
-                        return true;
-                    }
-
-                    return false;
-                })
-                .map(o -> (RequestVoteResponseImpl) o)
-                .findFirst().get();
-
-        RequestVoteRequestImpl voteRequest = client.recordedMessages().stream()
-                .map(arr -> arr[0])
-                .filter(o -> {
-                    if (o instanceof RequestVoteRequestImpl) {
-                        RequestVoteRequestImpl m = (RequestVoteRequestImpl) o;
-
-                        if (!m.preVote()) {
-                            return true;
-                        }
-
-                        return false;
-                    }
-
-                    return false;
-                })
-                .map(o -> (RequestVoteRequestImpl) o)
-                .findFirst().get();
-
-        RequestVoteResponseImpl requestVoteResponse = client.recordedMessages().stream()
-                .map(arr -> arr[0])
-                .filter(o -> {
-                    if (o instanceof RequestVoteResponseImpl) {
-                        RequestVoteResponseImpl m = (RequestVoteResponseImpl) o;
-
-                        if (m.timestamp().compareTo(voteRequest.timestamp()) > 0) {
-                            return true;
-                        }
-
-                        return false;
-                    }
-
-                    return false;
-                })
-                .map(o -> (RequestVoteResponseImpl) o)
-                .findFirst().get();
-
-        AppendEntriesRequestImpl appendEntriesRequest = client.recordedMessages().stream()
-                .map(arr -> arr[0])
-                .filter(o -> {
-                    if (o instanceof AppendEntriesRequestImpl) {
-                        AppendEntriesRequestImpl m = (AppendEntriesRequestImpl) o;
-
-                        return true;
-                    }
-
-                    return false;
-                })
-                .map(o -> (AppendEntriesRequestImpl) o)
-                .findFirst().get();
-
-        AppendEntriesResponseImpl appendEntriesResponse = client.recordedMessages().stream()
-                .map(arr -> arr[0])
-                .filter(o -> {
-                    if (o instanceof AppendEntriesResponseImpl) {
-                        AppendEntriesResponseImpl m = (AppendEntriesResponseImpl) o;
-
-                        if (m.timestamp().compareTo(voteRequest.timestamp()) > 0) {
-                            return true;
-                        }
-
-                        return false;
-                    }
-
-                    return false;
-                })
-                .map(o -> (AppendEntriesResponseImpl) o)
-                .findFirst().get();
-
-        assertTrue(preVoteRequest.timestamp().compareTo(requestPreVoteResponse.timestamp()) < 0);
-        assertTrue(voteRequest.timestamp().compareTo(requestVoteResponse.timestamp()) < 0);
-        assertTrue(appendEntriesRequest.timestamp().compareTo(appendEntriesResponse.timestamp()) < 0);
-
-    }
-
-    @Test
     public void readCommittedUserLog() throws Exception {
         // setup cluster
         List<PeerId> peers = TestUtils.generatePeers(3);
@@ -3916,6 +3772,135 @@ public class ItNodeTest {
         });
 
         assertTrue(res.get().isOk());
+    }
+
+    @Test
+    public void testHlcPropagation() throws Exception {
+        List<PeerId> peers = TestUtils.generatePeers(2);
+
+        cluster = new TestCluster("unitest", dataPath, peers, 3_000, testInfo);
+
+        for (PeerId peer : peers) {
+            RaftOptions opts = new RaftOptions();
+            opts.setElectionHeartbeatFactor(4); // Election timeout divisor.
+            TestTimeProvider timeProvider = new TestTimeProvider(0);
+            SystemHybridClock clock = new SystemHybridClock(timeProvider);
+            assertTrue(cluster.start(peer.getEndpoint(), false, 300, false, null, opts, clock));
+        }
+
+        List<NodeImpl> nodes = cluster.getNodes();
+
+        for (NodeImpl node : nodes) {
+            RpcClientEx rpcClientEx = sender(node);
+            rpcClientEx.recordMessages((msg, nodeId) -> true);
+        }
+
+        cluster.waitLeader();
+        Node leader = cluster.getLeader();
+        cluster.ensureLeader(leader);
+
+        RpcClientEx client = sender(leader);
+
+        RequestVoteRequestImpl preVoteRequest = client.recordedMessages().stream()
+                .map(arr -> arr[0])
+                .filter(o -> {
+                    if (o instanceof RequestVoteRequestImpl) {
+                        RequestVoteRequestImpl m = (RequestVoteRequestImpl) o;
+
+                        if (m.preVote()) {
+                            return true;
+                        }
+
+                        return false;
+                    }
+
+                    return false;
+                })
+                .map(o -> (RequestVoteRequestImpl) o)
+                .findFirst().get();
+
+        RequestVoteResponseImpl requestPreVoteResponse = client.recordedMessages().stream()
+                .map(arr -> arr[0])
+                .filter(o -> {
+                    if (o instanceof RequestVoteResponseImpl) {
+                        return true;
+                    }
+
+                    return false;
+                })
+                .map(o -> (RequestVoteResponseImpl) o)
+                .findFirst().get();
+
+        RequestVoteRequestImpl voteRequest = client.recordedMessages().stream()
+                .map(arr -> arr[0])
+                .filter(o -> {
+                    if (o instanceof RequestVoteRequestImpl) {
+                        RequestVoteRequestImpl m = (RequestVoteRequestImpl) o;
+
+                        if (!m.preVote()) {
+                            return true;
+                        }
+
+                        return false;
+                    }
+
+                    return false;
+                })
+                .map(o -> (RequestVoteRequestImpl) o)
+                .findFirst().get();
+
+        RequestVoteResponseImpl requestVoteResponse = client.recordedMessages().stream()
+                .map(arr -> arr[0])
+                .filter(o -> {
+                    if (o instanceof RequestVoteResponseImpl) {
+                        RequestVoteResponseImpl m = (RequestVoteResponseImpl) o;
+
+                        if (m.timestamp().compareTo(requestPreVoteResponse.timestamp()) > 0) {
+                            return true;
+                        }
+
+                        return false;
+                    }
+
+                    return false;
+                })
+                .map(o -> (RequestVoteResponseImpl) o)
+                .findFirst().get();
+
+        AppendEntriesRequestImpl appendEntriesRequest = client.recordedMessages().stream()
+                .map(arr -> arr[0])
+                .filter(o -> {
+                    if (o instanceof AppendEntriesRequestImpl) {
+                        return true;
+                    }
+
+                    return false;
+                })
+                .map(o -> (AppendEntriesRequestImpl) o)
+                .findFirst().get();
+
+        AppendEntriesResponseImpl appendEntriesResponse = client.recordedMessages().stream()
+                .map(arr -> arr[0])
+                .filter(o -> {
+                    if (o instanceof AppendEntriesResponseImpl) {
+                        AppendEntriesResponseImpl m = (AppendEntriesResponseImpl) o;
+
+                        if (m.timestamp().compareTo(voteRequest.timestamp()) > 0) {
+                            return true;
+                        }
+
+                        return false;
+                    }
+
+                    return false;
+                })
+                .map(o -> (AppendEntriesResponseImpl) o)
+                .findFirst().get();
+
+        assertTrue(preVoteRequest.timestamp().compareTo(requestPreVoteResponse.timestamp()) < 0);
+        assertTrue(voteRequest.timestamp().compareTo(requestVoteResponse.timestamp()) < 0);
+        assertTrue(appendEntriesRequest.timestamp().compareTo(appendEntriesResponse.timestamp()) < 0);
+
     }
 
     private NodeOptions createNodeOptions(int nodeIdx) {

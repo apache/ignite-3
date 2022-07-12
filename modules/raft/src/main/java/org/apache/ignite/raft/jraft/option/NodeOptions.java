@@ -233,6 +233,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      */
     private StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
 
+    /** A hybrid clock */
     private HybridClock clock = new SystemHybridClock(new SystemTimeProvider());
 
     /**

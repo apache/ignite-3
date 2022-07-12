@@ -2825,8 +2825,6 @@ public class NodeImpl implements Node, RaftServerService {
 
             if (response.timestamp() != null) {
                 clock.tick(response.timestamp());
-            } else {
-                System.out.println("handlePreVoteResponse_null");
             }
         }
         finally {
