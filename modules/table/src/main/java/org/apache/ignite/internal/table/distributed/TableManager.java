@@ -495,16 +495,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 InternalTable internalTbl = tablesById.get(tblId).internalTable();
 
-                    // TODO: IGNITE-17197 Remove assert after the ticket is resolved.
-                    assert internalTbl.storage() instanceof MvTableStorage :
-                            "Only multi version storages are supported. Current storage is a " + internalTbl.storage().getClass().getName();
+                // TODO: IGNITE-17197 Remove assert after the ticket is resolved.
+                assert internalTbl.storage() instanceof MvTableStorage :
+                        "Only multi version storages are supported. Current storage is a " + internalTbl.storage().getClass().getName();
 
                     futures[partId] = CompletableFuture
                             .supplyAsync(
                                     () -> ((MvTableStorage) internalTbl.storage()).getOrCreateMvPartition(partId), ioExecutor)
-                            .thenComposeAsync((partitionStorage) ->
-
-                            {
+                            .thenComposeAsync((partitionStorage) -> {
                                 try {
                                     return raftMgr.updateRaftGroup(
                                             partitionRaftGroupName(tblId, partId),
@@ -535,8 +533,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     ).exceptionally(th -> {
                         LOG.warn("Unable to update raft groups on the node", th);
 
-                        return null;
-                    });
+                    return null;
+                });
 
                 return completedFuture(tablesById);
             });
