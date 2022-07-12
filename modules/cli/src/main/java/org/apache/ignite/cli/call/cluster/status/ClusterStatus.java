@@ -74,7 +74,7 @@ public class ClusterStatus {
     }
 
     public List<String> getMsNodes() {
-        return cmgNodes;
+        return metadataStorageNodes;
     }
 
     /**
