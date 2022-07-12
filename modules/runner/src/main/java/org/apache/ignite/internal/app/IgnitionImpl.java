@@ -199,7 +199,7 @@ public class IgnitionImpl implements Ignition {
         IgniteImpl prevNode = nodes.putIfAbsent(nodeName, nodeToStart);
 
         if (prevNode != null) {
-            String errMsg = "Node with name=[" + nodeName + "] already exists.";
+            String errMsg = "Node already exists [name=" + nodeName + "]";
 
             LOG.debug(errMsg);
 
