@@ -44,4 +44,16 @@ public class ErrorGroups {
         /** Column not found. */
         public static int COLUMN_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode(4);
     }
+
+    /** Transactions error group. */
+    public static class Transactions {
+        /** Transactions error group. */
+        public static final ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 3);
+
+        /** Error on creation of table state storage. */
+        public static int TX_STATE_STORAGE_CREATE_ERR = TX_ERR_GROUP.registerErrorCode(1);
+
+        /** Error of table state storage. */
+        public static int TX_STATE_STORAGE_ERR = TX_ERR_GROUP.registerErrorCode(2);
+    }
 }
