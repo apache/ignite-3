@@ -257,7 +257,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void writeError(long requestId, Throwable err, ChannelHandlerContext ctx) {
-        LOG.error("Error processing client request", err);
+        LOG.debug("Error processing client request", err);
 
         var packer = getPacker(ctx.alloc());
 
@@ -469,7 +469,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        LOG.error(cause.getMessage(), cause);
+        LOG.info(cause.getMessage(), cause);
 
         ctx.close();
     }

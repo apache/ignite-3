@@ -124,8 +124,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             if (tmpDir != null && this.dbDir.startsWith(tmpDir)) {
                 log.warn("Persistence store directory is in the temp directory and may be cleaned. "
-                        + "To avoid this change location of persistence directories. "
-                        + "Current persistence store directory is:" + this.dbDir);
+                        + "To avoid this change location of persistence directories [currentDir={}]", this.dbDir);
             }
         }
     }
@@ -247,11 +246,9 @@ public class FilePageStoreManager implements PageReadWriteManager {
             try {
                 stopGroupFilePageStores(partitionPageStores, cleanFiles);
 
-                if (log.isInfoEnabled()) {
-                    log.info(String.format("Cleanup cache stores [total=%s, cleanFiles=%s]", partitionPageStores.size(), cleanFiles));
-                }
+                log.info("Cleanup cache stores [total={}, cleanFiles={}]", partitionPageStores.size(), cleanFiles);
             } catch (Exception e) {
-                log.error("Failed to gracefully stop page store managers", e);
+                log.info("Failed to gracefully stop page store managers", e);
             }
         };
 

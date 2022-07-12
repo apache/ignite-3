@@ -122,27 +122,26 @@ public class RebalanceUtil {
             switch (sr.getAsInt()) {
                 case PENDING_KEY_UPDATED:
                     LOG.info(
-                            "Update metastore pending partitions key={} for partition={}, table={} to {}",
+                            "Update metastore pending partitions key [key={}, partition={}, table={}, newVal={}]",
                             partAssignmentsPendingKey.toString(), partNum, tableName,
                             ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case PLANNED_KEY_UPDATED:
                     LOG.info(
-                            "Update metastore planned partitions key={} for partition={}, table={} to {}",
+                            "Update metastore planned partitions key [key={}, partition={}, table={}, newVal={}]",
                             partAssignmentsPlannedKey, partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case PLANNED_KEY_REMOVED:
                     LOG.info(
-                            "Remove planned key={} for partition={}, table={} due to the fact, "
-                                    + "that current pending key has the same value as planned={}",
+                            "Remove planned key because current pending key has the same value [key={}, partition={}, table={}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case OUTDATED_UPDATE_RECEIVED:
                     LOG.debug(
-                            "Received outdated rebalance trigger event with revision={} for partition={}, table={}",
+                            "Received outdated rebalance trigger event [revision={}, partition={}, table={}]",
                             revision, partNum, tableName);
 
                     break;

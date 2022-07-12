@@ -214,14 +214,14 @@ public class ClientHandlerModule implements IgniteComponent {
 
         if (ch == null) {
             String msg = "Cannot start thin client connector endpoint. "
-                    + "All ports in range [" + desiredPort + ", " + (desiredPort + portRange) + "] are in use.";
+                    + "All ports are in use [ports=[" + desiredPort + ", " + (desiredPort + portRange) + "]]";
 
-            LOG.error(msg);
+            LOG.debug(msg);
 
             throw new IgniteException(msg);
         }
 
-        LOG.info("Thin client protocol started successfully on port " + port);
+        LOG.info("Thin client protocol started successfully[port={}]", port);
 
         return ch.closeFuture();
     }

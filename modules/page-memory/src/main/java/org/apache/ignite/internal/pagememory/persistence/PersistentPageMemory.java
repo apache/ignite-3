@@ -335,12 +335,9 @@ public class PersistentPageMemory implements PageMemory {
             this.segments = segments;
 
             if (LOG.isInfoEnabled()) {
-                LOG.info("Started page memory [memoryAllocated=" + readableSize(totalAllocated, false)
-                        + ", pages=" + pages
-                        + ", tableSize=" + readableSize(totalTblSize, false)
-                        + ", replacementSize=" + readableSize(totalReplSize, false)
-                        + ", checkpointBuffer=" + readableSize(checkpointBufferSize, false)
-                        + ']');
+                LOG.info("Started page memory [memoryAllocated={}, pages={}, tableSize={}, replacementSize={}, checkpointBuffer={}]",
+                        readableSize(totalAllocated, false), pages, readableSize(totalTblSize, false),
+                        readableSize(totalReplSize, false), readableSize(checkpointBufferSize, false));
             }
         }
     }
@@ -353,9 +350,7 @@ public class PersistentPageMemory implements PageMemory {
                 return;
             }
 
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Stopping page memory.");
-            }
+            LOG.debug("Stopping page memory");
 
             if (segments != null) {
                 for (Segment seg : segments) {
@@ -1171,7 +1166,7 @@ public class PersistentPageMemory implements PageMemory {
                 assert getVersion(page + PAGE_OVERHEAD) != 0 : dumpPage(pageId, fullId.groupId());
                 assert getType(page + PAGE_OVERHEAD) != 0 : hexLong(pageId);
             } catch (AssertionError ex) {
-                LOG.error("Failed to unlock page [fullPageId=" + fullId + ", binPage=" + toHexString(page, systemPageSize()) + ']');
+                LOG.debug("Failed to unlock page [fullPageId={}, binPage={}]", fullId, toHexString(page, systemPageSize()));
 
                 throw ex;
             }
@@ -1582,11 +1577,9 @@ public class PersistentPageMemory implements PageMemory {
 
             if (pageReplacementWarned == 0) {
                 if (pageReplacementWarnedFieldUpdater.compareAndSet(PersistentPageMemory.this, 0, 1)) {
-                    String msg = "Page replacements started, pages will be rotated with disk, this will affect "
+                    LOG.warn("Page replacements started, pages will be rotated with disk, this will affect "
                             + "storage performance (consider increasing PageMemoryDataRegionConfiguration#setMaxSize for "
-                            + "data region): " + dataRegionConfigView.name();
-
-                    LOG.warn(msg);
+                            + "data region) [region={}]", dataRegionConfigView.name());
                 }
             }
 
@@ -1696,7 +1689,7 @@ public class PersistentPageMemory implements PageMemory {
             }
 
             if (gen == Integer.MAX_VALUE) {
-                LOG.warn("Partition tag overflow [grpId=" + grpId + ", partId=" + partId + "]");
+                LOG.info("Partition tag overflow [grpId={}, partId={}]", grpId, partId);
 
                 partGenerationMap.put(grpPart, 0);
 

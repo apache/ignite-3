@@ -27,11 +27,11 @@ import org.apache.ignite.internal.logger.Loggers;
  * Exception handler for {@link IgniteClientException}.
  */
 public class IgniteClientExceptionHandler implements ExceptionHandler<IgniteClientException> {
-    private static final IgniteLogger log = Loggers.forClass(IgniteClientExceptionHandler.class);
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteClientExceptionHandler.class);
 
     @Override
     public int handle(ExceptionWriter err, IgniteClientException e) {
-        log.error("Ignite client exception", e);
+        LOG.error("Ignite client exception", e);
         err.write("Ignite client exception with code: " + e.errorCode());
         return 1;
     }

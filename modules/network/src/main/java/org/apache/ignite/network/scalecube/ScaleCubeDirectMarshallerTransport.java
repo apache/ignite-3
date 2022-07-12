@@ -102,7 +102,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
                 .doFinally(s -> onStop.onComplete())
                 .subscribe(
                         null,
-                        ex -> LOG.warn("Failed to stop {}: {}", address, ex.toString())
+                        ex -> LOG.warn("Failed to stop [address={}, reason={}]", address, ex.toString())
                 );
     }
 
@@ -133,11 +133,11 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
      */
     private Mono<Void> doStop() {
         return Mono.defer(() -> {
-            LOG.info("Stopping {}", address);
+            LOG.info("Stopping [address={}]", address);
 
             sink.complete();
 
-            LOG.info("Stopped {}", address);
+            LOG.info("Stopped [address={}]", address);
             return Mono.empty();
         });
     }

@@ -501,12 +501,12 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                                 throw new IgniteInternalException(e);
                             } catch (Exception e) {
                                 if (e instanceof IgniteInternalException && e.getCause().getCause() instanceof RejectedExecutionException) {
-                                    LOG.warn("Cursor close command was rejected because raft executor has been already stopped.");
+                                    LOG.debug("Cursor close command was rejected because raft executor has been already stopped");
                                     return;
                                 }
 
                                 // TODO: IGNITE-14693 Implement Meta storage exception handling logic.
-                                LOG.error("Unexpected exception", e);
+                                LOG.warn("Unexpected exception", e);
                             }
                         });
                         return null;
@@ -569,7 +569,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                             break;
                         } else {
                             // TODO: IGNITE-14693 Implement Meta storage exception handling logic.
-                            LOG.error("Unexpected exception", e);
+                            LOG.warn("Unexpected exception", e);
                         }
                     }
                 }

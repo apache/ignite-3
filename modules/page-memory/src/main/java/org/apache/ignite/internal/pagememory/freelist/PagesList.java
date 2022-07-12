@@ -164,9 +164,9 @@ public abstract class PagesList extends DataStructure {
 
             int newBucket = getBucketIndex(freeSpace);
 
-            if (newBucket != oldBucket && log.isDebugEnabled()) {
-                log.debug("Bucket changed when moving from heap to PageMemory [list=" + name() + ", oldBucket=" + oldBucket
-                        + ", newBucket=" + newBucket + ", pageId=" + pageId + ']');
+            if (newBucket != oldBucket) {
+                log.debug("Bucket changed when moving from heap to PageMemory [list={}, oldBucket={}, newBucket={}, pageId={}]",
+                        name(), oldBucket, newBucket, pageId);
             }
 
             if (newBucket >= 0) {
@@ -376,18 +376,12 @@ public abstract class PagesList extends DataStructure {
                 LongArrayList pages = pagesCache.flush();
 
                 if (pages != null) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("Move pages from heap to PageMemory [list=" + name() + ", bucket=" + bucket
-                                + ", pages=" + pages + ']');
-                    }
+                    log.debug("Move pages from heap to PageMemory [list={}, bucket={}, pages={}]", name(), bucket, pages);
 
                     for (int i = 0; i < pages.size(); i++) {
                         long pageId = pages.getLong(i);
 
-                        if (log.isDebugEnabled()) {
-                            log.debug("Move page from heap to PageMemory [list=" + name() + ", bucket=" + bucket
-                                    + ", pageId=" + pageId + ']');
-                        }
+                        log.debug("Move page from heap to PageMemory [list={}, bucket={}, pageId={}]", name(), bucket, pageId);
 
                         Boolean res = write(pageId, putBucket, bucket, null, statHolder);
 
@@ -405,10 +399,7 @@ public abstract class PagesList extends DataStructure {
         }
 
         if (lockedPages != 0) {
-            if (log.isInfoEnabled()) {
-                log.info("Several pages were locked and weren't flushed on disk [grp=" + grpName
-                        + ", lockedPages=" + lockedPages + ']');
-            }
+            log.info("Several pages were locked and weren't flushed on disk [grp={}, lockedPages={}]", grpName, lockedPages);
 
             pageCacheChanged = true;
         }
@@ -638,8 +629,8 @@ public abstract class PagesList extends DataStructure {
                 Stripe[] tails = getBucket(bucket);
 
                 if (log.isDebugEnabled()) {
-                    log.debug("Update tail [list=" + name() + ", bucket=" + bucket + ", oldTailId=" + oldTailId
-                            + ", newTailId=" + newTailId + ", tails=" + Arrays.toString(tails));
+                    log.debug("Update tail [list={}, bucket={}, oldTailId={}, newTailId={}, tails={}]",
+                            name(), bucket, oldTailId, newTailId, Arrays.toString(tails));
                 }
 
                 // Tail must exist to be updated.
@@ -814,10 +805,7 @@ public abstract class PagesList extends DataStructure {
 
         if (bag == null && onheapListCachingEnabled && putDataPage(getBucketCache(bucket, true), dataId, dataAddr, bucket)) {
             // Successfully put page to the onheap pages list cache.
-            if (log.isDebugEnabled()) {
-                log.debug("Put page to pages list cache [list=" + name() + ", bucket=" + bucket
-                        + ", dataId=" + dataId + ']');
-            }
+            log.debug("Put page to pages list cache [list={}, bucket={}, dataId={}]", name(), bucket, dataId);
 
             return;
         }
@@ -882,10 +870,7 @@ public abstract class PagesList extends DataStructure {
                             putDataPage(tailId, tailAddr, io, dataId, dataAddr, bucket, statHolder);
 
                     if (ok) {
-                        if (log.isDebugEnabled()) {
-                            log.debug("Put page to pages list [list=" + name() + ", bucket=" + bucket
-                                    + ", dataId=" + dataId + ", tailId=" + tailId + ']');
-                        }
+                        log.debug("Put page to pages list [list={}, bucket={}, dataId={}, tailId={}]", name(), bucket, dataId, tailId);
 
                         stripe.empty = false;
 
@@ -1213,10 +1198,7 @@ public abstract class PagesList extends DataStructure {
         if (pagesCache != null && (pageId = pagesCache.poll()) != 0L) {
             decrementBucketSize(bucket);
 
-            if (log.isDebugEnabled()) {
-                log.debug("Take page from pages list cache [list=" + name() + ", bucket=" + bucket
-                        + ", pageId=" + pageId + ']');
-            }
+            log.debug("Take page from pages list cache [list={}, bucket={}, pageId={}]", name(), bucket, pageId);
 
             assert !isReuseBucket(bucket) : "reuse bucket detected";
 
@@ -1356,10 +1338,7 @@ public abstract class PagesList extends DataStructure {
                     reuseList.addForRecycle(new SingletonReuseBag(recycleId));
                 }
 
-                if (log.isDebugEnabled()) {
-                    log.debug("Take page from pages list [list=" + name() + ", bucket=" + bucket
-                            + ", dataPageId=" + dataPageId + ", tailId=" + tailId + ']');
-                }
+                log.debug("Take page from pages list [list={}, bucket={}, dataPageId={}, tailId={}]", name(), bucket, dataPageId, tailId);
 
                 return dataPageId;
             } finally {
@@ -1478,28 +1457,20 @@ public abstract class PagesList extends DataStructure {
 
             // Pages cache can be null here if page was taken for put from free list concurrently.
             if (pagesCache == null || !pagesCache.removePage(dataId)) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Remove page from pages list cache failed [list=" + name() + ", bucket=" + bucket
-                            + ", dataId=" + dataId + "]: " + ((pagesCache == null) ? "cache is null" : "page not found"));
-                }
+                log.debug("Remove page from pages list cache failed [list={}, bucket={}, dataId={}, reason={}]",
+                        name(), bucket, dataId, ((pagesCache == null) ? "cache is null" : "page not found"));
 
                 return false;
             }
 
             decrementBucketSize(bucket);
 
-            if (log.isDebugEnabled()) {
-                log.debug("Remove page from pages list cache [list=" + name() + ", bucket=" + bucket
-                        + ", dataId=" + dataId + ']');
-            }
+            log.debug("Remove page from pages list cache [list={}, bucket={}, dataId={}]", name(), bucket, dataId);
 
             return true;
         }
 
-        if (log.isDebugEnabled()) {
-            log.debug("Remove page from pages list [list=" + name() + ", bucket=" + bucket + ", dataId=" + dataId
-                    + ", pageId=" + pageId + ']');
-        }
+        log.debug("Remove page from pages list [list={}, bucket={}, dataId={}, pageId={}]", name(), bucket, dataId, pageId);
 
         final long page = acquirePage(pageId, statHolder);
 
