@@ -80,7 +80,7 @@ public class PartitionFilePageStoreFactoryTest {
 
             Exception exception = assertThrows(
                     IgniteInternalCheckedException.class,
-                    () -> createFilePageStoreFactory().createPageStore(testFilePath, ByteBuffer.allocate(PAGE_SIZE))
+                    () -> createFilePageStoreFactory().createPageStore(testFilePath, ByteBuffer.allocateDirect(PAGE_SIZE))
             );
 
             assertThat(exception.getMessage(), containsString("Unknown version of file page store"));
@@ -91,7 +91,7 @@ public class PartitionFilePageStoreFactoryTest {
     void testCreateNewFilePageStore() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        ByteBuffer buffer = ByteBuffer.allocate(PAGE_SIZE);
+        ByteBuffer buffer = ByteBuffer.allocateDirect(PAGE_SIZE);
 
         try (
                 PartitionFilePageStore filePageStore = createFilePageStoreFactory().createPageStore(testFilePath, buffer);
@@ -115,7 +115,7 @@ public class PartitionFilePageStoreFactoryTest {
 
         Path testFilePath = workDir.resolve("test");
 
-        ByteBuffer buffer = ByteBuffer.allocate(PAGE_SIZE);
+        ByteBuffer buffer = ByteBuffer.allocateDirect(PAGE_SIZE);
 
         try (PartitionFilePageStore pageStore = filePageStoreFactory.createPageStore(testFilePath, buffer)) {
             pageStore.ensure();
@@ -137,7 +137,7 @@ public class PartitionFilePageStoreFactoryTest {
 
         Path testFilePath = workDir.resolve("test");
 
-        ByteBuffer buffer = ByteBuffer.allocate(PAGE_SIZE);
+        ByteBuffer buffer = ByteBuffer.allocateDirect(PAGE_SIZE);
 
         try (
                 PartitionFilePageStore pageStore = filePageStoreFactory.createPageStore(testFilePath, buffer);

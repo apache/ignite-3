@@ -68,7 +68,7 @@ class PartitionFilePageStoreFactory {
      * pageIdx == 0}) to create the {@link PartitionFilePageStore}.
      *
      * @param filePath File page store path.
-     * @param readIntoBuffer Buffer for reading {@link PartitionMetaIo meta} from {@code filePath}.
+     * @param readIntoBuffer Direct byte buffer for reading {@link PartitionMetaIo meta} from {@code filePath}.
      * @return File page store.
      * @throws IgniteInternalCheckedException if failed
      */

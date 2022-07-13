@@ -283,11 +283,15 @@ public class CheckpointPagesWriter implements Runnable {
             io.setReuseListRootPageId(pageAddr, meta.reuseListRootPageId());
             io.setPageCount(pageAddr, meta.pageCount());
 
+            FullPageId fullPageId = new FullPageId(partitionMetaPageId, partitionId.getGroupId());
+
             PageStore store = pageWriter.write(
-                    new FullPageId(partitionMetaPageId, partitionId.getGroupId()),
+                    fullPageId,
                     buffer.rewind(),
-                    pageMemory.generationTag(new FullPageId(partitionMetaPageId, partitionId.getGroupId()))
+                    pageMemory.generationTag(fullPageId)
             );
+
+            checkpointProgress.writtenPagesCounter().incrementAndGet();
 
             updStores.computeIfAbsent(store, k -> new LongAdder()).increment();
         }

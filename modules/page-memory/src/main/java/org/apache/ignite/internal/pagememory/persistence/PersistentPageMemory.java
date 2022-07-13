@@ -602,8 +602,6 @@ public class PersistentPageMemory implements PageMemory {
      * @return Meta page for grpId and partId.
      */
     public long partitionMetaPageId(int grpId, int partId) {
-        assert started;
-
         return pageId(partId, FLAG_AUX, 0);
     }
 

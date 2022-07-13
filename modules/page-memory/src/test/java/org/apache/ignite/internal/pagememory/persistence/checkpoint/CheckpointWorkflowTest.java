@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.MARKER_STORED_TO_DISK;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGE_SNAPSHOT_TAKEN;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.createPartitionFilePageStoreManager;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.newReadWriteLock;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.toListDirtyPageIds;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.AFTER_CHECKPOINT_END;
@@ -33,6 +34,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_MARK_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -43,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,6 +53,7 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -61,10 +65,15 @@ import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.CollectionDirtyPages;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
+import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
+import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -175,18 +184,23 @@ public class CheckpointWorkflowTest {
 
         CheckpointReadWriteLock readWriteLock = newReadWriteLock(log);
 
-        List<FullPageId> dirtyPages = List.of(of(0, 0, 0), of(0, 0, 1), of(0, 0, 2));
+        List<FullPageId> dirtyPages = List.of(of(0, 0, 1), of(0, 0, 2), of(0, 0, 3));
 
         PersistentPageMemory pageMemory = newPageMemory(dirtyPages);
 
         DataRegion<PersistentPageMemory> dataRegion = () -> pageMemory;
+
+        PartitionFilePageStore partitionFilePageStore = spy(new PartitionFilePageStore(
+                mock(FilePageStore.class),
+                mock(PartitionMeta.class))
+        );
 
         workflow = new CheckpointWorkflow(
                 "test",
                 markersStorage,
                 readWriteLock,
                 List.of(dataRegion),
-                mock(PartitionFilePageStoreManager.class)
+                createPartitionFilePageStoreManager(Map.of(new GroupPartitionId(0, 0), partitionFilePageStore))
         );
 
         workflow.start();
@@ -295,6 +309,11 @@ public class CheckpointWorkflowTest {
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegion.pageMemory()));
 
         assertThat(
+                collect(checkpoint.dirtyPages.toDirtyPartitionIdQueue()),
+                contains(new GroupPartitionId(0, 0))
+        );
+
+        assertThat(
                 events,
                 equalTo(List.of(BEFORE_CHECKPOINT_BEGIN, ON_MARK_CHECKPOINT_BEGIN, ON_CHECKPOINT_BEGIN))
         );
@@ -305,6 +324,7 @@ public class CheckpointWorkflowTest {
         );
 
         verify(markersStorage, times(1)).onCheckpointBegin(checkpointId);
+        verify(partitionFilePageStore, times(1)).updateMetaPageCount();
     }
 
     @Test
@@ -557,5 +577,17 @@ public class CheckpointWorkflowTest {
                 .map(fullPageId -> new GroupPartitionId(fullPageId.groupId(), fullPageId.partitionId()))
                 .distinct()
                 .toArray(GroupPartitionId[]::new);
+    }
+
+    private static List<GroupPartitionId> collect(IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> queue) {
+        return IntStream.range(0, queue.size())
+                .mapToObj(i -> {
+                    Result<PersistentPageMemory, GroupPartitionId> result = new Result<>();
+
+                    queue.next(result);
+
+                    return result.getValue();
+                })
+                .collect(toList());
     }
 }

@@ -17,14 +17,21 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
+import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
 
 /**
  * Useful class for testing a checkpoint.
@@ -70,5 +77,27 @@ public class CheckpointTestUtils {
      */
     public static List<FullPageId> toListDirtyPageIds(CheckpointDirtyPagesView dirtyPagesView) {
         return IntStream.range(0, dirtyPagesView.size()).mapToObj(dirtyPagesView::get).collect(Collectors.toList());
+    }
+
+    /**
+     * Returns mocked {@link PartitionFilePageStoreManager}.
+     *
+     * @param stores Partition file page stores.
+     * @throws Exception If failed.
+     */
+    public static PartitionFilePageStoreManager createPartitionFilePageStoreManager(
+            Map<GroupPartitionId, PartitionFilePageStore> stores
+    ) throws Exception {
+        PartitionFilePageStoreManager manager = mock(PartitionFilePageStoreManager.class);
+
+        when(manager.getStore(anyInt(), anyInt())).then(answer -> {
+            PartitionFilePageStore pageStore = stores.get(new GroupPartitionId(answer.getArgument(0), answer.getArgument(1)));
+
+            assertNotNull(pageStore);
+
+            return pageStore;
+        });
+
+        return manager;
     }
 }

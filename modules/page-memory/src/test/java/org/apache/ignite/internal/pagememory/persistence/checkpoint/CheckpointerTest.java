@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.createPartitionFilePageStoreManager;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -42,6 +44,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -50,8 +54,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -64,9 +70,16 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
+import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -75,10 +88,26 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class CheckpointerTest {
+    private static final int PAGE_SIZE = 1024;
+
+    private static PageIoRegistry ioRegistry;
+
     private final IgniteLogger log = Loggers.forClass(CheckpointerTest.class);
 
     @InjectConfiguration("mock : {threads=1, frequency=1000, frequencyDeviation=0}")
     private PageMemoryCheckpointConfiguration checkpointConfig;
+
+    @BeforeAll
+    static void beforeAll() {
+        ioRegistry = new PageIoRegistry();
+
+        ioRegistry.loadFromServiceLoader();
+    }
+
+    @AfterAll
+    static void afterAll() {
+        ioRegistry = null;
+    }
 
     @Test
     void testStartAndStop() throws Exception {
@@ -88,7 +117,7 @@ public class CheckpointerTest {
                 null,
                 null,
                 createCheckpointWorkflow(EMPTY),
-                createCheckpointPagesWriterFactory(),
+                createCheckpointPagesWriterFactory(mock(PartitionFilePageStoreManager.class)),
                 checkpointConfig
         );
 
@@ -244,7 +273,7 @@ public class CheckpointerTest {
                 null,
                 null,
                 createCheckpointWorkflow(EMPTY),
-                createCheckpointPagesWriterFactory(),
+                createCheckpointPagesWriterFactory(mock(PartitionFilePageStoreManager.class)),
                 checkpointConfig
         ));
 
@@ -308,7 +337,13 @@ public class CheckpointerTest {
     void testDoCheckpoint() throws Exception {
         CheckpointDirtyPages dirtyPages = spy(dirtyPages(
                 mock(PersistentPageMemory.class),
-                new FullPageId(0, 0), new FullPageId(1, 0), new FullPageId(2, 0)
+                fullPageId(0, 0, 1), fullPageId(0, 0, 2), fullPageId(0, 0, 3)
+        ));
+
+        PartitionFilePageStore partitionFilePageStore = new PartitionFilePageStore(createFilePageStore(), mock(PartitionMeta.class));
+
+        PartitionFilePageStoreManager partitionFilePageStoreManager = createPartitionFilePageStoreManager(Map.of(
+                new GroupPartitionId(0, 0), partitionFilePageStore
         ));
 
         Checkpointer checkpointer = spy(new Checkpointer(
@@ -317,7 +352,7 @@ public class CheckpointerTest {
                 null,
                 null,
                 createCheckpointWorkflow(dirtyPages),
-                createCheckpointPagesWriterFactory(),
+                createCheckpointPagesWriterFactory(partitionFilePageStoreManager),
                 checkpointConfig
         ));
 
@@ -396,13 +431,35 @@ public class CheckpointerTest {
         return mock;
     }
 
-    private CheckpointPagesWriterFactory createCheckpointPagesWriterFactory() {
+    private CheckpointPagesWriterFactory createCheckpointPagesWriterFactory(
+            PartitionFilePageStoreManager partitionFilePageStoreManager
+    ) throws Exception {
+        CheckpointPageWriter checkpointPageWriter = mock(CheckpointPageWriter.class);
+
+        when(checkpointPageWriter.write(any(FullPageId.class), any(ByteBuffer.class), anyInt())).then(answer -> mock(PageStore.class));
+
         return new CheckpointPagesWriterFactory(
                 log,
-                mock(CheckpointPageWriter.class),
-                mock(PageIoRegistry.class),
-                mock(PartitionFilePageStoreManager.class),
-                1024
+                checkpointPageWriter,
+                ioRegistry,
+                partitionFilePageStoreManager,
+                PAGE_SIZE
         );
+    }
+
+    private static FullPageId fullPageId(int grpId, int partId, int pageIdx) {
+        return new FullPageId(pageId(partId, (byte) 0, pageIdx), grpId);
+    }
+
+    private static FilePageStore createFilePageStore() throws Exception {
+        FilePageStore filePageStore = mock(FilePageStore.class);
+
+        when(filePageStore.read(anyLong(), any(ByteBuffer.class), anyBoolean())).then(answer -> {
+            GridUnsafe.zeroMemory(GridUnsafe.bufferAddress(answer.getArgument(1)), PAGE_SIZE);
+
+            return true;
+        });
+
+        return filePageStore;
     }
 }

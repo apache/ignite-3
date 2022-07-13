@@ -131,7 +131,7 @@ class CheckpointDirtyPages {
             // toIndex cannot be 0 because endPageId is greater than startPageId by DIRTY_PAGE_COMPARATOR.
             toIndex = toIndex > 0 ? toIndex - 1 : -toIndex - 2;
 
-            return new CheckpointDirtyPagesView(i, fromIndex, fromIndex + toIndex);
+            return new CheckpointDirtyPagesView(i, fromIndex, toIndex);
         }
 
         return null;
@@ -177,7 +177,7 @@ class CheckpointDirtyPages {
 
         toPosition = toPosition > 0 ? toPosition - 1 : -toPosition - 2;
 
-        return new CheckpointDirtyPagesView(regionIndex, fromPosition, fromPosition + toPosition);
+        return new CheckpointDirtyPagesView(regionIndex, fromPosition, toPosition);
     }
 
     /**
