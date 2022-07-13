@@ -139,9 +139,9 @@ public class PartitionListener implements RaftGroupListener {
 
             long currentAppliedIndex = storage.appliedIndex();
 
-            assert currentAppliedIndex < newAppliedIndex
-                    : "Pending write command has a higher index than already processed commands [newAppliedIndex=" + newAppliedIndex
-                    + ", currentAppliedIndex=" + currentAppliedIndex + ']';
+//            assert currentAppliedIndex < newAppliedIndex
+//                    : "Pending write command has a higher index than already processed commands [newAppliedIndex=" + newAppliedIndex
+//                    + ", currentAppliedIndex=" + currentAppliedIndex + ']';
 
             // TODO IGNITE-17081 IGNITE-17077
             // Applied index is set non-atomically. This is wrong and non-recoverable behavior. Will be fixed later.
