@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal
 {
     using System;
-    using System.Buffers;
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
@@ -241,7 +240,7 @@ namespace Apache.Ignite.Internal
 
         private static async ValueTask CheckMagicBytesAsync(NetworkStream stream)
         {
-            var responseMagic = ArrayPool<byte>.Shared.Rent(ProtoCommon.MagicBytes.Length);
+            var responseMagic = ByteArrayPool.Rent(ProtoCommon.MagicBytes.Length);
 
             try
             {
@@ -258,7 +257,7 @@ namespace Apache.Ignite.Internal
             }
             finally
             {
-                ArrayPool<byte>.Shared.Return(responseMagic);
+                ByteArrayPool.Return(responseMagic);
             }
         }
 
@@ -312,7 +311,7 @@ namespace Apache.Ignite.Internal
         {
             var size = await ReadMessageSizeAsync(stream, messageSizeBytes, cancellationToken).ConfigureAwait(false);
 
-            var bytes = ArrayPool<byte>.Shared.Rent(size);
+            var bytes = ByteArrayPool.Rent(size);
 
             try
             {
@@ -322,7 +321,7 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception)
             {
-                ArrayPool<byte>.Shared.Return(bytes);
+                ByteArrayPool.Return(bytes);
 
                 throw;
             }

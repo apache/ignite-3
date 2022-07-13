@@ -169,8 +169,9 @@ public class ReentrantReadWriteLockWithTrackingTest {
 
         ArgumentCaptor<String> msgArgumentCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Throwable> throwableArgumentCaptor = ArgumentCaptor.forClass(Throwable.class);
+        ArgumentCaptor<Object[]> objectArrayArgumentCaptor = ArgumentCaptor.forClass(Object[].class);
 
-        doNothing().when(log).warn(msgArgumentCaptor.capture(), throwableArgumentCaptor.capture());
+        doNothing().when(log).warn(msgArgumentCaptor.capture(), throwableArgumentCaptor.capture(), objectArrayArgumentCaptor.capture());
 
         ReentrantReadWriteLockWithTracking lock0 = new ReentrantReadWriteLockWithTracking(log, 20);
         ReentrantReadWriteLockWithTracking lock1 = new ReentrantReadWriteLockWithTracking(log, 200);
@@ -186,7 +187,7 @@ public class ReentrantReadWriteLockWithTrackingTest {
         assertThat(msgArgumentCaptor.getAllValues(), hasSize(1));
         assertThat(throwableArgumentCaptor.getAllValues(), hasSize(1));
 
-        assertThat(msgArgumentCaptor.getValue(), Matchers.startsWith("ReadLock held the lock more than"));
+        assertThat(msgArgumentCaptor.getValue(), Matchers.startsWith("ReadLock held for too long"));
         assertThat(throwableArgumentCaptor.getValue(), instanceOf(IgniteInternalException.class));
     }
 }

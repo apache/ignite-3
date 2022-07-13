@@ -322,7 +322,7 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
         // Map futures is only for logging errors.
         Function<CompletableFuture<?>, CompletableFuture<?>> mapping = fut -> fut.whenComplete((res, throwable) -> {
             if (throwable != null) {
-                LOG.error("Failed to notify configuration listener.", throwable);
+                LOG.info("Failed to notify configuration listener", throwable);
             }
         });
 

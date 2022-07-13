@@ -155,8 +155,8 @@ public class CheckpointPagesWriter implements Runnable {
 
             while (!pageIdsToRetry.isEmpty()) {
                 if (log.isInfoEnabled()) {
-                    log.info(pageIdsToRetry.size() + " checkpoint pages were not written yet due to "
-                            + "unsuccessful page write lock acquisition and will be retried");
+                    log.info("Checkpoint pages were not written yet due to "
+                            + "unsuccessful page write lock acquisition and will be retried [pageCount={}]", pageIdsToRetry.size());
                 }
 
                 pageIdsToRetry = writePages(pageIdsToRetry);

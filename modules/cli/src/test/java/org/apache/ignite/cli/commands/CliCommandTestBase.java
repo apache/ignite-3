@@ -25,6 +25,8 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import picocli.CommandLine;
 
@@ -33,6 +35,8 @@ import picocli.CommandLine;
  */
 @MicronautTest
 public abstract class CliCommandTestBase {
+    private static final Map<Class<?>, CommandLine> cache = new HashMap<>();
+
     @Inject
     private ApplicationContext context;
 
@@ -46,7 +50,9 @@ public abstract class CliCommandTestBase {
 
     @BeforeEach
     public void setUp() {
-        cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
+        //Caching need to prevent bug in Picocli related to default values initialization.
+        //Please refer to org.apache.ignite.cli.commands.PicocliBugTest
+        cmd = cache.computeIfAbsent(getCommandClass(), clazz -> new CommandLine(clazz, new MicronautFactory(context)));
         sout = new StringWriter();
         serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));
@@ -54,6 +60,10 @@ public abstract class CliCommandTestBase {
     }
 
     protected abstract Class<?> getCommandClass();
+
+    protected void execute(String argsLine) {
+        execute(argsLine.split(" "));
+    }
 
     protected void execute(String... args) {
         exitCode = cmd.execute(args);

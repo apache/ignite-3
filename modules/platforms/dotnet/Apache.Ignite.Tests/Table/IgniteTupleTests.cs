@@ -104,14 +104,14 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestToStringEmpty()
         {
-            Assert.AreEqual("IgniteTuple []", new IgniteTuple().ToString());
+            Assert.AreEqual("IgniteTuple { }", new IgniteTuple().ToString());
         }
 
         [Test]
         public void TestToStringOneField()
         {
             var tuple = new IgniteTuple { ["foo"] = 1 };
-            Assert.AreEqual("IgniteTuple [FOO=1]", tuple.ToString());
+            Assert.AreEqual("IgniteTuple { FOO = 1 }", tuple.ToString());
         }
 
         [Test]
@@ -123,7 +123,7 @@ namespace Apache.Ignite.Tests.Table
                 ["b"] = "abcd"
             };
 
-            Assert.AreEqual("IgniteTuple [FOO=1, B=abcd]", tuple.ToString());
+            Assert.AreEqual("IgniteTuple { FOO = 1, B = abcd }", tuple.ToString());
         }
 
         [Test]

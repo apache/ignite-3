@@ -94,7 +94,7 @@ class LifecycleManager {
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     void onStartComplete() throws NodeStoppingException {
-        LOG.info("Start complete, transferring to {} state", Status.STARTED);
+        LOG.info("Start complete");
 
         Status currentStatus = status.compareAndExchange(Status.STARTING, Status.STARTED);
 
@@ -124,7 +124,7 @@ class LifecycleManager {
             try {
                 component.beforeNodeStop();
             } catch (Exception e) {
-                LOG.error("Unable to execute before node stop on the component=[{}] within node=[{}]", e, component, nodeName);
+                LOG.warn("Unable to execute before node stop [component={}, nodeName={}]", e, component, nodeName);
             }
         });
 
@@ -132,7 +132,7 @@ class LifecycleManager {
             try {
                 component.stop();
             } catch (Exception e) {
-                LOG.error("Unable to stop component=[{}] within node=[{}]", e, component, nodeName);
+                LOG.warn("Unable to stop component [component={}, nodeName={}]", e, component, nodeName);
             }
         });
     }

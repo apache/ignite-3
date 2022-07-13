@@ -15,24 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.cliconfig;
+package org.apache.ignite.cli.config;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import java.util.Map;
 
-import java.io.File;
-import java.io.IOException;
-import org.apache.ignite.cli.config.Config;
-import org.junit.jupiter.api.Test;
+/**
+ * Ignite CLI Profile.
+ */
+public interface Profile {
+    String getName();
 
-class ConfigTest {
-    @Test
-    public void testSaveLoadConfig() throws IOException {
-        File tempFile = File.createTempFile("cli", null);
-        Config config = new Config(tempFile);
-        config.setProperty("ignite.cluster-url", "test");
-        config.saveConfig();
+    Map<String, String> getAll();
 
-        Config configAfterSave = new Config(tempFile);
-        assertThat(configAfterSave.getProperty("ignite.cluster-url")).isEqualTo("test");
-    }
+    String getProperty(String key);
+
+    String getProperty(String key, String defaultValue);
+
+    void setProperty(String key, String value);
+
+    void setProperties(Map<String, String> values);
+
+    void setProperties(Profile copyFrom);
 }

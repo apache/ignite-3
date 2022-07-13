@@ -17,16 +17,35 @@
 
 package org.apache.ignite.cli.config;
 
-import io.micronaut.context.annotation.Factory;
-import jakarta.inject.Singleton;
+import java.io.File;
+import java.nio.file.Path;
 
 /**
- * Factory for {@link Config}.
+ * Helper class to access to state folder of CLI.
  */
-@Factory
-public class ConfigFactory {
-    @Singleton
-    public Config fileConfig() {
-        return new Config();
+public final class StateFolderProvider {
+    private static final String XDG_STATE_HOME = "XDG_STATE_HOME";
+    private static final String PARENT_FOLDER_NAME = "ignitecli";
+
+    private StateFolderProvider() {
+
+    }
+
+    /**
+     * Gets the path for the state.
+     *
+     * @return Folder for state storage.
+     */
+    public static File getStateFolder() {
+        return getStateRoot().resolve(PARENT_FOLDER_NAME).toFile();
+    }
+
+    private static Path getStateRoot() {
+        String xdgStateHome = System.getenv(XDG_STATE_HOME);
+        if (xdgStateHome != null) {
+            return Path.of(xdgStateHome);
+        } else {
+            return Path.of(System.getProperty("user.home"), ".local", "state");
+        }
     }
 }

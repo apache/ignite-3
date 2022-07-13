@@ -143,7 +143,7 @@ public class ConnectionManager {
 
             server.start().get();
 
-            LOG.info("Server started [address=" + server.address() + ']');
+            LOG.info("Server started [address={}]", server.address());
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
             throw new IgniteInternalException("Failed to start the connection manager: " + cause.getMessage(), cause);
@@ -278,7 +278,7 @@ public class ConnectionManager {
         try {
             stopFut.join();
         } catch (Exception e) {
-            LOG.warn("Failed to stop the ConnectionManager: {}", e.getMessage());
+            LOG.warn("Failed to stop connection manager [reason={}]", e.getMessage());
         }
     }
 

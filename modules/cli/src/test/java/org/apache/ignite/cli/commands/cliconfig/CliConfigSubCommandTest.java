@@ -19,11 +19,23 @@ package org.apache.ignite.cli.commands.cliconfig;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import jakarta.inject.Inject;
 import org.apache.ignite.cli.commands.CliCommandTestBase;
+import org.apache.ignite.cli.config.ini.IniConfigManager;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class CliConfigSubCommandTest extends CliCommandTestBase {
+
+    @Inject
+    TestConfigManagerProvider configManagerProvider;
+
+    @BeforeEach
+    public void setup() {
+        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithInternalPart());
+    }
+
 
     @Override
     protected Class<?> getCommandClass() {
@@ -35,10 +47,27 @@ class CliConfigSubCommandTest extends CliCommandTestBase {
     void noKey() {
         execute();
 
+        String expectedResult = "server=127.0.0.1" + System.lineSeparator()
+                + "port=8080" + System.lineSeparator()
+                + "file=\"apache.ignite\"" + System.lineSeparator();
+
         assertAll(
                 this::assertExitCodeIsZero,
-                () -> assertOutputContains("ignite.cluster-url=test_cluster_url"),
-                () -> assertOutputContains("ignite.jdbc-url=test_jdbc_url"),
+                () -> assertOutputIs(expectedResult),
+                this::assertErrOutputIsEmpty
+        );
+    }
+
+    @Test
+    public void testWithProfile() {
+        execute("--profile owner");
+
+        String expectedResult = "name=John Smith" + System.lineSeparator()
+                + "organization=Apache Ignite" + System.lineSeparator();
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                () -> assertOutputIs(expectedResult),
                 this::assertErrOutputIsEmpty
         );
     }

@@ -22,7 +22,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import org.apache.ignite.cli.config.Config;
+import org.apache.ignite.cli.config.StateFolderProvider;
 import org.apache.ignite.cli.core.exception.handler.PicocliExecutionExceptionHandler;
 import org.apache.ignite.cli.core.exception.handler.ReplExceptionHandlers;
 import org.apache.ignite.cli.core.repl.Repl;
@@ -89,7 +89,7 @@ public class ReplExecutor {
                     ? repl.getCompleter()
                     : registry.completer());
             if (repl.getHistoryFileName() != null) {
-                reader.variable(LineReader.HISTORY_FILE, new File(Config.getStateFolder(), repl.getHistoryFileName()));
+                reader.variable(LineReader.HISTORY_FILE, new File(StateFolderProvider.getStateFolder(), repl.getHistoryFileName()));
             }
 
             RegistryCommandExecutor executor = new RegistryCommandExecutor(registry);

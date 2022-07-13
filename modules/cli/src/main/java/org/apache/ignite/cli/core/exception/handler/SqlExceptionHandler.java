@@ -28,7 +28,7 @@ import org.apache.ignite.internal.logger.Loggers;
  * Exception handler for {@link SQLException}.
  */
 public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
-    private static final IgniteLogger log = Loggers.forClass(SqlExceptionHandler.class);
+    private static final IgniteLogger LOG = Loggers.forClass(SqlExceptionHandler.class);
 
     public static final String PARSING_ERROR_MESSAGE = "SQL query parsing error: %s";
 
@@ -56,7 +56,7 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
                 err.write(CLIENT_CONNECTION_FAILED_MESSAGE);
                 break;
             default:
-                log.error("Unrecognized error ", e);
+                LOG.error("Unrecognized error", e);
                 err.write("Unrecognized error while process SQL query.");
         }
         return 1;

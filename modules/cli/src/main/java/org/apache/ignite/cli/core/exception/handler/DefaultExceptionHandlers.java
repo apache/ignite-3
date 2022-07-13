@@ -34,5 +34,8 @@ public class DefaultExceptionHandlers extends ExceptionHandlers {
         addExceptionHandler(new IgniteCliExceptionHandler());
         addExceptionHandler(new IgniteCliApiExceptionHandler());
         addExceptionHandler(new UnknownCommandExceptionHandler());
+        addExceptionHandler(new ConfigStoringExceptionHandler());
+        addExceptionHandler(new ProfileNotFoundExceptionHandler());
+        addExceptionHandler(new SectionAlreadyExistsExceptionHandler());
     }
 }
