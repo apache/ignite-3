@@ -154,7 +154,5 @@ public interface MvPartitionStorage extends AutoCloseable {
      *      only usage is to work-around in-memory PK index rebuild on node restart, which shouldn't even exist in the first place.
      */
     @Deprecated
-    default void forEach(BiConsumer<RowId, BinaryRow> consumer) {
-        throw new UnsupportedOperationException("forEach");
-    }
+    void forEach(BiConsumer<RowId, BinaryRow> consumer);
 }

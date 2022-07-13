@@ -24,6 +24,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.DataRegion;
@@ -497,6 +498,12 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error occurred while fetching the size.", e);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void forEach(BiConsumer<RowId, BinaryRow> consumer) {
+        // No-op. Nothing to recover for a volatile storage. See useages and a comment about PK index rebuild.
     }
 
     /** {@inheritDoc} */
