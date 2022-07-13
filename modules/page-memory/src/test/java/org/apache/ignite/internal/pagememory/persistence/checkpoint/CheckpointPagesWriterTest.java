@@ -81,7 +81,7 @@ import org.mockito.invocation.InvocationOnMock;
  * For {@link CheckpointPagesWriter} testing.
  */
 public class CheckpointPagesWriterTest {
-    private final static int PAGE_SIZE = 1024;
+    private static final int PAGE_SIZE = 1024;
 
     private final IgniteLogger log = Loggers.forClass(CheckpointPagesWriterTest.class);
 
