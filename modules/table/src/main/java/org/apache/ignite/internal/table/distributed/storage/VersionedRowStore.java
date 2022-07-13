@@ -21,8 +21,10 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
@@ -69,6 +71,22 @@ public class VersionedRowStore {
     public VersionedRowStore(@NotNull MvPartitionStorage storage, @NotNull TxManager txManager) {
         this.storage = Objects.requireNonNull(storage);
         this.txManager = Objects.requireNonNull(txManager);
+
+        Set<RowId> ids = new HashSet<>();
+
+        storage.forEach((rowId, binaryRow) -> {
+            if (ids.add(rowId)) {
+                primaryIndex.put(binaryRow.keySlice(), rowId);
+            }
+        });
+    }
+
+    public void appliedIndex(long appliedIndex) {
+        storage.appliedIndex(appliedIndex);
+    }
+
+    public long appliedIndex() {
+        return storage.appliedIndex();
     }
 
     /**

@@ -64,7 +64,7 @@ import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -211,7 +211,7 @@ public class StopCalciteModuleTest {
 
         when(tbl.tableId()).thenReturn(UUID.randomUUID());
 
-        when(tbl.storage()).thenReturn(mock(TableStorage.class));
+        when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
         when(tbl.storage().configuration()).thenReturn(mock(TableConfiguration.class));
         when(tbl.storage().configuration().partitions()).thenReturn(mock(ConfigurationValue.class));
         when(tbl.storage().configuration().partitions().value()).thenReturn(1);

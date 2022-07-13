@@ -973,7 +973,11 @@ public class NodeImpl implements Node, RaftServerService {
             LOG.error("Node {} initMetaStorage failed.", getNodeId());
             return false;
         }
-        if (!initFSMCaller(new LogId(0, 0))) {
+
+        long lastAppliedIndex = opts.getLastAppliedIndex();
+        long persistedTerm = metaStorage.getTerm();
+
+        if (!initFSMCaller(new LogId(lastAppliedIndex, persistedTerm))) {
             LOG.error("Node {} initFSMCaller failed.", getNodeId());
             return false;
         }

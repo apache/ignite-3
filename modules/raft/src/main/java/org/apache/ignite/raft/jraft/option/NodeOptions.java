@@ -19,8 +19,6 @@ package org.apache.ignite.raft.jraft.option;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
-import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
-import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -34,7 +32,9 @@ import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.util.Copiable;
+import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.StringUtils;
+import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.apache.ignite.raft.jraft.util.timer.Timer;
@@ -236,6 +236,11 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     /** */
     private boolean sharedPools = false;
+
+    /**
+     * Value of the applied index that correspond to a local state during group start.
+     */
+    private long lastAppliedIndex;
 
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
@@ -573,6 +578,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.logManagerDisruptor = logManagerDisruptor;
     }
 
+    public long getLastAppliedIndex() {
+        return lastAppliedIndex;
+    }
+
+    public void setLastAppliedIndex(long lastAppliedIndex) {
+        this.lastAppliedIndex = lastAppliedIndex;
+    }
+
     @Override
     public NodeOptions copy() {
         final NodeOptions nodeOptions = new NodeOptions();
@@ -609,6 +622,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setRpcConnectTimeoutMs(this.getRpcConnectTimeoutMs());
         nodeOptions.setElectionTimeoutStrategy(this.getElectionTimeoutStrategy());
         nodeOptions.setServiceFactory(this.getServiceFactory());
+        nodeOptions.setLastAppliedIndex(this.getLastAppliedIndex());
 
         return nodeOptions;
     }
@@ -624,7 +638,8 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
             + ", disableCli=" + disableCli + ", timerPoolSize="
             + timerPoolSize + ", cliRpcThreadPoolSize=" + cliRpcThreadPoolSize + ", raftRpcThreadPoolSize="
             + raftRpcThreadPoolSize + ", enableMetrics=" + enableMetrics + ", snapshotThrottle=" + snapshotThrottle
-            + ", serviceFactory=" + serviceFactory + ", raftOptions=" + raftOptions + "} " + super.toString();
+            + ", serviceFactory=" + serviceFactory + ", raftOptions=" + raftOptions + ", lastAppliedIndex=" + lastAppliedIndex
+            + "} " + super.toString();
     }
 
     /**

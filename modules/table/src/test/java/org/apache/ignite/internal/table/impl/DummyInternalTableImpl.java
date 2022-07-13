@@ -31,7 +31,7 @@ import java.util.function.BiFunction;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.command.GetAllCommand;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -69,7 +69,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     public DummyInternalTableImpl(VersionedRowStore store, TxManager txManager) {
         super("test", UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
-                1, null, null, txManager, mock(TableStorage.class));
+                1, null, null, txManager, mock(MvTableStorage.class));
 
         RaftGroupService svc = partitionMap.get(0);
 

@@ -25,6 +25,7 @@ import org.apache.ignite.internal.storage.RowId;
 /**
  * UUID-based ignite row id implementation.
  */
+@Deprecated
 final class UuidRowId implements RowId {
     /*
      * The most significant 64 bits.
@@ -37,7 +38,7 @@ final class UuidRowId implements RowId {
     private final long leastSigBits;
 
     /** Private constructor. */
-    private UuidRowId(long mostSigBits, long leastSigBits) {
+    public UuidRowId(long mostSigBits, long leastSigBits) {
         this.mostSigBits = mostSigBits;
         this.leastSigBits = leastSigBits;
     }

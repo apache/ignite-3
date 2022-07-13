@@ -41,6 +41,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private final List<TestSortedIndexMvStorage> indexes;
 
+    private long appliedIndex = 0;
+
     private final int partitionId;
 
     public TestMvPartitionStorage(List<TestSortedIndexMvStorage> indexes, int partitionId) {
@@ -72,6 +74,23 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         public boolean notContainsWriteIntent() {
             return begin != null && txId == null;
         }
+    }
+
+    @Override
+    public long appliedIndex() {
+        return appliedIndex;
+    }
+
+    @Override
+    public void appliedIndex(long appliedIndex) throws StorageException {
+        assert appliedIndex == this.appliedIndex + 1;
+
+        this.appliedIndex = appliedIndex;
+    }
+
+    @Override
+    public long persistedIndex() {
+        return appliedIndex;
     }
 
     /** {@inheritDoc} */
@@ -249,6 +268,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 .iterator();
 
         return Cursor.fromIterator(iterator);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long rowsCount() {
+        return map.size();
     }
 
     /** {@inheritDoc} */

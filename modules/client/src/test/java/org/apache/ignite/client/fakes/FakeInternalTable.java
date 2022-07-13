@@ -28,7 +28,7 @@ import java.util.concurrent.Flow.Publisher;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -63,7 +63,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull TableStorage storage() {
+    public @NotNull MvTableStorage storage() {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 

@@ -25,6 +25,12 @@ public class RaftGroupOptions {
     private final boolean volatileStores;
 
     /**
+     * Index of the last processed command according to persisted local storage data. {@code 0} if storage is volatile or has not yet
+     * processed any commands.
+     */
+    private long lastAppliedIndex;
+
+    /**
      * Returns default options as defined by classic Raft (so stores are persistent).
      *
      * @return Default options.
@@ -74,5 +80,21 @@ public class RaftGroupOptions {
      */
     public boolean volatileStores() {
         return volatileStores;
+    }
+
+    /*
+     * Returns an index of the last processed command according to persisted local storage data. {@code 0} if storage is volatile or has not
+     * yet processed any commands.
+     */
+    public long lastAppliedIndex() {
+        return lastAppliedIndex;
+    }
+
+    /**
+     * Sets a value of last applied index.
+     * @see #lastAppliedIndex()
+     */
+    public void lastAppliedIndex(long lastAppliedIndex) {
+        this.lastAppliedIndex = lastAppliedIndex;
     }
 }

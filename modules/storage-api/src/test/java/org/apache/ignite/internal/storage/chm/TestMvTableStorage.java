@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.chm;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -55,7 +54,7 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public MvPartitionStorage getMvPartition(int partitionId) {
-        return Objects.requireNonNull(partitions.get(partitionId), "Partition doesn't exist");
+        return partitions.get(partitionId);
     }
 
     @Override
@@ -63,6 +62,11 @@ public class TestMvTableStorage implements MvTableStorage {
         partitions.remove(partitionId);
 
         return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public boolean isVolatile() {
+        return true;
     }
 
     @Override

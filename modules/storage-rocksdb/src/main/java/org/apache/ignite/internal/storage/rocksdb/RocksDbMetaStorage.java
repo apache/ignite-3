@@ -58,6 +58,13 @@ class RocksDbMetaStorage {
     }
 
     /**
+     * Returns a column family instance, associated with the meta storage.
+     */
+    ColumnFamily columnFamily() {
+        return metaCf;
+    }
+
+    /**
      * Returns a list of partition IDs that exist in the associated storage.
      *
      * @return list of partition IDs

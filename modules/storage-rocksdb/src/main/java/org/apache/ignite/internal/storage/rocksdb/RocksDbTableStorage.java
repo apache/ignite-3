@@ -268,15 +268,21 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
     @Override
     public RocksDbMvPartitionStorage getMvPartition(int partitionId) {
         if (getPartition(partitionId) == null) {
-            throw new NullPointerException("Partition doesn't exist");
+            return null;
         }
 
-        return new RocksDbMvPartitionStorage(partitionId, db, partitionCf.handle());
+        return new RocksDbMvPartitionStorage(partitionId, db, partitionCf.handle(), meta.columnFamily().handle());
     }
 
     @Override
     public CompletableFuture<?> destroyPartition(int partitionId) throws StorageException {
+        RocksDbMvPartitionStorage mvPartition = getMvPartition(partitionId);
+
         dropPartition(partitionId);
+
+        if (mvPartition != null) {
+            mvPartition.destroy();
+        }
 
         return CompletableFuture.completedFuture(null);
     }

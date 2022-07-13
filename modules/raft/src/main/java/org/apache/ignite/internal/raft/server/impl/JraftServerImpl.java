@@ -351,6 +351,8 @@ public class JraftServerImpl implements RaftServer {
             throw new IgniteInternalException(e);
         }
 
+        nodeOptions.setLastAppliedIndex(groupOptions.lastAppliedIndex());
+
         if (!groupOptions.volatileStores()) {
             nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
         }
@@ -489,9 +491,17 @@ public class JraftServerImpl implements RaftServer {
                     public CommandClosure<WriteCommand> next() {
                         @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) iter.done();
                         ByteBuffer data = iter.getData();
-                        WriteCommand command = JDKMarshaller.DEFAULT.unmarshall(data.array());
+
+                        WriteCommand command = done == null ? JDKMarshaller.DEFAULT.unmarshall(data.array()) : done.command();
+
+                        long index = iter.getIndex();
 
                         return new CommandClosure<>() {
+                            @Override
+                            public long index() {
+                                return index;
+                            }
+
                             @Override
                             public WriteCommand command() {
                                 return command;

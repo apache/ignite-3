@@ -60,7 +60,7 @@ import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.storage.PartitionStorage;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
 
@@ -472,7 +472,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
                 long size = 0L;
 
                 for (int p = 0; p < parts; ++p) {
-                    @Nullable PartitionStorage part = table.storage().getPartition(p);
+                    @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
 
                     if (part != null) {
                         size += part.rowsCount();

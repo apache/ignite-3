@@ -72,6 +72,13 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     );
 
     /**
+     * Applied index value.
+     * @deprecated Not persistent, should be fixed later.
+     */
+    @Deprecated
+    private long appliedIndex = 0;
+
+    /**
      * Constructor.
      */
     public PageMemoryMvPartitionStorage(
@@ -121,6 +128,21 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
                 versionChainFreeList1,
                 initNew
         );
+    }
+
+    @Override
+    public long appliedIndex() {
+        return appliedIndex;
+    }
+
+    @Override
+    public void appliedIndex(long appliedIndex) throws StorageException {
+        this.appliedIndex = appliedIndex;
+    }
+
+    @Override
+    public long persistedIndex() {
+        return appliedIndex;
     }
 
     /** {@inheritDoc} */
@@ -465,6 +487,15 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         }
 
         return new ScanCursor(treeCursor, keyFilter, transactionId, timestamp);
+    }
+
+    @Override
+    public long rowsCount() {
+        try {
+            return versionChainTree.size();
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error occurred while fetching the size.", e);
+        }
     }
 
     /** {@inheritDoc} */

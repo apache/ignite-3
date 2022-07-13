@@ -24,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.network.ClusterNode;
@@ -42,7 +42,7 @@ public interface InternalTable extends AutoCloseable {
      *
      * @return Table storage.
      */
-    @NotNull TableStorage storage();
+    @NotNull MvTableStorage storage();
 
     /**
      * Gets a table id.

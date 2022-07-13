@@ -41,7 +41,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
@@ -110,7 +110,7 @@ public class InternalTableImpl implements InternalTable {
     private final TxManager txManager;
 
     /** Storage for table data. */
-    private final TableStorage tableStorage;
+    private final MvTableStorage tableStorage;
 
     /** Mutex for the partition map update. */
     public Object updatePartMapMux = new Object();
@@ -133,7 +133,7 @@ public class InternalTableImpl implements InternalTable {
             Function<NetworkAddress, String> netAddrResolver,
             Function<NetworkAddress, ClusterNode> clusterNodeResolver,
             TxManager txManager,
-            TableStorage tableStorage
+            MvTableStorage tableStorage
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -147,7 +147,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull TableStorage storage() {
+    public @NotNull MvTableStorage storage() {
         return tableStorage;
     }
 
