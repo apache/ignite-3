@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.Column;
@@ -34,11 +37,13 @@ import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.TableDefinitionBuilder;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests for SchemaDescriptorConverter.
  */
-public class SchemaDescriptorConverterTest {
+public class SchemaDescriptorConverterTest extends AbstractSchemaConverterTest {
     /** Total number of columns. */
     private static final int columns = 15;
 
@@ -86,15 +91,58 @@ public class SchemaDescriptorConverterTest {
      */
     @Test
     public void convertNullable() {
-        testConvert(true);
+        TableDefinition tblSchm = getBuilder(true, true).build();
+
+        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
+
+        assertEquals(1, tblDscr.keyColumns().length());
+        testCol(tblDscr.keyColumns(), "ID", NativeTypeSpec.UUID, false);
+
+        assertEquals(columns - 1, tblDscr.valueColumns().length());
+        testCol(tblDscr.valueColumns(), "INT8", NativeTypeSpec.INT8, true);
+        testCol(tblDscr.valueColumns(), "INT16", NativeTypeSpec.INT16, true);
+        testCol(tblDscr.valueColumns(), "INT32", NativeTypeSpec.INT32, true);
+        testCol(tblDscr.valueColumns(), "INT64", NativeTypeSpec.INT64, true);
+        testCol(tblDscr.valueColumns(), "FLOAT", NativeTypeSpec.FLOAT, true);
+        testCol(tblDscr.valueColumns(), "DOUBLE", NativeTypeSpec.DOUBLE, true);
+        testCol(tblDscr.valueColumns(), "UUID", NativeTypeSpec.UUID, true);
+        testCol(tblDscr.valueColumns(), "STRING", NativeTypeSpec.STRING, true);
+        testCol(tblDscr.valueColumns(), "STRING_FS10", NativeTypeSpec.STRING, true);
+        testCol(tblDscr.valueColumns(), "BLOB", NativeTypeSpec.BYTES, true);
+        testCol(tblDscr.valueColumns(), "DECIMAL", NativeTypeSpec.DECIMAL, true);
+        testCol(tblDscr.valueColumns(), "NUMBER", NativeTypeSpec.NUMBER, true);
+        testCol(tblDscr.valueColumns(), "DECIMAL", NativeTypeSpec.DECIMAL, true);
+        testCol(tblDscr.valueColumns(), "BITMASK_FS10", NativeTypeSpec.BITMASK, true);
     }
 
-    /**
-     * Convert table with non nullable columns.
-     */
-    @Test
-    public void convertTypes() {
-        testConvert(false);
+    @ParameterizedTest
+    @MethodSource("generateTestArguments")
+    public void convertDefaultValues(DefaultValueArg arg) {
+        final String keyColumnName = "ID";
+
+        var columnName = arg.type.typeSpec().name();
+        var nullable = arg.defaultValue == null;
+
+        var tableDefinition = SchemaBuilders.tableBuilder("PUBLIC", "TEST")
+                .columns(
+                        SchemaBuilders.column(keyColumnName, ColumnType.INT32).build(),
+                        SchemaBuilders.column(columnName, arg.type)
+                                .withDefaultValueExpression(arg.defaultValue)
+                                .asNullable(nullable)
+                                .build()
+                )
+                .withPrimaryKey("ID")
+                .build();
+
+        SchemaDescriptor schemaDescriptor = SchemaDescriptorConverter.convert(1, tableDefinition);
+
+        assertEquals(1, schemaDescriptor.valueColumns().length());
+
+        var column = schemaDescriptor.valueColumns().columns()[0];
+
+        assertThat(column.name(), equalTo(columnName));
+        assertThat(column.nullable(), equalTo(nullable));
+        assertThat(column.defaultValue(), equalTo(arg.defaultValue));
     }
 
     /**
@@ -132,36 +180,6 @@ public class SchemaDescriptorConverterTest {
 
         assertArrayEquals(Arrays.stream(cols).map(ColumnDefinition::name).toArray(String[]::new),
                 tblDscr.columnNames().toArray(String[]::new));
-    }
-
-    /**
-     * Test set of columns.
-     *
-     * @param nullable Nullable flag.
-     */
-    private void testConvert(boolean nullable) {
-        TableDefinition tblSchm = getBuilder(nullable, true).build();
-
-        SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
-
-        assertEquals(1, tblDscr.keyColumns().length());
-        testCol(tblDscr.keyColumns(), "ID", NativeTypeSpec.UUID, false);
-
-        assertEquals(columns - 1, tblDscr.valueColumns().length());
-        testCol(tblDscr.valueColumns(), "INT8", NativeTypeSpec.INT8, nullable);
-        testCol(tblDscr.valueColumns(), "INT16", NativeTypeSpec.INT16, nullable);
-        testCol(tblDscr.valueColumns(), "INT32", NativeTypeSpec.INT32, nullable);
-        testCol(tblDscr.valueColumns(), "INT64", NativeTypeSpec.INT64, nullable);
-        testCol(tblDscr.valueColumns(), "FLOAT", NativeTypeSpec.FLOAT, nullable);
-        testCol(tblDscr.valueColumns(), "DOUBLE", NativeTypeSpec.DOUBLE, nullable);
-        testCol(tblDscr.valueColumns(), "UUID", NativeTypeSpec.UUID, nullable);
-        testCol(tblDscr.valueColumns(), "STRING", NativeTypeSpec.STRING, nullable);
-        testCol(tblDscr.valueColumns(), "STRING_FS10", NativeTypeSpec.STRING, nullable);
-        testCol(tblDscr.valueColumns(), "BLOB", NativeTypeSpec.BYTES, nullable);
-        testCol(tblDscr.valueColumns(), "DECIMAL", NativeTypeSpec.DECIMAL, nullable);
-        testCol(tblDscr.valueColumns(), "NUMBER", NativeTypeSpec.NUMBER, nullable);
-        testCol(tblDscr.valueColumns(), "DECIMAL", NativeTypeSpec.DECIMAL, nullable);
-        testCol(tblDscr.valueColumns(), "BITMASK_FS10", NativeTypeSpec.BITMASK, nullable);
     }
 
     /**
@@ -224,5 +242,18 @@ public class SchemaDescriptorConverterTest {
         if (col.type().spec().fixedLength()) {
             assertTrue(col.type().sizeInBytes() >= 0);
         }
+    }
+
+    private static Iterable<DefaultValueArg> generateTestArguments() {
+        var paramList = new ArrayList<DefaultValueArg>();
+
+        for (var entry : DEFAULT_VALUES_TO_TEST.entrySet()) {
+            for (var defaultValue : entry.getValue()) {
+                paramList.add(
+                        new DefaultValueArg(specToType(entry.getKey()), adjust(defaultValue))
+                );
+            }
+        }
+        return paramList;
     }
 }

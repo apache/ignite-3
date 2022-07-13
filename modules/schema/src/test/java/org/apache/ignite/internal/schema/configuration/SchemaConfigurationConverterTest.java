@@ -17,34 +17,21 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
-import static java.math.RoundingMode.HALF_UP;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
@@ -56,11 +43,9 @@ import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.ColumnType.ColumnTypeSpec;
-import org.apache.ignite.schema.definition.ColumnType.DecimalColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.builder.HashIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.PartialIndexDefinitionBuilder;
@@ -83,43 +68,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * SchemaConfigurationConverter tests.
  */
 @SuppressWarnings("InstanceVariableMayNotBeInitialized")
-public class SchemaConfigurationConverterTest {
-    private static final Map<ColumnTypeSpec, List<Object>> DEFAULT_VALUES_TO_TEST;
-
-    static {
-        var tmp = new HashMap<ColumnTypeSpec, List<Object>>();
-
-        tmp.put(ColumnTypeSpec.INT8, List.of(Byte.MIN_VALUE, Byte.MAX_VALUE, (byte) 14));
-        tmp.put(ColumnTypeSpec.INT16, List.of(Short.MIN_VALUE, Short.MAX_VALUE, (short) 14));
-        tmp.put(ColumnTypeSpec.INT32, List.of(Integer.MIN_VALUE, Integer.MAX_VALUE, 14));
-        tmp.put(ColumnTypeSpec.INT64, List.of(Long.MIN_VALUE, Long.MAX_VALUE, 14L));
-        tmp.put(ColumnTypeSpec.FLOAT, List.of(Float.MIN_VALUE, Float.MAX_VALUE, Float.NaN,
-                Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY, 14.14f));
-        tmp.put(ColumnTypeSpec.DOUBLE, List.of(Double.MIN_VALUE, Double.MAX_VALUE, Double.NaN,
-                Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, 14.14));
-        tmp.put(ColumnTypeSpec.DECIMAL, List.of(BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.valueOf(Long.MIN_VALUE),
-                BigDecimal.valueOf(Long.MAX_VALUE), new BigDecimal("10000000000000000000000000000000000000")));
-        tmp.put(ColumnTypeSpec.DATE, List.of(LocalDate.MIN, LocalDate.MAX, LocalDate.EPOCH, LocalDate.now()));
-        tmp.put(ColumnTypeSpec.TIME, List.of(LocalTime.MIN, LocalTime.MAX, LocalTime.MIDNIGHT,
-                LocalTime.NOON, LocalTime.now()));
-        tmp.put(ColumnTypeSpec.DATETIME, List.of(LocalDateTime.MIN, LocalDateTime.MAX, LocalDateTime.now()));
-        tmp.put(ColumnTypeSpec.TIMESTAMP, List.of(Instant.MIN, Instant.MAX, Instant.EPOCH, Instant.now()));
-        tmp.put(ColumnTypeSpec.UUID, List.of(UUID.randomUUID()));
-        tmp.put(ColumnTypeSpec.BITMASK, List.of(fromBinString(""), fromBinString("1"), fromBinString("10101010101010101010101")));
-        tmp.put(ColumnTypeSpec.STRING, List.of("", UUID.randomUUID().toString()));
-        tmp.put(ColumnTypeSpec.BLOB, List.of(ArrayUtils.BYTE_EMPTY_ARRAY, UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8)));
-        tmp.put(ColumnTypeSpec.NUMBER, List.of(BigInteger.ONE, BigInteger.ZERO,
-                new BigInteger("10000000000000000000000000000000000000")));
-
-        var missedTypes = new HashSet<>(Arrays.asList(ColumnTypeSpec.values()));
-
-        missedTypes.removeAll(tmp.keySet());
-
-        assertThat(missedTypes, empty());
-
-        DEFAULT_VALUES_TO_TEST = Map.copyOf(tmp);
-    }
-
+public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTest {
     /** Table builder. */
     private TableDefinitionBuilder tblBuilder;
 
@@ -318,6 +267,7 @@ public class SchemaConfigurationConverterTest {
 
     /**
      * Ensures that column default are properly converted from definition to configuration and vice versa.
+     *
      * @param arg Argument object describing default value to verify.
      */
     @ParameterizedTest
@@ -379,9 +329,13 @@ public class SchemaConfigurationConverterTest {
 
     private static Iterable<DefaultValueArg> generateTestArguments() {
         var paramList = new ArrayList<DefaultValueArg>();
-        
+
         for (var entry : DEFAULT_VALUES_TO_TEST.entrySet()) {
             for (var defaultValue : entry.getValue()) {
+                if (skipValue(entry.getKey(), defaultValue)) {
+                    continue;
+                }
+
                 paramList.add(
                         new DefaultValueArg(specToType(entry.getKey()), adjust(defaultValue))
                 );
@@ -390,107 +344,20 @@ public class SchemaConfigurationConverterTest {
         return paramList;
     }
 
-    /** Creates a column type from given type spec. */
-    private static ColumnType specToType(ColumnTypeSpec spec) {
-        switch (spec) {
-            case INT8:
-                return ColumnType.INT8;
-            case INT16:
-                return ColumnType.INT16;
-            case INT32:
-                return ColumnType.INT32;
-            case INT64:
-                return ColumnType.INT64;
-            case FLOAT:
-                return ColumnType.FLOAT;
-            case DOUBLE:
-                return ColumnType.DOUBLE;
-            case DECIMAL:
-                return ColumnType.decimal();
-            case DATE:
-                return ColumnType.DATE;
-            case TIME:
-                return ColumnType.time();
-            case DATETIME:
-                return ColumnType.datetime();
-            case TIMESTAMP:
-                return ColumnType.timestamp();
-            case NUMBER:
-                return ColumnType.number();
-            case STRING:
-                return ColumnType.string();
-            case UUID:
-                return ColumnType.UUID;
-            case BLOB:
-                return ColumnType.blob();
-            case BITMASK:
-                return ColumnType.bitmaskOf(10);
-            default:
-                throw new IllegalStateException("Unknown type spec [spec=" + spec + ']');
-        }
-    }
-
-    /** Creates a bit set from binary string. */
-    private static BitSet fromBinString(String binString) {
-        var bs = new BitSet();
-
-        var idx = 0;
-        for (var c : binString.toCharArray()) {
-            if (c == '1') {
-                bs.set(idx);
-            }
-
-            idx++;
+    // TODO: IGNITE-17370 remove this
+    private static boolean skipValue(ColumnTypeSpec type, Object value) {
+        if (value == null) {
+            return false;
         }
 
-        return bs;
-    }
-
-    /**
-     * Adjust the given value.
-     *
-     * <p>Some values need to be adjusted before comparison. For example, decimal values should be adjusted
-     * in order to have the same scale, because '1.0' not equals to '1.00'.
-     *
-     * @param val Value to adjust.
-     * @param <T> Type of te value.
-     * @return Adjusted value.
-     */
-    @SuppressWarnings("unchecked")
-    private static <T> T adjust(T val) {
-        if (val instanceof BigDecimal) {
-            return (T) ((BigDecimal) val).setScale(DecimalColumnType.DEFAULT_SCALE, HALF_UP);
+        if (type == ColumnTypeSpec.BLOB && ((byte[]) value).length == 0) {
+            return true;
         }
 
-        return val;
-    }
-
-    /**
-     * Converts the given value to a string representation.
-     *
-     * <p>Convenient method to convert a value to a string. Some types don't override
-     * {@link Object#toString()} method (any array, for instance), hence should be converted to a string manually.
-     */
-    private static String toString(Object val) {
-        if (val instanceof byte[]) {
-            return Arrays.toString((byte[]) val);
+        if (type == ColumnTypeSpec.BITMASK && ((BitSet) value).isEmpty()) {
+            return true;
         }
 
-        return val.toString();
-    }
-
-    private static class DefaultValueArg {
-        private final ColumnType type;
-        private final Object defaultValue;
-
-        public DefaultValueArg(ColumnType type, Object defaultValue) {
-            this.type = type;
-            this.defaultValue = defaultValue;
-        }
-
-        @Override
-        public String toString() {
-            return type.typeSpec() + ": " + SchemaConfigurationConverterTest.toString(defaultValue);
-        }
+        return type == ColumnTypeSpec.STRING && ((String) value).isEmpty();
     }
 }

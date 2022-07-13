@@ -69,7 +69,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.ColumnType.DecimalColumnType;
-import org.apache.ignite.schema.definition.ColumnType.VarLenColumnType;
 import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.index.HashIndexDefinition;
@@ -397,10 +396,8 @@ public class SchemaConfigurationConverter {
             }
         });
 
-        tblChg.changePrimaryKey(pkCng -> {
-            pkCng.changeColumns(tbl.keyColumns().toArray(String[]::new))
-                    .changeColocationColumns(tbl.colocationColumns().toArray(String[]::new));
-        });
+        tblChg.changePrimaryKey(pkCng -> pkCng.changeColumns(tbl.keyColumns().toArray(String[]::new))
+                .changeColocationColumns(tbl.colocationColumns().toArray(String[]::new)));
 
         return tblChg;
     }
@@ -549,7 +546,7 @@ public class SchemaConfigurationConverter {
     }
 
     private static @Nullable Object convertDefaultFromConfiguration(String defaultValue, ColumnType type) {
-        if (defaultValue.isEmpty() && !(type instanceof VarLenColumnType)) {
+        if (defaultValue.isEmpty()) {
             return null;
         }
 
