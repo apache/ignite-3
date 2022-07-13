@@ -19,10 +19,12 @@ package org.apache.ignite.internal.storage.basic;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -83,7 +85,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void appliedIndex(long appliedIndex) throws StorageException {
-        assert appliedIndex == this.appliedIndex + 1;
+        assert appliedIndex > this.appliedIndex;
 
         this.appliedIndex = appliedIndex;
     }
@@ -274,6 +276,24 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     @Override
     public long rowsCount() {
         return map.size();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void forEach(BiConsumer<RowId, BinaryRow> consumer) {
+        for (Entry<RowId, VersionChain> entry : map.entrySet()) {
+            RowId rowId = entry.getKey();
+
+            VersionChain versionChain = entry.getValue();
+
+            for (VersionChain cur = versionChain; cur != null; cur = cur.next) {
+                if (cur.row == null) {
+                    continue;
+                }
+
+                consumer.accept(rowId, cur.row);
+            }
+        }
     }
 
     /** {@inheritDoc} */
