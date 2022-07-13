@@ -516,7 +516,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     futures[partId] = raftMgr.startRaftGroupService(
                             grpId,
-                            nodes
+                            newPartAssignment
                     ).thenAccept(
                             updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
                                     .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
