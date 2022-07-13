@@ -27,7 +27,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPage
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
 import org.apache.ignite.internal.storage.StorageException;
 
 /**
@@ -40,7 +40,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
 
     private final int pageSize;
 
-    private final FilePageStoreManager filePageStoreManager;
+    private final PartitionFilePageStoreManager partitionFilePageStoreManager;
 
     private final CheckpointManager checkpointManager;
 
@@ -51,14 +51,14 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
      *
      * @param cfg Data region configuration.
      * @param ioRegistry IO registry.
-     * @param filePageStoreManager File page store manager.
+     * @param partitionFilePageStoreManager File page store manager.
      * @param checkpointManager Checkpoint manager.
      * @param pageSize Page size in bytes.
      */
     public PersistentPageMemoryDataRegion(
             PersistentPageMemoryDataRegionConfiguration cfg,
             PageIoRegistry ioRegistry,
-            FilePageStoreManager filePageStoreManager,
+            PartitionFilePageStoreManager partitionFilePageStoreManager,
             CheckpointManager checkpointManager,
             int pageSize
     ) {
@@ -66,7 +66,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         this.ioRegistry = ioRegistry;
         this.pageSize = pageSize;
 
-        this.filePageStoreManager = filePageStoreManager;
+        this.partitionFilePageStoreManager = partitionFilePageStoreManager;
         this.checkpointManager = checkpointManager;
     }
 
@@ -81,11 +81,11 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
                 ioRegistry,
                 calculateSegmentSizes(dataRegionConfigView, Runtime.getRuntime().availableProcessors()),
                 calculateCheckpointBufferSize(dataRegionConfigView),
-                filePageStoreManager,
+                partitionFilePageStoreManager,
                 null,
                 (fullPageId, buf, tag) -> {
                     // Write page to disk.
-                    filePageStoreManager.write(fullPageId.groupId(), fullPageId.pageId(), buf, tag, true);
+                    partitionFilePageStoreManager.write(fullPageId.groupId(), fullPageId.pageId(), buf, tag, true);
                 },
                 checkpointManager.checkpointTimeoutLock(),
                 pageSize
@@ -116,8 +116,8 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     /**
      * Returns file page store manager.
      */
-    public FilePageStoreManager filePageStoreManager() {
-        return filePageStoreManager;
+    public PartitionFilePageStoreManager filePageStoreManager() {
+        return partitionFilePageStoreManager;
     }
 
     /**

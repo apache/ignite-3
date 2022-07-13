@@ -15,37 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory;
+package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 
 /**
- * Class for storing {@link TableTree} partition metadata.
+ * Dirty page array container.
  */
-class PartitionMeta {
-    /** {@link TableTree} root. */
-    final FullPageId treeRoot;
+class ArrayDirtyPages {
+    final FullPageId[] pageIds;
 
-    /** {@link TableFreeList} root. */
-    final FullPageId reuseListRoot;
-
-    /** Have been allocated (created) or read. */
-    final boolean allocated;
+    final GroupPartitionId[] partitionIds;
 
     /**
      * Constructor.
      *
-     * @param reuseListRoot {@link TableFreeList} root.
-     * @param treeRoot {@link TableTree} root.
-     * @param allocated Have been allocated (created) or read.
+     * <p>Does not copy the collection and array.
+     *
+     * @param pageIds Array of dirty page IDs.
+     * @param partitionIds Dirty partition IDs.
      */
-    public PartitionMeta(
-            FullPageId treeRoot,
-            FullPageId reuseListRoot,
-            boolean allocated
-    ) {
-        this.treeRoot = treeRoot;
-        this.reuseListRoot = reuseListRoot;
-        this.allocated = allocated;
+    ArrayDirtyPages(FullPageId[] pageIds, GroupPartitionId[] partitionIds) {
+        this.pageIds = pageIds;
+        this.partitionIds = partitionIds;
     }
 }

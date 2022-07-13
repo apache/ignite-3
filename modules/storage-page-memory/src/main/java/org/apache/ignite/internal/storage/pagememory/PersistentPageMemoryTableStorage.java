@@ -23,13 +23,12 @@ import static org.apache.ignite.internal.storage.StorageUtils.groupId;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
-import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStore;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.mv.PageMemoryMvPartitionStorage;
@@ -81,24 +80,36 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     protected PersistentPageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException {
         TableView tableView = tableCfg.value();
 
-        FilePageStore partitionFilePageStore = ensurePartitionFilePageStore(tableView, partId);
+        PartitionFilePageStore partitionFilePageStore = ensurePartitionFilePageStore(tableView, partId);
 
         CheckpointTimeoutLock checkpointTimeoutLock = dataRegion.checkpointManager().checkpointTimeoutLock();
 
         checkpointTimeoutLock.checkpointReadLock();
 
         try {
-            // TODO: IGNITE-17295 вот тут надо поменять, мол что не через pm все это делаем и тд тп
+            PersistentPageMemory persistentPageMemory = dataRegion.pageMemory();
 
-            PartitionMeta partitionMeta = getOrCreatePartitionMeta(tableView, partId, partitionFilePageStore);
+            int grpId = groupId(tableView);
 
-            TableFreeList tableFreeList = createTableFreeList(tableView, partId, partitionMeta);
+            PartitionMeta meta = partitionFilePageStore.meta();
+
+            if (meta.isCreated()) {
+                meta.treeRootPageId(persistentPageMemory.allocatePage(grpId, partId, FLAG_AUX));
+                meta.reuseListRootPageId(persistentPageMemory.allocatePage(grpId, partId, FLAG_AUX));
+            }
+
+            TableFreeList tableFreeList = createTableFreeList(tableView, partId, meta);
 
             autoCloseables.add(tableFreeList::close);
 
-            TableTree tableTree = createTableTree(tableView, partId, tableFreeList, partitionMeta);
+            TableTree tableTree = createTableTree(tableView, partId, tableFreeList, meta);
 
             return new PersistentPageMemoryPartitionStorage(partId, tableFreeList, tableTree, checkpointTimeoutLock);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(
+                    String.format("Error getting or creating partition metadata [tableName=%s, partitionId=%s]", tableView.name(), partId),
+                    e
+            );
         } finally {
             checkpointTimeoutLock.checkpointReadUnlock();
         }
@@ -124,88 +135,16 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      * @return Partition file page store.
      * @throws StorageException If failed.
      */
-    FilePageStore ensurePartitionFilePageStore(TableView tableView, int partId) throws StorageException {
+    PartitionFilePageStore ensurePartitionFilePageStore(TableView tableView, int partId) throws StorageException {
         try {
-            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(groupId(tableView), partId);
+            PartitionFilePageStore partitionFilePageStore = dataRegion.filePageStoreManager().getStore(groupId(tableView), partId);
 
-            filePageStore.ensure();
+            partitionFilePageStore.ensure();
 
-            return filePageStore;
+            return partitionFilePageStore;
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
                     String.format("Error initializing file page store [tableName=%s, partitionId=%s]", tableView.name(), partId),
-                    e
-            );
-        }
-    }
-
-    /**
-     * Creates new or reads existing partition meta.
-     *
-     * @param tableView Table configuration.
-     * @param partId Partition ID.
-     * @param filePageStore Partition file page store.
-     * @return Partition meta.
-     * @throws StorageException If failed.
-     */
-    PartitionMeta getOrCreatePartitionMeta(
-            TableView tableView,
-            int partId,
-            FilePageStore filePageStore
-    ) throws StorageException {
-        PersistentPageMemory pageMemoryImpl = dataRegion.pageMemory();
-
-        int grpId = groupId(tableView);
-
-        // TODO: IGNITE-17295 вот тут надо править
-
-        boolean allocatePartMetaPage = filePageStore.pages() == 0;
-
-        try {
-            long partMetaPageId = allocatePartMetaPage
-                    ? pageMemoryImpl.allocatePage(grpId, partId, FLAG_AUX)
-                    : pageMemoryImpl.partitionMetaPageId(grpId, partId);
-
-            long partMetaPage = pageMemoryImpl.acquirePage(grpId, partMetaPageId);
-
-            try {
-                long partMetaPageAddr = pageMemoryImpl.writeLock(grpId, partMetaPageId, partMetaPage);
-
-                try {
-                    long treeRootPageId;
-                    long reuseListRootPageId;
-
-                    if (allocatePartMetaPage) {
-                        PartitionMetaIo partMetaIo = PartitionMetaIo.VERSIONS.latest();
-
-                        partMetaIo.initNewPage(partMetaPageAddr, partMetaPageId, pageMemoryImpl.realPageSize(grpId));
-
-                        treeRootPageId = pageMemoryImpl.allocatePage(grpId, partId, FLAG_AUX);
-                        reuseListRootPageId = pageMemoryImpl.allocatePage(grpId, partId, FLAG_AUX);
-
-                        partMetaIo.setTreeRootPageId(partMetaPageAddr, treeRootPageId);
-                        partMetaIo.setReuseListRootPageId(partMetaPageAddr, reuseListRootPageId);
-                    } else {
-                        PartitionMetaIo partMetaIo = pageMemoryImpl.ioRegistry().resolve(partMetaPageAddr);
-
-                        treeRootPageId = partMetaIo.getTreeRootPageId(partMetaPageAddr);
-                        reuseListRootPageId = partMetaIo.getReuseListRootPageId(partMetaPageAddr);
-                    }
-
-                    return new PartitionMeta(
-                            new FullPageId(treeRootPageId, grpId),
-                            new FullPageId(reuseListRootPageId, grpId),
-                            allocatePartMetaPage
-                    );
-                } finally {
-                    pageMemoryImpl.writeUnlock(grpId, partMetaPageId, partMetaPage, allocatePartMetaPage);
-                }
-            } finally {
-                pageMemoryImpl.releasePage(grpId, partMetaPageId, partMetaPage);
-            }
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(
-                    String.format("Error getting or creating partition metadata [tableName=%s, partitionId=%s]", tableView.name(), partId),
                     e
             );
         }
@@ -216,7 +155,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      *
      * @param tableView Table configuration.
      * @param partId Partition ID.
-     * @param partitionMeta Table partition metadata.
+     * @param partitionMeta Partition metadata.
      * @throws StorageException If failed.
      */
     TableFreeList createTableFreeList(
@@ -230,8 +169,8 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
                     partId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
-                    partitionMeta.reuseListRoot.pageId(),
-                    partitionMeta.allocated,
+                    partitionMeta.reuseListRootPageId(),
+                    partitionMeta.isCreated(),
                     null,
                     PageEvictionTrackerNoOp.INSTANCE,
                     IoStatisticsHolderNoOp.INSTANCE
@@ -250,7 +189,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      * @param tableView Table configuration.
      * @param partId Partition ID.
      * @param freeList Table free list.
-     * @param partitionMeta Table partition metadata.
+     * @param partitionMeta Partition metadata.
      * @throws StorageException If failed.
      */
     TableTree createTableTree(
@@ -268,9 +207,9 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
                     partId, dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
-                    partitionMeta.treeRoot.pageId(),
+                    partitionMeta.treeRootPageId(),
                     freeList,
-                    partitionMeta.allocated
+                    partitionMeta.isCreated()
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(

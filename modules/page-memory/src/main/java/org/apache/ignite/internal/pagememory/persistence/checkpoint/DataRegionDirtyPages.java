@@ -17,31 +17,26 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import java.util.Collection;
-import org.apache.ignite.internal.pagememory.persistence.CollectionDirtyPages;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 
 /**
- * Holder of information about dirty pages by {@link PersistentPageMemory} for checkpoint.
+ * Container of dirty pages of the data region.
  *
- * <p>Due to page replacements, the total number of pages may change when they are written to disk.
- *
- * <p>Total number of dirty pages can only decrease due to page replacement, but should not increase.
+ * @param <T> Type of dirty pages container.
  */
-class DataRegionsDirtyPages {
-    /** Total number of dirty pages for all data regions at the time of data collection. */
-    final int dirtyPageCount;
+class DataRegionDirtyPages<T> {
+    final PersistentPageMemory pageMemory;
 
-    /** Collection of dirty pages per {@link PersistentPageMemory} distribution. */
-    final Collection<DataRegionDirtyPages<CollectionDirtyPages>> dirtyPages;
+    final T dirtyPages;
 
     /**
      * Constructor.
      *
-     * @param dirtyPages Collection of dirty pages per {@link PersistentPageMemory} distribution.
+     * @param pageMemory Page memory.
+     * @param dirtyPages Container of dirty pages.
      */
-    public DataRegionsDirtyPages(Collection<DataRegionDirtyPages<CollectionDirtyPages>> dirtyPages) {
+    DataRegionDirtyPages(PersistentPageMemory pageMemory, T dirtyPages) {
+        this.pageMemory = pageMemory;
         this.dirtyPages = dirtyPages;
-        this.dirtyPageCount = dirtyPages.stream().mapToInt(dataRegionPages -> dataRegionPages.dirtyPages.pageIds().size()).sum();
     }
 }

@@ -55,14 +55,17 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -85,7 +88,7 @@ public class CheckpointerTest {
                 null,
                 null,
                 createCheckpointWorkflow(EMPTY),
-                createCheckpointPagesWriterFactory(mock(CheckpointPageWriter.class)),
+                createCheckpointPagesWriterFactory(),
                 checkpointConfig
         );
 
@@ -241,7 +244,7 @@ public class CheckpointerTest {
                 null,
                 null,
                 createCheckpointWorkflow(EMPTY),
-                createCheckpointPagesWriterFactory(mock(CheckpointPageWriter.class)),
+                createCheckpointPagesWriterFactory(),
                 checkpointConfig
         ));
 
@@ -314,13 +317,13 @@ public class CheckpointerTest {
                 null,
                 null,
                 createCheckpointWorkflow(dirtyPages),
-                createCheckpointPagesWriterFactory(mock(CheckpointPageWriter.class)),
+                createCheckpointPagesWriterFactory(),
                 checkpointConfig
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
 
-        verify(dirtyPages, times(1)).toQueue();
+        verify(dirtyPages, times(1)).toDirtyPageIdQueue();
         verify(checkpointer, times(1)).startCheckpointProgress();
 
         assertEquals(checkpointer.currentProgress().currentCheckpointPagesCount(), 3);
@@ -365,10 +368,15 @@ public class CheckpointerTest {
         );
     }
 
-    private CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, FullPageId... fullPageIds) {
-        Arrays.sort(fullPageIds, DIRTY_PAGE_COMPARATOR);
+    private CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, FullPageId... pageIds) {
+        Arrays.sort(pageIds, DIRTY_PAGE_COMPARATOR);
 
-        return new CheckpointDirtyPages(List.of(new IgniteBiTuple<>(pageMemory, Arrays.asList(fullPageIds))));
+        GroupPartitionId[] partitionIds = Stream.of(pageIds)
+                .map(fullPageId -> new GroupPartitionId(fullPageId.groupId(), fullPageId.partitionId()))
+                .distinct()
+                .toArray(GroupPartitionId[]::new);
+
+        return new CheckpointDirtyPages(List.of(new DataRegionDirtyPages<>(pageMemory, new ArrayDirtyPages(pageIds, partitionIds))));
     }
 
     private CheckpointWorkflow createCheckpointWorkflow(CheckpointDirtyPages dirtyPages) throws Exception {
@@ -388,7 +396,13 @@ public class CheckpointerTest {
         return mock;
     }
 
-    private CheckpointPagesWriterFactory createCheckpointPagesWriterFactory(CheckpointPageWriter checkpointPageWriter) {
-        return new CheckpointPagesWriterFactory(log, checkpointPageWriter, 1024);
+    private CheckpointPagesWriterFactory createCheckpointPagesWriterFactory() {
+        return new CheckpointPagesWriterFactory(
+                log,
+                mock(CheckpointPageWriter.class),
+                mock(PageIoRegistry.class),
+                mock(PartitionFilePageStoreManager.class),
+                1024
+        );
     }
 }

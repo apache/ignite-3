@@ -59,7 +59,6 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  *     <li>Body - data pages are multiples of {@link FilePageStoreHeader#pageSize() pageSize}.</li>
  * </ul>
  */
-// TODO: IGNITE-17295 исправить описание ^
 public class FilePageStore implements PageStore {
     /** File version. */
     static final int VERSION_1 = 1;
@@ -165,7 +164,7 @@ public class FilePageStore implements PageStore {
 
     /** {@inheritDoc} */
     @Override
-    public long pages() {
+    public int pages() {
         return pageCount.get();
     }
 

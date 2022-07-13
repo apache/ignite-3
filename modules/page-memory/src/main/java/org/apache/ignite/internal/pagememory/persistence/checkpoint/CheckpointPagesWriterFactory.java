@@ -24,8 +24,13 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesQueue;
+import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
+import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 
 /**
  * Factory class for checkpoint pages writer.
@@ -42,21 +47,33 @@ public class CheckpointPagesWriterFactory {
     /** Writer which writes pages to page store during the checkpoint. */
     private final CheckpointPageWriter checkpointPageWriter;
 
+    /** Page IO registry. */
+    private final PageIoRegistry ioRegistry;
+
+    /** Partition file page store manager. */
+    private final PartitionFilePageStoreManager partitionFilePageStoreManager;
+
     /**
      * Constructor.
      *
      * @param log Logger.
      * @param checkpointPageWriter Checkpoint page writer.
+     * @param ioRegistry Page IO registry.
+     * @param partitionFilePageStoreManager Partition file page store manager.
      * @param pageSize Page size in bytes.
      */
     CheckpointPagesWriterFactory(
             IgniteLogger log,
             CheckpointPageWriter checkpointPageWriter,
+            PageIoRegistry ioRegistry,
+            PartitionFilePageStoreManager partitionFilePageStoreManager,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
         this.log = log;
         this.checkpointPageWriter = checkpointPageWriter;
+        this.ioRegistry = ioRegistry;
+        this.partitionFilePageStoreManager = partitionFilePageStoreManager;
 
         threadBuf = ThreadLocal.withInitial(() -> {
             ByteBuffer tmpWriteBuf = ByteBuffer.allocateDirect(pageSize);
@@ -71,7 +88,8 @@ public class CheckpointPagesWriterFactory {
      * Returns instance of page checkpoint writer.
      *
      * @param tracker Checkpoint metrics tracker.
-     * @param checkpointDirtyPagesQueue Checkpoint dirty pages queue to write.
+     * @param dirtyPageIdQueue Checkpoint dirty page ID queue to write.
+     * @param dirtyPartitionIdQueue Checkpoint dirty partition ID queue to update.
      * @param updStores Updated page store storage.
      * @param doneWriteFut Write done future.
      * @param beforePageWrite Before page write callback.
@@ -80,7 +98,8 @@ public class CheckpointPagesWriterFactory {
      */
     CheckpointPagesWriter build(
             CheckpointMetricsTracker tracker,
-            CheckpointDirtyPagesQueue checkpointDirtyPagesQueue,
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPageIdQueue,
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionIdQueue,
             ConcurrentMap<PageStore, LongAdder> updStores,
             CompletableFuture<?> doneWriteFut,
             Runnable beforePageWrite,
@@ -91,13 +110,16 @@ public class CheckpointPagesWriterFactory {
         return new CheckpointPagesWriter(
                 log,
                 tracker,
-                checkpointDirtyPagesQueue,
+                dirtyPageIdQueue,
+                dirtyPartitionIdQueue,
                 updStores,
                 doneWriteFut,
                 beforePageWrite,
                 threadBuf,
                 checkpointProgress,
                 checkpointPageWriter,
+                ioRegistry,
+                partitionFilePageStoreManager,
                 shutdownNow
         );
     }

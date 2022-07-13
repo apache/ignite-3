@@ -48,10 +48,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * For {@link FilePageStoreFactory} testing.
+ * For {@link PartitionFilePageStoreFactory} testing.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class FilePageStoreFactoryTest {
+public class PartitionFilePageStoreFactoryTest {
     private static final int PAGE_SIZE = 1024;
 
     private static PageIoRegistry ioRegistry;
@@ -80,7 +80,7 @@ public class FilePageStoreFactoryTest {
 
             Exception exception = assertThrows(
                     IgniteInternalCheckedException.class,
-                    () -> createFilePageStoreFactory().createPageStore(testFilePath)
+                    () -> createFilePageStoreFactory().createPageStore(testFilePath, ByteBuffer.allocate(PAGE_SIZE))
             );
 
             assertThat(exception.getMessage(), containsString("Unknown version of file page store"));
@@ -91,8 +91,10 @@ public class FilePageStoreFactoryTest {
     void testCreateNewFilePageStore() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
+        ByteBuffer buffer = ByteBuffer.allocate(PAGE_SIZE);
+
         try (
-                FilePageStore filePageStore = createFilePageStoreFactory().createPageStore(testFilePath);
+                PartitionFilePageStore filePageStore = createFilePageStoreFactory().createPageStore(testFilePath, buffer);
                 FileIo fileIo = createFileIo(testFilePath)
         ) {
             assertNull(readHeader(fileIo));
@@ -109,16 +111,18 @@ public class FilePageStoreFactoryTest {
 
     @Test
     void testCreateExistsFilePageStore() throws Exception {
-        FilePageStoreFactory filePageStoreFactory = createFilePageStoreFactory();
+        PartitionFilePageStoreFactory filePageStoreFactory = createFilePageStoreFactory();
 
         Path testFilePath = workDir.resolve("test");
 
-        try (FilePageStore pageStore = filePageStoreFactory.createPageStore(testFilePath)) {
+        ByteBuffer buffer = ByteBuffer.allocate(PAGE_SIZE);
+
+        try (PartitionFilePageStore pageStore = filePageStoreFactory.createPageStore(testFilePath, buffer)) {
             pageStore.ensure();
         }
 
         try (
-                FilePageStore filePageStore = filePageStoreFactory.createPageStore(testFilePath);
+                PartitionFilePageStore filePageStore = filePageStoreFactory.createPageStore(testFilePath, buffer.rewind());
                 FileIo fileIo = createFileIo(testFilePath);
         ) {
             assertEquals(1, filePageStore.pages());
@@ -129,12 +133,14 @@ public class FilePageStoreFactoryTest {
 
     @Test
     void testCreateExistsFilePageStoreWithChangePageCount() throws Exception {
-        FilePageStoreFactory filePageStoreFactory = createFilePageStoreFactory();
+        PartitionFilePageStoreFactory filePageStoreFactory = createFilePageStoreFactory();
 
         Path testFilePath = workDir.resolve("test");
 
+        ByteBuffer buffer = ByteBuffer.allocate(PAGE_SIZE);
+
         try (
-                FilePageStore pageStore = filePageStoreFactory.createPageStore(testFilePath);
+                PartitionFilePageStore pageStore = filePageStoreFactory.createPageStore(testFilePath, buffer);
                 FileIo fileIo = createFileIo(testFilePath);
         ) {
             pageStore.ensure();
@@ -145,7 +151,7 @@ public class FilePageStoreFactoryTest {
         }
 
         try (
-                FilePageStore filePageStore = filePageStoreFactory.createPageStore(testFilePath);
+                PartitionFilePageStore filePageStore = filePageStoreFactory.createPageStore(testFilePath, buffer.rewind());
                 FileIo fileIo = createFileIo(testFilePath);
         ) {
             assertEquals(3, filePageStore.pages());
@@ -154,8 +160,8 @@ public class FilePageStoreFactoryTest {
         }
     }
 
-    private static FilePageStoreFactory createFilePageStoreFactory() {
-        return new FilePageStoreFactory(new RandomAccessFileIoFactory(), ioRegistry, PAGE_SIZE);
+    private static PartitionFilePageStoreFactory createFilePageStoreFactory() {
+        return new PartitionFilePageStoreFactory(new RandomAccessFileIoFactory(), ioRegistry, PAGE_SIZE);
     }
 
     private static FileIo createFileIo(Path filePath) throws Exception {

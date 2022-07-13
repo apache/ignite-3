@@ -18,8 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader.readHeader;
-import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
-import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
+import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -28,16 +27,15 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
-import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Checks version in files if it's present on the disk, creates store with the latest version otherwise.
+ * Factory for creating {@link PartitionFilePageStore}.
  */
-// TODO: IGNITE-17295 не забудь добавить описание ко всему этому дерьму
-class FilePageStoreFactory {
-    /** Latest page store version. */
+class PartitionFilePageStoreFactory {
+    /** Latest file page store version. */
     public final int latestVersion = FilePageStore.VERSION_1;
 
     private final FileIoFactory fileIoFactory;
@@ -53,7 +51,7 @@ class FilePageStoreFactory {
      * @param ioRegistry Page IO registry.
      * @param pageSize Page size in bytes.
      */
-    public FilePageStoreFactory(
+    public PartitionFilePageStoreFactory(
             FileIoFactory fileIoFactory,
             PageIoRegistry ioRegistry,
             int pageSize
@@ -64,44 +62,58 @@ class FilePageStoreFactory {
     }
 
     /**
-     * Creates instance of {@link FilePageStore}.
+     * Creates instance of {@link PartitionFilePageStore}.
+     *
+     * <p>If the partition file exists, it will read its {@link FilePageStoreHeader header} and {@link PartitionMetaIo meta} ({@code
+     * pageIdx == 0}) to create the {@link PartitionFilePageStore}.
      *
      * @param filePath File page store path.
+     * @param readIntoBuffer Buffer for reading {@link PartitionMetaIo meta} from {@code filePath}.
      * @return File page store.
      * @throws IgniteInternalCheckedException if failed
      */
-    public FilePageStore createPageStore(Path filePath) throws IgniteInternalCheckedException {
+    public PartitionFilePageStore createPageStore(
+            Path filePath,
+            ByteBuffer readIntoBuffer
+    ) throws IgniteInternalCheckedException {
+        assert readIntoBuffer.remaining() == pageSize : "Expected pageSize=" + pageSize + ", bufferSize=" + readIntoBuffer.remaining();
+
         if (!Files.exists(filePath)) {
-            return createPageStore(filePath, new FilePageStoreHeader(latestVersion, pageSize), 1);
+            return createPageStore(filePath, new FilePageStoreHeader(latestVersion, pageSize), newPartitionMeta());
         }
 
         try (FileIo fileIo = fileIoFactory.create(filePath)) {
             FilePageStoreHeader header = readHeader(fileIo);
 
-            // First page should be PartitionMetaIo.
-            int pageCount = 1;
-
             if (header == null) {
                 header = new FilePageStoreHeader(latestVersion, pageSize);
-            } else {
-                if (fileIo.size() > header.headerSize()) {
-                    pageCount = readPageCount(fileIo, header.headerSize());
-                }
             }
 
-            return createPageStore(filePath, header, pageCount);
+            PartitionMeta meta = readPartitionMeta(fileIo, header.headerSize(), readIntoBuffer);
+
+            return createPageStore(filePath, header, meta);
         } catch (IOException e) {
             throw new IgniteInternalCheckedException("Error while creating file page store [file=" + filePath + "]:", e);
         }
     }
 
-    private FilePageStore createPageStore(
+    private PartitionFilePageStore createPageStore(
             Path filePath,
             FilePageStoreHeader header,
-            int pageCount
+            PartitionMeta partitionMeta
     ) throws IgniteInternalCheckedException {
         if (header.version() == FilePageStore.VERSION_1) {
-            return new FilePageStore(header.version(), header.pageSize(), header.headerSize(), pageCount, filePath, fileIoFactory);
+            return new PartitionFilePageStore(
+                    new FilePageStore(
+                            header.version(),
+                            header.pageSize(),
+                            header.headerSize(),
+                            partitionMeta.pageCount(),
+                            filePath,
+                            fileIoFactory
+                    ),
+                    partitionMeta
+            );
         }
 
         throw new IgniteInternalCheckedException(String.format(
@@ -111,19 +123,34 @@ class FilePageStoreFactory {
         ));
     }
 
-    private int readPageCount(FileIo fileIo, int headerSize) throws IOException {
-        ByteBuffer buffer = allocateBuffer(pageSize);
+    private PartitionMeta readPartitionMeta(FileIo fileIo, int headerSize, ByteBuffer readIntoBuffer) throws IOException {
+        if (fileIo.size() <= headerSize) {
+            return newPartitionMeta();
+        }
 
         try {
-            fileIo.readFully(buffer, headerSize);
+            fileIo.readFully(readIntoBuffer, headerSize);
 
-            PartitionMetaIo partitionMetaIo = ioRegistry.resolve(buffer.rewind());
+            long pageAddr = bufferAddress(readIntoBuffer);
 
-            return partitionMetaIo.getPageCount(GridUnsafe.bufferAddress(buffer));
+            if (PartitionMetaIo.getType(pageAddr) <= 0) {
+                return newPartitionMeta();
+            }
+
+            PartitionMetaIo partitionMetaIo = ioRegistry.resolve(pageAddr);
+
+            return new PartitionMeta(
+                    partitionMetaIo.getTreeRootPageId(pageAddr),
+                    partitionMetaIo.getReuseListRootPageId(pageAddr),
+                    partitionMetaIo.getPageCount(pageAddr),
+                    false
+            );
         } catch (IgniteInternalCheckedException e) {
             throw new IOException("Failed read partition meta", e);
-        } finally {
-            freeBuffer(buffer);
         }
+    }
+
+    private static PartitionMeta newPartitionMeta() {
+        return new PartitionMeta(0, 0, 1, true);
     }
 }

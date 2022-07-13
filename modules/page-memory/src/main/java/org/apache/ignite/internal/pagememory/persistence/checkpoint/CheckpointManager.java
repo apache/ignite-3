@@ -25,8 +25,9 @@ import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -46,7 +47,7 @@ import org.jetbrains.annotations.Nullable;
  *     <li>Collecting all pages from configured dataRegions which was marked as dirty under {@link #checkpointTimeoutLock}.</li>
  *     <li>Marking the start of checkpoint on disk.</li>
  *     <li>Notifying the subscribers of different checkpoint states through {@link CheckpointListener}.</li>
- *     <li>Synchronizing collected pages with disk using {@link FilePageStoreManager}.</li>
+ *     <li>Synchronizing collected pages with disk using {@link PartitionFilePageStoreManager}.</li>
  * </ul>
  */
 public class CheckpointManager {
@@ -72,9 +73,10 @@ public class CheckpointManager {
      * @param checkpointConfig Checkpoint configuration.
      * @param workerListener Listener for life-cycle checkpoint worker events.
      * @param longJvmPauseDetector Long JVM pause detector.
-     * @param filePageStoreManager File page store manager.
+     * @param partitionFilePageStoreManager File page store manager.
      * @param dataRegions Data regions.
      * @param storagePath Storage path.
+     * @param ioRegistry Page IO registry.
      * @param pageSize Page size in bytes.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -83,9 +85,10 @@ public class CheckpointManager {
             @Nullable IgniteWorkerListener workerListener,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             PageMemoryCheckpointConfiguration checkpointConfig,
-            FilePageStoreManager filePageStoreManager,
+            PartitionFilePageStoreManager partitionFilePageStoreManager,
             Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
             Path storagePath,
+            PageIoRegistry ioRegistry,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) throws IgniteInternalCheckedException {
@@ -105,12 +108,15 @@ public class CheckpointManager {
                 igniteInstanceName,
                 checkpointMarkersStorage,
                 checkpointReadWriteLock,
-                dataRegions
+                dataRegions,
+                partitionFilePageStoreManager
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
                 Loggers.forClass(CheckpointPagesWriterFactory.class),
-                (fullPage, buf, tag) -> filePageStoreManager.write(fullPage.groupId(), fullPage.pageId(), buf, tag, true),
+                (fullPage, buf, tag) -> partitionFilePageStoreManager.write(fullPage.groupId(), fullPage.pageId(), buf, tag, true),
+                ioRegistry,
+                partitionFilePageStoreManager,
                 pageSize
         );
 

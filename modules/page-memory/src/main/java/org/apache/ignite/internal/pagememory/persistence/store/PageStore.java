@@ -58,7 +58,7 @@ public interface PageStore extends Closeable {
     /**
      * Returns number of allocated pages.
      */
-    long pages();
+    int pages();
 
     /**
      * Reads a page.

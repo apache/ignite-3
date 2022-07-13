@@ -61,7 +61,6 @@ import static org.apache.ignite.internal.util.OffheapReadWriteLock.TAG_LOCK_ALWA
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -879,17 +878,35 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
-     * Get current prartition generation tag.
+     * Get current partition generation tag.
      *
      * @param seg Segment.
-     * @param fullId Full page id.
+     * @param fullPageId Full page id.
      * @return Current partition generation tag.
      */
-    private int generationTag(Segment seg, FullPageId fullId) {
+    private int generationTag(Segment seg, FullPageId fullPageId) {
         return seg.partGeneration(
-                fullId.groupId(),
-                partitionId(fullId.pageId())
+                fullPageId.groupId(),
+                partitionId(fullPageId.pageId())
         );
+    }
+
+    /**
+     * Get current partition generation tag.
+     *
+     * @param fullPageId Full page id.
+     * @return Current partition generation tag.
+     */
+    public int generationTag(FullPageId fullPageId) {
+        Segment segment = segment(fullPageId.groupId(), fullPageId.pageId());
+
+        segment.readLock().lock();
+
+        try {
+            return generationTag(segment, fullPageId);
+        } finally {
+            segment.readLock().unlock();
+        }
     }
 
     /**
@@ -1129,8 +1146,6 @@ public class PersistentPageMemory implements PageMemory {
             assert getVersion(tmpAbsPtr + PAGE_OVERHEAD) != 0 :
                     "Invalid state. Version is 0! pageId = " + hexLong(fullId.pageId());
 
-            // TODO: IGNITE-17295 вот тут можно конечно, но как понять для новой то?
-
             dirty(absPtr, false);
             tempBufferPointer(absPtr, tmpRelPtr);
             // info for checkpoint buffer cleaner.
@@ -1174,8 +1189,6 @@ public class PersistentPageMemory implements PageMemory {
 
                 assert getVersion(page + PAGE_OVERHEAD) != 0 : dumpPage(pageId, fullId.groupId());
                 assert getType(page + PAGE_OVERHEAD) != 0 : hexLong(pageId);
-
-                // TODO: IGNITE-17295 вот тут думаю можно добавить
             } catch (AssertionError ex) {
                 LOG.error("Failed to unlock page [fullPageId=" + fullId + ", binPage=" + toHexString(page, systemPageSize()) + ']');
 
@@ -2072,39 +2085,41 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
-     * Gets a collection of dirty page IDs since the last checkpoint. If a dirty page is being written after the checkpointing operation
+     * Returns the container of dirty pages since the last checkpoint. If a dirty page is being written after the checkpointing operation
      * begun, the modifications will be written to a temporary buffer which will be flushed to the main memory after the checkpointing
      * finished. This method must be called when no concurrent operations on pages are performed.
      *
      * @param allowToReplace The sign which allows replacing pages from a checkpoint by page replacer.
-     * @return Collection view of dirty page IDs.
      * @throws IgniteInternalException If checkpoint has been already started and was not finished.
      */
-    public Collection<FullPageId> beginCheckpoint(CompletableFuture<?> allowToReplace) throws IgniteInternalException {
+    public CollectionDirtyPages beginCheckpoint(CompletableFuture<?> allowToReplace) throws IgniteInternalException {
         if (segments == null) {
-            return List.of();
+            return CollectionDirtyPages.EMPTY;
         }
 
-        Collection<FullPageId>[] collections = new Collection[segments.length];
+        Set<FullPageId>[] dirtyPages = new Set[segments.length];
+
+        Set<GroupPartitionId> dirtyPartitions = new HashSet<>();
 
         for (int i = 0; i < segments.length; i++) {
-            Segment seg = segments[i];
+            Segment segment = segments[i];
 
-            if (seg.checkpointPages != null) {
+            if (segment.checkpointPages != null) {
                 throw new IgniteInternalException("Failed to begin checkpoint (it is already in progress).");
             }
 
-            Set<FullPageId> dirtyPages = seg.dirtyPages;
-            collections[i] = dirtyPages;
+            Set<FullPageId> segmentDirtyPages = (dirtyPages[i] = segment.dirtyPages);
 
-            seg.checkpointPages = new CheckpointPages(dirtyPages, allowToReplace);
+            dirtyPartitions.addAll(segment.dirtyPartitions);
 
-            seg.resetDirtyPages();
+            segment.checkpointPages = new CheckpointPages(segmentDirtyPages, allowToReplace);
+
+            segment.resetDirtyPages();
         }
 
         safeToUpdate.set(true);
 
-        return CollectionUtils.concat(collections);
+        return new CollectionDirtyPages(CollectionUtils.concat(dirtyPages), dirtyPartitions);
     }
 
     /**

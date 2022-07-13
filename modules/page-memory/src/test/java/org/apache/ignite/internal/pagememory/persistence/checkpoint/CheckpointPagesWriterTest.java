@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.TRY_AGAIN_TAG;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,6 +31,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,10 +50,16 @@ import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesQueue;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
+import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -66,18 +72,25 @@ public class CheckpointPagesWriterTest {
 
     @Test
     void testWritePages() throws Exception {
-        PersistentPageMemory pageMemory = createPageMemoryImpl(3);
+        PersistentPageMemory pageMemory = createPageMemory(3);
 
-        FullPageId fullPageId0 = new FullPageId(pageId(0, FLAG_DATA, 0), 0);
-        FullPageId fullPageId1 = new FullPageId(pageId(0, FLAG_DATA, 1), 0);
-        FullPageId fullPageId2 = new FullPageId(pageId(0, FLAG_AUX, 2), 0);
-        FullPageId fullPageId3 = new FullPageId(pageId(0, FLAG_AUX, 3), 0);
-        FullPageId fullPageId4 = new FullPageId(pageId(1, FLAG_DATA, 4), 0);
-        FullPageId fullPageId5 = new FullPageId(pageId(1, FLAG_DATA, 5), 0);
+        FullPageId fullPageId1 = fullPageId(0, 0, 1);
+        FullPageId fullPageId2 = fullPageId(0, 0, 2);
+        FullPageId fullPageId3 = fullPageId(0, 0, 3);
+        FullPageId fullPageId4 = fullPageId(0, 0, 4);
+        FullPageId fullPageId5 = fullPageId(0, 1, 5);
+        FullPageId fullPageId6 = fullPageId(0, 1, 6);
 
-        CheckpointDirtyPagesQueue writePageIds = new CheckpointDirtyPages(
-                Map.of(pageMemory, List.of(fullPageId0, fullPageId1, fullPageId2, fullPageId3, fullPageId4, fullPageId5))
-        ).toQueue();
+        IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds = new IgniteConcurrentMultiPairQueue<>(
+                Map.of(pageMemory, List.of(fullPageId1, fullPageId2, fullPageId3, fullPageId4, fullPageId5, fullPageId6))
+        );
+
+        GroupPartitionId groupPartId0 = groupPartId(0, 0);
+        GroupPartitionId groupPartId1 = groupPartId(0, 1);
+
+        IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> updatePartitionIds = new IgniteConcurrentMultiPairQueue<>(
+                Map.of(pageMemory, List.of(groupPartId0, groupPartId1))
+        );
 
         Runnable beforePageWrite = mock(Runnable.class);
 
@@ -97,16 +110,22 @@ public class CheckpointPagesWriterTest {
 
         CheckpointProgressImpl progressImpl = new CheckpointProgressImpl(0);
 
+        PartitionFilePageStore partitionPageStore0 = spy(new PartitionFilePageStore(mock(FilePageStore.class), mock(PartitionMeta.class)));
+        PartitionFilePageStore partitionPageStore1 = spy(new PartitionFilePageStore(mock(FilePageStore.class), mock(PartitionMeta.class)));
+
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 log,
                 tracker,
                 writePageIds,
+                updatePartitionIds,
                 updStores,
                 doneFuture,
                 beforePageWrite,
                 threadBuf,
                 progressImpl,
                 pageWriter,
+                pageIoRegistry(),
+                createPartitionFilePageStoreManager(Map.of(groupPartId0, partitionPageStore0, groupPartId1, partitionPageStore1)),
                 () -> false
         );
 
@@ -127,7 +146,7 @@ public class CheckpointPagesWriterTest {
         assertThat(
                 writtenFullPageIds.getAllValues(),
                 // Order is different because the first 3 pages we have to try to write to the page store 2 times.
-                equalTo(List.of(fullPageId3, fullPageId4, fullPageId5, fullPageId0, fullPageId1, fullPageId2))
+                equalTo(List.of(fullPageId4, fullPageId5, fullPageId6, fullPageId1, fullPageId2, fullPageId3))
         );
 
         verify(beforePageWrite, times(9)).run();
@@ -150,10 +169,15 @@ public class CheckpointPagesWriterTest {
                         any(CheckpointMetricsTracker.class)
                 );
 
+        GroupPartitionId groupPartId = groupPartId(0, 0);
+
+        PartitionFilePageStore partitionPageStore = spy(new PartitionFilePageStore(mock(FilePageStore.class), mock(PartitionMeta.class)));
+
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 log,
                 new CheckpointMetricsTracker(),
-                new CheckpointDirtyPages(Map.of(pageMemory, List.of(new FullPageId(0, 0)))).toQueue(),
+                new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(fullPageId(0, 0, 1)))),
+                new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(groupPartId))),
                 new ConcurrentHashMap<>(),
                 doneFuture,
                 () -> {
@@ -161,6 +185,8 @@ public class CheckpointPagesWriterTest {
                 createThreadLocalBuffer(),
                 new CheckpointProgressImpl(0),
                 mock(CheckpointPageWriter.class),
+                pageIoRegistry(),
+                createPartitionFilePageStoreManager(Map.of(groupPartId, partitionPageStore)),
                 () -> false
         );
 
@@ -169,6 +195,7 @@ public class CheckpointPagesWriterTest {
         ExecutionException exception = assertThrows(ExecutionException.class, () -> doneFuture.get(1, TimeUnit.SECONDS));
 
         assertThat(exception.getCause(), instanceOf(IgniteInternalCheckedException.class));
+        // TODO: IGNITE-17295 вот тут чекнуть сообщение
     }
 
     @Test
@@ -192,14 +219,23 @@ public class CheckpointPagesWriterTest {
                         any(CheckpointMetricsTracker.class)
                 );
 
-        CheckpointDirtyPagesQueue writePageIds = new CheckpointDirtyPages(
-                Map.of(pageMemory, List.of(new FullPageId(0, 0), new FullPageId(1, 0)))
-        ).toQueue();
+        IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds = new IgniteConcurrentMultiPairQueue<>(
+                Map.of(pageMemory, List.of(fullPageId(0, 0, 1), fullPageId(0, 0, 2)))
+        );
+
+        GroupPartitionId groupPartId = groupPartId(0, 0);
+
+        IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> updatePartitionIds = new IgniteConcurrentMultiPairQueue<>(
+                Map.of(pageMemory, List.of(groupPartId))
+        );
+
+        PartitionFilePageStore partitionPageStore = spy(new PartitionFilePageStore(mock(FilePageStore.class), mock(PartitionMeta.class)));
 
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 log,
                 new CheckpointMetricsTracker(),
                 writePageIds,
+                updatePartitionIds,
                 new ConcurrentHashMap<>(),
                 doneFuture,
                 () -> {
@@ -207,6 +243,8 @@ public class CheckpointPagesWriterTest {
                 createThreadLocalBuffer(),
                 new CheckpointProgressImpl(0),
                 mock(CheckpointPageWriter.class),
+                pageIoRegistry(),
+                createPartitionFilePageStoreManager(Map.of(groupPartId, partitionPageStore)),
                 () -> checkpointWritePageCount.get() > 0
         );
 
@@ -223,7 +261,7 @@ public class CheckpointPagesWriterTest {
      * @param tryAgainTagFirstPageCount Number of first pages for which the tag value will be {@link PersistentPageMemory#TRY_AGAIN_TAG}.
      * @throws Exception If failed.
      */
-    private static PersistentPageMemory createPageMemoryImpl(int tryAgainTagFirstPageCount) throws Exception {
+    private static PersistentPageMemory createPageMemory(int tryAgainTagFirstPageCount) throws Exception {
         PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
 
         AtomicInteger pageCount = new AtomicInteger();
@@ -275,5 +313,39 @@ public class CheckpointPagesWriterTest {
         when(pageWriter.write(fullPageIdArgumentCaptor.capture(), any(ByteBuffer.class), anyInt())).thenReturn(pageStore);
 
         return pageWriter;
+    }
+
+    private static PartitionFilePageStoreManager createPartitionFilePageStoreManager(
+            Map<GroupPartitionId, PartitionFilePageStore> partitions
+    ) throws Exception {
+        PartitionFilePageStoreManager manager = mock(PartitionFilePageStoreManager.class);
+
+        when(manager.getStore(anyInt(), anyInt())).then(answer -> {
+            GroupPartitionId partitionId = new GroupPartitionId(answer.getArgument(0), answer.getArgument(1));
+
+            PartitionFilePageStore partitionFilePageStore = partitions.get(partitionId);
+
+            assertNotNull(partitionFilePageStore);
+
+            return partitionFilePageStore;
+        });
+
+        return manager;
+    }
+
+    private static PageIoRegistry pageIoRegistry() {
+        PageIoRegistry ioRegistry = new PageIoRegistry();
+
+        ioRegistry.loadFromServiceLoader();
+
+        return ioRegistry;
+    }
+
+    private static FullPageId fullPageId(int grpId, int partId, int pageIdx) {
+        return new FullPageId(pageId(partId, (byte) 0, pageIdx), grpId);
+    }
+
+    private static GroupPartitionId groupPartId(int grpId, int partId) {
+        return new GroupPartitionId(grpId, partId);
     }
 }
