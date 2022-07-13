@@ -85,7 +85,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void appliedIndex(long appliedIndex) throws StorageException {
-        assert appliedIndex > this.appliedIndex;
+//        assert appliedIndex > this.appliedIndex;
 
         this.appliedIndex = appliedIndex;
     }
