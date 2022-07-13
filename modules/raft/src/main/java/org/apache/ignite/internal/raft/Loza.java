@@ -366,7 +366,7 @@ public class Loza implements IgniteComponent {
      * @param grpId RAFT group id.
      * @param nodes Full set of raft group nodes.
      * @return Future that will be completed with an instance of RAFT group service.
-     * @throws NodeStoppingException
+     * @throws NodeStoppingException If node stopping intention was detected.
      */
     public CompletableFuture<RaftGroupService> startRaftGroupService(
             String grpId,

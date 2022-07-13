@@ -73,6 +73,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
 
     /**
      * Applied index value.
+     *
      * @deprecated Not persistent, should be fixed later.
      */
     @Deprecated

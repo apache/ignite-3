@@ -92,6 +92,7 @@ public class RaftGroupOptions {
 
     /**
      * Sets a value of last applied index.
+     *
      * @see #lastAppliedIndex()
      */
     public void lastAppliedIndex(long lastAppliedIndex) {

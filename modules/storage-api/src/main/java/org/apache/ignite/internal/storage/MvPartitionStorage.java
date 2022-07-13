@@ -148,9 +148,10 @@ public interface MvPartitionStorage extends AutoCloseable {
 
     /**
      * Iterates over all versions of all entries, except for tombstones.
+     *
      * @param consumer Closure to process entries.
      * @deprecated This method was bord out of desperation and isn't well-designed. Implementation is not polished either. Currently, it's
-     * only usage is to work-around in-memory PK index rebuild on node restart, which shouldn't even exist in the first place.
+     *      only usage is to work-around in-memory PK index rebuild on node restart, which shouldn't even exist in the first place.
      */
     @Deprecated
     default void forEach(BiConsumer<RowId, BinaryRow> consumer) {

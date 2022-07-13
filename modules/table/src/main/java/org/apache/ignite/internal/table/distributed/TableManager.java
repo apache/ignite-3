@@ -21,7 +21,6 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.internal.utils.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
@@ -511,7 +510,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         movePartition(() -> internalTbl.partitionRaftGroupService(partId)),
                                         rebalanceScheduler),
                                 groupOptions
-                            );
+                        );
                     }
 
                     futures[partId] = raftMgr.startRaftGroupService(
