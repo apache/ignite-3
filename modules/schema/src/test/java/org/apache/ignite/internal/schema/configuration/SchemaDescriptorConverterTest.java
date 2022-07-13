@@ -187,7 +187,7 @@ public class SchemaDescriptorConverterTest {
                         postProcess.apply(SchemaBuilders.column("UUID", ColumnType.UUID)),
                         postProcess.apply(SchemaBuilders.column("STRING", ColumnType.string())),
                         postProcess.apply(SchemaBuilders.column("STRING_FS10", ColumnType.stringOf(10))),
-                        postProcess.apply(SchemaBuilders.column("BLOB", ColumnType.blobOf())),
+                        postProcess.apply(SchemaBuilders.column("BLOB", ColumnType.blob())),
                         postProcess.apply(SchemaBuilders.column("BLOB_FS10", ColumnType.blobOf(10))),
                         postProcess.apply(SchemaBuilders.column("DECIMAL", ColumnType.decimalOf(1, 1))),
                         postProcess.apply(SchemaBuilders.column("NUMBER", ColumnType.numberOf(12))),

@@ -17,17 +17,26 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import static java.math.RoundingMode.HALF_UP;
 import static java.util.Arrays.asList;
 import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.HASH_INDEX_TYPE;
 import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.PARTIAL_INDEX_TYPE;
 import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.SORTED_INDEX_TYPE;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnChange;
@@ -56,8 +65,11 @@ import org.apache.ignite.internal.schema.definition.index.PartialIndexDefinition
 import org.apache.ignite.internal.schema.definition.index.PrimaryKeyDefinitionImpl;
 import org.apache.ignite.internal.schema.definition.index.SortedIndexColumnDefinitionImpl;
 import org.apache.ignite.internal.schema.definition.index.SortedIndexDefinitionImpl;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.ColumnType.DecimalColumnType;
+import org.apache.ignite.schema.definition.ColumnType.VarLenColumnType;
 import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.index.HashIndexDefinition;
@@ -67,6 +79,7 @@ import org.apache.ignite.schema.definition.index.PartialIndexDefinition;
 import org.apache.ignite.schema.definition.index.SortOrder;
 import org.apache.ignite.schema.definition.index.SortedIndexColumnDefinition;
 import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Configuration to schema and vice versa converter.
@@ -75,17 +88,13 @@ public class SchemaConfigurationConverter {
     /**
      * Types map.
      */
-    private static final Map<String, ColumnType> types = new HashMap<>();
+    private static final Map<String, ColumnType> fixSizedTypes = new HashMap<>();
 
     static {
         putType(ColumnType.INT8);
         putType(ColumnType.INT16);
         putType(ColumnType.INT32);
         putType(ColumnType.INT64);
-        putType(ColumnType.UINT8);
-        putType(ColumnType.UINT16);
-        putType(ColumnType.UINT32);
-        putType(ColumnType.UINT64);
         putType(ColumnType.FLOAT);
         putType(ColumnType.DOUBLE);
         putType(ColumnType.UUID);
@@ -99,7 +108,7 @@ public class SchemaConfigurationConverter {
      * @param type Column type.
      */
     private static void putType(ColumnType type) {
-        types.put(type.typeSpec().name(), type);
+        fixSizedTypes.put(type.typeSpec().name(), type);
     }
 
     /**
@@ -232,7 +241,7 @@ public class SchemaConfigurationConverter {
     public static ColumnTypeChange convert(ColumnType colType, ColumnTypeChange colTypeChg) {
         String typeName = colType.typeSpec().name().toUpperCase();
 
-        if (types.containsKey(typeName)) {
+        if (fixSizedTypes.containsKey(typeName)) {
             colTypeChg.changeType(typeName);
         } else {
             colTypeChg.changeType(typeName);
@@ -287,7 +296,7 @@ public class SchemaConfigurationConverter {
      */
     public static ColumnType convert(ColumnTypeView colTypeView) {
         String typeName = colTypeView.type().toUpperCase();
-        ColumnType res = types.get(typeName);
+        ColumnType res = fixSizedTypes.get(typeName);
 
         if (res != null) {
             return res;
@@ -315,7 +324,7 @@ public class SchemaConfigurationConverter {
                     return ColumnType.decimalOf(prec, scale);
 
                 case "NUMBER":
-                    return colTypeView.precision() == 0 ? ColumnType.numberOf() : ColumnType.numberOf(colTypeView.precision());
+                    return colTypeView.precision() == 0 ? ColumnType.number() : ColumnType.numberOf(colTypeView.precision());
 
                 case "TIME":
                     return ColumnType.time(colTypeView.precision());
@@ -343,7 +352,7 @@ public class SchemaConfigurationConverter {
         colChg.changeType(colTypeInit -> convert(col.type(), colTypeInit));
 
         if (col.defaultValue() != null) {
-            colChg.changeDefaultValue(col.defaultValue().toString());
+            colChg.changeDefaultValue(convertDefaultToConfiguration(col.defaultValue(), col.type()));
         }
 
         colChg.changeNullable(col.nullable());
@@ -358,11 +367,14 @@ public class SchemaConfigurationConverter {
      * @return Column.
      */
     public static ColumnDefinition convert(ColumnView colView) {
+        var type = convert(colView.type());
+
         return new ColumnDefinitionImpl(
                 colView.name(),
-                convert(colView.type()),
+                type,
                 colView.nullable(),
-                colView.defaultValue());
+                convertDefaultFromConfiguration(colView.defaultValue(), type)
+        );
     }
 
     /**
@@ -508,5 +520,76 @@ public class SchemaConfigurationConverter {
      */
     public static TableChange dropColumn(String columnName, TableChange tblChange) {
         return tblChange.changeColumns(colChg -> colChg.delete(columnName));
+    }
+
+    private static String convertDefaultToConfiguration(Object defaultValue, ColumnType type) {
+        switch (type.typeSpec()) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case FLOAT:
+            case DOUBLE:
+            case DECIMAL:
+            case DATE:
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+            case NUMBER:
+            case STRING:
+            case UUID:
+                return defaultValue.toString();
+            case BLOB:
+                return IgniteUtils.toHexString((byte[]) defaultValue);
+            case BITMASK:
+                return IgniteUtils.toHexString(((BitSet) defaultValue).toByteArray());
+            default:
+                throw new IllegalStateException("Unknown type [type=" + type + ']');
+        }
+    }
+
+    private static @Nullable Object convertDefaultFromConfiguration(String defaultValue, ColumnType type) {
+        if (defaultValue.isEmpty() && !(type instanceof VarLenColumnType)) {
+            return null;
+        }
+
+        switch (type.typeSpec()) {
+            case INT8:
+                return Byte.parseByte(defaultValue);
+            case INT16:
+                return Short.parseShort(defaultValue);
+            case INT32:
+                return Integer.parseInt(defaultValue);
+            case INT64:
+                return Long.parseLong(defaultValue);
+            case FLOAT:
+                return Float.parseFloat(defaultValue);
+            case DOUBLE:
+                return Double.parseDouble(defaultValue);
+            case DECIMAL:
+                assert type instanceof DecimalColumnType;
+
+                return new BigDecimal(defaultValue).setScale(((DecimalColumnType) type).scale(), HALF_UP);
+            case DATE:
+                return LocalDate.parse(defaultValue);
+            case TIME:
+                return LocalTime.parse(defaultValue);
+            case DATETIME:
+                return LocalDateTime.parse(defaultValue);
+            case TIMESTAMP:
+                return Instant.parse(defaultValue);
+            case NUMBER:
+                return new BigInteger(defaultValue);
+            case STRING:
+                return defaultValue;
+            case UUID:
+                return UUID.fromString(defaultValue);
+            case BLOB:
+                return IgniteUtils.fromHexString(defaultValue);
+            case BITMASK:
+                return BitSet.valueOf(IgniteUtils.fromHexString(defaultValue));
+            default:
+                throw new IllegalStateException("Unknown type [type=" + type + ']');
+        }
     }
 }

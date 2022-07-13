@@ -76,12 +76,6 @@ public class SchemaDescriptorConverter {
             case INT64:
                 return INT64;
 
-            case UINT8:
-            case UINT16:
-            case UINT32:
-            case UINT64:
-                throw new UnsupportedOperationException("Unsigned types are not supported yet.");
-
             case FLOAT:
                 return FLOAT;
 

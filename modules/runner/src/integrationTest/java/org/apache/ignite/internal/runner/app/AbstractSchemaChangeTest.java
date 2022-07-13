@@ -138,7 +138,7 @@ abstract class AbstractSchemaChangeTest {
         assertColumnChangeFailed(grid, "valStr", c -> c.changeType(t -> t.changeType("UNKNOWN_TYPE")));
 
         assertColumnChangeFailed(grid, "valInt",
-                colChanger -> colChanger.changeType(t -> t.changeType(ColumnType.blobOf().typeSpec().name())));
+                colChanger -> colChanger.changeType(t -> t.changeType(ColumnType.blob().typeSpec().name())));
 
         assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeType(t -> t.changePrecision(10)));
         assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeType(t -> t.changeScale(10)));
@@ -197,9 +197,9 @@ abstract class AbstractSchemaChangeTest {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build(),
-                SchemaBuilders.column("valBlob", ColumnType.blobOf()).asNullable(true).build(),
-                SchemaBuilders.column("valDecimal", ColumnType.decimalOf()).asNullable(true).build(),
-                SchemaBuilders.column("valBigInt", ColumnType.numberOf()).asNullable(true).build(),
+                SchemaBuilders.column("valBlob", ColumnType.blob()).asNullable(true).build(),
+                SchemaBuilders.column("valDecimal", ColumnType.decimal()).asNullable(true).build(),
+                SchemaBuilders.column("valBigInt", ColumnType.number()).asNullable(true).build(),
                 SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValueExpression("default").build()
         ).withPrimaryKey("key").build();
 
