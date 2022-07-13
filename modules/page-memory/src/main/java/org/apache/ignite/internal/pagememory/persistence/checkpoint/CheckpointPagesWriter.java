@@ -68,9 +68,7 @@ public class CheckpointPagesWriter implements Runnable {
      */
     private final IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds;
 
-    /**
-     * Queue of dirty partition IDs to update {@link PartitionMetaIo} under this task.
-     */
+    /** Queue of dirty partition IDs to update {@link PartitionMetaIo} under this task. */
     private final IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> updatePartitionIds;
 
     /** Page store used to write -> Count of written pages. */

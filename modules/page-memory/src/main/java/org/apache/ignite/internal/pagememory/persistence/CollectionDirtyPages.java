@@ -18,16 +18,12 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import java.util.Collection;
-import java.util.List;
 import org.apache.ignite.internal.pagememory.FullPageId;
 
 /**
  * Dirty pages collection container.
  */
 public class CollectionDirtyPages {
-    /** Empty container. */
-    public static final CollectionDirtyPages EMPTY = new CollectionDirtyPages(List.of(), List.of());
-
     private final Collection<FullPageId> pageIds;
 
     private final Collection<GroupPartitionId> partitionIds;

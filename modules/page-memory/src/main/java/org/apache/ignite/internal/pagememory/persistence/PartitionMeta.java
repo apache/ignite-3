@@ -37,7 +37,7 @@ public class PartitionMeta {
      * @param treeRootPageId Tree root page ID.
      * @param reuseListRootPageId Reuse list root page ID.
      * @param pageCount Count of pages in the partition.
-     * @param created {@code True} if the partition meta was created, {@code false} if it was read from a partition.
+     * @param created {@code True} if the partition meta was created, {@code false} if it was read from a partition file.
      */
     public PartitionMeta(long treeRootPageId, long reuseListRootPageId, int pageCount, boolean created) {
         this.treeRootPageId = treeRootPageId;
@@ -95,7 +95,7 @@ public class PartitionMeta {
     }
 
     /**
-     * Returns {@code true} if the partition meta was created, {@code false} if it was read from a partition.
+     * Returns {@code true} if the partition meta was created, {@code false} if it was read from a partition file.
      */
     public boolean isCreated() {
         return created;

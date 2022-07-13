@@ -2078,32 +2078,30 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
-     * Returns the container of dirty pages since the last checkpoint. If a dirty page is being written after the checkpointing operation
-     * begun, the modifications will be written to a temporary buffer which will be flushed to the main memory after the checkpointing
-     * finished. This method must be called when no concurrent operations on pages are performed.
+     * Returns the container of dirty page IDs and partition IDs since the last checkpoint. If a dirty page is being written after the
+     * checkpointing operation begun, the modifications will be written to a temporary buffer which will be flushed to the main memory after
+     * the checkpointing finished. This method must be called when no concurrent operations on pages are performed.
      *
      * @param allowToReplace The sign which allows replacing pages from a checkpoint by page replacer.
      * @throws IgniteInternalException If checkpoint has been already started and was not finished.
      */
     public CollectionDirtyPages beginCheckpoint(CompletableFuture<?> allowToReplace) throws IgniteInternalException {
         if (segments == null) {
-            return CollectionDirtyPages.EMPTY;
+            return new CollectionDirtyPages(List.of(), List.of());
         }
 
-        Set<FullPageId>[] dirtyPages = new Set[segments.length];
+        Set<FullPageId>[] dirtyPageIds = new Set[segments.length];
 
-        Set<GroupPartitionId> dirtyPartitions = new HashSet<>();
+        Set<GroupPartitionId> dirtyPartitionIds = new HashSet<>();
 
         for (int i = 0; i < segments.length; i++) {
             Segment segment = segments[i];
 
-            if (segment.checkpointPages != null) {
-                throw new IgniteInternalException("Failed to begin checkpoint (it is already in progress).");
-            }
+            assert segment.checkpointPages == null : "Failed to begin checkpoint (it is already in progress)";
 
-            Set<FullPageId> segmentDirtyPages = (dirtyPages[i] = segment.dirtyPages);
+            Set<FullPageId> segmentDirtyPages = (dirtyPageIds[i] = segment.dirtyPages);
 
-            dirtyPartitions.addAll(segment.dirtyPartitions);
+            dirtyPartitionIds.addAll(segment.dirtyPartitions);
 
             segment.checkpointPages = new CheckpointPages(segmentDirtyPages, allowToReplace);
 
@@ -2112,7 +2110,7 @@ public class PersistentPageMemory implements PageMemory {
 
         safeToUpdate.set(true);
 
-        return new CollectionDirtyPages(CollectionUtils.concat(dirtyPages), dirtyPartitions);
+        return new CollectionDirtyPages(CollectionUtils.concat(dirtyPageIds), dirtyPartitionIds);
     }
 
     /**

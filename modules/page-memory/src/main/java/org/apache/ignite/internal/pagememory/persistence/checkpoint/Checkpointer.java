@@ -379,16 +379,16 @@ public class Checkpointer extends IgniteWorker {
 
         tracker.onPagesWriteStart();
 
-        IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPageIdQueue = checkpointDirtyPages.toDirtyPageIdQueue();
+        IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds = checkpointDirtyPages.toDirtyPageIdQueue();
 
-        IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionIdQueue =
+        IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> updatePartitionIds =
                 checkpointDirtyPages.toDirtyPartitionIdQueue();
 
         for (int i = 0; i < checkpointWritePageThreads; i++) {
             CheckpointPagesWriter write = checkpointPagesWriterFactory.build(
                     tracker,
-                    dirtyPageIdQueue,
-                    dirtyPartitionIdQueue,
+                    writePageIds,
+                    updatePartitionIds,
                     updStores,
                     futures[i] = new CompletableFuture<>(),
                     workProgressDispatcher::updateHeartbeat,

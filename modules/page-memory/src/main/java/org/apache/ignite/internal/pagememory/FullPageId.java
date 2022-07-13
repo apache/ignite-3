@@ -25,11 +25,11 @@ import org.apache.ignite.lang.IgniteStringBuilder;
  * Compound object used to address a page in the global page space.
  * <h3>Page ID structure</h3>
  *
- * <p>Generally, a full page ID consists of a group ID and a page ID. A page ID consists of a page index (32 bits), a partition ID (16
- * bits) and flags (8 bits). Group ID is an integer identifier of a logical pages group, like a SQL table or metadata storage, for example.
- * Page index is a unique page identifier inside of a specific partition of a page group. Set of indexes in the partition represents a
- * continuous range that starts with 0. Higher 8 bits of a page ID are reserved for addressing entries inside data pages or for page ID
- * rotation.
+ * <p>Generally, a full page ID consists of a group ID and a page ID. A page ID consists of a page index (32 bits), a partition ID (16 bits)
+ * and flags (8 bits). Group ID is an integer identifier of a logical pages group, like a SQL table or metadata storage, for example.
+ * Page index is a unique page identifier inside of a specific partition of a page group. Set of indexes in the partition represents
+ * a continuous range that starts with 0. Higher 8 bits of a page ID are reserved for addressing entries inside data pages or for
+ * page ID rotation.
  *
  * <p>Partition ID {@code 0xFFFF} is reserved for index pages.
  *
@@ -43,11 +43,12 @@ import org.apache.ignite.lang.IgniteStringBuilder;
  * </pre>
  *
  * <h3>Page ID rotation</h3>
- * There are scenarios when we reference one page (B) from within another page (A) by page ID. It is also possible that this first page (B)
- * is concurrently reused for a different purpose. In this case we should have a mechanism to determine that the reference from page (A) to
- * page (B) is no longer valid. This is ensured by page ID rotation - together with the ID of page B we write a value that is incremented
- * each time a page is reused. This value should be verified after every page read and the page should be discarded if the full ID is
- * different.
+ * There are scenarios when we reference one page (B) from within another page (A) by page ID. It is also
+ * possible that this first page (B) is concurrently reused for a different purpose. In this
+ * case we should have a mechanism to determine that the reference from page (A) to page (B) is no longer valid.
+ * This is ensured by page ID rotation - together with the ID of page B we write a value that is incremented
+ * each time a page is reused. This value should be verified after every page read and the page
+ * should be discarded if the full ID is different.
  *
  * <p>Effective page ID is a page ID with zeroed bits used for page ID rotation.
  */
@@ -179,7 +180,7 @@ public final class FullPageId {
     }
 
     /**
-     * Returns the page Index.
+     * Returns the page index.
      */
     public int pageIdx() {
         return PageIdUtils.pageIndex(pageId);
