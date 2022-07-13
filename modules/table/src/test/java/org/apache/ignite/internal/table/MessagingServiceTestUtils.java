@@ -28,6 +28,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.tx.TxManager;
@@ -54,7 +56,8 @@ public class MessagingServiceTestUtils {
      */
     public static MessagingService mockMessagingService(
             TxManager txManager,
-            List<PartitionListener> partitionListeners
+            List<PartitionListener> partitionListeners,
+            Function<PartitionListener, AtomicLong> raftIndexFactory
     ) {
         MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
 
@@ -72,7 +75,9 @@ public class MessagingServiceTestUtils {
                             txId, txFinishRequest.commit(), txManager.lockedKeys(txId)
                     );
 
-                    partitionListeners.forEach(partitionListener -> partitionListener.onWrite(iterator(finishTxCommand)));
+                    partitionListeners.forEach(partitionListener ->
+                            partitionListener.onWrite(iterator(finishTxCommand, raftIndexFactory.apply(partitionListener)))
+                    );
 
                     if (txFinishRequest.commit()) {
                         txManager.commitAsync(txId).get();
@@ -88,8 +93,15 @@ public class MessagingServiceTestUtils {
         return messagingService;
     }
 
-    private static <T extends Command> Iterator<CommandClosure<T>> iterator(T obj) {
+    private static <T extends Command> Iterator<CommandClosure<T>> iterator(T obj, AtomicLong raftIndex) {
+        long index = raftIndex.incrementAndGet();
+
         CommandClosure<T> closure = new CommandClosure<>() {
+            @Override
+            public long index() {
+                return index;
+            }
+
             @Override
             public T command() {
                 return obj;

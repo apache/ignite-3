@@ -28,6 +28,7 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -694,13 +695,16 @@ public class RecordBinaryViewOperationsTest {
 
         TxManager txManager = new TxManagerImpl(clusterService, lockManager);
 
+        AtomicLong raftIndex = new AtomicLong();
+
         DummyInternalTableImpl table = new DummyInternalTableImpl(
                 new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
-                txManager);
+                txManager,
+                raftIndex);
 
         List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
 
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners);
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners, pl -> raftIndex);
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
         return new TableImpl(table, new DummySchemaManagerImpl(schema));

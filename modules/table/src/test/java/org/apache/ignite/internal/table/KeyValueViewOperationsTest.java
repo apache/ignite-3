@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -633,12 +634,14 @@ public class KeyValueViewOperationsTest {
 
         TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager());
 
+        AtomicLong raftIndex = new AtomicLong();
+
         DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager), txManager);
+                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager), txManager, raftIndex);
 
         List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
 
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners);
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners, pl -> raftIndex);
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
         Mapper<TestKeyObject> keyMapper = Mapper.of(TestKeyObject.class);

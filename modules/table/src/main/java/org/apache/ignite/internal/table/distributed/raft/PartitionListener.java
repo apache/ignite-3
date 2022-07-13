@@ -137,8 +137,14 @@ public class PartitionListener implements RaftGroupListener {
 
             long newAppliedIndex = clo.index();
 
+            long currentAppliedIndex = storage.appliedIndex();
+
+            assert currentAppliedIndex < newAppliedIndex
+                    : "Pending write command has a higher index than already processed commands [newAppliedIndex=" + newAppliedIndex
+                    + ", currentAppliedIndex=" + currentAppliedIndex + ']';
+
             // TODO IGNITE-17081 IGNITE-17077
-            // Applied index is set non-atomically. This is wrong and non-recoverable behavior. Will be fixed later.
+            // Applied index is set non-atomically. This is a wrong and non-recoverable behavior. Will be fixed later.
             storage.appliedIndex(newAppliedIndex);
 
             if (command instanceof InsertCommand) {

@@ -503,7 +503,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public void forEach(BiConsumer<RowId, BinaryRow> consumer) {
-        // No-op. Nothing to recover for a volatile storage. See useages and a comment about PK index rebuild.
+        // No-op. Nothing to recover for a volatile storage. See usages and a comment about PK index rebuild.
     }
 
     /** {@inheritDoc} */

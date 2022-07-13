@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -66,7 +67,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param store The store.
      * @param txManager Transaction manager.
      */
-    public DummyInternalTableImpl(VersionedRowStore store, TxManager txManager) {
+    public DummyInternalTableImpl(VersionedRowStore store, TxManager txManager, AtomicLong raftIndex) {
         super("test", UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                 1, null, null, txManager, mock(MvTableStorage.class));
@@ -80,6 +81,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         doAnswer(
                 invocationClose -> {
                     Command cmd = invocationClose.getArgument(0);
+
+                    long index = raftIndex.incrementAndGet();
 
                     CompletableFuture res = new CompletableFuture();
 
@@ -109,6 +112,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                     }
                                 } else {
                                     CommandClosure<WriteCommand> clo = new CommandClosure<>() {
+                                        @Override
+                                        public long index() {
+                                            return index;
+                                        }
+
                                         @Override
                                         public WriteCommand command() {
                                             return (WriteCommand) cmd;
