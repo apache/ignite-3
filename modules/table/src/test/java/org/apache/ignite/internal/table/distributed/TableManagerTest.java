@@ -274,7 +274,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testPreconfiguredTable() throws Exception {
-        when(rm.updateRaftGroup(any(), any(), any(), any(), any(), any())).thenAnswer(mock ->
+        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock ->
                 CompletableFuture.completedFuture(mock(RaftGroupService.class)));
 
         TableManager tableManager = createTableManager(tblManagerFut, false);
@@ -450,7 +450,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
-        verify(rm, times(PARTITIONS)).updateRaftGroup(anyString(), any(), any(), any(), any(), any());
+        verify(rm, times(PARTITIONS)).startRaftGroupService(anyString(), any());
 
         TableManager tableManager = tblManagerFut.join();
 
@@ -559,7 +559,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             CompletableFuture<TableManager> tblManagerFut,
             Phaser phaser
     ) throws Exception {
-        when(rm.updateRaftGroup(any(), any(), any(), any(), any(), any())).thenAnswer(mock -> {
+        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
@@ -628,8 +628,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertFalse(tbl2Fut.isDone());
 
         assertTrue(createTblLatch.await(10, TimeUnit.SECONDS));
-
-        assertFalse(tbl2Fut.isDone());
 
         TableImpl tbl2 = (TableImpl) tbl2Fut.get();
 
