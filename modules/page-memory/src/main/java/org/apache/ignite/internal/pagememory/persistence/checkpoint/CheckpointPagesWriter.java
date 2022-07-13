@@ -264,18 +264,12 @@ public class CheckpointPagesWriter implements Runnable {
 
             long partitionMetaPageId = pageMemory.partitionMetaPageId(partitionId.getGroupId(), partitionId.getPartitionId());
 
-            boolean readPartitionMetaPage = partitionFilePageStore.read(partitionMetaPageId, buffer.rewind(), false);
-
-            assert readPartitionMetaPage : partitionId;
-
             long pageAddr = GridUnsafe.bufferAddress(buffer);
 
-            // PartitionMetaIo has not been written yet.
-            if (getType(pageAddr) == 0) {
-                PartitionMetaIo.VERSIONS.latest().initNewPage(pageAddr, partitionMetaPageId, buffer.capacity());
-            }
+            // TODO: IGNITE-16657 Merger will put the page into a partition file.
+            PartitionMetaIo io = PartitionMetaIo.VERSIONS.latest();
 
-            PartitionMetaIo io = ioRegistry.resolve(pageAddr);
+            io.initNewPage(pageAddr, partitionMetaPageId, buffer.capacity());
 
             PartitionMeta meta = partitionFilePageStore.meta();
 
