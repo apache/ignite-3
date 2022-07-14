@@ -307,6 +307,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         if (status == 0) {
             pendingReq.complete(unpacker);
         } else {
+            // TODO: IGNITE-17312
             var errMsg = unpacker.unpackString();
             unpacker.close();
 
