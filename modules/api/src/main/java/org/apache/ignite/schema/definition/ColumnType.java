@@ -36,18 +36,6 @@ public class ColumnType {
     /** 64-bit signed int. */
     public static final ColumnType INT64 = new ColumnType(ColumnTypeSpec.INT64);
 
-    /** 8-bit unsigned int. */
-    public static final ColumnType UINT8 = new ColumnType(ColumnTypeSpec.UINT8);
-
-    /** 16-bit unsigned int. */
-    public static final ColumnType UINT16 = new ColumnType(ColumnTypeSpec.UINT16);
-
-    /** 32-bit unsigned int. */
-    public static final ColumnType UINT32 = new ColumnType(ColumnTypeSpec.UINT32);
-
-    /** 64-bit unsigned int. */
-    public static final ColumnType UINT64 = new ColumnType(ColumnTypeSpec.UINT64);
-
     /** 32-bit float. */
     public static final ColumnType FLOAT = new ColumnType(ColumnTypeSpec.FLOAT);
 
@@ -95,7 +83,7 @@ public class ColumnType {
      * @return Blob type.
      * @see #blobOf(int)
      */
-    public static VarLenColumnType blobOf() {
+    public static VarLenColumnType blob() {
         return VarLenColumnType.UNLIMITED_BLOB;
     }
 
@@ -130,7 +118,7 @@ public class ColumnType {
      * @return Number type.
      * @see #numberOf(int)
      */
-    public static NumberColumnType numberOf() {
+    public static NumberColumnType number() {
         return NumberColumnType.UNLIMITED_NUMBER;
     }
 
@@ -165,7 +153,7 @@ public class ColumnType {
      * @return Decimal type.
      * @see #decimalOf(int, int)
      */
-    public static DecimalColumnType decimalOf() {
+    public static DecimalColumnType decimal() {
         return new DecimalColumnType(
                 ColumnTypeSpec.DECIMAL,
                 DecimalColumnType.DEFAULT_PRECISION,
@@ -550,18 +538,6 @@ public class ColumnType {
 
         /** 64-bit signed integer. */
         INT64,
-
-        /** 8-bit unsigned integer. */
-        UINT8,
-
-        /** 16-bit unsigned integer. */
-        UINT16,
-
-        /** 32-bit unsigned integer. */
-        UINT32,
-
-        /** 64-bit unsigned integer. */
-        UINT64,
 
         /** 32-bit single-precision floating-point number. */
         FLOAT,

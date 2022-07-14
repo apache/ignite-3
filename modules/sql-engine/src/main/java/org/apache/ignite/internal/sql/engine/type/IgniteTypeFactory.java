@@ -226,7 +226,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                         ColumnType.stringOf(relType.getPrecision());
             case BINARY:
             case VARBINARY:
-                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.blobOf() :
+                return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.blob() :
                         ColumnType.blobOf(relType.getPrecision());
             default:
                 throw new IllegalArgumentException("Type is not supported.");

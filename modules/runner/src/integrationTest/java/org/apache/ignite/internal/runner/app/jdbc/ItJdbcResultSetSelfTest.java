@@ -83,13 +83,13 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
         columns.add(SchemaBuilders.column("LONGVAL", ColumnType.INT64).asNullable(true).build());
         columns.add(SchemaBuilders.column("FLOATVAL", ColumnType.FLOAT).asNullable(true).build());
         columns.add(SchemaBuilders.column("DOUBLEVAL", ColumnType.DOUBLE).asNullable(true).build());
-        columns.add(SchemaBuilders.column("BIGVAL", ColumnType.decimalOf()).asNullable(true).build());
+        columns.add(SchemaBuilders.column("BIGVAL", ColumnType.decimal()).asNullable(true).build());
         columns.add(SchemaBuilders.column("STRVAL", ColumnType.string()).asNullable(true).build());
-        columns.add(SchemaBuilders.column("ARRVAL", ColumnType.blobOf()).asNullable(true).build());
+        columns.add(SchemaBuilders.column("ARRVAL", ColumnType.blob()).asNullable(true).build());
         columns.add(SchemaBuilders.column("DATEVAL", ColumnType.DATE).asNullable(true).build());
         columns.add(SchemaBuilders.column("TIMEVAL", ColumnType.TemporalColumnType.time()).asNullable(true).build());
         columns.add(SchemaBuilders.column("TSVAL", ColumnType.TemporalColumnType.timestamp()).asNullable(true).build());
-        columns.add(SchemaBuilders.column("URLVAL", ColumnType.blobOf()).asNullable(true).build());
+        columns.add(SchemaBuilders.column("URLVAL", ColumnType.blob()).asNullable(true).build());
 
         TableDefinition personTableDef = SchemaBuilders.tableBuilder("PUBLIC", "TEST")
                 .columns(columns)

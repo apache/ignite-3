@@ -17,29 +17,86 @@
 
 package org.apache.ignite.internal.schema.serializer;
 
+import static java.math.RoundingMode.HALF_UP;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.internal.schema.marshaller.schema.AbstractSchemaSerializer;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
+import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.schema.definition.ColumnType.DecimalColumnType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * SchemaDescriptor (de)serializer test.
  */
 public class AbstractSerializerTest {
+    protected static final Map<NativeTypeSpec, List<Object>> DEFAULT_VALUES_TO_TEST;
+
+    static {
+        var tmp = new HashMap<NativeTypeSpec, List<Object>>();
+
+        tmp.put(NativeTypeSpec.INT8, Arrays.asList(null, Byte.MIN_VALUE, Byte.MAX_VALUE, (byte) 14));
+        tmp.put(NativeTypeSpec.INT16, Arrays.asList(null, Short.MIN_VALUE, Short.MAX_VALUE, (short) 14));
+        tmp.put(NativeTypeSpec.INT32, Arrays.asList(null, Integer.MIN_VALUE, Integer.MAX_VALUE, 14));
+        tmp.put(NativeTypeSpec.INT64, Arrays.asList(null, Long.MIN_VALUE, Long.MAX_VALUE, 14L));
+        tmp.put(NativeTypeSpec.FLOAT, Arrays.asList(null, Float.MIN_VALUE, Float.MAX_VALUE, Float.NaN,
+                Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY, 14.14f));
+        tmp.put(NativeTypeSpec.DOUBLE, Arrays.asList(null, Double.MIN_VALUE, Double.MAX_VALUE, Double.NaN,
+                Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, 14.14));
+        tmp.put(NativeTypeSpec.DECIMAL, Arrays.asList(null, BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.valueOf(Long.MIN_VALUE),
+                BigDecimal.valueOf(Long.MAX_VALUE), new BigDecimal("10000000000000000000000000000000000000")));
+        tmp.put(NativeTypeSpec.DATE, Arrays.asList(null, LocalDate.MIN, LocalDate.MAX, LocalDate.EPOCH, LocalDate.now()));
+        tmp.put(NativeTypeSpec.TIME, Arrays.asList(null, LocalTime.MIN, LocalTime.MAX, LocalTime.MIDNIGHT,
+                LocalTime.NOON, LocalTime.now()));
+        tmp.put(NativeTypeSpec.DATETIME, Arrays.asList(null, LocalDateTime.MIN, LocalDateTime.MAX, LocalDateTime.now()));
+        tmp.put(NativeTypeSpec.TIMESTAMP, Arrays.asList(null, Instant.MIN, Instant.MAX, Instant.EPOCH, Instant.now()));
+        tmp.put(NativeTypeSpec.UUID, Arrays.asList(null, UUID.randomUUID()));
+        tmp.put(NativeTypeSpec.BITMASK, Arrays.asList(null, fromBinString(""), fromBinString("1"),
+                fromBinString("10101010101010101010101")));
+        tmp.put(NativeTypeSpec.STRING, Arrays.asList(null, "", UUID.randomUUID().toString()));
+        tmp.put(NativeTypeSpec.BYTES, Arrays.asList(null, ArrayUtils.BYTE_EMPTY_ARRAY, UUID.randomUUID().toString().getBytes(
+                StandardCharsets.UTF_8)));
+        tmp.put(NativeTypeSpec.NUMBER, Arrays.asList(null, BigInteger.ONE, BigInteger.ZERO,
+                new BigInteger("10000000000000000000000000000000000000")));
+
+        var missedTypes = new HashSet<>(Arrays.asList(NativeTypeSpec.values()));
+
+        missedTypes.removeAll(tmp.keySet());
+
+        assertThat(missedTypes, empty());
+
+        DEFAULT_VALUES_TO_TEST = Map.copyOf(tmp);
+    }
+
     /**
      * (de)Serialize schema test.
      */
@@ -122,26 +179,20 @@ public class AbstractSerializerTest {
     /**
      * (de)Serialize default value test.
      */
-    @Test
-    public void defaultValueSerializeTest() {
+    @ParameterizedTest
+    @MethodSource("generateTestArguments")
+    public void defaultValueSerialization(DefaultValueArg arg) {
         AbstractSchemaSerializer assembler = SchemaSerializerImpl.INSTANCE;
+
+        var columnName = arg.type.spec().name();
+        var nullable = arg.defaultValue == null;
 
         SchemaDescriptor desc = new SchemaDescriptor(100500,
                 new Column[]{
-                        new Column("A", NativeTypes.INT8, false, () -> (byte) 1),
-                        new Column("B", NativeTypes.INT16, false, () -> (short) 1),
-                        new Column("C", NativeTypes.INT32, false, () -> 1),
-                        new Column("D", NativeTypes.INT64, false, () -> 1L),
-                        new Column("E", NativeTypes.UUID, false, () -> new UUID(12, 34)),
-                        new Column("F", NativeTypes.FLOAT, false, () -> 1.0f),
-                        new Column("G", NativeTypes.DOUBLE, false, () -> 1.0d),
-                        new Column("H", NativeTypes.DATE, false),
+                        new Column("ID", NativeTypes.INT8, false)
                 },
                 new Column[]{
-                        new Column("A1", NativeTypes.stringOf(128), false, () -> "test"),
-                        new Column("B1", NativeTypes.numberOf(255), false, () -> BigInteger.TEN),
-                        new Column("C1", NativeTypes.decimalOf(128, 64), false, () -> BigDecimal.TEN),
-                        new Column("D1", NativeTypes.bitmaskOf(256), false, BitSet::new)
+                        new Column(columnName, arg.type, nullable, () -> arg.defaultValue)
                 }
         );
 
@@ -149,21 +200,13 @@ public class AbstractSerializerTest {
 
         SchemaDescriptor deserialize = assembler.deserialize(serialize);
 
-        //key columns
-        assertEquals(deserialize.column("A").defaultValue(), (byte) 1);
-        assertEquals(deserialize.column("B").defaultValue(), (short) 1);
-        assertEquals(deserialize.column("C").defaultValue(), 1);
-        assertEquals(deserialize.column("D").defaultValue(), 1L);
-        assertEquals(deserialize.column("E").defaultValue(), new UUID(12, 34));
-        assertEquals(deserialize.column("F").defaultValue(), 1.0f);
-        assertEquals(deserialize.column("G").defaultValue(), 1.0d);
-        assertNull(deserialize.column("H").defaultValue());
+        assertThat(deserialize.keyColumns().length(), equalTo(1));
 
-        //value columns
-        assertEquals(deserialize.column("A1").defaultValue(), "test");
-        assertEquals(deserialize.column("B1").defaultValue(), BigInteger.TEN);
-        assertEquals(deserialize.column("C1").defaultValue(), BigDecimal.TEN);
-        assertEquals(deserialize.column("D1").defaultValue(), new BitSet());
+        var column = deserialize.valueColumns().columns()[0];
+
+        assertThat(column.name(), equalTo(columnName));
+        assertThat(column.nullable(), equalTo(nullable));
+        assertThat(column.defaultValue(), equalTo(arg.defaultValue));
     }
 
     /**
@@ -201,5 +244,135 @@ public class AbstractSerializerTest {
 
         assertEquals(1, mapper1.map(0));
         assertEquals(c1, mapper1.mappedColumn(2));
+    }
+
+    private static Iterable<DefaultValueArg> generateTestArguments() {
+        var paramList = new ArrayList<DefaultValueArg>();
+
+        for (var entry : DEFAULT_VALUES_TO_TEST.entrySet()) {
+            for (var defaultValue : entry.getValue()) {
+                paramList.add(
+                        new DefaultValueArg(specToType(entry.getKey()), adjust(defaultValue))
+                );
+            }
+        }
+        return paramList;
+    }
+
+    /**
+     * Adjust the given value.
+     *
+     * <p>Some values need to be adjusted before comparison. For example, decimal values should be adjusted
+     * in order to have the same scale, because '1.0' not equals to '1.00'.
+     *
+     * @param val Value to adjust.
+     * @param <T> Type of te value.
+     * @return Adjusted value.
+     */
+    @SuppressWarnings("unchecked")
+    protected static <T> T adjust(T val) {
+        if (val instanceof BigDecimal) {
+            return (T) ((BigDecimal) val).setScale(DecimalColumnType.DEFAULT_SCALE, HALF_UP);
+        }
+
+        return val;
+    }
+
+    /** Creates a column type from given type spec. */
+    protected static NativeType specToType(NativeTypeSpec spec) {
+        switch (spec) {
+            case INT8:
+                return NativeTypes.INT8;
+            case INT16:
+                return NativeTypes.INT16;
+            case INT32:
+                return NativeTypes.INT32;
+            case INT64:
+                return NativeTypes.INT64;
+            case FLOAT:
+                return NativeTypes.FLOAT;
+            case DOUBLE:
+                return NativeTypes.DOUBLE;
+            case DECIMAL:
+                return NativeTypes.decimalOf(DecimalColumnType.DEFAULT_PRECISION, DecimalColumnType.DEFAULT_SCALE);
+            case DATE:
+                return NativeTypes.DATE;
+            case TIME:
+                return NativeTypes.time();
+            case DATETIME:
+                return NativeTypes.datetime();
+            case TIMESTAMP:
+                return NativeTypes.timestamp();
+            case NUMBER:
+                return NativeTypes.numberOf(DecimalColumnType.DEFAULT_PRECISION);
+            case STRING:
+                return NativeTypes.stringOf(Byte.MAX_VALUE);
+            case UUID:
+                return NativeTypes.UUID;
+            case BYTES:
+                return NativeTypes.blobOf(Byte.MAX_VALUE);
+            case BITMASK:
+                return NativeTypes.bitmaskOf(Byte.MAX_VALUE);
+            default:
+                throw new IllegalStateException("Unknown type spec [spec=" + spec + ']');
+        }
+    }
+
+    /** Creates a bit set from binary string. */
+    private static BitSet fromBinString(String binString) {
+        var bs = new BitSet();
+
+        var idx = 0;
+        for (var c : binString.toCharArray()) {
+            if (c == '1') {
+                bs.set(idx);
+            }
+
+            idx++;
+        }
+
+        return bs;
+    }
+
+    /**
+     * Converts the given value to a string representation.
+     *
+     * <p>Convenient method to convert a value to a string. Some types don't override
+     * {@link Object#toString()} method (any array, for instance), hence should be converted to a string manually.
+     */
+    private static String toString(Object val) {
+        if (val instanceof byte[]) {
+            return Arrays.toString((byte[]) val);
+        }
+
+        if (val == null) {
+            return "null";
+        }
+
+        return val.toString();
+    }
+
+    /**
+     * Class represents a default value of particular type.
+     */
+    private static class DefaultValueArg {
+        final NativeType type;
+        final Object defaultValue;
+
+        /**
+         * Constructor.
+         *
+         * @param type Type of the value
+         * @param defaultValue value itself.
+         */
+        public DefaultValueArg(NativeType type, Object defaultValue) {
+            this.type = type;
+            this.defaultValue = defaultValue;
+        }
+
+        @Override
+        public String toString() {
+            return type.spec().name() + ": " + AbstractSerializerTest.toString(defaultValue);
+        }
     }
 }
