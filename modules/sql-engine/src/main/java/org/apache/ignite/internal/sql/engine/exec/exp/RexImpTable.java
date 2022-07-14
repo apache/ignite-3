@@ -244,6 +244,9 @@ public class RexImpTable {
 
     private final Map<SqlOperator, RexCallImplementor> map = new HashMap<>();
 
+    /** Placeholder for DEFAULT operator value. */
+    public static final Object DEFAULT_VALUE_PLACEHOLDER = new DefaultValuePlaceholder();
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -2477,7 +2480,7 @@ public class RexImpTable {
         @Override
         Expression implementSafe(final RexToLixTranslator translator,
                 final RexCall call, final List<Expression> argValueList) {
-            return Expressions.constant(null);
+            return Expressions.field(null, RexImpTable.class, "DEFAULT_VALUE_PLACEHOLDER");
         }
     }
 
@@ -2548,5 +2551,12 @@ public class RexImpTable {
                 return implementor.implement(translator, call, argValueList);
             }
         };
+    }
+
+    private static class DefaultValuePlaceholder {
+        @Override
+        public String toString() {
+            return "DEFAULT";
+        }
     }
 }

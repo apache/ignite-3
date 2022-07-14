@@ -775,6 +775,8 @@ class RelJson {
                     literal = toEnum(literal);
                 } else if (type.getSqlTypeName().getFamily() == SqlTypeFamily.BINARY) {
                     literal = toByteString(literal);
+                } else if (type.getSqlTypeName().getFamily() == SqlTypeFamily.TIMESTAMP && literal instanceof Integer) {
+                    literal = ((Integer) literal).longValue();
                 }
 
                 return rexBuilder.makeLiteral(literal, type, true);
