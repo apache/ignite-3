@@ -22,6 +22,11 @@ import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -48,6 +53,9 @@ import org.apache.calcite.sql.ddl.SqlDropTable;
 import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.util.DateString;
+import org.apache.calcite.util.TimeString;
+import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn;
@@ -263,7 +271,7 @@ public class DdlSqlToCommandConverter {
 
             Object dflt = null;
             if (col.expression != null) {
-                dflt = ((SqlLiteral) col.expression).getValue();
+                dflt = fromLiteral(relType, ((SqlLiteral) col.expression));
             }
 
             cols.add(new ColumnDefinition(name, relType, dflt));
@@ -556,5 +564,53 @@ public class DdlSqlToCommandConverter {
 
     private TableOptionInfo<?> dataStorageFieldOptionInfo(Entry<String, Class<?>> e) {
         return new TableOptionInfo<>(e.getKey(), e.getValue(), null, (cmd, o) -> cmd.addDataStorageOption(e.getKey(), o));
+    }
+
+    /**
+     * Creates a value of required type from the literal.
+     */
+    private static Object fromLiteral(RelDataType columnType, SqlLiteral literal) {
+        switch (columnType.getSqlTypeName()) {
+            case VARCHAR:
+            case CHAR:
+                return literal.getValueAs(String.class);
+            case DATE:
+                return LocalDate.ofEpochDay(literal.getValueAs(DateString.class).getDaysSinceEpoch());
+            case TIME:
+                return LocalTime.ofNanoOfDay(literal.getValueAs(TimeString.class).getMillisOfDay() * 1_000_000L);
+            case TIMESTAMP: {
+                var tsString = literal.getValueAs(TimestampString.class);
+
+                return LocalDateTime.ofEpochSecond(
+                        tsString.getMillisSinceEpoch() / 1000,
+                        (int) (tsString.getMillisSinceEpoch() % 1000 * 1_000_000),
+                        ZoneOffset.UTC
+                );
+            }
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE: {
+                // TODO: IGNITE-17376
+                throw new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-17376");
+            }
+            case INTEGER:
+                return literal.getValueAs(Integer.class);
+            case BIGINT:
+                return literal.getValueAs(Long.class);
+            case SMALLINT:
+                return literal.getValueAs(Short.class);
+            case TINYINT:
+                return literal.getValueAs(Byte.class);
+            case DECIMAL:
+                return literal.getValueAs(BigDecimal.class);
+            case DOUBLE:
+                return literal.getValueAs(Double.class);
+            case REAL:
+            case FLOAT:
+                return literal.getValueAs(Float.class);
+            case BINARY:
+            case VARBINARY:
+                return literal.getValueAs(byte[].class);
+            default:
+                throw new IllegalStateException("Unknown type [type=" + columnType + ']');
+        }
     }
 }

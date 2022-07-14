@@ -62,6 +62,8 @@ public class TypeUtils {
     private static final Set<SqlTypeName> CONVERTABLE_TYPES = EnumSet.of(
             SqlTypeName.DATE,
             SqlTypeName.TIME,
+            SqlTypeName.BINARY,
+            SqlTypeName.VARBINARY,
             SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE,
             SqlTypeName.TIMESTAMP,
             SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE,
@@ -249,7 +251,9 @@ public class TypeUtils {
         } else if (storageType == LocalTime.class) {
             return (int) (((LocalTime) val).toNanoOfDay() / 1000 / 1000 /* convert to millis */);
         } else if (storageType == LocalDateTime.class) {
-            return ((LocalDateTime) val).toEpochSecond(ZoneOffset.UTC);
+            var dt = (LocalDateTime) val;
+
+            return dt.toEpochSecond(ZoneOffset.UTC) * 1000 + dt.getNano() / 1000 / 1000 /* convert to millis */;
         } else if (storageType == Duration.class) {
             return TimeUnit.SECONDS.toMillis(((Duration) val).getSeconds())
                     + TimeUnit.NANOSECONDS.toMillis(((Duration) val).getNano());
