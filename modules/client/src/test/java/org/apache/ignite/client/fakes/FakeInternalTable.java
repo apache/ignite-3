@@ -34,7 +34,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -63,7 +62,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull MvTableStorage storage() {
+    public MvTableStorage storage() {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
@@ -75,13 +74,13 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull UUID tableId() {
+    public UUID tableId() {
         return tableId;
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull String name() {
+    public String name() {
         return tableName;
     }
 
@@ -266,13 +265,13 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
+    public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull List<String> assignments() {
+    public List<String> assignments() {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 

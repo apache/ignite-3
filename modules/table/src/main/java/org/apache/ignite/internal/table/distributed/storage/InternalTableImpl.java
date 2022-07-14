@@ -147,7 +147,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull MvTableStorage storage() {
+    public MvTableStorage storage() {
         return tableStorage;
     }
 
@@ -159,7 +159,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull UUID tableId() {
+    public UUID tableId() {
         return tableId;
     }
 
@@ -358,7 +358,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
+    public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
         if (p < 0 || p >= partitions) {
             throw new IllegalArgumentException(
                     IgniteStringFormatter.format(
@@ -391,7 +391,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull List<String> assignments() {
+    public List<String> assignments() {
         awaitLeaderInitialization();
 
         return partitionMap.int2ObjectEntrySet().stream()
