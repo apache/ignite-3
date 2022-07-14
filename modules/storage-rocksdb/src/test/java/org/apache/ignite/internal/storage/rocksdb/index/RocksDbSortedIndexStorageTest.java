@@ -180,9 +180,9 @@ public class RocksDbSortedIndexStorageTest {
                 ColumnType.DATE,
                 ColumnType.bitmaskOf(32),
                 ColumnType.string(),
-                ColumnType.blobOf(),
-                ColumnType.numberOf(),
-                ColumnType.decimalOf(),
+                ColumnType.blob(),
+                ColumnType.number(),
+                ColumnType.decimal(),
                 ColumnType.time(),
                 ColumnType.datetime(),
                 ColumnType.timestamp()
