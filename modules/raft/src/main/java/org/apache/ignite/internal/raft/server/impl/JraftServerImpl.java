@@ -497,16 +497,19 @@ public class JraftServerImpl implements RaftServer {
                         long index = iter.getIndex();
 
                         return new CommandClosure<>() {
+                            /** {@inheritDoc} */
                             @Override
-                            public long index() {
+                            public long appliedIndex() {
                                 return index;
                             }
 
+                            /** {@inheritDoc} */
                             @Override
                             public WriteCommand command() {
                                 return command;
                             }
 
+                            /** {@inheritDoc} */
                             @Override
                             public void result(Serializable res) {
                                 if (done != null) {

@@ -135,7 +135,7 @@ public class PartitionListener implements RaftGroupListener {
                 return;
             }
 
-            long newAppliedIndex = clo.index();
+            long newAppliedIndex = clo.appliedIndex();
 
             long currentAppliedIndex = storage.appliedIndex();
 

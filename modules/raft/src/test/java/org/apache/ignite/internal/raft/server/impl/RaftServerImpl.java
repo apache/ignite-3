@@ -238,21 +238,25 @@ public class RaftServerImpl implements RaftServer {
         long index = req.command() instanceof ReadCommand ? 0 : appliedIndex.incrementAndGet();
 
         if (!queue.offer(new CommandClosureEx<>() {
+            /** {@inheritDoc} */
             @Override
             public RaftGroupListener listener() {
                 return lsnr;
             }
 
+            /** {@inheritDoc} */
             @Override
-            public long index() {
+            public long appliedIndex() {
                 return index;
             }
 
+            /** {@inheritDoc} */
             @Override
             public T command() {
                 return (T) req.command();
             }
 
+            /** {@inheritDoc} */
             @Override
             public void result(Serializable res) {
                 NetworkMessage msg;

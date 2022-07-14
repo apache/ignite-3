@@ -99,15 +99,17 @@ public class MessagingServiceTestUtils {
         CommandClosure<T> closure = new CommandClosure<>() {
             /** {@inheritDoc} */
             @Override
-            public long index() {
+            public long appliedIndex() {
                 return index;
             }
 
+            /** {@inheritDoc} */
             @Override
             public T command() {
                 return obj;
             }
 
+            /** {@inheritDoc} */
             @Override
             public void result(@Nullable Serializable res) {
                 // no-op.

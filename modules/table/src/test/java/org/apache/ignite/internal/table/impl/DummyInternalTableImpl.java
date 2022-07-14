@@ -114,15 +114,17 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                     CommandClosure<WriteCommand> clo = new CommandClosure<>() {
                                         /** {@inheritDoc} */
                                         @Override
-                                        public long index() {
+                                        public long appliedIndex() {
                                             return index;
                                         }
 
+                                        /** {@inheritDoc} */
                                         @Override
                                         public WriteCommand command() {
                                             return (WriteCommand) cmd;
                                         }
 
+                                        /** {@inheritDoc} */
                                         @Override
                                         public void result(@Nullable Serializable r) {
                                             res.complete(r);
