@@ -34,6 +34,8 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.SystemTimeProvider;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -180,7 +182,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
         for (int i = 0; i < nodes; i++) {
-            var raftSrv = new Loza(cluster.get(i), workDir.resolve("node" + i));
+            var raftSrv = new Loza(cluster.get(i), workDir.resolve("node" + i), new HybridClock(new SystemTimeProvider()));
 
             raftSrv.start();
 

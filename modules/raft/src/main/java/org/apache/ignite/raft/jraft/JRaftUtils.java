@@ -21,8 +21,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
-import org.apache.ignite.hlc.SystemHybridClock;
-import org.apache.ignite.hlc.SystemTimeProvider;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -57,7 +55,7 @@ public final class JRaftUtils {
      * @return true if bootstrap success
      */
     public static boolean bootstrap(final BootstrapOptions opts) throws InterruptedException {
-        final NodeImpl node = new NodeImpl("bootstrap", new PeerId("127.0.0.1", 0), new SystemHybridClock(new SystemTimeProvider()));
+        final NodeImpl node = new NodeImpl("bootstrap", new PeerId("127.0.0.1", 0));
 
         NodeOptions nodeOpts = opts.getNodeOptions();
 

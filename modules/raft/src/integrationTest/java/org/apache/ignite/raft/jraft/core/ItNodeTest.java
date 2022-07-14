@@ -66,8 +66,8 @@ import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.hlc.SystemHybridClock;
-import org.apache.ignite.hlc.TestTimeProvider;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.SystemTimeProvider;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
@@ -88,7 +88,6 @@ import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
 import org.apache.ignite.raft.jraft.closure.SynchronizedClosure;
 import org.apache.ignite.raft.jraft.closure.TaskClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
-import org.apache.ignite.raft.jraft.core.Replicator.RpcResponse;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
@@ -103,8 +102,6 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.ReadOnlyOption;
 import org.apache.ignite.raft.jraft.rpc.AppendEntriesRequestImpl;
 import org.apache.ignite.raft.jraft.rpc.AppendEntriesResponseImpl;
-import org.apache.ignite.raft.jraft.rpc.RequestVoteRequestImpl;
-import org.apache.ignite.raft.jraft.rpc.RequestVoteResponseImpl;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
@@ -2931,7 +2928,7 @@ public class ItNodeTest {
             }
         };
         logStorageProvider.start();
-        opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageProvider));
+        opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageProvider, new HybridClock(new SystemTimeProvider())));
         opts.setLastLogIndex(fsm.getLogs().size());
         opts.setRaftMetaUri(dataPath + File.separator + "meta");
         opts.setSnapshotUri(dataPath + File.separator + "snapshot");
@@ -2952,7 +2949,7 @@ public class ItNodeTest {
             }
         };
         log2.start();
-        nodeOpts.setServiceFactory(new DefaultJRaftServiceFactory(log2));
+        nodeOpts.setServiceFactory(new DefaultJRaftServiceFactory(log2, new HybridClock(new SystemTimeProvider())));
         nodeOpts.setFsm(fsm);
 
         RaftGroupService service = createService("test", new PeerId(addr, 0), nodeOpts);
@@ -2985,7 +2982,7 @@ public class ItNodeTest {
             }
         };
         logStorageProvider.start();
-        opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageProvider));
+        opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageProvider, new HybridClock(new SystemTimeProvider())));
         opts.setLastLogIndex(0);
         opts.setRaftMetaUri(dataPath + File.separator + "meta");
         opts.setSnapshotUri(dataPath + File.separator + "snapshot");
@@ -3006,7 +3003,7 @@ public class ItNodeTest {
             }
         };
         log2.start();
-        nodeOpts.setServiceFactory(new DefaultJRaftServiceFactory(log2));
+        nodeOpts.setServiceFactory(new DefaultJRaftServiceFactory(log2, new HybridClock(new SystemTimeProvider())));
 
         RaftGroupService service = createService("test", new PeerId(addr, 0), nodeOpts);
 
@@ -3774,6 +3771,9 @@ public class ItNodeTest {
         assertTrue(res.get().isOk());
     }
 
+    /**
+     * Tests propagation of HLC on heartbeat request and response.
+     */
     @Test
     public void testHlcPropagation() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(2);
@@ -3783,8 +3783,7 @@ public class ItNodeTest {
         for (PeerId peer : peers) {
             RaftOptions opts = new RaftOptions();
             opts.setElectionHeartbeatFactor(4); // Election timeout divisor.
-            TestTimeProvider timeProvider = new TestTimeProvider(0);
-            SystemHybridClock clock = new SystemHybridClock(timeProvider);
+            HybridClock clock = new HybridClock(new SystemTimeProvider());
             assertTrue(cluster.start(peer.getEndpoint(), false, 300, false, null, opts, clock));
         }
 
@@ -3792,7 +3791,15 @@ public class ItNodeTest {
 
         for (NodeImpl node : nodes) {
             RpcClientEx rpcClientEx = sender(node);
-            rpcClientEx.recordMessages((msg, nodeId) -> true);
+            rpcClientEx.recordMessages((msg, nodeId) -> {
+                if (msg instanceof AppendEntriesRequestImpl ||
+                    msg instanceof AppendEntriesResponseImpl) {
+                    return true;
+                }
+
+                return false;
+
+            });
         }
 
         cluster.waitLeader();
@@ -3801,106 +3808,44 @@ public class ItNodeTest {
 
         RpcClientEx client = sender(leader);
 
-        RequestVoteRequestImpl preVoteRequest = client.recordedMessages().stream()
-                .map(arr -> arr[0])
-                .filter(o -> {
-                    if (o instanceof RequestVoteRequestImpl) {
-                        RequestVoteRequestImpl m = (RequestVoteRequestImpl) o;
+        AtomicBoolean heartbeatRequest = new AtomicBoolean(false);
+        AtomicBoolean appendEntriesRequest = new AtomicBoolean(false);
+        AtomicBoolean heartbeatResponse = new AtomicBoolean(false);
+        AtomicBoolean appendEntriesResponse = new AtomicBoolean(false);
 
-                        if (m.preVote()) {
-                            return true;
-                        }
+        waitForCondition(() -> {
+            client.recordedMessages().forEach(msgs -> {
+                if (msgs[0] instanceof AppendEntriesRequestImpl) {
+                    AppendEntriesRequestImpl msg = (AppendEntriesRequestImpl) msgs[0];
 
-                        return false;
+                    if (msg.data() == null) {
+                        heartbeatRequest.set(true);
+                        assertTrue(msg.timestamp() != null);
+                    } else {
+                        appendEntriesRequest.set(true);
+                        assertTrue(msg.timestamp() == null);
                     }
-
-                    return false;
-                })
-                .map(o -> (RequestVoteRequestImpl) o)
-                .findFirst().get();
-
-        RequestVoteResponseImpl requestPreVoteResponse = client.recordedMessages().stream()
-                .map(arr -> arr[0])
-                .filter(o -> {
-                    if (o instanceof RequestVoteResponseImpl) {
-                        return true;
+                } else if (msgs[0] instanceof AppendEntriesResponseImpl) {
+                    AppendEntriesResponseImpl msg = (AppendEntriesResponseImpl) msgs[0];
+                    if (msg.timestamp() == null) {
+                        appendEntriesResponse.set(true);
+                    } else {
+                        heartbeatResponse.set(true);
                     }
+                }
+            });
 
-                    return false;
-                })
-                .map(o -> (RequestVoteResponseImpl) o)
-                .findFirst().get();
+            return heartbeatRequest.get() &&
+                    appendEntriesRequest.get() &&
+                    heartbeatResponse.get() &&
+                    appendEntriesResponse.get();
+        },
+                5000);
 
-        RequestVoteRequestImpl voteRequest = client.recordedMessages().stream()
-                .map(arr -> arr[0])
-                .filter(o -> {
-                    if (o instanceof RequestVoteRequestImpl) {
-                        RequestVoteRequestImpl m = (RequestVoteRequestImpl) o;
-
-                        if (!m.preVote()) {
-                            return true;
-                        }
-
-                        return false;
-                    }
-
-                    return false;
-                })
-                .map(o -> (RequestVoteRequestImpl) o)
-                .findFirst().get();
-
-        RequestVoteResponseImpl requestVoteResponse = client.recordedMessages().stream()
-                .map(arr -> arr[0])
-                .filter(o -> {
-                    if (o instanceof RequestVoteResponseImpl) {
-                        RequestVoteResponseImpl m = (RequestVoteResponseImpl) o;
-
-                        if (m.timestamp().compareTo(requestPreVoteResponse.timestamp()) > 0) {
-                            return true;
-                        }
-
-                        return false;
-                    }
-
-                    return false;
-                })
-                .map(o -> (RequestVoteResponseImpl) o)
-                .findFirst().get();
-
-        AppendEntriesRequestImpl appendEntriesRequest = client.recordedMessages().stream()
-                .map(arr -> arr[0])
-                .filter(o -> {
-                    if (o instanceof AppendEntriesRequestImpl) {
-                        return true;
-                    }
-
-                    return false;
-                })
-                .map(o -> (AppendEntriesRequestImpl) o)
-                .findFirst().get();
-
-        AppendEntriesResponseImpl appendEntriesResponse = client.recordedMessages().stream()
-                .map(arr -> arr[0])
-                .filter(o -> {
-                    if (o instanceof AppendEntriesResponseImpl) {
-                        AppendEntriesResponseImpl m = (AppendEntriesResponseImpl) o;
-
-                        if (m.timestamp().compareTo(voteRequest.timestamp()) > 0) {
-                            return true;
-                        }
-
-                        return false;
-                    }
-
-                    return false;
-                })
-                .map(o -> (AppendEntriesResponseImpl) o)
-                .findFirst().get();
-
-        assertTrue(preVoteRequest.timestamp().compareTo(requestPreVoteResponse.timestamp()) < 0);
-        assertTrue(voteRequest.timestamp().compareTo(requestVoteResponse.timestamp()) < 0);
-        assertTrue(appendEntriesRequest.timestamp().compareTo(appendEntriesResponse.timestamp()) < 0);
-
+        assertTrue(heartbeatRequest.get());
+        assertTrue(appendEntriesRequest.get());
+        assertTrue(heartbeatResponse.get());
+        assertTrue(appendEntriesResponse.get());
     }
 
     private NodeOptions createNodeOptions(int nodeIdx) {
@@ -3909,7 +3854,7 @@ public class ItNodeTest {
         DefaultLogStorageFactory log = new DefaultLogStorageFactory(Path.of(dataPath, "node" + nodeIdx, "log"));
         log.start();
 
-        options.setServiceFactory(new DefaultJRaftServiceFactory(log));
+        options.setServiceFactory(new DefaultJRaftServiceFactory(log, new HybridClock(new SystemTimeProvider())));
 
         return options;
     }

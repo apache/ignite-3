@@ -22,9 +22,11 @@ import java.time.Clock;
 /**
  * Time provider which use system time.
  */
-public class SystemTimeProvider implements PhysicalTimeProvider {
-    /** {@inheritDoc} */
-    @Override
+public class SystemTimeProvider {
+    /** Physical time.
+     *
+     * @return Physical time.
+     */
     public long getPhysicalTime() {
         return Clock.systemUTC().instant().toEpochMilli();
     }

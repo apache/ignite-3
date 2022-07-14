@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft;
 
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -56,6 +57,13 @@ public interface JRaftServiceFactory {
      * @return meta storage to store raft meta info.
      */
     RaftMetaStorage createRaftMetaStorage(final String uri, final RaftOptions raftOptions);
+
+    /**
+     * A hybrid logical clock.
+     *
+     * @return A hybrid logical clock.
+     */
+    HybridClock getHybridClock();
 
     /**
      * Creates a log entry codec factory.

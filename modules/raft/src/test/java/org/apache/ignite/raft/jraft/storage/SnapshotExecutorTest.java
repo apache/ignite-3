@@ -22,6 +22,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.SystemTimeProvider;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -126,7 +128,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
         Mockito.when(node.getOptions()).thenReturn(options);
         Mockito.when(node.getRpcClientService()).thenReturn(raftClientService);
         DefaultLogStorageFactory logStorageProvider = Mockito.mock(DefaultLogStorageFactory.class);
-        Mockito.when(node.getServiceFactory()).thenReturn(new DefaultJRaftServiceFactory(logStorageProvider));
+        Mockito.when(node.getServiceFactory()).thenReturn(new DefaultJRaftServiceFactory(logStorageProvider, new HybridClock(new SystemTimeProvider())));
         executor = new SnapshotExecutorImpl();
         final SnapshotExecutorOptions opts = new SnapshotExecutorOptions();
         opts.setFsmCaller(fSMCaller);

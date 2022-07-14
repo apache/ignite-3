@@ -671,7 +671,9 @@ public class Replicator implements ThreadId.OnError {
     private void sendEmptyEntries(final boolean isHeartbeat,
         final RpcResponseClosure<AppendEntriesResponse> heartBeatClosure) {
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory().appendEntriesRequest();
-        rb.timestamp(options.getNode().clockNow());
+        if (isHeartbeat) {
+            rb.timestamp(options.getNode().clockNow());
+        }
         if (!fillCommonFields(rb, this.nextIndex - 1, isHeartbeat)) {
             // id is unlock in installSnapshot
             installSnapshot();
@@ -1093,7 +1095,7 @@ public class Replicator implements ThreadId.OnError {
             return;
         }
         if (response != null && response.timestamp() != null) {
-            r.options.getNode().clockTick(response.timestamp());
+            r.options.getNode().clockUpdate(response.timestamp());
         }
         boolean doUnlock = true;
         try {
@@ -1313,9 +1315,6 @@ public class Replicator implements ThreadId.OnError {
         final AppendEntriesRequest request,
         final AppendEntriesResponse response, final long rpcSendTime,
         final long startTimeMs, final Replicator r) {
-        if (response != null && response.timestamp() != null) {
-            r.options.getNode().clockTick(response.timestamp());
-        }
         if (inflight.startIndex != request.prevLogIndex() + 1) {
             LOG.warn(
                 "Replicator {} received invalid AppendEntriesResponse, in-flight startIndex={}, request prevLogIndex={}, reset the replicator state and probe again.",

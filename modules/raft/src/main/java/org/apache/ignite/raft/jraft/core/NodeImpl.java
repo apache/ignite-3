@@ -36,7 +36,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
-import org.apache.ignite.hlc.PhysicalTimeProvider;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -134,7 +133,7 @@ public class NodeImpl implements Node, RaftServerService {
     // Max retry times when applying tasks.
     private static final int MAX_APPLY_RETRY_TIMES = 3;
 
-    private final HybridClock clock;
+    private volatile HybridClock clock;
 
     /**
      * Internal states
@@ -535,7 +534,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
-    public NodeImpl(final String groupId, final PeerId serverId, HybridClock clock) {
+    public NodeImpl(final String groupId, final PeerId serverId) {
         super();
         if (groupId != null) {
             Utils.verifyGroupId(groupId);
@@ -547,15 +546,18 @@ public class NodeImpl implements Node, RaftServerService {
         updateLastLeaderTimestamp(Utils.monotonicMs());
         this.confCtx = new ConfigurationCtx(this);
         this.wakingCandidate = null;
-        this.clock = clock;
+    }
+
+    public HybridClock clock() {
+        return clock;
     }
 
     public HybridTimestamp clockNow() {
         return clock.now();
     }
 
-    public HybridTimestamp clockTick(HybridTimestamp timestamp) {
-        return clock.tick(timestamp);
+    public HybridTimestamp clockUpdate(HybridTimestamp timestamp) {
+        return clock.update(timestamp);
     }
 
     private boolean initSnapshotStorage() {
@@ -853,6 +855,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
+        this.clock = serviceFactory.getHybridClock();
         // Term is not an option since changing it is very dangerous
         final long bootstrapLogTerm = opts.getLastLogIndex() > 0 ? 1 : 0;
         final LogId bootstrapId = new LogId(opts.getLastLogIndex(), bootstrapLogTerm);
@@ -949,6 +952,7 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireNonNull(opts.getRaftOptions(), "Null raft options");
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
+        this.clock = serviceFactory.getHybridClock();
         this.options = opts;
         this.raftOptions = opts.getRaftOptions();
         this.metrics = new NodeMetrics(opts.isEnableMetrics());
@@ -1293,7 +1297,6 @@ public class NodeImpl implements Node, RaftServerService {
                     final OnRequestVoteRpcDone done = new OnRequestVoteRpcDone(peer, electSelfTerm, this);
                     done.request = raftOptions.getRaftMessagesFactory()
                             .requestVoteRequest()
-                            .timestamp(clock.now())
                             .preVote(false) // It's not a pre-vote request.
                             .groupId(this.groupId)
                             .serverId(this.serverId.toString())
@@ -1857,10 +1860,6 @@ public class NodeImpl implements Node, RaftServerService {
                     .term(this.currTerm)
                     .granted(granted);
 
-            if (request.timestamp() != null) {
-                rb.timestamp(clock.tick(request.timestamp()));
-            }
-
             return rb.build();
         }
         finally {
@@ -1977,10 +1976,6 @@ public class NodeImpl implements Node, RaftServerService {
                     .term(this.currTerm)
                     .granted(request.term() == this.currTerm && candidateId.equals(this.votedId));
 
-            if (request.timestamp() != null) {
-                rb.timestamp(clock.tick(request.timestamp()));
-            }
-
             return rb.build();
         }
         finally {
@@ -2091,7 +2086,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .term(this.currTerm);
 
                 if (request.timestamp() != null) {
-                    rb.timestamp(clock.tick(request.timestamp()));
+                    rb.timestamp(clock.update(request.timestamp()));
                 }
 
                 return rb.build();
@@ -2112,7 +2107,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .term(request.term() + 1);
 
                 if (request.timestamp() != null) {
-                    rb.timestamp(clock.tick(request.timestamp()));
+                    rb.timestamp(clock.update(request.timestamp()));
                 }
 
                 return rb.build();
@@ -2145,7 +2140,7 @@ public class NodeImpl implements Node, RaftServerService {
                         .lastLogIndex(lastLogIndex);
 
                 if (request.timestamp() != null) {
-                    rb.timestamp(clock.tick(request.timestamp()));
+                    rb.timestamp(clock.update(request.timestamp()));
                 }
 
                 return rb.build();
@@ -2159,7 +2154,7 @@ public class NodeImpl implements Node, RaftServerService {
                     .term(this.currTerm)
                     .lastLogIndex(this.logManager.getLastLogIndex());
                 if (request.timestamp() != null) {
-                    respBuilder.timestamp(clock.tick(request.timestamp()));
+                    respBuilder.timestamp(clock.update(request.timestamp()));
                 }
                 doUnlock = false;
                 this.writeLock.unlock();
@@ -2823,9 +2818,6 @@ public class NodeImpl implements Node, RaftServerService {
                 }
             }
 
-            if (response.timestamp() != null) {
-                clock.tick(response.timestamp());
-            }
         }
         finally {
             if (doUnlock) {
@@ -2906,7 +2898,6 @@ public class NodeImpl implements Node, RaftServerService {
                     final OnPreVoteRpcDone done = new OnPreVoteRpcDone(peer, preVoteTerm);
                     done.request = raftOptions.getRaftMessagesFactory()
                             .requestVoteRequest()
-                            .timestamp(clock.now())
                             .preVote(true) // it's a pre-vote request.
                             .groupId(this.groupId)
                             .serverId(this.serverId.toString())

@@ -17,16 +17,43 @@
 
 package org.apache.ignite.hlc;
 
+import org.apache.ignite.internal.tostring.S;
+
 /**
  * A Hybrid Logical Clock.
  */
-public interface HybridClock {
+public class HybridClock {
+    /** Physical time provider. */
+    private final SystemTimeProvider physicalTimeProvider;
+
+    /** Latest timestamp. */
+    private HybridTimestamp latestTime;
+
+    /**
+     * The constructor which initializes the latest time to current time by system clock.
+     */
+    public HybridClock(SystemTimeProvider physicalTimeProvider) {
+        this.physicalTimeProvider = physicalTimeProvider;
+
+        this.latestTime = new HybridTimestamp(physicalTimeProvider.getPhysicalTime(), 0);
+    }
+
     /**
      * Creates a timestamp for new event.
      *
      * @return The hybrid timestamp.
      */
-    HybridTimestamp now();
+    public synchronized HybridTimestamp now() {
+        long currentTimeMillis = physicalTimeProvider.getPhysicalTime();
+
+        if (latestTime.getPhysical() >= currentTimeMillis) {
+            latestTime = latestTime.addTicks(1);
+        } else {
+            latestTime = new HybridTimestamp(currentTimeMillis, 0);
+        }
+
+        return latestTime;
+    }
 
     /**
      * Creates a timestamp for a received event.
@@ -34,5 +61,18 @@ public interface HybridClock {
      * @param requestTime Timestamp from request.
      * @return The hybrid timestamp.
      */
-    HybridTimestamp tick(HybridTimestamp requestTime);
+    public synchronized HybridTimestamp update(HybridTimestamp requestTime) {
+        HybridTimestamp now = new HybridTimestamp(physicalTimeProvider.getPhysicalTime(), -1);
+
+        latestTime = HybridTimestamp.max(now, requestTime, latestTime);
+
+        latestTime = latestTime.addTicks(1);
+
+        return latestTime;
+    }
+
+    /** {@inheritDoc} */
+    public String toString() {
+        return S.toString(HybridClock.class, this);
+    }
 }

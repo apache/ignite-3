@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.SystemTimeProvider;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
@@ -92,7 +94,8 @@ public class ItRaftGroupServiceTest {
         CompletableFuture<RaftGroupService>[] svcFutures = new CompletableFuture[NODES_CNT];
 
         for (int i = 0; i < NODES_CNT; i++) {
-            Loza raftServer = new Loza(clusterServices.get(i), workDir.resolve("node" + i));
+            Loza raftServer = new Loza(clusterServices.get(i), workDir.resolve("node" + i),
+                    new HybridClock(new SystemTimeProvider()));
 
             raftSrvs.add(raftServer);
 
