@@ -97,6 +97,7 @@ public class MessagingServiceTestUtils {
         long index = raftIndex.incrementAndGet();
 
         CommandClosure<T> closure = new CommandClosure<>() {
+            /** {@inheritDoc} */
             @Override
             public long index() {
                 return index;

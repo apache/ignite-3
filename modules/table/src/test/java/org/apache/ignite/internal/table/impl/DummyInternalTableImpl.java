@@ -112,6 +112,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                     }
                                 } else {
                                     CommandClosure<WriteCommand> clo = new CommandClosure<>() {
+                                        /** {@inheritDoc} */
                                         @Override
                                         public long index() {
                                             return index;
