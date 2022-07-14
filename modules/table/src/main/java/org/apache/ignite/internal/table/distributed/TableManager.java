@@ -498,7 +498,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         raftMgr.startRaftGroupNode(
                                 grpId,
                                 newPartAssignment,
-                                nodes,
                                 new PartitionListener(tblId,
                                         new VersionedRowStore(partitionStorage,
                                                 txManager)),
@@ -1344,7 +1343,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             raftMgr.startRaftGroupNode(
                                     partId,
                                     assignments,
-                                    deltaPeers,
                                     raftGrpLsnr,
                                     raftGrpEvtsLsnr,
                                     groupOptions
