@@ -131,16 +131,19 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
                 initNew
         );
     }
-     /** {@inheritDoc} */
+
+    /** {@inheritDoc} */
     @Override
     public long appliedIndex() {
         return appliedIndex;
     }
+
     /** {@inheritDoc} */
     @Override
     public void appliedIndex(long appliedIndex) throws StorageException {
         this.appliedIndex = appliedIndex;
     }
+
     /** {@inheritDoc} */
     @Override
     public long persistedIndex() {
@@ -490,6 +493,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
 
         return new ScanCursor(treeCursor, keyFilter, transactionId, timestamp);
     }
+
     /** {@inheritDoc} */
     @Override
     public long rowsCount() {

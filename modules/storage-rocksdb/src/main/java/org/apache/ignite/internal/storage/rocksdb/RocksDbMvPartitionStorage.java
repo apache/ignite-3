@@ -133,6 +133,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         appliedIndexKey = ("index" + partitionId).getBytes(StandardCharsets.UTF_8);
     }
+
     /** {@inheritDoc} */
     @Override
     public long appliedIndex() {
@@ -150,6 +151,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         return ByteUtils.bytesToLong(appliedIndexBytes);
     }
+
     /** {@inheritDoc} */
     @Override
     public void appliedIndex(long appliedIndex) throws StorageException {
@@ -159,6 +161,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             throw new StorageException(e);
         }
     }
+
     /** {@inheritDoc} */
     @Override
     public long persistedIndex() {
@@ -592,6 +595,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             return size;
         }
     }
+
     /** {@inheritDoc} */
     @Override
     public void forEach(BiConsumer<RowId, BinaryRow> consumer) {

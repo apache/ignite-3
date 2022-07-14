@@ -77,11 +77,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             return begin != null && txId == null;
         }
     }
-     /** {@inheritDoc} */
+
+    /** {@inheritDoc} */
     @Override
     public long appliedIndex() {
         return appliedIndex;
     }
+
     /** {@inheritDoc} */
     @Override
     public void appliedIndex(long appliedIndex) throws StorageException {
@@ -89,6 +91,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         this.appliedIndex = appliedIndex;
     }
+
     /** {@inheritDoc} */
     @Override
     public long persistedIndex() {
