@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -570,47 +571,52 @@ public class DdlSqlToCommandConverter {
      * Creates a value of required type from the literal.
      */
     private static Object fromLiteral(RelDataType columnType, SqlLiteral literal) {
-        switch (columnType.getSqlTypeName()) {
-            case VARCHAR:
-            case CHAR:
-                return literal.getValueAs(String.class);
-            case DATE:
-                return LocalDate.ofEpochDay(literal.getValueAs(DateString.class).getDaysSinceEpoch());
-            case TIME:
-                return LocalTime.ofNanoOfDay(literal.getValueAs(TimeString.class).getMillisOfDay() * 1_000_000L);
-            case TIMESTAMP: {
-                var tsString = literal.getValueAs(TimestampString.class);
+        try {
+            switch (columnType.getSqlTypeName()) {
+                case VARCHAR:
+                case CHAR:
+                    return literal.getValueAs(String.class);
+                case DATE:
+                    return LocalDate.ofEpochDay(literal.getValueAs(DateString.class).getDaysSinceEpoch());
+                case TIME:
+                    return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(literal.getValueAs(TimeString.class).getMillisOfDay()));
+                case TIMESTAMP: {
+                    var tsString = literal.getValueAs(TimestampString.class);
 
-                return LocalDateTime.ofEpochSecond(
-                        tsString.getMillisSinceEpoch() / 1000,
-                        (int) (tsString.getMillisSinceEpoch() % 1000 * 1_000_000),
-                        ZoneOffset.UTC
-                );
+                    return LocalDateTime.ofEpochSecond(
+                            TimeUnit.MILLISECONDS.toSeconds(tsString.getMillisSinceEpoch()),
+                            (int) (TimeUnit.MILLISECONDS.toNanos(tsString.getMillisSinceEpoch() % 1000)),
+                            ZoneOffset.UTC
+                    );
+                }
+                case TIMESTAMP_WITH_LOCAL_TIME_ZONE: {
+                    // TODO: IGNITE-17376
+                    throw new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-17376");
+                }
+                case INTEGER:
+                    return literal.getValueAs(Integer.class);
+                case BIGINT:
+                    return literal.getValueAs(Long.class);
+                case SMALLINT:
+                    return literal.getValueAs(Short.class);
+                case TINYINT:
+                    return literal.getValueAs(Byte.class);
+                case DECIMAL:
+                    return literal.getValueAs(BigDecimal.class);
+                case DOUBLE:
+                    return literal.getValueAs(Double.class);
+                case REAL:
+                case FLOAT:
+                    return literal.getValueAs(Float.class);
+                case BINARY:
+                case VARBINARY:
+                    return literal.getValueAs(byte[].class);
+                default:
+                    throw new IllegalStateException("Unknown type [type=" + columnType + ']');
             }
-            case TIMESTAMP_WITH_LOCAL_TIME_ZONE: {
-                // TODO: IGNITE-17376
-                throw new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-17376");
-            }
-            case INTEGER:
-                return literal.getValueAs(Integer.class);
-            case BIGINT:
-                return literal.getValueAs(Long.class);
-            case SMALLINT:
-                return literal.getValueAs(Short.class);
-            case TINYINT:
-                return literal.getValueAs(Byte.class);
-            case DECIMAL:
-                return literal.getValueAs(BigDecimal.class);
-            case DOUBLE:
-                return literal.getValueAs(Double.class);
-            case REAL:
-            case FLOAT:
-                return literal.getValueAs(Float.class);
-            case BINARY:
-            case VARBINARY:
-                return literal.getValueAs(byte[].class);
-            default:
-                throw new IllegalStateException("Unknown type [type=" + columnType + ']');
+        } catch (Throwable th) {
+            // catch throwable here because literal throws an AssertionError when unable to cast value to a given class
+            throw new IgniteException("Unable co convert literal", th);
         }
     }
 }

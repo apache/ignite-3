@@ -249,11 +249,11 @@ public class TypeUtils {
         } else if (storageType == LocalDate.class) {
             return (int) ((LocalDate) val).toEpochDay();
         } else if (storageType == LocalTime.class) {
-            return (int) (((LocalTime) val).toNanoOfDay() / 1000 / 1000 /* convert to millis */);
+            return (int) (TimeUnit.NANOSECONDS.toMillis(((LocalTime) val).toNanoOfDay()));
         } else if (storageType == LocalDateTime.class) {
             var dt = (LocalDateTime) val;
 
-            return dt.toEpochSecond(ZoneOffset.UTC) * 1000 + dt.getNano() / 1000 / 1000 /* convert to millis */;
+            return TimeUnit.SECONDS.toMillis(dt.toEpochSecond(ZoneOffset.UTC)) + TimeUnit.NANOSECONDS.toMillis(dt.getNano());
         } else if (storageType == Duration.class) {
             return TimeUnit.SECONDS.toMillis(((Duration) val).getSeconds())
                     + TimeUnit.NANOSECONDS.toMillis(((Duration) val).getNano());
@@ -276,9 +276,10 @@ public class TypeUtils {
         } else if (storageType == LocalDate.class && val instanceof Integer) {
             return LocalDate.ofEpochDay((Integer) val);
         } else if (storageType == LocalTime.class && val instanceof Integer) {
-            return LocalTime.ofNanoOfDay(Long.valueOf((Integer) val) * 1000 * 1000 /* convert from millis */);
+            return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(Long.valueOf((Integer) val)));
         } else if (storageType == LocalDateTime.class && (val instanceof Long)) {
-            return LocalDateTime.ofEpochSecond((Long) val / 1000, (int) ((Long) val % 1000) * 1000 * 1000, ZoneOffset.UTC);
+            return LocalDateTime.ofEpochSecond(TimeUnit.MILLISECONDS.toSeconds((Long) val),
+                    (int) TimeUnit.MILLISECONDS.toNanos((Long) val % 1000), ZoneOffset.UTC);
         } else if (storageType == Duration.class && val instanceof Long) {
             return Duration.ofMillis((Long) val);
         } else if (storageType == Period.class && val instanceof Integer) {

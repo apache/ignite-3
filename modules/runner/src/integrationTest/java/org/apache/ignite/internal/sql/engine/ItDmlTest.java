@@ -372,6 +372,8 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
     }
 
     private void checkDefaultValue(List<DefaultValueArg> args) {
+        assert args.size() > 0;
+
         try {
             StringBuilder createStatementBuilder = new StringBuilder("CREATE TABLE test (id INT PRIMARY KEY");
 
@@ -389,8 +391,6 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
             var expectedVals = args.stream()
                     .map(a -> a.expectedVal)
                     .collect(Collectors.toList());
-
-            assert args.size() > 0;
 
             var columnEnumerationBuilder = new StringBuilder("col_0");
 
