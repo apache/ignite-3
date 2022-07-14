@@ -239,7 +239,6 @@ public class Loza implements IgniteComponent {
      *
      * @param grpId Raft group id.
      * @param nodes Full set of raft group nodes.
-     * @param deltaNodes New raft group nodes.
      * @param lsnr Raft group listener.
      * @param raftGrpEvtsLsnr Raft group events listener.
      * @param groupOptions Options to apply to the group.
@@ -248,7 +247,6 @@ public class Loza implements IgniteComponent {
     public void startRaftGroupNode(
             String grpId,
             Collection<ClusterNode> nodes,
-            Collection<ClusterNode> deltaNodes,
             RaftGroupListener lsnr,
             RaftGroupEventsListener raftGrpEvtsLsnr,
             RaftGroupOptions groupOptions
