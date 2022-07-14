@@ -26,13 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -288,25 +282,7 @@ public class FilePageStoreTest {
 
             ByteBuffer pageByteBuffer = createPageByteBuffer();
 
-            PageWriteListener pageWriteListener = spy(new PageWriteListener() {
-                /** {@inheritDoc} */
-                @Override
-                public void accept(long pageId, ByteBuffer buf) {
-                    assertEquals(expPageId, pageId);
-
-                    assertSame(pageByteBuffer, buf);
-
-                    assertEquals(PAGE_SIZE, testFilePath.toFile().length());
-
-                    assertNotEquals(0, PageIo.getCrc(pageByteBuffer));
-                }
-            });
-
-            filePageStore.addWriteListener(pageWriteListener);
-
             filePageStore.write(expPageId, pageByteBuffer, true);
-
-            verify(pageWriteListener, times(1)).accept(anyLong(), any(ByteBuffer.class));
 
             assertEquals(2 * PAGE_SIZE, testFilePath.toFile().length());
 
@@ -327,16 +303,6 @@ public class FilePageStoreTest {
 
             // Puts random bytes after: type (2 byte) + version (2 byte) + crc (4 byte).
             pageByteBuffer.position(8).put(randomBytes(128));
-
-            PageWriteListener pageWriteListener = spy(new PageWriteListener() {
-                /** {@inheritDoc} */
-                @Override
-                public void accept(long pageId, ByteBuffer buf) {
-                    // No-op.
-                }
-            });
-
-            filePageStore.addWriteListener(pageWriteListener);
 
             filePageStore.write(expPageId, pageByteBuffer.rewind(), true);
 

@@ -32,8 +32,6 @@ import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -85,9 +83,6 @@ public class FilePageStore implements PageStore {
     /** Page count. */
     private final AtomicInteger pageCount;
 
-    /** List of listeners for current page store to handle. */
-    private final List<PageWriteListener> listeners = new CopyOnWriteArrayList<>();
-
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
     /** Caches the existence state of storage file. After it is initialized, it will be not {@code null} during lifecycle. */
@@ -127,18 +122,6 @@ public class FilePageStore implements PageStore {
         this.ioFactory = ioFactory;
 
         this.pageCount = new AtomicInteger(pageCount);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void addWriteListener(PageWriteListener listener) {
-        listeners.add(listener);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void removeWriteListener(PageWriteListener listener) {
-        listeners.remove(listener);
     }
 
     /** {@inheritDoc} */
@@ -272,12 +255,6 @@ public class FilePageStore implements PageStore {
                             || calcCrc32(pageBuf, pageSize) == 0 : "CRC hasn't been calculated, crc=0";
 
                     assert pageBuf.position() == 0 : pageBuf.position();
-
-                    for (PageWriteListener listener : listeners) {
-                        listener.accept(pageId, pageBuf);
-
-                        pageBuf.rewind();
-                    }
 
                     fileIo.writeFully(pageBuf, off);
 

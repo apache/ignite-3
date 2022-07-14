@@ -44,18 +44,6 @@ public class PartitionFilePageStore implements PageStore {
 
     /** {@inheritDoc} */
     @Override
-    public void addWriteListener(PageWriteListener listener) {
-        filePageStore.addWriteListener(listener);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void removeWriteListener(PageWriteListener listener) {
-        filePageStore.removeWriteListener(listener);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void stop(boolean clean) throws IgniteInternalCheckedException {
         filePageStore.stop(clean);
     }

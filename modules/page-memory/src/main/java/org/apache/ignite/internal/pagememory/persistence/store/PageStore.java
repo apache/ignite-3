@@ -26,20 +26,6 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  */
 public interface PageStore extends Closeable {
     /**
-     * Adds page write listener.
-     *
-     * @param listener Page write listener.
-     */
-    void addWriteListener(PageWriteListener listener);
-
-    /**
-     * Removes page write listener.
-     *
-     * @param listener Page write listener.
-     */
-    void removeWriteListener(PageWriteListener listener);
-
-    /**
      * Stops the page store.
      *
      * @param clean {@code True} to clean page store.
