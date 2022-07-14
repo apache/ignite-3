@@ -26,6 +26,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -71,6 +72,8 @@ public class RaftServerImpl implements RaftServer {
     private final BlockingQueue<CommandClosureEx<ReadCommand>> readQueue;
 
     private final BlockingQueue<CommandClosureEx<WriteCommand>> writeQueue;
+
+    private final AtomicLong appliedIndex = new AtomicLong();
 
     private volatile Thread readWorker;
 
@@ -232,10 +235,17 @@ public class RaftServerImpl implements RaftServer {
             BlockingQueue<CommandClosureEx<T>> queue,
             RaftGroupListener lsnr
     ) {
+        long index = req.command() instanceof ReadCommand ? 0 : appliedIndex.incrementAndGet();
+
         if (!queue.offer(new CommandClosureEx<>() {
             @Override
             public RaftGroupListener listener() {
                 return lsnr;
+            }
+
+            @Override
+            public long index() {
+                return index;
             }
 
             @Override
