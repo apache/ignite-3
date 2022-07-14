@@ -360,7 +360,7 @@ public class CheckpointPagesWriterTest {
     ) throws Exception {
         CheckpointPageWriter pageWriter = mock(CheckpointPageWriter.class);
 
-        when(pageWriter.write(fullPageIdArgumentCaptor.capture(), any(ByteBuffer.class), anyInt())).thenReturn(pageStore);
+        when(pageWriter.write(fullPageIdArgumentCaptor.capture(), any(ByteBuffer.class))).thenReturn(pageStore);
 
         return pageWriter;
     }

@@ -67,9 +67,9 @@ public class PageReadWriteManagerImplTest {
 
         ByteBuffer pageBuffer = mock(ByteBuffer.class);
 
-        assertSame(filePageStore, pageReadWriteManager.write(0, pageId, pageBuffer, 0, true));
+        assertSame(filePageStore, pageReadWriteManager.write(0, pageId, pageBuffer, true));
 
-        verify(filePageStore, times(1)).write(pageId, pageBuffer, 0, true);
+        verify(filePageStore, times(1)).write(pageId, pageBuffer, true);
     }
 
     @Test

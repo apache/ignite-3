@@ -32,7 +32,7 @@ public class PartitionFilePageStoreTest {
     void testUpdateMetaPageCount() {
         FilePageStore filePageStore = mock(FilePageStore.class);
 
-        PartitionFilePageStore partitionFilePageStore = new PartitionFilePageStore(filePageStore, new PartitionMeta(0, 0, 0, false));
+        PartitionFilePageStore partitionFilePageStore = new PartitionFilePageStore(filePageStore, new PartitionMeta(0, 0, 0));
 
         when(filePageStore.pages()).thenReturn(100500);
 

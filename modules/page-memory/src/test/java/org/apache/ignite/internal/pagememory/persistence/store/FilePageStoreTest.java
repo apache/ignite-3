@@ -199,11 +199,11 @@ public class FilePageStoreTest {
         try (FilePageStore filePageStore2 = createFilePageStore(testFilePath, 0)) {
             assertEquals(0, filePageStore2.pages());
 
-            filePageStore2.write(createPageId(filePageStore2), createPageByteBuffer(), 0, true);
+            filePageStore2.write(createPageId(filePageStore2), createPageByteBuffer(), true);
 
             assertEquals(1, filePageStore2.pages());
 
-            filePageStore2.write(createPageId(filePageStore2), createPageByteBuffer(), 0, true);
+            filePageStore2.write(createPageId(filePageStore2), createPageByteBuffer(), true);
 
             assertEquals(2, filePageStore2.pages());
         }
@@ -236,7 +236,7 @@ public class FilePageStoreTest {
         try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
             assertDoesNotThrow(filePageStore::sync);
 
-            filePageStore.write(createPageId(filePageStore), createPageByteBuffer(), 0, true);
+            filePageStore.write(createPageId(filePageStore), createPageByteBuffer(), true);
 
             assertDoesNotThrow(filePageStore::sync);
             assertEquals(2 * PAGE_SIZE, testFilePath.toFile().length());
@@ -254,7 +254,7 @@ public class FilePageStoreTest {
 
             assertEquals(PAGE_SIZE, filePageStore0.size());
 
-            filePageStore0.write(createPageId(filePageStore0), createPageByteBuffer(), 0, true);
+            filePageStore0.write(createPageId(filePageStore0), createPageByteBuffer(), true);
 
             assertEquals(2 * PAGE_SIZE, filePageStore0.size());
         }
@@ -304,7 +304,7 @@ public class FilePageStoreTest {
 
             filePageStore.addWriteListener(pageWriteListener);
 
-            filePageStore.write(expPageId, pageByteBuffer, 0, true);
+            filePageStore.write(expPageId, pageByteBuffer, true);
 
             verify(pageWriteListener, times(1)).accept(anyLong(), any(ByteBuffer.class));
 
@@ -338,7 +338,7 @@ public class FilePageStoreTest {
 
             filePageStore.addWriteListener(pageWriteListener);
 
-            filePageStore.write(expPageId, pageByteBuffer.rewind(), 0, true);
+            filePageStore.write(expPageId, pageByteBuffer.rewind(), true);
 
             ByteBuffer readBuffer = ByteBuffer.allocate(PAGE_SIZE).order(pageByteBuffer.order());
 

@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.RandomAccess;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -47,36 +46,29 @@ class CheckpointDirtyPages {
     static final CheckpointDirtyPages EMPTY = new CheckpointDirtyPages(List.of());
 
     /** Dirty pages of data regions, with sorted page IDs by {@link #DIRTY_PAGE_COMPARATOR} and unsorted partition IDs. */
-    private final List<DataRegionDirtyPages<ArrayDirtyPages>> dirtyPages;
+    private final List<DataRegionDirtyPages<DirtyPagesArray>> dirtyPages;
+
+    /** Total number of dirty page IDs. */
+    private final int dirtyPagesCount;
 
     /**
      * Constructor.
      *
      * @param dirtyPages Dirty pages of data regions, with sorted page IDs by {@link #DIRTY_PAGE_COMPARATOR} and unsorted partition IDs.
      */
-    public CheckpointDirtyPages(Map<PersistentPageMemory, ArrayDirtyPages> dirtyPages) {
-        this(dirtyPages.entrySet().stream()
-                .map(e -> new DataRegionDirtyPages<>(e.getKey(), e.getValue()))
-                .collect(toList())
-        );
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param dirtyPages Dirty pages of data regions, with sorted page IDs by {@link #DIRTY_PAGE_COMPARATOR} and unsorted partition IDs.
-     */
-    public CheckpointDirtyPages(List<DataRegionDirtyPages<ArrayDirtyPages>> dirtyPages) {
+    public CheckpointDirtyPages(List<DataRegionDirtyPages<DirtyPagesArray>> dirtyPages) {
         assert dirtyPages instanceof RandomAccess : dirtyPages;
 
         this.dirtyPages = dirtyPages;
+
+        dirtyPagesCount = dirtyPages.stream().mapToInt(pages -> pages.dirtyPages.pageIds.length).sum();
     }
 
     /**
      * Returns total number of dirty page IDs.
      */
     public int dirtyPagesCount() {
-        return dirtyPages.stream().mapToInt(pages -> pages.dirtyPages.pageIds.length).sum();
+        return dirtyPagesCount;
     }
 
     /**
@@ -108,33 +100,54 @@ class CheckpointDirtyPages {
      * @param partId Partition ID.
      */
     public @Nullable CheckpointDirtyPagesView findView(int grpId, int partId) {
-        if (dirtyPages.isEmpty()) {
-            return null;
-        }
-
-        FullPageId startPageId = new FullPageId(pageId(partId, (byte) 0, 0), grpId);
-        FullPageId endPageId = new FullPageId(pageId(partId + 1, (byte) 0, 0), grpId);
-
         for (int i = 0; i < dirtyPages.size(); i++) {
-            FullPageId[] pageIds = dirtyPages.get(i).dirtyPages.pageIds;
+            CheckpointDirtyPagesView view = findView(i, grpId, partId);
 
-            int fromIndex = binarySearch(pageIds, startPageId, DIRTY_PAGE_COMPARATOR);
-
-            fromIndex = fromIndex >= 0 ? fromIndex : Math.min(pageIds.length - 1, -fromIndex - 1);
-
-            if (!equalsByGroupAndPartition(startPageId, pageIds[fromIndex])) {
-                continue;
+            if (view != null) {
+                return view;
             }
-
-            int toIndex = binarySearch(pageIds, fromIndex, pageIds.length, endPageId, DIRTY_PAGE_COMPARATOR);
-
-            // toIndex cannot be 0 because endPageId is greater than startPageId by DIRTY_PAGE_COMPARATOR.
-            toIndex = toIndex > 0 ? toIndex - 1 : -toIndex - 2;
-
-            return new CheckpointDirtyPagesView(i, fromIndex, toIndex);
         }
 
         return null;
+    }
+
+    /**
+     * Looks for dirty page IDs views for a specific group and partition.
+     *
+     * @param pageMemory Page memory.
+     * @param grpId Group ID.
+     * @param partId Partition ID.
+     */
+    public @Nullable CheckpointDirtyPagesView findView(PersistentPageMemory pageMemory, int grpId, int partId) {
+        for (int i = 0; i < dirtyPages.size(); i++) {
+            if (dirtyPages.get(i).pageMemory == pageMemory) {
+                return findView(i, grpId, partId);
+            }
+        }
+
+        return null;
+    }
+
+    private @Nullable CheckpointDirtyPagesView findView(int dirtyPagesIdx, int grpId, int partId) {
+        FullPageId startPageId = new FullPageId(pageId(partId, (byte) 0, 0), grpId);
+        FullPageId endPageId = new FullPageId(pageId(partId + 1, (byte) 0, 0), grpId);
+
+        FullPageId[] pageIds = dirtyPages.get(dirtyPagesIdx).dirtyPages.pageIds;
+
+        int fromIndex = binarySearch(pageIds, startPageId, DIRTY_PAGE_COMPARATOR);
+
+        fromIndex = fromIndex >= 0 ? fromIndex : Math.min(pageIds.length - 1, -fromIndex - 1);
+
+        if (!equalsByGroupAndPartition(startPageId, pageIds[fromIndex])) {
+            return null;
+        }
+
+        int toIndex = binarySearch(pageIds, fromIndex, pageIds.length, endPageId, DIRTY_PAGE_COMPARATOR);
+
+        // toIndex cannot be 0 because endPageId is greater than startPageId by DIRTY_PAGE_COMPARATOR.
+        toIndex = toIndex > 0 ? toIndex : -toIndex - 1;
+
+        return new CheckpointDirtyPagesView(dirtyPagesIdx, fromIndex, toIndex);
     }
 
     /**
@@ -156,8 +169,8 @@ class CheckpointDirtyPages {
             regionIndex = 0;
             fromPosition = 0;
         } else {
-            regionIndex = currentView.isToPositionLast() ? currentView.regionIndex + 1 : currentView.regionIndex;
-            fromPosition = currentView.isToPositionLast() ? 0 : currentView.toPosition + 1;
+            regionIndex = currentView.isNeedNextDirtyPagesRegion() ? currentView.regionIndex + 1 : currentView.regionIndex;
+            fromPosition = currentView.isNeedNextDirtyPagesRegion() ? 0 : currentView.toPosition;
         }
 
         if (regionIndex >= dirtyPages.size()) {
@@ -167,7 +180,7 @@ class CheckpointDirtyPages {
         FullPageId[] pageIds = dirtyPages.get(regionIndex).dirtyPages.pageIds;
 
         if (fromPosition == pageIds.length - 1 || !equalsByGroupAndPartition(pageIds[fromPosition], pageIds[fromPosition + 1])) {
-            return new CheckpointDirtyPagesView(regionIndex, fromPosition, fromPosition);
+            return new CheckpointDirtyPagesView(regionIndex, fromPosition, fromPosition + 1);
         }
 
         FullPageId startPageId = pageIds[fromPosition];
@@ -175,7 +188,7 @@ class CheckpointDirtyPages {
 
         int toPosition = binarySearch(pageIds, fromPosition, pageIds.length, endPageId, DIRTY_PAGE_COMPARATOR);
 
-        toPosition = toPosition > 0 ? toPosition - 1 : -toPosition - 2;
+        toPosition = toPosition > 0 ? toPosition : -toPosition - 1;
 
         return new CheckpointDirtyPagesView(regionIndex, fromPosition, toPosition);
     }
@@ -193,7 +206,7 @@ class CheckpointDirtyPages {
         /** Starting position (inclusive) of the dirty page within the element at {@link #regionIndex}. */
         private final int fromPosition;
 
-        /** End position (inclusive) of the dirty page within the element at {@link #regionIndex}. */
+        /** End position (exclusive) of the dirty page within the element at {@link #regionIndex}. */
         private final int toPosition;
 
         /**
@@ -201,7 +214,7 @@ class CheckpointDirtyPages {
          *
          * @param regionIndex Element index in {@link CheckpointDirtyPages#dirtyPages}.
          * @param fromPosition Starting position (inclusive) of the dirty page within the element at {@link #regionIndex}.
-         * @param toPosition End position (inclusive) of the dirty page within the element at {@link #regionIndex}.
+         * @param toPosition End position (exclusive) of the dirty page within the element at {@link #regionIndex}.
          */
         private CheckpointDirtyPagesView(int regionIndex, int fromPosition, int toPosition) {
             this.regionIndex = regionIndex;
@@ -229,15 +242,15 @@ class CheckpointDirtyPages {
          * Returns the size of the view.
          */
         public int size() {
-            return toPosition - fromPosition + 1;
+            return toPosition - fromPosition;
         }
 
         private CheckpointDirtyPages owner() {
             return CheckpointDirtyPages.this;
         }
 
-        private boolean isToPositionLast() {
-            return toPosition == dirtyPages.get(regionIndex).dirtyPages.pageIds.length - 1;
+        private boolean isNeedNextDirtyPagesRegion() {
+            return toPosition == dirtyPages.get(regionIndex).dirtyPages.pageIds.length;
         }
     }
 

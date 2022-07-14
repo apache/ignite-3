@@ -77,12 +77,10 @@ public interface PageStore extends Closeable {
      *
      * @param pageId Page ID.
      * @param pageBuf Page buffer to write from.
-     * @param tag Partition page store version, 1-based incrementing counter. For outdated pages {@code tag} has lower value, and write does
-     *      nothing.
      * @param calculateCrc If {@code false} crc calculation will be forcibly skipped.
      * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
      */
-    void write(long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc) throws IgniteInternalCheckedException;
+    void write(long pageId, ByteBuffer pageBuf, boolean calculateCrc) throws IgniteInternalCheckedException;
 
     /**
      * Sync method used to ensure that the given pages are guaranteed to be written to the page store.

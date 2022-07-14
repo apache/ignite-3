@@ -156,10 +156,9 @@ public class PartitionFilePageStoreManager implements PageReadWriteManager {
             int grpId,
             long pageId,
             ByteBuffer pageBuf,
-            int tag,
             boolean calculateCrc
     ) throws IgniteInternalCheckedException {
-        return pageReadWriteManager.write(grpId, pageId, pageBuf, tag, calculateCrc);
+        return pageReadWriteManager.write(grpId, pageId, pageBuf, calculateCrc);
     }
 
     /** {@inheritDoc} */

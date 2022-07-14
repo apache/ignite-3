@@ -68,7 +68,7 @@ public class CheckpointPagesWriter implements Runnable {
      */
     private final IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds;
 
-    /** Queue of dirty partition IDs to update {@link PartitionMetaIo} under this task. */
+    /** Queue of dirty partition IDs to update partition meta page under this task. */
     private final IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> updatePartitionIds;
 
     /** Page store used to write -> Count of written pages. */
@@ -235,7 +235,7 @@ public class CheckpointPagesWriter implements Runnable {
 
                 checkpointProgress.writtenPagesCounter().incrementAndGet();
 
-                PageStore store = pageWriter.write(fullPageId, buf, tag);
+                PageStore store = pageWriter.write(fullPageId, buf);
 
                 updStores.computeIfAbsent(store, k -> new LongAdder()).increment();
             }
@@ -243,7 +243,7 @@ public class CheckpointPagesWriter implements Runnable {
     }
 
     /**
-     * Updates the partition {@link PartitionMetaIo} (pageIdx == 0).
+     * Updates the partitions meta page.
      *
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -279,11 +279,7 @@ public class CheckpointPagesWriter implements Runnable {
 
             FullPageId fullPageId = new FullPageId(partitionMetaPageId, partitionId.getGroupId());
 
-            PageStore store = pageWriter.write(
-                    fullPageId,
-                    buffer.rewind(),
-                    pageMemory.generationTag(fullPageId)
-            );
+            PageStore store = pageWriter.write(fullPageId, buffer.rewind());
 
             checkpointProgress.writtenPagesCounter().incrementAndGet();
 

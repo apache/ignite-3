@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import java.util.Collection;
-import org.apache.ignite.internal.pagememory.persistence.CollectionDirtyPages;
+import org.apache.ignite.internal.pagememory.persistence.DirtyPagesCollection;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 
 /**
@@ -33,14 +33,14 @@ class DataRegionsDirtyPages {
     final int dirtyPageCount;
 
     /** Collection of dirty pages per {@link PersistentPageMemory} distribution. */
-    final Collection<DataRegionDirtyPages<CollectionDirtyPages>> dirtyPages;
+    final Collection<DataRegionDirtyPages<DirtyPagesCollection>> dirtyPages;
 
     /**
      * Constructor.
      *
      * @param dirtyPages Collection of dirty pages per {@link PersistentPageMemory} distribution.
      */
-    public DataRegionsDirtyPages(Collection<DataRegionDirtyPages<CollectionDirtyPages>> dirtyPages) {
+    public DataRegionsDirtyPages(Collection<DataRegionDirtyPages<DirtyPagesCollection>> dirtyPages) {
         this.dirtyPages = dirtyPages;
         this.dirtyPageCount = dirtyPages.stream().mapToInt(dataRegionPages -> dataRegionPages.dirtyPages.pageIds().size()).sum();
     }

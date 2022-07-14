@@ -63,7 +63,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.CollectionDirtyPages;
+import org.apache.ignite.internal.pagememory.persistence.DirtyPagesCollection;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -403,14 +403,14 @@ public class CheckpointWorkflowTest {
 
     @Test
     void testCreateAndSortCheckpointDirtyPages() throws Exception {
-        DataRegionDirtyPages<CollectionDirtyPages> dataRegionDirtyPages0 = createDataRegionDirtyPages(
+        DataRegionDirtyPages<DirtyPagesCollection> dataRegionDirtyPages0 = createDataRegionDirtyPages(
                 mock(PersistentPageMemory.class),
                 of(10, 10, 2), of(10, 10, 1), of(10, 10, 0),
                 of(10, 5, 100), of(10, 5, 99),
                 of(10, 1, 50), of(10, 1, 51), of(10, 1, 99)
         );
 
-        DataRegionDirtyPages<CollectionDirtyPages> dataRegionDirtyPages1 = createDataRegionDirtyPages(
+        DataRegionDirtyPages<DirtyPagesCollection> dataRegionDirtyPages1 = createDataRegionDirtyPages(
                 mock(PersistentPageMemory.class),
                 of(77, 5, 100), of(77, 5, 99),
                 of(88, 1, 51), of(88, 1, 50), of(88, 1, 99),
@@ -501,23 +501,23 @@ public class CheckpointWorkflowTest {
 
         List<GroupPartitionId> partitionIds = List.of(partitionIds(pageIds.toArray(FullPageId[]::new)));
 
-        when(mock.beginCheckpoint(any(CompletableFuture.class))).thenReturn(new CollectionDirtyPages(pageIds, partitionIds));
+        when(mock.beginCheckpoint(any(CompletableFuture.class))).thenReturn(new DirtyPagesCollection(pageIds, partitionIds));
 
         return mock;
     }
 
-    private static DataRegionDirtyPages<ArrayDirtyPages> createCheckpointDirtyPages(
+    private static DataRegionDirtyPages<DirtyPagesArray> createCheckpointDirtyPages(
             PersistentPageMemory pageMemory,
             FullPageId... pageIds
     ) {
-        return new DataRegionDirtyPages<>(pageMemory, new ArrayDirtyPages(pageIds, partitionIds(pageIds)));
+        return new DataRegionDirtyPages<>(pageMemory, new DirtyPagesArray(pageIds, partitionIds(pageIds)));
     }
 
-    private static DataRegionDirtyPages<CollectionDirtyPages> createDataRegionDirtyPages(
+    private static DataRegionDirtyPages<DirtyPagesCollection> createDataRegionDirtyPages(
             PersistentPageMemory pageMemory,
             FullPageId... pageIds
     ) {
-        return new DataRegionDirtyPages<>(pageMemory, new CollectionDirtyPages(List.of(pageIds), List.of(partitionIds(pageIds))));
+        return new DataRegionDirtyPages<>(pageMemory, new DirtyPagesCollection(List.of(pageIds), List.of(partitionIds(pageIds))));
     }
 
     private static FullPageId of(int grpId, int partId, int pageIdx) {

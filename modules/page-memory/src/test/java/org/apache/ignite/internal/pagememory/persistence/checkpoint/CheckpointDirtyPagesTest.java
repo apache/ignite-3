@@ -51,8 +51,8 @@ import org.junit.jupiter.api.Test;
 public class CheckpointDirtyPagesTest {
     @Test
     void testDirtyPagesCount() {
-        DataRegionDirtyPages<ArrayDirtyPages> dirtyPages0 = createDirtyPages(of(0, 0, 0), of(0, 0, 1));
-        DataRegionDirtyPages<ArrayDirtyPages> dirtyPages1 = createDirtyPages(of(1, 0, 0), of(1, 0, 1), of(1, 0, 2));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages0 = createDirtyPages(of(0, 0, 0), of(0, 0, 1));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages1 = createDirtyPages(of(1, 0, 0), of(1, 0, 1), of(1, 0, 2));
 
         assertEquals(0, EMPTY.dirtyPagesCount());
         assertEquals(2, new CheckpointDirtyPages(List.of(dirtyPages0)).dirtyPagesCount());
@@ -64,9 +64,9 @@ public class CheckpointDirtyPagesTest {
     void testToDirtyPageIdQueue() {
         assertTrue(EMPTY.toDirtyPageIdQueue().isEmpty());
 
-        DataRegionDirtyPages<ArrayDirtyPages> dirtyPages0 = createDirtyPages(of(0, 0, 0));
-        DataRegionDirtyPages<ArrayDirtyPages> dirtyPages1 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
-        DataRegionDirtyPages<ArrayDirtyPages> dirtyPages2 = createDirtyPages(of(2, 0, 0), of(2, 1, 0), of(3, 2, 2));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages0 = createDirtyPages(of(0, 0, 0));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages1 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages2 = createDirtyPages(of(2, 0, 0), of(2, 1, 0), of(3, 2, 2));
 
         CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1, dirtyPages2));
 
@@ -80,9 +80,9 @@ public class CheckpointDirtyPagesTest {
     void testToDirtyPartitionIdQueue() {
         assertTrue(EMPTY.toDirtyPartitionIdQueue().isEmpty());
 
-        DataRegionDirtyPages<ArrayDirtyPages> dirtyPages0 = createDirtyPages(of(0, 0, 0));
-        DataRegionDirtyPages<ArrayDirtyPages> dirtyPages1 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
-        DataRegionDirtyPages<ArrayDirtyPages> dirtyPages2 = createDirtyPages(of(2, 0, 0), of(2, 1, 0), of(3, 2, 2));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages0 = createDirtyPages(of(0, 0, 0));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages1 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages2 = createDirtyPages(of(2, 0, 0), of(2, 1, 0), of(3, 2, 2));
 
         CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1, dirtyPages2));
 
@@ -96,10 +96,10 @@ public class CheckpointDirtyPagesTest {
     void testFindView() {
         assertNull(EMPTY.findView(0, 0));
 
-        DataRegionDirtyPages<ArrayDirtyPages> dirtyPages0 = createDirtyPages(of(0, 0, 0));
-        DataRegionDirtyPages<ArrayDirtyPages> dirtyPages1 = createDirtyPages(of(5, 0, 0));
-        DataRegionDirtyPages<ArrayDirtyPages> dirtyPages2 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
-        DataRegionDirtyPages<ArrayDirtyPages> dirtyPages3 = createDirtyPages(
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages0 = createDirtyPages(of(0, 0, 0));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages1 = createDirtyPages(of(5, 0, 0));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages2 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages3 = createDirtyPages(
                 of(2, 0, 0), of(2, 0, 1),
                 of(2, 1, 1),
                 of(3, 2, 2), of(3, 2, 3)
@@ -144,13 +144,66 @@ public class CheckpointDirtyPagesTest {
     }
 
     @Test
+    void testFindViewByPageMemory() {
+        assertNull(EMPTY.findView(mock(PersistentPageMemory.class), 0, 0));
+
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages0 = createDirtyPages(of(0, 0, 0));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages1 = createDirtyPages(of(5, 0, 0));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages2 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages3 = createDirtyPages(
+                of(2, 0, 0), of(2, 0, 1),
+                of(2, 1, 1),
+                of(3, 2, 2), of(3, 2, 3)
+        );
+
+        CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1, dirtyPages2, dirtyPages3));
+
+        assertNull(checkpointDirtyPages.findView(dirtyPages0.pageMemory, 4, 0));
+        assertNull(checkpointDirtyPages.findView(dirtyPages1.pageMemory, 4, 0));
+        assertNull(checkpointDirtyPages.findView(dirtyPages2.pageMemory, 2, 2));
+        assertNull(checkpointDirtyPages.findView(dirtyPages3.pageMemory, 2, 2));
+        assertNull(checkpointDirtyPages.findView(dirtyPages1.pageMemory, 0, 0));
+        assertNull(checkpointDirtyPages.findView(dirtyPages2.pageMemory, 5, 0));
+
+        assertThat(
+                toListPair(checkpointDirtyPages.findView(dirtyPages0.pageMemory, 0, 0)),
+                equalTo(toListPair(arrayDirtyPages -> arrayDirtyPages.pageIds, dirtyPages0))
+        );
+
+        assertThat(
+                toListPair(checkpointDirtyPages.findView(dirtyPages1.pageMemory, 5, 0)),
+                equalTo(toListPair(arrayDirtyPages -> arrayDirtyPages.pageIds, dirtyPages1))
+        );
+
+        assertThat(
+                toListPair(checkpointDirtyPages.findView(dirtyPages2.pageMemory, 1, 0)),
+                equalTo(toListPair(arrayDirtyPages -> arrayDirtyPages.pageIds, dirtyPages2))
+        );
+
+        assertThat(
+                toListPair(checkpointDirtyPages.findView(dirtyPages3.pageMemory, 2, 0)),
+                equalTo(toListPair(arrayDirtyPages -> arrayDirtyPages.pageIds, equalsByGroupAndPartition(2, 0), dirtyPages3))
+        );
+
+        assertThat(
+                toListPair(checkpointDirtyPages.findView(dirtyPages3.pageMemory, 2, 1)),
+                equalTo(toListPair(arrayDirtyPages -> arrayDirtyPages.pageIds, equalsByGroupAndPartition(2, 1), dirtyPages3))
+        );
+
+        assertThat(
+                toListPair(checkpointDirtyPages.findView(dirtyPages3.pageMemory, 3, 2)),
+                equalTo(toListPair(arrayDirtyPages -> arrayDirtyPages.pageIds, equalsByGroupAndPartition(3, 2), dirtyPages3))
+        );
+    }
+
+    @Test
     void testNextView() {
         assertNull(EMPTY.nextView(null));
 
-        DataRegionDirtyPages<ArrayDirtyPages> dirtyPages0 = createDirtyPages(of(0, 0, 0));
-        DataRegionDirtyPages<ArrayDirtyPages> dirtyPages1 = createDirtyPages(of(5, 0, 0));
-        DataRegionDirtyPages<ArrayDirtyPages> dirtyPages2 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
-        DataRegionDirtyPages<ArrayDirtyPages> dirtyPages3 = createDirtyPages(
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages0 = createDirtyPages(of(0, 0, 0));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages1 = createDirtyPages(of(5, 0, 0));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages2 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
+        DataRegionDirtyPages<DirtyPagesArray> dirtyPages3 = createDirtyPages(
                 of(2, 0, 0), of(2, 0, 1),
                 of(2, 1, 1),
                 of(3, 2, 2), of(3, 2, 3)
@@ -210,7 +263,7 @@ public class CheckpointDirtyPagesTest {
         );
     }
 
-    private static DataRegionDirtyPages<ArrayDirtyPages> createDirtyPages(FullPageId... pageIds) {
+    private static DataRegionDirtyPages<DirtyPagesArray> createDirtyPages(FullPageId... pageIds) {
         Arrays.sort(pageIds, DIRTY_PAGE_COMPARATOR);
 
         GroupPartitionId[] partitionIds = Stream.of(pageIds)
@@ -218,7 +271,7 @@ public class CheckpointDirtyPagesTest {
                 .distinct()
                 .toArray(GroupPartitionId[]::new);
 
-        return new DataRegionDirtyPages<>(mock(PersistentPageMemory.class), new ArrayDirtyPages(pageIds, partitionIds));
+        return new DataRegionDirtyPages<>(mock(PersistentPageMemory.class), new DirtyPagesArray(pageIds, partitionIds));
     }
 
     private static FullPageId of(int groupId, int partId, int pageIdx) {
@@ -240,16 +293,16 @@ public class CheckpointDirtyPagesTest {
     }
 
     private static <T> List<IgniteBiTuple<PersistentPageMemory, T>> toListPair(
-            Function<ArrayDirtyPages, T[]> arrayExtractor,
-            DataRegionDirtyPages<ArrayDirtyPages>... dirtyPages
+            Function<DirtyPagesArray, T[]> arrayExtractor,
+            DataRegionDirtyPages<DirtyPagesArray>... dirtyPages
     ) {
         return toListPair(arrayExtractor, dirtyPageId -> true, dirtyPages);
     }
 
     private static <T> List<IgniteBiTuple<PersistentPageMemory, T>> toListPair(
-            Function<ArrayDirtyPages, T[]> arrayExtractor,
+            Function<DirtyPagesArray, T[]> arrayExtractor,
             Predicate<T> predicate,
-            DataRegionDirtyPages<ArrayDirtyPages>... dirtyPages
+            DataRegionDirtyPages<DirtyPagesArray>... dirtyPages
     ) {
         return Stream.of(dirtyPages)
                 .flatMap(pages -> Stream.of(arrayExtractor.apply(pages.dirtyPages))

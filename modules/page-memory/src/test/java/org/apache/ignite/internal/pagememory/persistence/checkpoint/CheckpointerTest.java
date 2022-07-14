@@ -45,7 +45,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -411,7 +410,7 @@ public class CheckpointerTest {
                 .distinct()
                 .toArray(GroupPartitionId[]::new);
 
-        return new CheckpointDirtyPages(List.of(new DataRegionDirtyPages<>(pageMemory, new ArrayDirtyPages(pageIds, partitionIds))));
+        return new CheckpointDirtyPages(List.of(new DataRegionDirtyPages<>(pageMemory, new DirtyPagesArray(pageIds, partitionIds))));
     }
 
     private CheckpointWorkflow createCheckpointWorkflow(CheckpointDirtyPages dirtyPages) throws Exception {
@@ -436,7 +435,7 @@ public class CheckpointerTest {
     ) throws Exception {
         CheckpointPageWriter checkpointPageWriter = mock(CheckpointPageWriter.class);
 
-        when(checkpointPageWriter.write(any(FullPageId.class), any(ByteBuffer.class), anyInt())).then(answer -> mock(PageStore.class));
+        when(checkpointPageWriter.write(any(FullPageId.class), any(ByteBuffer.class))).then(answer -> mock(PageStore.class));
 
         return new CheckpointPagesWriterFactory(
                 log,

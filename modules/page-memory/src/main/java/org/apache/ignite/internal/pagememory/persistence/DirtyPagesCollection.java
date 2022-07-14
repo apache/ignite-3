@@ -23,7 +23,7 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 /**
  * Dirty pages collection container.
  */
-public class CollectionDirtyPages {
+public class DirtyPagesCollection {
     private final Collection<FullPageId> pageIds;
 
     private final Collection<GroupPartitionId> partitionIds;
@@ -36,7 +36,7 @@ public class CollectionDirtyPages {
      * @param pageIds Dirty page IDs.
      * @param partitionIds Dirty partitions IDs.
      */
-    public CollectionDirtyPages(Collection<FullPageId> pageIds, Collection<GroupPartitionId> partitionIds) {
+    public DirtyPagesCollection(Collection<FullPageId> pageIds, Collection<GroupPartitionId> partitionIds) {
         this.pageIds = pageIds;
         this.partitionIds = partitionIds;
     }

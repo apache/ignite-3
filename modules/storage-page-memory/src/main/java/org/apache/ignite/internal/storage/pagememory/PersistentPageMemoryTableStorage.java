@@ -93,16 +93,27 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
             PartitionMeta meta = partitionFilePageStore.meta();
 
-            if (meta.isCreated()) {
+            boolean initNewTree = false;
+
+            if (meta.treeRootPageId() == 0) {
                 meta.treeRootPageId(persistentPageMemory.allocatePage(grpId, partId, FLAG_AUX));
-                meta.reuseListRootPageId(persistentPageMemory.allocatePage(grpId, partId, FLAG_AUX));
+
+                initNewTree = true;
             }
 
-            TableFreeList tableFreeList = createTableFreeList(tableView, partId, meta);
+            boolean initNewReuseList = false;
+
+            if (meta.reuseListRootPageId() == 0) {
+                meta.reuseListRootPageId(persistentPageMemory.allocatePage(grpId, partId, FLAG_AUX));
+
+                initNewReuseList = true;
+            }
+
+            TableFreeList tableFreeList = createTableFreeList(tableView, partId, meta, initNewReuseList);
 
             autoCloseables.add(tableFreeList::close);
 
-            TableTree tableTree = createTableTree(tableView, partId, tableFreeList, meta);
+            TableTree tableTree = createTableTree(tableView, partId, tableFreeList, meta, initNewTree);
 
             return new PersistentPageMemoryPartitionStorage(partId, tableFreeList, tableTree, checkpointTimeoutLock);
         } catch (IgniteInternalCheckedException e) {
@@ -156,12 +167,14 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      * @param tableView Table configuration.
      * @param partId Partition ID.
      * @param partitionMeta Partition metadata.
+     * @param initNew {@code True} if new metadata should be initialized.
      * @throws StorageException If failed.
      */
     TableFreeList createTableFreeList(
             TableView tableView,
             int partId,
-            PartitionMeta partitionMeta
+            PartitionMeta partitionMeta,
+            boolean initNew
     ) throws StorageException {
         try {
             return new TableFreeList(
@@ -170,7 +183,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
                     partitionMeta.reuseListRootPageId(),
-                    partitionMeta.isCreated(),
+                    initNew,
                     null,
                     PageEvictionTrackerNoOp.INSTANCE,
                     IoStatisticsHolderNoOp.INSTANCE
@@ -190,13 +203,15 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      * @param partId Partition ID.
      * @param freeList Table free list.
      * @param partitionMeta Partition metadata.
+     * @param initNewTree {@code True} if new tree should be created.
      * @throws StorageException If failed.
      */
     TableTree createTableTree(
             TableView tableView,
             int partId,
             TableFreeList freeList,
-            PartitionMeta partitionMeta
+            PartitionMeta partitionMeta,
+            boolean initNewTree
     ) throws StorageException {
         int grpId = groupId(tableView);
 
@@ -209,7 +224,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
                     new AtomicLong(),
                     partitionMeta.treeRootPageId(),
                     freeList,
-                    partitionMeta.isCreated()
+                    initNewTree
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(

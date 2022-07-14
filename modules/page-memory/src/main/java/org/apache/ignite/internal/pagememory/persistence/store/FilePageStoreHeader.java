@@ -32,8 +32,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>Total length in bytes {@link #headerSize()}.
  *
  * <ul>
- *     <li>{@link #SIGNATURE signature} (8 byte)</li>
- *     <li>{@link #version version} (4 byte)</li>
+ *     <li>{@link #SIGNATURE signature} (8 bytes)</li>
+ *     <li>{@link #version version} (4 bytes)</li>
  *     <li>{@link #pageSize pageSize} (4 bytes)</li>
  * </ul>
  */

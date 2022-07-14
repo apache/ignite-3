@@ -238,7 +238,7 @@ public class FilePageStore implements PageStore {
 
     /** {@inheritDoc} */
     @Override
-    public void write(long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc) throws IgniteInternalCheckedException {
+    public void write(long pageId, ByteBuffer pageBuf, boolean calculateCrc) throws IgniteInternalCheckedException {
         ensure();
 
         boolean interrupted = false;
@@ -315,7 +315,7 @@ public class FilePageStore implements PageStore {
                 }
 
                 throw new IgniteInternalCheckedException(
-                        "Failed to write page [filePath=" + filePath + ", pageId=" + pageId + ", tag=" + tag + "]",
+                        "Failed to write page [filePath=" + filePath + ", pageId=" + pageId + "]",
                         e
                 );
             }

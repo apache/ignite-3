@@ -23,7 +23,7 @@ import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 /**
  * Dirty page array container.
  */
-class ArrayDirtyPages {
+class DirtyPagesArray {
     final FullPageId[] pageIds;
 
     final GroupPartitionId[] partitionIds;
@@ -36,7 +36,7 @@ class ArrayDirtyPages {
      * @param pageIds Array of dirty page IDs.
      * @param partitionIds Dirty partition IDs.
      */
-    ArrayDirtyPages(FullPageId[] pageIds, GroupPartitionId[] partitionIds) {
+    DirtyPagesArray(FullPageId[] pageIds, GroupPartitionId[] partitionIds) {
         this.pageIds = pageIds;
         this.partitionIds = partitionIds;
     }

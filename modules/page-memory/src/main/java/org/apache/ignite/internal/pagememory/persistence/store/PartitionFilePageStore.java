@@ -80,8 +80,8 @@ public class PartitionFilePageStore implements PageStore {
 
     /** {@inheritDoc} */
     @Override
-    public void write(long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc) throws IgniteInternalCheckedException {
-        filePageStore.write(pageId, pageBuf, tag, calculateCrc);
+    public void write(long pageId, ByteBuffer pageBuf, boolean calculateCrc) throws IgniteInternalCheckedException {
+        filePageStore.write(pageId, pageBuf, calculateCrc);
     }
 
     /** {@inheritDoc} */

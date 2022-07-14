@@ -38,9 +38,9 @@ public class CheckpointTest {
 
         assertFalse(new Checkpoint(EMPTY, progress).hasDelta());
 
-        DataRegionDirtyPages<ArrayDirtyPages> biTuple = new DataRegionDirtyPages<>(
+        DataRegionDirtyPages<DirtyPagesArray> biTuple = new DataRegionDirtyPages<>(
                 mock(PersistentPageMemory.class),
-                new ArrayDirtyPages(new FullPageId[]{new FullPageId(0, 1)}, new GroupPartitionId[0])
+                new DirtyPagesArray(new FullPageId[]{new FullPageId(0, 1)}, new GroupPartitionId[0])
         );
 
         assertTrue(new Checkpoint(new CheckpointDirtyPages(List.of(biTuple)), progress).hasDelta());

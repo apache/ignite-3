@@ -61,13 +61,12 @@ class PageReadWriteManagerImpl implements org.apache.ignite.internal.pagememory.
             int grpId,
             long pageId,
             ByteBuffer pageBuf,
-            int tag,
             boolean calculateCrc
     ) throws IgniteInternalCheckedException {
         PartitionFilePageStore pageStore = partitionFilePageStoreManager.getStore(grpId, partitionId(pageId));
 
         try {
-            pageStore.write(pageId, pageBuf, tag, calculateCrc);
+            pageStore.write(pageId, pageBuf, calculateCrc);
         } catch (IgniteInternalCheckedException e) {
             // TODO: IGNITE-16899 By analogy with 2.0, fail a node
 

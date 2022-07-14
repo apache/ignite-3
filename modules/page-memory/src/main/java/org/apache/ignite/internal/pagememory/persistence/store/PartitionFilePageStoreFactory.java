@@ -142,8 +142,7 @@ class PartitionFilePageStoreFactory {
             return new PartitionMeta(
                     partitionMetaIo.getTreeRootPageId(pageAddr),
                     partitionMetaIo.getReuseListRootPageId(pageAddr),
-                    partitionMetaIo.getPageCount(pageAddr),
-                    false
+                    partitionMetaIo.getPageCount(pageAddr)
             );
         } catch (IgniteInternalCheckedException e) {
             throw new IOException("Failed read partition meta", e);
@@ -151,6 +150,6 @@ class PartitionFilePageStoreFactory {
     }
 
     private static PartitionMeta newPartitionMeta() {
-        return new PartitionMeta(0, 0, 1, true);
+        return new PartitionMeta(0, 0, 1);
     }
 }

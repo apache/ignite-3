@@ -114,7 +114,7 @@ public class CheckpointManager {
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
                 Loggers.forClass(CheckpointPagesWriterFactory.class),
-                (fullPage, buf, tag) -> partitionFilePageStoreManager.write(fullPage.groupId(), fullPage.pageId(), buf, tag, true),
+                (fullPage, buf) -> partitionFilePageStoreManager.write(fullPage.groupId(), fullPage.pageId(), buf, true),
                 ioRegistry,
                 partitionFilePageStoreManager,
                 pageSize

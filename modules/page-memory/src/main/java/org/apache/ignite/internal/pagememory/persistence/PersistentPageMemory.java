@@ -885,24 +885,6 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
-     * Get current partition generation tag.
-     *
-     * @param fullPageId Full page id.
-     * @return Current partition generation tag.
-     */
-    public int generationTag(FullPageId fullPageId) {
-        Segment segment = segment(fullPageId.groupId(), fullPageId.pageId());
-
-        segment.readLock().lock();
-
-        try {
-            return generationTag(segment, fullPageId);
-        } finally {
-            segment.readLock().unlock();
-        }
-    }
-
-    /**
      * Resolver relative pointer via {@link LoadedPagesMap}.
      *
      * @param seg Segment.
@@ -1573,16 +1555,6 @@ public class PersistentPageMemory implements PageMemory {
                 loadedPages.remove(grpId, effectivePageId(pageId));
             }
 
-            CheckpointPages checkpointPages = this.checkpointPages;
-
-            if (checkpointPages != null) {
-                checkpointPages.markAsSaved(new FullPageId(pageId, grpId));
-            }
-
-            if (dirtyPages.remove(new FullPageId(pageId, grpId))) {
-                dirtyPagesCntr.decrementAndGet();
-            }
-
             return relPtr;
         }
 
@@ -2083,9 +2055,9 @@ public class PersistentPageMemory implements PageMemory {
      * @param allowToReplace The sign which allows replacing pages from a checkpoint by page replacer.
      * @throws IgniteInternalException If checkpoint has been already started and was not finished.
      */
-    public CollectionDirtyPages beginCheckpoint(CompletableFuture<?> allowToReplace) throws IgniteInternalException {
+    public DirtyPagesCollection beginCheckpoint(CompletableFuture<?> allowToReplace) throws IgniteInternalException {
         if (segments == null) {
-            return new CollectionDirtyPages(List.of(), List.of());
+            return new DirtyPagesCollection(List.of(), List.of());
         }
 
         Set<FullPageId>[] dirtyPageIds = new Set[segments.length];
@@ -2108,7 +2080,7 @@ public class PersistentPageMemory implements PageMemory {
 
         safeToUpdate.set(true);
 
-        return new CollectionDirtyPages(CollectionUtils.concat(dirtyPageIds), dirtyPartitionIds);
+        return new DirtyPagesCollection(CollectionUtils.concat(dirtyPageIds), dirtyPartitionIds);
     }
 
     /**

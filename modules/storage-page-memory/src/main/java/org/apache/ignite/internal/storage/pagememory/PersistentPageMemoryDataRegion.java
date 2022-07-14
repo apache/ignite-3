@@ -85,7 +85,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
                 null,
                 (fullPageId, buf, tag) -> {
                     // Write page to disk.
-                    partitionFilePageStoreManager.write(fullPageId.groupId(), fullPageId.pageId(), buf, tag, true);
+                    partitionFilePageStoreManager.write(fullPageId.groupId(), fullPageId.pageId(), buf, true);
                 },
                 checkpointManager.checkpointTimeoutLock(),
                 pageSize
