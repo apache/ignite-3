@@ -26,7 +26,7 @@ import org.apache.ignite.internal.rest.RestFactory;
 import org.apache.ignite.network.ClusterService;
 
 /**
- * Factory that creates beans that are needed for {@link ClusterManagementController}.
+ * Factory that creates beans that are needed for {@link ClusterManagementControllerImpl}.
  */
 @Factory
 public class ClusterManagementRestFactory implements RestFactory {

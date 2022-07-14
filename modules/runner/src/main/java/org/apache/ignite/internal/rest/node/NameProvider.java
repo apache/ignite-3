@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.node;
+package org.apache.ignite.internal.rest.node;
 
 /**
  * Provides local node name.

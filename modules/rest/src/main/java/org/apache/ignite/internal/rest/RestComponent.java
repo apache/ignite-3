@@ -31,13 +31,13 @@ import java.util.List;
 import java.util.Map;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestView;
-import org.apache.ignite.internal.cluster.management.rest.ClusterManagementController;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.node.rest.NodeManagementController;
-import org.apache.ignite.internal.rest.configuration.ClusterConfigurationController;
-import org.apache.ignite.internal.rest.configuration.NodeConfigurationController;
+import org.apache.ignite.internal.rest.api.cluster.ClusterManagementController;
+import org.apache.ignite.internal.rest.api.configuration.ClusterConfigurationController;
+import org.apache.ignite.internal.rest.api.configuration.NodeConfigurationController;
+import org.apache.ignite.internal.rest.api.node.NodeManagementController;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
@@ -142,6 +142,7 @@ public class RestComponent implements IgniteComponent {
     }
 
     private void setFactories(Micronaut micronaut) {
+        micronaut.classes(NodeManagementController.class);
         for (var factory : restFactories) {
             micronaut.singletons(factory);
         }

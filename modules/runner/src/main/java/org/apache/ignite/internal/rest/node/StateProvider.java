@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.node;
+package org.apache.ignite.internal.rest.node;
+
+import org.apache.ignite.internal.rest.api.node.State;
 
 /**
  * Provides local node current state.

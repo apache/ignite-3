@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.rest;
+package org.apache.ignite.internal.rest.api.cluster;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  * REST representation of {@link org.apache.ignite.internal.properties.IgniteProductVersion}.
  */
 @Schema(name = "IgniteProductVersion")
-class IgniteProductVersionDto {
+public class IgniteProductVersionDto {
     /** Major version number. */
     private final short major;
 
@@ -45,8 +45,9 @@ class IgniteProductVersionDto {
     // TODO: IGNITE-17146 Fix and add support for beta and other releases
     private final String alphaVersion;
 
+    /** Constructor. */
     @JsonCreator
-    IgniteProductVersionDto(
+    public IgniteProductVersionDto(
             @JsonProperty("major") short major,
             @JsonProperty("minor") short minor,
             @JsonProperty("maintenance") short maintenance,

@@ -29,7 +29,7 @@ import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationP
 import org.apache.ignite.internal.configuration.rest.presentation.hocon.HoconPresentation;
 
 /**
- * Functional test for {@link NodeConfigurationController}.
+ * Functional test for {@link NodeConfigurationControllerImpl}.
  */
 @MicronautTest
 class NodeConfigurationControllerTest extends ConfigurationControllerBaseTest {

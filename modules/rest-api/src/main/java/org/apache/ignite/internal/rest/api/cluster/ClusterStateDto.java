@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,20 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.rest;
+package org.apache.ignite.internal.rest.api.cluster;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Collection;
 import java.util.Objects;
-import org.apache.ignite.internal.cluster.management.ClusterState;
 
 /**
- * REST representation of {@link ClusterState}.
+ * REST representation of internal ClusterState.
  */
 @Schema(name = "ClusterState")
-class ClusterStateDto {
+public class ClusterStateDto {
     private final Collection<String> cmgNodes;
 
     private final Collection<String> msNodes;

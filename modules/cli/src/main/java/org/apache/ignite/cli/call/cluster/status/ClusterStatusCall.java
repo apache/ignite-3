@@ -69,8 +69,6 @@ public class ClusterStatusCall implements Call<StatusCallInput, ClusterStatus> {
             } else {
                 return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getClusterUrl()));
             }
-        } catch (IllegalArgumentException e) {
-            clusterStatusBuilder.initialized(false);
         }
 
         return DefaultCallOutput.success(clusterStatusBuilder.build());

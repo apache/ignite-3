@@ -23,8 +23,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.node.State;
-import org.apache.ignite.internal.node.StateProvider;
+import org.apache.ignite.internal.rest.api.node.State;
+import org.apache.ignite.internal.rest.node.StateProvider;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.lang.NodeStoppingException;
 
@@ -47,13 +47,13 @@ class LifecycleManager implements StateProvider {
      */
     private final List<IgniteComponent> startedComponents = new ArrayList<>();
 
+    LifecycleManager(String nodeName) {
+        this.nodeName = nodeName;
+    }
+
     @Override
     public State getState() {
         return status.get();
-    }
-
-    LifecycleManager(String nodeName) {
-        this.nodeName = nodeName;
     }
 
     /**
@@ -88,8 +88,8 @@ class LifecycleManager implements StateProvider {
     }
 
     /**
-     * Callback that should be called after the node has joined a cluster. After this method completes,
-     * the node will be transferred to the {@link State#STARTED} state.
+     * Callback that should be called after the node has joined a cluster. After this method completes, the node will be transferred to the
+     * {@link State#STARTED} state.
      *
      * @throws NodeStoppingException If node stopping intention was detected.
      */

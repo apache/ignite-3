@@ -44,6 +44,8 @@ import java.util.List;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.MockNode;
 import org.apache.ignite.internal.rest.api.Problem;
+import org.apache.ignite.internal.rest.api.cluster.ClusterManagementController;
+import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterService;
@@ -184,7 +186,6 @@ public class ItClusterManagementControllerTest {
         // And
         var problem = getProblem(thrown);
         assertEquals(500, problem.status());
-
     }
 
     @Factory

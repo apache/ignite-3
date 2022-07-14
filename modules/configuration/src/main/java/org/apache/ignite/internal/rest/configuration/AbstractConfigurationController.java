@@ -62,7 +62,7 @@ public abstract class AbstractConfigurationController {
      *
      * @param updatedConfiguration the configuration to update.
      */
-    public CompletableFuture<Void> updateConfiguration(String updatedConfiguration) throws Throwable {
+    public CompletableFuture<Void> updateConfiguration(String updatedConfiguration) {
         return cfgPresentation.update(updatedConfiguration)
                 .exceptionally(ex -> {
                     if (ex instanceof CompletionException) {

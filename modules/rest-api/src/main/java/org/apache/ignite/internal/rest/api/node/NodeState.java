@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.node.rest;
+package org.apache.ignite.internal.rest.api.node;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.apache.ignite.internal.node.State;
 
 /**
  * Node state that is returned by REST.

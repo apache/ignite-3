@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,20 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.rest;
+package org.apache.ignite.internal.rest.api.cluster;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.internal.cluster.management.ClusterTag;
 
 /**
- * REST representation of {@link ClusterTag}.
+ * REST representation of internal ClusterTag.
  */
 @Schema(name = "ClusterTag")
-class ClusterTagDto {
+public class ClusterTagDto {
     /** Auto-generated part. */
     private final UUID clusterId;
 
@@ -36,7 +35,7 @@ class ClusterTagDto {
     private final String clusterName;
 
     @JsonCreator
-    ClusterTagDto(@JsonProperty("clusterName") String clusterName, @JsonProperty("clusterId") UUID clusterId) {
+    public ClusterTagDto(@JsonProperty("clusterName") String clusterName, @JsonProperty("clusterId") UUID clusterId) {
         this.clusterName = clusterName;
         this.clusterId = clusterId;
     }

@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.node.rest;
+package org.apache.ignite.internal.rest.node;
 
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.node.NameProvider;
-import org.apache.ignite.internal.node.StateProvider;
 import org.apache.ignite.internal.rest.RestFactory;
 
 /**
- * Node management REST factory defines beans needed for {@link NodeManagementController}.
+ * Node management REST factory defines beans needed for {@link NodeManagementControllerImpl}.
  */
 @Factory
 public class NodeManagementRestFactory implements RestFactory {
