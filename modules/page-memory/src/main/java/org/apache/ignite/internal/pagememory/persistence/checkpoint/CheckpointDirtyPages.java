@@ -169,8 +169,8 @@ class CheckpointDirtyPages {
             regionIndex = 0;
             fromPosition = 0;
         } else {
-            regionIndex = currentView.isNeedNextDirtyPagesRegion() ? currentView.regionIndex + 1 : currentView.regionIndex;
-            fromPosition = currentView.isNeedNextDirtyPagesRegion() ? 0 : currentView.toPosition;
+            regionIndex = currentView.needsNextRegion() ? currentView.regionIndex + 1 : currentView.regionIndex;
+            fromPosition = currentView.needsNextRegion() ? 0 : currentView.toPosition;
         }
 
         if (regionIndex >= dirtyPages.size()) {
@@ -249,7 +249,7 @@ class CheckpointDirtyPages {
             return CheckpointDirtyPages.this;
         }
 
-        private boolean isNeedNextDirtyPagesRegion() {
+        private boolean needsNextRegion() {
             return toPosition == dirtyPages.get(regionIndex).dirtyPages.pageIds.length;
         }
     }
