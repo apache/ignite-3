@@ -112,7 +112,7 @@ public class CheckpointManager {
                 checkpointMarkersStorage,
                 checkpointReadWriteLock,
                 dataRegions,
-                filePageStoreManager
+                partitionMetaManager
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(

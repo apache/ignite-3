@@ -42,6 +42,7 @@ import org.apache.ignite.internal.pagememory.persistence.FastCrc;
 import org.apache.ignite.internal.pagememory.persistence.IgniteInternalDataIntegrityViolationException;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * FilePageStore is a {@link PageStore} implementation that uses regular files to store pages.
@@ -94,6 +95,9 @@ public class FilePageStore implements PageStore {
     /** Initialized file page store. */
     private volatile boolean initialized;
 
+    /** New page allocation listener. */
+    private volatile @Nullable PageAllocationListener pageAllocationListener;
+
     /**
      * Constructor.
      *
@@ -134,10 +138,18 @@ public class FilePageStore implements PageStore {
 
     /** {@inheritDoc} */
     @Override
-    public long allocatePage() throws IgniteInternalCheckedException {
+    public int allocatePage() throws IgniteInternalCheckedException {
         ensure();
 
-        return pageCount.getAndIncrement();
+        int pageIdx = pageCount.getAndIncrement();
+
+        PageAllocationListener listener = this.pageAllocationListener;
+
+        if (listener != null) {
+            listener.onAllocationPage(pageIdx);
+        }
+
+        return pageIdx;
     }
 
     /** {@inheritDoc} */
@@ -620,5 +632,14 @@ public class FilePageStore implements PageStore {
      */
     public int headerSize() {
         return headerSize;
+    }
+
+    /**
+     * Sets the new page allocation listener.
+     *
+     * @param listener New page allocation listener.
+     */
+    public void setPageAllocationListener(PageAllocationListener listener) {
+        pageAllocationListener = listener;
     }
 }

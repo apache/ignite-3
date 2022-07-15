@@ -27,7 +27,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * File page store with partition meta.
  */
 public class PartitionFilePageStore implements PageStore {
-    private final FilePageStore filePageStore;
+    public final FilePageStore filePageStore;
 
     private final PartitionMeta partitionMeta;
 
@@ -50,7 +50,7 @@ public class PartitionFilePageStore implements PageStore {
 
     /** {@inheritDoc} */
     @Override
-    public long allocatePage() throws IgniteInternalCheckedException {
+    public int allocatePage() throws IgniteInternalCheckedException {
         return filePageStore.allocatePage();
     }
 
@@ -101,13 +101,6 @@ public class PartitionFilePageStore implements PageStore {
      */
     public PartitionMeta meta() {
         return partitionMeta;
-    }
-
-    /**
-     * Updates the {@link PartitionMeta#pageCount() page count} in the meta.
-     */
-    public void updateMetaPageCount() {
-        partitionMeta.pageCount(filePageStore.pages());
     }
 
     /**

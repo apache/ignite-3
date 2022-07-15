@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getCrc;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestPageIo;
@@ -326,20 +329,39 @@ public class FilePageStoreTest {
     }
 
     @Test
-    void testHeaderSize() {
+    void testHeaderSize() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        assertEquals(PAGE_SIZE, createFilePageStore(testFilePath).headerSize());
+        try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
+            assertEquals(PAGE_SIZE, filePageStore.headerSize());
+        }
 
-        assertEquals(
-                2 * PAGE_SIZE,
-                createFilePageStore(testFilePath, new FilePageStoreHeader(VERSION_1, 2 * PAGE_SIZE)).headerSize()
-        );
+        try (FilePageStore filePageStore = createFilePageStore(testFilePath, new FilePageStoreHeader(VERSION_1, 2 * PAGE_SIZE))) {
+            assertEquals(2 * PAGE_SIZE, filePageStore.headerSize());
+        }
 
-        assertEquals(
-                3 * PAGE_SIZE,
-                createFilePageStore(testFilePath, new FilePageStoreHeader(VERSION_1, 3 * PAGE_SIZE)).headerSize()
-        );
+        try (FilePageStore filePageStore = createFilePageStore(testFilePath, new FilePageStoreHeader(VERSION_1, 3 * PAGE_SIZE))) {
+            assertEquals(3 * PAGE_SIZE, filePageStore.headerSize());
+        }
+    }
+
+    @Test
+    void testPageAllocationListener() throws Exception {
+        Path testFilePath = workDir.resolve("test");
+
+        try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
+            ConcurrentLinkedQueue<Integer> allocatedPageIdx = new ConcurrentLinkedQueue<>();
+
+            filePageStore.setPageAllocationListener(allocatedPageIdx::add);
+
+            filePageStore.allocatePage();
+
+            assertThat(allocatedPageIdx, contains(0));
+
+            filePageStore.allocatePage();
+
+            assertThat(allocatedPageIdx, contains(0, 1));
+        }
     }
 
     private static byte[] randomBytes(int len) {
@@ -359,7 +381,7 @@ public class FilePageStoreTest {
     }
 
     private static long createPageId(FilePageStore filePageStore) throws Exception {
-        return pageId(pageId(0, FLAG_DATA, (int) filePageStore.allocatePage()));
+        return pageId(pageId(0, FLAG_DATA, filePageStore.allocatePage()));
     }
 
     private static FilePageStore createFilePageStore(Path filePath) {

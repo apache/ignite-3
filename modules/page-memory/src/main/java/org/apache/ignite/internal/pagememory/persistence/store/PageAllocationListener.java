@@ -17,29 +17,14 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
-import org.junit.jupiter.api.Test;
-
 /**
- * For {@link PartitionFilePageStore} testing.
+ * New page allocation listener.
  */
-public class PartitionFilePageStoreTest {
-    @Test
-    void testUpdateMetaPageCount() {
-        FilePageStore filePageStore = mock(FilePageStore.class);
-
-        PartitionFilePageStore partitionFilePageStore = new PartitionFilePageStore(filePageStore, new PartitionMeta(0, 0, 0));
-
-        when(filePageStore.pages()).thenReturn(100500);
-
-        assertEquals(0, partitionFilePageStore.meta().pageCount());
-
-        partitionFilePageStore.updateMetaPageCount();
-
-        assertEquals(100500, partitionFilePageStore.meta().pageCount());
-    }
+public interface PageAllocationListener {
+    /**
+     * Callback when a new page is allocated.
+     *
+     * @param pageIdx Index of the new page.
+     */
+    void onAllocationPage(int pageIdx);
 }

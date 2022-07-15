@@ -84,9 +84,9 @@ class PageReadWriteManagerImpl implements org.apache.ignite.internal.pagememory.
         PartitionFilePageStore pageStore = filePageStoreManager.getStore(grpId, partId);
 
         try {
-            long pageIdx = pageStore.allocatePage();
+            int pageIdx = pageStore.allocatePage();
 
-            return pageId(partId, flags, (int) pageIdx);
+            return pageId(partId, flags, pageIdx);
         } catch (IgniteInternalCheckedException e) {
             // TODO: IGNITE-16899 By analogy with 2.0, fail a node
 

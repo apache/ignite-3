@@ -39,7 +39,7 @@ public interface PageStore extends Closeable {
      * @return Next page index.
      * @throws IgniteInternalCheckedException If failed to allocate.
      */
-    long allocatePage() throws IgniteInternalCheckedException;
+    int allocatePage() throws IgniteInternalCheckedException;
 
     /**
      * Returns number of allocated pages.

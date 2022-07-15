@@ -17,17 +17,25 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import static java.util.concurrent.atomic.AtomicIntegerFieldUpdater.newUpdater;
+
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Partition meta information.
  */
 public class PartitionMeta {
+    private static final AtomicIntegerFieldUpdater<PartitionMeta> PAGE_COUNT_UPDATER = newUpdater(PartitionMeta.class, "pageCount");
+
     private volatile long treeRootPageId;
 
     private volatile long reuseListRootPageId;
 
     private volatile int pageCount;
+
+    private volatile @Nullable PartitionMeta metaSnapshot;
 
     /**
      * Constructor.
@@ -82,12 +90,28 @@ public class PartitionMeta {
     }
 
     /**
-     * Sets count of pages in the partition.
-     *
-     * @param pageCount Count of pages in the partition.
+     * Increases the number of pages in a partition.
      */
-    public void pageCount(int pageCount) {
-        this.pageCount = pageCount;
+    public void incrementPageCount() {
+        PAGE_COUNT_UPDATER.incrementAndGet(this);
+    }
+
+    /**
+     * TODO: IGNITE-17295 не забудь избавиться или типо того.
+     */
+    public void makeMetaSnapshot() {
+        metaSnapshot = copy();
+    }
+
+    /**
+     * Returns the latest snapshot of the meta.
+     */
+    public @Nullable PartitionMeta metaSnapshot() {
+        return metaSnapshot;
+    }
+
+    private PartitionMeta copy() {
+        return new PartitionMeta(treeRootPageId, reuseListRootPageId, pageCount);
     }
 
     /** {@inheritDoc} */

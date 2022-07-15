@@ -92,7 +92,10 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
             int grpId = groupId(tableView);
 
+            // TODO: IGNITE-17295 вот тут надо будет самомоу создавать
             PartitionMeta meta = partitionFilePageStore.meta();
+
+            partitionFilePageStore.filePageStore.setPageAllocationListener(pageIdx -> meta.incrementPageCount());
 
             boolean initNewTree = false;
 

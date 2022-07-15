@@ -22,21 +22,16 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.TRY_AGAIN_TAG;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.createPartitionMetaManager;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
-import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -64,8 +59,6 @@ import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -359,29 +352,5 @@ public class CheckpointPagesWriterTest {
 
     private static GroupPartitionId groupPartId(int grpId, int partId) {
         return new GroupPartitionId(grpId, partId);
-    }
-
-    private static FilePageStore createFilePageStore(boolean readEmptyPartitionMetaIo) throws Exception {
-        FilePageStore filePageStore = mock(FilePageStore.class);
-
-        when(filePageStore.read(anyLong(), any(ByteBuffer.class), anyBoolean())).then(answer -> {
-            long pageId = answer.getArgument(0);
-
-            assertEquals(0, pageIndex(pageId));
-
-            ByteBuffer buffer = answer.getArgument(1);
-
-            long pageAddr = bufferAddress(buffer);
-
-            if (readEmptyPartitionMetaIo) {
-                zeroMemory(pageAddr, PAGE_SIZE);
-            } else {
-                PartitionMetaIo.VERSIONS.latest().initNewPage(pageAddr, pageId, PAGE_SIZE);
-            }
-
-            return true;
-        });
-
-        return filePageStore;
     }
 }

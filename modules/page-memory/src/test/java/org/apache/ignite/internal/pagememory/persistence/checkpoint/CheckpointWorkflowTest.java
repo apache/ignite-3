@@ -25,7 +25,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.MARKER_STORED_TO_DISK;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGE_SNAPSHOT_TAKEN;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.createFilePageStoreManager;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.createPartitionMetaManager;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.newReadWriteLock;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.toListDirtyPageIds;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.AFTER_CHECKPOINT_END;
@@ -45,7 +45,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -66,11 +65,9 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.DirtyPagesCollection;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStore;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
@@ -111,7 +108,7 @@ public class CheckpointWorkflowTest {
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 List.of(dataRegion0, dataRegion1),
-                mock(FilePageStoreManager.class)
+                mock(PartitionMetaManager.class)
         );
 
         workflow.start();
@@ -190,17 +187,14 @@ public class CheckpointWorkflowTest {
 
         DataRegion<PersistentPageMemory> dataRegion = () -> pageMemory;
 
-        PartitionFilePageStore partitionFilePageStore = spy(new PartitionFilePageStore(
-                mock(FilePageStore.class),
-                mock(PartitionMeta.class))
-        );
+        PartitionMeta partitionMeta = mock(PartitionMeta.class);
 
         workflow = new CheckpointWorkflow(
                 "test",
                 markersStorage,
                 readWriteLock,
                 List.of(dataRegion),
-                createFilePageStoreManager(Map.of(new GroupPartitionId(0, 0), partitionFilePageStore))
+                createPartitionMetaManager(Map.of(new GroupPartitionId(0, 0), partitionMeta))
         );
 
         workflow.start();
@@ -324,7 +318,7 @@ public class CheckpointWorkflowTest {
         );
 
         verify(markersStorage, times(1)).onCheckpointBegin(checkpointId);
-        verify(partitionFilePageStore, times(1)).updateMetaPageCount();
+        verify(partitionMeta, times(1)).makeMetaSnapshot();
     }
 
     @Test
@@ -342,7 +336,7 @@ public class CheckpointWorkflowTest {
                 markersStorage,
                 readWriteLock,
                 List.of(dataRegion),
-                mock(FilePageStoreManager.class)
+                mock(PartitionMetaManager.class)
         );
 
         workflow.start();
@@ -422,7 +416,7 @@ public class CheckpointWorkflowTest {
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 List.of(),
-                mock(FilePageStoreManager.class)
+                mock(PartitionMetaManager.class)
         );
 
         workflow.start();
@@ -474,7 +468,7 @@ public class CheckpointWorkflowTest {
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 List.of(),
-                mock(FilePageStoreManager.class)
+                mock(PartitionMetaManager.class)
         );
 
         workflow.start();
