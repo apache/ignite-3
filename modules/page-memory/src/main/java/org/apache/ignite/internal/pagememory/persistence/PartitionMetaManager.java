@@ -94,6 +94,10 @@ public class PartitionMetaManager {
         try {
             if (filePageStore.size() > filePageStore.headerSize()) {
                 // Reads the partition meta.
+                if (filePageStore.pages() == 0) {
+                    filePageStore.pages(1);
+                }
+
                 boolean read = filePageStore.read(partitionMetaPageId, buffer, false);
 
                 assert read : filePageStore.filePath();
