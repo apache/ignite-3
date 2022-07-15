@@ -17,34 +17,26 @@
 
 package org.apache.ignite.internal.rest.node;
 
-import io.micronaut.context.annotation.Bean;
-import io.micronaut.context.annotation.Factory;
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.rest.RestFactory;
+import io.micronaut.http.annotation.Controller;
+import org.apache.ignite.internal.rest.api.node.NodeManagementApi;
+import org.apache.ignite.internal.rest.api.node.NodeState;
 
 /**
- * Node management REST factory defines beans needed for {@link NodeManagementController}.
+ * REST endpoint allows to read node state.
  */
-@Factory
-public class NodeManagementRestFactory implements RestFactory {
+@Controller("/management/v1/node")
+public class NodeManagementController implements NodeManagementApi {
     private final StateProvider stateProvider;
 
     private final NameProvider nameProvider;
 
-    public NodeManagementRestFactory(StateProvider stateProvider, NameProvider nameProvider) {
-        this.stateProvider = stateProvider;
+    public NodeManagementController(NameProvider nameProvider, StateProvider stateProvider) {
         this.nameProvider = nameProvider;
+        this.stateProvider = stateProvider;
     }
 
-    @Singleton
-    @Bean
-    public StateProvider stateProvider() {
-        return stateProvider;
-    }
-
-    @Singleton
-    @Bean
-    public NameProvider nameProvider() {
-        return nameProvider;
+    @Override
+    public NodeState state() {
+        return new NodeState(nameProvider.getName(), stateProvider.getState());
     }
 }

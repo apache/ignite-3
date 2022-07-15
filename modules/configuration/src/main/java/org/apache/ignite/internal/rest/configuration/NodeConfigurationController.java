@@ -18,18 +18,11 @@
 package org.apache.ignite.internal.rest.configuration;
 
 import io.micronaut.context.annotation.Requires;
-import io.micronaut.http.annotation.Body;
-import io.micronaut.http.annotation.Consumes;
 import io.micronaut.http.annotation.Controller;
-import io.micronaut.http.annotation.Get;
-import io.micronaut.http.annotation.Patch;
-import io.micronaut.http.annotation.PathVariable;
-import io.micronaut.http.annotation.Produces;
 import jakarta.inject.Named;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
-import org.apache.ignite.internal.rest.api.configuration.NodeConfigurationController;
-import org.apache.ignite.internal.rest.constants.MediaType;
+import org.apache.ignite.internal.rest.api.configuration.NodeConfigurationApi;
 import org.apache.ignite.internal.rest.exception.handler.IgniteExceptionHandler;
 
 /**
@@ -37,9 +30,9 @@ import org.apache.ignite.internal.rest.exception.handler.IgniteExceptionHandler;
  */
 @Controller("/management/v1/configuration/node")
 @Requires(classes = IgniteExceptionHandler.class)
-public class NodeConfigurationControllerImpl extends AbstractConfigurationController implements NodeConfigurationController {
+public class NodeConfigurationController extends AbstractConfigurationController implements NodeConfigurationApi {
 
-    public NodeConfigurationControllerImpl(@Named("nodeCfgPresentation") ConfigurationPresentation<String> nodeCfgPresentation) {
+    public NodeConfigurationController(@Named("nodeCfgPresentation") ConfigurationPresentation<String> nodeCfgPresentation) {
         super(nodeCfgPresentation);
     }
 
@@ -48,11 +41,6 @@ public class NodeConfigurationControllerImpl extends AbstractConfigurationContro
      *
      * @return the whole node configuration in HOCON format.
      */
-    @Produces({
-            MediaType.TEXT_PLAIN, // todo: IGNITE-17082
-            MediaType.PROBLEM_JSON
-    })
-    @Get
     @Override
     public String getConfiguration() {
         return super.getConfiguration();
@@ -64,13 +52,8 @@ public class NodeConfigurationControllerImpl extends AbstractConfigurationContro
      * @param path to represent a node configuration.
      * @return system configuration in HOCON format represented by given path.
      */
-    @Produces({
-            MediaType.TEXT_PLAIN, // todo: IGNITE-17082
-            MediaType.PROBLEM_JSON
-    })
-    @Get("/{path}")
     @Override
-    public String getConfigurationByPath(@PathVariable String path) {
+    public String getConfigurationByPath(String path) {
         return super.getConfigurationByPath(path);
     }
 
@@ -79,11 +62,8 @@ public class NodeConfigurationControllerImpl extends AbstractConfigurationContro
      *
      * @param updatedConfiguration the node configuration to update. This is represented as a plain text.
      */
-    @Consumes(MediaType.TEXT_PLAIN) // todo: IGNITE-17082
-    @Produces(MediaType.PROBLEM_JSON)
-    @Patch
     @Override
-    public CompletableFuture<Void> updateConfiguration(@Body String updatedConfiguration) {
+    public CompletableFuture<Void> updateConfiguration(String updatedConfiguration) {
         return super.updateConfiguration(updatedConfiguration);
     }
 }

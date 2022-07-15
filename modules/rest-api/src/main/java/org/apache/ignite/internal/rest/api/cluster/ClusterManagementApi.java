@@ -38,7 +38,7 @@ import org.apache.ignite.internal.rest.constants.MediaType;
  */
 @Controller("/management/v1/cluster")
 @Tag(name = "clusterManagement")
-public interface ClusterManagementController {
+public interface ClusterManagementApi {
 
     /**
      * Returns cluster state.

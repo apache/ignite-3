@@ -35,27 +35,28 @@ import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.MediaType;
 
 /**
- * Cluster configuration controller.
+ * Node configuration controller.
  */
-@Controller("/management/v1/configuration/cluster/")
-@Tag(name = "clusterConfiguration")
-public interface ClusterConfigurationController {
+@Controller("/management/v1/configuration/node")
+@Tag(name = "nodeConfiguration")
+public interface NodeConfigurationApi {
 
     /**
-     * Returns cluster configuration in HOCON format. This is represented as a plain text.
+     * Returns node configuration in HOCON format. This is represented as a plain text.
      *
-     * @return the whole cluster configuration in HOCON format.
+     * @return the whole node configuration in HOCON format.
      */
-    @Operation(operationId = "getClusterConfiguration")
+    @Operation(operationId = "getNodeConfiguration")
     @ApiResponses({
-            @ApiResponse(
-                    responseCode = "200",
-                    content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
-                    description = "Get cluster configuration"),
+            @ApiResponse(responseCode = "200",
+                    content = @Content(mediaType = MediaType.TEXT_PLAIN,
+                            schema = @Schema(type = "string")),
+                    description = "Whole node configuration"),
             @ApiResponse(responseCode = "500", description = "Internal error",
                     content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
             @ApiResponse(responseCode = "400", description = "Incorrect configuration",
                     content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+
     })
     @Produces({
             MediaType.TEXT_PLAIN, // todo: IGNITE-17082
@@ -65,38 +66,22 @@ public interface ClusterConfigurationController {
     String getConfiguration();
 
     /**
-     * Updates cluster configuration in HOCON format. This is represented as a plain text.
-     *
-     * @param updatedConfiguration the cluster configuration to update.
-     */
-    @Operation(operationId = "updateClusterConfiguration")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Configuration updated"),
-            @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
-            @ApiResponse(responseCode = "400", description = "Incorrect configuration",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    })
-    @Consumes(MediaType.TEXT_PLAIN) // todo: IGNITE-17082
-    @Produces(MediaType.PROBLEM_JSON)
-    @Patch
-    CompletableFuture<Void> updateConfiguration(@Body String updatedConfiguration);
-
-    /**
      * Returns configuration in HOCON format represented by path. This is represented as a plain text.
      *
-     * @param path to represent a cluster configuration.
+     * @param path to represent a node configuration.
      * @return system configuration in HOCON format represented by given path.
      */
-    @Operation(operationId = "getClusterConfigurationByPath")
+    @Operation(operationId = "getNodeConfigurationByPath")
     @ApiResponses({
             @ApiResponse(responseCode = "200",
-                    content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
+                    content = @Content(mediaType = MediaType.TEXT_PLAIN,
+                            schema = @Schema(type = "string")),
                     description = "Configuration represented by path"),
             @ApiResponse(responseCode = "500", description = "Internal error",
                     content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
             @ApiResponse(responseCode = "400", description = "Incorrect configuration",
                     content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+
     })
     @Produces({
             MediaType.TEXT_PLAIN, // todo: IGNITE-17082
@@ -104,4 +89,23 @@ public interface ClusterConfigurationController {
     })
     @Get("/{path}")
     String getConfigurationByPath(@PathVariable("path") String path);
+
+    /**
+     * Updates node configuration in HOCON format. This is represented as a plain text.
+     *
+     * @param updatedConfiguration the node configuration to update. This is represented as a plain text.
+     */
+    @Operation(operationId = "updateNodeConfiguration")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Configuration updated"),
+            @ApiResponse(responseCode = "500", description = "Internal error",
+                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
+            @ApiResponse(responseCode = "400", description = "Incorrect configuration",
+                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+
+    })
+    @Consumes(MediaType.TEXT_PLAIN) // todo: IGNITE-17082
+    @Produces(MediaType.PROBLEM_JSON)
+    @Patch
+    CompletableFuture<Void> updateConfiguration(@Body String updatedConfiguration);
 }

@@ -18,11 +18,7 @@
 package org.apache.ignite.internal.cluster.management.rest;
 
 import io.micronaut.http.annotation.Body;
-import io.micronaut.http.annotation.Consumes;
 import io.micronaut.http.annotation.Controller;
-import io.micronaut.http.annotation.Get;
-import io.micronaut.http.annotation.Post;
-import io.micronaut.http.annotation.Produces;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -33,12 +29,11 @@ import org.apache.ignite.internal.cluster.management.rest.exception.ClusterNotIn
 import org.apache.ignite.internal.cluster.management.rest.exception.InvalidArgumentClusterInitializationException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.rest.api.cluster.ClusterManagementController;
+import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
 import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
 import org.apache.ignite.internal.rest.api.cluster.ClusterTagDto;
 import org.apache.ignite.internal.rest.api.cluster.IgniteProductVersionDto;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
-import org.apache.ignite.internal.rest.constants.MediaType;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 
@@ -46,8 +41,8 @@ import org.apache.ignite.lang.IgniteInternalException;
  * Cluster management controller implementation.
  */
 @Controller("/management/v1/cluster")
-public class ClusterManagementControllerImpl implements ClusterManagementController {
-    private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementControllerImpl.class);
+public class ClusterManagementController implements ClusterManagementApi {
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementController.class);
 
     private final ClusterInitializer clusterInitializer;
 
@@ -59,18 +54,13 @@ public class ClusterManagementControllerImpl implements ClusterManagementControl
      * @param clusterInitializer cluster initializer.
      * @param clusterManagementGroupManager cluster management group manager.
      */
-    public ClusterManagementControllerImpl(ClusterInitializer clusterInitializer,
+    public ClusterManagementController(ClusterInitializer clusterInitializer,
             ClusterManagementGroupManager clusterManagementGroupManager) {
         this.clusterInitializer = clusterInitializer;
         this.clusterManagementGroupManager = clusterManagementGroupManager;
     }
 
     /** {@inheritDoc} */
-    @Get("state")
-    @Produces({
-            MediaType.APPLICATION_JSON,
-            MediaType.PROBLEM_JSON
-    })
     @Override
     public CompletableFuture<ClusterStateDto> clusterState() {
         try {
@@ -88,8 +78,6 @@ public class ClusterManagementControllerImpl implements ClusterManagementControl
     }
 
     /** {@inheritDoc} */
-    @Post("init")
-    @Consumes(MediaType.APPLICATION_JSON)
     @Override
     public CompletableFuture<Void> init(@Body InitCommand initCommand) {
         if (LOG.isInfoEnabled()) {

@@ -90,6 +90,7 @@ public class ItGeneratedRestClientTest {
     private NodeManagementApi nodeManagementApi;
 
     private ObjectMapper objectMapper;
+
     private String firstNodeName;
 
     private static String buildConfig(int nodeIdx) {

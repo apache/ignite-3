@@ -15,35 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.node;
+package org.apache.ignite.internal.rest.api.node;
 
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Produces;
-import org.apache.ignite.internal.rest.api.node.NodeManagementController;
-import org.apache.ignite.internal.rest.api.node.NodeState;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.MediaType;
 
 /**
  * REST endpoint allows to read node state.
  */
 @Controller("/management/v1/node")
-public class NodeManagementControllerImpl implements NodeManagementController {
-    private final StateProvider stateProvider;
-
-    private final NameProvider nameProvider;
-
-    public NodeManagementControllerImpl(NameProvider nameProvider, StateProvider stateProvider) {
-        this.nameProvider = nameProvider;
-        this.stateProvider = stateProvider;
-    }
+@Tag(name = "nodeManagement")
+public interface NodeManagementApi {
 
     @Get("state")
+    @Operation(operationId = "nodeState")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Return node state",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = NodeState.class))),
+            @ApiResponse(responseCode = "500", description = "Internal error",
+                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    })
     @Produces({
             MediaType.APPLICATION_JSON,
             MediaType.PROBLEM_JSON
     })
-    public NodeState state() {
-        return new NodeState(nameProvider.getName(), stateProvider.getState());
-    }
+    NodeState state();
 }
