@@ -34,7 +34,7 @@ import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
@@ -63,7 +63,7 @@ public class CheckpointManagerTest {
                 null,
                 null,
                 checkpointConfig,
-                mock(PartitionFilePageStoreManager.class),
+                mock(FilePageStoreManager.class),
                 List.of(dataRegion),
                 workDir,
                 mock(PageIoRegistry.class),

@@ -52,11 +52,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * For {@link PartitionFilePageStoreManager} testing.
+ * For {@link FilePageStoreManager} testing.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class PartitionFilePageStoreManagerTest {
-    private final IgniteLogger log = Loggers.forClass(PartitionFilePageStoreManagerTest.class);
+public class FilePageStoreManagerTest {
+    private final IgniteLogger log = Loggers.forClass(FilePageStoreManagerTest.class);
 
     private static PageIoRegistry ioRegistry;
 
@@ -98,7 +98,7 @@ public class PartitionFilePageStoreManagerTest {
 
     @Test
     void testStartAndStop() throws Exception {
-        PartitionFilePageStoreManager manager = spy(createManager());
+        FilePageStoreManager manager = spy(createManager());
 
         assertDoesNotThrow(manager::start);
 
@@ -109,7 +109,7 @@ public class PartitionFilePageStoreManagerTest {
 
     @Test
     void testInitialize() throws Exception {
-        PartitionFilePageStoreManager manager = createManager();
+        FilePageStoreManager manager = createManager();
 
         try {
             Files.createDirectories(workDir.resolve("db"));
@@ -152,7 +152,7 @@ public class PartitionFilePageStoreManagerTest {
 
     @Test
     void testGetStores() throws Exception {
-        PartitionFilePageStoreManager manager = createManager();
+        FilePageStoreManager manager = createManager();
 
         try {
             manager.initialize("test", 0, 2);
@@ -207,7 +207,7 @@ public class PartitionFilePageStoreManagerTest {
     void testStopAllGroupFilePageStores() throws Exception {
         // Checks without clean files.
 
-        PartitionFilePageStoreManager manager0 = createManager();
+        FilePageStoreManager manager0 = createManager();
 
         try {
             manager0.initialize("test0", 0, 1);
@@ -231,7 +231,7 @@ public class PartitionFilePageStoreManagerTest {
 
         // Checks with clean files.
 
-        PartitionFilePageStoreManager manager1 = createManager();
+        FilePageStoreManager manager1 = createManager();
 
         try {
             manager1.initialize("test1", 1, 1);
@@ -249,7 +249,7 @@ public class PartitionFilePageStoreManagerTest {
         assertThat(workDir.resolve("db/group-test1").toFile().listFiles(), emptyArray());
     }
 
-    private PartitionFilePageStoreManager createManager() throws Exception {
-        return new PartitionFilePageStoreManager(log, "test", workDir, new RandomAccessFileIoFactory(), ioRegistry, 1024);
+    private FilePageStoreManager createManager() throws Exception {
+        return new FilePageStoreManager(log, "test", workDir, new RandomAccessFileIoFactory(), ioRegistry, 1024);
     }
 }

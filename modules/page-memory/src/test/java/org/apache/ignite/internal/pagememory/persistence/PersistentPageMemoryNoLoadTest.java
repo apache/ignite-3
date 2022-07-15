@@ -48,8 +48,8 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPage
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.jetbrains.annotations.Nullable;
@@ -105,34 +105,34 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             @InjectConfiguration PageMemoryCheckpointConfiguration checkpointConfig,
             @WorkDirectory Path workDir
     ) throws Exception {
-        PartitionFilePageStoreManager partitionFilePageStoreManager = createFilePageStoreManager(workDir);
+        FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
         CheckpointManager checkpointManager = createCheckpointManager(
                 checkpointConfig,
                 workDir,
-                partitionFilePageStoreManager,
+                filePageStoreManager,
                 dataRegions
         );
 
         PersistentPageMemory pageMemory = createPageMemoryImpl(
                 defaultSegmentSizes(),
                 defaultCheckpointBufferSize(),
-                partitionFilePageStoreManager,
+                filePageStoreManager,
                 checkpointManager
         );
 
         dataRegions.add(() -> pageMemory);
 
-        partitionFilePageStoreManager.start();
+        filePageStoreManager.start();
 
         checkpointManager.start();
 
         pageMemory.start();
 
         try {
-            initGroupFilePageStores(partitionFilePageStoreManager);
+            initGroupFilePageStores(filePageStoreManager);
 
             checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
@@ -154,7 +154,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             closeAll(
                     () -> pageMemory.stop(true),
                     checkpointManager::stop,
-                    partitionFilePageStoreManager::stop
+                    filePageStoreManager::stop
             );
         }
     }
@@ -164,14 +164,14 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             @InjectConfiguration PageMemoryCheckpointConfiguration checkpointConfig,
             @WorkDirectory Path workDir
     ) throws Exception {
-        PartitionFilePageStoreManager partitionFilePageStoreManager = createFilePageStoreManager(workDir);
+        FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
         CheckpointManager checkpointManager = createCheckpointManager(
                 checkpointConfig,
                 workDir,
-                partitionFilePageStoreManager,
+                filePageStoreManager,
                 dataRegions
         );
 
@@ -182,20 +182,20 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         PersistentPageMemory pageMemory = createPageMemoryImpl(
                 new long[]{100 * systemPageSize},
                 28 * systemPageSize,
-                partitionFilePageStoreManager,
+                filePageStoreManager,
                 checkpointManager
         );
 
         dataRegions.add(() -> pageMemory);
 
-        partitionFilePageStoreManager.start();
+        filePageStoreManager.start();
 
         checkpointManager.start();
 
         pageMemory.start();
 
         try {
-            initGroupFilePageStores(partitionFilePageStoreManager);
+            initGroupFilePageStores(filePageStoreManager);
 
             long maxPages = pageMemory.totalPages();
 
@@ -231,7 +231,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             closeAll(
                     () -> pageMemory.stop(true),
                     checkpointManager::stop,
-                    partitionFilePageStoreManager::stop
+                    filePageStoreManager::stop
             );
         }
     }
@@ -239,7 +239,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     protected PersistentPageMemory createPageMemoryImpl(
             long[] segmentSizes,
             long checkpointBufferSize,
-            @Nullable PartitionFilePageStoreManager partitionFilePageStoreManager,
+            @Nullable FilePageStoreManager filePageStoreManager,
             @Nullable CheckpointManager checkpointManager
     ) {
         return new PersistentPageMemory(
@@ -247,7 +247,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 ioRegistry,
                 segmentSizes,
                 checkpointBufferSize,
-                partitionFilePageStoreManager == null ? new TestPageReadWriteManager() : partitionFilePageStoreManager,
+                filePageStoreManager == null ? new TestPageReadWriteManager() : filePageStoreManager,
                 null,
                 (fullPageId, buf, tag) -> fail("Should not happen"),
                 checkpointManager == null ? mockCheckpointTimeoutLock(log, true) : checkpointManager.checkpointTimeoutLock(),
@@ -280,7 +280,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     private static CheckpointManager createCheckpointManager(
             PageMemoryCheckpointConfiguration checkpointConfig,
             Path storagePath,
-            PartitionFilePageStoreManager partitionFilePageStoreManager,
+            FilePageStoreManager filePageStoreManager,
             Collection<DataRegion<PersistentPageMemory>> dataRegions
     ) throws Exception {
         return new CheckpointManager(
@@ -288,7 +288,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 null,
                 null,
                 checkpointConfig,
-                partitionFilePageStoreManager,
+                filePageStoreManager,
                 dataRegions,
                 storagePath,
                 ioRegistry,
@@ -296,14 +296,14 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         );
     }
 
-    private static PartitionFilePageStoreManager createFilePageStoreManager(Path storagePath) throws Exception {
-        return new PartitionFilePageStoreManager(log, "test", storagePath, new RandomAccessFileIoFactory(), ioRegistry, PAGE_SIZE);
+    private static FilePageStoreManager createFilePageStoreManager(Path storagePath) throws Exception {
+        return new FilePageStoreManager(log, "test", storagePath, new RandomAccessFileIoFactory(), ioRegistry, PAGE_SIZE);
     }
 
-    private static void initGroupFilePageStores(PartitionFilePageStoreManager partitionFilePageStoreManager) throws Exception {
-        partitionFilePageStoreManager.initialize("Test", GRP_ID, PARTITION_ID + 1);
+    private static void initGroupFilePageStores(FilePageStoreManager filePageStoreManager) throws Exception {
+        filePageStoreManager.initialize("Test", GRP_ID, PARTITION_ID + 1);
 
-        for (PartitionFilePageStore filePageStore : partitionFilePageStoreManager.getStores(GRP_ID)) {
+        for (PartitionFilePageStore filePageStore : filePageStoreManager.getStores(GRP_ID)) {
             filePageStore.ensure();
         }
     }

@@ -39,7 +39,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPage
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
-import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageView;
@@ -68,7 +68,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     private final Map<String, PersistentPageMemoryDataRegion> regions = new ConcurrentHashMap<>();
 
     @Nullable
-    private volatile PartitionFilePageStoreManager partitionFilePageStoreManager;
+    private volatile FilePageStoreManager filePageStoreManager;
 
     @Nullable
     private volatile CheckpointManager checkpointManager;
@@ -106,8 +106,8 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     ? new AsyncFileIoFactory()
                     : new RandomAccessFileIoFactory();
 
-            partitionFilePageStoreManager = new PartitionFilePageStoreManager(
-                    Loggers.forClass(PartitionFilePageStoreManager.class),
+            filePageStoreManager = new FilePageStoreManager(
+                    Loggers.forClass(FilePageStoreManager.class),
                     igniteInstanceName,
                     storagePath,
                     fileIoFactory,
@@ -115,7 +115,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     pageSize
             );
 
-            partitionFilePageStoreManager.start();
+            filePageStoreManager.start();
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error starting file page store manager", e);
         }
@@ -126,7 +126,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     null,
                     longJvmPauseDetector,
                     engineConfig.checkpoint(),
-                    partitionFilePageStoreManager,
+                    filePageStoreManager,
                     regions.values(),
                     storagePath,
                     ioRegistry,
@@ -159,11 +159,11 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             Stream<AutoCloseable> closeRegions = regions.values().stream().map(region -> region::stop);
 
             CheckpointManager checkpointManager = this.checkpointManager;
-            PartitionFilePageStoreManager partitionFilePageStoreManager = this.partitionFilePageStoreManager;
+            FilePageStoreManager filePageStoreManager = this.filePageStoreManager;
 
             Stream<AutoCloseable> closeManagers = Stream.of(
                     checkpointManager == null ? null : (AutoCloseable) checkpointManager::stop,
-                    partitionFilePageStoreManager == null ? null : (AutoCloseable) partitionFilePageStoreManager::stop
+                    filePageStoreManager == null ? null : (AutoCloseable) filePageStoreManager::stop
             );
 
             closeAll(Stream.concat(closeRegions, closeManagers));
@@ -204,7 +204,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
         PersistentPageMemoryDataRegion dataRegion = new PersistentPageMemoryDataRegion(
                 dataRegionConfig,
                 ioRegistry,
-                partitionFilePageStoreManager,
+                filePageStoreManager,
                 checkpointManager,
                 pageSize
         );

@@ -34,7 +34,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * Factory for creating {@link PartitionFilePageStore}.
  */
-class PartitionFilePageStoreFactory {
+class FilePageStoreFactory {
     /** Latest file page store version. */
     public final int latestVersion = FilePageStore.VERSION_1;
 
@@ -51,7 +51,7 @@ class PartitionFilePageStoreFactory {
      * @param ioRegistry Page IO registry.
      * @param pageSize Page size in bytes.
      */
-    public PartitionFilePageStoreFactory(
+    public FilePageStoreFactory(
             FileIoFactory fileIoFactory,
             PageIoRegistry ioRegistry,
             int pageSize

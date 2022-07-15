@@ -44,7 +44,7 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.DirtyPagesCollection;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -89,7 +89,7 @@ class CheckpointWorkflow {
     private final ForkJoinPool parallelSortThreadPool;
 
     /** Partition file page store manager. */
-    private final PartitionFilePageStoreManager partitionFilePageStoreManager;
+    private final FilePageStoreManager filePageStoreManager;
 
     /**
      * Constructor.
@@ -98,19 +98,19 @@ class CheckpointWorkflow {
      * @param checkpointMarkersStorage Checkpoint marker storage.
      * @param checkpointReadWriteLock Checkpoint read write lock.
      * @param dataRegions Persistent data regions for the checkpointing, doesn't copy.
-     * @param partitionFilePageStoreManager Partition file page store manager.
+     * @param filePageStoreManager Partition file page store manager.
      */
     public CheckpointWorkflow(
             String igniteInstanceName,
             CheckpointMarkersStorage checkpointMarkersStorage,
             CheckpointReadWriteLock checkpointReadWriteLock,
             Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
-            PartitionFilePageStoreManager partitionFilePageStoreManager
+            FilePageStoreManager filePageStoreManager
     ) {
         this.checkpointMarkersStorage = checkpointMarkersStorage;
         this.checkpointReadWriteLock = checkpointReadWriteLock;
         this.dataRegions = dataRegions;
-        this.partitionFilePageStoreManager = partitionFilePageStoreManager;
+        this.filePageStoreManager = filePageStoreManager;
 
         parallelSortThreadPool = new ForkJoinPool(
                 Math.min(Runtime.getRuntime().availableProcessors(), 8) + 1,
@@ -299,7 +299,7 @@ class CheckpointWorkflow {
 
         for (DataRegionDirtyPages<DirtyPagesCollection> dataRegionDirtyPages : dataRegionsDirtyPages) {
             for (GroupPartitionId dirtyPartition : dataRegionDirtyPages.dirtyPages.partitionIds()) {
-                partitionFilePageStoreManager.getStore(dirtyPartition.getGroupId(), dirtyPartition.getPartitionId()).updateMetaPageCount();
+                filePageStoreManager.getStore(dirtyPartition.getGroupId(), dirtyPartition.getPartitionId()).updateMetaPageCount();
             }
         }
 

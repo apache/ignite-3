@@ -35,7 +35,7 @@ import org.junit.jupiter.api.Test;
 public class PageReadWriteManagerImplTest {
     private PartitionFilePageStore filePageStore;
 
-    private PartitionFilePageStoreManager partitionFilePageStoreManager;
+    private FilePageStoreManager filePageStoreManager;
 
     private PageReadWriteManagerImpl pageReadWriteManager;
 
@@ -43,11 +43,11 @@ public class PageReadWriteManagerImplTest {
     void setUp() throws Exception {
         filePageStore = mock(PartitionFilePageStore.class);
 
-        partitionFilePageStoreManager = mock(PartitionFilePageStoreManager.class);
+        filePageStoreManager = mock(FilePageStoreManager.class);
 
-        when(partitionFilePageStoreManager.getStore(0, 0)).thenReturn(filePageStore);
+        when(filePageStoreManager.getStore(0, 0)).thenReturn(filePageStore);
 
-        pageReadWriteManager = new PageReadWriteManagerImpl(partitionFilePageStoreManager);
+        pageReadWriteManager = new PageReadWriteManagerImpl(filePageStoreManager);
     }
 
     @Test

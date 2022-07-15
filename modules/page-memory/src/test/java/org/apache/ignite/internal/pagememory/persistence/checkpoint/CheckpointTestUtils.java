@@ -30,8 +30,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
 
 /**
  * Useful class for testing a checkpoint.
@@ -80,15 +80,15 @@ public class CheckpointTestUtils {
     }
 
     /**
-     * Returns mocked {@link PartitionFilePageStoreManager}.
+     * Returns mocked {@link FilePageStoreManager}.
      *
      * @param stores Partition file page stores.
      * @throws Exception If failed.
      */
-    public static PartitionFilePageStoreManager createPartitionFilePageStoreManager(
+    public static FilePageStoreManager createPartitionFilePageStoreManager(
             Map<GroupPartitionId, PartitionFilePageStore> stores
     ) throws Exception {
-        PartitionFilePageStoreManager manager = mock(PartitionFilePageStoreManager.class);
+        FilePageStoreManager manager = mock(FilePageStoreManager.class);
 
         when(manager.getStore(anyInt(), anyInt())).then(answer -> {
             PartitionFilePageStore pageStore = stores.get(new GroupPartitionId(answer.getArgument(0), answer.getArgument(1)));

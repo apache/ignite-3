@@ -30,21 +30,21 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  */
 class PageReadWriteManagerImpl implements org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager {
     @IgniteToStringExclude
-    protected final PartitionFilePageStoreManager partitionFilePageStoreManager;
+    protected final FilePageStoreManager filePageStoreManager;
 
     /**
      * Constructor.
      *
-     * @param partitionFilePageStoreManager File page store manager.
+     * @param filePageStoreManager File page store manager.
      */
-    public PageReadWriteManagerImpl(PartitionFilePageStoreManager partitionFilePageStoreManager) {
-        this.partitionFilePageStoreManager = partitionFilePageStoreManager;
+    public PageReadWriteManagerImpl(FilePageStoreManager filePageStoreManager) {
+        this.filePageStoreManager = filePageStoreManager;
     }
 
     /** {@inheritDoc} */
     @Override
     public void read(int grpId, long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
-        PartitionFilePageStore pageStore = partitionFilePageStoreManager.getStore(grpId, partitionId(pageId));
+        PartitionFilePageStore pageStore = filePageStoreManager.getStore(grpId, partitionId(pageId));
 
         try {
             pageStore.read(pageId, pageBuf, keepCrc);
@@ -63,7 +63,7 @@ class PageReadWriteManagerImpl implements org.apache.ignite.internal.pagememory.
             ByteBuffer pageBuf,
             boolean calculateCrc
     ) throws IgniteInternalCheckedException {
-        PartitionFilePageStore pageStore = partitionFilePageStoreManager.getStore(grpId, partitionId(pageId));
+        PartitionFilePageStore pageStore = filePageStoreManager.getStore(grpId, partitionId(pageId));
 
         try {
             pageStore.write(pageId, pageBuf, calculateCrc);
@@ -81,7 +81,7 @@ class PageReadWriteManagerImpl implements org.apache.ignite.internal.pagememory.
     public long allocatePage(int grpId, int partId, byte flags) throws IgniteInternalCheckedException {
         assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
 
-        PartitionFilePageStore pageStore = partitionFilePageStoreManager.getStore(grpId, partId);
+        PartitionFilePageStore pageStore = filePageStoreManager.getStore(grpId, partId);
 
         try {
             long pageIdx = pageStore.allocatePage();

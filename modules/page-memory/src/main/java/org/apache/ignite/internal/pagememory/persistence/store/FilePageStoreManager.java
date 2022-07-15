@@ -45,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Partition file page store manager.
  */
-public class PartitionFilePageStoreManager implements PageReadWriteManager {
+public class FilePageStoreManager implements PageReadWriteManager {
     /** File suffix. */
     public static final String FILE_SUFFIX = ".bin";
 
@@ -82,7 +82,7 @@ public class PartitionFilePageStoreManager implements PageReadWriteManager {
     private final IgniteStripedLock initGroupDirLock = new IgniteStripedLock(Math.max(Runtime.getRuntime().availableProcessors(), 8));
 
     /** {@link PartitionFilePageStore} factory. */
-    private final PartitionFilePageStoreFactory partitionFilePageStoreFactory;
+    private final FilePageStoreFactory filePageStoreFactory;
 
     /**
      * Constructor.
@@ -95,7 +95,7 @@ public class PartitionFilePageStoreManager implements PageReadWriteManager {
      * @param pageSize Page size in bytes.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public PartitionFilePageStoreManager(
+    public FilePageStoreManager(
             IgniteLogger log,
             String igniteInstanceName,
             Path storagePath,
@@ -118,7 +118,7 @@ public class PartitionFilePageStoreManager implements PageReadWriteManager {
 
         groupPageStores = new GroupPageStoresMap<>(cleanupAsyncExecutor);
 
-        partitionFilePageStoreFactory = new PartitionFilePageStoreFactory(filePageStoreFileIoFactory, ioRegistry, pageSize);
+        filePageStoreFactory = new FilePageStoreFactory(filePageStoreFileIoFactory, ioRegistry, pageSize);
     }
 
     /**
@@ -309,7 +309,7 @@ public class PartitionFilePageStoreManager implements PageReadWriteManager {
             for (int i = 0; i < partitions; i++) {
                 Path partFilePath = groupWorkDir.resolve(String.format(PART_FILE_TEMPLATE, i));
 
-                partitionFilePageStores.add(partitionFilePageStoreFactory.createPageStore(partFilePath, buffer.rewind()));
+                partitionFilePageStores.add(filePageStoreFactory.createPageStore(partFilePath, buffer.rewind()));
             }
 
             return unmodifiableList(partitionFilePageStores);

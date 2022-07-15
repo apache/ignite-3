@@ -42,9 +42,9 @@ import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
@@ -93,7 +93,7 @@ public class CheckpointPagesWriter implements Runnable {
     private final PageIoRegistry ioRegistry;
 
     /** Partition file page store manager. */
-    private final PartitionFilePageStoreManager partitionFilePageStoreManager;
+    private final FilePageStoreManager filePageStoreManager;
 
     /** Shutdown now. */
     private final BooleanSupplier shutdownNow;
@@ -112,7 +112,7 @@ public class CheckpointPagesWriter implements Runnable {
      * @param checkpointProgress Checkpoint progress.
      * @param pageWriter File page store manager.
      * @param ioRegistry Page IO registry.
-     * @param partitionFilePageStoreManager Partition file page store manager.
+     * @param filePageStoreManager Partition file page store manager.
      * @param shutdownNow Shutdown supplier.
      */
     CheckpointPagesWriter(
@@ -127,7 +127,7 @@ public class CheckpointPagesWriter implements Runnable {
             CheckpointProgressImpl checkpointProgress,
             CheckpointPageWriter pageWriter,
             PageIoRegistry ioRegistry,
-            PartitionFilePageStoreManager partitionFilePageStoreManager,
+            FilePageStoreManager filePageStoreManager,
             BooleanSupplier shutdownNow
     ) {
         this.log = log;
@@ -141,7 +141,7 @@ public class CheckpointPagesWriter implements Runnable {
         this.checkpointProgress = checkpointProgress;
         this.pageWriter = pageWriter;
         this.ioRegistry = ioRegistry;
-        this.partitionFilePageStoreManager = partitionFilePageStoreManager;
+        this.filePageStoreManager = filePageStoreManager;
         this.shutdownNow = shutdownNow;
     }
 
@@ -253,7 +253,7 @@ public class CheckpointPagesWriter implements Runnable {
         while (!shutdownNow.getAsBoolean() && updatePartitionIds.next(queueResult)) {
             GroupPartitionId partitionId = queueResult.getValue();
 
-            PartitionFilePageStore partitionFilePageStore = partitionFilePageStoreManager.getStore(
+            PartitionFilePageStore partitionFilePageStore = filePageStoreManager.getStore(
                     partitionId.getGroupId(),
                     partitionId.getPartitionId()
             );

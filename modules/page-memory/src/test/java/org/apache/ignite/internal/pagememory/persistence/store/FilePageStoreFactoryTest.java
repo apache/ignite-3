@@ -48,10 +48,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * For {@link PartitionFilePageStoreFactory} testing.
+ * For {@link FilePageStoreFactory} testing.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class PartitionFilePageStoreFactoryTest {
+public class FilePageStoreFactoryTest {
     private static final int PAGE_SIZE = 1024;
 
     private static PageIoRegistry ioRegistry;
@@ -111,7 +111,7 @@ public class PartitionFilePageStoreFactoryTest {
 
     @Test
     void testCreateExistsFilePageStore() throws Exception {
-        PartitionFilePageStoreFactory filePageStoreFactory = createFilePageStoreFactory();
+        FilePageStoreFactory filePageStoreFactory = createFilePageStoreFactory();
 
         Path testFilePath = workDir.resolve("test");
 
@@ -133,7 +133,7 @@ public class PartitionFilePageStoreFactoryTest {
 
     @Test
     void testCreateExistsFilePageStoreWithChangePageCount() throws Exception {
-        PartitionFilePageStoreFactory filePageStoreFactory = createFilePageStoreFactory();
+        FilePageStoreFactory filePageStoreFactory = createFilePageStoreFactory();
 
         Path testFilePath = workDir.resolve("test");
 
@@ -160,8 +160,8 @@ public class PartitionFilePageStoreFactoryTest {
         }
     }
 
-    private static PartitionFilePageStoreFactory createFilePageStoreFactory() {
-        return new PartitionFilePageStoreFactory(new RandomAccessFileIoFactory(), ioRegistry, PAGE_SIZE);
+    private static FilePageStoreFactory createFilePageStoreFactory() {
+        return new FilePageStoreFactory(new RandomAccessFileIoFactory(), ioRegistry, PAGE_SIZE);
     }
 
     private static FileIo createFileIo(Path filePath) throws Exception {

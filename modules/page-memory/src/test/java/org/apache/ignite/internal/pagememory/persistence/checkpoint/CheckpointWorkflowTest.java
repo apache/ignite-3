@@ -69,8 +69,8 @@ import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
@@ -111,7 +111,7 @@ public class CheckpointWorkflowTest {
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 List.of(dataRegion0, dataRegion1),
-                mock(PartitionFilePageStoreManager.class)
+                mock(FilePageStoreManager.class)
         );
 
         workflow.start();
@@ -342,7 +342,7 @@ public class CheckpointWorkflowTest {
                 markersStorage,
                 readWriteLock,
                 List.of(dataRegion),
-                mock(PartitionFilePageStoreManager.class)
+                mock(FilePageStoreManager.class)
         );
 
         workflow.start();
@@ -422,7 +422,7 @@ public class CheckpointWorkflowTest {
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 List.of(),
-                mock(PartitionFilePageStoreManager.class)
+                mock(FilePageStoreManager.class)
         );
 
         workflow.start();
@@ -474,7 +474,7 @@ public class CheckpointWorkflowTest {
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 List.of(),
-                mock(PartitionFilePageStoreManager.class)
+                mock(FilePageStoreManager.class)
         );
 
         workflow.start();

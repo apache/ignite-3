@@ -72,9 +72,9 @@ import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.AfterAll;
@@ -116,7 +116,7 @@ public class CheckpointerTest {
                 null,
                 null,
                 createCheckpointWorkflow(EMPTY),
-                createCheckpointPagesWriterFactory(mock(PartitionFilePageStoreManager.class)),
+                createCheckpointPagesWriterFactory(mock(FilePageStoreManager.class)),
                 checkpointConfig
         );
 
@@ -272,7 +272,7 @@ public class CheckpointerTest {
                 null,
                 null,
                 createCheckpointWorkflow(EMPTY),
-                createCheckpointPagesWriterFactory(mock(PartitionFilePageStoreManager.class)),
+                createCheckpointPagesWriterFactory(mock(FilePageStoreManager.class)),
                 checkpointConfig
         ));
 
@@ -341,7 +341,7 @@ public class CheckpointerTest {
 
         PartitionFilePageStore partitionFilePageStore = new PartitionFilePageStore(createFilePageStore(), mock(PartitionMeta.class));
 
-        PartitionFilePageStoreManager partitionFilePageStoreManager = createPartitionFilePageStoreManager(Map.of(
+        FilePageStoreManager filePageStoreManager = createPartitionFilePageStoreManager(Map.of(
                 new GroupPartitionId(0, 0), partitionFilePageStore
         ));
 
@@ -351,7 +351,7 @@ public class CheckpointerTest {
                 null,
                 null,
                 createCheckpointWorkflow(dirtyPages),
-                createCheckpointPagesWriterFactory(partitionFilePageStoreManager),
+                createCheckpointPagesWriterFactory(filePageStoreManager),
                 checkpointConfig
         ));
 
@@ -431,7 +431,7 @@ public class CheckpointerTest {
     }
 
     private CheckpointPagesWriterFactory createCheckpointPagesWriterFactory(
-            PartitionFilePageStoreManager partitionFilePageStoreManager
+            FilePageStoreManager filePageStoreManager
     ) throws Exception {
         CheckpointPageWriter checkpointPageWriter = mock(CheckpointPageWriter.class);
 
@@ -441,7 +441,7 @@ public class CheckpointerTest {
                 log,
                 checkpointPageWriter,
                 ioRegistry,
-                partitionFilePageStoreManager,
+                filePageStoreManager,
                 PAGE_SIZE
         );
     }

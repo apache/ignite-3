@@ -28,8 +28,8 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStoreManager;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 
 /**
@@ -51,7 +51,7 @@ public class CheckpointPagesWriterFactory {
     private final PageIoRegistry ioRegistry;
 
     /** Partition file page store manager. */
-    private final PartitionFilePageStoreManager partitionFilePageStoreManager;
+    private final FilePageStoreManager filePageStoreManager;
 
     /**
      * Constructor.
@@ -59,21 +59,21 @@ public class CheckpointPagesWriterFactory {
      * @param log Logger.
      * @param checkpointPageWriter Checkpoint page writer.
      * @param ioRegistry Page IO registry.
-     * @param partitionFilePageStoreManager Partition file page store manager.
+     * @param filePageStoreManager Partition file page store manager.
      * @param pageSize Page size in bytes.
      */
     CheckpointPagesWriterFactory(
             IgniteLogger log,
             CheckpointPageWriter checkpointPageWriter,
             PageIoRegistry ioRegistry,
-            PartitionFilePageStoreManager partitionFilePageStoreManager,
+            FilePageStoreManager filePageStoreManager,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
         this.log = log;
         this.checkpointPageWriter = checkpointPageWriter;
         this.ioRegistry = ioRegistry;
-        this.partitionFilePageStoreManager = partitionFilePageStoreManager;
+        this.filePageStoreManager = filePageStoreManager;
 
         threadBuf = ThreadLocal.withInitial(() -> {
             ByteBuffer tmpWriteBuf = ByteBuffer.allocateDirect(pageSize);
@@ -119,7 +119,7 @@ public class CheckpointPagesWriterFactory {
                 checkpointProgress,
                 checkpointPageWriter,
                 ioRegistry,
-                partitionFilePageStoreManager,
+                filePageStoreManager,
                 shutdownNow
         );
     }
