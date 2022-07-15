@@ -124,6 +124,35 @@ public class PartitionMetaManager {
         }
     }
 
+    /**
+     * Writes the partition meta to the buffer.
+     *
+     * @param groupPartitionId Partition of the group.
+     * @param pageMemory Page memory.
+     * @param partitionMeta Partition meta.
+     * @param writeToBuffer Direct byte buffer to write partition meta.
+     */
+    public void writeMetaToBuffer(
+            GroupPartitionId groupPartitionId,
+            PersistentPageMemory pageMemory,
+            PartitionMeta partitionMeta,
+            ByteBuffer writeToBuffer
+    ) {
+        assert writeToBuffer.remaining() == pageSize : writeToBuffer.remaining();
+
+        long partitionMetaPageId = pageMemory.partitionMetaPageId(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId());
+
+        long pageAddr = bufferAddress(writeToBuffer);
+
+        PartitionMetaIo io = PartitionMetaIo.VERSIONS.latest();
+
+        io.initNewPage(pageAddr, partitionMetaPageId, pageSize);
+
+        io.setTreeRootPageId(pageAddr, partitionMeta.treeRootPageId());
+        io.setReuseListRootPageId(pageAddr, partitionMeta.reuseListRootPageId());
+        io.setPageCount(pageAddr, partitionMeta.pageCount());
+    }
+
     private PartitionMeta createMeta(PartitionMetaIo metaIo, long pageAddr) {
         return new PartitionMeta(
                 metaIo.getTreeRootPageId(pageAddr),

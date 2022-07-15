@@ -44,7 +44,6 @@ import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
-import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -256,22 +255,16 @@ public class CheckpointPagesWriter implements Runnable {
 
             PersistentPageMemory pageMemory = queueResult.getKey();
 
-            long partitionMetaPageId = pageMemory.partitionMetaPageId(partitionId.getGroupId(), partitionId.getPartitionId());
+            PartitionMeta partitionMetaSnapshot = partitionMetaManager.getMeta(partitionId).metaSnapshot();
 
-            long pageAddr = GridUnsafe.bufferAddress(buffer);
+            assert partitionMetaSnapshot != null : partitionId;
 
-            // TODO: IGNITE-16657 Merger will put the page into a partition file.
-            PartitionMetaIo io = PartitionMetaIo.VERSIONS.latest();
+            partitionMetaManager.writeMetaToBuffer(partitionId, pageMemory, partitionMetaSnapshot, buffer.rewind());
 
-            io.initNewPage(pageAddr, partitionMetaPageId, buffer.capacity());
-
-            PartitionMeta meta = partitionMetaManager.getMeta(partitionId);
-
-            io.setTreeRootPageId(pageAddr, meta.treeRootPageId());
-            io.setReuseListRootPageId(pageAddr, meta.reuseListRootPageId());
-            io.setPageCount(pageAddr, meta.pageCount());
-
-            FullPageId fullPageId = new FullPageId(partitionMetaPageId, partitionId.getGroupId());
+            FullPageId fullPageId = new FullPageId(
+                    pageMemory.partitionMetaPageId(partitionId.getGroupId(), partitionId.getPartitionId()),
+                    partitionId.getGroupId()
+            );
 
             PageStore store = pageWriter.write(fullPageId, buffer.rewind());
 

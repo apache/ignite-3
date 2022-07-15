@@ -60,7 +60,7 @@ class FilePageStoreFactory {
      * @throws IgniteInternalCheckedException if failed
      */
     public FilePageStore createPageStore(Path filePath, ByteBuffer readIntoBuffer) throws IgniteInternalCheckedException {
-        assert readIntoBuffer.remaining() == pageSize : "Expected pageSize=" + pageSize + ", bufferSize=" + readIntoBuffer.remaining();
+        assert readIntoBuffer.remaining() == pageSize : readIntoBuffer.remaining();
 
         if (!Files.exists(filePath)) {
             return createPageStore(filePath, new FilePageStoreHeader(latestVersion, pageSize));

@@ -86,8 +86,6 @@ class FilePageStoreHeader {
      * Converts the file page store header (aligned to {@link #pageSize()}) to a {@link ByteBuffer} for writing to a file.
      */
     ByteBuffer toByteBuffer() {
-        // TODO: IGNITE-17295 испрваить
-
         return ByteBuffer.allocate(headerSize()).order(nativeOrder()).rewind()
                 .putLong(SIGNATURE)
                 .putInt(version)

@@ -178,9 +178,8 @@ public class CheckpointPagesWriterTest {
 
         verify(threadBuf, times(4)).get();
 
-        // TODO: IGNITE-17295 поменять проверку
-        verify(partitionMeta0, times(1)).pageCount();
-        verify(partitionMeta0, times(1)).pageCount();
+        verify(partitionMeta0, times(1)).metaSnapshot();
+        verify(partitionMeta0, times(1)).metaSnapshot();
     }
 
     @Test
