@@ -42,12 +42,9 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -58,22 +55,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class FilePageStoreManagerTest {
     private final IgniteLogger log = Loggers.forClass(FilePageStoreManagerTest.class);
 
-    private static PageIoRegistry ioRegistry;
-
     @WorkDirectory
     private Path workDir;
-
-    @BeforeAll
-    static void beforeAll() {
-        ioRegistry = new PageIoRegistry();
-
-        ioRegistry.loadFromServiceLoader();
-    }
-
-    @AfterAll
-    static void afterAll() {
-        ioRegistry = null;
-    }
 
     @Test
     void testCreateManager() throws Exception {
@@ -135,7 +118,7 @@ public class FilePageStoreManagerTest {
                 assertThat(files.count(), is(0L));
             }
 
-            for (PartitionFilePageStore filePageStore : manager.getStores(0)) {
+            for (FilePageStore filePageStore : manager.getStores(0)) {
                 filePageStore.ensure();
             }
 
@@ -161,7 +144,7 @@ public class FilePageStoreManagerTest {
 
             assertNull(manager.getStores(1));
 
-            Collection<PartitionFilePageStore> stores = manager.getStores(0);
+            Collection<FilePageStore> stores = manager.getStores(0);
 
             assertNotNull(stores);
             assertEquals(2, stores.size());
@@ -169,16 +152,16 @@ public class FilePageStoreManagerTest {
 
             // Checks getStore.
 
-            Set<PartitionFilePageStore> pageStores = new HashSet<>();
+            Set<FilePageStore> pageStores = new HashSet<>();
 
-            PartitionFilePageStore partitionPageStore0 = manager.getStore(0, 0);
+            FilePageStore partitionPageStore0 = manager.getStore(0, 0);
 
             assertTrue(pageStores.add(partitionPageStore0));
             assertTrue(stores.contains(partitionPageStore0));
 
             assertTrue(partitionPageStore0.filePath().endsWith("db/group-test/part-0.bin"));
 
-            PartitionFilePageStore partitionPageStore1 = manager.getStore(0, 1);
+            FilePageStore partitionPageStore1 = manager.getStore(0, 1);
 
             assertTrue(pageStores.add(partitionPageStore1));
             assertTrue(stores.contains(partitionPageStore1));
@@ -212,7 +195,7 @@ public class FilePageStoreManagerTest {
         try {
             manager0.initialize("test0", 0, 1);
 
-            for (PartitionFilePageStore filePageStore : manager0.getStores(0)) {
+            for (FilePageStore filePageStore : manager0.getStores(0)) {
                 filePageStore.ensure();
             }
 
@@ -236,7 +219,7 @@ public class FilePageStoreManagerTest {
         try {
             manager1.initialize("test1", 1, 1);
 
-            for (PartitionFilePageStore filePageStore : manager1.getStores(1)) {
+            for (FilePageStore filePageStore : manager1.getStores(1)) {
                 filePageStore.ensure();
             }
 
@@ -250,6 +233,6 @@ public class FilePageStoreManagerTest {
     }
 
     private FilePageStoreManager createManager() throws Exception {
-        return new FilePageStoreManager(log, "test", workDir, new RandomAccessFileIoFactory(), ioRegistry, 1024);
+        return new FilePageStoreManager(log, "test", workDir, new RandomAccessFileIoFactory(), 1024);
     }
 }

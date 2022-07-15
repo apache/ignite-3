@@ -86,6 +86,8 @@ class FilePageStoreHeader {
      * Converts the file page store header (aligned to {@link #pageSize()}) to a {@link ByteBuffer} for writing to a file.
      */
     ByteBuffer toByteBuffer() {
+        // TODO: IGNITE-17295 испрваить
+
         return ByteBuffer.allocate(headerSize()).order(nativeOrder()).rewind()
                 .putLong(SIGNATURE)
                 .putInt(version)
@@ -97,18 +99,19 @@ class FilePageStoreHeader {
      * Reads the header of a file page store.
      *
      * @param fileIo File page store fileIo.
+     * @param readIntoBuffer Buffer for reading {@link FilePageStoreHeader header} from {@code fileIo}.
      * @throws IOException If there are errors when reading the file page store header.
      */
-    static @Nullable FilePageStoreHeader readHeader(FileIo fileIo) throws IOException {
+    static @Nullable FilePageStoreHeader readHeader(FileIo fileIo, ByteBuffer readIntoBuffer) throws IOException {
+        assert readIntoBuffer.remaining() >= COMMON_HEADER_SIZE : readIntoBuffer.remaining();
+
         if (fileIo.size() < COMMON_HEADER_SIZE) {
             return null;
         }
 
-        ByteBuffer buffer = ByteBuffer.allocate(COMMON_HEADER_SIZE).order(nativeOrder());
+        fileIo.readFully(readIntoBuffer, 0);
 
-        fileIo.readFully(buffer, 0);
-
-        long signature = buffer.rewind().getLong();
+        long signature = readIntoBuffer.rewind().getLong();
 
         if (SIGNATURE != signature) {
             throw new IOException(String.format(
@@ -118,7 +121,7 @@ class FilePageStoreHeader {
             );
         }
 
-        return new FilePageStoreHeader(buffer.getInt(), buffer.getInt());
+        return new FilePageStoreHeader(readIntoBuffer.getInt(), readIntoBuffer.getInt());
     }
 
     /**

@@ -36,7 +36,6 @@ import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
-import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager;
 import org.apache.ignite.internal.util.IgniteStripedLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -77,12 +76,12 @@ public class FilePageStoreManager implements PageReadWriteManager {
     private final LongOperationAsyncExecutor cleanupAsyncExecutor;
 
     /** Mapping: group ID -> page store list. */
-    private final GroupPageStoresMap<PartitionFilePageStore> groupPageStores;
+    private final GroupPageStoresMap<FilePageStore> groupPageStores;
 
     /** Group directory initialization lock. */
     private final IgniteStripedLock initGroupDirLock = new IgniteStripedLock(Math.max(Runtime.getRuntime().availableProcessors(), 8));
 
-    /** {@link PartitionFilePageStore} factory. */
+    /** {@link FilePageStore} factory. */
     private final FilePageStoreFactory filePageStoreFactory;
 
     /**
@@ -92,7 +91,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param igniteInstanceName Name of the Ignite instance.
      * @param storagePath Storage path.
      * @param filePageStoreFileIoFactory {@link FileIo} factory for file page store.
-     * @param ioRegistry Page IO registry.
      * @param pageSize Page size in bytes.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -101,7 +99,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
             String igniteInstanceName,
             Path storagePath,
             FileIoFactory filePageStoreFileIoFactory,
-            PageIoRegistry ioRegistry,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) throws IgniteInternalCheckedException {
@@ -119,7 +116,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
         groupPageStores = new GroupPageStoresMap<>(cleanupAsyncExecutor);
 
-        filePageStoreFactory = new FilePageStoreFactory(filePageStoreFileIoFactory, ioRegistry, pageSize);
+        filePageStoreFactory = new FilePageStoreFactory(filePageStoreFileIoFactory, pageSize);
     }
 
     /**
@@ -183,9 +180,9 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
         try {
             if (!groupPageStores.containsPageStores(grpId)) {
-                List<PartitionFilePageStore> partitionFilePageStores = createPartitionFilePageStores(grpName, partitions);
+                List<FilePageStore> partitionFilePageStores = createFilePageStores(grpName, partitions);
 
-                List<PartitionFilePageStore> old = groupPageStores.put(grpId, partitionFilePageStores);
+                List<FilePageStore> old = groupPageStores.put(grpId, partitionFilePageStores);
 
                 assert old == null : grpName;
             }
@@ -203,7 +200,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      *
      * @param grpId Group ID.
      */
-    public @Nullable List<PartitionFilePageStore> getStores(int grpId) {
+    public @Nullable List<FilePageStore> getStores(int grpId) {
         return groupPageStores.get(grpId);
     }
 
@@ -214,10 +211,10 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param partId Partition ID, from {@code 0} to {@link PageIdAllocator#MAX_PARTITION_ID} (inclusive).
      * @throws IgniteInternalCheckedException If group or partition with the given ID was not created.
      */
-    public PartitionFilePageStore getStore(int grpId, int partId) throws IgniteInternalCheckedException {
+    public FilePageStore getStore(int grpId, int partId) throws IgniteInternalCheckedException {
         assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
 
-        List<PartitionFilePageStore> holder = groupPageStores.get(grpId);
+        List<FilePageStore> holder = groupPageStores.get(grpId);
 
         if (holder == null) {
             throw new IgniteInternalCheckedException(
@@ -242,7 +239,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param cleanFiles Delete files.
      */
     void stopAllGroupFilePageStores(boolean cleanFiles) {
-        List<PartitionFilePageStore> partitionPageStores = groupPageStores.allPageStores().stream()
+        List<FilePageStore> partitionPageStores = groupPageStores.allPageStores().stream()
                 .flatMap(Collection::stream)
                 .collect(toList());
 
@@ -266,7 +263,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
     }
 
     private static void stopGroupFilePageStores(
-            List<PartitionFilePageStore> partitionPageStores,
+            List<FilePageStore> partitionPageStores,
             boolean cleanFiles
     ) throws IgniteInternalCheckedException {
         try {
@@ -296,13 +293,13 @@ public class FilePageStoreManager implements PageReadWriteManager {
         return groupWorkDir;
     }
 
-    private List<PartitionFilePageStore> createPartitionFilePageStores(
+    private List<FilePageStore> createFilePageStores(
             String grpName,
             int partitions
     ) throws IgniteInternalCheckedException {
         Path groupWorkDir = ensureGroupWorkDir(grpName);
 
-        List<PartitionFilePageStore> partitionFilePageStores = new ArrayList<>(partitions);
+        List<FilePageStore> partitionFilePageStores = new ArrayList<>(partitions);
 
         ByteBuffer buffer = allocateBuffer(pageSize);
 

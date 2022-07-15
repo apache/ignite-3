@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import static java.nio.ByteOrder.nativeOrder;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
@@ -43,6 +44,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class FilePageStoreHeaderTest {
+    private static final int PAGE_SIZE = 1024;
+
     @Test
     void testSimple() {
         FilePageStoreHeader header = new FilePageStoreHeader(100500, 1024);
@@ -73,8 +76,10 @@ public class FilePageStoreHeaderTest {
     void testReadHeader(@WorkDirectory Path workDir) throws Exception {
         Path testFile = Files.createFile(workDir.resolve("test"));
 
+        ByteBuffer buffer = ByteBuffer.allocate(PAGE_SIZE).order(nativeOrder());
+
         try (FileIo fileIo = new RandomAccessFileIo(testFile, CREATE, WRITE, READ)) {
-            assertNull(FilePageStoreHeader.readHeader(fileIo));
+            assertNull(FilePageStoreHeader.readHeader(fileIo, buffer));
 
             ByteBuffer headerBuffer = new FilePageStoreHeader(VERSION_1, 256).toByteBuffer();
 
@@ -82,7 +87,7 @@ public class FilePageStoreHeaderTest {
 
             fileIo.force();
 
-            FilePageStoreHeader header = FilePageStoreHeader.readHeader(fileIo);
+            FilePageStoreHeader header = FilePageStoreHeader.readHeader(fileIo, buffer.rewind());
 
             assertEquals(VERSION_1, header.version());
             assertEquals(256, header.pageSize());
@@ -92,7 +97,7 @@ public class FilePageStoreHeaderTest {
 
             fileIo.force();
 
-            Exception exception = assertThrows(IOException.class, () -> FilePageStoreHeader.readHeader(fileIo));
+            Exception exception = assertThrows(IOException.class, () -> FilePageStoreHeader.readHeader(fileIo, buffer.rewind()));
 
             assertThat(exception.getMessage(), startsWith("Invalid file signature"));
         }

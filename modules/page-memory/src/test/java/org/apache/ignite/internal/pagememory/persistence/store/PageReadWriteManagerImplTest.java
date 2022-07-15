@@ -33,7 +33,7 @@ import org.junit.jupiter.api.Test;
  * For {@link PageReadWriteManagerImpl} testing.
  */
 public class PageReadWriteManagerImplTest {
-    private PartitionFilePageStore filePageStore;
+    private FilePageStore filePageStore;
 
     private FilePageStoreManager filePageStoreManager;
 
@@ -41,7 +41,7 @@ public class PageReadWriteManagerImplTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        filePageStore = mock(PartitionFilePageStore.class);
+        filePageStore = mock(FilePageStore.class);
 
         filePageStoreManager = mock(FilePageStoreManager.class);
 

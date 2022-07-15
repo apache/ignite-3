@@ -48,6 +48,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPage
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -106,7 +107,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
-        PartitionMetaManager partitionMetaManager = new PartitionMetaManager();
+        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
@@ -134,7 +135,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         pageMemory.start();
 
         try {
-            initGroupFilePageStores(filePageStoreManager, partitionMetaManager);
+            initGroupFilePageStores(filePageStoreManager, partitionMetaManager, pageMemory);
 
             checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
@@ -168,7 +169,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
-        PartitionMetaManager partitionMetaManager = new PartitionMetaManager();
+        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
@@ -200,7 +201,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         pageMemory.start();
 
         try {
-            initGroupFilePageStores(filePageStoreManager, partitionMetaManager);
+            initGroupFilePageStores(filePageStoreManager, partitionMetaManager, pageMemory);
 
             long maxPages = pageMemory.totalPages();
 
@@ -304,21 +305,32 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     }
 
     private static FilePageStoreManager createFilePageStoreManager(Path storagePath) throws Exception {
-        return new FilePageStoreManager(log, "test", storagePath, new RandomAccessFileIoFactory(), ioRegistry, PAGE_SIZE);
+        return new FilePageStoreManager(log, "test", storagePath, new RandomAccessFileIoFactory(), PAGE_SIZE);
     }
 
     private static void initGroupFilePageStores(
             FilePageStoreManager filePageStoreManager,
-            PartitionMetaManager partitionMetaManager
+            PartitionMetaManager partitionMetaManager,
+            PersistentPageMemory pageMemory
     ) throws Exception {
         int partitions = PARTITION_ID + 1;
 
         filePageStoreManager.initialize("Test", GRP_ID, partitions);
 
         for (int i = 0; i < partitions; i++) {
-            filePageStoreManager.getStore(GRP_ID, i).ensure();
+            FilePageStore filePageStore = filePageStoreManager.getStore(GRP_ID, i);
 
-            partitionMetaManager.addMeta(new GroupPartitionId(GRP_ID, i), new PartitionMeta(0, 0, 0));
+            filePageStore.ensure();
+
+            GroupPartitionId groupPartitionId = new GroupPartitionId(GRP_ID, i);
+
+            PartitionMeta partitionMeta = partitionMetaManager.readOrCreateMeta(groupPartitionId, pageMemory, filePageStore);
+
+            partitionMetaManager.addMeta(groupPartitionId, partitionMeta);
+
+            filePageStore.setPageAllocationListener(pageIdx -> partitionMeta.incrementPageCount());
+
+            filePageStore.pages(partitionMeta.pageCount());
         }
     }
 }

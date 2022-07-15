@@ -608,12 +608,12 @@ public class FilePageStore implements PageStore {
     /**
      * Returns file page store path.
      */
-    Path filePath() {
+    public Path filePath() {
         return filePath;
     }
 
     private void checkHeader(FileIo fileIo) throws IOException {
-        FilePageStoreHeader header = FilePageStoreHeader.readHeader(fileIo);
+        FilePageStoreHeader header = FilePageStoreHeader.readHeader(fileIo, ByteBuffer.allocate(pageSize).order(nativeOrder()));
 
         if (header == null) {
             throw new IOException("Missing file header");

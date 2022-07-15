@@ -17,15 +17,12 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import static java.nio.ByteOrder.nativeOrder;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader.readHeader;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
-import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
-import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
-import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,13 +34,9 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
-import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -54,22 +47,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class FilePageStoreFactoryTest {
     private static final int PAGE_SIZE = 1024;
 
-    private static PageIoRegistry ioRegistry;
-
     @WorkDirectory
     private Path workDir;
-
-    @BeforeAll
-    static void beforeAll() {
-        ioRegistry = new PageIoRegistry();
-
-        ioRegistry.loadFromServiceLoader();
-    }
-
-    @AfterAll
-    static void afterAll() {
-        ioRegistry = null;
-    }
 
     @Test
     void testUnknownFilePageStoreVersion() throws Exception {
@@ -80,7 +59,7 @@ public class FilePageStoreFactoryTest {
 
             Exception exception = assertThrows(
                     IgniteInternalCheckedException.class,
-                    () -> createFilePageStoreFactory().createPageStore(testFilePath, ByteBuffer.allocateDirect(PAGE_SIZE))
+                    () -> createFilePageStoreFactory().createPageStore(testFilePath, ByteBuffer.allocate(PAGE_SIZE).order(nativeOrder()))
             );
 
             assertThat(exception.getMessage(), containsString("Unknown version of file page store"));
@@ -91,21 +70,21 @@ public class FilePageStoreFactoryTest {
     void testCreateNewFilePageStore() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        ByteBuffer buffer = ByteBuffer.allocateDirect(PAGE_SIZE);
+        ByteBuffer buffer = ByteBuffer.allocateDirect(PAGE_SIZE).order(nativeOrder());
 
         try (
-                PartitionFilePageStore filePageStore = createFilePageStoreFactory().createPageStore(testFilePath, buffer);
+                FilePageStore filePageStore = createFilePageStoreFactory().createPageStore(testFilePath, buffer);
                 FileIo fileIo = createFileIo(testFilePath)
         ) {
-            assertNull(readHeader(fileIo));
+            assertNull(readHeader(fileIo, buffer.rewind()));
 
-            assertEquals(1, filePageStore.pages());
+            assertEquals(0, filePageStore.pages());
 
             filePageStore.ensure();
 
-            checkHeader(readHeader(fileIo));
+            checkHeader(readHeader(fileIo, buffer.rewind()));
 
-            assertEquals(1, filePageStore.pages());
+            assertEquals(0, filePageStore.pages());
         }
     }
 
@@ -115,78 +94,28 @@ public class FilePageStoreFactoryTest {
 
         Path testFilePath = workDir.resolve("test");
 
-        ByteBuffer buffer = ByteBuffer.allocateDirect(PAGE_SIZE);
+        ByteBuffer buffer = ByteBuffer.allocateDirect(PAGE_SIZE).order(nativeOrder());
 
-        try (PartitionFilePageStore pageStore = filePageStoreFactory.createPageStore(testFilePath, buffer)) {
+        try (FilePageStore pageStore = filePageStoreFactory.createPageStore(testFilePath, buffer)) {
             pageStore.ensure();
         }
 
         try (
-                PartitionFilePageStore filePageStore = filePageStoreFactory.createPageStore(testFilePath, buffer.rewind());
+                FilePageStore filePageStore = filePageStoreFactory.createPageStore(testFilePath, buffer.rewind());
                 FileIo fileIo = createFileIo(testFilePath);
         ) {
-            assertEquals(1, filePageStore.pages());
+            assertEquals(0, filePageStore.pages());
 
-            checkHeader(readHeader(fileIo));
-        }
-    }
-
-    @Test
-    void testCreateExistsFilePageStoreWithChangePageCount() throws Exception {
-        FilePageStoreFactory filePageStoreFactory = createFilePageStoreFactory();
-
-        Path testFilePath = workDir.resolve("test");
-
-        ByteBuffer buffer = ByteBuffer.allocateDirect(PAGE_SIZE);
-
-        try (
-                PartitionFilePageStore pageStore = filePageStoreFactory.createPageStore(testFilePath, buffer);
-                FileIo fileIo = createFileIo(testFilePath);
-        ) {
-            pageStore.ensure();
-
-            writePageCount(fileIo, 3);
-
-            fileIo.force();
-        }
-
-        try (
-                PartitionFilePageStore filePageStore = filePageStoreFactory.createPageStore(testFilePath, buffer.rewind());
-                FileIo fileIo = createFileIo(testFilePath);
-        ) {
-            assertEquals(3, filePageStore.pages());
-
-            checkHeader(readHeader(fileIo));
+            checkHeader(readHeader(fileIo, buffer.rewind()));
         }
     }
 
     private static FilePageStoreFactory createFilePageStoreFactory() {
-        return new FilePageStoreFactory(new RandomAccessFileIoFactory(), ioRegistry, PAGE_SIZE);
+        return new FilePageStoreFactory(new RandomAccessFileIoFactory(), PAGE_SIZE);
     }
 
     private static FileIo createFileIo(Path filePath) throws Exception {
         return new RandomAccessFileIo(filePath, CREATE, WRITE, READ);
-    }
-
-    private static void writePageCount(FileIo fileIo, int pageCount) throws Exception {
-        ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
-
-        try {
-            PartitionMetaIo partitionMetaIo = PartitionMetaIo.VERSIONS.latest();
-
-            partitionMetaIo.initNewPage(
-                    bufferAddress(buffer),
-                    pageId(0, (byte) 0, 0),
-                    PAGE_SIZE
-            );
-
-            partitionMetaIo.setPageCount(bufferAddress(buffer), pageCount);
-
-            // Must be after the file header.
-            fileIo.writeFully(buffer.rewind(), PAGE_SIZE);
-        } finally {
-            freeBuffer(buffer);
-        }
     }
 
     private static void checkHeader(FilePageStoreHeader header) {

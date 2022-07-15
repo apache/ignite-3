@@ -115,7 +115,6 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     igniteInstanceName,
                     storagePath,
                     fileIoFactory,
-                    ioRegistry,
                     pageSize
             );
 
@@ -124,7 +123,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             throw new StorageException("Error starting file page store manager", e);
         }
 
-        partitionMetaManager = new PartitionMetaManager();
+        partitionMetaManager = new PartitionMetaManager(ioRegistry, pageSize);
 
         try {
             checkpointManager = new CheckpointManager(

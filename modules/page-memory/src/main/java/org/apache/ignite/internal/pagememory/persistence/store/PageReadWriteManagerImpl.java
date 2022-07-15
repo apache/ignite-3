@@ -44,7 +44,7 @@ class PageReadWriteManagerImpl implements org.apache.ignite.internal.pagememory.
     /** {@inheritDoc} */
     @Override
     public void read(int grpId, long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
-        PartitionFilePageStore pageStore = filePageStoreManager.getStore(grpId, partitionId(pageId));
+        FilePageStore pageStore = filePageStoreManager.getStore(grpId, partitionId(pageId));
 
         try {
             pageStore.read(pageId, pageBuf, keepCrc);
@@ -63,7 +63,7 @@ class PageReadWriteManagerImpl implements org.apache.ignite.internal.pagememory.
             ByteBuffer pageBuf,
             boolean calculateCrc
     ) throws IgniteInternalCheckedException {
-        PartitionFilePageStore pageStore = filePageStoreManager.getStore(grpId, partitionId(pageId));
+        FilePageStore pageStore = filePageStoreManager.getStore(grpId, partitionId(pageId));
 
         try {
             pageStore.write(pageId, pageBuf, calculateCrc);
@@ -81,7 +81,7 @@ class PageReadWriteManagerImpl implements org.apache.ignite.internal.pagememory.
     public long allocatePage(int grpId, int partId, byte flags) throws IgniteInternalCheckedException {
         assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
 
-        PartitionFilePageStore pageStore = filePageStoreManager.getStore(grpId, partId);
+        FilePageStore pageStore = filePageStoreManager.getStore(grpId, partId);
 
         try {
             int pageIdx = pageStore.allocatePage();
