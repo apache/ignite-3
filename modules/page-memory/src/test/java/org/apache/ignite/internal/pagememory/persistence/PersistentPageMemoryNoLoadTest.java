@@ -49,7 +49,6 @@ import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAl
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStore;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.jetbrains.annotations.Nullable;
@@ -107,12 +106,15 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
+        PartitionMetaManager partitionMetaManager = new PartitionMetaManager();
+
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
         CheckpointManager checkpointManager = createCheckpointManager(
                 checkpointConfig,
                 workDir,
                 filePageStoreManager,
+                partitionMetaManager,
                 dataRegions
         );
 
@@ -132,7 +134,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         pageMemory.start();
 
         try {
-            initGroupFilePageStores(filePageStoreManager);
+            initGroupFilePageStores(filePageStoreManager, partitionMetaManager);
 
             checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
@@ -166,12 +168,15 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
+        PartitionMetaManager partitionMetaManager = new PartitionMetaManager();
+
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
         CheckpointManager checkpointManager = createCheckpointManager(
                 checkpointConfig,
                 workDir,
                 filePageStoreManager,
+                partitionMetaManager,
                 dataRegions
         );
 
@@ -195,7 +200,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         pageMemory.start();
 
         try {
-            initGroupFilePageStores(filePageStoreManager);
+            initGroupFilePageStores(filePageStoreManager, partitionMetaManager);
 
             long maxPages = pageMemory.totalPages();
 
@@ -281,6 +286,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             PageMemoryCheckpointConfiguration checkpointConfig,
             Path storagePath,
             FilePageStoreManager filePageStoreManager,
+            PartitionMetaManager partitionMetaManager,
             Collection<DataRegion<PersistentPageMemory>> dataRegions
     ) throws Exception {
         return new CheckpointManager(
@@ -289,6 +295,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 null,
                 checkpointConfig,
                 filePageStoreManager,
+                partitionMetaManager,
                 dataRegions,
                 storagePath,
                 ioRegistry,
@@ -300,11 +307,18 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         return new FilePageStoreManager(log, "test", storagePath, new RandomAccessFileIoFactory(), ioRegistry, PAGE_SIZE);
     }
 
-    private static void initGroupFilePageStores(FilePageStoreManager filePageStoreManager) throws Exception {
-        filePageStoreManager.initialize("Test", GRP_ID, PARTITION_ID + 1);
+    private static void initGroupFilePageStores(
+            FilePageStoreManager filePageStoreManager,
+            PartitionMetaManager partitionMetaManager
+    ) throws Exception {
+        int partitions = PARTITION_ID + 1;
 
-        for (PartitionFilePageStore filePageStore : filePageStoreManager.getStores(GRP_ID)) {
-            filePageStore.ensure();
+        filePageStoreManager.initialize("Test", GRP_ID, partitions);
+
+        for (int i = 0; i < partitions; i++) {
+            filePageStoreManager.getStore(GRP_ID, i).ensure();
+
+            partitionMetaManager.addMeta(new GroupPartitionId(GRP_ID, i), new PartitionMeta(0, 0, 0));
         }
     }
 }

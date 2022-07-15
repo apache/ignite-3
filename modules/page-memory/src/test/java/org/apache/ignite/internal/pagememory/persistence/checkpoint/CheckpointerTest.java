@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.createPartitionFilePageStoreManager;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -56,7 +55,6 @@ import static org.mockito.Mockito.when;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -70,11 +68,10 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryChec
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStore;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.AfterAll;
@@ -116,7 +113,7 @@ public class CheckpointerTest {
                 null,
                 null,
                 createCheckpointWorkflow(EMPTY),
-                createCheckpointPagesWriterFactory(mock(FilePageStoreManager.class)),
+                createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
                 checkpointConfig
         );
 
@@ -272,7 +269,7 @@ public class CheckpointerTest {
                 null,
                 null,
                 createCheckpointWorkflow(EMPTY),
-                createCheckpointPagesWriterFactory(mock(FilePageStoreManager.class)),
+                createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
                 checkpointConfig
         ));
 
@@ -339,11 +336,9 @@ public class CheckpointerTest {
                 fullPageId(0, 0, 1), fullPageId(0, 0, 2), fullPageId(0, 0, 3)
         ));
 
-        PartitionFilePageStore partitionFilePageStore = new PartitionFilePageStore(createFilePageStore(), mock(PartitionMeta.class));
+        PartitionMetaManager partitionMetaManager = new PartitionMetaManager();
 
-        FilePageStoreManager filePageStoreManager = createPartitionFilePageStoreManager(Map.of(
-                new GroupPartitionId(0, 0), partitionFilePageStore
-        ));
+        partitionMetaManager.addMeta(new GroupPartitionId(0, 0), mock(PartitionMeta.class));
 
         Checkpointer checkpointer = spy(new Checkpointer(
                 log,
@@ -351,7 +346,7 @@ public class CheckpointerTest {
                 null,
                 null,
                 createCheckpointWorkflow(dirtyPages),
-                createCheckpointPagesWriterFactory(filePageStoreManager),
+                createCheckpointPagesWriterFactory(partitionMetaManager),
                 checkpointConfig
         ));
 
@@ -431,7 +426,7 @@ public class CheckpointerTest {
     }
 
     private CheckpointPagesWriterFactory createCheckpointPagesWriterFactory(
-            FilePageStoreManager filePageStoreManager
+            PartitionMetaManager partitionMetaManager
     ) throws Exception {
         CheckpointPageWriter checkpointPageWriter = mock(CheckpointPageWriter.class);
 
@@ -441,7 +436,7 @@ public class CheckpointerTest {
                 log,
                 checkpointPageWriter,
                 ioRegistry,
-                filePageStoreManager,
+                partitionMetaManager,
                 PAGE_SIZE
         );
     }

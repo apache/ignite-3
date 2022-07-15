@@ -27,8 +27,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 
@@ -50,8 +50,8 @@ public class CheckpointPagesWriterFactory {
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
 
-    /** Partition file page store manager. */
-    private final FilePageStoreManager filePageStoreManager;
+    /** Partition meta information manager. */
+    private final PartitionMetaManager partitionMetaManager;
 
     /**
      * Constructor.
@@ -59,21 +59,21 @@ public class CheckpointPagesWriterFactory {
      * @param log Logger.
      * @param checkpointPageWriter Checkpoint page writer.
      * @param ioRegistry Page IO registry.
-     * @param filePageStoreManager Partition file page store manager.
+     * @param partitionMetaManager Partition meta information manager.
      * @param pageSize Page size in bytes.
      */
     CheckpointPagesWriterFactory(
             IgniteLogger log,
             CheckpointPageWriter checkpointPageWriter,
             PageIoRegistry ioRegistry,
-            FilePageStoreManager filePageStoreManager,
+            PartitionMetaManager partitionMetaManager,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
         this.log = log;
         this.checkpointPageWriter = checkpointPageWriter;
         this.ioRegistry = ioRegistry;
-        this.filePageStoreManager = filePageStoreManager;
+        this.partitionMetaManager = partitionMetaManager;
 
         threadBuf = ThreadLocal.withInitial(() -> {
             ByteBuffer tmpWriteBuf = ByteBuffer.allocateDirect(pageSize);
@@ -119,7 +119,7 @@ public class CheckpointPagesWriterFactory {
                 checkpointProgress,
                 checkpointPageWriter,
                 ioRegistry,
-                filePageStoreManager,
+                partitionMetaManager,
                 shutdownNow
         );
     }

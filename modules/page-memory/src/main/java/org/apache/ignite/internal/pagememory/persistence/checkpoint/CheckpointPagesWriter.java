@@ -40,11 +40,10 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStore;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
@@ -92,8 +91,8 @@ public class CheckpointPagesWriter implements Runnable {
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
 
-    /** Partition file page store manager. */
-    private final FilePageStoreManager filePageStoreManager;
+    /** Partition meta information manager. */
+    private final PartitionMetaManager partitionMetaManager;
 
     /** Shutdown now. */
     private final BooleanSupplier shutdownNow;
@@ -112,7 +111,7 @@ public class CheckpointPagesWriter implements Runnable {
      * @param checkpointProgress Checkpoint progress.
      * @param pageWriter File page store manager.
      * @param ioRegistry Page IO registry.
-     * @param filePageStoreManager Partition file page store manager.
+     * @param partitionMetaManager Partition meta information manager.
      * @param shutdownNow Shutdown supplier.
      */
     CheckpointPagesWriter(
@@ -127,7 +126,7 @@ public class CheckpointPagesWriter implements Runnable {
             CheckpointProgressImpl checkpointProgress,
             CheckpointPageWriter pageWriter,
             PageIoRegistry ioRegistry,
-            FilePageStoreManager filePageStoreManager,
+            PartitionMetaManager partitionMetaManager,
             BooleanSupplier shutdownNow
     ) {
         this.log = log;
@@ -141,7 +140,7 @@ public class CheckpointPagesWriter implements Runnable {
         this.checkpointProgress = checkpointProgress;
         this.pageWriter = pageWriter;
         this.ioRegistry = ioRegistry;
-        this.filePageStoreManager = filePageStoreManager;
+        this.partitionMetaManager = partitionMetaManager;
         this.shutdownNow = shutdownNow;
     }
 
@@ -253,11 +252,6 @@ public class CheckpointPagesWriter implements Runnable {
         while (!shutdownNow.getAsBoolean() && updatePartitionIds.next(queueResult)) {
             GroupPartitionId partitionId = queueResult.getValue();
 
-            PartitionFilePageStore partitionFilePageStore = filePageStoreManager.getStore(
-                    partitionId.getGroupId(),
-                    partitionId.getPartitionId()
-            );
-
             ByteBuffer buffer = threadBuf.get();
 
             PersistentPageMemory pageMemory = queueResult.getKey();
@@ -271,7 +265,7 @@ public class CheckpointPagesWriter implements Runnable {
 
             io.initNewPage(pageAddr, partitionMetaPageId, buffer.capacity());
 
-            PartitionMeta meta = partitionFilePageStore.meta();
+            PartitionMeta meta = partitionMetaManager.getMeta(partitionId);
 
             io.setTreeRootPageId(pageAddr, meta.treeRootPageId());
             io.setReuseListRootPageId(pageAddr, meta.reuseListRootPageId());

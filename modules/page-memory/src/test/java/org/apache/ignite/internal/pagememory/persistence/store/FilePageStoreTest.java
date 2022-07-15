@@ -164,7 +164,7 @@ public class FilePageStoreTest {
 
         // Checks allocation without writing pages.
 
-        try (FilePageStore filePageStore0 = createFilePageStore(testFilePath, 0)) {
+        try (FilePageStore filePageStore0 = createFilePageStore(testFilePath)) {
             assertEquals(0, filePageStore0.pages());
 
             assertEquals(0, filePageStore0.allocatePage());
@@ -176,7 +176,9 @@ public class FilePageStoreTest {
             assertEquals(2, filePageStore0.pages());
         }
 
-        try (FilePageStore filePageStore1 = createFilePageStore(testFilePath, 2)) {
+        try (FilePageStore filePageStore1 = createFilePageStore(testFilePath)) {
+            filePageStore1.pages(2);
+
             assertEquals(2, filePageStore1.pages());
 
             filePageStore1.ensure();
@@ -190,7 +192,9 @@ public class FilePageStoreTest {
 
         // Checks allocation with writing pages.
 
-        try (FilePageStore filePageStore2 = createFilePageStore(testFilePath, 0)) {
+        try (FilePageStore filePageStore2 = createFilePageStore(testFilePath)) {
+            filePageStore2.pages(0);
+
             assertEquals(0, filePageStore2.pages());
 
             filePageStore2.write(createPageId(filePageStore2), createPageByteBuffer(), true);
@@ -202,7 +206,7 @@ public class FilePageStoreTest {
             assertEquals(2, filePageStore2.pages());
         }
 
-        try (FilePageStore filePageStore3 = createFilePageStore(testFilePath, 0)) {
+        try (FilePageStore filePageStore3 = createFilePageStore(testFilePath)) {
             assertEquals(0, filePageStore3.pages());
 
             filePageStore3.ensure();
@@ -210,7 +214,9 @@ public class FilePageStoreTest {
             assertEquals(0, filePageStore3.pages());
         }
 
-        try (FilePageStore filePageStore4 = createFilePageStore(testFilePath, 2)) {
+        try (FilePageStore filePageStore4 = createFilePageStore(testFilePath)) {
+            filePageStore4.pages(2);
+
             assertEquals(2, filePageStore4.pages());
 
             filePageStore4.ensure();
@@ -327,12 +333,12 @@ public class FilePageStoreTest {
 
         assertEquals(
                 2 * PAGE_SIZE,
-                createFilePageStore(testFilePath, 0, new FilePageStoreHeader(VERSION_1, 2 * PAGE_SIZE)).headerSize()
+                createFilePageStore(testFilePath, new FilePageStoreHeader(VERSION_1, 2 * PAGE_SIZE)).headerSize()
         );
 
         assertEquals(
                 3 * PAGE_SIZE,
-                createFilePageStore(testFilePath, 0, new FilePageStoreHeader(VERSION_1, 3 * PAGE_SIZE)).headerSize()
+                createFilePageStore(testFilePath, new FilePageStoreHeader(VERSION_1, 3 * PAGE_SIZE)).headerSize()
         );
     }
 
@@ -357,19 +363,14 @@ public class FilePageStoreTest {
     }
 
     private static FilePageStore createFilePageStore(Path filePath) {
-        return createFilePageStore(filePath, 0);
+        return createFilePageStore(filePath, new FilePageStoreHeader(VERSION_1, PAGE_SIZE));
     }
 
-    private static FilePageStore createFilePageStore(Path filePath, int pageCount) {
-        return createFilePageStore(filePath, pageCount, new FilePageStoreHeader(VERSION_1, PAGE_SIZE));
-    }
-
-    private static FilePageStore createFilePageStore(Path filePath, int pageCount, FilePageStoreHeader header) {
+    private static FilePageStore createFilePageStore(Path filePath, FilePageStoreHeader header) {
         return new FilePageStore(
                 header.version(),
                 header.pageSize(),
                 header.headerSize(),
-                pageCount,
                 filePath,
                 new RandomAccessFileIoFactory()
         );

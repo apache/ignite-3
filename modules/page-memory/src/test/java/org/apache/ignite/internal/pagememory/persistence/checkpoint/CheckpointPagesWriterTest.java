@@ -20,7 +20,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.TRY_AGAIN_TAG;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.createPartitionFilePageStoreManager;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.createPartitionMetaManager;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
@@ -40,7 +40,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -68,7 +67,6 @@ import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStore;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.junit.jupiter.api.AfterAll;
@@ -139,15 +137,8 @@ public class CheckpointPagesWriterTest {
 
         CheckpointProgressImpl progressImpl = new CheckpointProgressImpl(0);
 
-        PartitionFilePageStore partitionPageStore0 = spy(new PartitionFilePageStore(
-                createFilePageStore(true),
-                mock(PartitionMeta.class)
-        ));
-
-        PartitionFilePageStore partitionPageStore1 = spy(new PartitionFilePageStore(
-                createFilePageStore(false),
-                mock(PartitionMeta.class)
-        ));
+        PartitionMeta partitionMeta0 = mock(PartitionMeta.class);
+        PartitionMeta partitionMeta1 = mock(PartitionMeta.class);
 
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 log,
@@ -161,7 +152,7 @@ public class CheckpointPagesWriterTest {
                 progressImpl,
                 pageWriter,
                 ioRegistry,
-                createPartitionFilePageStoreManager(Map.of(groupPartId0, partitionPageStore0, groupPartId1, partitionPageStore1)),
+                createPartitionMetaManager(Map.of(groupPartId0, partitionMeta0, groupPartId1, partitionMeta1)),
                 () -> false
         );
 
@@ -194,8 +185,9 @@ public class CheckpointPagesWriterTest {
 
         verify(threadBuf, times(4)).get();
 
-        verify(partitionPageStore0, times(1)).meta();
-        verify(partitionPageStore1, times(1)).meta();
+        // TODO: IGNITE-17295 поменять проверку
+        verify(partitionMeta0, times(1)).pageCount();
+        verify(partitionMeta0, times(1)).pageCount();
     }
 
     @Test
@@ -215,8 +207,6 @@ public class CheckpointPagesWriterTest {
 
         GroupPartitionId groupPartId = groupPartId(0, 0);
 
-        PartitionFilePageStore partitionPageStore = spy(new PartitionFilePageStore(mock(FilePageStore.class), mock(PartitionMeta.class)));
-
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 log,
                 new CheckpointMetricsTracker(),
@@ -230,7 +220,7 @@ public class CheckpointPagesWriterTest {
                 new CheckpointProgressImpl(0),
                 mock(CheckpointPageWriter.class),
                 ioRegistry,
-                createPartitionFilePageStoreManager(Map.of(groupPartId, partitionPageStore)),
+                createPartitionMetaManager(Map.of(groupPartId, mock(PartitionMeta.class))),
                 () -> false
         );
 
@@ -272,8 +262,6 @@ public class CheckpointPagesWriterTest {
                 Map.of(pageMemory, List.of(groupPartId))
         );
 
-        PartitionFilePageStore partitionPageStore = spy(new PartitionFilePageStore(mock(FilePageStore.class), mock(PartitionMeta.class)));
-
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 log,
                 new CheckpointMetricsTracker(),
@@ -287,7 +275,7 @@ public class CheckpointPagesWriterTest {
                 new CheckpointProgressImpl(0),
                 mock(CheckpointPageWriter.class),
                 ioRegistry,
-                createPartitionFilePageStoreManager(Map.of(groupPartId, partitionPageStore)),
+                createPartitionMetaManager(Map.of(groupPartId, mock(PartitionMeta.class))),
                 () -> checkpointWritePageCount.get() > 0
         );
 

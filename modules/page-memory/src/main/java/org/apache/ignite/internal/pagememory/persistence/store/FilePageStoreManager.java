@@ -45,6 +45,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Partition file page store manager.
  */
+// TODO: IGNITE-17132 Don't forget to delete partition files
 public class FilePageStoreManager implements PageReadWriteManager {
     /** File suffix. */
     public static final String FILE_SUFFIX = ".bin";
@@ -202,7 +203,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      *
      * @param grpId Group ID.
      */
-    public @Nullable Collection<PartitionFilePageStore> getStores(int grpId) {
+    public @Nullable List<PartitionFilePageStore> getStores(int grpId) {
         return groupPageStores.get(grpId);
     }
 

@@ -25,6 +25,7 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
@@ -108,6 +109,8 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
                 initNewReuseList = true;
             }
+
+            dataRegion.partitionMetaManager().addMeta(new GroupPartitionId(grpId, partId), meta);
 
             TableFreeList tableFreeList = createTableFreeList(tableView, partId, meta, initNewReuseList);
 

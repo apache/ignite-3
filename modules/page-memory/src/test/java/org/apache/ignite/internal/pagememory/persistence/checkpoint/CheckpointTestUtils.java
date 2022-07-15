@@ -29,6 +29,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.store.PartitionFilePageStore;
@@ -85,7 +87,7 @@ public class CheckpointTestUtils {
      * @param stores Partition file page stores.
      * @throws Exception If failed.
      */
-    public static FilePageStoreManager createPartitionFilePageStoreManager(
+    public static FilePageStoreManager createFilePageStoreManager(
             Map<GroupPartitionId, PartitionFilePageStore> stores
     ) throws Exception {
         FilePageStoreManager manager = mock(FilePageStoreManager.class);
@@ -97,6 +99,19 @@ public class CheckpointTestUtils {
 
             return pageStore;
         });
+
+        return manager;
+    }
+
+    /**
+     * Returns the new {@link PartitionMetaManager}.
+     *
+     * @param metas Meta information of partitions.
+     */
+    public static PartitionMetaManager createPartitionMetaManager(Map<GroupPartitionId, PartitionMeta> metas) {
+        PartitionMetaManager manager = new PartitionMetaManager();
+
+        metas.forEach(manager::addMeta);
 
         return manager;
     }

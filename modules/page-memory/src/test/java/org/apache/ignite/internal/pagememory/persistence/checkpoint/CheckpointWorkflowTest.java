@@ -25,7 +25,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.MARKER_STORED_TO_DISK;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGE_SNAPSHOT_TAKEN;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.createPartitionFilePageStoreManager;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.createFilePageStoreManager;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.newReadWriteLock;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.toListDirtyPageIds;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.AFTER_CHECKPOINT_END;
@@ -200,7 +200,7 @@ public class CheckpointWorkflowTest {
                 markersStorage,
                 readWriteLock,
                 List.of(dataRegion),
-                createPartitionFilePageStoreManager(Map.of(new GroupPartitionId(0, 0), partitionFilePageStore))
+                createFilePageStoreManager(Map.of(new GroupPartitionId(0, 0), partitionFilePageStore))
         );
 
         workflow.start();

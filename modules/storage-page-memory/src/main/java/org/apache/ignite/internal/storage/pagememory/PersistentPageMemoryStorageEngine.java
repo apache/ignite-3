@@ -38,6 +38,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.StorageException;
@@ -69,6 +70,9 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     @Nullable
     private volatile FilePageStoreManager filePageStoreManager;
+
+    @Nullable
+    private volatile PartitionMetaManager partitionMetaManager;
 
     @Nullable
     private volatile CheckpointManager checkpointManager;
@@ -120,6 +124,8 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             throw new StorageException("Error starting file page store manager", e);
         }
 
+        partitionMetaManager = new PartitionMetaManager();
+
         try {
             checkpointManager = new CheckpointManager(
                     igniteInstanceName,
@@ -127,6 +133,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     longJvmPauseDetector,
                     engineConfig.checkpoint(),
                     filePageStoreManager,
+                    partitionMetaManager,
                     regions.values(),
                     storagePath,
                     ioRegistry,
@@ -205,6 +212,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                 dataRegionConfig,
                 ioRegistry,
                 filePageStoreManager,
+                partitionMetaManager,
                 checkpointManager,
                 pageSize
         );

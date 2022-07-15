@@ -81,7 +81,7 @@ public class FilePageStore implements PageStore {
     private final FileIoFactory ioFactory;
 
     /** Page count. */
-    private final AtomicInteger pageCount;
+    private final AtomicInteger pageCount = new AtomicInteger();
 
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
@@ -100,7 +100,6 @@ public class FilePageStore implements PageStore {
      * @param version File page store version.
      * @param pageSize Page size in bytes.
      * @param headerSize File page store header in bytes, should be {@code pageSize} aligned.
-     * @param pageCount Page count.
      * @param filePath File page store path.
      * @param ioFactory {@link FileIo} factory.
      */
@@ -108,11 +107,9 @@ public class FilePageStore implements PageStore {
             int version,
             int pageSize,
             int headerSize,
-            int pageCount,
             Path filePath,
             FileIoFactory ioFactory
     ) {
-        assert pageCount >= 0 : pageCount;
         assert headerSize % pageSize == 0 : "Not aligned [headerSiz=" + headerSize + ", pageSize=" + pageSize + "]";
 
         this.version = version;
@@ -120,8 +117,6 @@ public class FilePageStore implements PageStore {
         this.headerSize = headerSize;
         this.filePath = filePath;
         this.ioFactory = ioFactory;
-
-        this.pageCount = new AtomicInteger(pageCount);
     }
 
     /** {@inheritDoc} */
@@ -149,6 +144,17 @@ public class FilePageStore implements PageStore {
     @Override
     public int pages() {
         return pageCount.get();
+    }
+
+    /**
+     * Sets the page count.
+     *
+     * @param pageCount New page count.
+     */
+    public void pages(int pageCount) {
+        assert pageCount >= 0 : pageCount;
+
+        this.pageCount.set(pageCount);
     }
 
     /** {@inheritDoc} */

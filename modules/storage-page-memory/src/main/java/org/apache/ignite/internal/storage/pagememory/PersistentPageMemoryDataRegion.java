@@ -25,6 +25,7 @@ import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -42,6 +43,8 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
 
     private final FilePageStoreManager filePageStoreManager;
 
+    private final PartitionMetaManager partitionMetaManager;
+
     private final CheckpointManager checkpointManager;
 
     private volatile PersistentPageMemory pageMemory;
@@ -52,6 +55,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
      * @param cfg Data region configuration.
      * @param ioRegistry IO registry.
      * @param filePageStoreManager File page store manager.
+     * @param partitionMetaManager Partition meta information manager.
      * @param checkpointManager Checkpoint manager.
      * @param pageSize Page size in bytes.
      */
@@ -59,6 +63,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
             PersistentPageMemoryDataRegionConfiguration cfg,
             PageIoRegistry ioRegistry,
             FilePageStoreManager filePageStoreManager,
+            PartitionMetaManager partitionMetaManager,
             CheckpointManager checkpointManager,
             int pageSize
     ) {
@@ -67,6 +72,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         this.pageSize = pageSize;
 
         this.filePageStoreManager = filePageStoreManager;
+        this.partitionMetaManager = partitionMetaManager;
         this.checkpointManager = checkpointManager;
     }
 
@@ -118,6 +124,13 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
      */
     public FilePageStoreManager filePageStoreManager() {
         return filePageStoreManager;
+    }
+
+    /**
+     * Returns partition meta information manager.
+     */
+    public PartitionMetaManager partitionMetaManager() {
+        return partitionMetaManager;
     }
 
     /**

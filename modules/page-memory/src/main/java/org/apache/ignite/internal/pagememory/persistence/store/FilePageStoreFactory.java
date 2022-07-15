@@ -103,15 +103,18 @@ class FilePageStoreFactory {
             PartitionMeta partitionMeta
     ) throws IgniteInternalCheckedException {
         if (header.version() == FilePageStore.VERSION_1) {
+            FilePageStore filePageStore = new FilePageStore(
+                    header.version(),
+                    header.pageSize(),
+                    header.headerSize(),
+                    filePath,
+                    fileIoFactory
+            );
+
+            filePageStore.pages(partitionMeta.pageCount());
+
             return new PartitionFilePageStore(
-                    new FilePageStore(
-                            header.version(),
-                            header.pageSize(),
-                            header.headerSize(),
-                            partitionMeta.pageCount(),
-                            filePath,
-                            fileIoFactory
-                    ),
+                    filePageStore,
                     partitionMeta
             );
         }
