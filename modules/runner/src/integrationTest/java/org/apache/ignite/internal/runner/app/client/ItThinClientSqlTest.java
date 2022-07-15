@@ -35,6 +35,7 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -91,6 +92,71 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(2, columns.size());
         assertEquals("NUM", columns.get(0).name());
         assertEquals("STR", columns.get(1).name());
+    }
+
+    @Test
+    void testTxCorrectness() {
+        Session ses = client().sql().createSession();
+
+        // Create table.
+        ses.execute(null, "CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR)");
+
+        // Async
+        Transaction tx = client().transactions().begin();
+
+        ses.executeAsync(tx, "INSERT INTO testExecuteDdlDml VALUES (?, ?)",
+                Integer.MAX_VALUE, "hello " + Integer.MAX_VALUE).join();
+
+        tx.rollback();
+
+        tx = client().transactions().begin();
+
+        ses.executeAsync(tx, "INSERT INTO testExecuteDdlDml VALUES (?, ?)",
+                100, "hello " + Integer.MAX_VALUE).join();
+
+        tx.commit();
+
+        // Sync
+        tx = client().transactions().begin();
+
+        ses.executeAsync(tx, "INSERT INTO testExecuteDdlDml VALUES (?, ?)",
+                Integer.MAX_VALUE, "hello " + Integer.MAX_VALUE).join();
+
+        tx.rollback();
+
+        tx = client().transactions().begin();
+
+        ses.execute(tx, "INSERT INTO testExecuteDdlDml VALUES (?, ?)",
+                200, "hello " + Integer.MAX_VALUE);
+
+        tx.commit();
+
+        // Outdated tx.
+        Transaction tx0 = tx;
+
+        assertThrows(CompletionException.class, () -> {
+            ses.executeAsync(tx0, "INSERT INTO testExecuteDdlDml VALUES (?, ?)",
+                Integer.MAX_VALUE, "hello " + Integer.MAX_VALUE).join();
+        });
+
+        assertThrows(SqlException.class, () -> {
+            ses.execute(tx0, "INSERT INTO testExecuteDdlDml VALUES (?, ?)",
+                    Integer.MAX_VALUE, "hello " + Integer.MAX_VALUE);
+        });
+
+        for (int i = 0; i < 10; i++) {
+            ses.execute(null, "INSERT INTO testExecuteDdlDml VALUES (?, ?)", i, "hello " + i);
+        }
+
+        ResultSet selectRes = ses.execute(null, "SELECT * FROM testExecuteDdlDml ORDER BY ID");
+
+        var rows = new ArrayList<SqlRow>();
+        selectRes.forEachRemaining(rows::add);
+
+        assertEquals(1 + 1 + 10, rows.size());
+
+        // Delete table.
+        ses.execute(null, "DROP TABLE testExecuteDdlDml");
     }
 
     @Test

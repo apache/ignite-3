@@ -1,6 +1,7 @@
 # name: test/sql/insert/test_big_insert.test
 # description: Test insert into statements
 # group: [insert]
+# Ignored https://issues.apache.org/jira/browse/IGNITE-17382
 
 # big insert
 statement ok
@@ -13,6 +14,15 @@ query I
 SELECT COUNT(*) FROM integers
 ----
 1050
+
+# insert into from SELECT
+statement ok
+INSERT INTO integers SELECT * FROM integers;
+
+query I
+SELECT COUNT(*) FROM integers
+----
+2100
 
 statement ok
 DROP TABLE integers;
