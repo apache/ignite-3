@@ -201,6 +201,13 @@ public class CheckpointManager {
     }
 
     /**
+     * Returns progress of current checkpoint, last finished one or {@code null}, if checkpoint has never started.
+     */
+    public @Nullable CheckpointProgress currentProgress() {
+        return checkpointer.currentProgress();
+    }
+
+    /**
      * Returns {@link true} if it is safe for all {@link DataRegion data regions} to update their {@link PageMemory}.
      *
      * @param dataRegions Data regions.

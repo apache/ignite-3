@@ -39,7 +39,7 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
-import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
@@ -255,9 +255,7 @@ public class CheckpointPagesWriter implements Runnable {
 
             PersistentPageMemory pageMemory = queueResult.getKey();
 
-            PartitionMeta partitionMetaSnapshot = partitionMetaManager.getMeta(partitionId).metaSnapshot();
-
-            assert partitionMetaSnapshot != null : partitionId;
+            PartitionMetaSnapshot partitionMetaSnapshot = partitionMetaManager.getMeta(partitionId).metaSnapshot(checkpointProgress.id());
 
             partitionMetaManager.writeMetaToBuffer(partitionId, pageMemory, partitionMetaSnapshot, buffer.rewind());
 

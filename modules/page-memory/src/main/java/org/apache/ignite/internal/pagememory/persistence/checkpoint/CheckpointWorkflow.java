@@ -297,12 +297,6 @@ class CheckpointWorkflow {
             dataRegionsDirtyPages.add(new DataRegionDirtyPages<>(dataRegion.pageMemory(), dirtyPages));
         }
 
-        for (DataRegionDirtyPages<DirtyPagesCollection> dataRegionDirtyPages : dataRegionsDirtyPages) {
-            for (GroupPartitionId dirtyPartition : dataRegionDirtyPages.dirtyPages.partitionIds()) {
-                partitionMetaManager.getMeta(dirtyPartition).makeMetaSnapshot();
-            }
-        }
-
         return new DataRegionsDirtyPages(dataRegionsDirtyPages);
     }
 

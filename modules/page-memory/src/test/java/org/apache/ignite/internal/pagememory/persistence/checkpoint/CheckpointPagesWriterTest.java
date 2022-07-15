@@ -43,6 +43,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -178,8 +179,8 @@ public class CheckpointPagesWriterTest {
 
         verify(threadBuf, times(4)).get();
 
-        verify(partitionMeta0, times(1)).metaSnapshot();
-        verify(partitionMeta0, times(1)).metaSnapshot();
+        verify(partitionMeta0, times(1)).metaSnapshot(any(UUID.class));
+        verify(partitionMeta0, times(1)).metaSnapshot(any(UUID.class));
     }
 
     @Test

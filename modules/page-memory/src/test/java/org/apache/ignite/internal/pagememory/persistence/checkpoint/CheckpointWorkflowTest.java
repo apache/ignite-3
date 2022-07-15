@@ -318,7 +318,6 @@ public class CheckpointWorkflowTest {
         );
 
         verify(markersStorage, times(1)).onCheckpointBegin(checkpointId);
-        verify(partitionMeta, times(1)).makeMetaSnapshot();
     }
 
     @Test

@@ -23,8 +23,10 @@ import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -76,11 +78,13 @@ public class PartitionMetaManager {
      *
      * <p>If it creates a new one, it writes the meta to the file.
      *
+     * @param checkpointId Checkpoint ID.
      * @param groupPartitionId Partition of the group.
      * @param pageMemory Page memory.
      * @param filePageStore Partition file page store.
      */
     public PartitionMeta readOrCreateMeta(
+            @Nullable UUID checkpointId,
             GroupPartitionId groupPartitionId,
             PersistentPageMemory pageMemory,
             FilePageStore filePageStore
@@ -102,7 +106,7 @@ public class PartitionMetaManager {
 
                 assert read : filePageStore.filePath();
 
-                return createMeta(ioRegistry.resolve(bufferAddr), bufferAddr);
+                return createMeta(ioRegistry.resolve(bufferAddr), bufferAddr, checkpointId);
             } else {
                 // Creates and writes a partition meta.
                 PartitionMetaIo partitionMetaIo = PartitionMetaIo.VERSIONS.latest();
@@ -117,7 +121,7 @@ public class PartitionMetaManager {
 
                 filePageStore.sync();
 
-                return createMeta(partitionMetaIo, bufferAddr);
+                return createMeta(partitionMetaIo, bufferAddr, checkpointId);
             }
         } finally {
             freeBuffer(buffer);
@@ -129,13 +133,13 @@ public class PartitionMetaManager {
      *
      * @param groupPartitionId Partition of the group.
      * @param pageMemory Page memory.
-     * @param partitionMeta Partition meta.
+     * @param partitionMeta Snapshot of the partition meta.
      * @param writeToBuffer Direct byte buffer to write partition meta.
      */
     public void writeMetaToBuffer(
             GroupPartitionId groupPartitionId,
             PersistentPageMemory pageMemory,
-            PartitionMeta partitionMeta,
+            PartitionMetaSnapshot partitionMeta,
             ByteBuffer writeToBuffer
     ) {
         assert writeToBuffer.remaining() == pageSize : writeToBuffer.remaining();
@@ -153,8 +157,9 @@ public class PartitionMetaManager {
         io.setPageCount(pageAddr, partitionMeta.pageCount());
     }
 
-    private PartitionMeta createMeta(PartitionMetaIo metaIo, long pageAddr) {
+    private PartitionMeta createMeta(PartitionMetaIo metaIo, long pageAddr, @Nullable UUID checkpointId) {
         return new PartitionMeta(
+                checkpointId,
                 metaIo.getTreeRootPageId(pageAddr),
                 metaIo.getReuseListRootPageId(pageAddr),
                 metaIo.getPageCount(pageAddr)

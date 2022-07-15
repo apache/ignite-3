@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.storage.StorageUtils.groupId;
 
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
@@ -28,6 +29,8 @@ import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
@@ -83,7 +86,9 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
         FilePageStore filePageStore = ensurePartitionFilePageStore(tableView, partId);
 
-        CheckpointTimeoutLock checkpointTimeoutLock = dataRegion.checkpointManager().checkpointTimeoutLock();
+        CheckpointManager checkpointManager = dataRegion.checkpointManager();
+
+        CheckpointTimeoutLock checkpointTimeoutLock = checkpointManager.checkpointTimeoutLock();
 
         checkpointTimeoutLock.checkpointReadLock();
 
@@ -92,7 +97,12 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
             int grpId = groupId(tableView);
 
+            CheckpointProgress currentProgress = checkpointManager.currentProgress();
+
+            UUID checkpointId = currentProgress == null ? null : currentProgress.id();
+
             PartitionMeta meta = dataRegion.partitionMetaManager().readOrCreateMeta(
+                    checkpointId,
                     new GroupPartitionId(grpId, partId),
                     dataRegion.pageMemory(),
                     filePageStore
@@ -102,12 +112,18 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
             filePageStore.pages(meta.pageCount());
 
-            filePageStore.setPageAllocationListener(pageIdx -> meta.incrementPageCount());
+            filePageStore.setPageAllocationListener(pageIdx -> {
+                assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
+
+                CheckpointProgress curr = checkpointManager.currentProgress();
+
+                meta.incrementPageCount(curr == null ? null : curr.id());
+            });
 
             boolean initNewTree = false;
 
             if (meta.treeRootPageId() == 0) {
-                meta.treeRootPageId(persistentPageMemory.allocatePage(grpId, partId, FLAG_AUX));
+                meta.treeRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partId, FLAG_AUX));
 
                 initNewTree = true;
             }
@@ -115,7 +131,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             boolean initNewReuseList = false;
 
             if (meta.reuseListRootPageId() == 0) {
-                meta.reuseListRootPageId(persistentPageMemory.allocatePage(grpId, partId, FLAG_AUX));
+                meta.reuseListRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partId, FLAG_AUX));
 
                 initNewReuseList = true;
             }

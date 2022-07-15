@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
-import static java.util.concurrent.atomic.AtomicIntegerFieldUpdater.newUpdater;
-
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -27,7 +28,20 @@ import org.jetbrains.annotations.Nullable;
  * Partition meta information.
  */
 public class PartitionMeta {
-    private static final AtomicIntegerFieldUpdater<PartitionMeta> PAGE_COUNT_UPDATER = newUpdater(PartitionMeta.class, "pageCount");
+    private static final AtomicIntegerFieldUpdater<PartitionMeta> PAGE_COUNT_UPDATER = AtomicIntegerFieldUpdater.newUpdater(
+            PartitionMeta.class,
+            "pageCount"
+    );
+
+    private static final VarHandle META_SNAPSHOT_VH;
+
+    static {
+        try {
+            META_SNAPSHOT_VH = MethodHandles.lookup().findVarHandle(PartitionMeta.class, "metaSnapshot", PartitionMetaSnapshot.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     private volatile long treeRootPageId;
 
@@ -35,19 +49,22 @@ public class PartitionMeta {
 
     private volatile int pageCount;
 
-    private volatile @Nullable PartitionMeta metaSnapshot;
+    private volatile PartitionMetaSnapshot metaSnapshot;
 
     /**
      * Constructor.
      *
+     * @param checkpointId Checkpoint ID.
      * @param treeRootPageId Tree root page ID.
      * @param reuseListRootPageId Reuse list root page ID.
      * @param pageCount Count of pages in the partition.
      */
-    public PartitionMeta(long treeRootPageId, long reuseListRootPageId, int pageCount) {
+    public PartitionMeta(@Nullable UUID checkpointId, long treeRootPageId, long reuseListRootPageId, int pageCount) {
         this.treeRootPageId = treeRootPageId;
         this.reuseListRootPageId = reuseListRootPageId;
         this.pageCount = pageCount;
+
+        metaSnapshot = new PartitionMetaSnapshot(checkpointId, this);
     }
 
     /**
@@ -60,9 +77,12 @@ public class PartitionMeta {
     /**
      * Sets tree root page ID.
      *
+     * @param checkpointId Checkpoint ID.
      * @param treeRootPageId Tree root page ID.
      */
-    public void treeRootPageId(long treeRootPageId) {
+    public void treeRootPageId(@Nullable UUID checkpointId, long treeRootPageId) {
+        updateSnapshot(checkpointId);
+
         this.treeRootPageId = treeRootPageId;
     }
 
@@ -76,9 +96,12 @@ public class PartitionMeta {
     /**
      * Sets reuse list root page ID.
      *
+     * @param checkpointId Checkpoint ID.
      * @param reuseListRootPageId Reuse list root page ID.
      */
-    public void reuseListRootPageId(long reuseListRootPageId) {
+    public void reuseListRootPageId(@Nullable UUID checkpointId, long reuseListRootPageId) {
+        updateSnapshot(checkpointId);
+
         this.reuseListRootPageId = reuseListRootPageId;
     }
 
@@ -92,31 +115,87 @@ public class PartitionMeta {
     /**
      * Increases the number of pages in a partition.
      */
-    public void incrementPageCount() {
+    public void incrementPageCount(@Nullable UUID checkpointId) {
+        updateSnapshot(checkpointId);
+
         PAGE_COUNT_UPDATER.incrementAndGet(this);
     }
 
     /**
-     * TODO: IGNITE-17295 не забудь избавиться или типо того.
+     * Returns the latest snapshot of the partition meta.
+     *
+     * @param checkpointId Checkpoint ID.
      */
-    public void makeMetaSnapshot() {
-        metaSnapshot = copy();
-    }
+    public PartitionMetaSnapshot metaSnapshot(@Nullable UUID checkpointId) {
+        updateSnapshot(checkpointId);
 
-    /**
-     * Returns the latest snapshot of the meta.
-     */
-    public @Nullable PartitionMeta metaSnapshot() {
         return metaSnapshot;
     }
 
-    private PartitionMeta copy() {
-        return new PartitionMeta(treeRootPageId, reuseListRootPageId, pageCount);
+    private void updateSnapshot(@Nullable UUID checkpointId) {
+        PartitionMetaSnapshot current = this.metaSnapshot;
+
+        if (current.checkpointId != checkpointId) {
+            META_SNAPSHOT_VH.compareAndSet(this, current, new PartitionMetaSnapshot(checkpointId, this));
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(PartitionMeta.class, this);
+    }
+
+    /**
+     * An immutable snapshot of the partition's meta information.
+     */
+    public static class PartitionMetaSnapshot {
+        private final @Nullable UUID checkpointId;
+
+        private final long treeRootPageId;
+
+        private final long reuseListRootPageId;
+
+        private final int pageCount;
+
+        /**
+         * Private constructor.
+         *
+         * @param checkpointId Checkpoint ID.
+         * @param partitionMeta Partition meta.
+         */
+        private PartitionMetaSnapshot(@Nullable UUID checkpointId, PartitionMeta partitionMeta) {
+            this.checkpointId = checkpointId;
+            this.treeRootPageId = partitionMeta.treeRootPageId;
+            this.reuseListRootPageId = partitionMeta.reuseListRootPageId;
+            this.pageCount = partitionMeta.pageCount;
+        }
+
+        /**
+         * Returns tree root page ID.
+         */
+        public long treeRootPageId() {
+            return treeRootPageId;
+        }
+
+        /**
+         * Returns reuse list root page ID.
+         */
+        public long reuseListRootPageId() {
+            return reuseListRootPageId;
+        }
+
+        /**
+         * Returns count of pages in the partition.
+         */
+        public int pageCount() {
+            return pageCount;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String toString() {
+            return S.toString(PartitionMetaSnapshot.class, this);
+        }
     }
 }
