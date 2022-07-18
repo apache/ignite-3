@@ -277,9 +277,8 @@ public final class ReliableChannel implements AutoCloseable {
                             return null;
                         }
                     } else {
-                        // TODO: Wrap exception IGNITE-17312.
                         fut.completeExceptionally(err instanceof IgniteException
-                                ? err
+                                ? new CompletionException(err)
                                 : new IgniteException(UNKNOWN_ERR, err.getMessage(), err));
 
                         return null;

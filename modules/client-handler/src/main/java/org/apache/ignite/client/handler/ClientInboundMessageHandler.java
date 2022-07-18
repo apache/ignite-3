@@ -467,8 +467,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientSqlCursorCloseRequest.process(in, resources);
 
             default:
-                // TODO: IGNITE-17312
-                throw new IgniteException("Unexpected operation code: " + opCode);
+                throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
         }
     }
 
