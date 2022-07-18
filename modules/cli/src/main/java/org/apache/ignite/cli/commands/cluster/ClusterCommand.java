@@ -17,14 +17,19 @@
 
 package org.apache.ignite.cli.commands.cluster;
 
-import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigSubCommand;
+import org.apache.ignite.cli.commands.cluster.config.ClusterConfigSubCommand;
+import org.apache.ignite.cli.commands.cluster.init.ClusterInitSubCommand;
+import org.apache.ignite.cli.commands.cluster.status.ClusterStatusSubCommand;
 import picocli.CommandLine.Command;
 
 /**
  * Node command.
  */
 @Command(name = "cluster",
-        subcommands = {ClusterConfigSubCommand.class, ClusterInitSubCommand.class},
+        subcommands = {
+                ClusterConfigSubCommand.class,
+                ClusterInitSubCommand.class,
+                ClusterStatusSubCommand.class},
         description = "Manages an Ignite cluster.")
 public class ClusterCommand {
 }
