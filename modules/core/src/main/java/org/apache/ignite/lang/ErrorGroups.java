@@ -52,5 +52,8 @@ public class ErrorGroups {
 
         /** Connection failed. */
         public static int CONNECTION_ERR = CLIENT_ERR_GROUP.registerErrorCode(1);
+
+        /** Protocol breakdown. */
+        public static int PROTOCOL_ERR = CLIENT_ERR_GROUP.registerErrorCode(2);
     }
 }

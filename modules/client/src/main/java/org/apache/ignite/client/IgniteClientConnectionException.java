@@ -17,29 +17,23 @@
 
 package org.apache.ignite.client;
 
+import org.apache.ignite.lang.IgniteException;
+
 /**
  * Indicates all the Ignite servers specified in the client configuration are no longer available.
  */
-public class IgniteClientConnectionException extends IgniteClientException {
+public class IgniteClientConnectionException extends IgniteException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
     /**
-     * Constructs a new exception with the specified detail message.
-     *
-     * @param msg the detail message.
-     */
-    public IgniteClientConnectionException(String msg) {
-        super(msg);
-    }
-
-    /**
      * Constructs a new exception with the specified cause and detail message.
      *
+     * @param code  the error code.
      * @param msg   the detail message.
      * @param cause the cause.
      */
-    public IgniteClientConnectionException(String msg, Throwable cause) {
-        super(msg, cause);
+    public IgniteClientConnectionException(int code, String msg, Throwable cause) {
+        super(code, msg, cause);
     }
 }

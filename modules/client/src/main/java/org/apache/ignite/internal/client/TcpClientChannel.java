@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
@@ -296,8 +298,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         var type = unpacker.unpackInt();
 
         if (type != ServerMessageType.RESPONSE) {
-            // TODO: Dedicated code for client exceptions IGNITE-17312.
-            throw new IgniteClientException("Unexpected message type: " + type);
+            throw new IgniteClientConnectionException(PROTOCOL_ERR, "Unexpected message type: " + type, null);
         }
 
         Long resId = unpacker.unpackLong();
@@ -307,8 +308,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         ClientRequestFuture pendingReq = pendingReqs.remove(resId);
 
         if (pendingReq == null) {
-            // TODO: Dedicated code for client exceptions IGNITE-17312.
-            throw new IgniteClientException(String.format("Unexpected response ID [%s]", resId));
+            throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId), null);
         }
 
         if (clientErrorCode == ClientErrorCode.SUCCESS) {
