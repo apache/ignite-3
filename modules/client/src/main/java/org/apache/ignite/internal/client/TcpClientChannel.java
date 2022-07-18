@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -308,7 +309,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         if (clientErrorCode == ClientErrorCode.SUCCESS) {
             pendingReq.complete(unpacker);
         } else {
-            IgniteException err = unpackError(unpacker, clientErrorCode);
+            IgniteException err = unpackError(unpacker);
 
             unpacker.close();
 
@@ -316,16 +317,21 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
     }
 
-    @NotNull
-    private IgniteException unpackError(ClientMessageUnpacker unpacker, int clientErrorCode) {
+    /**
+     * Unpacks request error.
+     *
+     * @param unpacker Unpacker.
+     * @return Exception.
+     */
+    private IgniteException unpackError(ClientMessageUnpacker unpacker) {
         // TODO: IGNITE-17312
         var errCls = unpacker.unpackString();
         var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
-        Integer code = unpacker.tryUnpackNil() ? null : unpacker.unpackInt();
-        UUID traceId = unpacker.tryUnpackNil() ? null : unpacker.unpackUuid();
+        var code = unpacker.tryUnpackNil() ? UNKNOWN_ERR : unpacker.unpackInt();
+        var traceId = unpacker.tryUnpackNil() ? UUID.randomUUID() : unpacker.unpackUuid();
         var stackTrace = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
-        var err = new IgniteClientException(errMsg, clientErrorCode);
-        return err;
+
+        return new IgniteException(traceId, code, errMsg);
     }
 
     /** {@inheritDoc} */
