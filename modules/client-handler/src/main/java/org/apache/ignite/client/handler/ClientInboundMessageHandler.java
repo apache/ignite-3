@@ -17,12 +17,16 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.BitSet;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteColocatedRequest;
@@ -65,7 +69,6 @@ import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitReque
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorView;
-import org.apache.ignite.internal.client.proto.ClientErrorCode;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -207,7 +210,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             // Response.
             ProtocolVersion.LATEST_VER.pack(packer);
-            packer.packInt(ClientErrorCode.SUCCESS);
+            packer.packNil(); // No error.
 
             packer.packLong(configuration.idleTimeout());
 
@@ -233,7 +236,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                     message = t.getClass().getName();
                 }
 
-                errPacker.packInt(ClientErrorCode.FAILED);
+                errPacker.packInt(PROTOCOL_ERR);
                 errPacker.packString(message);
 
                 write(errPacker, ctx);
@@ -265,7 +268,17 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             packer.packInt(ServerMessageType.RESPONSE);
             packer.packLong(requestId);
-            packer.packInt(ClientErrorCode.FAILED);
+
+            // TODO: Unwrap CompletionException (IGNITE-17312).
+            if (err instanceof IgniteException) {
+                IgniteException iex = (IgniteException) err;
+                packer.packUuid(iex.traceId());
+                packer.packInt(iex.code());
+            } else {
+                packer.packUuid(UUID.randomUUID());
+                packer.packInt(UNKNOWN_ERR);
+            }
+
             packer.packString(err.getClass().getName());
 
             String msg = err.getMessage();
@@ -274,16 +287,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 packer.packNil();
             } else {
                 packer.packString(msg);
-            }
-
-            // TODO: Unwrap CompletionException (IGNITE-17312).
-            if (err instanceof IgniteException) {
-                IgniteException iex = (IgniteException) err;
-                packer.packInt(iex.code());
-                packer.packUuid(iex.traceId());
-            } else {
-                packer.packNil();
-                packer.packNil();
             }
 
             // TODO: Optional stack trace (IGNITE-17312).
@@ -314,7 +317,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             out.packInt(ServerMessageType.RESPONSE);
             out.packLong(requestId);
-            out.packInt(ClientErrorCode.SUCCESS);
+            out.packNil(); // No error.
 
             var fut = processOperation(in, out, opCode);
 

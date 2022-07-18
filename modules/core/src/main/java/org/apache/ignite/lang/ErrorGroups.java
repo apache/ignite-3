@@ -56,7 +56,13 @@ public class ErrorGroups {
         /** Protocol breakdown. */
         public static int PROTOCOL_ERR = CLIENT_ERR_GROUP.registerErrorCode(2);
 
-        /** Table not found by internal ID. Client-specific scenario, different from {@link Table#TABLE_NOT_FOUND_ERR}. */
+        /** Table not found by ID. */
         public static int TABLE_ID_NOT_FOUND_ERR = CLIENT_ERR_GROUP.registerErrorCode(3);
+
+        /** Authentication error. */
+        public static int AUTHENTICATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(4);
+
+        /** Authorization error. */
+        public static int AUTHORIZATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(5);
     }
 }

@@ -24,6 +24,8 @@ import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Collections;
@@ -44,7 +46,6 @@ import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
 import org.apache.ignite.internal.client.io.ClientMessageHandler;
-import org.apache.ignite.internal.client.proto.ClientErrorCode;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -296,15 +297,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         Long resId = unpacker.unpackLong();
 
-        int clientErrorCode = unpacker.unpackInt();
-
         ClientRequestFuture pendingReq = pendingReqs.remove(resId);
 
         if (pendingReq == null) {
             throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId));
         }
 
-        if (clientErrorCode == ClientErrorCode.SUCCESS) {
+        if (unpacker.tryUnpackNil()) {
             pendingReq.complete(unpacker);
         } else {
             IgniteException err = unpackError(unpacker);
@@ -322,13 +321,25 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @return Exception.
      */
     private IgniteException unpackError(ClientMessageUnpacker unpacker) {
-        // TODO: IGNITE-17312
-        var errCls = unpacker.unpackString();
+        var errClassName = unpacker.unpackString();
         var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
         var code = unpacker.tryUnpackNil() ? UNKNOWN_ERR : unpacker.unpackInt();
         var traceId = unpacker.tryUnpackNil() ? UUID.randomUUID() : unpacker.unpackUuid();
 
         IgniteException cause = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
+
+        try {
+            Class<?> errCls = Class.forName(errClassName);
+
+            if (IgniteException.class.isAssignableFrom(errCls)) {
+                Constructor<?> constructor = errCls.getDeclaredConstructor(UUID.class, int.class, String.class, Throwable.class);
+
+                return (IgniteException) constructor.newInstance(traceId, code, errMsg, cause);
+            }
+        } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException |
+                InvocationTargetException ignored) {
+            // Ignore: incompatible exception class. Fall back to generic exception.
+        }
 
         return new IgniteException(traceId, code, errMsg, cause);
     }
@@ -395,33 +406,19 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /** Receive and handle handshake response. */
-    private void handshakeRes(ClientMessageUnpacker unpacker, ProtocolVersion proposedVer)
-            throws IgniteClientConnectionException, IgniteClientAuthenticationException {
+    private void handshakeRes(ClientMessageUnpacker unpacker, ProtocolVersion proposedVer) {
         try (unpacker) {
             ProtocolVersion srvVer = new ProtocolVersion(unpacker.unpackShort(), unpacker.unpackShort(),
                     unpacker.unpackShort());
 
-            var errCode = unpacker.unpackInt();
-
-            if (errCode != ClientErrorCode.SUCCESS) {
-                var msg = unpacker.unpackString();
-
-                if (errCode == ClientErrorCode.AUTH_FAILED) {
-                    throw new IgniteClientAuthenticationException(msg);
-                } else if (proposedVer.equals(srvVer)) {
-                    throw new IgniteClientConnectionException(PROTOCOL_ERR, "Client protocol error: unexpected server response '" + msg + "'.");
-                } else if (!supportedVers.contains(srvVer)) {
-                    throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format(
-                            "Protocol version mismatch: client %s / server %s. Server details: %s",
-                            proposedVer,
-                            srvVer,
-                            msg
-                    ));
-                } else { // Retry with server version.
+            if (!unpacker.tryUnpackNil()) {
+                if (!proposedVer.equals(srvVer) && supportedVers.contains(srvVer)) {
+                    // Retry with server version.
                     handshake(srvVer);
+                    return;
                 }
 
-                throw new IgniteClientConnectionException(PROTOCOL_ERR, msg);
+                throw unpackError(unpacker);
             }
 
             var serverIdleTimeout = unpacker.unpackLong();
