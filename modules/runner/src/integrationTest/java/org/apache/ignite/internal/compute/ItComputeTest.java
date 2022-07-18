@@ -22,11 +22,13 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
@@ -43,6 +45,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.AbstractClusterIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -225,6 +228,18 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(actualNodeName, in(allNodeNames()));
+    }
+
+    @Test
+    void executeColocatedThrowsTableNotFoundExceptionWhenTableDoesNotExist() {
+        IgniteImpl entryNode = node(0);
+
+        var ex = assertThrows(CompletionException.class,
+                () -> entryNode.compute().executeColocated(
+                        "bad-table", Tuple.create(Map.of("k", 1)), GetNodeNameJob.class).join());
+
+        assertInstanceOf(TableNotFoundException.class, ex.getCause());
+        assertThat(ex.getCause().getMessage(), containsString("Table does not exist [name=bad-table]"));
     }
 
     private void createTestTableWithOneRow() {
