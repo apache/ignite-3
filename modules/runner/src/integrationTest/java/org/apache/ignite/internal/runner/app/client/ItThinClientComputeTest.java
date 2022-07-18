@@ -41,9 +41,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -133,7 +133,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 CompletionException.class,
                 () ->  client().compute().execute(Set.of(node(0)), ErrorJob.class).join());
 
-        IgniteClientException cause = (IgniteClientException) ex.getCause();
+        var cause = (IgniteException) ex.getCause();
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
     }
