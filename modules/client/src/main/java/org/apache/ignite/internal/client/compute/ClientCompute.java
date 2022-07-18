@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.client.compute;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -30,7 +33,6 @@ import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
-import org.apache.ignite.internal.client.proto.ClientErrorCode;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -38,6 +40,7 @@ import org.apache.ignite.internal.client.table.ClientRecordSerializer;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -261,22 +264,21 @@ public class ClientCompute implements IgniteCompute {
             err = err.getCause();
         }
 
-        if (err instanceof IgniteClientException) {
-            IgniteClientException clientEx = (IgniteClientException) err;
+        if (err instanceof IgniteException) {
+            IgniteException clientEx = (IgniteException) err;
 
-            // TODO: IGNITE-17312 use public error code here.
-            if (clientEx.errorCode() == ClientErrorCode.TABLE_ID_DOES_NOT_EXIST) {
+            if (clientEx.code() == TABLE_ID_NOT_FOUND_ERR) {
                 // Table was dropped - remove from cache.
                 tableCache.remove(tableName);
 
                 return (R) MISSING_TABLE_TOKEN;
             }
 
-            throw new IgniteClientException(clientEx.getMessage(), clientEx.errorCode(), clientEx);
+            throw new IgniteException(clientEx.traceId(), clientEx.code(), clientEx.getMessage(), clientEx);
         }
 
         if (err != null) {
-            throw new IgniteClientException(err.getMessage(), err);
+            throw new IgniteException(UNKNOWN_ERR, err.getMessage(), err);
         }
 
         return res;

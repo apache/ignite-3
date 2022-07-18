@@ -55,5 +55,8 @@ public class ErrorGroups {
 
         /** Protocol breakdown. */
         public static int PROTOCOL_ERR = CLIENT_ERR_GROUP.registerErrorCode(2);
+
+        /** Table ID not found. */
+        public static int TABLE_ID_NOT_FOUND_ERR = CLIENT_ERR_GROUP.registerErrorCode(3);
     }
 }

@@ -43,7 +43,6 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequ
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
-import org.apache.ignite.client.handler.requests.table.ClientTableIdDoesNotExistException;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllExactRequest;
@@ -266,12 +265,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             packer.packInt(ServerMessageType.RESPONSE);
             packer.packLong(requestId);
-
-            var clientErrorCode = err instanceof ClientTableIdDoesNotExistException
-                    ? ClientErrorCode.TABLE_ID_DOES_NOT_EXIST
-                    : ClientErrorCode.FAILED;
-
-            packer.packInt(clientErrorCode);
+            packer.packInt(ClientErrorCode.FAILED);
             packer.packString(err.getClass().getName());
 
             String msg = err.getMessage();
@@ -282,6 +276,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 packer.packString(msg);
             }
 
+            // TODO: Unwrap CompletionException (IGNITE-17312).
             if (err instanceof IgniteException) {
                 IgniteException iex = (IgniteException) err;
                 packer.packInt(iex.code());

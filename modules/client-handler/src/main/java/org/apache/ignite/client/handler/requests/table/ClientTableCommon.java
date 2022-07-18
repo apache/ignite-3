@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
+import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -381,7 +382,7 @@ public class ClientTableCommon {
             TableImpl table = ((IgniteTablesInternal) tables).table(tableId);
 
             if (table == null) {
-                throw new ClientTableIdDoesNotExistException("Table does not exist: " + tableId);
+                throw new IgniteException(TABLE_ID_NOT_FOUND_ERR, "Table does not exist: " + tableId);
             }
 
             return table;
