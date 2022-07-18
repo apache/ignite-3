@@ -52,7 +52,7 @@ class FilePageStoreFactory {
     /**
      * Creates instance of {@link FilePageStore}.
      *
-     * <p>If the file exists, an attempt will be reads its {@link FilePageStoreHeader header} and create the {@link FilePageStore}.
+     * <p>If the file exists, an attempt will be made to read its {@link FilePageStoreHeader header} and create the {@link FilePageStore}.
      *
      * @param filePath File page store path.
      * @param headerBuffer Buffer for reading {@link FilePageStoreHeader header} from {@code filePath}.

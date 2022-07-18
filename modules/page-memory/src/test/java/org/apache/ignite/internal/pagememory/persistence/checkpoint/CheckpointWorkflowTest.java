@@ -292,7 +292,7 @@ public class CheckpointWorkflowTest {
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesStart();
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesEnd();
 
-        CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.nextView(null);
+        CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.nextPartitionView(null);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(dirtyPages));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegion.pageMemory()));
@@ -417,32 +417,32 @@ public class CheckpointWorkflowTest {
                 new DataRegionsDirtyPages(List.of(dataRegionDirtyPages0, dataRegionDirtyPages1))
         );
 
-        CheckpointDirtyPagesView dirtyPagesView = sortCheckpointDirtyPages.nextView(null);
+        CheckpointDirtyPagesView dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(null);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(10, 1, 50), of(10, 1, 51), of(10, 1, 99))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages0.pageMemory));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(10, 5, 99), of(10, 5, 100))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages0.pageMemory));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(10, 10, 0), of(10, 10, 1), of(10, 10, 2))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages0.pageMemory));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(66, 33, 0), of(66, 33, 1), of(66, 33, 2))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages1.pageMemory));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(77, 5, 99), of(77, 5, 100))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages1.pageMemory));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(88, 1, 50), of(88, 1, 51), of(88, 1, 99))));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages1.pageMemory));
@@ -469,11 +469,11 @@ public class CheckpointWorkflowTest {
                 createDataRegionDirtyPages(mock(PersistentPageMemory.class), dirtyPages0)
         )));
 
-        CheckpointDirtyPagesView dirtyPagesView = sortCheckpointDirtyPages.nextView(null);
+        CheckpointDirtyPagesView dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(null);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(dirtyPages1)));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
 
         assertThat(
                 toListDirtyPageIds(dirtyPagesView),

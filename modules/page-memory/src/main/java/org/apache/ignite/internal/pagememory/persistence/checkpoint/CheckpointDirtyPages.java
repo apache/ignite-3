@@ -96,40 +96,22 @@ class CheckpointDirtyPages {
     /**
      * Looks for dirty page IDs views for a specific group and partition.
      *
-     * @param grpId Group ID.
-     * @param partId Partition ID.
-     */
-    public @Nullable CheckpointDirtyPagesView findView(int grpId, int partId) {
-        for (int i = 0; i < dirtyPages.size(); i++) {
-            CheckpointDirtyPagesView view = findView(i, grpId, partId);
-
-            if (view != null) {
-                return view;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Looks for dirty page IDs views for a specific group and partition.
-     *
      * @param pageMemory Page memory.
      * @param grpId Group ID.
      * @param partId Partition ID.
      */
-    public @Nullable CheckpointDirtyPagesView findView(PersistentPageMemory pageMemory, int grpId, int partId) {
+    public @Nullable CheckpointDirtyPagesView getPartitionView(PersistentPageMemory pageMemory, int grpId, int partId) {
         for (int i = 0; i < dirtyPages.size(); i++) {
             if (dirtyPages.get(i).pageMemory == pageMemory) {
-                return findView(i, grpId, partId);
+                return getPartitionView(i, grpId, partId);
             }
         }
 
         throw new IllegalArgumentException("Unknown PageMemory: " + pageMemory);
     }
 
-    private @Nullable CheckpointDirtyPagesView findView(int dirtyPagesIdx, int grpId, int partId) {
-        FullPageId startPageId = new FullPageId(pageId(partId, (byte) 0, 0), grpId);
+    private @Nullable CheckpointDirtyPagesView getPartitionView(int dirtyPagesIdx, int grpId, int partId) {
+        FullPageId startPageId = new FullPageId(pageId(partId, (byte) 0, 0), grpId); 
         FullPageId endPageId = new FullPageId(pageId(partId + 1, (byte) 0, 0), grpId);
 
         FullPageId[] pageIds = dirtyPages.get(dirtyPagesIdx).dirtyPages.pageIds;
@@ -154,7 +136,7 @@ class CheckpointDirtyPages {
      *
      * @param currentView Current view to dirty pages, {@code null} to get first.
      */
-    public @Nullable CheckpointDirtyPagesView nextView(@Nullable CheckpointDirtyPagesView currentView) {
+    public @Nullable CheckpointDirtyPagesView nextPartitionView(@Nullable CheckpointDirtyPagesView currentView) {
         assert currentView == null || currentView.owner() == this : currentView;
 
         if (dirtyPages.isEmpty()) {
@@ -177,10 +159,6 @@ class CheckpointDirtyPages {
         }
 
         FullPageId[] pageIds = dirtyPages.get(regionIndex).dirtyPages.pageIds;
-
-        if (fromPosition == pageIds.length - 1 || !equalsByGroupAndPartition(pageIds[fromPosition], pageIds[fromPosition + 1])) {
-            return new CheckpointDirtyPagesView(regionIndex, fromPosition, fromPosition + 1);
-        }
 
         FullPageId startPageId = pageIds[fromPosition];
         FullPageId endPageId = new FullPageId(pageId(partitionId(startPageId.pageId()) + 1, (byte) 0, 0), startPageId.groupId());
