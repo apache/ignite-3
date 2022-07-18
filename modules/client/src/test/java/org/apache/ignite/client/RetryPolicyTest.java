@@ -31,6 +31,7 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -56,7 +57,7 @@ public class RetryPolicyTest {
 
         try (var client = getClient(null)) {
             assertEquals("t", client.tables().tables().get(0).name());
-            assertThrows(IgniteClientException.class, () -> client.tables().tables().get(0).name());
+            assertThrows(IgniteException.class, () -> client.tables().tables().get(0).name());
         }
     }
 
@@ -83,7 +84,7 @@ public class RetryPolicyTest {
         var plc = new TestRetryPolicy();
 
         try (var client = getClient(plc)) {
-            assertThrows(IgniteClientException.class, () -> client.tables().table(FakeIgniteTables.BAD_TABLE));
+            assertThrows(IgniteException.class, () -> client.tables().table(FakeIgniteTables.BAD_TABLE));
             assertEquals(0, plc.invocations.size());
         }
     }
@@ -108,7 +109,7 @@ public class RetryPolicyTest {
         plc.retryLimit(5);
 
         try (var client = getClient(plc)) {
-            assertThrows(IgniteClientException.class, () -> client.tables().tables());
+            assertThrows(IgniteException.class, () -> client.tables().tables());
         }
 
         assertEquals(6, plc.invocations.size());
@@ -122,7 +123,7 @@ public class RetryPolicyTest {
         plc.retryLimit(2);
 
         try (var client = getClient(plc)) {
-            assertThrows(IgniteClientException.class, () -> client.tables().tables());
+            assertThrows(IgniteException.class, () -> client.tables().tables());
         }
 
         assertEquals(3, plc.invocations.size());
@@ -158,7 +159,7 @@ public class RetryPolicyTest {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
             Transaction tx = client.transactions().begin();
 
-            var ex = assertThrows(IgniteClientException.class, () -> recView.get(tx, Tuple.create().set("id", 1)));
+            var ex = assertThrows(IgniteException.class, () -> recView.get(tx, Tuple.create().set("id", 1)));
             assertThat(ex.getMessage(), containsString("Transaction context has been lost due to connection errors."));
 
             assertEquals(0, plc.invocations.size());

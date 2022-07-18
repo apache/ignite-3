@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
@@ -128,7 +129,7 @@ public class ClientComputeTest {
             var ex = assertThrows(CompletionException.class,
                     () -> client.compute().<String>executeColocated("bad-tbl", key, "job").join());
 
-            assertInstanceOf(IgniteClientException.class, ex.getCause());
+            assertInstanceOf(TableNotFoundException.class, ex.getCause());
             assertThat(ex.getCause().getMessage(), containsString("Table 'bad-tbl' does not exist"));
         }
     }
