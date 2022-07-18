@@ -53,7 +53,10 @@ public class ErrorGroups {
         /** Error on creation of table state storage. */
         public static int TX_STATE_STORAGE_CREATE_ERR = TX_ERR_GROUP.registerErrorCode(1);
 
+        /** Error on destruction of table state storage. */
+        public static int TX_STATE_STORAGE_DESTROY_ERR = TX_ERR_GROUP.registerErrorCode(2);
+
         /** Error of table state storage. */
-        public static int TX_STATE_STORAGE_ERR = TX_ERR_GROUP.registerErrorCode(2);
+        public static int TX_STATE_STORAGE_ERR = TX_ERR_GROUP.registerErrorCode(3);
     }
 }

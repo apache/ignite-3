@@ -65,7 +65,7 @@ public interface TxMetaStorage extends AutoCloseable {
      * @param txMeta Tx meta.
      * @return Whether the CAS operation is successful.
      */
-    boolean compareAndSet(UUID txId, TxMeta txMetaExpected, Object txMeta);
+    boolean compareAndSet(UUID txId, TxMeta txMetaExpected, TxMeta txMeta);
 
     /**
      * Remove the tx meta from the storage.

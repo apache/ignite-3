@@ -13,13 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.internal.tx.storage.state;
+package org.apache.ignite.internal.tx.storage.state.inmemory;
 
-import java.util.concurrent.Executors;
-import org.apache.ignite.internal.tx.storage.state.rocksdb.TxMetaRocksDbStorage;
+import org.apache.ignite.internal.pagememory.io.IoVersions;
+import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
 
-public class TxMetaRocksDbStorageTest extends AbstractTxMetaStorageTest {
-    @Override protected TxMetaStorage createStorage() {
-        return new TxMetaRocksDbStorage(workDir, Executors.newSingleThreadExecutor());
+public class TxMetaStorageMetaIo extends BplusMetaIo {
+    /** Page IO type. */
+    public static final short T_TX_STORAGE_META_IO = 10001;
+
+    /** I/O versions. */
+    public static final IoVersions<TxMetaStorageMetaIo> VERSIONS = new IoVersions<>(new TxMetaStorageMetaIo(1));
+
+    /**
+     * Constructor.
+     *
+     * @param ver  Page format version.
+     */
+    protected TxMetaStorageMetaIo(int ver) {
+        super(T_TX_STORAGE_META_IO, ver);
     }
 }

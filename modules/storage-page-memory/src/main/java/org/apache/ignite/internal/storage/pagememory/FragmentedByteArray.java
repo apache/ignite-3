@@ -24,7 +24,7 @@ import java.nio.ByteBuffer;
  *
  * <p>Structure: array length(int) + byte array(array length).
  */
-class FragmentedByteArray {
+public class FragmentedByteArray {
     private int arrLen = -1;
 
     private byte[] arr = null;

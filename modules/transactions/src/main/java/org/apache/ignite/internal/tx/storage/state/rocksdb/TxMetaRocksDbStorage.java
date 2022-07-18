@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.internal.tx.storage.state;
+package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
 import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.storage.state.TxMetaStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -60,6 +61,8 @@ public class TxMetaRocksDbStorage implements TxMetaStorage, AutoCloseable {
 
     private final Object snapshotRestoreLock = new Object();
 
+    private boolean isStarted;
+
     public TxMetaRocksDbStorage(Path dbPath, ExecutorService snapshotExecutor) {
         this.dbPath = dbPath;
         this.snapshotExecutor = snapshotExecutor;
@@ -77,6 +80,8 @@ public class TxMetaRocksDbStorage implements TxMetaStorage, AutoCloseable {
             ColumnFamily defaultCf = ColumnFamily.wrap(db, db.getDefaultColumnFamily());
 
             snapshotManager = new RocksSnapshotManager(db, List.of(fullRange(defaultCf)), snapshotExecutor);
+
+            isStarted = true;
         } catch (RocksDBException e) {
             throw new IgniteInternalException(TX_STATE_STORAGE_CREATE_ERR, "Failed to start the storage", e);
         }
@@ -84,7 +89,7 @@ public class TxMetaRocksDbStorage implements TxMetaStorage, AutoCloseable {
 
     /** {@inheritDoc} */
     @Override public boolean isStarted() {
-        return false;
+        return isStarted;
     }
 
     /** {@inheritDoc} */
@@ -94,6 +99,8 @@ public class TxMetaRocksDbStorage implements TxMetaStorage, AutoCloseable {
         db = null;
         options = null;
         txDbOptions = null;
+
+        isStarted = false;
     }
 
     /** {@inheritDoc} */
@@ -119,7 +126,7 @@ public class TxMetaRocksDbStorage implements TxMetaStorage, AutoCloseable {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean compareAndSet(UUID txId, TxMeta txMetaExpected, Object txMeta) {
+    @Override public boolean compareAndSet(UUID txId, TxMeta txMetaExpected, TxMeta txMeta) {
         byte[] txMetaExpectedBytes = toBytes(txMetaExpected);
         byte[] txIdBytes = toBytes(txId);
 
