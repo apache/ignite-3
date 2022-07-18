@@ -20,7 +20,6 @@ package org.apache.ignite.internal.client;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.lang.IgniteException;
 
@@ -55,12 +54,12 @@ public class ClientUtils {
      */
     public static IgniteException convertException(Throwable e) {
         if (e instanceof IgniteException) {
-            // TODO: IGNITE-17135 Fix stack trace loss
+            // TODO: IGNITE-17312 Fix stack trace loss
             return (IgniteException) e;
         }
 
-        //TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
-        return new IgniteClientException(e.getMessage(), e);
+        //TODO: IGNITE-17312 Replace with public exception with an error code (or unwrap?).
+        return new IgniteException(e.getMessage(), e);
     }
 
     /**
