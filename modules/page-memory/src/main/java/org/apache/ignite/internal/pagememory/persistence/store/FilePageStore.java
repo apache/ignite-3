@@ -146,7 +146,7 @@ public class FilePageStore implements PageStore {
         PageAllocationListener listener = this.pageAllocationListener;
 
         if (listener != null) {
-            listener.onAllocationPage(pageIdx);
+            listener.onPageAllocated(pageIdx);
         }
 
         return pageIdx;

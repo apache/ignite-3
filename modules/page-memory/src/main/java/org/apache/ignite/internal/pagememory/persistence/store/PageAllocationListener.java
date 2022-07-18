@@ -26,5 +26,5 @@ public interface PageAllocationListener {
      *
      * @param pageIdx Index of the new page.
      */
-    void onAllocationPage(int pageIdx);
+    void onPageAllocated(int pageIdx);
 }

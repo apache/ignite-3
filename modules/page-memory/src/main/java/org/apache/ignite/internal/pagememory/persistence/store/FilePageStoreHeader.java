@@ -97,19 +97,19 @@ class FilePageStoreHeader {
      * Reads the header of a file page store.
      *
      * @param fileIo File page store fileIo.
-     * @param readIntoBuffer Buffer for reading {@link FilePageStoreHeader header} from {@code fileIo}.
+     * @param headerBuffer Buffer for reading {@link FilePageStoreHeader header} from {@code fileIo}.
      * @throws IOException If there are errors when reading the file page store header.
      */
-    static @Nullable FilePageStoreHeader readHeader(FileIo fileIo, ByteBuffer readIntoBuffer) throws IOException {
-        assert readIntoBuffer.remaining() >= COMMON_HEADER_SIZE : readIntoBuffer.remaining();
+    static @Nullable FilePageStoreHeader readHeader(FileIo fileIo, ByteBuffer headerBuffer) throws IOException {
+        assert headerBuffer.remaining() >= COMMON_HEADER_SIZE : headerBuffer.remaining();
 
         if (fileIo.size() < COMMON_HEADER_SIZE) {
             return null;
         }
 
-        fileIo.readFully(readIntoBuffer, 0);
+        fileIo.readFully(headerBuffer, 0);
 
-        long signature = readIntoBuffer.rewind().getLong();
+        long signature = headerBuffer.rewind().getLong();
 
         if (SIGNATURE != signature) {
             throw new IOException(String.format(
@@ -119,7 +119,7 @@ class FilePageStoreHeader {
             );
         }
 
-        return new FilePageStoreHeader(readIntoBuffer.getInt(), readIntoBuffer.getInt());
+        return new FilePageStoreHeader(headerBuffer.getInt(), headerBuffer.getInt());
     }
 
     /**

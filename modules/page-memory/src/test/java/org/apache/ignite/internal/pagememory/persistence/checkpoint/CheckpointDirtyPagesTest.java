@@ -25,6 +25,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
@@ -145,7 +146,7 @@ public class CheckpointDirtyPagesTest {
 
     @Test
     void testFindViewByPageMemory() {
-        assertNull(EMPTY.findView(mock(PersistentPageMemory.class), 0, 0));
+        assertThrows(IllegalArgumentException.class, () -> EMPTY.findView(mock(PersistentPageMemory.class), 0, 0));
 
         DataRegionDirtyPages<DirtyPagesArray> dirtyPages0 = createDirtyPages(of(0, 0, 0));
         DataRegionDirtyPages<DirtyPagesArray> dirtyPages1 = createDirtyPages(of(5, 0, 0));

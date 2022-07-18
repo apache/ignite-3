@@ -17,15 +17,14 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import static org.apache.ignite.internal.pagememory.persistence.PartitionMeta.partitionMetaPageId;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -39,7 +38,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.invocation.InvocationOnMock;
 
 /**
  * For {@link PartitionMetaManager} testing.
@@ -85,13 +83,11 @@ public class PartitionMetaManagerTest {
 
         PartitionMetaManager manager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
 
-        PersistentPageMemory pageMemory = createPageMemory();
-
         GroupPartitionId id = new GroupPartitionId(0, 0);
 
         try (FilePageStore filePageStore = createFilePageStore(filePath)) {
             // Check for an empty file.
-            PartitionMeta meta = manager.readOrCreateMeta(null, id, pageMemory, filePageStore);
+            PartitionMeta meta = manager.readOrCreateMeta(null, id, filePageStore);
 
             assertEquals(0, meta.treeRootPageId());
             assertEquals(0, meta.reuseListRootPageId());
@@ -105,9 +101,9 @@ public class PartitionMetaManagerTest {
             ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
 
             try {
-                manager.writeMetaToBuffer(id, pageMemory, meta.metaSnapshot(UUID.randomUUID()), buffer);
+                manager.writeMetaToBuffer(id, meta.metaSnapshot(UUID.randomUUID()), buffer);
 
-                filePageStore.write(pageMemory.partitionMetaPageId(id.getGroupId(), id.getPartitionId()), buffer.rewind(), true);
+                filePageStore.write(partitionMetaPageId(id.getPartitionId()), buffer.rewind(), true);
 
                 filePageStore.sync();
             } finally {
@@ -117,7 +113,7 @@ public class PartitionMetaManagerTest {
 
         try (FilePageStore filePageStore = createFilePageStore(filePath)) {
             // Check not empty file.
-            PartitionMeta meta = manager.readOrCreateMeta(null, id, pageMemory, filePageStore);
+            PartitionMeta meta = manager.readOrCreateMeta(null, id, filePageStore);
 
             assertEquals(100, meta.treeRootPageId());
             assertEquals(500, meta.reuseListRootPageId());
@@ -131,13 +127,5 @@ public class PartitionMetaManagerTest {
         filePageStore.ensure();
 
         return filePageStore;
-    }
-
-    private static PersistentPageMemory createPageMemory() {
-        PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
-
-        when(pageMemory.partitionMetaPageId(anyInt(), anyInt())).then(InvocationOnMock::callRealMethod);
-
-        return pageMemory;
     }
 }

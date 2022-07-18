@@ -125,7 +125,7 @@ class CheckpointDirtyPages {
             }
         }
 
-        return null;
+        throw new IllegalArgumentException("Unknown PageMemory: " + pageMemory);
     }
 
     private @Nullable CheckpointDirtyPagesView findView(int dirtyPagesIdx, int grpId, int partId) {
@@ -144,8 +144,7 @@ class CheckpointDirtyPages {
 
         int toIndex = binarySearch(pageIds, fromIndex, pageIds.length, endPageId, DIRTY_PAGE_COMPARATOR);
 
-        // toIndex cannot be 0 because endPageId is greater than startPageId by DIRTY_PAGE_COMPARATOR.
-        toIndex = toIndex > 0 ? toIndex : -toIndex - 1;
+        toIndex = toIndex >= 0 ? toIndex : -toIndex - 1;
 
         return new CheckpointDirtyPagesView(dirtyPagesIdx, fromIndex, toIndex);
     }

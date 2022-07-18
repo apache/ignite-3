@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import static org.apache.ignite.internal.pagememory.persistence.PartitionMeta.partitionMetaPageId;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
@@ -80,20 +81,18 @@ public class PartitionMetaManager {
      *
      * @param checkpointId Checkpoint ID.
      * @param groupPartitionId Partition of the group.
-     * @param pageMemory Page memory.
      * @param filePageStore Partition file page store.
      */
     public PartitionMeta readOrCreateMeta(
             @Nullable UUID checkpointId,
             GroupPartitionId groupPartitionId,
-            PersistentPageMemory pageMemory,
             FilePageStore filePageStore
     ) throws IgniteInternalCheckedException {
         ByteBuffer buffer = allocateBuffer(pageSize);
 
         long bufferAddr = bufferAddress(buffer);
 
-        long partitionMetaPageId = pageMemory.partitionMetaPageId(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId());
+        long partitionMetaPageId = partitionMetaPageId(groupPartitionId.getPartitionId());
 
         try {
             if (filePageStore.size() > filePageStore.headerSize()) {
@@ -106,14 +105,15 @@ public class PartitionMetaManager {
 
                 assert read : filePageStore.filePath();
 
-                return createMeta(ioRegistry.resolve(bufferAddr), bufferAddr, checkpointId);
+                return new PartitionMeta(checkpointId, ioRegistry.resolve(bufferAddr), bufferAddr);
             } else {
                 // Creates and writes a partition meta.
-                PartitionMetaIo partitionMetaIo = PartitionMetaIo.VERSIONS.latest();
-                partitionMetaIo.initNewPage(bufferAddr, partitionMetaPageId, pageSize);
+                PartitionMetaIo io = PartitionMetaIo.VERSIONS.latest();
+
+                io.initNewPage(bufferAddr, partitionMetaPageId, pageSize);
 
                 // Because we will now write this page.
-                partitionMetaIo.setPageCount(bufferAddr, 1);
+                io.setPageCount(bufferAddr, 1);
 
                 filePageStore.pages(1);
 
@@ -121,7 +121,7 @@ public class PartitionMetaManager {
 
                 filePageStore.sync();
 
-                return createMeta(partitionMetaIo, bufferAddr, checkpointId);
+                return new PartitionMeta(checkpointId, io, bufferAddr);
             }
         } finally {
             freeBuffer(buffer);
@@ -132,19 +132,17 @@ public class PartitionMetaManager {
      * Writes the partition meta to the buffer.
      *
      * @param groupPartitionId Partition of the group.
-     * @param pageMemory Page memory.
      * @param partitionMeta Snapshot of the partition meta.
      * @param writeToBuffer Direct byte buffer to write partition meta.
      */
     public void writeMetaToBuffer(
             GroupPartitionId groupPartitionId,
-            PersistentPageMemory pageMemory,
             PartitionMetaSnapshot partitionMeta,
             ByteBuffer writeToBuffer
     ) {
         assert writeToBuffer.remaining() == pageSize : writeToBuffer.remaining();
 
-        long partitionMetaPageId = pageMemory.partitionMetaPageId(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId());
+        long partitionMetaPageId = partitionMetaPageId(groupPartitionId.getPartitionId());
 
         long pageAddr = bufferAddress(writeToBuffer);
 
@@ -152,17 +150,6 @@ public class PartitionMetaManager {
 
         io.initNewPage(pageAddr, partitionMetaPageId, pageSize);
 
-        io.setTreeRootPageId(pageAddr, partitionMeta.treeRootPageId());
-        io.setReuseListRootPageId(pageAddr, partitionMeta.reuseListRootPageId());
-        io.setPageCount(pageAddr, partitionMeta.pageCount());
-    }
-
-    private PartitionMeta createMeta(PartitionMetaIo metaIo, long pageAddr, @Nullable UUID checkpointId) {
-        return new PartitionMeta(
-                checkpointId,
-                metaIo.getTreeRootPageId(pageAddr),
-                metaIo.getReuseListRootPageId(pageAddr),
-                metaIo.getPageCount(pageAddr)
-        );
+        partitionMeta.writeTo(io, pageAddr);
     }
 }

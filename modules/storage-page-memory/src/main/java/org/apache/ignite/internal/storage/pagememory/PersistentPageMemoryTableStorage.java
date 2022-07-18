@@ -104,7 +104,6 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             PartitionMeta meta = dataRegion.partitionMetaManager().readOrCreateMeta(
                     checkpointId,
                     new GroupPartitionId(grpId, partId),
-                    dataRegion.pageMemory(),
                     filePageStore
             );
 

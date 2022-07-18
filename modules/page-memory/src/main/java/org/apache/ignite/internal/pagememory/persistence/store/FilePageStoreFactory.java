@@ -55,19 +55,19 @@ class FilePageStoreFactory {
      * <p>If the file exists, an attempt will be reads its {@link FilePageStoreHeader header} and create the {@link FilePageStore}.
      *
      * @param filePath File page store path.
-     * @param readIntoBuffer Buffer for reading {@link FilePageStoreHeader header} from {@code filePath}.
+     * @param headerBuffer Buffer for reading {@link FilePageStoreHeader header} from {@code filePath}.
      * @return File page store.
      * @throws IgniteInternalCheckedException if failed
      */
-    public FilePageStore createPageStore(Path filePath, ByteBuffer readIntoBuffer) throws IgniteInternalCheckedException {
-        assert readIntoBuffer.remaining() == pageSize : readIntoBuffer.remaining();
+    public FilePageStore createPageStore(Path filePath, ByteBuffer headerBuffer) throws IgniteInternalCheckedException {
+        assert headerBuffer.remaining() == pageSize : headerBuffer.remaining();
 
         if (!Files.exists(filePath)) {
             return createPageStore(filePath, new FilePageStoreHeader(latestVersion, pageSize));
         }
 
         try (FileIo fileIo = fileIoFactory.create(filePath)) {
-            FilePageStoreHeader header = readHeader(fileIo, readIntoBuffer);
+            FilePageStoreHeader header = readHeader(fileIo, headerBuffer);
 
             if (header == null) {
                 header = new FilePageStoreHeader(latestVersion, pageSize);
@@ -75,7 +75,7 @@ class FilePageStoreFactory {
 
             return createPageStore(filePath, header);
         } catch (IOException e) {
-            throw new IgniteInternalCheckedException("Error while creating file page store [file=" + filePath + "]:", e);
+            throw new IgniteInternalCheckedException("Error while creating file page store [file=" + filePath + "]", e);
         }
     }
 

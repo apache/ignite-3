@@ -20,6 +20,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getVersion;
+import static org.apache.ignite.internal.pagememory.persistence.PartitionMeta.partitionMetaPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.TRY_AGAIN_TAG;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
 import static org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.EMPTY;
@@ -253,16 +254,11 @@ public class CheckpointPagesWriter implements Runnable {
 
             ByteBuffer buffer = threadBuf.get();
 
-            PersistentPageMemory pageMemory = queueResult.getKey();
-
             PartitionMetaSnapshot partitionMetaSnapshot = partitionMetaManager.getMeta(partitionId).metaSnapshot(checkpointProgress.id());
 
-            partitionMetaManager.writeMetaToBuffer(partitionId, pageMemory, partitionMetaSnapshot, buffer.rewind());
+            partitionMetaManager.writeMetaToBuffer(partitionId, partitionMetaSnapshot, buffer.rewind());
 
-            FullPageId fullPageId = new FullPageId(
-                    pageMemory.partitionMetaPageId(partitionId.getGroupId(), partitionId.getPartitionId()),
-                    partitionId.getGroupId()
-            );
+            FullPageId fullPageId = new FullPageId(partitionMetaPageId(partitionId.getPartitionId()), partitionId.getGroupId());
 
             PageStore store = pageWriter.write(fullPageId, buffer.rewind());
 

@@ -35,7 +35,6 @@ import static org.apache.ignite.internal.pagememory.persistence.PageHeader.tempB
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeTimestamp;
 import static org.apache.ignite.internal.pagememory.persistence.PagePool.SEGMENT_INDEX_MASK;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.effectivePageId;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.tag;
@@ -592,17 +591,6 @@ public class PersistentPageMemory implements PageMemory {
         assert false : "Free page should be never called directly when persistence is enabled.";
 
         return false;
-    }
-
-    /**
-     * Gets partition metadata page ID for specified grpId and partId.
-     *
-     * @param grpId Group ID.
-     * @param partId Partition ID.
-     * @return Meta page for grpId and partId.
-     */
-    public long partitionMetaPageId(int grpId, int partId) {
-        return pageId(partId, FLAG_AUX, 0);
     }
 
     /** {@inheritDoc} */

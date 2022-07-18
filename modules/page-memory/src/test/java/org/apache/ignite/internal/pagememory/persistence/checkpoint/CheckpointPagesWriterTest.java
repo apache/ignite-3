@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -67,7 +66,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.invocation.InvocationOnMock;
 
 /**
  * For {@link CheckpointPagesWriter} testing.
@@ -313,8 +311,6 @@ public class CheckpointPagesWriterTest {
                         any(PageStoreWriter.class),
                         any(CheckpointMetricsTracker.class)
                 );
-
-        when(pageMemory.partitionMetaPageId(anyInt(), anyInt())).then(InvocationOnMock::callRealMethod);
 
         return pageMemory;
     }
