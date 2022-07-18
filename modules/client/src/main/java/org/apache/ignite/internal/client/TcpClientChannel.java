@@ -49,9 +49,11 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -256,12 +258,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /**
-     * Converts exception to {@link IgniteClientException}.
+     * Converts exception to {@link IgniteException}.
      *
      * @param e Exception to convert.
      * @return Resulting exception.
      */
-    private IgniteClientException convertException(Throwable e) {
+    private IgniteException convertException(Throwable e) {
         // For every known class derived from IgniteClientException, wrap cause in a new instance.
         // We could rethrow e.getCause() when instanceof IgniteClientException,
         // but this results in an incomplete stack trace from the receiver thread.
@@ -274,13 +276,15 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             return new IgniteClientAuthorizationException(e.getMessage(), e.getCause());
         }
 
-        return new IgniteClientException(e.getMessage(), ClientErrorCode.FAILED, e);
+        // TODO: Use correct constructor IGNITE-17312.
+        // TODO: Dedicated code for client exceptions IGNITE-17312.
+        return new IgniteException(e.getMessage(), e);
     }
 
     /**
      * Process next message from the input stream and complete corresponding future.
      */
-    private void processNextMessage(ByteBuf buf) throws IgniteClientException {
+    private void processNextMessage(ByteBuf buf) throws IgniteException {
         var unpacker = new ClientMessageUnpacker(buf);
 
         if (protocolCtx == null) {
@@ -292,6 +296,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         var type = unpacker.unpackInt();
 
         if (type != ServerMessageType.RESPONSE) {
+            // TODO: Dedicated code for client exceptions IGNITE-17312.
             throw new IgniteClientException("Unexpected message type: " + type);
         }
 
@@ -302,24 +307,31 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         ClientRequestFuture pendingReq = pendingReqs.remove(resId);
 
         if (pendingReq == null) {
+            // TODO: Dedicated code for client exceptions IGNITE-17312.
             throw new IgniteClientException(String.format("Unexpected response ID [%s]", resId));
         }
 
         if (clientErrorCode == ClientErrorCode.SUCCESS) {
             pendingReq.complete(unpacker);
         } else {
-            // TODO: IGNITE-17312
-            var errCls = unpacker.unpackString();
-            var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
-            Integer code = unpacker.tryUnpackNil() ? null : unpacker.unpackInt();
-            UUID traceId = unpacker.tryUnpackNil() ? null : unpacker.unpackUuid();
-            var stackTrace = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+            IgniteException err = unpackError(unpacker, clientErrorCode);
 
             unpacker.close();
 
-            var err = new IgniteClientException(errMsg, clientErrorCode);
             pendingReq.completeExceptionally(err);
         }
+    }
+
+    @NotNull
+    private IgniteException unpackError(ClientMessageUnpacker unpacker, int clientErrorCode) {
+        // TODO: IGNITE-17312
+        var errCls = unpacker.unpackString();
+        var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+        Integer code = unpacker.tryUnpackNil() ? null : unpacker.unpackInt();
+        UUID traceId = unpacker.tryUnpackNil() ? null : unpacker.unpackUuid();
+        var stackTrace = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+        var err = new IgniteClientException(errMsg, clientErrorCode);
+        return err;
     }
 
     /** {@inheritDoc} */

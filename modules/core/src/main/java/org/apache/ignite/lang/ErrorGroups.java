@@ -44,4 +44,13 @@ public class ErrorGroups {
         /** Column not found. */
         public static int COLUMN_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode(4);
     }
+
+    /** Clint error group. */
+    public static class Client {
+        /** Table error group. */
+        public static final ErrorGroup CLIENT_ERR_GROUP = ErrorGroup.newGroup("CLIENT", 3);
+
+        /** Connection failed. */
+        public static int CONNECTION_ERR = CLIENT_ERR_GROUP.registerErrorCode(1);
+    }
 }
