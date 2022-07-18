@@ -111,8 +111,7 @@ public class CheckpointManager {
                 igniteInstanceName,
                 checkpointMarkersStorage,
                 checkpointReadWriteLock,
-                dataRegions,
-                partitionMetaManager
+                dataRegions
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(

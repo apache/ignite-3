@@ -43,7 +43,6 @@ import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.DirtyPagesCollection;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
-import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -88,9 +87,6 @@ class CheckpointWorkflow {
     /** Thread pool for sorting dirty pages in parallel if their count is >= {@link #PARALLEL_SORT_THRESHOLD}. */
     private final ForkJoinPool parallelSortThreadPool;
 
-    /** Partition meta information manager. */
-    private final PartitionMetaManager partitionMetaManager;
-
     /**
      * Constructor.
      *
@@ -98,19 +94,16 @@ class CheckpointWorkflow {
      * @param checkpointMarkersStorage Checkpoint marker storage.
      * @param checkpointReadWriteLock Checkpoint read write lock.
      * @param dataRegions Persistent data regions for the checkpointing, doesn't copy.
-     * @param partitionMetaManager Partition meta information manager.
      */
     public CheckpointWorkflow(
             String igniteInstanceName,
             CheckpointMarkersStorage checkpointMarkersStorage,
             CheckpointReadWriteLock checkpointReadWriteLock,
-            Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
-            PartitionMetaManager partitionMetaManager
+            Collection<? extends DataRegion<PersistentPageMemory>> dataRegions
     ) {
         this.checkpointMarkersStorage = checkpointMarkersStorage;
         this.checkpointReadWriteLock = checkpointReadWriteLock;
         this.dataRegions = dataRegions;
-        this.partitionMetaManager = partitionMetaManager;
 
         parallelSortThreadPool = new ForkJoinPool(
                 Math.min(Runtime.getRuntime().availableProcessors(), 8) + 1,

@@ -338,7 +338,10 @@ public class CheckpointerTest {
 
         PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
 
-        partitionMetaManager.addMeta(new GroupPartitionId(0, 0), mock(PartitionMeta.class));
+        partitionMetaManager.addMeta(
+                new GroupPartitionId(0, 0),
+                new PartitionMeta(null, 0, 0, 3)
+        );
 
         Checkpointer checkpointer = spy(new Checkpointer(
                 log,
