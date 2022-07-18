@@ -305,7 +305,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         if (unpacker.tryUnpackNil()) {
             pendingReq.complete(unpacker);
         } else {
-            IgniteException err = unpackError(unpacker);
+            IgniteException err = readError(unpacker);
 
             unpacker.close();
 
@@ -319,11 +319,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param unpacker Unpacker.
      * @return Exception.
      */
-    private IgniteException unpackError(ClientMessageUnpacker unpacker) {
+    private IgniteException readError(ClientMessageUnpacker unpacker) {
+        var traceId = unpacker.tryUnpackNil() ? UUID.randomUUID() : unpacker.unpackUuid();
+        var code = unpacker.tryUnpackNil() ? UNKNOWN_ERR : unpacker.unpackInt();
         var errClassName = unpacker.unpackString();
         var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
-        var code = unpacker.tryUnpackNil() ? UNKNOWN_ERR : unpacker.unpackInt();
-        var traceId = unpacker.tryUnpackNil() ? UUID.randomUUID() : unpacker.unpackUuid();
 
         IgniteException cause = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
 
@@ -417,7 +417,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     return;
                 }
 
-                throw unpackError(unpacker);
+                throw readError(unpacker);
             }
 
             var serverIdleTimeout = unpacker.unpackLong();
