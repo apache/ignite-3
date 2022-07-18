@@ -60,7 +60,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class FilePageStore implements PageStore {
     /** File version. */
-    static final int VERSION_1 = 1;
+    public static final int VERSION_1 = 1;
 
     /** Skip CRC calculation flag. */
     // TODO: IGNITE-17011 Move to config
