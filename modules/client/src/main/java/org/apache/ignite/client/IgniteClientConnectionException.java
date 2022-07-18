@@ -36,4 +36,14 @@ public class IgniteClientConnectionException extends IgniteException {
     public IgniteClientConnectionException(int code, String msg, Throwable cause) {
         super(code, msg, cause);
     }
+
+    /**
+     * Constructs a new exception with the specified detail message.
+     *
+     * @param code  the error code.
+     * @param msg   the detail message.
+     */
+    public IgniteClientConnectionException(int code, String msg) {
+        super(code, msg);
+    }
 }
