@@ -329,9 +329,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
         var code = unpacker.tryUnpackNil() ? UNKNOWN_ERR : unpacker.unpackInt();
         var traceId = unpacker.tryUnpackNil() ? UUID.randomUUID() : unpacker.unpackUuid();
-        var stackTrace = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
 
-        return new IgniteException(traceId, code, errMsg);
+        IgniteException cause = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
+
+        return new IgniteException(traceId, code, errMsg, cause);
     }
 
     /** {@inheritDoc} */
