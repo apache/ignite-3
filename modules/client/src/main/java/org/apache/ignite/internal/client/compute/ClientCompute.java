@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.client.compute;
 
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -274,12 +272,10 @@ public class ClientCompute implements IgniteCompute {
 
                 return (R) MISSING_TABLE_TOKEN;
             }
-
-            throw new IgniteException(clientEx.traceId(), clientEx.code(), clientEx.getMessage(), clientEx);
         }
 
         if (err != null) {
-            throw new IgniteException(UNKNOWN_ERR, err.getMessage(), err);
+            throw new CompletionException(err);
         }
 
         return res;

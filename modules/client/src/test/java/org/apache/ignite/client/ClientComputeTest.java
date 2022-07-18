@@ -120,7 +120,7 @@ public class ClientComputeTest {
     }
 
     @Test
-    public void testExecuteColocatedThrowsClientExceptionWhenTableDoesNotExist() throws Exception {
+    public void testExecuteColocatedThrowsTableNotFoundExceptionWhenTableDoesNotExist() throws Exception {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {
@@ -130,7 +130,7 @@ public class ClientComputeTest {
                     () -> client.compute().<String>executeColocated("bad-tbl", key, "job").join());
 
             assertInstanceOf(TableNotFoundException.class, ex.getCause());
-            assertThat(ex.getCause().getMessage(), containsString("Table 'bad-tbl' does not exist"));
+            assertThat(ex.getCause().getMessage(), containsString("Table does not exist [name=bad-tbl]"));
         }
     }
 
