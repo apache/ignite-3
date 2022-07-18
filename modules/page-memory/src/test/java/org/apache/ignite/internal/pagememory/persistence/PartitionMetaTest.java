@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
+import static org.apache.ignite.internal.pagememory.persistence.PartitionMeta.partitionMetaPageId;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -101,6 +106,15 @@ public class PartitionMetaTest {
         checkSnapshot(meta.metaSnapshot(checkpointId), 101, 505, 1);
 
         checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 101, 505, 2);
+    }
+
+    @Test
+    void testPartitionMetaPageId() {
+        long pageId = partitionMetaPageId(666);
+
+        assertEquals(666, partitionId(pageId));
+        assertEquals(FLAG_AUX, flag(pageId));
+        assertEquals(0, pageIndex(pageId));
     }
 
     private static void checkSnapshot(PartitionMetaSnapshot snapshot, long expTreeRootPageId, long reuseListPageId, int pageCount) {

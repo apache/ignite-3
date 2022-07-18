@@ -169,10 +169,26 @@ public class FilePageStore implements PageStore {
         this.pageCount.set(pageCount);
     }
 
+    /**
+     * Reads a page, unlike {@link #read(long, ByteBuffer, boolean)}, checks the page offset in the file not logically (pageOffset <= {@link
+     * #pages()} * {@link #pageSize}) but physically (pageOffset <= {@link #size()}), which can affect performance when used in production
+     * code.
+     *
+     * @param pageId Page ID.
+     * @param pageBuf Page buffer to read into.
+     * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code
+     * keepCrc}.
+     * @return {@code True} if page has been read successfully, {@code false} if page hasn't been written yet.
+     * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
+     */
+    public boolean readByPhysicalOffset(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
+        return read0(pageId, pageBuf, !skipCrc, keepCrc, false);
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
-        return read(pageId, pageBuf, !skipCrc, keepCrc);
+        return read0(pageId, pageBuf, !skipCrc, keepCrc, true);
     }
 
     /**
@@ -182,23 +198,36 @@ public class FilePageStore implements PageStore {
      * @param pageBuf Page buffer to read into.
      * @param checkCrc Check CRC on page.
      * @param keepCrc By default reading zeroes CRC which was on file, but you can keep it in pageBuf if set keepCrc.
+     * @param checkPageOffsetLogically Check page offset by {@link #allocatedBytes} or {@link #size}.
      * @return {@code true} if page has been read successfully, {@code false} if page hasn't been written yet.
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
-    private boolean read(long pageId, ByteBuffer pageBuf, boolean checkCrc, boolean keepCrc) throws IgniteInternalCheckedException {
+    private boolean read0(
+            long pageId,
+            ByteBuffer pageBuf,
+            boolean checkCrc,
+            boolean keepCrc,
+            boolean checkPageOffsetLogically
+    ) throws IgniteInternalCheckedException {
         ensure();
 
         try {
-            long off = pageOffset(pageId);
-
             assert pageBuf.capacity() == pageSize : pageBuf.capacity();
             assert pageBuf.remaining() == pageSize : pageBuf.remaining();
             assert pageBuf.position() == 0 : pageBuf.position();
             assert pageBuf.order() == nativeOrder() : pageBuf.order();
-            assert off <= allocatedBytes() : "calculatedOffset=" + off
-                    + ", allocated=" + allocatedBytes() + ", headerSize=" + headerSize + ", filePath=" + filePath;
 
-            int n = readWithFailover(pageBuf, off);
+            long pageOff = pageOffset(pageId);
+
+            if (checkPageOffsetLogically) {
+                assert pageOff <= allocatedBytes() : "calculatedOffset=" + pageOff
+                        + ", allocated=" + allocatedBytes() + ", headerSize=" + headerSize + ", filePath=" + filePath;
+            } else {
+                assert pageOff <= size() : "calculatedOffset=" + pageOff
+                        + ", size=" + size() + ", headerSize=" + headerSize + ", filePath=" + filePath;
+            }
+
+            int n = readWithFailover(pageBuf, pageOff);
 
             // If page was not written yet, nothing to read.
             if (n < 0) {
@@ -218,7 +247,7 @@ public class FilePageStore implements PageStore {
 
                 if ((savedCrc32 ^ curCrc32) != 0) {
                     throw new IgniteInternalDataIntegrityViolationException("Failed to read page (CRC validation failed) "
-                            + "[id=" + hexLong(pageId) + ", off=" + (off - pageSize)
+                            + "[id=" + hexLong(pageId) + ", off=" + pageOff
                             + ", filePath=" + filePath + ", fileSize=" + fileIo.size()
                             + ", savedCrc=" + hexInt(savedCrc32) + ", curCrc=" + hexInt(curCrc32)
                             + ", page=" + toHexString(pageBuf) + "]");
@@ -237,9 +266,41 @@ public class FilePageStore implements PageStore {
         }
     }
 
+    /**
+     * Writes a page unlike {@link #write(long, ByteBuffer, boolean)}, checks the page offset in the file not logically (pageOffset <=
+     * {@link #pages()} * {@link #pageSize}) but physically (pageOffset <= {@link #size()}), which can affect performance when used in
+     * production code.
+     *
+     * @param pageId Page ID.
+     * @param pageBuf Page buffer to write from.
+     * @param calculateCrc If {@code false} crc calculation will be forcibly skipped.
+     * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
+     */
+    public void writeByPhysicalOffset(long pageId, ByteBuffer pageBuf, boolean calculateCrc) throws IgniteInternalCheckedException {
+        write0(pageId, pageBuf, calculateCrc, false);
+    }
+
     /** {@inheritDoc} */
     @Override
     public void write(long pageId, ByteBuffer pageBuf, boolean calculateCrc) throws IgniteInternalCheckedException {
+        write0(pageId, pageBuf, calculateCrc, true);
+    }
+
+    /**
+     * Writes a page.
+     *
+     * @param pageId Page ID.
+     * @param pageBuf Page buffer to write from.
+     * @param calculateCrc If {@code false} crc calculation will be forcibly skipped.
+     * @param checkPageOffsetLogically Check page offset by {@link #allocatedBytes} or {@link #size}.
+     * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
+     */
+    public void write0(
+            long pageId,
+            ByteBuffer pageBuf,
+            boolean calculateCrc,
+            boolean checkPageOffsetLogically
+    ) throws IgniteInternalCheckedException {
         ensure();
 
         boolean interrupted = false;
@@ -251,11 +312,6 @@ public class FilePageStore implements PageStore {
                 readWriteLock.readLock().lock();
 
                 try {
-                    long off = pageOffset(pageId);
-
-                    assert (off >= 0 && off <= allocatedBytes()) : "off=" + hexLong(off) + ", allocated="
-                            + hexLong(allocatedBytes()) + ", pageId=" + hexLong(pageId) + ", filePath=" + filePath;
-
                     assert pageBuf.position() == 0 : pageBuf.position();
                     assert pageBuf.order() == nativeOrder() : "Page buffer order " + pageBuf.order()
                             + " should be same with " + nativeOrder();
@@ -274,7 +330,17 @@ public class FilePageStore implements PageStore {
 
                     assert pageBuf.position() == 0 : pageBuf.position();
 
-                    fileIo.writeFully(pageBuf, off);
+                    long pageOff = pageOffset(pageId);
+
+                    if (checkPageOffsetLogically) {
+                        assert pageOff <= allocatedBytes() : "calculatedOffset=" + pageOff
+                                + ", allocated=" + allocatedBytes() + ", headerSize=" + headerSize + ", filePath=" + filePath;
+                    } else {
+                        assert pageOff <= size() : "calculatedOffset=" + pageOff
+                                + ", size=" + size() + ", headerSize=" + headerSize + ", filePath=" + filePath;
+                    }
+
+                    fileIo.writeFully(pageBuf, pageOff);
 
                     PageIo.setCrc(pageBuf, 0);
 

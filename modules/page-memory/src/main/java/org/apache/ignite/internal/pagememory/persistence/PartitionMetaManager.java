@@ -97,11 +97,7 @@ public class PartitionMetaManager {
         try {
             if (filePageStore.size() > filePageStore.headerSize()) {
                 // Reads the partition meta.
-                if (filePageStore.pages() == 0) {
-                    filePageStore.pages(1);
-                }
-
-                boolean read = filePageStore.read(partitionMetaPageId, buffer, false);
+                boolean read = filePageStore.readByPhysicalOffset(partitionMetaPageId, buffer, false);
 
                 assert read : filePageStore.filePath();
 
@@ -115,9 +111,7 @@ public class PartitionMetaManager {
                 // Because we will now write this page.
                 io.setPageCount(bufferAddr, 1);
 
-                filePageStore.pages(1);
-
-                filePageStore.write(partitionMetaPageId, buffer.rewind(), true);
+                filePageStore.writeByPhysicalOffset(partitionMetaPageId, buffer.rewind(), true);
 
                 filePageStore.sync();
 

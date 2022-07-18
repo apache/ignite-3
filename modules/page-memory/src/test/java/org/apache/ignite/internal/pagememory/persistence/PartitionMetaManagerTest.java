@@ -103,7 +103,7 @@ public class PartitionMetaManagerTest {
             try {
                 manager.writeMetaToBuffer(id, meta.metaSnapshot(UUID.randomUUID()), buffer);
 
-                filePageStore.write(partitionMetaPageId(id.getPartitionId()), buffer.rewind(), true);
+                filePageStore.writeByPhysicalOffset(partitionMetaPageId(id.getPartitionId()), buffer.rewind(), true);
 
                 filePageStore.sync();
             } finally {
