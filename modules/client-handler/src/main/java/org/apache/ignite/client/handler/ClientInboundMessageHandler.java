@@ -267,20 +267,29 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packInt(ServerMessageType.RESPONSE);
             packer.packLong(requestId);
 
-            // TODO: IGNITE-17312
-            var errorCode = err instanceof ClientTableIdDoesNotExistException
+            var clientErrorCode = err instanceof ClientTableIdDoesNotExistException
                     ? ClientErrorCode.TABLE_ID_DOES_NOT_EXIST
                     : ClientErrorCode.FAILED;
 
-            packer.packInt(errorCode);
+            packer.packInt(clientErrorCode);
+            packer.packString(err.getClass().getName());
 
             String msg = err.getMessage();
 
             if (msg == null) {
-                msg = err.getClass().getName();
+                packer.packNil();
+            } else {
+                packer.packString(msg);
             }
 
-            packer.packString(msg);
+            if (err instanceof IgniteException) {
+                IgniteException iex = (IgniteException) err;
+                packer.packInt(iex.code());
+                packer.packUuid(iex.traceId());
+            } else {
+                packer.packNil();
+                packer.packNil();
+            }
 
             write(packer, ctx);
         } catch (Throwable t) {

@@ -23,6 +23,7 @@ import org.apache.ignite.lang.IgniteException;
 /**
  * Common thin client unchecked exception.
  */
+@Deprecated // TODO: Remove (IGNITE-17312)
 public class IgniteClientException extends IgniteException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
