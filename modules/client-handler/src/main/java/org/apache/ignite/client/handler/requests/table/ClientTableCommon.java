@@ -387,6 +387,7 @@ public class ClientTableCommon {
 
             return table;
         } catch (NodeStoppingException e) {
+            // TODO: Here and below - fix deprecated constructor calls (IGNITE-17312).
             throw new IgniteException(e);
         }
     }
