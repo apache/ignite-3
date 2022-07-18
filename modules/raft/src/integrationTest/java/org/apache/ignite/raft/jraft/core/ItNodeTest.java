@@ -21,6 +21,8 @@ import static java.util.Collections.synchronizedList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
 import static org.apache.ignite.raft.jraft.test.TestUtils.sender;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -3242,8 +3244,12 @@ public class ItNodeTest {
         futs.get(0).get();
         futs.get(1).get();
 
-        assertEquals(dones.get(0).await(), Status.OK());
-        assertEquals(dones.get(1).await().getRaftError(), RaftError.EBUSY);
+        Status firstDoneStatus = dones.get(0).await();
+        Status secondDoneStatus = dones.get(1).await();
+        assertThat(
+                List.of(firstDoneStatus.getRaftError(), secondDoneStatus.getRaftError()),
+                containsInAnyOrder(RaftError.SUCCESS, RaftError.EBUSY)
+        );
 
         assertTrue(waitForCondition(() -> {
             if (cluster.getLeader() != null)
