@@ -24,7 +24,6 @@ import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.junit.jupiter.api.Test;
 
@@ -38,9 +37,9 @@ public class CheckpointTest {
 
         assertFalse(new Checkpoint(EMPTY, progress).hasDelta());
 
-        DataRegionDirtyPages<DirtyPagesArray> biTuple = new DataRegionDirtyPages<>(
+        DataRegionDirtyPages<FullPageId[]> biTuple = new DataRegionDirtyPages<>(
                 mock(PersistentPageMemory.class),
-                new DirtyPagesArray(new FullPageId[]{new FullPageId(0, 1)}, new GroupPartitionId[0])
+                new FullPageId[]{new FullPageId(0, 1)}
         );
 
         assertTrue(new Checkpoint(new CheckpointDirtyPages(List.of(biTuple)), progress).hasDelta());

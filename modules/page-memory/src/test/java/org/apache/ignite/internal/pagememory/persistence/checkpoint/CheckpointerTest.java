@@ -43,7 +43,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -58,7 +57,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -70,9 +68,7 @@ import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
-import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -403,12 +399,7 @@ public class CheckpointerTest {
     private CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, FullPageId... pageIds) {
         Arrays.sort(pageIds, DIRTY_PAGE_COMPARATOR);
 
-        GroupPartitionId[] partitionIds = Stream.of(pageIds)
-                .map(fullPageId -> new GroupPartitionId(fullPageId.groupId(), fullPageId.partitionId()))
-                .distinct()
-                .toArray(GroupPartitionId[]::new);
-
-        return new CheckpointDirtyPages(List.of(new DataRegionDirtyPages<>(pageMemory, new DirtyPagesArray(pageIds, partitionIds))));
+        return new CheckpointDirtyPages(List.of(new DataRegionDirtyPages<>(pageMemory, pageIds)));
     }
 
     private CheckpointWorkflow createCheckpointWorkflow(CheckpointDirtyPages dirtyPages) throws Exception {
@@ -446,17 +437,5 @@ public class CheckpointerTest {
 
     private static FullPageId fullPageId(int grpId, int partId, int pageIdx) {
         return new FullPageId(pageId(partId, (byte) 0, pageIdx), grpId);
-    }
-
-    private static FilePageStore createFilePageStore() throws Exception {
-        FilePageStore filePageStore = mock(FilePageStore.class);
-
-        when(filePageStore.read(anyLong(), any(ByteBuffer.class), anyBoolean())).then(answer -> {
-            GridUnsafe.zeroMemory(GridUnsafe.bufferAddress(answer.getArgument(1)), PAGE_SIZE);
-
-            return true;
-        });
-
-        return filePageStore;
     }
 }

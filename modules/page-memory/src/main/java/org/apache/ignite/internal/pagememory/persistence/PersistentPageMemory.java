@@ -60,6 +60,7 @@ import static org.apache.ignite.internal.util.OffheapReadWriteLock.TAG_LOCK_ALWA
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -916,8 +917,6 @@ public class PersistentPageMemory implements PageMemory {
                     }
 
                     assert tag == newTag;
-
-                    segment.dirtyPartitions.remove(new GroupPartitionId(grpId, partId));
                 } finally {
                     segment.writeLock().unlock();
                 }
@@ -1232,8 +1231,6 @@ public class PersistentPageMemory implements PageMemory {
                     if (seg.dirtyPagesCntr.incrementAndGet() >= seg.maxDirtyPages) {
                         safeToUpdate.set(false);
                     }
-
-                    seg.dirtyPartitions.add(new GroupPartitionId(pageId.groupId(), pageId.partitionId()));
                 }
             }
         } else {
@@ -1321,9 +1318,6 @@ public class PersistentPageMemory implements PageMemory {
 
         /** Atomic size counter for {@link #dirtyPages}. */
         private final AtomicLong dirtyPagesCntr = new AtomicLong();
-
-        /** Partitions for which {@link #dirtyPages dirty pages} have appeared since the last checkpoint. */
-        private volatile Set<GroupPartitionId> dirtyPartitions = ConcurrentHashMap.newKeySet();
 
         /** Wrapper of pages of current checkpoint. */
         @Nullable
@@ -1451,8 +1445,6 @@ public class PersistentPageMemory implements PageMemory {
             dirtyPages = ConcurrentHashMap.newKeySet();
 
             dirtyPagesCntr.set(0);
-
-            dirtyPartitions = ConcurrentHashMap.newKeySet();
         }
 
         /**
@@ -2036,21 +2028,20 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
-     * Returns the container of dirty page IDs and partition IDs since the last checkpoint. If a dirty page is being written after the
-     * checkpointing operation begun, the modifications will be written to a temporary buffer which will be flushed to the main memory after
-     * the checkpointing finished. This method must be called when no concurrent operations on pages are performed.
+     * Gets a collection of dirty page IDs since the last checkpoint. If a dirty page is being written after the checkpointing operation
+     * begun, the modifications will be written to a temporary buffer which will be flushed to the main memory after the checkpointing
+     * finished. This method must be called when no concurrent operations on pages are performed.
      *
      * @param allowToReplace The sign which allows replacing pages from a checkpoint by page replacer.
+     * @return Collection view of dirty page IDs.
      * @throws IgniteInternalException If checkpoint has been already started and was not finished.
      */
-    public DirtyPagesCollection beginCheckpoint(CompletableFuture<?> allowToReplace) throws IgniteInternalException {
+    public Collection<FullPageId> beginCheckpoint(CompletableFuture<?> allowToReplace) throws IgniteInternalException {
         if (segments == null) {
-            return new DirtyPagesCollection(List.of(), List.of());
+            return List.of();
         }
 
         Set<FullPageId>[] dirtyPageIds = new Set[segments.length];
-
-        Set<GroupPartitionId> dirtyPartitionIds = new HashSet<>();
 
         for (int i = 0; i < segments.length; i++) {
             Segment segment = segments[i];
@@ -2059,8 +2050,6 @@ public class PersistentPageMemory implements PageMemory {
 
             Set<FullPageId> segmentDirtyPages = (dirtyPageIds[i] = segment.dirtyPages);
 
-            dirtyPartitionIds.addAll(segment.dirtyPartitions);
-
             segment.checkpointPages = new CheckpointPages(segmentDirtyPages, allowToReplace);
 
             segment.resetDirtyPages();
@@ -2068,7 +2057,7 @@ public class PersistentPageMemory implements PageMemory {
 
         safeToUpdate.set(true);
 
-        return new DirtyPagesCollection(CollectionUtils.concat(dirtyPageIds), dirtyPartitionIds);
+        return CollectionUtils.concat(dirtyPageIds);
     }
 
     /**

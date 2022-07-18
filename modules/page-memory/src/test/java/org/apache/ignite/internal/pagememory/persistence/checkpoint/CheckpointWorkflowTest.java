@@ -54,19 +54,14 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.DirtyPagesCollection;
-import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
-import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
-import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -384,14 +379,14 @@ public class CheckpointWorkflowTest {
 
     @Test
     void testCreateAndSortCheckpointDirtyPages() throws Exception {
-        DataRegionDirtyPages<DirtyPagesCollection> dataRegionDirtyPages0 = createDataRegionDirtyPages(
+        DataRegionDirtyPages<Collection<FullPageId>> dataRegionDirtyPages0 = createDataRegionDirtyPages(
                 mock(PersistentPageMemory.class),
                 of(10, 10, 2), of(10, 10, 1), of(10, 10, 0),
                 of(10, 5, 100), of(10, 5, 99),
                 of(10, 1, 50), of(10, 1, 51), of(10, 1, 99)
         );
 
-        DataRegionDirtyPages<DirtyPagesCollection> dataRegionDirtyPages1 = createDataRegionDirtyPages(
+        DataRegionDirtyPages<Collection<FullPageId>> dataRegionDirtyPages1 = createDataRegionDirtyPages(
                 mock(PersistentPageMemory.class),
                 of(77, 5, 100), of(77, 5, 99),
                 of(88, 1, 51), of(88, 1, 50), of(88, 1, 99),
@@ -478,25 +473,23 @@ public class CheckpointWorkflowTest {
     private static PersistentPageMemory newPageMemory(Collection<FullPageId> pageIds) {
         PersistentPageMemory mock = mock(PersistentPageMemory.class);
 
-        List<GroupPartitionId> partitionIds = List.of(partitionIds(pageIds.toArray(FullPageId[]::new)));
-
-        when(mock.beginCheckpoint(any(CompletableFuture.class))).thenReturn(new DirtyPagesCollection(pageIds, partitionIds));
+        when(mock.beginCheckpoint(any(CompletableFuture.class))).thenReturn(pageIds);
 
         return mock;
     }
 
-    private static DataRegionDirtyPages<DirtyPagesArray> createCheckpointDirtyPages(
+    private static DataRegionDirtyPages<FullPageId[]> createCheckpointDirtyPages(
             PersistentPageMemory pageMemory,
             FullPageId... pageIds
     ) {
-        return new DataRegionDirtyPages<>(pageMemory, new DirtyPagesArray(pageIds, partitionIds(pageIds)));
+        return new DataRegionDirtyPages<>(pageMemory, pageIds);
     }
 
-    private static DataRegionDirtyPages<DirtyPagesCollection> createDataRegionDirtyPages(
+    private static DataRegionDirtyPages<Collection<FullPageId>> createDataRegionDirtyPages(
             PersistentPageMemory pageMemory,
             FullPageId... pageIds
     ) {
-        return new DataRegionDirtyPages<>(pageMemory, new DirtyPagesCollection(List.of(pageIds), List.of(partitionIds(pageIds))));
+        return new DataRegionDirtyPages<>(pageMemory, List.of(pageIds));
     }
 
     private static FullPageId of(int grpId, int partId, int pageIdx) {
@@ -549,24 +542,5 @@ public class CheckpointWorkflowTest {
         public void afterCheckpointEnd(CheckpointProgress progress) throws IgniteInternalCheckedException {
             events.add(AFTER_CHECKPOINT_END);
         }
-    }
-
-    private static GroupPartitionId[] partitionIds(FullPageId... fullPageIds) {
-        return Stream.of(fullPageIds)
-                .map(fullPageId -> new GroupPartitionId(fullPageId.groupId(), fullPageId.partitionId()))
-                .distinct()
-                .toArray(GroupPartitionId[]::new);
-    }
-
-    private static List<GroupPartitionId> collect(IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> queue) {
-        return IntStream.range(0, queue.size())
-                .mapToObj(i -> {
-                    Result<PersistentPageMemory, GroupPartitionId> result = new Result<>();
-
-                    queue.next(result);
-
-                    return result.getValue();
-                })
-                .collect(toList());
     }
 }
