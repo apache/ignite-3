@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,15 +40,14 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.ClientOperationType;
-import org.apache.ignite.client.IgniteClientAuthenticationException;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -276,9 +277,10 @@ public final class ReliableChannel implements AutoCloseable {
                             return null;
                         }
                     } else {
-                        fut.completeExceptionally(err instanceof IgniteClientException
+                        // TODO: Wrap exception IGNITE-17312.
+                        fut.completeExceptionally(err instanceof IgniteException
                                 ? err
-                                : new IgniteClientException(err.getMessage(), err));
+                                : new IgniteException(UNKNOWN_ERR, err.getMessage(), err));
 
                         return null;
                     }
@@ -296,9 +298,9 @@ public final class ReliableChannel implements AutoCloseable {
      * @return host:port_range address lines parsed as {@link InetSocketAddress} as a key. Value is the amount of appearences of an address
      *      in {@code addrs} parameter.
      */
-    private static Map<InetSocketAddress, Integer> parsedAddresses(String[] addrs) throws IgniteClientException {
+    private static Map<InetSocketAddress, Integer> parsedAddresses(String[] addrs) {
         if (addrs == null || addrs.length == 0) {
-            throw new IgniteClientException("Empty addresses");
+            throw new IgniteException(UNKNOWN_ERR, "Empty addresses");
         }
 
         Collection<HostAndPortRange> ranges = new ArrayList<>(addrs.length);
@@ -407,7 +409,8 @@ public final class ReliableChannel implements AutoCloseable {
             String[] hostAddrs = clientCfg.addressesFinder().getAddresses();
 
             if (hostAddrs.length == 0) {
-                throw new IgniteClientException("Empty addresses");
+                //noinspection NonPrivateFieldAccessedInSynchronizedContext
+                throw new IgniteException(UNKNOWN_ERR, "Empty addresses");
             }
 
             if (!Arrays.equals(hostAddrs, prevHostAddrs)) {
@@ -530,7 +533,7 @@ public final class ReliableChannel implements AutoCloseable {
 
             try {
                 if (closed) {
-                    throw new IgniteClientException("Channel is closed");
+                    throw new IgniteClientConnectionException(UNKNOWN_ERR, "Channel is closed");
                 }
 
                 curChannelsGuard.readLock().lock();
@@ -557,7 +560,7 @@ public final class ReliableChannel implements AutoCloseable {
             }
         }
 
-        throw new IgniteClientConnectionException("Failed to connect", failure);
+        throw new IgniteClientConnectionException(UNKNOWN_ERR, "Failed to connect", failure);
     }
 
     /** Determines whether specified operation should be retried. */
@@ -662,16 +665,14 @@ public final class ReliableChannel implements AutoCloseable {
         /**
          * Get or create channel.
          */
-        private ClientChannel getOrCreateChannel()
-                throws IgniteClientConnectionException, IgniteClientAuthenticationException {
+        private ClientChannel getOrCreateChannel() {
             return getOrCreateChannel(false);
         }
 
         /**
          * Get or create channel.
          */
-        private ClientChannel getOrCreateChannel(boolean ignoreThrottling)
-                throws IgniteClientConnectionException, IgniteClientAuthenticationException {
+        private ClientChannel getOrCreateChannel(boolean ignoreThrottling) {
             if (ch == null && !close) {
                 synchronized (this) {
                     if (close) {
@@ -683,7 +684,8 @@ public final class ReliableChannel implements AutoCloseable {
                     }
 
                     if (!ignoreThrottling && applyReconnectionThrottling()) {
-                        throw new IgniteClientConnectionException("Reconnect is not allowed due to applied throttling");
+                        //noinspection NonPrivateFieldAccessedInSynchronizedContext
+                        throw new IgniteClientConnectionException(UNKNOWN_ERR, "Reconnect is not allowed due to applied throttling");
                     }
 
                     ch = chFactory.apply(chCfg, connMgr);

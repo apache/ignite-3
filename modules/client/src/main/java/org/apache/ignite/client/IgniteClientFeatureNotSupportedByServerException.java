@@ -17,12 +17,15 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+
 import org.apache.ignite.internal.client.ProtocolBitmaskFeature;
+import org.apache.ignite.lang.IgniteException;
 
 /**
  * Indicates that thin client feature is not supported by the server.
  */
-public class IgniteClientFeatureNotSupportedByServerException extends IgniteClientException {
+public class IgniteClientFeatureNotSupportedByServerException extends IgniteException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
@@ -32,7 +35,7 @@ public class IgniteClientFeatureNotSupportedByServerException extends IgniteClie
      * @param msg the detail message.
      */
     public IgniteClientFeatureNotSupportedByServerException(String msg) {
-        super(msg);
+        super(UNKNOWN_ERR, msg);
     }
 
     /**

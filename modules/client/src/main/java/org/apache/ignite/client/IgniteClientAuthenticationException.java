@@ -17,10 +17,14 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.AUTHENTICATION_ERR;
+
+import org.apache.ignite.lang.IgniteException;
+
 /**
- * Indicates user name or password is invalid.
+ * Indicates invalid credentials.
  */
-public class IgniteClientAuthenticationException extends IgniteClientException {
+public class IgniteClientAuthenticationException extends IgniteException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
@@ -30,7 +34,7 @@ public class IgniteClientAuthenticationException extends IgniteClientException {
      * @param msg the detail message.
      */
     public IgniteClientAuthenticationException(String msg) {
-        super(msg);
+        super(AUTHENTICATION_ERR, msg);
     }
 
     /**
