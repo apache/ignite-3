@@ -78,22 +78,6 @@ public class CheckpointDirtyPagesTest {
     }
 
     @Test
-    void testToDirtyPartitionIdQueue() {
-        assertTrue(EMPTY.toDirtyPartitionIdQueue().isEmpty());
-
-        DataRegionDirtyPages<DirtyPagesArray> dirtyPages0 = createDirtyPages(of(0, 0, 0));
-        DataRegionDirtyPages<DirtyPagesArray> dirtyPages1 = createDirtyPages(of(1, 0, 0), of(1, 0, 1));
-        DataRegionDirtyPages<DirtyPagesArray> dirtyPages2 = createDirtyPages(of(2, 0, 0), of(2, 1, 0), of(3, 2, 2));
-
-        CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(dirtyPages0, dirtyPages1, dirtyPages2));
-
-        assertThat(
-                toListPair(checkpointDirtyPages.toDirtyPartitionIdQueue()),
-                equalTo(toListPair(arrayDirtyPages -> arrayDirtyPages.partitionIds, dirtyPages0, dirtyPages1, dirtyPages2))
-        );
-    }
-
-    @Test
     void testGetPartitionViewByPageMemory() {
         assertThrows(IllegalArgumentException.class, () -> EMPTY.getPartitionView(mock(PersistentPageMemory.class), 0, 0));
 

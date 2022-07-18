@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -381,14 +382,13 @@ public class Checkpointer extends IgniteWorker {
 
         IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds = checkpointDirtyPages.toDirtyPageIdQueue();
 
-        IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> updatePartitionIds =
-                checkpointDirtyPages.toDirtyPartitionIdQueue();
+        Set<GroupPartitionId> savedPartitionMetas = ConcurrentHashMap.newKeySet();
 
         for (int i = 0; i < checkpointWritePageThreads; i++) {
             CheckpointPagesWriter write = checkpointPagesWriterFactory.build(
                     tracker,
                     writePageIds,
-                    updatePartitionIds,
+                    savedPartitionMetas,
                     updStores,
                     futures[i] = new CompletableFuture<>(),
                     workProgressDispatcher::updateHeartbeat,

@@ -26,7 +26,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.RandomAccess;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -74,23 +73,13 @@ class CheckpointDirtyPages {
     /**
      * Returns a queue of dirty page IDs to be written to a checkpoint.
      */
+    // TODO: IGNITE-17295 думаю придется скоро вернуть как было
     public IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> toDirtyPageIdQueue() {
         List<IgniteBiTuple<PersistentPageMemory, FullPageId[]>> dirtyPageIds = dirtyPages.stream()
                 .map(pages -> new IgniteBiTuple<>(pages.pageMemory, pages.dirtyPages.pageIds))
                 .collect(toList());
 
         return new IgniteConcurrentMultiPairQueue<>(dirtyPageIds);
-    }
-
-    /**
-     * Returns a queue of dirty partition IDs to be modified to a checkpoint.
-     */
-    public IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> toDirtyPartitionIdQueue() {
-        List<IgniteBiTuple<PersistentPageMemory, GroupPartitionId[]>> dirtyPartitionIds = dirtyPages.stream()
-                .map(pages -> new IgniteBiTuple<>(pages.pageMemory, pages.dirtyPages.partitionIds))
-                .collect(toList());
-
-        return new IgniteConcurrentMultiPairQueue<>(dirtyPartitionIds);
     }
 
     /**
@@ -111,7 +100,7 @@ class CheckpointDirtyPages {
     }
 
     private @Nullable CheckpointDirtyPagesView getPartitionView(int dirtyPagesIdx, int grpId, int partId) {
-        FullPageId startPageId = new FullPageId(pageId(partId, (byte) 0, 0), grpId); 
+        FullPageId startPageId = new FullPageId(pageId(partId, (byte) 0, 0), grpId);
         FullPageId endPageId = new FullPageId(pageId(partId + 1, (byte) 0, 0), grpId);
 
         FullPageId[] pageIds = dirtyPages.get(dirtyPagesIdx).dirtyPages.pageIds;

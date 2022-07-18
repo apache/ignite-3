@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_MARK_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -296,11 +295,6 @@ public class CheckpointWorkflowTest {
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(dirtyPages));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegion.pageMemory()));
-
-        assertThat(
-                collect(checkpoint.dirtyPages.toDirtyPartitionIdQueue()),
-                contains(new GroupPartitionId(0, 0))
-        );
 
         assertThat(
                 events,

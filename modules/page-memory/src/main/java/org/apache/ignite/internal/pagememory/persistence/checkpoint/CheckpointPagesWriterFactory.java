@@ -19,6 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
@@ -89,7 +90,7 @@ public class CheckpointPagesWriterFactory {
      *
      * @param tracker Checkpoint metrics tracker.
      * @param dirtyPageIdQueue Checkpoint dirty page ID queue to write.
-     * @param dirtyPartitionIdQueue Checkpoint dirty partition ID queue to update.
+     * @param savedPartitionMetas Partitions for which meta has been saved.
      * @param updStores Updated page store storage.
      * @param doneWriteFut Write done future.
      * @param beforePageWrite Before page write callback.
@@ -99,7 +100,7 @@ public class CheckpointPagesWriterFactory {
     CheckpointPagesWriter build(
             CheckpointMetricsTracker tracker,
             IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPageIdQueue,
-            IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionIdQueue,
+            Set<GroupPartitionId> savedPartitionMetas,
             ConcurrentMap<PageStore, LongAdder> updStores,
             CompletableFuture<?> doneWriteFut,
             Runnable beforePageWrite,
@@ -111,7 +112,7 @@ public class CheckpointPagesWriterFactory {
                 log,
                 tracker,
                 dirtyPageIdQueue,
-                dirtyPartitionIdQueue,
+                savedPartitionMetas,
                 updStores,
                 doneWriteFut,
                 beforePageWrite,
