@@ -291,6 +291,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 packer.packNil();
             }
 
+            // TODO: Optional stack trace (IGNITE-17312).
+            packer.packNil();
+
             write(packer, ctx);
         } catch (Throwable t) {
             packer.close();

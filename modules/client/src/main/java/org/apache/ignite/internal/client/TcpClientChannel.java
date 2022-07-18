@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -296,7 +297,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         Long resId = unpacker.unpackLong();
 
-        int status = unpacker.unpackInt();
+        int clientErrorCode = unpacker.unpackInt();
 
         ClientRequestFuture pendingReq = pendingReqs.remove(resId);
 
@@ -304,14 +305,19 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             throw new IgniteClientException(String.format("Unexpected response ID [%s]", resId));
         }
 
-        if (status == 0) {
+        if (clientErrorCode == ClientErrorCode.SUCCESS) {
             pendingReq.complete(unpacker);
         } else {
             // TODO: IGNITE-17312
-            var errMsg = unpacker.unpackString();
+            var errCls = unpacker.unpackString();
+            var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+            Integer code = unpacker.tryUnpackNil() ? null : unpacker.unpackInt();
+            UUID traceId = unpacker.tryUnpackNil() ? null : unpacker.unpackUuid();
+            var stackTrace = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+
             unpacker.close();
 
-            var err = new IgniteClientException(errMsg, status);
+            var err = new IgniteClientException(errMsg, clientErrorCode);
             pendingReq.completeExceptionally(err);
         }
     }
