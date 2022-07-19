@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.math.BigDecimal;
@@ -44,7 +45,6 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -387,8 +387,7 @@ public class ClientTableCommon {
 
             return table;
         } catch (NodeStoppingException e) {
-            // TODO: Here and below - fix deprecated constructor calls (IGNITE-17312).
-            throw new IgniteException(e);
+            throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }
     }
 
@@ -407,7 +406,7 @@ public class ClientTableCommon {
         try {
             return resources.get(in.unpackLong()).get(Transaction.class);
         } catch (IgniteInternalCheckedException e) {
-            throw new IgniteInternalException(e.getMessage(), e);
+            throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }
     }
 
@@ -417,7 +416,7 @@ public class ClientTableCommon {
             Object val = unpacker.unpackObject(type);
             tuple.set(col.name(), val);
         } catch (MessageTypeException e) {
-            throw new IgniteException("Incorrect value type for column '" + col.name() + "': " + e.getMessage(), e);
+            throw new IgniteException(PROTOCOL_ERR, "Incorrect value type for column '" + col.name() + "': " + e.getMessage(), e);
         }
     }
 
@@ -472,7 +471,7 @@ public class ClientTableCommon {
                 return ClientDataType.TIMESTAMP;
 
             default:
-                throw new IgniteException("Unsupported native type: " + spec);
+                throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + spec);
         }
     }
 
@@ -557,7 +556,7 @@ public class ClientTableCommon {
                 break;
 
             default:
-                throw new IgniteException("Data type not supported: " + col.type());
+                throw new IgniteException(PROTOCOL_ERR, "Data type not supported: " + col.type());
         }
     }
 }
