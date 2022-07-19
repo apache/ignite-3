@@ -151,7 +151,7 @@ public class PartitionMeta {
     }
 
     /**
-     * Takes a snapshot of the meta partition if the {@code checkpointId} is different from the {@link #metaSnapshot last snapshot} {@link
+     * Takes a snapshot of the partition meta if the {@code checkpointId} is different from the {@link #metaSnapshot last snapshot} {@link
      * PartitionMetaSnapshot#checkpointId}.
      *
      * @param checkpointId Checkpoint ID.

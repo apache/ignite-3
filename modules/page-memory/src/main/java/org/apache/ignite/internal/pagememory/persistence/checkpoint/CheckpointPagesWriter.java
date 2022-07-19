@@ -189,9 +189,9 @@ public class CheckpointPagesWriter implements Runnable {
         while (!shutdownNow.getAsBoolean() && writePageIds.next(queueResult)) {
             beforePageWrite.run();
 
-            FullPageId pageId = queueResult.getValue();
+            FullPageId fullId = queueResult.getValue();
 
-            if (isPartitionChange(partitionId, pageId) && savedPartitionMetas.add(partitionId = toPartitionId(pageId))) {
+            if (hasPartitionChanged(partitionId, fullId) && savedPartitionMetas.add(partitionId = toPartitionId(fullId))) {
                 writePartitionMeta(partitionId, tmpWriteBuf.rewind());
             }
 
@@ -201,7 +201,7 @@ public class CheckpointPagesWriter implements Runnable {
 
             PageStoreWriter pageStoreWriter = pageStoreWriters.computeIfAbsent(pageMemory, pm -> createPageStoreWriter(pm, pageIdsToRetry));
 
-            pageMemory.checkpointWritePage(pageId, tmpWriteBuf, pageStoreWriter, tracker);
+            pageMemory.checkpointWritePage(fullId, tmpWriteBuf, pageStoreWriter, tracker);
         }
 
         return pageIdsToRetry.isEmpty() ? EMPTY : new IgniteConcurrentMultiPairQueue<>(pageIdsToRetry);
@@ -261,7 +261,7 @@ public class CheckpointPagesWriter implements Runnable {
         updStores.computeIfAbsent(store, k -> new LongAdder()).increment();
     }
 
-    private static boolean isPartitionChange(@Nullable GroupPartitionId partitionId, FullPageId pageId) {
+    private static boolean hasPartitionChanged(@Nullable GroupPartitionId partitionId, FullPageId pageId) {
         return partitionId == null || partitionId.getPartitionId() != pageId.partitionId() || partitionId.getGroupId() != pageId.groupId();
     }
 

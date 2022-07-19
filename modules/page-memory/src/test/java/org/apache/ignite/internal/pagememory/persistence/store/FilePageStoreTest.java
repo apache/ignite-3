@@ -317,13 +317,15 @@ public class FilePageStoreTest {
 
             ByteBuffer readBuffer = ByteBuffer.allocate(PAGE_SIZE).order(pageByteBuffer.order());
 
-            assertTrue(filePageStore.read(expPageId, readBuffer, false));
+            filePageStore.read(expPageId, readBuffer, false);
+
             assertEquals(pageByteBuffer.rewind(), readBuffer.rewind());
             assertEquals(0, getCrc(readBuffer));
 
             readBuffer = ByteBuffer.allocate(PAGE_SIZE).order(pageByteBuffer.order());
 
-            assertTrue(filePageStore.read(expPageId, readBuffer, true));
+            filePageStore.read(expPageId, readBuffer, true);
+
             assertNotEquals(0, getCrc(readBuffer));
         }
     }

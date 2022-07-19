@@ -185,6 +185,4 @@ public final class FullPageId {
     public int pageIdx() {
         return PageIdUtils.pageIndex(pageId);
     }
-
-
 }

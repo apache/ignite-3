@@ -53,10 +53,9 @@ public interface PageStore extends Closeable {
      * @param pageBuf Page buffer to read into.
      * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code
      * keepCrc}.
-     * @return {@code True} if page has been read successfully, {@code false} if page hasn't been written yet.
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
-    boolean read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException;
+    void read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException;
 
     /**
      * Writes a page.
