@@ -21,6 +21,7 @@ import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.rest.RestFactory;
 import org.apache.ignite.network.ClusterService;
 
@@ -30,14 +31,22 @@ import org.apache.ignite.network.ClusterService;
 @Factory
 public class ClusterManagementRestFactory implements RestFactory {
     private final ClusterService clusterService;
+    private final ClusterManagementGroupManager clusterManagementGroupManager;
 
-    public ClusterManagementRestFactory(ClusterService clusterService) {
+    public ClusterManagementRestFactory(ClusterService clusterService, ClusterManagementGroupManager clusterManagementGroupManager) {
         this.clusterService = clusterService;
+        this.clusterManagementGroupManager = clusterManagementGroupManager;
     }
 
     @Bean
     @Singleton
     public ClusterInitializer clusterInitializer() {
         return new ClusterInitializer(clusterService);
+    }
+
+    @Bean
+    @Singleton
+    public ClusterManagementGroupManager clusterManagementGroupManager() {
+        return clusterManagementGroupManager;
     }
 }

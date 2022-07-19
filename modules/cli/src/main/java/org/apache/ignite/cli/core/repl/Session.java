@@ -30,6 +30,8 @@ public class Session {
 
     private String nodeUrl;
 
+    private String nodeName;
+
     private String jdbcUrl;
 
     public boolean isConnectedToNode() {
@@ -40,15 +42,23 @@ public class Session {
         this.connectedToNode = connectedToNode;
     }
 
-    public String getNodeUrl() {
+    public String nodeUrl() {
         return nodeUrl;
+    }
+
+    public String nodeName() {
+        return nodeName;
+    }
+
+    public void setNodeName(String nodeName) {
+        this.nodeName = nodeName;
     }
 
     public void setNodeUrl(String nodeUrl) {
         this.nodeUrl = nodeUrl;
     }
 
-    public String getJdbcUrl() {
+    public String jdbcUrl() {
         return jdbcUrl;
     }
 
