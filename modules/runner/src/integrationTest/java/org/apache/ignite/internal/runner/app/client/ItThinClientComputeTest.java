@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -144,6 +145,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertEquals(TRACE_ID, cause.traceId());
         assertEquals(COLUMN_ALREADY_EXISTS_ERR, cause.code());
         assertInstanceOf(CustomException.class, cause);
+        assertNull(cause.getCause()); // No stack trace by default.
     }
 
     @Test
@@ -156,6 +158,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
         assertEquals(UNKNOWN_ERR, cause.code());
+        assertNull(cause.getCause()); // No stack trace by default.
     }
 
     @ParameterizedTest
