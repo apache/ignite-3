@@ -320,7 +320,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             // Ignore: incompatible exception class. Fall back to generic exception.
         }
 
-        return new IgniteException(traceId, code, errMsg, causeWithStackTrace);
+        return new IgniteException(traceId, code, errClassName + ": " + errMsg, causeWithStackTrace);
     }
 
     /** {@inheritDoc} */

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -139,6 +140,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
         assertEquals(TRACE_ID, cause.traceId());
+        assertEquals(COLUMN_ALREADY_EXISTS_ERR, cause.code());
     }
 
     @ParameterizedTest
@@ -214,7 +216,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class ErrorJob implements ComputeJob<String> {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
-            throw new CustomException(TRACE_ID, -123, "Custom job error");
+            throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error");
         }
     }
 

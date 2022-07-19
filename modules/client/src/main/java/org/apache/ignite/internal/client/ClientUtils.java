@@ -25,6 +25,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -57,9 +58,7 @@ public class ClientUtils {
      * @return Public exception.
      */
     public static IgniteException convertException(Throwable e) {
-        while ((e instanceof CompletionException || e instanceof ExecutionException) && e.getCause() != null) {
-            e = e.getCause();
-        }
+        e = ExceptionUtils.unwrapCause(e);
 
         if (e instanceof IgniteClientConnectionException) {
             return new IgniteClientConnectionException(((IgniteException)e).code(), e.getMessage(), e.getCause());

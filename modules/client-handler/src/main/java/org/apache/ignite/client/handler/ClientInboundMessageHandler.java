@@ -28,7 +28,6 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.BitSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteColocatedRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
@@ -274,9 +273,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
-        if (err instanceof CompletionException) {
-            err = err.getCause();
-        }
+        err = ExceptionUtils.unwrapCause(err);
 
         if (err instanceof IgniteException) {
             IgniteException iex = (IgniteException) err;

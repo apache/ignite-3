@@ -25,6 +25,8 @@ import java.lang.reflect.Method;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -61,25 +63,6 @@ public final class ExceptionUtils {
         }
 
         THROWABLE_CAUSE_METHOD = causeMtd;
-    }
-
-    /**
-     * Checks whether given throwable is assignable from any of candidate throwable type
-     *     and contains given non-null message.
-     *
-     * @param thr Throwable.
-     * @param msg Possible throwable message.
-     * @param candidateTypes Possible types of throwable.
-     * @return {@code true} if such type in found, else {@code false}.
-     */
-    private static boolean isThrowableValid(Throwable thr, @Nullable String msg, Class<?>... candidateTypes) {
-        for (Class<?> c : candidateTypes) {
-            if (c != null && c.isAssignableFrom(thr.getClass())
-                    && (msg == null || (thr.getMessage() != null && thr.getMessage().contains(msg))))
-                return true;
-        }
-
-        return false;
     }
 
     /**
@@ -344,5 +327,19 @@ public final class ExceptionUtils {
         }
 
         return sw.getBuffer().toString();
+    }
+
+    /**
+     * Unwraps exception cause from wrappers like CompletionException and ExecutionException.
+     *
+     * @param e Throwable.
+     * @return Unwrapped throwable.
+     */
+    public static Throwable unwrapCause(Throwable e) {
+        while ((e instanceof CompletionException || e instanceof ExecutionException) && e.getCause() != null) {
+            e = e.getCause();
+        }
+
+        return e;
     }
 }
