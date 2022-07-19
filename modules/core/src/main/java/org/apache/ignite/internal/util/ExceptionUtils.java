@@ -36,7 +36,7 @@ public final class ExceptionUtils {
     /**
      * The names of methods commonly used to access a wrapped exception.
      */
-    private static final String[] CAUSE_MTD_NAMES = new String[]{
+    private static final String[] CAUSE_METHOD_NAMES = new String[]{
             "getCause",
             "getNextException",
             "getTargetException",
@@ -69,6 +69,8 @@ public final class ExceptionUtils {
     }
 
     /**
+     * Introspects the {@code Throwable} to obtain the cause.
+     *
      * @param throwable The exception to examine.
      * @return The wrapped exception, or {@code null} if not found.
      */
@@ -167,9 +169,9 @@ public final class ExceptionUtils {
         }
 
         Class<?> cls = throwable.getClass();
-        for (String CAUSE_MTD_NAME : CAUSE_MTD_NAMES) {
+        for (String methodName : CAUSE_METHOD_NAMES) {
             try {
-                Method mtd = cls.getMethod(CAUSE_MTD_NAME, null);
+                Method mtd = cls.getMethod(methodName, null);
 
                 if (mtd != null && Throwable.class.isAssignableFrom(mtd.getReturnType())) {
                     return true;
@@ -199,7 +201,7 @@ public final class ExceptionUtils {
      * @return The cause of the {@code Throwable}, {@code null} if none found or null throwable input.
      */
     public static Throwable getCause(Throwable throwable) {
-        return getCause(throwable, CAUSE_MTD_NAMES);
+        return getCause(throwable, CAUSE_METHOD_NAMES);
     }
 
     /**
@@ -218,7 +220,7 @@ public final class ExceptionUtils {
 
         if (cause == null) {
             if (mtdNames == null) {
-                mtdNames = CAUSE_MTD_NAMES;
+                mtdNames = CAUSE_METHOD_NAMES;
             }
 
             for (String mtdName : mtdNames) {
@@ -242,12 +244,12 @@ public final class ExceptionUtils {
     /**
      * Returns the list of {@code Throwable} objects in the exception chain.
      *
-     * <p> A throwable without cause will return a list containing one element - the input throwable. A throwable with one cause will return a
+     * <p>A throwable without cause will return a list containing one element - the input throwable. A throwable with one cause will return a
      * list containing two elements - the input throwable and the cause throwable. A {@code null} throwable will return a list of size
      * zero.
      *
-     * <p> This method handles recursive cause structures that might otherwise cause infinite loops. The cause chain is processed until the end
-     * is reached, or until the next item in the chain is already in the result set.</p>
+     * <p>This method handles recursive cause structures that might otherwise cause infinite loops. The cause chain is processed until the end
+     * is reached, or until the next item in the chain is already in the result set.
      *
      * @param throwable The throwable to inspect, may be null.
      * @return The list of throwables, never null.

@@ -315,8 +315,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
                 return (IgniteException) constructor.newInstance(traceId, code, errMsg, causeWithStackTrace);
             }
-        } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException |
-                InvocationTargetException ignored) {
+        } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException
+                | InvocationTargetException ignored) {
             // Ignore: incompatible exception class. Fall back to generic exception.
         }
 
