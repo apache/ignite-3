@@ -28,6 +28,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.BitSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteColocatedRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
@@ -193,7 +194,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             var clientVer = ProtocolVersion.unpack(unpacker);
 
             if (!clientVer.equals(ProtocolVersion.LATEST_VER)) {
-                throw new IgniteException("Unsupported version: "
+                throw new IgniteException(PROTOCOL_ERR, "Unsupported version: "
                         + clientVer.major() + "." + clientVer.minor() + "." + clientVer.patch());
             }
 
@@ -269,7 +270,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packInt(ServerMessageType.RESPONSE);
             packer.packLong(requestId);
 
-            // TODO: Unwrap CompletionException (IGNITE-17312).
+            if (err instanceof CompletionException) {
+                err = err.getCause();
+            }
+
             if (err instanceof IgniteException) {
                 IgniteException iex = (IgniteException) err;
                 packer.packUuid(iex.traceId());
