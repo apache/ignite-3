@@ -271,6 +271,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
+    /**
+     * Custom public exception class.
+     */
     public static class CustomException extends IgniteException {
         public CustomException(UUID traceId, int code, String message, Throwable cause) {
             super(traceId, code, message, cause);

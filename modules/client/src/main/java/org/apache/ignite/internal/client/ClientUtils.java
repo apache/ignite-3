@@ -20,7 +20,6 @@ package org.apache.ignite.internal.client;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConnectionException;

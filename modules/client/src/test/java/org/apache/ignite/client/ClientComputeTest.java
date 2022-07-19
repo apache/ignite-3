@@ -129,7 +129,7 @@ public class ClientComputeTest {
             var ex = assertThrows(CompletionException.class,
                     () -> client.compute().<String>executeColocated("bad-tbl", key, "job").join());
 
-            var tblNotFoundEx = (TableNotFoundException)ex.getCause();
+            var tblNotFoundEx = (TableNotFoundException) ex.getCause();
             assertThat(tblNotFoundEx.getMessage(), containsString("Table does not exist [name=bad-tbl]"));
             assertEquals(TABLE_NOT_FOUND_ERR, tblNotFoundEx.code());
         }
