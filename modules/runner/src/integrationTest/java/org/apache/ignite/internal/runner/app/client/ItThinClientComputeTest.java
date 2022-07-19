@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -159,6 +160,20 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
         assertEquals(UNKNOWN_ERR, cause.code());
         assertNull(cause.getCause()); // No stack trace by default.
+    }
+
+    @Test
+    void testExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace() {
+        // Second node has sendServerExceptionStackTraceToClient enabled.
+        CompletionException ex = assertThrows(
+                CompletionException.class,
+                () ->  client().compute().execute(Set.of(node(1)), ExceptionJob.class).join());
+
+        var cause = (IgniteException) ex.getCause();
+
+        assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
+        assertEquals(UNKNOWN_ERR, cause.code());
+        assertNotNull(cause.getCause());
     }
 
     @ParameterizedTest
