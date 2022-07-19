@@ -222,7 +222,8 @@ public class ClientTable implements Table {
             ClientTransaction clientTx = getClientTx(tx);
 
             if (clientTx.channel() != out.clientChannel()) {
-                throw new IgniteClientConnectionException(CONNECTION_ERR, "Transaction context has been lost due to connection errors.");
+                // Do not throw IgniteClientConnectionException to avoid retry kicking in.
+                throw new IgniteException(CONNECTION_ERR, "Transaction context has been lost due to connection errors.");
             }
 
             out.out().packLong(clientTx.id());

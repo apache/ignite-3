@@ -57,7 +57,7 @@ public class ClientUtils {
      * @return Public exception.
      */
     public static IgniteException convertException(Throwable e) {
-        while (e instanceof CompletionException && e.getCause() != null) {
+        while ((e instanceof CompletionException || e instanceof ExecutionException) && e.getCause() != null) {
             e = e.getCause();
         }
 
