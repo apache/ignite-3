@@ -32,13 +32,11 @@ import org.apache.ignite.cli.core.repl.Repl;
 import org.apache.ignite.cli.core.repl.expander.NoopExpander;
 import org.jline.console.impl.SystemRegistryImpl;
 import org.jline.reader.Completer;
-import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReader.SuggestionType;
 import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.MaskingCallback;
 import org.jline.reader.Parser;
-import org.jline.reader.UserInterruptException;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.terminal.Terminal;
 import org.jline.widget.TailTipWidgets;
@@ -125,17 +123,6 @@ public class ReplExecutor {
         } catch (Throwable t) {
             exceptionHandlers.handleException(System.err::println, t);
         }
-    }
-
-    private String readLine(String prompt, LineReader reader) {
-        try {
-            String ansiPrompt = Ansi.AUTO.string(prompt);
-            return reader.readLine(ansiPrompt, null, (MaskingCallback) null, null);
-        } catch (UserInterruptException ignored) { // Ctrl-C pressed
-        } catch (EndOfFileException e) { // Ctrl-D pressed
-            interrupted.set(true);
-        }
-        return null;
     }
 
     private LineReader createReader(Completer completer) {
