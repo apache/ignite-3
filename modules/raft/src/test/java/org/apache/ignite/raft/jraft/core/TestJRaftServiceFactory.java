@@ -16,11 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
-import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
-import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactory;
+import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.storage.LogStorage;
+import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
 
-public class TestJRaftServiceFactory extends IgniteJraftServiceFactory {
-    public TestJRaftServiceFactory() {
-        super(new VolatileLogStorageFactory());
+public class TestJRaftServiceFactory extends DefaultJRaftServiceFactory {
+    @Override
+    public LogStorage createLogStorage(final String uri, final RaftOptions raftOptions) {
+        return new LocalLogStorage(raftOptions);
     }
 }
