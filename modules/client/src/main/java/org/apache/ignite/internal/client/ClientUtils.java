@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConnectionException;
@@ -56,11 +57,15 @@ public class ClientUtils {
      * @return Public exception.
      */
     public static IgniteException convertException(Throwable e) {
-        if (e.getCause() instanceof IgniteClientConnectionException) {
+        while (e instanceof CompletionException && e.getCause() != null) {
+            e = e.getCause();
+        }
+
+        if (e instanceof IgniteClientConnectionException) {
             return new IgniteClientConnectionException(((IgniteException)e).code(), e.getMessage(), e.getCause());
         }
 
-        if (e.getCause() instanceof IgniteException) {
+        if (e instanceof IgniteException) {
             return new IgniteException(((IgniteException)e).code(), e.getMessage(), e.getCause());
         }
 
