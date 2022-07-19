@@ -173,7 +173,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
         assertEquals(UNKNOWN_ERR, cause.code());
+
         assertNotNull(cause.getCause());
+        assertThat(cause.getCause().getMessage(), containsString(
+                "at org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$"
+                        + "ExceptionJob.execute(ItThinClientComputeTest.java:"));
     }
 
     @ParameterizedTest
