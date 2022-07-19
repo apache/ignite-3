@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -131,16 +133,29 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testJobErrorPropagatesToClientWithClassAndMessage() {
+    void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceId() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () ->  client().compute().execute(Set.of(node(0)), ErrorJob.class).join());
+                () ->  client().compute().execute(Set.of(node(0)), IgniteExceptionJob.class).join());
 
         var cause = (IgniteException) ex.getCause();
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
         assertEquals(TRACE_ID, cause.traceId());
         assertEquals(COLUMN_ALREADY_EXISTS_ERR, cause.code());
+        assertInstanceOf(CustomException.class, cause);
+    }
+
+    @Test
+    void testExceptionInJobPropagatesToClientWithClassAndMessage() {
+        CompletionException ex = assertThrows(
+                CompletionException.class,
+                () ->  client().compute().execute(Set.of(node(0)), ExceptionJob.class).join());
+
+        var cause = (IgniteException) ex.getCause();
+
+        assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
+        assertEquals(UNKNOWN_ERR, cause.code());
     }
 
     @ParameterizedTest
@@ -213,10 +228,17 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class ErrorJob implements ComputeJob<String> {
+    private static class IgniteExceptionJob implements ComputeJob<String> {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
-            throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error");
+            throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
+        }
+    }
+
+    private static class ExceptionJob implements ComputeJob<String> {
+        @Override
+        public String execute(JobExecutionContext context, Object... args) {
+            throw new NullPointerException("null ref");
         }
     }
 
@@ -227,9 +249,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class CustomException extends IgniteException {
-        public CustomException(UUID traceId, int code, String message) {
-            super(traceId, code, message);
+    public static class CustomException extends IgniteException {
+        public CustomException(UUID traceId, int code, String message, Throwable cause) {
+            super(traceId, code, message, cause);
         }
     }
 }
