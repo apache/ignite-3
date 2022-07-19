@@ -3751,7 +3751,11 @@ public class ItNodeTest {
     }
 
     private NodeOptions createNodeOptions() {
-        return new NodeOptions();
+        NodeOptions nodeOptions = new NodeOptions();
+
+        nodeOptions.setServiceFactory(new DefaultJRaftServiceFactory());
+
+        return nodeOptions;
     }
 
     /**
