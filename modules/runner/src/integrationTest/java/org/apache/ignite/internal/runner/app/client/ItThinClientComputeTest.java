@@ -47,7 +47,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -56,6 +55,9 @@ import org.junit.jupiter.params.provider.CsvSource;
  * Thin client compute integration test.
  */
 public class ItThinClientComputeTest extends ItAbstractThinClientTest {
+    /** Test trace id. */
+    private static final UUID TRACE_ID = UUID.randomUUID();
+
     @Test
     void testClusterNodes() {
         List<ClusterNode> nodes = sortedNodes();
@@ -136,6 +138,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var cause = (IgniteException) ex.getCause();
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
+        assertEquals(TRACE_ID, cause.traceId());
     }
 
     @ParameterizedTest
@@ -211,7 +214,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class ErrorJob implements ComputeJob<String> {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
-            throw new TransactionException("Custom job error");
+            throw new CustomException(TRACE_ID, -123, "Custom job error");
         }
     }
 
@@ -219,6 +222,12 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         @Override
         public Object execute(JobExecutionContext context, Object... args) {
             return args[0];
+        }
+    }
+
+    private static class CustomException extends IgniteException {
+        public CustomException(UUID traceId, int code, String message) {
+            super(traceId, code, message);
         }
     }
 }
