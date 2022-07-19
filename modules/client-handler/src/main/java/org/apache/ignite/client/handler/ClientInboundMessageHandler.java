@@ -232,14 +232,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             try {
                 ProtocolVersion.LATEST_VER.pack(errPacker);
 
-                String message = t.getMessage();
-
-                if (message == null) {
-                    message = t.getClass().getName();
-                }
-
-                errPacker.packInt(PROTOCOL_ERR);
-                errPacker.packString(message);
+                writeErrorCore(t, errPacker);
 
                 write(errPacker, ctx);
             } catch (Throwable t2) {
@@ -271,39 +264,43 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packInt(ServerMessageType.RESPONSE);
             packer.packLong(requestId);
 
-            if (err instanceof CompletionException) {
-                err = err.getCause();
-            }
-
-            if (err instanceof IgniteException) {
-                IgniteException iex = (IgniteException) err;
-                packer.packUuid(iex.traceId());
-                packer.packInt(iex.code());
-            } else {
-                packer.packUuid(UUID.randomUUID());
-                packer.packInt(UNKNOWN_ERR);
-            }
-
-            packer.packString(err.getClass().getName());
-
-            String msg = err.getMessage();
-
-            if (msg == null) {
-                packer.packNil();
-            } else {
-                packer.packString(msg);
-            }
-
-            if (configuration.sendServerExceptionStackTraceToClient()) {
-                packer.packString(ExceptionUtils.getFullStackTrace(err));
-            } else {
-                packer.packNil();
-            }
+            writeErrorCore(err, packer);
 
             write(packer, ctx);
         } catch (Throwable t) {
             packer.close();
             exceptionCaught(ctx, t);
+        }
+    }
+
+    private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
+        if (err instanceof CompletionException) {
+            err = err.getCause();
+        }
+
+        if (err instanceof IgniteException) {
+            IgniteException iex = (IgniteException) err;
+            packer.packUuid(iex.traceId());
+            packer.packInt(iex.code());
+        } else {
+            packer.packUuid(UUID.randomUUID());
+            packer.packInt(UNKNOWN_ERR);
+        }
+
+        packer.packString(err.getClass().getName());
+
+        String msg = err.getMessage();
+
+        if (msg == null) {
+            packer.packNil();
+        } else {
+            packer.packString(msg);
+        }
+
+        if (configuration.sendServerExceptionStackTraceToClient()) {
+            packer.packString(ExceptionUtils.getFullStackTrace(err));
+        } else {
+            packer.packNil();
         }
     }
 
