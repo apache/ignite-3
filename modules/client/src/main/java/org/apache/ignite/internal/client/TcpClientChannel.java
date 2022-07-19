@@ -305,7 +305,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         var errClassName = unpacker.unpackString();
         var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
 
-        IgniteException cause = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
+        IgniteException causeWithStackTrace = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
 
         try {
             Class<?> errCls = Class.forName(errClassName);
@@ -313,14 +313,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             if (IgniteException.class.isAssignableFrom(errCls)) {
                 Constructor<?> constructor = errCls.getDeclaredConstructor(UUID.class, int.class, String.class, Throwable.class);
 
-                return (IgniteException) constructor.newInstance(traceId, code, errMsg, cause);
+                return (IgniteException) constructor.newInstance(traceId, code, errMsg, causeWithStackTrace);
             }
         } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException |
                 InvocationTargetException ignored) {
             // Ignore: incompatible exception class. Fall back to generic exception.
         }
 
-        return new IgniteException(traceId, code, errMsg, cause);
+        return new IgniteException(traceId, code, errMsg, causeWithStackTrace);
     }
 
     /** {@inheritDoc} */
