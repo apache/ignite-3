@@ -17,10 +17,10 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
@@ -129,8 +129,9 @@ public class ClientComputeTest {
             var ex = assertThrows(CompletionException.class,
                     () -> client.compute().<String>executeColocated("bad-tbl", key, "job").join());
 
-            assertInstanceOf(TableNotFoundException.class, ex.getCause());
-            assertThat(ex.getCause().getMessage(), containsString("Table does not exist [name=bad-tbl]"));
+            var tblNotFoundEx = (TableNotFoundException)ex.getCause();
+            assertThat(tblNotFoundEx.getMessage(), containsString("Table does not exist [name=bad-tbl]"));
+            assertEquals(TABLE_NOT_FOUND_ERR, tblNotFoundEx.code());
         }
     }
 
