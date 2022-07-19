@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
@@ -123,7 +124,8 @@ public class ItClientHandlerTest {
             final var major = unpacker.unpackInt();
             final var minor = unpacker.unpackInt();
             final var patch = unpacker.unpackInt();
-            final var errorCode = unpacker.unpackInt();
+            final var success = unpacker.tryUnpackNil();
+            assertTrue(success);
 
             final var idleTimeout = unpacker.unpackLong();
             final var nodeId = unpacker.unpackString();
@@ -140,7 +142,6 @@ public class ItClientHandlerTest {
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
-            assertEquals(0, errorCode);
             assertEquals(0, idleTimeout);
             assertEquals("id", nodeId);
             assertEquals("consistent-id", nodeName);
