@@ -226,7 +226,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             payloadCh.close();
             pendingReqs.remove(id);
 
-            throw convertException(t);
+            throw ClientUtils.convertException(t);
         }
     }
 
@@ -254,26 +254,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 throw new IgniteClientConnectionException(PROTOCOL_ERR, "Failed to deserialize server response: " + e.getMessage(), e);
             }
         }, asyncContinuationExecutor);
-    }
-
-    /**
-     * Converts exception to {@link IgniteException}.
-     *
-     * @param e Exception to convert.
-     * @return Resulting exception.
-     */
-    private IgniteException convertException(Throwable e) {
-        // For every known class derived from IgniteClientException, wrap cause in a new instance.
-        // We could rethrow e.getCause() when instanceof IgniteClientException,
-        // but this results in an incomplete stack trace from the receiver thread.
-        // This is similar to IgniteUtils.exceptionConverters.
-        if (e.getCause() instanceof IgniteClientConnectionException) {
-            return new IgniteClientConnectionException(((IgniteException)e).code(), e.getMessage(), e.getCause());
-        }
-
-        // TODO: Use correct constructor IGNITE-17312.
-        // TODO: Dedicated code for client exceptions IGNITE-17312.
-        return new IgniteException(e.getMessage(), e);
     }
 
     /**
@@ -383,7 +363,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var res = connectTimeout > 0 ? fut.get(connectTimeout, TimeUnit.MILLISECONDS) : fut.get();
             handshakeRes(res, ver);
         } catch (Throwable e) {
-            throw convertException(e);
+            throw ClientUtils.convertException(e);
         }
     }
 
