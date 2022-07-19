@@ -47,12 +47,18 @@ public class IgniteJraftServiceFactory extends DefaultJRaftServiceFactory {
         logStorageFactory = factory;
     }
 
+    /**
+     * Updates a value of {@link SnapshotStorageFactory} in this service factory.
+     */
     public IgniteJraftServiceFactory setSnapshotStorageFactory(SnapshotStorageFactory snapshotStorageFactory) {
         this.snapshotStorageFactory = snapshotStorageFactory;
 
         return this;
     }
 
+    /**
+     * Updates a value of {@link RaftMetaStorageFactory} in this service factory.
+     */
     public IgniteJraftServiceFactory setRaftMetaStorageFactory(RaftMetaStorageFactory raftMetaStorageFactory) {
         this.raftMetaStorageFactory = raftMetaStorageFactory;
 
