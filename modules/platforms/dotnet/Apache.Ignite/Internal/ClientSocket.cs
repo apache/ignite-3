@@ -292,16 +292,18 @@ namespace Apache.Ignite.Internal
 
         private static IgniteClientException? ReadError(ref MessagePackReader reader)
         {
-            var errorCode = (ClientErrorCode)reader.ReadInt32();
-
-            if (errorCode != ClientErrorCode.Success)
+            if (reader.TryReadNil())
             {
-                var errorMessage = reader.ReadString();
-
-                return new IgniteClientException(errorMessage, null, errorCode);
+                return null;
             }
 
-            return null;
+            // TODO: IGNITE-17390 .NET: Thin 3.0: Unified exception handling - reconstruct correct exception.
+            Guid? traceId = reader.TryReadNil() ? null : reader.ReadGuid();
+            int? code = reader.TryReadNil() ? null : reader.ReadInt32();
+            string className = reader.ReadString();
+            string? message = reader.ReadString();
+
+            return new IgniteClientException($"{className}: {message} ({code}, {traceId})", null, ClientErrorCode.Failed);
         }
 
         private static async ValueTask<PooledBuffer> ReadResponseAsync(
