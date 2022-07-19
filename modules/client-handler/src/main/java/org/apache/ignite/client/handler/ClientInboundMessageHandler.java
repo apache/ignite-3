@@ -81,6 +81,7 @@ import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.network.ClusterNode;
@@ -293,8 +294,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 packer.packString(msg);
             }
 
-            // TODO: Optional stack trace (IGNITE-17312).
-            packer.packNil();
+            if (configuration.sendServerExceptionStackTraceToClient()) {
+                packer.packString(ExceptionUtils.getFullStackTrace(err));
+            } else {
+                packer.packNil();
+            }
 
             write(packer, ctx);
         } catch (Throwable t) {
