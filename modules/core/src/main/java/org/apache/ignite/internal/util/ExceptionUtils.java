@@ -244,12 +244,12 @@ public final class ExceptionUtils {
     /**
      * Returns the list of {@code Throwable} objects in the exception chain.
      *
-     * <p>A throwable without cause will return a list containing one element - the input throwable. A throwable with one cause will return a
-     * list containing two elements - the input throwable and the cause throwable. A {@code null} throwable will return a list of size
-     * zero.
+     * <p>A throwable without cause will return a list containing one element - the input throwable. A throwable with one cause
+     * will return a list containing two elements - the input throwable and the cause throwable.
+     * A {@code null} throwable will return a list of size zero.
      *
-     * <p>This method handles recursive cause structures that might otherwise cause infinite loops. The cause chain is processed until the end
-     * is reached, or until the next item in the chain is already in the result set.
+     * <p>This method handles recursive cause structures that might otherwise cause infinite loops. The cause chain is processed until
+     * the end is reached, or until the next item in the chain is already in the result set.
      *
      * @param throwable The throwable to inspect, may be null.
      * @return The list of throwables, never null.
