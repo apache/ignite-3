@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
 import org.apache.ignite.internal.client.ProtocolBitmaskFeature;
 import org.apache.ignite.lang.IgniteException;
@@ -35,7 +35,7 @@ public class IgniteClientFeatureNotSupportedByServerException extends IgniteExce
      * @param msg the detail message.
      */
     public IgniteClientFeatureNotSupportedByServerException(String msg) {
-        super(UNKNOWN_ERR, msg);
+        this(msg, null);
     }
 
     /**
@@ -44,7 +44,7 @@ public class IgniteClientFeatureNotSupportedByServerException extends IgniteExce
      * @param feature Feature.
      */
     public IgniteClientFeatureNotSupportedByServerException(ProtocolBitmaskFeature feature) {
-        super("Feature " + feature.name() + " is not supported by the server");
+        this("Feature " + feature.name() + " is not supported by the server");
     }
 
     /**
@@ -54,6 +54,6 @@ public class IgniteClientFeatureNotSupportedByServerException extends IgniteExce
      * @param cause the cause.
      */
     public IgniteClientFeatureNotSupportedByServerException(String msg, Throwable cause) {
-        super(msg, cause);
+        super(PROTOCOL_ERR, msg, cause);
     }
 }

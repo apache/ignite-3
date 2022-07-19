@@ -34,7 +34,7 @@ public class IgniteClientAuthenticationException extends IgniteException {
      * @param msg the detail message.
      */
     public IgniteClientAuthenticationException(String msg) {
-        super(AUTHENTICATION_ERR, msg);
+        this(msg, null);
     }
 
     /**
@@ -44,6 +44,6 @@ public class IgniteClientAuthenticationException extends IgniteException {
      * @param cause the cause.
      */
     public IgniteClientAuthenticationException(String msg, Throwable cause) {
-        super(msg, cause);
+        super(AUTHENTICATION_ERR, msg, cause);
     }
 }
