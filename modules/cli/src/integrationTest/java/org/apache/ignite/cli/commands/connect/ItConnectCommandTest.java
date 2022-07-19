@@ -54,7 +54,7 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
         );
         // And prompt is changed to connect
         String promptAfter = Ansi.OFF.string(promptProvider.getPrompt());
-        assertThat(promptAfter).isEqualTo("[http://localhost:10300]> ");
+        assertThat(promptAfter).isEqualTo("[" + nodeName() + "]> ");
     }
 
     @Test
@@ -78,7 +78,7 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
 
         // Then
         assertAll(
-                () -> assertErrOutputIs("Could not connect to URL: http://localhost:11111" + System.lineSeparator())
+                () -> assertErrOutputIs("Could not connect to URL [url=http://localhost:11111]" + System.lineSeparator())
         );
         // And prompt is
         String prompt = Ansi.OFF.string(promptProvider.getPrompt());
@@ -92,7 +92,7 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
         execute("connect");
         // And prompt is
         String promptBefore = Ansi.OFF.string(promptProvider.getPrompt());
-        assertThat(promptBefore).isEqualTo("[http://localhost:10300]> ");
+        assertThat(promptBefore).isEqualTo("[" + nodeName() + "]> ");
 
         // When disconnect
         execute("disconnect");
@@ -104,5 +104,9 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
         // And prompt is changed
         String promptAfter = Ansi.OFF.string(promptProvider.getPrompt());
         assertThat(promptAfter).isEqualTo("[disconnected]> ");
+    }
+
+    private String nodeName() {
+        return CLUSTER_NODES.get(0).name();
     }
 }

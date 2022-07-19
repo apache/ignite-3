@@ -18,10 +18,15 @@
 package org.apache.ignite.internal.schema.configuration;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -40,6 +45,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.ColumnType.ColumnTypeSpec;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.builder.HashIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.PartialIndexDefinitionBuilder;
@@ -55,12 +61,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * SchemaConfigurationConverter tests.
  */
 @SuppressWarnings("InstanceVariableMayNotBeInitialized")
-public class SchemaConfigurationConverterTest {
+public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTest {
     /** Table builder. */
     private TableDefinitionBuilder tblBuilder;
 
@@ -258,6 +266,48 @@ public class SchemaConfigurationConverterTest {
     }
 
     /**
+     * Ensures that column default are properly converted from definition to configuration and vice versa.
+     *
+     * @param arg Argument object describing default value to verify.
+     */
+    @ParameterizedTest
+    @MethodSource("generateTestArguments")
+    public void convertDefaults(DefaultValueArg arg) {
+        final String keyColumnName = "ID";
+
+        var columnName = arg.type.typeSpec().name();
+
+        var tableDefinition = SchemaBuilders.tableBuilder("PUBLIC", "TEST")
+                .columns(
+                        SchemaBuilders.column(keyColumnName, ColumnType.INT32).build(),
+                        SchemaBuilders.column(columnName, arg.type).withDefaultValueExpression(arg.defaultValue).build()
+                )
+                .withPrimaryKey("ID")
+                .build();
+
+        confRegistry.getConfiguration(TablesConfiguration.KEY).change(
+                ch -> SchemaConfigurationConverter.createTable(tableDefinition, ch)
+                        .changeTables(
+                                tblsCh -> tblsCh.createOrUpdate(tableDefinition.canonicalName(), tblCh -> tblCh.changeReplicas(1))
+                        )
+        ).join();
+
+        var tableConfiguration = confRegistry.getConfiguration(TablesConfiguration.KEY)
+                .tables().get(tableDefinition.canonicalName());
+
+        var columns = SchemaConfigurationConverter.convert(tableConfiguration.value()).columns();
+
+        assertThat(columns, hasSize(2));
+        assertThat(columns.get(0).name(), equalTo(keyColumnName));
+
+        var targetColumn = columns.get(1);
+
+        assertThat(targetColumn.name(), equalTo(columnName));
+        assertThat(targetColumn.type(), equalTo(arg.type));
+        assertThat(targetColumn.defaultValue(), equalTo(arg.defaultValue));
+    }
+
+    /**
      * Get tests default table configuration.
      *
      * @return Configuration of default table.
@@ -275,5 +325,39 @@ public class SchemaConfigurationConverterTest {
      */
     private IndexDefinition getIdx(String name, Collection<IndexDefinition> idxs) {
         return idxs.stream().filter(idx -> name.equals(idx.name())).findAny().orElse(null);
+    }
+
+    private static Iterable<DefaultValueArg> generateTestArguments() {
+        var paramList = new ArrayList<DefaultValueArg>();
+
+        for (var entry : DEFAULT_VALUES_TO_TEST.entrySet()) {
+            for (var defaultValue : entry.getValue()) {
+                if (skipValue(entry.getKey(), defaultValue)) {
+                    continue;
+                }
+
+                paramList.add(
+                        new DefaultValueArg(specToType(entry.getKey()), adjust(defaultValue))
+                );
+            }
+        }
+        return paramList;
+    }
+
+    // TODO: IGNITE-17370 remove this
+    private static boolean skipValue(ColumnTypeSpec type, Object value) {
+        if (value == null) {
+            return false;
+        }
+
+        if (type == ColumnTypeSpec.BLOB && ((byte[]) value).length == 0) {
+            return true;
+        }
+
+        if (type == ColumnTypeSpec.BITMASK && ((BitSet) value).isEmpty()) {
+            return true;
+        }
+
+        return type == ColumnTypeSpec.STRING && ((String) value).isEmpty();
     }
 }

@@ -120,13 +120,13 @@ public class UnsafeMemoryProvider implements DirectMemoryProvider {
                 throw new IgniteInternalException(msg, e);
             }
 
-            LOG.error(msg);
+            LOG.debug(msg);
 
             return null;
         }
 
         if (ptr <= 0) {
-            LOG.error("Failed to allocate next memory chunk: " + IgniteUtils.readableSize(chunkSize, true));
+            LOG.debug("Failed to allocate next memory chunk [size={}]", IgniteUtils.readableSize(chunkSize, true));
 
             return null;
         }

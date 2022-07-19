@@ -43,7 +43,6 @@ import org.jline.reader.impl.DefaultParser;
 import org.jline.terminal.Terminal;
 import org.jline.widget.TailTipWidgets;
 import picocli.CommandLine;
-import picocli.CommandLine.Help.Ansi;
 import picocli.CommandLine.IDefaultValueProvider;
 import picocli.shell.jline3.PicocliCommands;
 import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
@@ -111,8 +110,9 @@ public class ReplExecutor {
             while (!interrupted.get()) {
                 try {
                     executor.cleanUp();
-                    String line = readLine(repl.getPromptProvider().getPrompt(), reader);
-                    if (line == null || line.isEmpty()) {
+                    String prompt = repl.getPromptProvider().getPrompt();
+                    String line = reader.readLine(prompt, null, (MaskingCallback) null, null);
+                    if (line.isEmpty()) {
                         continue;
                     }
 

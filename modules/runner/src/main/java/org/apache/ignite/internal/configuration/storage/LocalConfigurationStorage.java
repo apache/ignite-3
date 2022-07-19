@@ -206,7 +206,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     @Override
     public void registerConfigurationListener(ConfigurationStorageListener lsnr) {
         if (!lsnrRef.compareAndSet(null, lsnr)) {
-            LOG.warn("Configuration listener has already been set.");
+            LOG.debug("Configuration listener has already been set");
         }
     }
 

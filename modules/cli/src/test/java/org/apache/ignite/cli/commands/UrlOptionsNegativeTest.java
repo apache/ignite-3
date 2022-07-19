@@ -30,15 +30,15 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.cli.commands.cliconfig.TestConfigManagerProvider;
-import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigShowReplSubCommand;
-import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigShowSubCommand;
-import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigUpdateReplSubCommand;
-import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigUpdateSubCommand;
-import org.apache.ignite.cli.commands.configuration.node.NodeConfigShowReplSubCommand;
-import org.apache.ignite.cli.commands.configuration.node.NodeConfigShowSubCommand;
-import org.apache.ignite.cli.commands.configuration.node.NodeConfigUpdateReplSubCommand;
-import org.apache.ignite.cli.commands.configuration.node.NodeConfigUpdateSubCommand;
+import org.apache.ignite.cli.commands.cluster.config.ClusterConfigShowReplSubCommand;
+import org.apache.ignite.cli.commands.cluster.config.ClusterConfigShowSubCommand;
+import org.apache.ignite.cli.commands.cluster.config.ClusterConfigUpdateReplSubCommand;
+import org.apache.ignite.cli.commands.cluster.config.ClusterConfigUpdateSubCommand;
 import org.apache.ignite.cli.commands.connect.ConnectCommand;
+import org.apache.ignite.cli.commands.node.config.NodeConfigShowReplSubCommand;
+import org.apache.ignite.cli.commands.node.config.NodeConfigShowSubCommand;
+import org.apache.ignite.cli.commands.node.config.NodeConfigUpdateReplSubCommand;
+import org.apache.ignite.cli.commands.node.config.NodeConfigUpdateSubCommand;
 import org.apache.ignite.cli.config.ini.IniConfigManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -156,7 +156,8 @@ public class UrlOptionsNegativeTest {
         assertAll(
                 this::assertExitCodeIsFailure,
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Could not determine IP address when connecting to URL: http://no-such-host.com" + System.lineSeparator())
+                () -> assertErrOutputIs(
+                        "Could not determine IP address when connecting to URL [url=http://no-such-host.com]" + System.lineSeparator())
         );
     }
 
@@ -169,7 +170,7 @@ public class UrlOptionsNegativeTest {
         assertAll(
                 this::assertExitCodeIsFailure,
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Could not connect to URL: " + NODE_URL + System.lineSeparator())
+                () -> assertErrOutputIs("Could not connect to URL [url=" + NODE_URL + "]" + System.lineSeparator())
         );
     }
 
@@ -205,7 +206,8 @@ public class UrlOptionsNegativeTest {
 
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Could not determine IP address when connecting to URL: http://no-such-host.com" + System.lineSeparator())
+                () -> assertErrOutputIs(
+                        "Could not determine IP address when connecting to URL [url=http://no-such-host.com]" + System.lineSeparator())
         );
     }
 
@@ -217,7 +219,7 @@ public class UrlOptionsNegativeTest {
 
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Could not connect to URL: " + NODE_URL + System.lineSeparator())
+                () -> assertErrOutputIs("Could not connect to URL [url=" + NODE_URL + "]" + System.lineSeparator())
         );
     }
 

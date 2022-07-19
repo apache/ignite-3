@@ -251,9 +251,7 @@ public class VolatilePageMemory implements PageMemory {
     @Override
     public void stop(boolean deallocate) throws IgniteInternalException {
         synchronized (segmentsLock) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Stopping page memory.");
-            }
+            LOG.debug("Stopping page memory");
 
             started = false;
 
@@ -683,8 +681,8 @@ public class VolatilePageMemory implements PageMemory {
 
             if (oldRef != null) {
                 if (LOG.isInfoEnabled()) {
-                    LOG.info("Allocated next memory segment for region [name=" + dataRegionConfigView.name()
-                            + ", size=" + IgniteUtils.readableSize(region.size(), true) + ']');
+                    LOG.info("Allocated next memory segment for region [name={}, size={}]",
+                            dataRegionConfigView.name(), IgniteUtils.readableSize(region.size(), true));
                 }
             }
 

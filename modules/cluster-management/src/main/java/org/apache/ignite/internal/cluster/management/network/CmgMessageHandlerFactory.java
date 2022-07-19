@@ -71,7 +71,7 @@ public class CmgMessageHandlerFactory {
             try {
                 handler.onReceived(message, senderAddr, correlationId);
             } catch (Exception e) {
-                LOG.error("CMG message handling failed", e);
+                LOG.debug("CMG message handling failed", e);
 
                 if (correlationId != null) {
                     clusterService.messagingService().respond(senderAddr, initFailed(e), correlationId);
