@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;
@@ -54,12 +56,11 @@ public class ClientUtils {
      */
     public static IgniteException convertException(Throwable e) {
         if (e instanceof IgniteException) {
-            // TODO: IGNITE-17312 Fix stack trace loss
-            return (IgniteException) e;
+            var ie = (IgniteException) e;
+            return new IgniteException(ie.traceId(), ie.code(), ie.getMessage(), ie);
         }
 
-        //TODO: IGNITE-17312 Replace with public exception with an error code (or unwrap?).
-        return new IgniteException(e.getMessage(), e);
+        return new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
     }
 
     /**
