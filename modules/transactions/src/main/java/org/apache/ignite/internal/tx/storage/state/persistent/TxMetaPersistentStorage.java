@@ -18,14 +18,15 @@ package org.apache.ignite.internal.tx.storage.state.persistent;
 import java.util.UUID;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.storage.state.inmemory.TxMetaFreeList;
 import org.apache.ignite.internal.tx.storage.state.inmemory.TxMetaTree;
 import org.apache.ignite.internal.tx.storage.state.inmemory.TxMetaVolatileInMemoryStorage;
 
 public class TxMetaPersistentStorage extends TxMetaVolatileInMemoryStorage {
     private final CheckpointTimeoutLock checkpointLock;
 
-    public TxMetaPersistentStorage(TxMetaTree tree, CheckpointTimeoutLock checkpointLock) {
-        super(tree);
+    public TxMetaPersistentStorage(TxMetaTree tree, TxMetaFreeList freeList, int partition, CheckpointTimeoutLock checkpointLock) {
+        super(tree, freeList, partition);
 
         this.checkpointLock = checkpointLock;
     }

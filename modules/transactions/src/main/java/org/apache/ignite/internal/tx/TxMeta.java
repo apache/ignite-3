@@ -46,19 +46,4 @@ public class TxMeta implements Serializable {
     public long commitTimestamp() {
         return commitTimestamp;
     }
-
-    @Override public boolean equals(Object o) {
-        if (this == o)
-            return true;
-        if (o == null || getClass() != o.getClass())
-            return false;
-        TxMeta meta = (TxMeta)o;
-        return commitTimestamp == meta.commitTimestamp
-            && txState == meta.txState
-            && Objects.equals(enlistedPartitions, meta.enlistedPartitions);
-    }
-
-    @Override public int hashCode() {
-        return Objects.hash(txState, enlistedPartitions, commitTimestamp);
-    }
 }

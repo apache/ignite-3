@@ -31,10 +31,16 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_D
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
 
 public class TxMetaVolatileInMemoryStorage implements TxMetaStorage {
-    protected final TxMetaTree tree;
+    private final TxMetaTree tree;
 
-    public TxMetaVolatileInMemoryStorage(TxMetaTree tree) {
+    private final TxMetaFreeList freeList;
+
+    private final int partition;
+
+    public TxMetaVolatileInMemoryStorage(TxMetaTree tree, TxMetaFreeList freeList, int partition) {
         this.tree = tree;
+        this.freeList = freeList;
+        this.partition = partition;
     }
 
     @Override public void start() {
@@ -51,7 +57,7 @@ public class TxMetaVolatileInMemoryStorage implements TxMetaStorage {
 
     @Override public TxMeta get(UUID txId) {
         try {
-            return unwrap(tree.findOne(new TxMetaRowWrapper(txId, null))).get2();
+            return unwrap(tree.findOne(new TxMetaRowWrapper(txId, null, partition))).get2();
         } catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException(TX_STATE_STORAGE_ERR, e);
         }
@@ -59,7 +65,11 @@ public class TxMetaVolatileInMemoryStorage implements TxMetaStorage {
 
     @Override public void put(UUID txId, TxMeta txMeta) {
         try {
-            tree.put(new TxMetaRowWrapper(txId, txMeta));
+            var row = new TxMetaRowWrapper(txId, txMeta, partition);
+
+            tree.put(row);
+
+            freeList.insertDataRow(row);
         }
         catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException(TX_STATE_STORAGE_ERR, e);
@@ -68,9 +78,12 @@ public class TxMetaVolatileInMemoryStorage implements TxMetaStorage {
 
     @Override public boolean compareAndSet(UUID txId, TxMeta txMetaExpected, TxMeta txMeta) {
         try {
-            CASClosure closure = new CASClosure(new TxMetaRowWrapper(txId, txMetaExpected), new TxMetaRowWrapper(txId, txMeta));
+            CASClosure closure = new CASClosure(
+                new TxMetaRowWrapper(txId, txMetaExpected, partition),
+                new TxMetaRowWrapper(txId, txMeta, partition)
+            );
 
-            tree.invoke(new TxMetaRowWrapper(txId, null), null, closure);
+            tree.invoke(new TxMetaRowWrapper(txId, null, partition), null, closure);
 
             return closure.casResult();
         }
@@ -81,7 +94,11 @@ public class TxMetaVolatileInMemoryStorage implements TxMetaStorage {
 
     @Override public void remove(UUID txId) {
         try {
-            tree.remove(new TxMetaRowWrapper(txId, null));
+            TxMetaRowWrapper removed = tree.remove(new TxMetaRowWrapper(txId, null, partition));
+
+            if (removed != null) {
+                freeList.removeDataRowByLink(removed.link());
+            }
         }
         catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException(TX_STATE_STORAGE_ERR, e);

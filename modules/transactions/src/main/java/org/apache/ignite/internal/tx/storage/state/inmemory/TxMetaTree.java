@@ -66,4 +66,8 @@ public class TxMetaTree extends BplusTree<TxMetaRowWrapper, TxMetaRowWrapper> {
     ) throws IgniteInternalCheckedException {
         return io.getLookupRow(this, pageAddr, idx);
     }
+
+    public TxMetaRowWrapper getRowByLink(long link) {
+        return null;
+    }
 }

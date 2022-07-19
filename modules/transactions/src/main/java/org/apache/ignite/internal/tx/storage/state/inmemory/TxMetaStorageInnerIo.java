@@ -66,7 +66,7 @@ public class TxMetaStorageInnerIo extends BplusInnerIo<TxMetaRowWrapper> {
     }
 
     @Override
-    public void storeByOffset(long pageAddr, int off, TxMetaRowWrapper row) throws IgniteInternalCheckedException {
+    public void storeByOffset(long pageAddr, int off, TxMetaRowWrapper row) {
         assertPageType(pageAddr);
 
         putLong(pageAddr, off, row.txId().getLeastSignificantBits());
@@ -87,6 +87,6 @@ public class TxMetaStorageInnerIo extends BplusInnerIo<TxMetaRowWrapper> {
         off += MOST_SIGNIFICANT_OFF;
         long most = getLong(pageAddr, off);
 
-        return new TxMetaRowWrapper(new UUID(most, least), null);
+        return new TxMetaRowWrapper(new UUID(most, least), null, 0);
     }
 }

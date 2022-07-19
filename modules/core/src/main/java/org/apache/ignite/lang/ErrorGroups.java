@@ -50,13 +50,13 @@ public class ErrorGroups {
         /** Transactions error group. */
         public static final ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 3);
 
-        /** Error on creation of table state storage. */
+        /** Error on creation of tx state storage. */
         public static int TX_STATE_STORAGE_CREATE_ERR = TX_ERR_GROUP.registerErrorCode(1);
 
-        /** Error on destruction of table state storage. */
+        /** Error on destruction of tx state storage. */
         public static int TX_STATE_STORAGE_DESTROY_ERR = TX_ERR_GROUP.registerErrorCode(2);
 
-        /** Error of table state storage. */
+        /** Error of tx state storage. */
         public static int TX_STATE_STORAGE_ERR = TX_ERR_GROUP.registerErrorCode(3);
     }
 }
