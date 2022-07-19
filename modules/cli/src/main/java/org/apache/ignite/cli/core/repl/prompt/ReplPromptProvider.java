@@ -17,8 +17,12 @@
 
 package org.apache.ignite.cli.core.repl.prompt;
 
+import static org.apache.ignite.cli.core.style.AnsiStringSupport.ansi;
+import static org.apache.ignite.cli.core.style.AnsiStringSupport.fg;
+
 import jakarta.inject.Singleton;
 import org.apache.ignite.cli.core.repl.Session;
+import org.apache.ignite.cli.core.style.AnsiStringSupport.Color;
 
 /**
  * Provider for prompt in REPL.
@@ -36,8 +40,9 @@ public class ReplPromptProvider implements PromptProvider {
      */
     @Override
     public String getPrompt() {
+        String postfix = "> ";
         return session.isConnectedToNode()
-                ? "@|fg(10) [" + session.getNodeUrl() + "]|@> "
-                : "@|fg(9) [disconnected]|@> ";
+                ? ansi(fg(Color.GREEN).mark("[" + session.nodeName() + "]")) + postfix
+                : ansi(fg(Color.RED).mark("[disconnected]")) + postfix;
     }
 }

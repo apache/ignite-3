@@ -18,9 +18,9 @@
 package org.apache.ignite.cli.commands.decorators;
 
 import java.util.stream.Collectors;
-import org.apache.ignite.cli.commands.decorators.core.Decorator;
-import org.apache.ignite.cli.commands.decorators.core.TerminalOutput;
 import org.apache.ignite.cli.config.Profile;
+import org.apache.ignite.cli.core.decorator.Decorator;
+import org.apache.ignite.cli.core.decorator.TerminalOutput;
 
 /**
  * Decorator for printing {@link Profile}.
