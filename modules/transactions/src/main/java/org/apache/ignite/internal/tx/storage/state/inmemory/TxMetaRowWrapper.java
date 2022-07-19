@@ -31,6 +31,14 @@ public class TxMetaRowWrapper implements Comparable<TxMetaRowWrapper> {
         this.txMeta = txMeta;
     }
 
+    public UUID txId() {
+        return txId;
+    }
+
+    public TxMeta txMeta() {
+        return txMeta;
+    }
+
     @Override public boolean equals(Object o) {
         if (this == o)
             return true;
