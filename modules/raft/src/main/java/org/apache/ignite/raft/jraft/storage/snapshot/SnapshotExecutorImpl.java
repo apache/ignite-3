@@ -24,6 +24,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -33,6 +34,7 @@ import org.apache.ignite.raft.jraft.closure.SaveSnapshotClosure;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
+import org.apache.ignite.raft.jraft.entity.SnapshotMetaImpl;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RaftException;
 import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
@@ -44,7 +46,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotExecutor;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
-import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
 import org.apache.ignite.raft.jraft.util.CountDownEvent;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Requires;
@@ -227,10 +228,6 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         if (!this.snapshotStorage.init(null)) {
             LOG.error("Fail to init snapshot storage.");
             return false;
-        }
-        final LocalSnapshotStorage tmp = (LocalSnapshotStorage) this.snapshotStorage;
-        if (tmp != null && !tmp.hasServerAddr()) {
-            tmp.setServerAddr(opts.getAddr());
         }
         final SnapshotReader reader = this.snapshotStorage.open();
         if (reader == null) {

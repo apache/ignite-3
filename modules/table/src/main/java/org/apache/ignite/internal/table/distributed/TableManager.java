@@ -98,6 +98,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.raft.RebalanceRaftGroupEventsListener;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -122,6 +123,7 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
@@ -491,11 +493,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     String grpId = partitionRaftGroupName(tblId, partId);
 
                     if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
-                        RaftGroupOptions groupOptions = groupOptionsForInternalTable(internalTbl);
-
                         MvPartitionStorage partitionStorage = internalTbl.storage().getOrCreateMvPartition(partId);
 
-                        groupOptions.lastAppliedIndex(partitionStorage.appliedIndex());
+                        RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, partitionStorage, newPartAssignment);
 
                         raftMgr.startRaftGroupNode(
                                 grpId,
@@ -537,14 +537,28 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         CompletableFuture.allOf(futures).join();
     }
 
-    private RaftGroupOptions groupOptionsForInternalTable(InternalTable internalTbl) {
+    private RaftGroupOptions groupOptionsForPartition(
+            InternalTable internalTbl,
+            MvPartitionStorage partitionStorage,
+            List<ClusterNode> peers
+    ) {
+        RaftGroupOptions raftGroupOptions;
+
         if (internalTbl.storage().isVolatile()) {
-            return RaftGroupOptions.forVolatileStores()
+            raftGroupOptions = RaftGroupOptions.forVolatileStores()
                     .setLogStorageFactory(new VolatileLogStorageFactory())
                     .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage());
         } else {
-            return RaftGroupOptions.forPersistentStores();
+            raftGroupOptions = RaftGroupOptions.forPersistentStores();
         }
+
+        raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
+                partitionStorage,
+                peers.stream().map(n -> new Peer(n.address())).map(PeerId::fromPeer).map(Object::toString).collect(Collectors.toList()),
+                List.of()
+        ));
+
+        return raftGroupOptions;
     }
 
     /** {@inheritDoc} */
@@ -1328,11 +1342,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 pendingAssignmentsWatchEvent.key(), part, tbl.name(), localMember.address());
 
                         if (raftMgr.shouldHaveRaftGroupLocally(deltaPeers)) {
-                            RaftGroupOptions groupOptions = groupOptionsForInternalTable(tbl.internalTable());
-
                             MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(part);
 
-                            groupOptions.lastAppliedIndex(partitionStorage.appliedIndex());
+                            RaftGroupOptions groupOptions = groupOptionsForPartition(tbl.internalTable(), partitionStorage, assignments);
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
                                     tblId,

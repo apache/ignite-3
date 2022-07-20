@@ -975,10 +975,7 @@ public class NodeImpl implements Node, RaftServerService {
             return false;
         }
 
-        long lastAppliedIndex = opts.getLastAppliedIndex();
-        long persistedTerm = metaStorage.getTerm();
-
-        if (!initFSMCaller(new LogId(lastAppliedIndex, persistedTerm))) {
+        if (!initFSMCaller(new LogId(0, 0))) {
             LOG.error("Node {} initFSMCaller failed.", getNodeId());
             return false;
         }

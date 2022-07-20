@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -520,7 +521,7 @@ public class VersionedRowStore {
      */
     // TODO: IGNITE-16644 Support snapshots.
     public CompletionStage<Void> snapshot(Path path) {
-        throw new UnsupportedOperationException("Snapshots are not supported yet.");
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -530,7 +531,6 @@ public class VersionedRowStore {
      */
     // TODO: IGNITE-16644 Support snapshots.
     public void restoreSnapshot(Path path) {
-        throw new UnsupportedOperationException("Snapshots are not supported yet.");
     }
 
     /**

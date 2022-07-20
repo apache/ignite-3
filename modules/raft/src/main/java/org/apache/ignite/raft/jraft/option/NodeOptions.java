@@ -240,11 +240,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /** */
     private boolean sharedPools = false;
 
-    /**
-     * Value of the applied index that correspond to a local state during group start.
-     */
-    private long lastAppliedIndex;
-
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
     }
@@ -590,14 +585,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.logManagerDisruptor = logManagerDisruptor;
     }
 
-    public long getLastAppliedIndex() {
-        return lastAppliedIndex;
-    }
-
-    public void setLastAppliedIndex(long lastAppliedIndex) {
-        this.lastAppliedIndex = lastAppliedIndex;
-    }
-
     @Override
     public NodeOptions copy() {
         final NodeOptions nodeOptions = new NodeOptions();
@@ -648,8 +635,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
             + ", disableCli=" + disableCli + ", timerPoolSize="
             + timerPoolSize + ", cliRpcThreadPoolSize=" + cliRpcThreadPoolSize + ", raftRpcThreadPoolSize="
             + raftRpcThreadPoolSize + ", enableMetrics=" + enableMetrics + ", snapshotThrottle=" + snapshotThrottle
-            + ", serviceFactory=" + serviceFactory + ", raftOptions=" + raftOptions + ", lastAppliedIndex=" + lastAppliedIndex
-            + "} " + super.toString();
+            + ", serviceFactory=" + serviceFactory + ", raftOptions=" + raftOptions + "} " + super.toString();
     }
 
     /**
