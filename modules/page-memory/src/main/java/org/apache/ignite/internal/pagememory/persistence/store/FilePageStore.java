@@ -32,9 +32,7 @@ import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.fileio.FileIo;
@@ -44,6 +42,7 @@ import org.apache.ignite.internal.pagememory.persistence.FastCrc;
 import org.apache.ignite.internal.pagememory.persistence.IgniteInternalDataIntegrityViolationException;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * FilePageStore is a {@link PageStore} implementation that uses regular files to store pages.
@@ -51,28 +50,30 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * <p>Actual read and write operations are performed with {@link FileIo} abstract interface, list of its implementations is a good source
  * of information about functionality in Ignite Native Persistence.
  *
- * <p>On a physical level each instance of FilePageStore corresponds to a partition file assigned to the local node or to index file.
+ * <p>On a physical level each instance of {@code FilePageStore} corresponds to a partition file assigned to the local node.
  *
  * <p>Consists of:
  * <ul>
- *     <li>Header - {@link #SIGNATURE signature} (8 byte) + {@link #version version} (4 byte) +
- *     {@link #pageSize pageSize} (4 bytes) + version-specific information, total length {@link #headerSize}. </li>
- *     <li>Body - data pages are multiples of {@link #pageSize pageSize}.</li>
+ *     <li>Header - {@link FilePageStoreHeader}. </li>
+ *     <li>Body - data pages are multiples of {@link FilePageStoreHeader#pageSize() pageSize}.</li>
  * </ul>
  */
 public class FilePageStore implements PageStore {
-    /** Page store file signature. */
-    private static final long SIGNATURE = 0xF19AC4FE60C530B8L;
-
     /** File version. */
-    static final int VERSION_1 = 1;
-
-    /** Size of the common file page store header for all versions, in bytes. */
-    static final int COMMON_HEADER_SIZE = 8/*SIGNATURE*/ + 4/*VERSION*/ + 4/*page size*/;
+    public static final int VERSION_1 = 1;
 
     /** Skip CRC calculation flag. */
     // TODO: IGNITE-17011 Move to config
     private final boolean skipCrc = getBoolean("IGNITE_PDS_SKIP_CRC");
+
+    /** File page store version. */
+    private final int version;
+
+    /** Page size in bytes. */
+    private final int pageSize;
+
+    /** Header size in bytes. Should be aligned to the {@link #pageSize}. */
+    private final int headerSize;
 
     /** File page store path. */
     private final Path filePath;
@@ -80,14 +81,8 @@ public class FilePageStore implements PageStore {
     /** {@link FileIo} factory. */
     private final FileIoFactory ioFactory;
 
-    /** Page size in bytes. */
-    private final int pageSize;
-
-    /** Number of allocated bytes. */
-    private final AtomicLong allocatedBytes = new AtomicLong();
-
-    /** List of listeners for current page store to handle. */
-    private final List<PageWriteListener> listeners = new CopyOnWriteArrayList<>();
+    /** Page count. */
+    private final AtomicInteger pageCount = new AtomicInteger();
 
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
@@ -100,33 +95,32 @@ public class FilePageStore implements PageStore {
     /** Initialized file page store. */
     private volatile boolean initialized;
 
+    /** New page allocation listener. */
+    private volatile @Nullable PageAllocationListener pageAllocationListener;
+
     /**
      * Constructor.
      *
+     * @param version File page store version.
+     * @param pageSize Page size in bytes.
+     * @param headerSize File page store header in bytes, should be {@code pageSize} aligned.
      * @param filePath File page store path.
      * @param ioFactory {@link FileIo} factory.
-     * @param pageSize Page size in bytes.
      */
     public FilePageStore(
+            int version,
+            int pageSize,
+            int headerSize,
             Path filePath,
-            FileIoFactory ioFactory,
-            int pageSize
+            FileIoFactory ioFactory
     ) {
+        assert headerSize % pageSize == 0 : "Not aligned [headerSiz=" + headerSize + ", pageSize=" + pageSize + "]";
+
+        this.version = version;
+        this.pageSize = pageSize;
+        this.headerSize = headerSize;
         this.filePath = filePath;
         this.ioFactory = ioFactory;
-        this.pageSize = pageSize;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void addWriteListener(PageWriteListener listener) {
-        listeners.add(listener);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void removeWriteListener(PageWriteListener listener) {
-        listeners.remove(listener);
     }
 
     /** {@inheritDoc} */
@@ -144,26 +138,56 @@ public class FilePageStore implements PageStore {
 
     /** {@inheritDoc} */
     @Override
-    public long allocatePage() throws IgniteInternalCheckedException {
-        init();
+    public int allocatePage() throws IgniteInternalCheckedException {
+        ensure();
 
-        return allocatedBytes.getAndAdd(pageSize) / pageSize;
-    }
+        int pageIdx = pageCount.getAndIncrement();
 
-    /** {@inheritDoc} */
-    @Override
-    public long pages() {
-        if (!initialized) {
-            return 0;
+        PageAllocationListener listener = this.pageAllocationListener;
+
+        if (listener != null) {
+            listener.onPageAllocated(pageIdx);
         }
 
-        return allocatedBytes.get() / pageSize;
+        return pageIdx;
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
-        return read(pageId, pageBuf, !skipCrc, keepCrc);
+    public int pages() {
+        return pageCount.get();
+    }
+
+    /**
+     * Sets the page count.
+     *
+     * @param pageCount New page count.
+     */
+    public void pages(int pageCount) {
+        assert pageCount >= 0 : pageCount;
+
+        this.pageCount.set(pageCount);
+    }
+
+    /**
+     * Reads a page, unlike {@link #read(long, ByteBuffer, boolean)}, checks the page offset in the file not logically (pageOffset <= {@link
+     * #pages()} * {@link #pageSize}) but physically (pageOffset <= {@link #size()}), which can affect performance when used in production
+     * code.
+     *
+     * @param pageId Page ID.
+     * @param pageBuf Page buffer to read into.
+     * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code
+     * keepCrc}.
+     * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
+     */
+    public void readByPhysicalOffset(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
+        read0(pageId, pageBuf, !skipCrc, keepCrc, false);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
+        read0(pageId, pageBuf, !skipCrc, keepCrc, true);
     }
 
     /**
@@ -173,29 +197,39 @@ public class FilePageStore implements PageStore {
      * @param pageBuf Page buffer to read into.
      * @param checkCrc Check CRC on page.
      * @param keepCrc By default reading zeroes CRC which was on file, but you can keep it in pageBuf if set keepCrc.
-     * @return {@code true} if page has been read successfully, {@code false} if page hasn't been written yet.
+     * @param checkPageOffsetLogically Check page offset by {@link #allocatedBytes} or {@link #size}.
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
-    private boolean read(long pageId, ByteBuffer pageBuf, boolean checkCrc, boolean keepCrc) throws IgniteInternalCheckedException {
-        init();
+    private void read0(
+            long pageId,
+            ByteBuffer pageBuf,
+            boolean checkCrc,
+            boolean keepCrc,
+            boolean checkPageOffsetLogically
+    ) throws IgniteInternalCheckedException {
+        ensure();
 
         try {
-            long off = pageOffset(pageId);
+            assert pageBuf.capacity() == pageSize : pageBuf.capacity();
+            assert pageBuf.remaining() == pageSize : pageBuf.remaining();
+            assert pageBuf.position() == 0 : pageBuf.position();
+            assert pageBuf.order() == nativeOrder() : pageBuf.order();
 
-            assert pageBuf.capacity() == pageSize;
-            assert pageBuf.remaining() == pageSize;
-            assert pageBuf.position() == 0;
-            assert pageBuf.order() == nativeOrder();
-            assert off <= allocatedBytes.get() : "calculatedOffset=" + off
-                    + ", allocated=" + allocatedBytes.get() + ", headerSize=" + headerSize() + ", filePath=" + filePath;
+            long pageOff = pageOffset(pageId);
 
-            int n = readWithFailover(pageBuf, off);
+            if (checkPageOffsetLogically) {
+                assert pageOff <= allocatedBytes() : "calculatedOffset=" + pageOff
+                        + ", allocated=" + allocatedBytes() + ", headerSize=" + headerSize + ", filePath=" + filePath;
+            } else {
+                assert pageOff <= size() : "calculatedOffset=" + pageOff
+                        + ", size=" + size() + ", headerSize=" + headerSize + ", filePath=" + filePath;
+            }
+
+            int n = readWithFailover(pageBuf, pageOff);
 
             // If page was not written yet, nothing to read.
             if (n < 0) {
                 pageBuf.put(new byte[pageBuf.remaining()]);
-
-                return false;
             }
 
             int savedCrc32 = PageIo.getCrc(pageBuf);
@@ -209,7 +243,7 @@ public class FilePageStore implements PageStore {
 
                 if ((savedCrc32 ^ curCrc32) != 0) {
                     throw new IgniteInternalDataIntegrityViolationException("Failed to read page (CRC validation failed) "
-                            + "[id=" + hexLong(pageId) + ", off=" + (off - pageSize)
+                            + "[id=" + hexLong(pageId) + ", off=" + pageOff
                             + ", filePath=" + filePath + ", fileSize=" + fileIo.size()
                             + ", savedCrc=" + hexInt(savedCrc32) + ", curCrc=" + hexInt(curCrc32)
                             + ", page=" + toHexString(pageBuf) + "]");
@@ -221,8 +255,6 @@ public class FilePageStore implements PageStore {
             if (keepCrc) {
                 PageIo.setCrc(pageBuf, savedCrc32);
             }
-
-            return true;
         } catch (IOException e) {
             throw new IgniteInternalCheckedException("Failed to read page [file=" + filePath + ", pageId=" + pageId + "]", e);
         }
@@ -230,8 +262,8 @@ public class FilePageStore implements PageStore {
 
     /** {@inheritDoc} */
     @Override
-    public void write(long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc) throws IgniteInternalCheckedException {
-        init();
+    public void write(long pageId, ByteBuffer pageBuf, boolean calculateCrc) throws IgniteInternalCheckedException {
+        ensure();
 
         boolean interrupted = false;
 
@@ -242,12 +274,7 @@ public class FilePageStore implements PageStore {
                 readWriteLock.readLock().lock();
 
                 try {
-                    long off = pageOffset(pageId);
-
-                    assert (off >= 0 && off <= allocatedBytes.get()) : "off=" + hexLong(off) + ", allocated="
-                            + hexLong(allocatedBytes.get()) + ", pageId=" + hexLong(pageId) + ", filePath=" + filePath;
-
-                    assert pageBuf.position() == 0;
+                    assert pageBuf.position() == 0 : pageBuf.position();
                     assert pageBuf.order() == nativeOrder() : "Page buffer order " + pageBuf.order()
                             + " should be same with " + nativeOrder();
                     assert PageIo.getType(pageBuf) != 0 : "Invalid state. Type is 0! pageId = " + hexLong(pageId);
@@ -265,13 +292,12 @@ public class FilePageStore implements PageStore {
 
                     assert pageBuf.position() == 0 : pageBuf.position();
 
-                    for (PageWriteListener listener : listeners) {
-                        listener.accept(pageId, pageBuf);
+                    long pageOff = pageOffset(pageId);
 
-                        pageBuf.rewind();
-                    }
+                    assert pageOff <= allocatedBytes() : "calculatedOffset=" + pageOff
+                            + ", allocated=" + allocatedBytes() + ", headerSize=" + headerSize + ", filePath=" + filePath;
 
-                    fileIo.writeFully(pageBuf, off);
+                    fileIo.writeFully(pageBuf, pageOff);
 
                     PageIo.setCrc(pageBuf, 0);
 
@@ -307,7 +333,7 @@ public class FilePageStore implements PageStore {
                 }
 
                 throw new IgniteInternalCheckedException(
-                        "Failed to write page [filePath=" + filePath + ", pageId=" + pageId + ", tag=" + tag + "]",
+                        "Failed to write page [filePath=" + filePath + ", pageId=" + pageId + "]",
                         e
                 );
             }
@@ -320,7 +346,7 @@ public class FilePageStore implements PageStore {
         readWriteLock.writeLock().lock();
 
         try {
-            init();
+            ensure();
 
             FileIo fileIo = this.fileIo;
 
@@ -342,7 +368,7 @@ public class FilePageStore implements PageStore {
 
             try {
                 if (fileExists == null) {
-                    fileExists = Files.exists(filePath) && filePath.toFile().length() >= headerSize();
+                    fileExists = Files.exists(filePath) && filePath.toFile().length() >= headerSize;
                 }
             } finally {
                 readWriteLock.writeLock().unlock();
@@ -355,7 +381,61 @@ public class FilePageStore implements PageStore {
     /** {@inheritDoc} */
     @Override
     public void ensure() throws IgniteInternalCheckedException {
-        init();
+        if (!initialized) {
+            readWriteLock.writeLock().lock();
+
+            try {
+                if (!initialized) {
+                    FileIo fileIo = null;
+
+                    IgniteInternalCheckedException err = null;
+
+                    try {
+                        boolean interrupted = false;
+
+                        while (true) {
+                            try {
+                                this.fileIo = fileIo = ioFactory.create(filePath, CREATE, READ, WRITE);
+
+                                fileExists = true;
+
+                                if (fileIo.size() < headerSize) {
+                                    fileIo.writeFully(new FilePageStoreHeader(version, pageSize).toByteBuffer(), 0);
+                                } else {
+                                    checkHeader(fileIo);
+                                }
+
+                                if (interrupted) {
+                                    Thread.currentThread().interrupt();
+                                }
+
+                                break;
+                            } catch (ClosedByInterruptException e) {
+                                interrupted = true;
+
+                                Thread.interrupted();
+                            }
+                        }
+
+                        initialized = true;
+                    } catch (IOException e) {
+                        err = new IgniteInternalCheckedException("Failed to initialize partition file: " + filePath, e);
+
+                        throw err;
+                    } finally {
+                        if (err != null && fileIo != null) {
+                            try {
+                                fileIo.close();
+                            } catch (IOException e) {
+                                err.addSuppressed(e);
+                            }
+                        }
+                    }
+                }
+            } finally {
+                readWriteLock.writeLock().unlock();
+            }
+        }
     }
 
     /** {@inheritDoc} */
@@ -378,42 +458,6 @@ public class FilePageStore implements PageStore {
             return io == null ? 0 : io.size();
         } catch (IOException e) {
             throw new IgniteInternalCheckedException(e);
-        }
-    }
-
-    /**
-     * Size of file page store header in bytes.
-     */
-    public int headerSize() {
-        return pageSize;
-    }
-
-    /**
-     * File page store version.
-     */
-    public int version() {
-        return VERSION_1;
-    }
-
-    /**
-     * Reads a page store header with its creation if missing (on store initialization).
-     *
-     * <p>Structure: signature (8 byte) + version (4 byte) + pageSize (4 byte).
-     *
-     * @param bufferToWrite Buffer to write to.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    void readHeader(ByteBuffer bufferToWrite) throws IgniteInternalCheckedException {
-        init();
-
-        try {
-            assert bufferToWrite.remaining() == headerSize();
-
-            readWithFailover(bufferToWrite, 0);
-
-            checkHeader(bufferToWrite);
-        } catch (IOException e) {
-            throw new IgniteInternalCheckedException("Failed to read header [filePath=" + filePath + "]", e);
         }
     }
 
@@ -459,147 +503,13 @@ public class FilePageStore implements PageStore {
     }
 
     /**
-     * Initializes the page store file.
-     *
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    private void init() throws IgniteInternalCheckedException {
-        if (!initialized) {
-            readWriteLock.writeLock().lock();
-
-            try {
-                if (!initialized) {
-                    FileIo fileIo = null;
-
-                    IgniteInternalCheckedException err = null;
-
-                    long newSize;
-
-                    try {
-                        boolean interrupted = false;
-
-                        while (true) {
-                            try {
-                                this.fileIo = fileIo = ioFactory.create(filePath, CREATE, READ, WRITE);
-
-                                fileExists = true;
-
-                                newSize = (filePath.toFile().length() == 0 ? initFile(fileIo) : checkFile(fileIo, filePath));
-
-                                if (interrupted) {
-                                    Thread.currentThread().interrupt();
-                                }
-
-                                break;
-                            } catch (ClosedByInterruptException e) {
-                                interrupted = true;
-
-                                Thread.interrupted();
-                            }
-                        }
-
-                        assert allocatedBytes.get() == 0;
-
-                        allocatedBytes.set(newSize);
-
-                        initialized = true;
-                    } catch (IOException e) {
-                        err = new IgniteInternalCheckedException("Failed to initialize partition file: " + filePath, e);
-
-                        throw err;
-                    } finally {
-                        if (err != null && fileIo != null) {
-                            try {
-                                fileIo.close();
-                            } catch (IOException e) {
-                                err.addSuppressed(e);
-                            }
-                        }
-                    }
-                }
-            } finally {
-                readWriteLock.writeLock().unlock();
-            }
-        }
-    }
-
-    /**
-     * Initializes header and writes it into the file store.
-     *
-     * @return Next available position in the file to store a data.
-     * @throws IOException If initialization is failed.
-     */
-    private long initFile(FileIo fileIo) throws IOException {
-        try {
-            ByteBuffer hdr = header(pageSize);
-
-            fileIo.writeFully(hdr);
-
-            // There is 'super' page in every file.
-            return 0;
-        } catch (ClosedByInterruptException e) {
-            // If thread was interrupted written header can be inconsistent.
-            readWriteLock.writeLock().lock();
-
-            try {
-                Files.delete(filePath);
-
-                fileExists = false;
-            } finally {
-                readWriteLock.writeLock().unlock();
-            }
-
-            throw e;
-        }
-    }
-
-    /**
-     * Creates header for current version file store.
-     *
-     * <p>Doesn't init the store.
-     *
-     * @param pageSize Page size in bytes.
-     * @return Byte buffer instance.
-     */
-    private ByteBuffer header(int pageSize) {
-        ByteBuffer hdr = ByteBuffer.allocate(headerSize()).order(nativeOrder());
-
-        hdr.putLong(SIGNATURE);
-
-        hdr.putInt(version());
-
-        hdr.putInt(pageSize);
-
-        hdr.rewind();
-
-        return hdr;
-    }
-
-    /**
-     * Checks that file store has correct header and size.
-     *
-     * @return Next available position in the file to store a data.
-     * @throws IOException If check has failed.
-     */
-    private long checkFile(FileIo fileIo, Path filePath) throws IOException {
-        ByteBuffer headerBuffer = ByteBuffer.allocate(headerSize()).order(nativeOrder());
-
-        fileIo.readFully(headerBuffer);
-
-        checkHeader(headerBuffer);
-
-        // Every file has a special meta page.
-        return filePath.toFile().length() - headerSize();
-    }
-
-    /**
      * Gets page offset within the store file.
      *
      * @param pageId Page ID.
      * @return Page offset.
      */
     long pageOffset(long pageId) {
-        return (long) PageIdUtils.pageIndex(pageId) * pageSize + headerSize();
+        return (long) PageIdUtils.pageIndex(pageId) * pageSize + headerSize;
     }
 
     /**
@@ -677,7 +587,7 @@ public class FilePageStore implements PageStore {
 
                         fileExists = true;
 
-                        checkFile(fileIo, filePath);
+                        checkHeader(fileIo);
 
                         this.fileIo = fileIo;
 
@@ -718,40 +628,41 @@ public class FilePageStore implements PageStore {
         }
     }
 
-    private void checkHeader(ByteBuffer headerBuffer) throws IOException {
-        headerBuffer.rewind();
-
-        long signature = headerBuffer.getLong();
-
-        String prefix = "Failed to verify, file='" + filePath + "' ";
-
-        if (SIGNATURE != signature) {
-            throw new IOException(prefix + "(invalid file signature)"
-                    + " [expectedSignature=" + hexLong(SIGNATURE)
-                    + ", actualSignature=" + hexLong(signature) + ']');
-        }
-
-        int ver = headerBuffer.getInt();
-
-        if (version() != ver) {
-            throw new IOException(prefix + "(invalid file version)"
-                    + " [expectedVersion=" + version()
-                    + ", fileVersion=" + ver + "]");
-        }
-
-        int pageSize = headerBuffer.getInt();
-
-        if (this.pageSize != pageSize) {
-            throw new IOException(prefix + "(invalid file pageSize)"
-                    + " [expectedPageSize=" + this.pageSize
-                    + ", filePageSize=" + pageSize + "]");
-        }
-    }
-
     /**
      * Returns file page store path.
      */
-    Path filePath() {
+    public Path filePath() {
         return filePath;
+    }
+
+    private void checkHeader(FileIo fileIo) throws IOException {
+        FilePageStoreHeader header = FilePageStoreHeader.readHeader(fileIo, ByteBuffer.allocate(pageSize).order(nativeOrder()));
+
+        if (header == null) {
+            throw new IOException("Missing file header");
+        }
+
+        FilePageStoreHeader.checkHeaderVersion(header, version);
+        FilePageStoreHeader.checkHeaderPageSize(header, pageSize);
+    }
+
+    private long allocatedBytes() {
+        return (long) pageCount.get() * pageSize;
+    }
+
+    /**
+     * Returns file page store header size.
+     */
+    public int headerSize() {
+        return headerSize;
+    }
+
+    /**
+     * Sets the new page allocation listener.
+     *
+     * @param listener New page allocation listener.
+     */
+    public void setPageAllocationListener(PageAllocationListener listener) {
+        pageAllocationListener = listener;
     }
 }

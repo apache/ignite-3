@@ -291,6 +291,27 @@ public class IgniteUtils {
     }
 
     /**
+     * Returns byte array represented by given hex string.
+     *
+     * @param s String containing a hex representation of bytes.
+     * @return A byte array.
+     */
+    public static byte[] fromHexString(String s) {
+        var len = s.length();
+
+        assert (len & 1) == 0 : "length should be even";
+
+        var data = new byte[len / 2];
+
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i + 1), 16));
+        }
+
+        return data;
+    }
+
+    /**
      * Appends {@code byte} in hexadecimal format.
      *
      * @param sb String builder.

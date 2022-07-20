@@ -80,7 +80,7 @@ public interface FileIo extends AutoCloseable {
      * <p>Tries to read either until the {@code destBuf} is full or until the end of the file.
      *
      * @param destBuf Destination byte buffer.
-     * @return Number of written bytes.
+     * @return Number of read bytes.
      * @throws IOException If some I/O error occurs.
      */
     int readFully(ByteBuffer destBuf) throws IOException;
@@ -92,7 +92,7 @@ public interface FileIo extends AutoCloseable {
      *
      * @param destBuf Destination byte buffer.
      * @param position Starting position of file.
-     * @return Number of written bytes.
+     * @return Number of read bytes.
      * @throws IOException If some I/O error occurs.
      */
     int readFully(ByteBuffer destBuf, long position) throws IOException;
@@ -105,7 +105,7 @@ public interface FileIo extends AutoCloseable {
      * @param buf Destination byte array.
      * @param off The start offset in array {@code buff} at which the data is written.
      * @param len Number of bytes read.
-     * @return Number of written bytes.
+     * @return Number of read bytes.
      * @throws IOException If some I/O error occurs.
      */
     int readFully(byte[] buf, int off, int len) throws IOException;

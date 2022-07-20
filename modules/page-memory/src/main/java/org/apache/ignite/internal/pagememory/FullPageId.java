@@ -65,7 +65,7 @@ public final class FullPageId {
     /**
      * Constructor.
      *
-     * @param pageId  Page ID.
+     * @param pageId Page ID.
      * @param groupId Group ID.
      */
     public FullPageId(long pageId, int groupId) {
@@ -120,7 +120,7 @@ public final class FullPageId {
      * Returns hash code of the ID.
      *
      * @param groupId Group ID.
-     * @param pageId  Page ID.
+     * @param pageId Page ID.
      * @return Hash code.
      */
     public static int hashCode(int groupId, long pageId) {
@@ -132,7 +132,7 @@ public final class FullPageId {
     /**
      * Will not clear link bits.
      *
-     * @param groupId         Group ID.
+     * @param groupId Group ID.
      * @param effectivePageId Effective page ID.
      * @return Hash code.
      */
@@ -177,5 +177,12 @@ public final class FullPageId {
      */
     public int partitionId() {
         return PageIdUtils.partitionId(pageId);
+    }
+
+    /**
+     * Returns the page index.
+     */
+    public int pageIdx() {
+        return PageIdUtils.pageIndex(pageId);
     }
 }
