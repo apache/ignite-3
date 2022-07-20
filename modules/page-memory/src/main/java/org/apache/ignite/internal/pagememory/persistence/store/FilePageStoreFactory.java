@@ -84,13 +84,7 @@ class FilePageStoreFactory {
             FilePageStoreHeader header
     ) throws IgniteInternalCheckedException {
         if (header.version() == FilePageStore.VERSION_1) {
-            return new FilePageStore(
-                    header.version(),
-                    header.pageSize(),
-                    header.headerSize(),
-                    filePath,
-                    fileIoFactory
-            );
+            return new FilePageStore(header, filePath, fileIoFactory);
         }
 
         throw new IgniteInternalCheckedException(String.format(
