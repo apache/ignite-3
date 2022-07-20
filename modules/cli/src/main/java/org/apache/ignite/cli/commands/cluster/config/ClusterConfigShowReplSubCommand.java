@@ -55,9 +55,6 @@ public class ClusterConfigShowReplSubCommand extends BaseCommand implements Runn
     private ClusterConfigShowCall call;
 
     @Inject
-    private Session session;
-
-    @Inject
     private ConnectToClusterQuestion question;
 
     @Override

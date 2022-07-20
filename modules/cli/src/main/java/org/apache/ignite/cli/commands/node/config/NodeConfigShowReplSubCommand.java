@@ -53,9 +53,6 @@ public class NodeConfigShowReplSubCommand extends BaseCommand implements Runnabl
     private NodeConfigShowCall call;
 
     @Inject
-    private Session session;
-
-    @Inject
     private ConnectToClusterQuestion question;
 
     /** {@inheritDoc} */
