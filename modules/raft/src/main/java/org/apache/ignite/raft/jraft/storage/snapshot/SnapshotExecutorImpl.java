@@ -44,6 +44,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotExecutor;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
+import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
 import org.apache.ignite.raft.jraft.util.CountDownEvent;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Requires;
@@ -226,6 +227,12 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         if (!this.snapshotStorage.init(null)) {
             LOG.error("Fail to init snapshot storage.");
             return false;
+        }
+        if (snapshotStorage instanceof LocalSnapshotStorage) {
+            final LocalSnapshotStorage tmp = (LocalSnapshotStorage) this.snapshotStorage;
+            if (tmp != null && !tmp.hasServerAddr()) {
+                tmp.setServerAddr(opts.getAddr());
+            }
         }
         final SnapshotReader reader = this.snapshotStorage.open();
         if (reader == null) {
