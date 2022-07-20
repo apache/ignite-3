@@ -144,7 +144,7 @@ public class CheckpointerTest {
                 checkpointConfig
         ));
 
-        assertNull(checkpointer.currentProgress());
+        assertNull(checkpointer.lastCheckpointProgress());
 
         CheckpointProgressImpl scheduledProgress = (CheckpointProgressImpl) checkpointer.scheduledProgress();
 
@@ -160,14 +160,14 @@ public class CheckpointerTest {
 
         assertSame(scheduledProgress, checkpointer.scheduleCheckpoint(3000, "test0"));
 
-        assertNull(checkpointer.currentProgress());
+        assertNull(checkpointer.lastCheckpointProgress());
 
         assertEquals(onCreateCheckpointerNextCheckpointNanos, scheduledProgress.nextCheckpointNanos());
         assertEquals(onCreateCheckpointerReason, scheduledProgress.reason());
 
         assertSame(scheduledProgress, checkpointer.scheduleCheckpoint(100, "test1"));
 
-        assertNull(checkpointer.currentProgress());
+        assertNull(checkpointer.lastCheckpointProgress());
 
         assertNotEquals(onCreateCheckpointerNextCheckpointNanos, scheduledProgress.nextCheckpointNanos());
         assertNotEquals(onCreateCheckpointerReason, scheduledProgress.reason());
@@ -186,7 +186,7 @@ public class CheckpointerTest {
 
         checkpointer.startCheckpointProgress();
 
-        CheckpointProgressImpl currentProgress = (CheckpointProgressImpl) checkpointer.currentProgress();
+        CheckpointProgressImpl currentProgress = (CheckpointProgressImpl) checkpointer.lastCheckpointProgress();
 
         assertSame(scheduledProgress, currentProgress);
 
@@ -205,7 +205,7 @@ public class CheckpointerTest {
         assertEquals(scheduledReason, currentProgress.reason());
 
         assertSame(currentProgress, checkpointer.scheduleCheckpoint(90, "test2"));
-        assertSame(currentProgress, checkpointer.currentProgress());
+        assertSame(currentProgress, checkpointer.lastCheckpointProgress());
         assertSame(scheduledProgress, checkpointer.scheduledProgress());
 
         assertEquals(scheduledNextCheckpointNanos, currentProgress.nextCheckpointNanos());
@@ -214,7 +214,7 @@ public class CheckpointerTest {
         currentProgress.transitTo(LOCK_TAKEN);
 
         assertSame(scheduledProgress, checkpointer.scheduleCheckpoint(90, "test3"));
-        assertSame(currentProgress, checkpointer.currentProgress());
+        assertSame(currentProgress, checkpointer.lastCheckpointProgress());
         assertSame(scheduledProgress, checkpointer.scheduledProgress());
 
         assertThat(
@@ -354,7 +354,7 @@ public class CheckpointerTest {
         verify(dirtyPages, times(1)).toDirtyPageIdQueue();
         verify(checkpointer, times(1)).startCheckpointProgress();
 
-        assertEquals(checkpointer.currentProgress().currentCheckpointPagesCount(), 3);
+        assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 3);
     }
 
     @Test

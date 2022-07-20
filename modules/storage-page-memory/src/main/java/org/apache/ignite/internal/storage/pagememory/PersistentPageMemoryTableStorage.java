@@ -97,9 +97,9 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
             int grpId = groupId(tableView);
 
-            CheckpointProgress currentProgress = checkpointManager.currentProgress();
+            CheckpointProgress lastCheckpointProgress = checkpointManager.lastCheckpointProgress();
 
-            UUID checkpointId = currentProgress == null ? null : currentProgress.id();
+            UUID checkpointId = lastCheckpointProgress == null ? null : lastCheckpointProgress.id();
 
             PartitionMeta meta = dataRegion.partitionMetaManager().readOrCreateMeta(
                     checkpointId,
@@ -114,9 +114,9 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             filePageStore.setPageAllocationListener(pageIdx -> {
                 assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
-                CheckpointProgress curr = checkpointManager.currentProgress();
+                CheckpointProgress last = checkpointManager.lastCheckpointProgress();
 
-                meta.incrementPageCount(curr == null ? null : curr.id());
+                meta.incrementPageCount(last == null ? null : last.id());
             });
 
             boolean initNewTree = false;
