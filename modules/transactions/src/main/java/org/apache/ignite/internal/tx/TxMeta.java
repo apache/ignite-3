@@ -36,6 +36,7 @@ public class TxMeta implements Serializable {
 
     /**
      * The constructor.
+     *
      * @param txState Tx state.
      * @param enlistedPartitions The list of enlisted partitions.
      * @param commitTimestamp Commit timestamp.
