@@ -19,11 +19,13 @@ import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.TxState;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Storage for transaction meta, {@link TxMeta}.
  */
-public interface TxMetaStorage extends AutoCloseable {
+public interface TxStateStorage extends AutoCloseable {
     /**
      * Start the storage.
      */
@@ -61,11 +63,11 @@ public interface TxMetaStorage extends AutoCloseable {
      * Atomically change the tx meta in the storage.
      *
      * @param txId Tx id.
-     * @param txMetaExpected Tx meta that is expected to be in the storage.
+     * @param txStateExpected Tx state that is expected to be in the storage.
      * @param txMeta Tx meta.
      * @return Whether the CAS operation is successful.
      */
-    boolean compareAndSet(UUID txId, TxMeta txMetaExpected, TxMeta txMeta);
+    boolean compareAndSet(UUID txId, @NotNull TxState txStateExpected, @NotNull TxMeta txMeta);
 
     /**
      * Remove the tx meta from the storage.

@@ -18,10 +18,12 @@ package org.apache.ignite.internal.tx.storage.state;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.concurrent.Executors;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -30,13 +32,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(WorkDirectoryExtension.class)
-public abstract class AbstractTxMetaStorageTest {
+public class TxStateStorageTest {
     @WorkDirectory
     protected Path workDir;
 
     @Test
     public void test() throws Exception {
-        try (TxMetaStorage storage = createStorage()) {
+        try (TxStateStorage storage = createStorage()) {
             storage.start();
 
             TxMeta txMeta0 = new TxMeta(TxState.PENDING, new ArrayList<>(), 0L);
@@ -47,14 +49,22 @@ public abstract class AbstractTxMetaStorageTest {
 
             storage.put(txId, txMeta0);
 
-            assertEquals(storage.get(txId), txMeta0);
+            assertTxMetaEquals(storage.get(txId), txMeta0);
 
-            assertFalse(storage.compareAndSet(txId, txMeta1, txMeta2));
-            assertTrue(storage.compareAndSet(txId, txMeta0, txMeta2));
+            assertFalse(storage.compareAndSet(txId, txMeta1.txState(), txMeta2));
+            assertTrue(storage.compareAndSet(txId, txMeta0.txState(), txMeta2));
 
-            assertEquals(storage.get(txId), txMeta2);
+            assertTxMetaEquals(storage.get(txId), txMeta2);
         }
     }
 
-    protected abstract TxMetaStorage createStorage();
+    private static void assertTxMetaEquals(TxMeta txMeta0, TxMeta txMeta1) {
+        assertEquals(txMeta0.txState(), txMeta1.txState());
+        assertEquals(txMeta0.commitTimestamp(), txMeta1.commitTimestamp());
+        assertEquals(txMeta0.enlistedPartitions(), txMeta1.enlistedPartitions());
+    }
+
+    private TxStateStorage createStorage() {
+        return new TxStateRocksDbStorage(workDir, Executors.newSingleThreadExecutor());
+    }
 }
