@@ -67,5 +67,8 @@ public class ErrorGroups {
 
         /** Authorization error. */
         public static int AUTHORIZATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(6);
+
+        /** Configuration error. */
+        public static int CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(7);
     }
 }

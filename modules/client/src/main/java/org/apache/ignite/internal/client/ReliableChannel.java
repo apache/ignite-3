@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.CONFIGURATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
 import java.net.InetSocketAddress;
@@ -299,7 +301,7 @@ public final class ReliableChannel implements AutoCloseable {
      */
     private static Map<InetSocketAddress, Integer> parsedAddresses(String[] addrs) {
         if (addrs == null || addrs.length == 0) {
-            throw new IgniteException(UNKNOWN_ERR, "Empty addresses");
+            throw new IgniteException(CONFIGURATION_ERR, "Empty addresses");
         }
 
         Collection<HostAndPortRange> ranges = new ArrayList<>(addrs.length);
@@ -409,7 +411,7 @@ public final class ReliableChannel implements AutoCloseable {
 
             if (hostAddrs.length == 0) {
                 //noinspection NonPrivateFieldAccessedInSynchronizedContext
-                throw new IgniteException(UNKNOWN_ERR, "Empty addresses");
+                throw new IgniteException(CONFIGURATION_ERR, "Empty addresses");
             }
 
             if (!Arrays.equals(hostAddrs, prevHostAddrs)) {
@@ -532,7 +534,7 @@ public final class ReliableChannel implements AutoCloseable {
 
             try {
                 if (closed) {
-                    throw new IgniteClientConnectionException(UNKNOWN_ERR, "Channel is closed");
+                    throw new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed");
                 }
 
                 curChannelsGuard.readLock().lock();
@@ -559,7 +561,7 @@ public final class ReliableChannel implements AutoCloseable {
             }
         }
 
-        throw new IgniteClientConnectionException(UNKNOWN_ERR, "Failed to connect", failure);
+        throw new IgniteClientConnectionException(CONNECTION_ERR, "Failed to connect", failure);
     }
 
     /** Determines whether specified operation should be retried. */
@@ -684,7 +686,7 @@ public final class ReliableChannel implements AutoCloseable {
 
                     if (!ignoreThrottling && applyReconnectionThrottling()) {
                         //noinspection NonPrivateFieldAccessedInSynchronizedContext
-                        throw new IgniteClientConnectionException(UNKNOWN_ERR, "Reconnect is not allowed due to applied throttling");
+                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Reconnect is not allowed due to applied throttling");
                     }
 
                     ch = chFactory.apply(chCfg, connMgr);
