@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.io;
+package org.apache.ignite.internal.pagememory.persistence.io;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 
 import org.apache.ignite.internal.pagememory.io.IoVersions;
@@ -32,6 +34,8 @@ public class PartitionMetaIo extends PageIo {
     private static final int TREE_ROOT_PAGE_ID_OFF = COMMON_HEADER_END;
 
     private static final int REUSE_LIST_ROOT_PAGE_ID_OFF = TREE_ROOT_PAGE_ID_OFF + Long.BYTES;
+
+    private static final int PAGE_COUNT_OFF = REUSE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
 
     /** Page IO type. */
     public static final short T_TABLE_PARTITION_META_IO = 7;
@@ -55,6 +59,7 @@ public class PartitionMetaIo extends PageIo {
 
         setTreeRootPageId(pageAddr, 0);
         setReuseListRootPageId(pageAddr, 0);
+        setPageCount(pageAddr, 0);
     }
 
     /**
@@ -99,12 +104,34 @@ public class PartitionMetaIo extends PageIo {
         return getLong(pageAddr, REUSE_LIST_ROOT_PAGE_ID_OFF);
     }
 
+    /**
+     * Sets the count of pages.
+     *
+     * @param pageAddr Page address.
+     * @param pageCount Count of pages.
+     */
+    public void setPageCount(long pageAddr, int pageCount) {
+        assertPageType(pageAddr);
+
+        putInt(pageAddr, PAGE_COUNT_OFF, pageCount);
+    }
+
+    /**
+     * Returns the page count.
+     *
+     * @param pageAddr Page address.
+     */
+    public int getPageCount(long pageAddr) {
+        return getInt(pageAddr, PAGE_COUNT_OFF);
+    }
+
     /** {@inheritDoc} */
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
         sb.app("TablePartitionMeta [").nl()
                 .app("treeRootPageId=").appendHex(getTreeRootPageId(addr)).nl()
                 .app(", reuseListRootPageId=").appendHex(getReuseListRootPageId(addr)).nl()
+                .app(", pageCount=").app(getPageCount(addr)).nl()
                 .app(']');
     }
 }

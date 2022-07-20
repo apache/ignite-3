@@ -17,20 +17,14 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
-import java.nio.ByteBuffer;
-
 /**
- * Each page write attempt to a {@link PageStore} may be covered by such listener.
- *
- * <p>If it is necessary, a page data can be handled by another process prior to actually written to the PageStore.
+ * New page allocation listener.
  */
-@FunctionalInterface
-public interface PageWriteListener {
+public interface PageAllocationListener {
     /**
-     * Callback before writing the page to the store.
+     * Callback when a new page is allocated.
      *
-     * @param pageId Handled page id.
-     * @param buf Buffer with page data.
+     * @param pageIdx Index of the new page.
      */
-    void accept(long pageId, ByteBuffer buf);
+    void onPageAllocated(int pageIdx);
 }
