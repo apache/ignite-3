@@ -2488,7 +2488,6 @@ public class ItNodeTest {
             NodeOptions nodeOptions = createNodeOptions(1);
             MockStateMachine fsm = new MockFSM1(addr);
             nodeOptions.setFsm(fsm);
-            nodeOptions.setLogUri(dataPath + File.separator + "log");
             nodeOptions.setSnapshotUri(dataPath + File.separator + "snapshot");
             nodeOptions.setRaftMetaUri(dataPath + File.separator + "meta");
             nodeOptions.setSnapshotIntervalSecs(10);
