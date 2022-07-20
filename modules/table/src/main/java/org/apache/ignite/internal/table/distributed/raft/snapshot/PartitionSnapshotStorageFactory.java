@@ -25,12 +25,25 @@ import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 
+/**
+ * Snapshot storage factory for {@link MvPartitionStorage}. Utilizes the fact that every partition already stores its latest applied index
+ * and thus can inself be used as its own snapshot.
+ */
 public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     private final MvPartitionStorage partitionStorage;
     private final List<String> peers;
     private final List<String> learners;
     private final long persistedRaftIndex;
 
+    /**
+     * Constructor.
+     *
+     * @param partitionStorage MV partition storage.
+     * @param peers List of raft group peers to be used in snapshot meta.
+     * @param learners List of raft group learners to be used in snapshot meta.
+     *
+     * @see SnapshotMeta
+     */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public PartitionSnapshotStorageFactory(MvPartitionStorage partitionStorage, List<String> peers, List<String> learners) {
         this.partitionStorage = partitionStorage;
