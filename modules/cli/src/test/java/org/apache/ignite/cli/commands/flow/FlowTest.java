@@ -92,14 +92,6 @@ class FlowTest {
         Assertions.assertEquals(1, call.value());
     }
 
-    // "Do you like this?"
-    //   "Yes" -> num = 1
-    //   "No"  -> num = 2
-    // "Here is your number: ${num}, would you like to multiply it by 2?"
-    //   "Yes" -> num = num * 2
-    //   "No"  -> num = num
-    // if (num == 1) { call(integer num) -> "|1|"}
-    // else {  call (string ) -> "You are unlucky, your number |${num}|" }
     private static Flow<Object, Integer> createFlow() {
         return Flows.question("Do you like this?",
                         List.of(new QuestionAnswer<>("yes"::equals, (a, i) -> 1),
