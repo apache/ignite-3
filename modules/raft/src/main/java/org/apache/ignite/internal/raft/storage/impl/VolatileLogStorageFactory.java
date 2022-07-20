@@ -33,7 +33,7 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
 
     /** {@inheritDoc} */
     @Override
-    public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
+    public LogStorage createLogStorage(String uri, RaftOptions raftOptions) {
         return new LocalLogStorage(raftOptions);
     }
 

@@ -65,19 +65,22 @@ public class IgniteJraftServiceFactory extends DefaultJRaftServiceFactory {
         return this;
     }
 
-    @Override public LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions) {
+    @Override
+    public LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions) {
         Requires.requireTrue(StringUtils.isNotBlank(groupId), "Blank group id.");
 
         return logStorageFactory.createLogStorage(groupId, raftOptions);
     }
 
-    @Override public SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions) {
+    @Override
+    public SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions) {
         Requires.requireTrue(!StringUtils.isBlank(uri), "Blank snapshot storage uri.");
 
         return snapshotStorageFactory.createSnapshotStorage(uri, raftOptions);
     }
 
-    @Override public RaftMetaStorage createRaftMetaStorage(final String uri, final RaftOptions raftOptions) {
+    @Override
+    public RaftMetaStorage createRaftMetaStorage(final String uri, final RaftOptions raftOptions) {
         Requires.requireTrue(!StringUtils.isBlank(uri), "Blank raft meta storage uri.");
 
         return raftMetaStorageFactory.createRaftMetaStorage(uri, raftOptions);

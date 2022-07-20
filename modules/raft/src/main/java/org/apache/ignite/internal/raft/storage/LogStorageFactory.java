@@ -30,9 +30,9 @@ public interface LogStorageFactory extends AutoCloseable {
     /**
      * Creates a log storage.
      *
-     * @param groupId Raft group id.
+     * @param uri Log storage URI.
      * @param raftOptions Raft options.
      * @return Log storage.
      */
-    LogStorage createLogStorage(String groupId, RaftOptions raftOptions);
+    LogStorage createLogStorage(String uri, RaftOptions raftOptions);
 }
