@@ -974,7 +974,6 @@ public class NodeImpl implements Node, RaftServerService {
             LOG.error("Node {} initMetaStorage failed.", getNodeId());
             return false;
         }
-
         if (!initFSMCaller(new LogId(0, 0))) {
             LOG.error("Node {} initFSMCaller failed.", getNodeId());
             return false;
