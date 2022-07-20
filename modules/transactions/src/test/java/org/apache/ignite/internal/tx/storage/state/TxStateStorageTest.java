@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.storage.state;
 
+import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -30,12 +31,14 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -59,12 +62,12 @@ public class TxStateStorageTest {
 
                 txIds.add(txId);
 
-                storage.put(txId, new TxMeta(TxState.PENDING, new ArrayList<>(), new Timestamp(txId)));
+                storage.put(txId, new TxMeta(TxState.PENDING, generateEnlistedPartitions(i), new Timestamp(txId)));
             }
 
             for (int i = 0; i < 100; i++) {
                 TxMeta txMeta = storage.get(txIds.get(i));
-                TxMeta txMetaExpected = new TxMeta(TxState.PENDING, new ArrayList<>(), new Timestamp(txIds.get(i)));
+                TxMeta txMetaExpected = new TxMeta(TxState.PENDING, generateEnlistedPartitions(i), new Timestamp(txIds.get(i)));
                 assertTxMetaEquals(txMetaExpected, txMeta);
             }
 
@@ -80,11 +83,15 @@ public class TxStateStorageTest {
                     assertNull(txMeta);
                 } else {
                     TxMeta txMeta = storage.get(txIds.get(i));
-                    TxMeta txMetaExpected = new TxMeta(TxState.PENDING, new ArrayList<>(), new Timestamp(txIds.get(i)));
+                    TxMeta txMetaExpected = new TxMeta(TxState.PENDING, generateEnlistedPartitions(i), new Timestamp(txIds.get(i)));
                     assertTxMetaEquals(txMetaExpected, txMeta);
                 }
             }
         }
+    }
+
+    private List<IgniteBiTuple<Integer, Integer>> generateEnlistedPartitions(int c) {
+        return IntStream.range(0, c).mapToObj(i -> new IgniteBiTuple<>(i, i)).collect(toList());
     }
 
     @Test
