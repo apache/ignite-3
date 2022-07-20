@@ -17,18 +17,32 @@ package org.apache.ignite.internal.tx.storage.state.inmemory;
 
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.pagememory.Storable;
+import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
+import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.NotNull;
 
-public class TxMetaRowWrapper implements Comparable<TxMetaRowWrapper> {
+public class TxMetaRowWrapper implements Comparable<TxMetaRowWrapper>, Storable {
     private final UUID txId;
 
     private final TxMeta txMeta;
 
-    public TxMetaRowWrapper(UUID txId, TxMeta txMeta) {
+    private long link;
+
+    private final int partition;
+
+    public TxMetaRowWrapper(UUID txId, TxMeta txMeta, int partition) {
+        this(txId, txMeta, 0, partition);
+    }
+
+    public TxMetaRowWrapper(UUID txId, TxMeta txMeta, long link, int partition) {
         this.txId = txId;
         this.txMeta = txMeta;
+        this.link = link;
+        this.partition = partition;
     }
 
     public UUID txId() {
@@ -37,6 +51,38 @@ public class TxMetaRowWrapper implements Comparable<TxMetaRowWrapper> {
 
     public TxMeta txMeta() {
         return txMeta;
+    }
+
+    @Override public void link(long link) {
+        this.link = link;
+    }
+
+    public long link() {
+        return link;
+    }
+
+    @Override public int partition() {
+        return partition;
+    }
+
+    @Override public int size() throws IgniteInternalCheckedException {
+        int size = Long.BYTES * 2; // Tx id.
+
+        size += 4; // Tx state.
+
+        size += Long.BYTES; // Commit timestamp.
+
+        size += txMeta.enlistedPartitions().size() * Integer.BYTES * 2; // Enlisted partitions.
+
+        return size;
+    }
+
+    @Override public int headerSize() {
+        return 4;
+    }
+
+    @Override public IoVersions<? extends AbstractDataPageIo> ioVersions() {
+        return TxMetaStorageDataIo.VERSIONS;
     }
 
     @Override public boolean equals(Object o) {
