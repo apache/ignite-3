@@ -28,9 +28,9 @@ public class TxMeta implements Serializable {
 
     private final List<IgniteBiTuple<Integer, Integer>> enlistedPartitions;
 
-    private final long commitTimestamp;
+    private final Timestamp commitTimestamp;
 
-    public TxMeta(TxState txState, List<IgniteBiTuple<Integer, Integer>> enlistedPartitions, long commitTimestamp) {
+    public TxMeta(TxState txState, List<IgniteBiTuple<Integer, Integer>> enlistedPartitions, Timestamp commitTimestamp) {
         this.txState = txState;
         this.enlistedPartitions = enlistedPartitions;
         this.commitTimestamp = commitTimestamp;
@@ -44,7 +44,7 @@ public class TxMeta implements Serializable {
         return unmodifiableList(enlistedPartitions);
     }
 
-    public long commitTimestamp() {
+    public Timestamp commitTimestamp() {
         return commitTimestamp;
     }
 }
