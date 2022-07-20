@@ -26,9 +26,9 @@ public interface SnapshotStorageFactory {
     /**
      * Creates a snapshot storage.
      *
-     * @param groupId Raft group id.
+     * @param uri Snapshot URI.
      * @param raftOptions Raft options.
      * @return Snapshot storage.
      */
-    SnapshotStorage createSnapshotStorage(String groupId, RaftOptions raftOptions);
+    SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions);
 }
