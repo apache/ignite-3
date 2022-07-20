@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
@@ -194,7 +195,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             var clientVer = ProtocolVersion.unpack(unpacker);
 
             if (!clientVer.equals(ProtocolVersion.LATEST_VER)) {
-                throw new IgniteException(PROTOCOL_ERR, "Unsupported version: "
+                throw new IgniteException(PROTOCOL_COMPATIBILITY_ERR, "Unsupported version: "
                         + clientVer.major() + "." + clientVer.minor() + "." + clientVer.patch());
             }
 

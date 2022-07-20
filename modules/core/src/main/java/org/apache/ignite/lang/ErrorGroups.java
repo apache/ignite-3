@@ -56,13 +56,16 @@ public class ErrorGroups {
         /** Protocol breakdown. */
         public static int PROTOCOL_ERR = CLIENT_ERR_GROUP.registerErrorCode(2);
 
+        /** Incompatible protocol version. */
+        public static int PROTOCOL_COMPATIBILITY_ERR = CLIENT_ERR_GROUP.registerErrorCode(3);
+
         /** Table not found by ID. */
-        public static int TABLE_ID_NOT_FOUND_ERR = CLIENT_ERR_GROUP.registerErrorCode(3);
+        public static int TABLE_ID_NOT_FOUND_ERR = CLIENT_ERR_GROUP.registerErrorCode(4);
 
         /** Authentication error. */
-        public static int AUTHENTICATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(4);
+        public static int AUTHENTICATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(5);
 
         /** Authorization error. */
-        public static int AUTHORIZATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(5);
+        public static int AUTHORIZATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(6);
     }
 }
