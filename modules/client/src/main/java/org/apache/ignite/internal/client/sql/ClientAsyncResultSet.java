@@ -136,10 +136,12 @@ class ClientAsyncResultSet implements AsyncResultSet {
         requireResultSet();
 
         if (closed) {
+            // TODO IGNITE-17135 - same error code and message as on server.
             return CompletableFuture.failedFuture(new IgniteException(UNKNOWN_ERR, "Cursor is closed."));
         }
 
         if (!hasMorePages()) {
+            // TODO IGNITE-17135 - same error code and message as on server.
             return CompletableFuture.failedFuture(new IgniteException(UNKNOWN_ERR, "No more pages."));
         }
 
