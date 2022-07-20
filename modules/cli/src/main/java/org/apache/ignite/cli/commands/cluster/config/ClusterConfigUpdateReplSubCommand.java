@@ -24,7 +24,7 @@ import org.apache.ignite.cli.call.configuration.ClusterConfigUpdateCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.cli.core.flow.Flowable;
-import org.apache.ignite.cli.core.repl.Session;
+import org.apache.ignite.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -52,29 +52,20 @@ public class ClusterConfigUpdateReplSubCommand extends BaseCommand implements Ru
     ClusterConfigUpdateCall call;
 
     @Inject
-    private Session session;
-
-    @Inject
     private ConnectToClusterQuestion question;
 
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.callWithConnectQuestion(spec,
-                        this::getClusterUrl,
-                        s -> ClusterConfigUpdateCallInput.builder().config(config).clusterUrl(getClusterUrl()).build(),
-                        call)
+        question.askQuestionIfNotConnected(clusterUrl)
+                .map(this::configUpdateCallInput)
+                .then(Flows.fromCall(call))
+                .toOutput(spec.commandLine().getOut(), spec.commandLine().getErr())
                 .build()
-                .call(Flowable.empty());
+                .start(Flowable.empty());
     }
 
-    private String getClusterUrl() {
-        String s = null;
-        if (session.isConnectedToNode()) {
-            s = session.nodeUrl();
-        } else if (clusterUrl != null) {
-            s = clusterUrl;
-        }
-        return s;
+    private ClusterConfigUpdateCallInput configUpdateCallInput(String clusterUrl) {
+        return ClusterConfigUpdateCallInput.builder().config(config).clusterUrl(clusterUrl).build();
     }
 }

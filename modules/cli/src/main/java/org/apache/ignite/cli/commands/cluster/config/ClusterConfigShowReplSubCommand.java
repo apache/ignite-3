@@ -26,6 +26,7 @@ import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.cli.core.exception.handler.IgniteCliApiExceptionHandler;
 import org.apache.ignite.cli.core.flow.Flowable;
+import org.apache.ignite.cli.core.flow.builder.Flows;
 import org.apache.ignite.cli.core.repl.Session;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import picocli.CommandLine.Command;
@@ -61,24 +62,18 @@ public class ClusterConfigShowReplSubCommand extends BaseCommand implements Runn
 
     @Override
     public void run() {
-        question.callWithConnectQuestion(spec,
-                        this::getClusterUrl,
-                        unused -> ClusterConfigShowCallInput.builder().selector(selector).clusterUrl(getClusterUrl()).build(),
-                        call)
+        question.askQuestionIfNotConnected(clusterUrl)
+                .map(this::configShowCallInput)
+                .then(Flows.fromCall(call))
+                .toOutput(spec.commandLine().getOut(), spec.commandLine().getErr())
                 .exceptionHandler(new ShowConfigReplExceptionHandler())
                 .build()
-                .call(Flowable.empty());
+                .start(Flowable.empty());
     }
 
-    private String getClusterUrl() {
-        if (session.isConnectedToNode()) {
-            return session.nodeUrl();
-        } else if (clusterUrl != null) {
-            return clusterUrl;
-        }
-        return null;
+    private ClusterConfigShowCallInput configShowCallInput(String clusterUrl) {
+        return ClusterConfigShowCallInput.builder().selector(selector).clusterUrl(clusterUrl).build();
     }
-
 
     private static class ShowConfigReplExceptionHandler extends IgniteCliApiExceptionHandler {
         @Override

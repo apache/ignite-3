@@ -34,7 +34,7 @@ public class JlineQuestionWriterReader implements QuestionWriterReader {
     }
 
     @Override
-    public void writeQuestion(String question) {
+    public void write(String question) {
         System.out.print(question);
     }
 

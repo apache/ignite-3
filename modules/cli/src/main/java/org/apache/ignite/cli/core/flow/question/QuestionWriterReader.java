@@ -27,7 +27,7 @@ public interface QuestionWriterReader {
      *
      * @param question text.
      */
-    void writeQuestion(String question);
+    void write(String question);
 
     /**
      * Read answer from input.

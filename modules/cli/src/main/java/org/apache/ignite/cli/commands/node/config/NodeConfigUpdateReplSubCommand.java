@@ -24,7 +24,7 @@ import org.apache.ignite.cli.call.configuration.NodeConfigUpdateCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.cli.core.flow.Flowable;
-import org.apache.ignite.cli.core.repl.Session;
+import org.apache.ignite.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -52,29 +52,20 @@ public class NodeConfigUpdateReplSubCommand extends BaseCommand implements Runna
     NodeConfigUpdateCall call;
 
     @Inject
-    private Session session;
-
-    @Inject
     private ConnectToClusterQuestion question;
 
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.callWithConnectQuestion(spec,
-                        this::getNodeUrl,
-                        s -> NodeConfigUpdateCallInput.builder().config(config).nodeUrl(getNodeUrl()).build(),
-                        call)
+        question.askQuestionIfNotConnected(nodeUrl)
+                .map(this::nodeConfigUpdateCallInput)
+                .then(Flows.fromCall(call))
+                .toOutput(spec.commandLine().getOut(), spec.commandLine().getErr())
                 .build()
-                .call(Flowable.empty());
+                .start(Flowable.empty());
     }
 
-    private String getNodeUrl() {
-        String s = null;
-        if (session.isConnectedToNode()) {
-            s = session.nodeUrl();
-        } else if (nodeUrl != null) {
-            s = nodeUrl;
-        }
-        return s;
+    private NodeConfigUpdateCallInput nodeConfigUpdateCallInput(String nodeUrl) {
+        return NodeConfigUpdateCallInput.builder().config(config).nodeUrl(nodeUrl).build();
     }
 }

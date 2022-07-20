@@ -31,7 +31,7 @@ public interface Flow<I, O> {
      * @param input input flowable.
      * @return output flowable.
      */
-    Flowable<O> call(Flowable<I> input);
+    Flowable<O> start(Flowable<I> input);
 
     /**
      * Flow composition method.
@@ -42,8 +42,8 @@ public interface Flow<I, O> {
      */
     default <OT> Flow<I, OT> composite(Flow<O, OT> next) {
         return input -> {
-            Flowable<O> outputFlowable = Flow.this.call(input);
-            return next.call(outputFlowable);
+            Flowable<O> outputFlowable = Flow.this.start(input);
+            return next.start(outputFlowable);
         };
     }
 }

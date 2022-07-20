@@ -23,6 +23,7 @@ import org.apache.ignite.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.cli.core.flow.Flowable;
+import org.apache.ignite.cli.core.flow.builder.Flows;
 import org.apache.ignite.cli.core.repl.Session;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -60,21 +61,15 @@ public class NodeConfigShowReplSubCommand extends BaseCommand implements Runnabl
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.callWithConnectQuestion(spec,
-                        this::getNodeUrl,
-                        s -> NodeConfigShowCallInput.builder().selector(selector).nodeUrl(getNodeUrl()).build(),
-                        call)
+        question.askQuestionIfNotConnected(nodeUrl)
+                .map(this::nodeConfigShowCallInput)
+                .then(Flows.fromCall(call))
+                .toOutput(spec.commandLine().getOut(), spec.commandLine().getErr())
                 .build()
-                .call(Flowable.empty());
+                .start(Flowable.empty());
     }
 
-    private String getNodeUrl() {
-        String s = null;
-        if (session.isConnectedToNode()) {
-            s = session.nodeUrl();
-        } else if (nodeUrl != null) {
-            s = nodeUrl;
-        }
-        return s;
+    private NodeConfigShowCallInput nodeConfigShowCallInput(String nodeUrl) {
+        return NodeConfigShowCallInput.builder().selector(selector).nodeUrl(nodeUrl).build();
     }
 }

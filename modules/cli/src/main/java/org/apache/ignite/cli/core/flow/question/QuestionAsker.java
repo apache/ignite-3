@@ -40,7 +40,7 @@ public class QuestionAsker {
      * @return value of answer.
      */
     public <I, O> O askQuestion(String question, I input, List<QuestionAnswer<I, O>> answers) {
-        readWriter.writeQuestion(question);
+        readWriter.write(question);
         String userAnswer = readWriter.readAnswer();
 
         for (QuestionAnswer<I, O> answer : answers) {
@@ -48,7 +48,7 @@ public class QuestionAsker {
                 return answer.transform(userAnswer, input);
             }
         }
-        readWriter.writeQuestion("");
+        readWriter.write("");
         return askQuestion(question, input, answers);
     }
 }

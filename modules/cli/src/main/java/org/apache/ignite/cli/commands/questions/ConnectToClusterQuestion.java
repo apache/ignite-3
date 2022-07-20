@@ -19,21 +19,18 @@ package org.apache.ignite.cli.commands.questions;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import java.io.PrintWriter;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Function;
-import java.util.function.Supplier;
 import org.apache.ignite.cli.call.connect.ConnectCall;
 import org.apache.ignite.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.cli.config.ConfigManagerProvider;
-import org.apache.ignite.cli.core.call.Call;
-import org.apache.ignite.cli.core.call.CallInput;
 import org.apache.ignite.cli.core.flow.Flowable;
-import org.apache.ignite.cli.core.flow.Flows;
 import org.apache.ignite.cli.core.flow.builder.FlowBuilder;
+import org.apache.ignite.cli.core.flow.builder.Flows;
 import org.apache.ignite.cli.core.flow.question.AcceptedQuestionAnswer;
 import org.apache.ignite.cli.core.flow.question.InterruptQuestionAnswer;
-import picocli.CommandLine.Model.CommandSpec;
+import org.apache.ignite.cli.core.repl.Session;
 
 
 /**
@@ -48,39 +45,41 @@ public class ConnectToClusterQuestion {
     @Inject
     private ConfigManagerProvider provider;
 
+    @Inject
+    private SpecBean specBean;
+
+    @Inject
+    private Session session;
+
 
     /**
      * Execute call with question about connect to cluster in case when disconnected state.
      *
-     * @param spec command spec.
-     * @param clusterUrl cluster url provider.
-     * @param clusterUrlMapper mapper of cluster url to call input
-     * @param call call instance.
-     * @param <T> call input type.
-     * @param <O> call output type.
-     * @return {@link FlowBuilder} instance with question and provided call.
+     * @param clusterUrl cluster url .
+     * @return {@link FlowBuilder} instance with question in case when cluster url.
      */
-    public <T extends CallInput, O> FlowBuilder<Void, O> callWithConnectQuestion(
-            CommandSpec spec,
-            Supplier<String> clusterUrl,
-            Function<String, T> clusterUrlMapper,
-            Call<T, O> call) {
+    public FlowBuilder<Void, String> askQuestionIfNotConnected(String clusterUrl) {
+        String clusterProperty = provider.get().getCurrentProperty("ignite.cluster-url");
         String question = "You are not connected to node. Do you want to connect to the default node "
-                + provider.get().getCurrentProperty("ignite.cluster-url") + " ? [Y/n] ";
+                + clusterProperty + " ? [Y/n] ";
 
-        return Flows.from(clusterUrl.get())
+        PrintWriter out = specBean.getSpec().commandLine().getOut();
+        PrintWriter err = specBean.getSpec().commandLine().getErr();
+
+        return Flows.from(clusterUrlOrSessionNode(clusterUrl))
                 .ifThen(Objects::isNull, Flows.<String, ConnectCallInput>question(question,
                                 List.of(
-                                        new AcceptedQuestionAnswer<>((a, i) ->
-                                                new ConnectCallInput(provider.get().getCurrentProperty("ignite.cluster-url"))),
-                                        new InterruptQuestionAnswer<>())
-                        ).appendFlow(Flows.fromCall(connectCall))
-                        .toOutput(spec.commandLine().getOut(), spec.commandLine().getErr())
+                                        new AcceptedQuestionAnswer<>((a, s) -> new ConnectCallInput(clusterProperty)),
+                                        new InterruptQuestionAnswer<>()
+                                )
+                        ).then(Flows.fromCall(connectCall))
+                        .toOutput(out, err)
                         .build())
-                .ifThen(s -> Objects.isNull(clusterUrl.get()), input -> Flowable.interrupt())
-                .map(clusterUrlMapper)
-                .appendFlow(Flows.fromCall(call))
-                .toOutput(spec.commandLine().getOut(), spec.commandLine().getErr());
+                .then(prevUrl -> Flowable.success(clusterUrlOrSessionNode(clusterUrl)));
+    }
+
+    private String clusterUrlOrSessionNode(String clusterUrl) {
+        return clusterUrl != null ? clusterUrl : session.nodeUrl();
     }
 }
 

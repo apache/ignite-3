@@ -44,7 +44,7 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
     private final ExceptionHandlers exceptionHandlers = new DefaultExceptionHandlers();
     private final DecoratorRegistry decoratorRegistry = new DefaultDecoratorRegistry();
 
-    public FlowBuilderImpl(Flow<I, O> flow) {
+    FlowBuilderImpl(Flow<I, O> flow) {
         this(flow, new DefaultExceptionHandlers(), new DefaultDecoratorRegistry());
     }
 
@@ -62,7 +62,7 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
     }
 
     @Override
-    public <OT> FlowBuilder<I, OT> appendFlow(Flow<O, OT> flow) {
+    public <OT> FlowBuilder<I, OT> then(Flow<O, OT> flow) {
         return new FlowBuilderImpl<>(this.flow.composite(flow), exceptionHandlers, decoratorRegistry);
     }
 
@@ -70,7 +70,7 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
     public <OT> FlowBuilder<I, O> ifThen(Predicate<O> tester, Flow<O, OT> flow) {
         return new FlowBuilderImpl<>(this.flow.composite(input -> {
             if (tester.test(input.value())) {
-                flow.call(input);
+                flow.start(input);
             }
             return input;
         }), exceptionHandlers, decoratorRegistry);
@@ -113,7 +113,7 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
     public Flow<I, O> build() {
         return input -> {
             try {
-                Flowable<O> output = flow.call(input);
+                Flowable<O> output = flow.start(input);
                 if (output.hasError()) {
                     exceptionHandlers.handleException(output.errorCause());
                 }

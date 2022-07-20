@@ -15,13 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.flow;
+package org.apache.ignite.cli.core.flow.builder;
 
 import java.util.List;
 import java.util.function.Function;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.CallInput;
 import org.apache.ignite.cli.core.call.CallOutput;
+import org.apache.ignite.cli.core.flow.DefaultFlowable;
+import org.apache.ignite.cli.core.flow.Flow;
+import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.cli.core.flow.builder.FlowBuilderImpl;
 import org.apache.ignite.cli.core.flow.question.QuestionAnswer;

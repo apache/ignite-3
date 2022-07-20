@@ -26,7 +26,7 @@ import java.nio.file.Path;
 import java.util.List;
 import org.apache.ignite.cli.core.flow.Flow;
 import org.apache.ignite.cli.core.flow.Flowable;
-import org.apache.ignite.cli.core.flow.Flows;
+import org.apache.ignite.cli.core.flow.builder.Flows;
 import org.apache.ignite.cli.core.flow.question.JlineQuestionWriterReader;
 import org.apache.ignite.cli.core.flow.question.QuestionAnswer;
 import org.apache.ignite.cli.core.flow.question.QuestionAskerFactory;
@@ -43,8 +43,6 @@ import org.junit.jupiter.api.Test;
 class FlowTest {
     private Terminal terminal;
 
-    private LineReaderImpl reader;
-
     private Path input;
 
     @BeforeEach
@@ -52,7 +50,7 @@ class FlowTest {
         input = Files.createTempFile("input", "");
         input.toFile().deleteOnExit();
         terminal = new DumbTerminal(Files.newInputStream(input), new FileOutputStream(FileDescriptor.out));
-        reader = new LineReaderImpl(terminal);
+        LineReaderImpl reader = new LineReaderImpl(terminal);
         QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader));
     }
 
@@ -63,20 +61,49 @@ class FlowTest {
     }
 
     @Test
-    @DisplayName("Basic flow with yes/no question")
-    void basicFlow() throws IOException {
-        // "Do you like this?"
-        //   "Yes" -> num = 1
-        //   "No"  -> num = 2
-        // "Here is your number: ${num}, would you like to multiply it by 2?"
-        //   "Yes" -> num = 4
-        //   "No"  -> num = num
-        // if (num == 1) { call(integer num) -> "|1|"}
-        // else {  call (string ) -> "You are unlucky, your number |${num}|" }
+    @DisplayName("Basic flow with yes/yes question")
+    void test1() throws IOException {
+        bindAnswers("yes", "yes");
+        Flowable<Integer> call = createFlow().start(Flowable.empty());
+        Assertions.assertEquals(2, call.value());
+    }
 
-        Flow<Object, Integer> flow = Flows.question(
-                        "Do you like this?",
-                        List.of(new QuestionAnswer<>("yes"::equals, (a, i) -> 1), new QuestionAnswer<>("no"::equals, (a, i) -> 2))
+    @Test
+    @DisplayName("Basic flow with no/yes question")
+    void test2() throws IOException {
+        bindAnswers("no", "yes");
+        Flowable<Integer> call = createFlow().start(Flowable.empty());
+        Assertions.assertEquals(4, call.value());
+    }
+
+    @Test
+    @DisplayName("Basic flow with no/no question")
+    void test3() throws IOException {
+        bindAnswers("no", "no");
+        Flowable<Integer> call = createFlow().start(Flowable.empty());
+        Assertions.assertEquals(2, call.value());
+    }
+
+    @Test
+    @DisplayName("Basic flow with yes/no question")
+    void test4() throws IOException {
+        bindAnswers("yes", "no");
+        Flowable<Integer> call = createFlow().start(Flowable.empty());
+        Assertions.assertEquals(1, call.value());
+    }
+
+    // "Do you like this?"
+    //   "Yes" -> num = 1
+    //   "No"  -> num = 2
+    // "Here is your number: ${num}, would you like to multiply it by 2?"
+    //   "Yes" -> num = num * 2
+    //   "No"  -> num = num
+    // if (num == 1) { call(integer num) -> "|1|"}
+    // else {  call (string ) -> "You are unlucky, your number |${num}|" }
+    private static Flow<Object, Integer> createFlow() {
+        return Flows.question("Do you like this?",
+                        List.of(new QuestionAnswer<>("yes"::equals, (a, i) -> 1),
+                                new QuestionAnswer<>("no"::equals, (a, i) -> 2))
                 )
                 .map(String::valueOf)
                 .question(s -> "Here is your number " + s + ":, would you like to multiply it by 2?",
@@ -85,11 +112,6 @@ class FlowTest {
                 .ifThen(num -> num == 1, Flows.fromCall(new IntCall(), IntCallInput::new))
                 .ifThen(num -> num > 1, Flows.fromCall(new StrCall(), integer -> new StrCallInput(String.valueOf(integer))))
                 .build();
-
-
-        bindAnswers("yes", "yes");
-        Flowable<Integer> call = flow.call(Flowable.empty());
-        Assertions.assertEquals(2, call.value());
     }
 
     private void bindAnswers(String... answers) throws IOException {

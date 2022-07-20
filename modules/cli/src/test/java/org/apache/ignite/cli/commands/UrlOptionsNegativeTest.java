@@ -39,6 +39,7 @@ import org.apache.ignite.cli.commands.node.config.NodeConfigShowReplSubCommand;
 import org.apache.ignite.cli.commands.node.config.NodeConfigShowSubCommand;
 import org.apache.ignite.cli.commands.node.config.NodeConfigUpdateReplSubCommand;
 import org.apache.ignite.cli.commands.node.config.NodeConfigUpdateSubCommand;
+import org.apache.ignite.cli.commands.questions.SpecBean;
 import org.apache.ignite.cli.config.ini.IniConfigManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -69,7 +70,9 @@ public class UrlOptionsNegativeTest {
 
     private void setUp(Class<?> cmdClass) {
         configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithInternalPart());
-        cmd = new CommandLine(cmdClass, new MicronautFactory(context));
+        MicronautFactory factory = new MicronautFactory(context);
+        cmd = new CommandLine(cmdClass, factory);
+        new CommandLine(SpecBean.class, factory);
         sout = new StringWriter();
         serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));

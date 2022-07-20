@@ -23,7 +23,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.flow.Flow;
-import org.apache.ignite.cli.core.flow.Flows;
 import org.apache.ignite.cli.core.flow.question.QuestionAnswer;
 
 /**
@@ -34,10 +33,10 @@ import org.apache.ignite.cli.core.flow.question.QuestionAnswer;
  */
 public interface FlowBuilder<I, O>  {
 
-    <OT> FlowBuilder<I, OT> appendFlow(Flow<O, OT> flow);
+    <OT> FlowBuilder<I, OT> then(Flow<O, OT> flow);
 
     default <OT> FlowBuilder<I, OT> map(Function<O, OT> mapper) {
-        return appendFlow(Flows.mono(mapper));
+        return then(Flows.mono(mapper));
     }
 
     <OT> FlowBuilder<I, O> ifThen(Predicate<O> tester, Flow<O, OT> flow);
