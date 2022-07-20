@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.internal.raft.storage.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -71,10 +71,10 @@ public class RocksDbSharedLogStorageAdvancedTest {
 
     @Test
     public void raftGroupsWithPrefixCollision() {
-        LogStorage abcdStorage = logStorageProvider.getLogStorage("abcd", new RaftOptions());
+        LogStorage abcdStorage = logStorageProvider.createLogStorage("abcd", new RaftOptions());
         abcdStorage.init(logStorageOptions);
 
-        LogStorage abStorage = logStorageProvider.getLogStorage("ab", new RaftOptions());
+        LogStorage abStorage = logStorageProvider.createLogStorage("ab", new RaftOptions());
         abStorage.init(logStorageOptions);
 
         int count = 100;
@@ -120,12 +120,12 @@ public class RocksDbSharedLogStorageAdvancedTest {
 
     @Test
     public void testCollisionWithEmptyAndNotEmptyStorage() {
-        LogStorage testStorage1 = logStorageProvider.getLogStorage("test1", new RaftOptions());
+        LogStorage testStorage1 = logStorageProvider.createLogStorage("test1", new RaftOptions());
         testStorage1.init(logStorageOptions);
 
         testStorage1.appendEntry(TestUtils.mockEntry(1, 1, 1));
 
-        LogStorage testStorage2 = logStorageProvider.getLogStorage("test2", new RaftOptions());
+        LogStorage testStorage2 = logStorageProvider.createLogStorage("test2", new RaftOptions());
         testStorage2.init(logStorageOptions);
 
         assertEquals(0, testStorage2.getLastLogIndex());
@@ -138,12 +138,12 @@ public class RocksDbSharedLogStorageAdvancedTest {
     public void testIncorrectRaftGroupName() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> logStorageProvider.getLogStorage("name" + ((char) 0), new RaftOptions())
+                () -> logStorageProvider.createLogStorage("name" + ((char) 0), new RaftOptions())
         );
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> logStorageProvider.getLogStorage("name" + ((char) 1), new RaftOptions())
+                () -> logStorageProvider.createLogStorage("name" + ((char) 1), new RaftOptions())
         );
     }
 

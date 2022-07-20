@@ -224,6 +224,7 @@ public class TestCluster {
             }
             String serverDataPath = this.dataPath + File.separator + listenAddr.toString().replace(':', '_');
             new File(serverDataPath).mkdirs();
+            nodeOptions.setLogUri(serverDataPath + File.separator + "logs");
             nodeOptions.setRaftMetaUri(serverDataPath + File.separator + "meta");
             nodeOptions.setSnapshotUri(serverDataPath + File.separator + "snapshot");
             nodeOptions.setElectionPriority(priority);

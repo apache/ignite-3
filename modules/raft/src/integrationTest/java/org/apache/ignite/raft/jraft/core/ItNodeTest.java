@@ -71,6 +71,8 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterService;
@@ -107,9 +109,7 @@ import org.apache.ignite.raft.jraft.rpc.TestIgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
-import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
-import org.apache.ignite.raft.jraft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.ThroughputSnapshotThrottle;
 import org.apache.ignite.raft.jraft.test.TestUtils;
@@ -2920,16 +2920,13 @@ public class ItNodeTest {
             fsm.getLogs().add(ByteBuffer.wrap(new byte[] {(byte) ch}));
 
         BootstrapOptions opts = new BootstrapOptions();
-        DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path) {
-            @Override public LogStorage getLogStorage(String groupId, RaftOptions raftOptions) {
-                return super.getLogStorage("test", raftOptions);
-            }
-        };
+        DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path);
         logStorageProvider.start();
-        opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageProvider));
+        opts.setServiceFactory(new IgniteJraftServiceFactory(logStorageProvider));
         opts.setLastLogIndex(fsm.getLogs().size());
         opts.setRaftMetaUri(dataPath + File.separator + "meta");
         opts.setSnapshotUri(dataPath + File.separator + "snapshot");
+        opts.setLogUri("test");
         opts.setGroupConf(JRaftUtils.getConfiguration("127.0.0.1:5006"));
         opts.setFsm(fsm);
 
@@ -2941,13 +2938,10 @@ public class ItNodeTest {
 
         nodeOpts.setRaftMetaUri(dataPath + File.separator + "meta");
         nodeOpts.setSnapshotUri(dataPath + File.separator + "snapshot");
-        DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path) {
-            @Override public LogStorage getLogStorage(String groupId, RaftOptions raftOptions) {
-                return super.getLogStorage("test", raftOptions);
-            }
-        };
+        nodeOpts.setLogUri("test");
+        DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path);
         log2.start();
-        nodeOpts.setServiceFactory(new DefaultJRaftServiceFactory(log2));
+        nodeOpts.setServiceFactory(new IgniteJraftServiceFactory(log2));
         nodeOpts.setFsm(fsm);
 
         RaftGroupService service = createService("test", new PeerId(addr, 0), nodeOpts);
@@ -2974,16 +2968,13 @@ public class ItNodeTest {
         Files.createDirectories(path);
 
         BootstrapOptions opts = new BootstrapOptions();
-        DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path) {
-            @Override public LogStorage getLogStorage(String groupId, RaftOptions raftOptions) {
-                return super.getLogStorage("test", raftOptions);
-            }
-        };
+        DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path);
         logStorageProvider.start();
-        opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageProvider));
+        opts.setServiceFactory(new IgniteJraftServiceFactory(logStorageProvider));
         opts.setLastLogIndex(0);
         opts.setRaftMetaUri(dataPath + File.separator + "meta");
         opts.setSnapshotUri(dataPath + File.separator + "snapshot");
+        opts.setLogUri("test");
         opts.setGroupConf(JRaftUtils.getConfiguration("127.0.0.1:5006"));
         opts.setFsm(fsm);
         NodeOptions nodeOpts = new NodeOptions();
@@ -2994,14 +2985,11 @@ public class ItNodeTest {
 
         nodeOpts.setRaftMetaUri(dataPath + File.separator + "meta");
         nodeOpts.setSnapshotUri(dataPath + File.separator + "snapshot");
+        nodeOpts.setLogUri("test");
         nodeOpts.setFsm(fsm);
-        DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path) {
-            @Override public LogStorage getLogStorage(String groupId, RaftOptions raftOptions) {
-                return super.getLogStorage("test", raftOptions);
-            }
-        };
+        DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path);
         log2.start();
-        nodeOpts.setServiceFactory(new DefaultJRaftServiceFactory(log2));
+        nodeOpts.setServiceFactory(new IgniteJraftServiceFactory(log2));
 
         RaftGroupService service = createService("test", new PeerId(addr, 0), nodeOpts);
 
@@ -3779,7 +3767,8 @@ public class ItNodeTest {
         DefaultLogStorageFactory log = new DefaultLogStorageFactory(Path.of(dataPath, "node" + nodeIdx, "log"));
         log.start();
 
-        options.setServiceFactory(new DefaultJRaftServiceFactory(log));
+        options.setServiceFactory(new IgniteJraftServiceFactory(log));
+        options.setLogUri("test");
 
         return options;
     }

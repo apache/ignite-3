@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
@@ -29,11 +29,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
-import org.apache.ignite.raft.jraft.storage.LogStorageFactory;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Platform;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -135,7 +135,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     /** {@inheritDoc} */
     @Override
-    public LogStorage getLogStorage(String groupId, RaftOptions raftOptions) {
+    public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
         return new RocksDbSharedLogStorage(db, confHandle, dataHandle, groupId, raftOptions, executorService);
     }
 
