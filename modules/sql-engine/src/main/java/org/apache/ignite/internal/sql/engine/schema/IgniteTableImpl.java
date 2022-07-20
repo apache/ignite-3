@@ -50,6 +50,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
@@ -317,7 +318,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             if (colDesc.key() && Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(colDesc.name())) {
                 val = colDesc.defaultValue();
             } else {
-                val = hnd.get(colDesc.logicalIndex(), row);
+                val = replaceDefault(hnd.get(colDesc.logicalIndex(), row), colDesc);
             }
 
             val = TypeUtils.fromInternal(ectx, val, NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
@@ -454,6 +455,10 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
                 .collect(Collectors.toList());
 
         return ColocationGroup.forAssignments(assignments);
+    }
+
+    private Object replaceDefault(Object val, ColumnDescriptor desc) {
+        return val == RexImpTable.DEFAULT_VALUE_PLACEHOLDER ? desc.defaultValue() : val;
     }
 
     private class StatisticsImpl implements Statistic {

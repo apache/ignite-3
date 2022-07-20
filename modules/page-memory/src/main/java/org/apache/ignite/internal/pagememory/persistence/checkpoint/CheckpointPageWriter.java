@@ -31,9 +31,8 @@ public interface CheckpointPageWriter {
      *
      * @param fullPageId Full page id.
      * @param buf Byte buffer to write from.
-     * @param tag Page tag.
      * @return {@link PageStore} which was used to write.
      * @throws IgniteInternalCheckedException If failed.
      */
-    PageStore write(FullPageId fullPageId, ByteBuffer buf, int tag) throws IgniteInternalCheckedException;
+    PageStore write(FullPageId fullPageId, ByteBuffer buf) throws IgniteInternalCheckedException;
 }

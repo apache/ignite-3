@@ -41,8 +41,9 @@ public class DisconnectCall implements Call<EmptyCallInput, String> {
     @Override
     public CallOutput<String> execute(EmptyCallInput input) {
         if (session.isConnectedToNode()) {
-            String nodeUrl = session.getNodeUrl();
+            String nodeUrl = session.nodeUrl();
             session.setNodeUrl(null);
+            session.setNodeName(null);
             session.setConnectedToNode(false);
 
             return DefaultCallOutput.success("Disconnected from " + nodeUrl);

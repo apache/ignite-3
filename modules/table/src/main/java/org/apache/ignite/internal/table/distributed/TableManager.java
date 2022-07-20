@@ -83,6 +83,7 @@ import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactory;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -121,6 +122,7 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.table.Table;
@@ -536,7 +538,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private RaftGroupOptions groupOptionsForInternalTable(InternalTable internalTbl) {
-        return RaftGroupOptions.forTable(internalTbl.storage().isVolatile());
+        if (internalTbl.storage().isVolatile()) {
+            return RaftGroupOptions.forVolatileStores()
+                    .setLogStorageFactory(new VolatileLogStorageFactory())
+                    .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage());
+        } else {
+            return RaftGroupOptions.forPersistentStores();
+        }
     }
 
     /** {@inheritDoc} */
