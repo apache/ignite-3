@@ -19,7 +19,6 @@ package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -300,8 +299,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @return Exception.
      */
     private IgniteException readError(ClientMessageUnpacker unpacker) {
-        var traceId = unpacker.tryUnpackNil() ? UUID.randomUUID() : unpacker.unpackUuid();
-        var code = unpacker.tryUnpackNil() ? UNKNOWN_ERR : unpacker.unpackInt();
+        var traceId = unpacker.unpackUuid();
+        var code = unpacker.unpackInt();
         var errClassName = unpacker.unpackString();
         var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
 
