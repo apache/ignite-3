@@ -135,7 +135,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     /** {@inheritDoc} */
     @Override
-    public LogStorage getLogStorage(String groupId, RaftOptions raftOptions) {
+    public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
         return new RocksDbSharedLogStorage(db, confHandle, dataHandle, groupId, raftOptions, executorService);
     }
 

@@ -79,6 +79,9 @@ public class RaftGroupOptions {
         return volatileStores;
     }
 
+    /**
+     * Returns a log storage factory that's used to create log storage for a raft group.
+     */
     public LogStorageFactory getLogStorageFactory() {
         return logStorageFactory;
     }
@@ -92,6 +95,9 @@ public class RaftGroupOptions {
         return this;
     }
 
+    /**
+     * Returns a snapshot storage factory that's used to create snapshot storage for a raft group.
+     */
     public SnapshotStorageFactory snapshotStorageFactory() {
         return snapshotStorageFactory;
     }
@@ -105,6 +111,9 @@ public class RaftGroupOptions {
         return this;
     }
 
+    /**
+     * Returns a raft meta storage factory that's used to create raft meta storage for a raft group.
+     */
     public RaftMetaStorageFactory raftMetaStorageFactory() {
         return raftMetaStorageFactory;
     }

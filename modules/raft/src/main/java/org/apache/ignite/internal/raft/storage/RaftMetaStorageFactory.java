@@ -30,5 +30,5 @@ public interface RaftMetaStorageFactory {
      * @param raftOptions Raft options.
      * @return Raft meta storage.
      */
-    RaftMetaStorage getRaftMetaStorage(String groupId, RaftOptions raftOptions);
+    RaftMetaStorage createRaftMetaStorage(String groupId, RaftOptions raftOptions);
 }

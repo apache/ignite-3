@@ -30,5 +30,5 @@ public interface SnapshotStorageFactory {
      * @param raftOptions Raft options.
      * @return Snapshot storage.
      */
-    SnapshotStorage getSnapshotStorage(String groupId, RaftOptions raftOptions);
+    SnapshotStorage createSnapshotStorage(String groupId, RaftOptions raftOptions);
 }

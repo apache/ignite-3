@@ -193,7 +193,7 @@ public class SharedVsNonSharedLogStorageBenchmark {
 
         List<LogStorage> sharedStorages = grps.stream()
                 .map(grp -> {
-                    LogStorage storage = provider.getLogStorage(grp, new RaftOptions());
+                    LogStorage storage = provider.createLogStorage(grp, new RaftOptions());
 
                     LogStorageOptions opts = new LogStorageOptions();
                     opts.setConfigurationManager(new ConfigurationManager());

@@ -51,6 +51,6 @@ public class RocksDbSharedLogStorageTest extends BaseLogStorageTest {
     /** {@inheritDoc} */
     @Override
     protected LogStorage newLogStorage() {
-        return logStorageProvider.getLogStorage("test", new RaftOptions());
+        return logStorageProvider.createLogStorage("test", new RaftOptions());
     }
 }
