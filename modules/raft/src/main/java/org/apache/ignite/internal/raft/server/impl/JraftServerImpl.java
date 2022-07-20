@@ -351,9 +351,7 @@ public class JraftServerImpl implements RaftServer {
 
         nodeOptions.setLogUri(groupId);
 
-        if (!groupOptions.volatileStores()) {
-            nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
-        }
+        nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
 
         nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
 
