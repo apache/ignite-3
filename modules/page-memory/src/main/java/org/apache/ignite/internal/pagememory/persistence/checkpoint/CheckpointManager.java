@@ -25,6 +25,8 @@ import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -73,8 +75,10 @@ public class CheckpointManager {
      * @param workerListener Listener for life-cycle checkpoint worker events.
      * @param longJvmPauseDetector Long JVM pause detector.
      * @param filePageStoreManager File page store manager.
+     * @param partitionMetaManager Partition meta information manager.
      * @param dataRegions Data regions.
      * @param storagePath Storage path.
+     * @param ioRegistry Page IO registry.
      * @param pageSize Page size in bytes.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -84,8 +88,10 @@ public class CheckpointManager {
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             PageMemoryCheckpointConfiguration checkpointConfig,
             FilePageStoreManager filePageStoreManager,
+            PartitionMetaManager partitionMetaManager,
             Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
             Path storagePath,
+            PageIoRegistry ioRegistry,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) throws IgniteInternalCheckedException {
@@ -110,7 +116,9 @@ public class CheckpointManager {
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
                 Loggers.forClass(CheckpointPagesWriterFactory.class),
-                (fullPage, buf, tag) -> filePageStoreManager.write(fullPage.groupId(), fullPage.pageId(), buf, tag, true),
+                (fullPage, buf) -> filePageStoreManager.write(fullPage.groupId(), fullPage.pageId(), buf, true),
+                ioRegistry,
+                partitionMetaManager,
                 pageSize
         );
 
@@ -189,6 +197,13 @@ public class CheckpointManager {
      */
     public CheckpointProgress forceCheckpoint(String reason) {
         return checkpointer.scheduleCheckpoint(0, reason);
+    }
+
+    /**
+     * Returns progress of current checkpoint, last finished one or {@code null}, if checkpoint has never started.
+     */
+    public @Nullable CheckpointProgress currentProgress() {
+        return checkpointer.currentProgress();
     }
 
     /**
