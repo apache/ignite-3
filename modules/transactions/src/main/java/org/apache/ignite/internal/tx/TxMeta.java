@@ -17,19 +17,29 @@
 
 package org.apache.ignite.internal.tx;
 
+import static java.util.Collections.unmodifiableList;
+
 import java.io.Serializable;
 import java.util.List;
 import org.apache.ignite.lang.IgniteBiTuple;
 
-import static java.util.Collections.unmodifiableList;
-
+/** Transaction meta. */
 public class TxMeta implements Serializable {
+    /** Tx state. */
     private final TxState txState;
 
+    /** The list of enlisted partitions. */
     private final List<IgniteBiTuple<Integer, Integer>> enlistedPartitions;
 
+    /** Commit timestamp. */
     private final Timestamp commitTimestamp;
 
+    /**
+     * The constructor.
+     * @param txState Tx state.
+     * @param enlistedPartitions The list of enlisted partitions.
+     * @param commitTimestamp Commit timestamp.
+     */
     public TxMeta(TxState txState, List<IgniteBiTuple<Integer, Integer>> enlistedPartitions, Timestamp commitTimestamp) {
         this.txState = txState;
         this.enlistedPartitions = enlistedPartitions;

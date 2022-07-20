@@ -17,6 +17,14 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
+import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
+import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_CREATE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_DESTROY_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
@@ -40,34 +48,41 @@ import org.rocksdb.TransactionDB;
 import org.rocksdb.TransactionDBOptions;
 import org.rocksdb.WriteOptions;
 
-import static java.util.Objects.requireNonNull;
-import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_CREATE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_DESTROY_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
-
+/**
+ * Tx state storage implementation based on RocksDB.
+ */
 public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
+    /** Database path. */
     private final Path dbPath;
 
+    /** RocksDB database. */
     private volatile TransactionDB db;
 
     /** RockDB options. */
     @Nullable
     private volatile Options options;
 
+    /** Database options. */
     private volatile TransactionDBOptions txDbOptions;
 
     /** Thread-pool for snapshot operations execution. */
     private final ExecutorService snapshotExecutor;
 
+    /** Snapshot manager. */
     private volatile RocksSnapshotManager snapshotManager;
 
+    /** Snapshot restore lock. */
     private final Object snapshotRestoreLock = new Object();
 
+    /** Whether is started. */
     private boolean isStarted;
 
+    /**
+     * The constructor.
+     *
+     * @param dbPath Database path.
+     * @param snapshotExecutor Snapshot thread pool.
+     */
     public TxStateRocksDbStorage(Path dbPath, ExecutorService snapshotExecutor) {
         this.dbPath = dbPath;
         this.snapshotExecutor = snapshotExecutor;
@@ -114,8 +129,7 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
             byte[] txMetaBytes = db.get(toBytes(txId));
 
             return txMetaBytes == null ? null : (TxMeta) fromBytes(txMetaBytes);
-        }
-        catch (RocksDBException e) {
+        } catch (RocksDBException e) {
             throw new IgniteInternalException(TX_STATE_STORAGE_ERR, e);
         }
     }
@@ -124,8 +138,7 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
     @Override public void put(UUID txId, TxMeta txMeta) {
         try {
             db.put(toBytes(txId), toBytes(txMeta));
-        }
-        catch (RocksDBException e) {
+        } catch (RocksDBException e) {
             throw new IgniteInternalException(TX_STATE_STORAGE_ERR, e);
         }
     }
@@ -152,8 +165,7 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
 
                 return false;
             }
-        }
-        catch (RocksDBException e) {
+        } catch (RocksDBException e) {
             throw new IgniteInternalException(TX_STATE_STORAGE_ERR, e);
         }
     }
@@ -162,8 +174,7 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
     @Override public void remove(UUID txId) {
         try {
             db.delete(toBytes(txId));
-        }
-        catch (RocksDBException e) {
+        } catch (RocksDBException e) {
             throw new IgniteInternalException(TX_STATE_STORAGE_ERR, e);
         }
     }

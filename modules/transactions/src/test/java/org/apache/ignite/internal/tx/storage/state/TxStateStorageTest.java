@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.tx.storage.state;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,11 +39,9 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
+/**
+ * Tx storage test.
+ */
 @ExtendWith(WorkDirectoryExtension.class)
 public class TxStateStorageTest {
     @WorkDirectory
