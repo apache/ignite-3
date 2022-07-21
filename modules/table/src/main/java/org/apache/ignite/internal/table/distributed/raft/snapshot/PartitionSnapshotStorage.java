@@ -95,6 +95,7 @@ class PartitionSnapshotStorage implements SnapshotStorage {
         return new PartitionSnapshotWriter(this);
     }
 
+    /** {@inheritDoc} */
     @Override
     public SnapshotReader open() {
         return new InitPartitionSnapshotReader(this);
