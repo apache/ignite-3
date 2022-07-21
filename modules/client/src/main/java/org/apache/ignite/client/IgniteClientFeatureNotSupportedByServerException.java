@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client;
 
-import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 
 import org.apache.ignite.internal.client.ProtocolBitmaskFeature;
 import org.apache.ignite.lang.IgniteException;
@@ -54,6 +54,6 @@ public class IgniteClientFeatureNotSupportedByServerException extends IgniteExce
      * @param cause the cause.
      */
     public IgniteClientFeatureNotSupportedByServerException(String msg, Throwable cause) {
-        super(PROTOCOL_ERR, msg, cause);
+        super(PROTOCOL_COMPATIBILITY_ERR, msg, cause);
     }
 }
