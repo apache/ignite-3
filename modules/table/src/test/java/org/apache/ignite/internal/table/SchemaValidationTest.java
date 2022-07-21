@@ -68,7 +68,10 @@ public class SchemaValidationTest {
         AtomicLong raftIndex = new AtomicLong();
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager), txManager, raftIndex);
+                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
+                txManager,
+                raftIndex
+        );
 
         List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
 

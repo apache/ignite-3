@@ -500,9 +500,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         raftMgr.startRaftGroupNode(
                                 grpId,
                                 newPartAssignment,
-                                new PartitionListener(tblId,
-                                        new VersionedRowStore(partitionStorage,
-                                                txManager)),
+                                new PartitionListener(tblId, new VersionedRowStore(partitionStorage, txManager)),
                                 new RebalanceRaftGroupEventsListener(
                                         metaStorageMgr,
                                         tablesCfg.tables().get(tablesById.get(tblId).name()),
@@ -510,7 +508,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         partId,
                                         busyLock,
                                         movePartition(() -> internalTbl.partitionRaftGroupService(partId)),
-                                        rebalanceScheduler),
+                                        rebalanceScheduler
+                                ),
                                 groupOptions
                         );
                     }
@@ -1358,7 +1357,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     part,
                                     busyLock,
                                     movePartition(() -> tbl.internalTable().partitionRaftGroupService(part)),
-                                    rebalanceScheduler);
+                                    rebalanceScheduler
+                            );
 
                             raftMgr.startRaftGroupNode(
                                     partId,

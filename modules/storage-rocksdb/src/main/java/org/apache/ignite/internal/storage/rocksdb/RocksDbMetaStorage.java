@@ -51,17 +51,17 @@ class RocksDbMetaStorage {
         PARTITION_ID_PREFIX_END[PARTITION_ID_PREFIX_END.length - 1] += 1;
     }
 
-    private final ColumnFamily metaCf;
+    private final ColumnFamily metaColumnFamily;
 
-    RocksDbMetaStorage(ColumnFamily metaCf) {
-        this.metaCf = metaCf;
+    RocksDbMetaStorage(ColumnFamily metaColumnFamily) {
+        this.metaColumnFamily = metaColumnFamily;
     }
 
     /**
      * Returns a column family instance, associated with the meta storage.
      */
     ColumnFamily columnFamily() {
-        return metaCf;
+        return metaColumnFamily;
     }
 
     /**
@@ -75,7 +75,7 @@ class RocksDbMetaStorage {
         try (
                 var upperBound = new Slice(PARTITION_ID_PREFIX_END);
                 var options = new ReadOptions().setIterateUpperBound(upperBound);
-                RocksIterator it = metaCf.newIterator(options);
+                RocksIterator it = metaColumnFamily.newIterator(options);
         ) {
             it.seek(PARTITION_ID_PREFIX);
 
@@ -109,7 +109,7 @@ class RocksDbMetaStorage {
         byte[] partitionIdBytes = Arrays.copyOfRange(partitionIdKey, PARTITION_ID_PREFIX.length, partitionIdKey.length);
 
         try {
-            metaCf.put(partitionIdKey, partitionIdBytes);
+            metaColumnFamily.put(partitionIdKey, partitionIdBytes);
         } catch (RocksDBException e) {
             throw new StorageException("Unable to save partition " + partitionId + " in the meta Column Family", e);
         }
@@ -122,7 +122,7 @@ class RocksDbMetaStorage {
      */
     void removePartitionId(int partitionId) {
         try {
-            metaCf.delete(partitionIdKey(partitionId));
+            metaColumnFamily.delete(partitionIdKey(partitionId));
         } catch (RocksDBException e) {
             throw new StorageException("Unable to delete partition " + partitionId + " from the meta Column Family", e);
         }

@@ -82,10 +82,16 @@ public class VersionedRowStore {
         });
     }
 
+    /**
+     * Sets the last known replicator index.
+     */
     public void appliedIndex(long appliedIndex) {
         storage.appliedIndex(appliedIndex);
     }
 
+    /**
+     * Last known replicator index. {@code 0} if index is unknown.
+     */
     public long appliedIndex() {
         return storage.appliedIndex();
     }

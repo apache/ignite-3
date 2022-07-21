@@ -82,9 +82,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 invocationClose -> {
                     Command cmd = invocationClose.getArgument(0);
 
-                    long index = raftIndex.incrementAndGet();
+                    long appliedIndex = raftIndex.incrementAndGet();
 
-                    CompletableFuture res = new CompletableFuture();
+                    CompletableFuture<Serializable> res = new CompletableFuture<>();
 
                     CompletableFuture<Void> fut = partitionListener.onBeforeApply(cmd);
 
@@ -115,7 +115,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                         /** {@inheritDoc} */
                                         @Override
                                         public long appliedIndex() {
-                                            return index;
+                                            return appliedIndex;
                                         }
 
                                         /** {@inheritDoc} */

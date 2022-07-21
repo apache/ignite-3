@@ -94,13 +94,13 @@ public class MessagingServiceTestUtils {
     }
 
     private static <T extends Command> Iterator<CommandClosure<T>> iterator(T obj, AtomicLong raftIndex) {
-        long index = raftIndex.incrementAndGet();
+        long appliedIndex = raftIndex.incrementAndGet();
 
         CommandClosure<T> closure = new CommandClosure<>() {
             /** {@inheritDoc} */
             @Override
             public long appliedIndex() {
-                return index;
+                return appliedIndex;
             }
 
             /** {@inheritDoc} */

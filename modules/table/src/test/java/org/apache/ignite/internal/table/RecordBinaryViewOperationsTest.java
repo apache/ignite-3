@@ -700,7 +700,8 @@ public class RecordBinaryViewOperationsTest {
         DummyInternalTableImpl table = new DummyInternalTableImpl(
                 new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
                 txManager,
-                raftIndex);
+                raftIndex
+        );
 
         List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
 

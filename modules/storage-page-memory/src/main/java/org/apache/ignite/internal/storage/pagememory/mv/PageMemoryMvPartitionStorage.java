@@ -74,11 +74,9 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
 
     /**
      * Applied index value.
-     *
-     * @deprecated Not persistent, should be fixed later. TODO IGNITE-17077
      */
-    @Deprecated
-    private long appliedIndex = 0;
+    //TODO Make it persistent. IGNITE-17077
+    private volatile long appliedIndex = 0;
 
     /**
      * Constructor.

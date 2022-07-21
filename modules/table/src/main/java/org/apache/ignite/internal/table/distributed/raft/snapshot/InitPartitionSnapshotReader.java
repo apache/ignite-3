@@ -22,6 +22,7 @@ import java.util.Set;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Snapshot reader used for raft group bootstrap. Reads initial state of the storage.
@@ -60,7 +61,7 @@ class InitPartitionSnapshotReader extends SnapshotReader {
 
     /** {@inheritDoc} */
     @Override
-    public Message getFileMeta(String fileName) {
+    public @Nullable Message getFileMeta(String fileName) {
         // No files in the snapshot.
         return null;
     }

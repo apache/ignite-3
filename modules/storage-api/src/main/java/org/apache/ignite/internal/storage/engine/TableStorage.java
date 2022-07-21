@@ -25,6 +25,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Table storage that contains meta, partitions and SQL indexes.
+ *
+ * @deprecated Replaced with {@link MvTableStorage}.
  */
 @Deprecated
 public interface TableStorage {

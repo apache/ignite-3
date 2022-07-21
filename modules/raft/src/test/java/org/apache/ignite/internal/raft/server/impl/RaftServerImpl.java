@@ -235,7 +235,7 @@ public class RaftServerImpl implements RaftServer {
             BlockingQueue<CommandClosureEx<T>> queue,
             RaftGroupListener lsnr
     ) {
-        long index = req.command() instanceof ReadCommand ? 0 : appliedIndex.incrementAndGet();
+        long appliedIndex = req.command() instanceof ReadCommand ? 0 : this.appliedIndex.incrementAndGet();
 
         if (!queue.offer(new CommandClosureEx<>() {
             /** {@inheritDoc} */
@@ -247,7 +247,7 @@ public class RaftServerImpl implements RaftServer {
             /** {@inheritDoc} */
             @Override
             public long appliedIndex() {
-                return index;
+                return appliedIndex;
             }
 
             /** {@inheritDoc} */

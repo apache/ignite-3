@@ -124,7 +124,9 @@ public class InteropOperationsTest {
         INT_TABLE = new DummyInternalTableImpl(
                 new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
                 txManager,
-                raftIndex);
+                raftIndex
+        );
+
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(SCHEMA);
 
         List<PartitionListener> partitionListeners = List.of(INT_TABLE.getPartitionListener());

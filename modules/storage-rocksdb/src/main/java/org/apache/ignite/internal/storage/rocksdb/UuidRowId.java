@@ -26,6 +26,7 @@ import org.apache.ignite.internal.storage.RowId;
  * UUID-based ignite row id implementation.
  */
 @Deprecated
+//TODO Implement generic row id. IGNITE-17076
 final class UuidRowId implements RowId {
     /*
      * The most significant 64 bits.

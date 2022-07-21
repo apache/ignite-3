@@ -258,6 +258,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public RocksDbMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
         getOrCreatePartition(partitionId);
@@ -265,8 +266,9 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         return getMvPartition(partitionId);
     }
 
+    /** {@inheritDoc} */
     @Override
-    public RocksDbMvPartitionStorage getMvPartition(int partitionId) {
+    public @Nullable RocksDbMvPartitionStorage getMvPartition(int partitionId) {
         if (getPartition(partitionId) == null) {
             return null;
         }
@@ -274,6 +276,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         return new RocksDbMvPartitionStorage(partitionId, db, partitionCf.handle(), meta.columnFamily().handle());
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<?> destroyPartition(int partitionId) throws StorageException {
         RocksDbMvPartitionStorage mvPartition = getMvPartition(partitionId);
@@ -287,6 +290,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         return CompletableFuture.completedFuture(null);
     }
 
+    /** {@inheritDoc} */
     @Override
     public SortedIndexStorage getOrCreateSortedIndex(String indexName) {
         assert !stopped : "Storage has been stopped";
@@ -307,6 +311,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         });
     }
 
+    /** {@inheritDoc} */
     @Override
     public void dropIndex(String indexName) {
         assert !stopped : "Storage has been stopped";
@@ -318,6 +323,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         });
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean isVolatile() {
         return false;
