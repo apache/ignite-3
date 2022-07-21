@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
+import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -191,35 +192,26 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
         RocksIterator rocksIterator = db.newIterator();
         rocksIterator.seekToFirst();
 
-        return new Cursor<>() {
-            @Override public void close() {
-                rocksIterator.close();
-            }
-
-            @Override public boolean hasNext() {
-                return rocksIterator.isValid();
-            }
-
-            @Override public IgniteBiTuple<UUID, TxMeta> next() {
-                IgniteBiTuple<UUID, TxMeta> res = getCurrent();
-
-                rocksIterator.next();
-
-                return res;
-            }
-
-            private IgniteBiTuple<UUID, TxMeta> getCurrent() {
-                if (!rocksIterator.isValid()) {
-                    return null;
-                }
-
-                byte[] keyBytes = rocksIterator.key();
-                byte[] valueBytes = rocksIterator.value();
-
+        RocksIteratorAdapter<IgniteBiTuple<UUID, TxMeta>> iteratorAdapter = new RocksIteratorAdapter<>(rocksIterator) {
+            @Override protected IgniteBiTuple<UUID, TxMeta> decodeEntry(byte[] keyBytes, byte[] valueBytes) {
                 UUID key = (UUID) fromBytes(keyBytes);
                 TxMeta txMeta = (TxMeta) fromBytes(valueBytes);
 
                 return new IgniteBiTuple<>(key, txMeta);
+            }
+        };
+
+        return new Cursor<>() {
+            @Override public void close() throws Exception {
+                iteratorAdapter.close();
+            }
+
+            @Override public boolean hasNext() {
+                return iteratorAdapter.hasNext();
+            }
+
+            @Override public IgniteBiTuple<UUID, TxMeta> next() {
+                return iteratorAdapter.next();
             }
         };
     }
