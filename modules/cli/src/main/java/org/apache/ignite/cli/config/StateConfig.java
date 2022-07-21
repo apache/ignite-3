@@ -29,7 +29,7 @@ public class StateConfig {
     private static final String CONFIG_FILE_NAME = "config.ini";
 
     /**
-     * Returns an instance of {@link Config} holding the properties
+     * Returns an instance of {@link Config} holding the properties.
      *
      * @return new instance of {@link Config}
      */
