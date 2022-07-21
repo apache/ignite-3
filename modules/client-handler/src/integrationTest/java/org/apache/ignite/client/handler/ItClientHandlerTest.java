@@ -18,7 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
-import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -196,7 +196,7 @@ public class ItClientHandlerTest {
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
-            assertEquals(PROTOCOL_ERR, code);
+            assertEquals(PROTOCOL_COMPATIBILITY_ERR, code);
 
             assertThat(errMsg, containsString("Unsupported version: 2.8.0"));
             assertEquals("org.apache.ignite.lang.IgniteException", errClassName);
