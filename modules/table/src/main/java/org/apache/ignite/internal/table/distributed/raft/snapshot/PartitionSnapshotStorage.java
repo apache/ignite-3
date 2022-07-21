@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -56,13 +53,7 @@ class PartitionSnapshotStorage implements SnapshotStorage {
     /** {@inheritDoc} */
     @Override
     public boolean init(Void opts) {
-        try {
-            Files.createDirectories(Path.of(snapshotUri));
-
-            return true;
-        } catch (IOException e) {
-            return false;
-        }
+        return true;
     }
 
     /** {@inheritDoc} */

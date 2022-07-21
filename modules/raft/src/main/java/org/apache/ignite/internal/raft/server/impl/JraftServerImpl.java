@@ -554,9 +554,13 @@ public class JraftServerImpl implements RaftServer {
                     if (res == null) {
                         File file = new File(writer.getPath());
 
-                        for (File file0 : file.listFiles()) {
-                            if (file0.isFile()) {
-                                writer.addFile(file0.getName(), null);
+                        File[] snapshotFiles = file.listFiles();
+
+                        if (snapshotFiles != null) {
+                            for (File file0 : snapshotFiles) {
+                                if (file0.isFile()) {
+                                    writer.addFile(file0.getName(), null);
+                                }
                             }
                         }
 
