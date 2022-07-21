@@ -35,7 +35,9 @@ import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -43,6 +45,7 @@ import org.rocksdb.Options;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
 import org.rocksdb.Transaction;
 import org.rocksdb.TransactionDB;
 import org.rocksdb.TransactionDBOptions;
@@ -181,6 +184,44 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
         } catch (RocksDBException e) {
             throw new IgniteInternalException(TX_STATE_STORAGE_ERR, "Failed to remove a value from the transaction state storage", e);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
+        RocksIterator rocksIterator = db.newIterator();
+        rocksIterator.seekToFirst();
+
+        return new Cursor<>() {
+            @Override public void close() {
+                rocksIterator.close();
+            }
+
+            @Override public boolean hasNext() {
+                return rocksIterator.isValid();
+            }
+
+            @Override public IgniteBiTuple<UUID, TxMeta> next() {
+                IgniteBiTuple<UUID, TxMeta> res = getCurrent();
+
+                rocksIterator.next();
+
+                return res;
+            }
+
+            private IgniteBiTuple<UUID, TxMeta> getCurrent() {
+                if (!rocksIterator.isValid()) {
+                    return null;
+                }
+
+                byte[] keyBytes = rocksIterator.key();
+                byte[] valueBytes = rocksIterator.value();
+
+                UUID key = (UUID) fromBytes(keyBytes);
+                TxMeta txMeta = (TxMeta) fromBytes(valueBytes);
+
+                return new IgniteBiTuple<>(key, txMeta);
+            }
+        };
     }
 
     /** {@inheritDoc} */

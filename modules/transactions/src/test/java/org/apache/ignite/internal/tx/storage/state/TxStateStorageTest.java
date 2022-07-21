@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.storage.state;
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,7 +29,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
@@ -38,6 +41,8 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
+import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -116,6 +121,38 @@ public class TxStateStorageTest {
             assertTrue(storage.compareAndSet(txId, txMeta0.txState(), txMeta2));
 
             assertTxMetaEquals(storage.get(txId), txMeta2);
+        }
+    }
+
+    @Test
+    public void testScan() throws Exception {
+        try (TxStateStorage storage = createStorage()) {
+            storage.start();
+
+            Map<UUID, TxMeta> txs = new HashMap<>();
+
+            for (int i = 0; i < 100; i++) {
+                UUID txId = UUID.randomUUID();
+                TxMeta txMeta = new TxMeta(TxState.PENDING, generateEnlistedPartitions(i), generateTimestamp(txId));
+                txs.put(txId, txMeta);
+                storage.put(txId, txMeta);
+            }
+
+            try (Cursor<IgniteBiTuple<UUID, TxMeta>> scanCursor = storage.scan()) {
+                assertTrue(scanCursor.hasNext());
+
+                while (scanCursor.hasNext()) {
+                    IgniteBiTuple<UUID, TxMeta> txData = scanCursor.next();
+                    TxMeta txMeta = txs.remove(txData.getKey());
+
+                    assertNotNull(txMeta);
+                    assertNotNull(txData);
+                    assertNotNull(txData.getValue());
+                    assertTxMetaEquals(txMeta, txData.getValue());
+                }
+
+                assertTrue(txs.isEmpty());
+            }
         }
     }
 

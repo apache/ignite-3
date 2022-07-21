@@ -22,7 +22,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 
@@ -90,6 +92,13 @@ public interface TxStateStorage extends AutoCloseable {
      *                                 the operation has failed.
      */
     void remove(UUID txId);
+
+    /**
+     * Create a cursor to scan all data in the storage.
+     *
+     * @return Cursor.
+     */
+    Cursor<IgniteBiTuple<UUID, TxMeta>> scan();
 
     /**
      * Removes all data from the storage and frees all resources.
