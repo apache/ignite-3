@@ -201,19 +201,7 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
             }
         };
 
-        return new Cursor<>() {
-            @Override public void close() throws Exception {
-                iteratorAdapter.close();
-            }
-
-            @Override public boolean hasNext() {
-                return iteratorAdapter.hasNext();
-            }
-
-            @Override public IgniteBiTuple<UUID, TxMeta> next() {
-                return iteratorAdapter.next();
-            }
-        };
+        return Cursor.fromIterator(iteratorAdapter);
     }
 
     /** {@inheritDoc} */
