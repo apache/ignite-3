@@ -82,7 +82,7 @@ public class CursorImpl<T> implements Cursor<T> {
 
             ((InnerIterator) it).close();
         } catch (InterruptedException | ExecutionException e) {
-            if (e.getCause() != null && e.getCause().getClass().equals(NodeStoppingException.class)) {
+            if (e.getCause() instanceof NodeStoppingException) {
                 return;
             }
 
@@ -129,7 +129,7 @@ public class CursorImpl<T> implements Cursor<T> {
                             .get();
                 }
             } catch (InterruptedException | ExecutionException e) {
-                if (e.getCause() != null && e.getCause().getClass().equals(NodeStoppingException.class)) {
+                if (e.getCause() instanceof NodeStoppingException) {
                     return false;
                 }
 
@@ -171,14 +171,12 @@ public class CursorImpl<T> implements Cursor<T> {
             } catch (InterruptedException | ExecutionException e) {
                 Throwable cause = e.getCause();
 
-                if (cause != null) {
-                    if (cause.getClass().equals(NodeStoppingException.class)) {
-                        throw new NoSuchElementException();
-                    } else {
-                        if (cause.getClass().equals(NoSuchElementException.class)) {
-                            throw (NoSuchElementException) cause;
-                        }
-                    }
+                if (cause instanceof NodeStoppingException) {
+                    throw new NoSuchElementException();
+                }
+
+                if (cause instanceof NoSuchElementException) {
+                    throw (NoSuchElementException) cause;
                 }
 
                 LOG.debug("Unable to evaluate cursor hasNext command", e);
