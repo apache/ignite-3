@@ -17,7 +17,6 @@
 
 package org.apache.ignite.cli.core.repl.executor;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -95,7 +94,7 @@ public class ReplExecutor {
                     ? repl.getCompleter()
                     : registry.completer());
             if (repl.getHistoryFileName() != null) {
-                reader.variable(LineReader.HISTORY_FILE, new File(StateFolderProvider.getStateFolder(), repl.getHistoryFileName()));
+                reader.variable(LineReader.HISTORY_FILE, StateFolderProvider.getStateFile(repl.getHistoryFileName()));
             }
 
             RegistryCommandExecutor executor = new RegistryCommandExecutor(registry);
