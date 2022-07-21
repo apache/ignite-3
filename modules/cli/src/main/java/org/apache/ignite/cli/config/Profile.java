@@ -25,15 +25,25 @@ import java.util.Map;
 public interface Profile {
     String getName();
 
-    Map<String, String> getAll();
+    Config getConfig();
 
-    String getProperty(String key);
+    default Map<String, String> getAll() {
+        return getConfig().getAll();
+    }
 
-    String getProperty(String key, String defaultValue);
+    default String getProperty(String key) {
+        return getConfig().getProperty(key);
+    }
 
-    void setProperty(String key, String value);
+    default String getProperty(String key, String defaultValue) {
+        return getConfig().getProperty(key, defaultValue);
+    }
 
-    void setProperties(Map<String, String> values);
+    default void setProperty(String key, String value) {
+        getConfig().setProperty(key, value);
+    }
 
-    void setProperties(Profile copyFrom);
+    default void setProperties(Map<String, String> values) {
+        getConfig().setProperties(values);
+    }
 }

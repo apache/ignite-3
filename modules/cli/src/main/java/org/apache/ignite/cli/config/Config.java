@@ -15,30 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.config.ini;
+package org.apache.ignite.cli.config;
 
-import org.apache.ignite.cli.config.Config;
-import org.apache.ignite.cli.config.Profile;
+import java.util.Map;
 
 /**
- * Implementation of {@link Profile} based on {@link IniSection}.
+ * Ignite CLI config.
  */
-public class IniProfile implements Profile {
-    private final IniSection section;
-    private final IniConfig config;
+public interface Config {
+    Map<String, String> getAll();
 
-    public IniProfile(IniSection section, Runnable saveAction) {
-        this.section = section;
-        this.config = new IniConfig(section, saveAction);
-    }
+    String getProperty(String key);
 
-    @Override
-    public String getName() {
-        return section.getName();
-    }
+    String getProperty(String key, String defaultValue);
 
-    @Override
-    public Config getConfig() {
-        return config;
-    }
+    void setProperty(String key, String value);
+
+    void setProperties(Map<String, String> values);
 }
