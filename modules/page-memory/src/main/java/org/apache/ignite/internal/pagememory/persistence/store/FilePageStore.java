@@ -22,9 +22,12 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.fileio.FileIo;
-import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,6 +46,7 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 // TODO: IGNITE-17372 модифицировать описание
+// TODO: IGNITE-17372 тут еще надо будет методы поправить
 public class FilePageStore implements PageStore {
     /** File page store version. */
     public static final int VERSION_1 = 1;
@@ -51,7 +55,7 @@ public class FilePageStore implements PageStore {
     public static final int DELTA_FILE_VERSION_1 = 1;
 
     /** File page store IO. */
-    private final FilePageStoreIo fileIo;
+    private final FilePageStoreIo filePageStoreIo;
 
     /** Page count. */
     private final AtomicInteger pageCount = new AtomicInteger();
@@ -59,32 +63,35 @@ public class FilePageStore implements PageStore {
     /** New page allocation listener. */
     private volatile @Nullable PageAllocationListener pageAllocationListener;
 
+    /** Delta file page store IOs. */
+    private final List<DeltaFilePageStoreIo> deltaFilePageStoreIos;
+
     /**
      * Constructor.
      *
-     * @param header File page store header.
-     * @param filePath File page store path.
-     * @param ioFactory {@link FileIo} factory.
-     * @param deltaFileIos Delta IO files.
+     * @param filePageStoreIo File page store IO.
+     * @param deltaFilePageStoreIos Delta file page store IOs.
      */
     public FilePageStore(
-            FilePageStoreHeader header,
-            Path filePath,
-            FileIoFactory ioFactory,
-            DeltaFilePageStoreIo... deltaFileIos
+            FilePageStoreIo filePageStoreIo,
+            DeltaFilePageStoreIo... deltaFilePageStoreIos
     ) {
-        assert header.headerSize() % header.pageSize() == 0 :
-                "Not aligned [headerSiz=" + header.headerSize() + ", pageSize=" + header.pageSize() + "]";
+        if (deltaFilePageStoreIos.length > 0) {
+            Arrays.sort(deltaFilePageStoreIos, Comparator.comparingInt(DeltaFilePageStoreIo::fileIndex).reversed());
+        }
 
-        // TODO: IGNITE-17372 подумать на счет переделки конструктора
-
-        this.fileIo = new FilePageStoreIo(ioFactory, filePath, header);
+        this.filePageStoreIo = filePageStoreIo;
+        this.deltaFilePageStoreIos = new CopyOnWriteArrayList<>(Arrays.asList(deltaFilePageStoreIos));
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop(boolean clean) throws IgniteInternalCheckedException {
-        fileIo.stop(clean);
+        filePageStoreIo.stop(clean);
+
+        for (DeltaFilePageStoreIo deltaFilePageStoreIo : deltaFilePageStoreIos) {
+            deltaFilePageStoreIo.stop(clean);
+        }
     }
 
     /** {@inheritDoc} */
@@ -133,7 +140,7 @@ public class FilePageStore implements PageStore {
      */
     public void readByPhysicalOffset(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
         // TODO: IGNITE-17372 возможно надо будет переименовать или вроде того
-        fileIo.read(pageId, pageBuf, keepCrc);
+        filePageStoreIo.read(pageId, pageBuf, keepCrc);
     }
 
     /** {@inheritDoc} */
@@ -141,7 +148,7 @@ public class FilePageStore implements PageStore {
     public void read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
         assert pageIndex(pageId) <= pageCount.get() : "pageIdx=" + pageIndex(pageId) + ", pageCount=" + pageCount.get();
 
-        fileIo.read(pageId, pageBuf, keepCrc);
+        filePageStoreIo.read(pageId, pageBuf, keepCrc);
     }
 
     /** {@inheritDoc} */
@@ -149,31 +156,35 @@ public class FilePageStore implements PageStore {
     public void write(long pageId, ByteBuffer pageBuf, boolean calculateCrc) throws IgniteInternalCheckedException {
         assert pageIndex(pageId) <= pageCount.get() : "pageIdx=" + pageIndex(pageId) + ", pageCount=" + pageCount.get();
 
-        fileIo.write(pageId, pageBuf, calculateCrc);
+        filePageStoreIo.write(pageId, pageBuf, calculateCrc);
     }
 
     /** {@inheritDoc} */
     @Override
     public void sync() throws IgniteInternalCheckedException {
-        fileIo.sync();
+        filePageStoreIo.sync();
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean exists() {
-        return fileIo.exists();
+        return filePageStoreIo.exists();
     }
 
     /** {@inheritDoc} */
     @Override
     public void ensure() throws IgniteInternalCheckedException {
-        fileIo.ensure();
+        filePageStoreIo.ensure();
     }
 
     /** {@inheritDoc} */
     @Override
     public void close() throws IOException {
-        fileIo.close();
+        filePageStoreIo.close();
+
+        for (DeltaFilePageStoreIo deltaFilePageStoreIo : deltaFilePageStoreIos) {
+            deltaFilePageStoreIo.close();
+        }
     }
 
     /**
@@ -185,21 +196,21 @@ public class FilePageStore implements PageStore {
      * @throws IgniteInternalCheckedException If an I/O error occurs.
      */
     public long size() throws IgniteInternalCheckedException {
-        return fileIo.size();
+        return filePageStoreIo.size();
     }
 
     /**
      * Returns file page store path.
      */
     public Path filePath() {
-        return fileIo.filePath();
+        return filePageStoreIo.filePath();
     }
 
     /**
      * Returns file page store header size.
      */
     public int headerSize() {
-        return fileIo.headerSize();
+        return filePageStoreIo.headerSize();
     }
 
     /**

@@ -21,6 +21,7 @@ import static java.nio.ByteOrder.nativeOrder;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIoHeader.checkFileIndex;
 import static org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIoHeader.checkFilePageIndexes;
 import static org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIoHeader.readHeader;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.DELTA_FILE_VERSION_1;
@@ -68,22 +69,32 @@ public class DeltaFilePageStoreIoHeaderTest {
 
     @Test
     void testHeaderSize() {
-        assertEquals(PAGE_SIZE, new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, PAGE_SIZE, arr()).headerSize());
-        assertEquals(PAGE_SIZE, new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, PAGE_SIZE, arr(1)).headerSize());
-        assertEquals(PAGE_SIZE, new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, PAGE_SIZE, arr(1, 2)).headerSize());
-        assertEquals(PAGE_SIZE, new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, PAGE_SIZE, arr(1, 2, 3)).headerSize());
+        assertEquals(PAGE_SIZE, new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr()).headerSize());
+        assertEquals(PAGE_SIZE, new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr(1)).headerSize());
+        assertEquals(PAGE_SIZE, new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr(1, 2)).headerSize());
+        assertEquals(PAGE_SIZE, new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr(1, 2)).headerSize());
 
-        assertEquals(2 * PAGE_SIZE, new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, PAGE_SIZE, arr(1, 2, 3, 4)).headerSize());
-        assertEquals(2 * PAGE_SIZE, new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, PAGE_SIZE, arr(1, 2, 3, 4, 5, 6, 7)).headerSize());
+        assertEquals(2 * PAGE_SIZE, new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr(1, 2, 3)).headerSize());
+
+        assertEquals(2 * PAGE_SIZE, new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr(1, 2, 3, 4)).headerSize());
+
+        assertEquals(2 * PAGE_SIZE,
+                new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr(1, 2, 3, 4, 5, 6, 7)).headerSize()
+        );
 
         assertEquals(
                 2 * PAGE_SIZE,
-                new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, PAGE_SIZE, arr(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)).headerSize()
+                new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)).headerSize()
         );
 
         assertEquals(
                 3 * PAGE_SIZE,
-                new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, PAGE_SIZE, arr(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)).headerSize()
+                new DeltaFilePageStoreIoHeader(
+                        DELTA_FILE_VERSION_1,
+                        0,
+                        PAGE_SIZE,
+                        arr(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
+                ).headerSize()
         );
     }
 
@@ -92,22 +103,22 @@ public class DeltaFilePageStoreIoHeaderTest {
         int[] arr = arr();
 
         assertThat(
-                new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, PAGE_SIZE, arr).toByteBuffer().rewind(),
-                equalTo(toByteBuffer(PAGE_SIZE, DELTA_FILE_VERSION_1, PAGE_SIZE, arr).rewind())
+                new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr).toByteBuffer().rewind(),
+                equalTo(toByteBuffer(PAGE_SIZE, DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr).rewind())
         );
 
         arr = arr(1, 2);
 
         assertThat(
-                new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, PAGE_SIZE, arr).toByteBuffer().rewind(),
-                equalTo(toByteBuffer(PAGE_SIZE, DELTA_FILE_VERSION_1, PAGE_SIZE, arr).rewind())
+                new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr).toByteBuffer().rewind(),
+                equalTo(toByteBuffer(PAGE_SIZE, DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr).rewind())
         );
 
         arr = arr(1, 2, 3, 4);
 
         assertThat(
-                new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, PAGE_SIZE, arr).toByteBuffer().rewind(),
-                equalTo(toByteBuffer(2 * PAGE_SIZE, DELTA_FILE_VERSION_1, PAGE_SIZE, arr).rewind())
+                new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr).toByteBuffer().rewind(),
+                equalTo(toByteBuffer(2 * PAGE_SIZE, DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr).rewind())
         );
     }
 
@@ -135,7 +146,7 @@ public class DeltaFilePageStoreIoHeaderTest {
 
             assertNull(readHeader(fileIo, buffer));
 
-            DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, PAGE_SIZE, arr());
+            DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr());
 
             fileIo.writeFully(header.toByteBuffer().rewind(), 0);
 
@@ -147,7 +158,7 @@ public class DeltaFilePageStoreIoHeaderTest {
         try (FileIo fileIo = createFileIo(workDir.resolve("test1"))) {
             ByteBuffer buffer = ByteBuffer.allocateDirect(PAGE_SIZE).order(nativeOrder());
 
-            DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, PAGE_SIZE, arr(1, 2));
+            DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr(1, 2));
 
             fileIo.writeFully(header.toByteBuffer().rewind(), 0);
 
@@ -160,7 +171,12 @@ public class DeltaFilePageStoreIoHeaderTest {
             ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
 
             try {
-                DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, PAGE_SIZE, arr(1, 2, 3, 4, 5, 6));
+                DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(
+                        DELTA_FILE_VERSION_1,
+                        0,
+                        PAGE_SIZE,
+                        arr(1, 2, 3, 4, 5, 6)
+                );
 
                 fileIo.writeFully(header.toByteBuffer().rewind(), 0);
 
@@ -173,10 +189,26 @@ public class DeltaFilePageStoreIoHeaderTest {
         }
     }
 
-    private static ByteBuffer toByteBuffer(int capacity, int version, int pageSize, int[] pageIndexes) {
+    @Test
+    void testCheckFileIndex() {
+        assertDoesNotThrow(() -> checkFileIndex(0, 0));
+
+        Exception exception = assertThrows(IOException.class, () -> checkFileIndex(1, 2));
+
+        assertThat(exception.getMessage(), startsWith("Invalid file indexes"));
+    }
+
+    @Test
+    void testIndex() {
+        assertEquals(0, new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr()).index());
+        assertEquals(1, new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr()).index());
+    }
+
+    private static ByteBuffer toByteBuffer(int capacity, int version, int index, int pageSize, int[] pageIndexes) {
         ByteBuffer buffer = ByteBuffer.allocate(capacity).order(nativeOrder())
                 .putLong(0xDEAFAEE072020173L)
                 .putInt(version)
+                .putInt(index)
                 .putInt(pageSize)
                 .putInt(pageIndexes.length);
 

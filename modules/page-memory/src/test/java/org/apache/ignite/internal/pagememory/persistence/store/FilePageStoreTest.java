@@ -138,6 +138,6 @@ public class FilePageStoreTest {
     }
 
     private static FilePageStore createFilePageStore(Path filePath, FilePageStoreHeader header) {
-        return new FilePageStore(header, filePath, new RandomAccessFileIoFactory());
+        return new FilePageStore(new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header));
     }
 }

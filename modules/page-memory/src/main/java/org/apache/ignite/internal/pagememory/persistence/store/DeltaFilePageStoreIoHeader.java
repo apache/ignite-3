@@ -48,9 +48,12 @@ public class DeltaFilePageStoreIoHeader {
     private static final long SIGNATURE = 0xDEAFAEE072020173L;
 
     /** Size of the common delta file page store header for all versions, in bytes. */
-    private static final int COMMON_HEADER_SIZE = 8/*SIGNATURE*/ + 4/*version*/ + 4/*page size*/ + 4/*page index array length*/;
+    private static final int COMMON_HEADER_SIZE =
+            8/*SIGNATURE*/ + 4/*version*/ + 4/*index*/ + 4/*page size*/ + 4/*page index array length*/;
 
     private final int version;
+
+    private final int index;
 
     private final int pageSize;
 
@@ -62,13 +65,16 @@ public class DeltaFilePageStoreIoHeader {
      * Constructor.
      *
      * @param version Delta file page store version.
+     * @param index Delta file page store index.
      * @param pageSize Page size in bytes.
      * @param pageIndexes Page indexes.
      */
-    public DeltaFilePageStoreIoHeader(int version, int pageSize, int[] pageIndexes) {
+    public DeltaFilePageStoreIoHeader(int version, int index, int pageSize, int[] pageIndexes) {
         assert pageSize >= COMMON_HEADER_SIZE : pageSize;
+        assert index >= 0 : index;
 
         this.version = version;
+        this.index = index;
         this.pageSize = pageSize;
         this.pageIndexes = pageIndexes;
 
@@ -86,6 +92,13 @@ public class DeltaFilePageStoreIoHeader {
      */
     public int version() {
         return version;
+    }
+
+    /**
+     * Returns the index of the delta file page store.
+     */
+    public int index() {
+        return index;
     }
 
     /**
@@ -116,6 +129,7 @@ public class DeltaFilePageStoreIoHeader {
         ByteBuffer buffer = ByteBuffer.allocate(headerSize).order(nativeOrder())
                 .putLong(SIGNATURE)
                 .putInt(version)
+                .putInt(index)
                 .putInt(pageSize)
                 .putInt(pageIndexes.length);
 
@@ -154,11 +168,12 @@ public class DeltaFilePageStoreIoHeader {
         }
 
         int version = headerBuffer.getInt();
+        int index = headerBuffer.getInt();
         int pageSize = headerBuffer.getInt();
         int arrayLen = headerBuffer.getInt();
 
         if (arrayLen == 0) {
-            return new DeltaFilePageStoreIoHeader(version, pageSize, new int[0]);
+            return new DeltaFilePageStoreIoHeader(version, index, pageSize, new int[0]);
         }
 
         int[] pageIndexes = new int[arrayLen];
@@ -182,7 +197,24 @@ public class DeltaFilePageStoreIoHeader {
             i += len;
         }
 
-        return new DeltaFilePageStoreIoHeader(version, pageSize, pageIndexes);
+        return new DeltaFilePageStoreIoHeader(version, index, pageSize, pageIndexes);
+    }
+
+    /**
+     * Checks the index of the file.
+     *
+     * @param expIndex Expected index.
+     * @param actIndex Actual index.
+     * @throws IOException If the indexes does not match.
+     */
+    public static void checkFileIndex(int expIndex, int actIndex) throws IOException {
+        if (expIndex != actIndex) {
+            throw new IOException(String.format(
+                    "Invalid file indexes [expected=%s, actual=%s]",
+                    expIndex,
+                    actIndex
+            ));
+        }
     }
 
     /**

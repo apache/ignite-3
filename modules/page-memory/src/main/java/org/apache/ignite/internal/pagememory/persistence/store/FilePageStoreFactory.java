@@ -114,7 +114,7 @@ class FilePageStoreFactory {
             DeltaFilePageStoreIo... deltaFileIos
     ) throws IgniteInternalCheckedException {
         if (header.version() == FilePageStore.VERSION_1) {
-            return new FilePageStore(header, filePath, fileIoFactory);
+            return new FilePageStore(new FilePageStoreIo(fileIoFactory, filePath, header), deltaFileIos);
         }
 
         throw new IgniteInternalCheckedException(String.format(

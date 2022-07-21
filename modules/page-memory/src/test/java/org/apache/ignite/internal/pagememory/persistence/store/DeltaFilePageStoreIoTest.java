@@ -22,7 +22,6 @@ import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.DELTA_FILE_VERSION_1;
-import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
 import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.arr;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -47,7 +46,7 @@ public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
     void testPageOffset() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(VERSION_1, PAGE_SIZE, arr(0, 1, 2));
+        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(0, 1, 2));
 
         try (DeltaFilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, header)) {
             assertEquals(PAGE_SIZE, filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 0)));
@@ -63,13 +62,13 @@ public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
     void testHeaderSize() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(VERSION_1, PAGE_SIZE, arr(0, 1, 2));
+        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(0, 1, 2));
 
         try (DeltaFilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, header)) {
             assertEquals(PAGE_SIZE, filePageStoreIo.headerSize());
         }
 
-        header = new DeltaFilePageStoreIoHeader(VERSION_1, PAGE_SIZE, IntStream.range(0, PAGE_SIZE / 4).toArray());
+        header = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, IntStream.range(0, PAGE_SIZE / 4).toArray());
 
         try (DeltaFilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, header)) {
             assertEquals(2 * PAGE_SIZE, filePageStoreIo.headerSize());
@@ -80,7 +79,7 @@ public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
     void testHeaderBuffer() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(VERSION_1, PAGE_SIZE, arr(0, 1, 2));
+        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(0, 1, 2));
 
         try (DeltaFilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, header)) {
             assertEquals(header.toByteBuffer().rewind(), filePageStoreIo.headerBuffer().rewind());
@@ -91,7 +90,7 @@ public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
     void testCheckHeader() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(VERSION_1, PAGE_SIZE, arr(0, 1, 2));
+        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(0, 1, 2));
 
         try (
                 DeltaFilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, header);
@@ -100,19 +99,29 @@ public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
             Exception exception = assertThrows(IOException.class, () -> filePageStoreIo.checkHeader(fileIo));
             assertThat(exception.getMessage(), startsWith("Missing file header"));
 
-            fileIo.writeFully(new DeltaFilePageStoreIoHeader(-1, PAGE_SIZE, arr(0, 1, 2)).toByteBuffer().rewind(), 0);
+            fileIo.writeFully(new DeltaFilePageStoreIoHeader(-1, 1, PAGE_SIZE, arr(0, 1, 2)).toByteBuffer().rewind(), 0);
             fileIo.force();
 
             exception = assertThrows(IOException.class, () -> filePageStoreIo.checkHeader(fileIo));
             assertThat(exception.getMessage(), startsWith("Invalid file version"));
 
-            fileIo.writeFully(new DeltaFilePageStoreIoHeader(VERSION_1, 2 * PAGE_SIZE, arr(0, 1, 2)).toByteBuffer().rewind(), 0);
+            fileIo.writeFully(new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 2, PAGE_SIZE, arr(0, 1, 2)).toByteBuffer().rewind(), 0);
+            fileIo.force();
+
+            exception = assertThrows(IOException.class, () -> filePageStoreIo.checkHeader(fileIo));
+            assertThat(exception.getMessage(), startsWith("Invalid file indexes"));
+
+            fileIo.writeFully(
+                    new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, 2 * PAGE_SIZE, arr(0, 1, 2)).toByteBuffer().rewind(),
+                    0
+            );
+
             fileIo.force();
 
             exception = assertThrows(IOException.class, () -> filePageStoreIo.checkHeader(fileIo));
             assertThat(exception.getMessage(), startsWith("Invalid file pageSize"));
 
-            fileIo.writeFully(new DeltaFilePageStoreIoHeader(VERSION_1, PAGE_SIZE, arr(2, 1, 0)).toByteBuffer().rewind(), 0);
+            fileIo.writeFully(new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(2, 1, 0)).toByteBuffer().rewind(), 0);
             fileIo.force();
 
             exception = assertThrows(IOException.class, () -> filePageStoreIo.checkHeader(fileIo));
@@ -130,7 +139,7 @@ public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
     DeltaFilePageStoreIo createFilePageStoreIo(Path filePath) {
         return createFilePageStoreIo(
                 filePath,
-                new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, PAGE_SIZE, arr(0, 1, 2, 3, 5, 6, 7, 8, 9))
+                new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(0, 1, 2, 3, 5, 6, 7, 8, 9))
         );
     }
 

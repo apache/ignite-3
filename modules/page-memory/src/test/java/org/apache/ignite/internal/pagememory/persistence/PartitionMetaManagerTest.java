@@ -33,6 +33,7 @@ import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreIo;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterAll;
@@ -125,11 +126,11 @@ public class PartitionMetaManagerTest {
     }
 
     private static FilePageStore createFilePageStore(Path filePath) throws Exception {
-        FilePageStore filePageStore = new FilePageStore(
-                new FilePageStoreHeader(VERSION_1, PAGE_SIZE),
+        FilePageStore filePageStore = new FilePageStore(new FilePageStoreIo(
+                new RandomAccessFileIoFactory(),
                 filePath,
-                new RandomAccessFileIoFactory()
-        );
+                new FilePageStoreHeader(VERSION_1, PAGE_SIZE)
+        ));
 
         filePageStore.ensure();
 

@@ -21,6 +21,7 @@ import static java.nio.ByteOrder.nativeOrder;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.DELTA_FILE_VERSION_1;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader.readHeader;
 import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.arr;
@@ -123,7 +124,7 @@ public class FilePageStoreFactoryTest {
                 FileIo deltaFilePageStoreIo = createFileIo(deltaFilePageStorePath)
         ) {
             filePageStoreIo.writeFully(new FilePageStoreHeader(VERSION_1, PAGE_SIZE).toByteBuffer().rewind(), 0);
-            deltaFilePageStoreIo.writeFully(new DeltaFilePageStoreIoHeader(-1, PAGE_SIZE, arr(0)).toByteBuffer().rewind(), 0);
+            deltaFilePageStoreIo.writeFully(new DeltaFilePageStoreIoHeader(-1, 1, PAGE_SIZE, arr(0)).toByteBuffer().rewind(), 0);
 
             ByteBuffer buffer = ByteBuffer.allocate(PAGE_SIZE).order(nativeOrder());
 
@@ -149,8 +150,16 @@ public class FilePageStoreFactoryTest {
                 FileIo deltaFilePageStoreIo1 = createFileIo(deltaPageStorePath1);
         ) {
             filePageStoreIo.writeFully(new FilePageStoreHeader(VERSION_1, PAGE_SIZE).toByteBuffer().rewind(), 0);
-            deltaFilePageStoreIo0.writeFully(new DeltaFilePageStoreIoHeader(VERSION_1, PAGE_SIZE, arr(0)).toByteBuffer().rewind(), 0);
-            deltaFilePageStoreIo1.writeFully(new DeltaFilePageStoreIoHeader(VERSION_1, PAGE_SIZE, arr(1)).toByteBuffer().rewind(), 0);
+
+            deltaFilePageStoreIo0.writeFully(
+                    new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(0)).toByteBuffer().rewind(),
+                    0
+            );
+
+            deltaFilePageStoreIo1.writeFully(
+                    new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 2, PAGE_SIZE, arr(1)).toByteBuffer().rewind(),
+                    0
+            );
 
             assertDoesNotThrow(() -> createFilePageStoreFactory().createPageStore(
                     ByteBuffer.allocateDirect(PAGE_SIZE).order(nativeOrder()),

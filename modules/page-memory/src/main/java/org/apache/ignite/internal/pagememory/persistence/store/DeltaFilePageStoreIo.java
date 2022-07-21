@@ -19,6 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.nio.ByteOrder.nativeOrder;
 import static java.util.Arrays.binarySearch;
+import static org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIoHeader.checkFileIndex;
 import static org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIoHeader.checkFilePageIndexes;
 import static org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIoHeader.readHeader;
 import static org.apache.ignite.internal.pagememory.persistence.store.PageStoreUtils.checkFilePageSize;
@@ -82,6 +83,7 @@ public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
         }
 
         checkFileVersion(this.header.version(), header.version());
+        checkFileIndex(this.header.index(), header.index());
         checkFilePageSize(this.header.pageSize(), header.pageSize());
         checkFilePageIndexes(this.header.pageIndexes(), header.pageIndexes());
     }
@@ -102,5 +104,12 @@ public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
         }
 
         return (long) searchResult * pageSize() + headerSize();
+    }
+
+    /**
+     * Returns the index of the delta file page store.
+     */
+    int fileIndex() {
+        return header.index();
     }
 }
