@@ -220,7 +220,7 @@ namespace Apache.Ignite.Internal.Compute
 
                     return Read(res);
                 }
-                catch (IgniteClientException e) when (e.ErrorCode == 196611)
+                catch (IgniteClientException e) when (e.ErrorCode == 196612)
                 {
                     // Table was dropped - remove from cache.
                     // Try again in case a new table with the same name exists.
