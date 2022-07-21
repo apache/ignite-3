@@ -32,7 +32,7 @@ import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 /**
  * Implementation of the class for working with the file page file storage IO.
  */
-class FilePageStoreIo extends AbstractFilePageStoreIo {
+public class FilePageStoreIo extends AbstractFilePageStoreIo {
     private final FilePageStoreHeader header;
 
     /**
@@ -42,7 +42,7 @@ class FilePageStoreIo extends AbstractFilePageStoreIo {
      * @param filePath File page store path.
      * @param header File page store header.
      */
-    FilePageStoreIo(
+    public FilePageStoreIo(
             FileIoFactory ioFactory,
             Path filePath,
             FilePageStoreHeader header
@@ -54,25 +54,25 @@ class FilePageStoreIo extends AbstractFilePageStoreIo {
 
     /** {@inheritDoc} */
     @Override
-    int pageSize() {
+    public int pageSize() {
         return header.pageSize();
     }
 
     /** {@inheritDoc} */
     @Override
-    int headerSize() {
+    public int headerSize() {
         return header.headerSize();
     }
 
     /** {@inheritDoc} */
     @Override
-    ByteBuffer headerBuffer() {
+    public ByteBuffer headerBuffer() {
         return header.toByteBuffer();
     }
 
     /** {@inheritDoc} */
     @Override
-    void checkHeader(FileIo fileIo) throws IOException {
+    public void checkHeader(FileIo fileIo) throws IOException {
         FilePageStoreHeader header = readHeader(fileIo, ByteBuffer.allocate(pageSize()).order(nativeOrder()));
 
         if (header == null) {
@@ -85,7 +85,7 @@ class FilePageStoreIo extends AbstractFilePageStoreIo {
 
     /** {@inheritDoc} */
     @Override
-    long pageOffset(long pageId) {
+    public long pageOffset(long pageId) {
         return (long) PageIdUtils.pageIndex(pageId) * pageSize() + headerSize();
     }
 }

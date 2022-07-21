@@ -34,7 +34,7 @@ import org.apache.ignite.internal.fileio.FileIoFactory;
 /**
  * todo: IGNITE-17372 добавить описание.
  */
-class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
+public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
     private final DeltaFilePageStoreIoHeader header;
 
     /**
@@ -44,7 +44,7 @@ class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
      * @param filePath File page store path.
      * @param header Delta file page store header.
      */
-    DeltaFilePageStoreIo(
+    public DeltaFilePageStoreIo(
             FileIoFactory ioFactory,
             Path filePath,
             DeltaFilePageStoreIoHeader header
@@ -56,25 +56,25 @@ class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
 
     /** {@inheritDoc} */
     @Override
-    int pageSize() {
+    public int pageSize() {
         return header.pageSize();
     }
 
     /** {@inheritDoc} */
     @Override
-    int headerSize() {
+    public int headerSize() {
         return header.headerSize();
     }
 
     /** {@inheritDoc} */
     @Override
-    ByteBuffer headerBuffer() {
+    public ByteBuffer headerBuffer() {
         return header.toByteBuffer();
     }
 
     /** {@inheritDoc} */
     @Override
-    void checkHeader(FileIo fileIo) throws IOException {
+    public void checkHeader(FileIo fileIo) throws IOException {
         DeltaFilePageStoreIoHeader header = readHeader(fileIo, ByteBuffer.allocate(pageSize()).order(nativeOrder()));
 
         if (header == null) {
@@ -92,7 +92,7 @@ class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
      * @param pageId Page ID.
      */
     @Override
-    long pageOffset(long pageId) {
+    public long pageOffset(long pageId) {
         // TODO: IGNITE-17372 учесть логикой в FilePageStore
 
         int searchResult = binarySearch(header.pageIndexes(), pageIndex(pageId));

@@ -65,14 +65,18 @@ public class FilePageStore implements PageStore {
      * @param header File page store header.
      * @param filePath File page store path.
      * @param ioFactory {@link FileIo} factory.
+     * @param deltaFileIos Delta IO files.
      */
     public FilePageStore(
             FilePageStoreHeader header,
             Path filePath,
-            FileIoFactory ioFactory
+            FileIoFactory ioFactory,
+            DeltaFilePageStoreIo... deltaFileIos
     ) {
         assert header.headerSize() % header.pageSize() == 0 :
                 "Not aligned [headerSiz=" + header.headerSize() + ", pageSize=" + header.pageSize() + "]";
+
+        // TODO: IGNITE-17372 подумать на счет переделки конструктора
 
         this.fileIo = new FilePageStoreIo(ioFactory, filePath, header);
     }

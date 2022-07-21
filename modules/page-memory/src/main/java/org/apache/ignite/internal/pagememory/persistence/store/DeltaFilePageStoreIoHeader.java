@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  *     </li>
  * </ul>
  */
-class DeltaFilePageStoreIoHeader {
+public class DeltaFilePageStoreIoHeader {
     /** File signature. */
     private static final long SIGNATURE = 0xDEAFAEE072020173L;
 
@@ -65,7 +65,7 @@ class DeltaFilePageStoreIoHeader {
      * @param pageSize Page size in bytes.
      * @param pageIndexes Page indexes.
      */
-    DeltaFilePageStoreIoHeader(int version, int pageSize, int[] pageIndexes) {
+    public DeltaFilePageStoreIoHeader(int version, int pageSize, int[] pageIndexes) {
         assert pageSize >= COMMON_HEADER_SIZE : pageSize;
 
         this.version = version;
@@ -84,35 +84,35 @@ class DeltaFilePageStoreIoHeader {
     /**
      * Returns the version of the delta file page store.
      */
-    int version() {
+    public int version() {
         return version;
     }
 
     /**
      * Returns the page size in bytes.
      */
-    int pageSize() {
+    public int pageSize() {
         return pageSize;
     }
 
     /**
      * Returns the size (aligned to {@link #pageSize()}) of the header in bytes.
      */
-    int headerSize() {
+    public int headerSize() {
         return headerSize;
     }
 
     /**
      * Returns page indexes.
      */
-    int[] pageIndexes() {
+    public int[] pageIndexes() {
         return pageIndexes;
     }
 
     /**
      * Converts the delta file page store header (aligned to {@link #pageSize()}) to a {@link ByteBuffer} for writing to a file.
      */
-    ByteBuffer toByteBuffer() {
+    public ByteBuffer toByteBuffer() {
         ByteBuffer buffer = ByteBuffer.allocate(headerSize).order(nativeOrder())
                 .putLong(SIGNATURE)
                 .putInt(version)
@@ -133,7 +133,7 @@ class DeltaFilePageStoreIoHeader {
      * @param headerBuffer Buffer for reading {@link DeltaFilePageStoreIoHeader header} from {@code fileIo}.
      * @throws IOException If there are errors when reading the delta file page store header.
      */
-    static @Nullable DeltaFilePageStoreIoHeader readHeader(FileIo fileIo, ByteBuffer headerBuffer) throws IOException {
+    public static @Nullable DeltaFilePageStoreIoHeader readHeader(FileIo fileIo, ByteBuffer headerBuffer) throws IOException {
         assert headerBuffer.remaining() >= COMMON_HEADER_SIZE : headerBuffer.remaining();
         assert headerBuffer.order() == nativeOrder() : headerBuffer.order();
 
@@ -192,7 +192,7 @@ class DeltaFilePageStoreIoHeader {
      * @param actPageIndexes Actual page indexes.
      * @throws IOException If the page indexes does not match.
      */
-    static void checkFilePageIndexes(int[] expPageIndexes, int[] actPageIndexes) throws IOException {
+    public static void checkFilePageIndexes(int[] expPageIndexes, int[] actPageIndexes) throws IOException {
         if (!Arrays.equals(expPageIndexes, actPageIndexes)) {
             throw new IOException(String.format(
                     "Invalid file pageIndexes [expected=%s, actual=%s]",

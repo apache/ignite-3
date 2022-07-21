@@ -307,7 +307,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
             for (int i = 0; i < partitions; i++) {
                 Path partFilePath = groupWorkDir.resolve(String.format(PART_FILE_TEMPLATE, i));
 
-                partitionFilePageStores.add(filePageStoreFactory.createPageStore(partFilePath, buffer.rewind()));
+                partitionFilePageStores.add(filePageStoreFactory.createPageStore(buffer.rewind(), partFilePath));
             }
 
             return unmodifiableList(partitionFilePageStores);
