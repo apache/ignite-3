@@ -20,13 +20,14 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 
 import java.io.IOException;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -48,6 +49,16 @@ import org.jetbrains.annotations.Nullable;
 // TODO: IGNITE-17372 модифицировать описание
 // TODO: IGNITE-17372 тут еще надо будет методы поправить
 public class FilePageStore implements PageStore {
+    private static final VarHandle PAGE_COUNT;
+
+    static {
+        try {
+            PAGE_COUNT = MethodHandles.lookup().findVarHandle(FilePageStore.class, "pageCount", int.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
     /** File page store version. */
     public static final int VERSION_1 = 1;
 
@@ -58,7 +69,7 @@ public class FilePageStore implements PageStore {
     private final FilePageStoreIo filePageStoreIo;
 
     /** Page count. */
-    private final AtomicInteger pageCount = new AtomicInteger();
+    private volatile int pageCount;
 
     /** New page allocation listener. */
     private volatile @Nullable PageAllocationListener pageAllocationListener;
@@ -99,7 +110,7 @@ public class FilePageStore implements PageStore {
     public int allocatePage() throws IgniteInternalCheckedException {
         ensure();
 
-        int pageIdx = pageCount.getAndIncrement();
+        int pageIdx = (Integer) PAGE_COUNT.getAndAdd(this, 1);
 
         PageAllocationListener listener = this.pageAllocationListener;
 
@@ -113,7 +124,7 @@ public class FilePageStore implements PageStore {
     /** {@inheritDoc} */
     @Override
     public int pages() {
-        return pageCount.get();
+        return pageCount;
     }
 
     /**
@@ -124,7 +135,7 @@ public class FilePageStore implements PageStore {
     public void pages(int pageCount) {
         assert pageCount >= 0 : pageCount;
 
-        this.pageCount.set(pageCount);
+        this.pageCount = pageCount;
     }
 
     /**
@@ -146,7 +157,7 @@ public class FilePageStore implements PageStore {
     /** {@inheritDoc} */
     @Override
     public void read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
-        assert pageIndex(pageId) <= pageCount.get() : "pageIdx=" + pageIndex(pageId) + ", pageCount=" + pageCount.get();
+        assert pageIndex(pageId) <= pageCount : "pageIdx=" + pageIndex(pageId) + ", pageCount=" + pageCount;
 
         filePageStoreIo.read(pageId, pageBuf, keepCrc);
     }
@@ -154,7 +165,7 @@ public class FilePageStore implements PageStore {
     /** {@inheritDoc} */
     @Override
     public void write(long pageId, ByteBuffer pageBuf, boolean calculateCrc) throws IgniteInternalCheckedException {
-        assert pageIndex(pageId) <= pageCount.get() : "pageIdx=" + pageIndex(pageId) + ", pageCount=" + pageCount.get();
+        assert pageIndex(pageId) <= pageCount : "pageIdx=" + pageIndex(pageId) + ", pageCount=" + pageCount;
 
         filePageStoreIo.write(pageId, pageBuf, calculateCrc);
     }
