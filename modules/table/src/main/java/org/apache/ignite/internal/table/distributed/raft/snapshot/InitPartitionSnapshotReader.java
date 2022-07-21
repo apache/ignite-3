@@ -75,6 +75,7 @@ class InitPartitionSnapshotReader extends SnapshotReader {
     /** {@inheritDoc} */
     @Override
     public boolean init(Void opts) {
+        // No-op.
         return true;
     }
 
