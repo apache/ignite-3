@@ -86,15 +86,19 @@ class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
         checkFilePageIndexes(this.header.pageIndexes(), header.pageIndexes());
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Returns page offset within the store file, {@code -1} if not found page in delta file.
+     *
+     * @param pageId Page ID.
+     */
     @Override
     long pageOffset(long pageId) {
-        // TODO: IGNITE-17372 не забыть добавить описание а также учесть логикой в FilePageStore
+        // TODO: IGNITE-17372 учесть логикой в FilePageStore
 
         int searchResult = binarySearch(header.pageIndexes(), pageIndex(pageId));
 
         if (searchResult < 0) {
-            return searchResult;
+            return -1;
         }
 
         return (long) searchResult * pageSize() + headerSize();

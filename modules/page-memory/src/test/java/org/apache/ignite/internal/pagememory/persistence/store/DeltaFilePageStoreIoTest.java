@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.pagememory.persistence.store.FilePageSt
 import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.arr;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -55,8 +54,8 @@ public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
             assertEquals(2 * PAGE_SIZE, filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 1)));
             assertEquals(3 * PAGE_SIZE, filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 2)));
 
-            assertThat(filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 3)), lessThan(0L));
-            assertThat(filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 4)), lessThan(0L));
+            assertEquals(-1, filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 3)));
+            assertEquals(-1, filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 4)));
         }
     }
 

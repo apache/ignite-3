@@ -42,6 +42,7 @@ import org.jetbrains.annotations.Nullable;
  *     <li>Body - data pages are multiples of {@link FilePageStoreHeader#pageSize() pageSize}.</li>
  * </ul>
  */
+// TODO: IGNITE-17372 модифицировать описание
 public class FilePageStore implements PageStore {
     /** File page store version. */
     public static final int VERSION_1 = 1;
