@@ -32,13 +32,12 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -62,12 +61,12 @@ public class TxStateStorageTest {
 
                 txIds.add(txId);
 
-                storage.put(txId, new TxMeta(TxState.PENDING, generateEnlistedPartitions(i), new Timestamp(txId)));
+                storage.put(txId, new TxMeta(TxState.PENDING, generateEnlistedPartitions(i), generateTimestamp(txId)));
             }
 
             for (int i = 0; i < 100; i++) {
                 TxMeta txMeta = storage.get(txIds.get(i));
-                TxMeta txMetaExpected = new TxMeta(TxState.PENDING, generateEnlistedPartitions(i), new Timestamp(txIds.get(i)));
+                TxMeta txMetaExpected = new TxMeta(TxState.PENDING, generateEnlistedPartitions(i), generateTimestamp(txIds.get(i)));
                 assertTxMetaEquals(txMetaExpected, txMeta);
             }
 
@@ -83,15 +82,19 @@ public class TxStateStorageTest {
                     assertNull(txMeta);
                 } else {
                     TxMeta txMeta = storage.get(txIds.get(i));
-                    TxMeta txMetaExpected = new TxMeta(TxState.PENDING, generateEnlistedPartitions(i), new Timestamp(txIds.get(i)));
+                    TxMeta txMetaExpected = new TxMeta(TxState.PENDING, generateEnlistedPartitions(i), generateTimestamp(txIds.get(i)));
                     assertTxMetaEquals(txMetaExpected, txMeta);
                 }
             }
         }
     }
 
-    private List<IgniteBiTuple<Integer, Integer>> generateEnlistedPartitions(int c) {
-        return IntStream.range(0, c).mapToObj(i -> new IgniteBiTuple<>(i, i)).collect(toList());
+    private List<String> generateEnlistedPartitions(int c) {
+        return IntStream.range(0, c).mapToObj(String::valueOf).collect(toList());
+    }
+
+    private HybridTimestamp generateTimestamp(UUID uuid) {
+        return new HybridTimestamp(uuid.getMostSignificantBits(), Long.valueOf(uuid.getLeastSignificantBits()).intValue());
     }
 
     @Test
@@ -101,9 +104,9 @@ public class TxStateStorageTest {
 
             UUID txId = UUID.randomUUID();
 
-            TxMeta txMeta0 = new TxMeta(TxState.PENDING, new ArrayList<>(), new Timestamp(txId));
-            TxMeta txMeta1 = new TxMeta(TxState.COMMITED, new ArrayList<>(), new Timestamp(txId));
-            TxMeta txMeta2 = new TxMeta(TxState.COMMITED, new ArrayList<>(), new Timestamp(UUID.randomUUID()));
+            TxMeta txMeta0 = new TxMeta(TxState.PENDING, new ArrayList<>(), generateTimestamp(txId));
+            TxMeta txMeta1 = new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(txId));
+            TxMeta txMeta2 = new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(UUID.randomUUID()));
 
             storage.put(txId, txMeta0);
 
@@ -126,7 +129,7 @@ public class TxStateStorageTest {
             for (int i = 0; i < 100; i++) {
                 UUID txId = UUID.randomUUID();
 
-                storage.put(txId, new TxMeta(TxState.COMMITED, new ArrayList<>(), new Timestamp(txId)));
+                storage.put(txId, new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(txId)));
 
                 inSnapshot.add(txId);
             }
@@ -142,7 +145,7 @@ public class TxStateStorageTest {
                 for (int i = 0; i < 100; i++) {
                     UUID txId = UUID.randomUUID();
 
-                    storage.put(txId, new TxMeta(TxState.COMMITED, new ArrayList<>(), new Timestamp(txId)));
+                    storage.put(txId, new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(txId)));
 
                     notInSnapshot.add(txId);
                 }
@@ -150,7 +153,7 @@ public class TxStateStorageTest {
                 for (int i = 0; i < 100; i++) {
                     UUID txId = notInSnapshot.get(i);
 
-                    assertTxMetaEquals(new TxMeta(TxState.COMMITED, new ArrayList<>(), new Timestamp(txId)), storage.get(txId));
+                    assertTxMetaEquals(new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(txId)), storage.get(txId));
                 }
 
                 storage.restoreSnapshot(snapshotDirPath);
@@ -158,7 +161,7 @@ public class TxStateStorageTest {
                 for (int i = 0; i < 100; i++) {
                     UUID txId = inSnapshot.get(i);
 
-                    assertTxMetaEquals(new TxMeta(TxState.COMMITED, new ArrayList<>(), new Timestamp(txId)), storage.get(txId));
+                    assertTxMetaEquals(new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(txId)), storage.get(txId));
                 }
 
                 for (int i = 0; i < 100; i++) {

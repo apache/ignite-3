@@ -21,7 +21,7 @@ import static java.util.Collections.unmodifiableList;
 
 import java.io.Serializable;
 import java.util.List;
-import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.hlc.HybridTimestamp;
 
 /** Transaction meta. */
 public class TxMeta implements Serializable {
@@ -29,10 +29,10 @@ public class TxMeta implements Serializable {
     private final TxState txState;
 
     /** The list of enlisted partitions. */
-    private final List<IgniteBiTuple<Integer, Integer>> enlistedPartitions;
+    private final List<String> enlistedPartitions;
 
     /** Commit timestamp. */
-    private final Timestamp commitTimestamp;
+    private final HybridTimestamp commitTimestamp;
 
     /**
      * The constructor.
@@ -41,7 +41,7 @@ public class TxMeta implements Serializable {
      * @param enlistedPartitions The list of enlisted partitions.
      * @param commitTimestamp Commit timestamp.
      */
-    public TxMeta(TxState txState, List<IgniteBiTuple<Integer, Integer>> enlistedPartitions, Timestamp commitTimestamp) {
+    public TxMeta(TxState txState, List<String> enlistedPartitions, HybridTimestamp commitTimestamp) {
         this.txState = txState;
         this.enlistedPartitions = enlistedPartitions;
         this.commitTimestamp = commitTimestamp;
@@ -51,11 +51,11 @@ public class TxMeta implements Serializable {
         return txState;
     }
 
-    public List<IgniteBiTuple<Integer, Integer>> enlistedPartitions() {
+    public List<String> enlistedPartitions() {
         return unmodifiableList(enlistedPartitions);
     }
 
-    public Timestamp commitTimestamp() {
+    public HybridTimestamp commitTimestamp() {
         return commitTimestamp;
     }
 }

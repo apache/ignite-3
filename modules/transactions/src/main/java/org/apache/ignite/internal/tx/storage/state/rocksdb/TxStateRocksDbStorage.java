@@ -103,7 +103,7 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
 
             isStarted = true;
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(TX_STATE_STORAGE_CREATE_ERR, "Failed to start the storage", e);
+            throw new IgniteInternalException(TX_STATE_STORAGE_CREATE_ERR, "Failed to start transaction state storage", e);
         }
     }
 
@@ -130,7 +130,7 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
 
             return txMetaBytes == null ? null : (TxMeta) fromBytes(txMetaBytes);
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(TX_STATE_STORAGE_ERR, e);
+            throw new IgniteInternalException(TX_STATE_STORAGE_ERR, "Failed to get a value from the transaction state storage", e);
         }
     }
 
@@ -139,7 +139,7 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
         try {
             db.put(toBytes(txId), toBytes(txMeta));
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(TX_STATE_STORAGE_ERR, e);
+            throw new IgniteInternalException(TX_STATE_STORAGE_ERR, "Failed to put a value into the transaction state storage", e);
         }
     }
 
@@ -166,7 +166,11 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
                 return false;
             }
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(TX_STATE_STORAGE_ERR, e);
+            throw new IgniteInternalException(
+                TX_STATE_STORAGE_ERR,
+                "Failed perform CAS operation over a value in transaction state storage",
+                e
+            );
         }
     }
 
@@ -175,7 +179,7 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
         try {
             db.delete(toBytes(txId));
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(TX_STATE_STORAGE_ERR, e);
+            throw new IgniteInternalException(TX_STATE_STORAGE_ERR, "Failed to remove a value from the transaction state storage", e);
         }
     }
 
@@ -186,7 +190,7 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
 
             RocksDB.destroyDB(dbPath.toString(), options);
         } catch (Exception e) {
-            throw new IgniteInternalException(TX_STATE_STORAGE_DESTROY_ERR, e);
+            throw new IgniteInternalException(TX_STATE_STORAGE_DESTROY_ERR, "Failed to destroy the transaction state storage", e);
         }
     }
 

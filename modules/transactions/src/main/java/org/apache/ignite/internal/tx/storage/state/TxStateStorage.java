@@ -22,6 +22,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -30,6 +32,9 @@ import org.jetbrains.annotations.NotNull;
 public interface TxStateStorage extends AutoCloseable {
     /**
      * Start the storage.
+     *
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_CREATE_ERR} error code in case when
+     * creation of the storage has failed.
      */
     void start();
 
@@ -50,6 +55,8 @@ public interface TxStateStorage extends AutoCloseable {
      *
      * @param txId Tx id.
      * @return Tx meta.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
+     * the operation has failed.
      */
     TxMeta get(UUID txId);
 
@@ -58,6 +65,8 @@ public interface TxStateStorage extends AutoCloseable {
      *
      * @param txId Tx id.
      * @param txMeta Tx meta.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
+     * the operation has failed.
      */
     void put(UUID txId, TxMeta txMeta);
 
@@ -68,6 +77,8 @@ public interface TxStateStorage extends AutoCloseable {
      * @param txStateExpected Tx state that is expected to be in the storage.
      * @param txMeta Tx meta.
      * @return Whether the CAS operation is successful.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
+     * the operation has failed.
      */
     boolean compareAndSet(UUID txId, @NotNull TxState txStateExpected, @NotNull TxMeta txMeta);
 
@@ -75,11 +86,16 @@ public interface TxStateStorage extends AutoCloseable {
      * Remove the tx meta from the storage.
      *
      * @param txId Tx id.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
+     * the operation has failed.
      */
     void remove(UUID txId);
 
     /**
      * Removes all data from the storage and frees all resources.
+     *
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_DESTROY_ERR} error code in case when
+     * the operation has failed.
      */
     void destroy();
 
