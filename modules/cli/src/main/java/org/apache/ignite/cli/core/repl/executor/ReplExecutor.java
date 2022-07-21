@@ -22,7 +22,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import org.apache.ignite.cli.config.Config;
+import org.apache.ignite.cli.config.StateFolderProvider;
 import org.apache.ignite.cli.core.exception.handler.PicocliExecutionExceptionHandler;
 import org.apache.ignite.cli.core.exception.handler.ReplExceptionHandlers;
 import org.apache.ignite.cli.core.repl.Repl;
@@ -38,7 +38,6 @@ import org.jline.reader.impl.DefaultParser;
 import org.jline.terminal.Terminal;
 import org.jline.widget.TailTipWidgets;
 import picocli.CommandLine;
-import picocli.CommandLine.Help.Ansi;
 import picocli.CommandLine.IDefaultValueProvider;
 import picocli.shell.jline3.PicocliCommands;
 import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
@@ -89,7 +88,7 @@ public class ReplExecutor {
                     ? repl.getCompleter()
                     : registry.completer());
             if (repl.getHistoryFileName() != null) {
-                reader.variable(LineReader.HISTORY_FILE, new File(Config.getStateFolder(), repl.getHistoryFileName()));
+                reader.variable(LineReader.HISTORY_FILE, new File(StateFolderProvider.getStateFolder(), repl.getHistoryFileName()));
             }
 
             RegistryCommandExecutor executor = new RegistryCommandExecutor(registry);
@@ -104,7 +103,7 @@ public class ReplExecutor {
             while (!interrupted.get()) {
                 try {
                     executor.cleanUp();
-                    String prompt = Ansi.AUTO.string(repl.getPromptProvider().getPrompt());
+                    String prompt = repl.getPromptProvider().getPrompt();
                     String line = reader.readLine(prompt, null, (MaskingCallback) null, null);
                     if (line.isEmpty()) {
                         continue;

@@ -17,31 +17,20 @@
 
 package org.apache.ignite.internal.rest.configuration;
 
-import io.micronaut.http.MediaType;
-import io.micronaut.http.annotation.Body;
-import io.micronaut.http.annotation.Consumes;
+import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.annotation.Controller;
-import io.micronaut.http.annotation.Get;
-import io.micronaut.http.annotation.Patch;
-import io.micronaut.http.annotation.PathVariable;
-import io.micronaut.http.annotation.Produces;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Named;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
+import org.apache.ignite.internal.rest.api.configuration.ClusterConfigurationApi;
+import org.apache.ignite.internal.rest.exception.handler.IgniteExceptionHandler;
 
 /**
  * Cluster configuration controller.
  */
 @Controller("/management/v1/configuration/cluster/")
-@ApiResponse(responseCode = "400", description = "Incorrect configuration")
-@ApiResponse(responseCode = "500", description = "Internal error")
-@Tag(name = "clusterConfiguration")
-public class ClusterConfigurationController extends AbstractConfigurationController {
+@Requires(classes = IgniteExceptionHandler.class)
+public class ClusterConfigurationController extends AbstractConfigurationController implements ClusterConfigurationApi {
 
     public ClusterConfigurationController(@Named("clusterCfgPresentation") ConfigurationPresentation<String> clusterCfgPresentation) {
         super(clusterCfgPresentation);
@@ -52,13 +41,6 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
      *
      * @return the whole cluster configuration in HOCON format.
      */
-    @Operation(operationId = "getClusterConfiguration")
-    @ApiResponse(
-            responseCode = "200",
-            content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
-            description = "Get cluster configuration")
-    @Produces(MediaType.TEXT_PLAIN) // todo: IGNITE-17082
-    @Get
     @Override
     public String getConfiguration() {
         return super.getConfiguration();
@@ -70,15 +52,8 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
      * @param path to represent a cluster configuration.
      * @return system configuration in HOCON format represented by given path.
      */
-    @Operation(operationId = "getClusterConfigurationByPath")
-    @ApiResponse(responseCode = "200",
-            content = @Content(mediaType = MediaType.TEXT_PLAIN,
-                    schema = @Schema(type = "string")),
-            description = "Configuration represented by path")
-    @Produces(MediaType.TEXT_PLAIN) // todo: IGNITE-17082
-    @Get("/{path}")
     @Override
-    public String getConfigurationByPath(@PathVariable String path) {
+    public String getConfigurationByPath(String path) {
         return super.getConfigurationByPath(path);
     }
 
@@ -87,12 +62,8 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
      *
      * @param updatedConfiguration the cluster configuration to update.
      */
-    @Operation(operationId = "updateClusterConfiguration")
-    @ApiResponse(responseCode = "200", description = "Configuration updated")
-    @Consumes(MediaType.TEXT_PLAIN) // todo: IGNITE-17082
-    @Patch
     @Override
-    public CompletableFuture<Void> updateConfiguration(@Body String updatedConfiguration) throws Throwable {
+    public CompletableFuture<Void> updateConfiguration(String updatedConfiguration) {
         return super.updateConfiguration(updatedConfiguration);
     }
 }

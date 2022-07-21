@@ -18,7 +18,8 @@ package org.apache.ignite.raft.jraft.conf;
 
 import java.util.HashSet;
 import java.util.Set;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 
@@ -27,7 +28,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
  */
 public class ConfigurationEntry {
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ConfigurationEntry.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ConfigurationEntry.class);
 
     private LogId id = new LogId(0, 0);
     private Configuration conf = new Configuration();

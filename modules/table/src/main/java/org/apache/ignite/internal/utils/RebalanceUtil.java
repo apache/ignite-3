@@ -29,11 +29,12 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.affinity.AffinityUtils;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.If;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 
@@ -43,7 +44,7 @@ import org.jetbrains.annotations.NotNull;
 public class RebalanceUtil {
 
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RebalanceUtil.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RebalanceUtil.class);
 
     /** Return code of metastore multi-invoke which identifies,
      * that pending key was updated to new value (i.e. there is no active rebalance at the moment of call).
@@ -121,27 +122,26 @@ public class RebalanceUtil {
             switch (sr.getAsInt()) {
                 case PENDING_KEY_UPDATED:
                     LOG.info(
-                            "Update metastore pending partitions key={} for partition={}, table={} to {}",
+                            "Update metastore pending partitions key [key={}, partition={}, table={}, newVal={}]",
                             partAssignmentsPendingKey.toString(), partNum, tableName,
                             ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case PLANNED_KEY_UPDATED:
                     LOG.info(
-                            "Update metastore planned partitions key={} for partition={}, table={} to {}",
+                            "Update metastore planned partitions key [key={}, partition={}, table={}, newVal={}]",
                             partAssignmentsPlannedKey, partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case PLANNED_KEY_REMOVED:
                     LOG.info(
-                            "Remove planned key={} for partition={}, table={} due to the fact, "
-                                    + "that current pending key has the same value as planned={}",
+                            "Remove planned key because current pending key has the same value [key={}, partition={}, table={}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case OUTDATED_UPDATE_RECEIVED:
                     LOG.debug(
-                            "Received outdated rebalance trigger event with revision={} for partition={}, table={}",
+                            "Received outdated rebalance trigger event [revision={}, partition={}, table={}]",
                             revision, partNum, tableName);
 
                     break;

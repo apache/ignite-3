@@ -28,7 +28,7 @@ import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.cli.core.repl.Session;
 import org.apache.ignite.cli.core.repl.config.RootConfig;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
-import org.apache.ignite.rest.client.invoker.ApiClient;
+import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
 
@@ -47,34 +47,38 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
 
     @Override
     public CallOutput<String> execute(ConnectCallInput input) {
-        NodeConfigurationApi api = createApiClient(input);
-        String nodeUrl = input.getNodeUrl();
         try {
-            String configuration = api.getNodeConfiguration();
-            setJdbcUrl(configuration, nodeUrl);
+            String nodeUrl = input.getNodeUrl();
+            session.setNodeUrl(nodeUrl);
+            session.setNodeName(fetchNodeName(input));
+            String configuration = fetchNodeConfiguration(input);
+            session.setJdbcUrl(constructJdbcUrl(configuration, nodeUrl));
+            session.setConnectedToNode(true);
+
+            return DefaultCallOutput.success("Connected to " + nodeUrl);
+
         } catch (ApiException | IllegalArgumentException e) {
             session.setConnectedToNode(false);
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, nodeUrl));
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getNodeUrl()));
         }
-
-        session.setNodeUrl(nodeUrl);
-        session.setConnectedToNode(true);
-        return DefaultCallOutput.success("Connected to " + nodeUrl);
     }
 
-    private NodeConfigurationApi createApiClient(ConnectCallInput input) {
-        ApiClient client = Configuration.getDefaultApiClient();
-        client.setBasePath(input.getNodeUrl());
-        return new NodeConfigurationApi(client);
+    private String fetchNodeName(ConnectCallInput input) throws ApiException {
+        return new NodeManagementApi(Configuration.getDefaultApiClient().setBasePath(input.getNodeUrl())).nodeState().getName();
     }
 
-    private void setJdbcUrl(String configuration, String nodeUrl) {
+    private String fetchNodeConfiguration(ConnectCallInput input) throws ApiException {
+        return new NodeConfigurationApi(Configuration.getDefaultApiClient().setBasePath(input.getNodeUrl())).getNodeConfiguration();
+    }
+
+    private String constructJdbcUrl(String configuration, String nodeUrl) {
         try {
             String host = new URL(nodeUrl).getHost();
             RootConfig config = new Gson().fromJson(configuration, RootConfig.class);
-            session.setJdbcUrl("jdbc:ignite:thin://" + host + ":" + config.clientConnector.port);
+            return "jdbc:ignite:thin://" + host + ":" + config.clientConnector.port;
         } catch (MalformedURLException ignored) {
             // Shouldn't happen ever since we are now connected to this URL
+            return null;
         }
     }
 }

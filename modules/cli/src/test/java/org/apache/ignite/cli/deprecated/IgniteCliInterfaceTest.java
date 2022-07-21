@@ -27,10 +27,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockserver.matchers.MatchType.ONLY_MATCHING_FIELDS;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 import static org.mockserver.model.HttpStatusCode.INTERNAL_SERVER_ERROR_500;
 import static org.mockserver.model.HttpStatusCode.OK_200;
+import static org.mockserver.model.JsonBody.json;
 
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.env.Environment;
@@ -414,7 +416,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     .when(request()
                             .withMethod("POST")
                             .withPath("/management/v1/cluster/init")
-                            .withBody(expectedSentContent)
+                            .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
                             .withContentType(MediaType.APPLICATION_JSON_UTF_8)
                     )
                     .respond(response(null));
@@ -461,7 +463,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             assertThatExitCodeIs(1, exitCode);
 
             assertThatStdoutIsEmpty();
-            assertErrOutputEqual("An error occurred, error code: 500, response: Oops");
+            assertErrOutputEqual("An error occurred [errorCode=500, response=Oops]");
         }
 
         @Test

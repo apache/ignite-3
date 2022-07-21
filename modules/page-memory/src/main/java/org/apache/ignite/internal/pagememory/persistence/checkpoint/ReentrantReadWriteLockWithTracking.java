@@ -23,9 +23,9 @@ import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMi
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * ReentrantReadWriteLock adapter with readLock tracking.
@@ -145,10 +145,7 @@ public class ReentrantReadWriteLockWithTracking implements ReadWriteLock {
                 long timeout = coarseCurrentTimeMillis() - val.get2();
 
                 if (timeout > readLockThreshold) {
-                    log.warn(
-                            "ReadLock held the lock more than " + timeout + " ms.",
-                            new IgniteInternalException()
-                    );
+                    log.warn("ReadLock held for too long [heldFor={}ms]", new IgniteInternalException(), timeout);
                 }
             }
 

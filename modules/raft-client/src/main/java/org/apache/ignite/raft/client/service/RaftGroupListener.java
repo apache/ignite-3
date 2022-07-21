@@ -54,6 +54,8 @@ public interface RaftGroupListener {
 
     /**
      * The callback to save a snapshot. The execution should be asynchronous to avoid blocking of STM updates.
+     * But the snapshot coordinates (or copy-of-data-to-include-in-snapshot) must be taken synchronously before starting the asynchronous
+     * snapshotting process.
      *
      * @param path    Snapshot directory to store data.
      * @param doneClo The closure to call on finish. Pass the not null exception if the snapshot has not been created or null on successful

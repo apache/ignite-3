@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -202,7 +201,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         tx.commit();
 
         TransactionException ex = assertThrows(TransactionException.class, tx::rollback);
-        assertEquals("Transaction is already committed.", ex.getMessage());
+        assertThat(ex.getMessage(), containsString("Transaction is already committed"));
     }
 
     @Test
@@ -211,7 +210,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         tx.rollback();
 
         TransactionException ex = assertThrows(TransactionException.class, tx::commit);
-        assertEquals("Transaction is already rolled back.", ex.getMessage());
+        assertThat(ex.getMessage(), containsString("Transaction is already rolled back"));
     }
 
     @Test
@@ -241,7 +240,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         String expected = "Unsupported transaction implementation: "
                 + "'class org.apache.ignite.internal.runner.app.client.ItThinClientTransactionsTest";
 
-        assertThat(ex.getMessage(), startsWith(expected));
+        assertThat(ex.getMessage(), containsString(expected));
     }
 
     @Test
@@ -253,7 +252,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
             IgniteClientException ex = assertThrows(IgniteClientException.class, () -> recordView.upsert(tx, Tuple.create()));
 
-            assertEquals("Transaction context has been lost due to connection errors.", ex.getMessage());
+            assertThat(ex.getMessage(), containsString("Transaction context has been lost due to connection errors"));
         }
     }
 

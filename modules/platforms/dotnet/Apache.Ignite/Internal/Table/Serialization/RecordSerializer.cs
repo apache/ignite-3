@@ -256,15 +256,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private void WriteIdAndTx(ref MessagePackWriter w, Transactions.Transaction? tx)
         {
             w.Write(_table.Id);
-
-            if (tx == null)
-            {
-                w.WriteNil();
-            }
-            else
-            {
-                w.Write(tx.Id);
-            }
+            w.WriteTx(tx);
         }
     }
 }

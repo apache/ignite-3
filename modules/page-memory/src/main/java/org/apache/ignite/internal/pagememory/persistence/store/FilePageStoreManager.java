@@ -21,6 +21,8 @@ import static java.nio.file.Files.createDirectories;
 import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
+import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
+import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.io.IOException;
@@ -32,16 +34,17 @@ import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager;
 import org.apache.ignite.internal.util.IgniteStripedLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * File page store manager.
+ * Partition file page store manager.
  */
+// TODO: IGNITE-17132 Don't forget to delete partition files
 public class FilePageStoreManager implements PageReadWriteManager {
     /** File suffix. */
     public static final String FILE_SUFFIX = ".bin";
@@ -61,9 +64,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /** Starting directory for all file page stores, for example: 'db/group-123/index.bin'. */
     private final Path dbDir;
 
-    /** {@link FileIo} factory for file page store. */
-    private final FileIoFactory filePageStoreFileIoFactory;
-
     /** Page size in bytes. */
     private final int pageSize;
 
@@ -80,6 +80,9 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
     /** Group directory initialization lock. */
     private final IgniteStripedLock initGroupDirLock = new IgniteStripedLock(Math.max(Runtime.getRuntime().availableProcessors(), 8));
+
+    /** {@link FilePageStore} factory. */
+    private final FilePageStoreFactory filePageStoreFactory;
 
     /**
      * Constructor.
@@ -100,7 +103,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
             int pageSize
     ) throws IgniteInternalCheckedException {
         this.log = log;
-        this.filePageStoreFileIoFactory = filePageStoreFileIoFactory;
         this.dbDir = storagePath.resolve("db");
         this.pageSize = pageSize;
 
@@ -113,6 +115,8 @@ public class FilePageStoreManager implements PageReadWriteManager {
         cleanupAsyncExecutor = new LongOperationAsyncExecutor(igniteInstanceName, log);
 
         groupPageStores = new GroupPageStoresMap<>(cleanupAsyncExecutor);
+
+        filePageStoreFactory = new FilePageStoreFactory(filePageStoreFileIoFactory, pageSize);
     }
 
     /**
@@ -124,8 +128,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             if (tmpDir != null && this.dbDir.startsWith(tmpDir)) {
                 log.warn("Persistence store directory is in the temp directory and may be cleaned. "
-                        + "To avoid this change location of persistence directories. "
-                        + "Current persistence store directory is:" + this.dbDir);
+                        + "To avoid this change location of persistence directories [currentDir={}]", this.dbDir);
             }
         }
     }
@@ -151,10 +154,9 @@ public class FilePageStoreManager implements PageReadWriteManager {
             int grpId,
             long pageId,
             ByteBuffer pageBuf,
-            int tag,
             boolean calculateCrc
     ) throws IgniteInternalCheckedException {
-        return pageReadWriteManager.write(grpId, pageId, pageBuf, tag, calculateCrc);
+        return pageReadWriteManager.write(grpId, pageId, pageBuf, calculateCrc);
     }
 
     /** {@inheritDoc} */
@@ -178,7 +180,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
         try {
             if (!groupPageStores.containsPageStores(grpId)) {
-                List<FilePageStore> partitionFilePageStores = createPartitionFilePageStores(grpName, partitions);
+                List<FilePageStore> partitionFilePageStores = createFilePageStores(grpName, partitions);
 
                 List<FilePageStore> old = groupPageStores.put(grpId, partitionFilePageStores);
 
@@ -194,16 +196,16 @@ public class FilePageStoreManager implements PageReadWriteManager {
     }
 
     /**
-     * Returns collection of related file page stores for group.
+     * Returns collection of related partition file page stores for group.
      *
      * @param grpId Group ID.
      */
-    public @Nullable Collection<FilePageStore> getStores(int grpId) {
+    public @Nullable List<FilePageStore> getStores(int grpId) {
         return groupPageStores.get(grpId);
     }
 
     /**
-     * Returns file page store for the corresponding parameters.
+     * Returns partition file page store for the corresponding parameters.
      *
      * @param grpId Group ID.
      * @param partId Partition ID, from {@code 0} to {@link PageIdAllocator#MAX_PARTITION_ID} (inclusive).
@@ -247,11 +249,9 @@ public class FilePageStoreManager implements PageReadWriteManager {
             try {
                 stopGroupFilePageStores(partitionPageStores, cleanFiles);
 
-                if (log.isInfoEnabled()) {
-                    log.info(String.format("Cleanup cache stores [total=%s, cleanFiles=%s]", partitionPageStores.size(), cleanFiles));
-                }
+                log.info("Cleanup cache stores [total={}, cleanFiles={}]", partitionPageStores.size(), cleanFiles);
             } catch (Exception e) {
-                log.error("Failed to gracefully stop page store managers", e);
+                log.info("Failed to gracefully stop page store managers", e);
             }
         };
 
@@ -293,22 +293,26 @@ public class FilePageStoreManager implements PageReadWriteManager {
         return groupWorkDir;
     }
 
-    private List<FilePageStore> createPartitionFilePageStores(
+    private List<FilePageStore> createFilePageStores(
             String grpName,
             int partitions
     ) throws IgniteInternalCheckedException {
         Path groupWorkDir = ensureGroupWorkDir(grpName);
 
-        FilePageStoreFactory filePageStoreFactory = new FilePageStoreFactory(filePageStoreFileIoFactory, pageSize);
-
         List<FilePageStore> partitionFilePageStores = new ArrayList<>(partitions);
 
-        for (int i = 0; i < partitions; i++) {
-            partitionFilePageStores.add(filePageStoreFactory.createPageStore(
-                    groupWorkDir.resolve(String.format(PART_FILE_TEMPLATE, i))
-            ));
-        }
+        ByteBuffer buffer = allocateBuffer(pageSize);
 
-        return unmodifiableList(partitionFilePageStores);
+        try {
+            for (int i = 0; i < partitions; i++) {
+                Path partFilePath = groupWorkDir.resolve(String.format(PART_FILE_TEMPLATE, i));
+
+                partitionFilePageStores.add(filePageStoreFactory.createPageStore(partFilePath, buffer.rewind()));
+            }
+
+            return unmodifiableList(partitionFilePageStores);
+        } finally {
+            freeBuffer(buffer);
+        }
     }
 }

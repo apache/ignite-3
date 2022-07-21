@@ -159,14 +159,14 @@ public final class CollectionUtils {
     }
 
     /**
-     * Union collections.
+     * Concatenates collections.
      *
      * @param collections Collections.
-     * @param <T> Type of the elements of collections.
-     * @return Immutable union of collections.
+     * @param <T> Type of the elements of lists.
+     * @return Immutable collection concatenation.
      */
     @SafeVarargs
-    public static <T> Collection<T> union(Collection<T>... collections) {
+    public static <T> Collection<T> concat(Collection<T>... collections) {
         if (collections == null || collections.length == 0) {
             return List.of();
         }
@@ -175,7 +175,7 @@ public final class CollectionUtils {
             /** {@inheritDoc} */
             @Override
             public Iterator<T> iterator() {
-                return concat(collections).iterator();
+                return concat((Iterable<T>[]) collections).iterator();
             }
 
             /** {@inheritDoc} */

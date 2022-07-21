@@ -28,6 +28,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
@@ -37,7 +39,6 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -73,7 +74,7 @@ public class Loza implements IgniteComponent {
     private static final int DELAY = 200;
 
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(Loza.class);
+    private static final IgniteLogger LOG = Loggers.forClass(Loza.class);
 
     /** Cluster network service. */
     private final ClusterService clusterNetSvc;
@@ -103,7 +104,7 @@ public class Loza implements IgniteComponent {
 
         this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
-                        CLIENT_POOL_NAME)
+                        CLIENT_POOL_NAME), LOG
                 )
         );
     }
@@ -121,7 +122,7 @@ public class Loza implements IgniteComponent {
 
         this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),
-                        CLIENT_POOL_NAME)
+                        CLIENT_POOL_NAME), LOG
                 )
         );
     }

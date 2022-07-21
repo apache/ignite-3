@@ -68,6 +68,7 @@ public class VersionChainDataIo extends AbstractDataPageIo<VersionChain> {
         addr += TransactionIds.writeTransactionId(addr, 0, row.transactionId());
 
         addr += PartitionlessLinks.writeToMemory(addr, row.headLink());
+        addr += PartitionlessLinks.writeToMemory(addr, row.nextLink());
     }
 
     /** {@inheritDoc} */
@@ -75,7 +76,8 @@ public class VersionChainDataIo extends AbstractDataPageIo<VersionChain> {
     protected void writeFragmentData(VersionChain row, ByteBuffer buf, int rowOff, int payloadSize) {
         assertPageType(buf);
 
-        throw new UnsupportedOperationException("Splitting version chain rows to fragments is ridiculous!");
+        throw new UnsupportedOperationException("Version chains must never be split to fragments, this should be guaranteed "
+                + "by VersionChain#headerSize()");
     }
 
     /**

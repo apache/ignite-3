@@ -36,18 +36,6 @@ public class ColumnType {
     /** 64-bit signed int. */
     public static final ColumnType INT64 = new ColumnType(ColumnTypeSpec.INT64);
 
-    /** 8-bit unsigned int. */
-    public static final ColumnType UINT8 = new ColumnType(ColumnTypeSpec.UINT8);
-
-    /** 16-bit unsigned int. */
-    public static final ColumnType UINT16 = new ColumnType(ColumnTypeSpec.UINT16);
-
-    /** 32-bit unsigned int. */
-    public static final ColumnType UINT32 = new ColumnType(ColumnTypeSpec.UINT32);
-
-    /** 64-bit unsigned int. */
-    public static final ColumnType UINT64 = new ColumnType(ColumnTypeSpec.UINT64);
-
     /** 32-bit float. */
     public static final ColumnType FLOAT = new ColumnType(ColumnTypeSpec.FLOAT);
 
@@ -95,7 +83,7 @@ public class ColumnType {
      * @return Blob type.
      * @see #blobOf(int)
      */
-    public static VarLenColumnType blobOf() {
+    public static VarLenColumnType blob() {
         return VarLenColumnType.UNLIMITED_BLOB;
     }
 
@@ -130,7 +118,7 @@ public class ColumnType {
      * @return Number type.
      * @see #numberOf(int)
      */
-    public static NumberColumnType numberOf() {
+    public static NumberColumnType number() {
         return NumberColumnType.UNLIMITED_NUMBER;
     }
 
@@ -165,7 +153,7 @@ public class ColumnType {
      * @return Decimal type.
      * @see #decimalOf(int, int)
      */
-    public static DecimalColumnType decimalOf() {
+    public static DecimalColumnType decimal() {
         return new DecimalColumnType(
                 ColumnTypeSpec.DECIMAL,
                 DecimalColumnType.DEFAULT_PRECISION,
@@ -175,14 +163,14 @@ public class ColumnType {
 
     /**
      * Returns timezone-free type representing a time of day in hours, minutes, seconds, and fractional seconds with the default precision
-     * of 6 (microseconds).
+     * of 0 (seconds).
      *
      * @return Native type.
-     * @see TemporalColumnType#DEFAULT_PRECISION
+     * @see TemporalColumnType#DEFAULT_TIME_PRECISION
      * @see #time(int)
      */
     public static TemporalColumnType time() {
-        return new TemporalColumnType(ColumnTypeSpec.TIME, TemporalColumnType.DEFAULT_PRECISION);
+        return new TemporalColumnType(ColumnTypeSpec.TIME, TemporalColumnType.DEFAULT_TIME_PRECISION);
     }
 
     /**
@@ -206,11 +194,11 @@ public class ColumnType {
      * Returns timezone-free datetime encoded as (date, time) with the default time precision of 6 (microseconds).
      *
      * @return Native type.
-     * @see TemporalColumnType#DEFAULT_PRECISION
+     * @see TemporalColumnType#DEFAULT_TIMESTAMP_PRECISION
      * @see #datetime(int)
      */
     public static TemporalColumnType datetime() {
-        return new TemporalColumnType(ColumnTypeSpec.DATETIME, TemporalColumnType.DEFAULT_PRECISION);
+        return new TemporalColumnType(ColumnTypeSpec.DATETIME, TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION);
     }
 
     /**
@@ -232,19 +220,19 @@ public class ColumnType {
     }
 
     /**
-     * Returns point in time as number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone) with the default precision of 6
+     * Returns point in time as number of ticks since {@code 1970-01-01T00:00:00Z} with the default precision of 6
      * (microseconds).
      *
      * @return Native type.
-     * @see TemporalColumnType#DEFAULT_PRECISION
+     * @see TemporalColumnType#DEFAULT_TIMESTAMP_PRECISION
      * @see #timestamp(int)
      */
     public static TemporalColumnType timestamp() {
-        return new TemporalColumnType(ColumnTypeSpec.TIMESTAMP, TemporalColumnType.DEFAULT_PRECISION);
+        return new TemporalColumnType(ColumnTypeSpec.TIMESTAMP, TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION);
     }
 
     /**
-     * Returns point in time as number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone). Ticks that are stored can be precised to
+     * Returns point in time as number of ticks since {@code 1970-01-01T00:00:00Z}. Ticks that are stored can be precised to
      * second, millisecond, microsecond or nanosecond.
      *
      * <p>Precision is a number of digits in fractional seconds part of time, from 0 - whole seconds precision up to 9 - nanoseconds
@@ -460,8 +448,26 @@ public class ColumnType {
      * Column type of variable length.
      */
     public static class TemporalColumnType extends ColumnType {
-        /** Default temporal type precision: microseconds. */
-        public static final int DEFAULT_PRECISION = 6;
+        /**
+         * Default TIMESTAMP type precision: microseconds.
+         *
+         * <p>SQL99 part 2 section 6.1 syntax rule 30
+         */
+        public static final int DEFAULT_TIMESTAMP_PRECISION = 6;
+
+        /**
+         * Default TIME type precision: seconds.
+         *
+         * <p>SQL99 part 2 section 6.1 syntax rule 30
+         */
+        public static final int DEFAULT_TIME_PRECISION = 0;
+
+        /**
+         * Max TIME precision.
+         *
+         * <p>SQL99 part 2 section 6.1 syntax rule 32
+         */
+        public static final int MAX_TIME_PRECISION = 9;
 
         /** Fractional seconds precision. */
         private final int precision;
@@ -533,18 +539,6 @@ public class ColumnType {
         /** 64-bit signed integer. */
         INT64,
 
-        /** 8-bit unsigned integer. */
-        UINT8,
-
-        /** 16-bit unsigned integer. */
-        UINT16,
-
-        /** 32-bit unsigned integer. */
-        UINT32,
-
-        /** 64-bit unsigned integer. */
-        UINT64,
-
         /** 32-bit single-precision floating-point number. */
         FLOAT,
 
@@ -563,7 +557,7 @@ public class ColumnType {
         /** Timezone-free datetime. */
         DATETIME,
 
-        /** Number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone). Tick unit depends on precision. */
+        /** Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision. */
         TIMESTAMP,
 
         /** 128-bit UUID. */

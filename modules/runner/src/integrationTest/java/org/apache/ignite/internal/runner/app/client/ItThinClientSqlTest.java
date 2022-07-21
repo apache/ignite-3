@@ -208,9 +208,8 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(String.class, columns.get(0).valueClass());
         assertEquals(SqlColumnType.STRING, columns.get(0).type());
 
-        // TODO IGNITE-17203
-        // assertEquals(-1, columns.get(0).scale());
-        // assertEquals(-1, columns.get(0).precision());
+        assertEquals(ColumnMetadata.UNDEFINED_SCALE, columns.get(0).scale());
+        assertEquals(2 << 15, columns.get(0).precision());
 
         assertEquals("ID", columns.get(1).name());
         assertEquals("ID", columns.get(1).origin().columnName());
@@ -246,7 +245,6 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    @Disabled("IGNITE-16952")
     void testFetchNextPage() {
         Session session = client().sql().createSession();
 
@@ -262,19 +260,19 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         assertEquals(4, asyncResultSet.currentPageSize());
         assertTrue(asyncResultSet.hasMorePages());
-        assertEquals(1, asyncResultSet.currentPage().iterator().next().intValue(0));
+        assertEquals(0, asyncResultSet.currentPage().iterator().next().intValue(0));
 
         asyncResultSet.fetchNextPage().toCompletableFuture().join();
 
         assertEquals(4, asyncResultSet.currentPageSize());
         assertTrue(asyncResultSet.hasMorePages());
-        assertEquals(5, asyncResultSet.currentPage().iterator().next().intValue(0));
+        assertEquals(4, asyncResultSet.currentPage().iterator().next().intValue(0));
 
         asyncResultSet.fetchNextPage().toCompletableFuture().join();
 
         assertEquals(2, asyncResultSet.currentPageSize());
         assertFalse(asyncResultSet.hasMorePages());
-        assertEquals(9, asyncResultSet.currentPage().iterator().next().intValue(0));
+        assertEquals(8, asyncResultSet.currentPage().iterator().next().intValue(0));
     }
 
     @Test

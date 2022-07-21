@@ -20,17 +20,18 @@ package org.apache.ignite.cli.core.exception.handler;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Exception handler for {@link TimeoutException}.
  */
 public class TimeoutExceptionHandler implements ExceptionHandler<TimeoutException> {
-    private static final IgniteLogger log = IgniteLogger.forClass(TimeoutExceptionHandler.class);
+    private static final IgniteLogger LOG = Loggers.forClass(TimeoutExceptionHandler.class);
 
     @Override
     public int handle(ExceptionWriter err, TimeoutException e) {
-        log.error("Timeout exception ", e);
+        LOG.error("Timeout exception", e);
         err.write("Command failed with timeout.");
         return 1;
     }

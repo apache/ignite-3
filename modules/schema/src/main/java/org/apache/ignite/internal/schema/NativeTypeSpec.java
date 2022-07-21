@@ -127,7 +127,7 @@ public enum NativeTypeSpec {
     /**
      * Native type representing a string.
      */
-    STRING("string") {
+    STRING("string", false) {
         /** {@inheritDoc} */
         @Override
         public Object objectValue(InternalTuple tup, int colIdx) {
@@ -138,7 +138,7 @@ public enum NativeTypeSpec {
     /**
      * Native type representing an arbitrary byte array.
      */
-    BYTES("blob") {
+    BYTES("blob", false) {
         /** {@inheritDoc} */
         @Override
         public Object objectValue(InternalTuple tup, int colIdx) {
@@ -201,8 +201,9 @@ public enum NativeTypeSpec {
         }
     },
 
+
     /**
-     * Native type representing a timestamp in milliseconds since Jan 1, 1970 00:00:00.000 (with no timezone).
+     * Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision.
      */
     TIMESTAMP("timestamp", true) {
         /** {@inheritDoc} */
@@ -217,15 +218,6 @@ public enum NativeTypeSpec {
 
     /** Single-token type description. */
     private final String desc;
-
-    /**
-     * Constructs a varlength type with the given type description.
-     *
-     * @param desc Type description.
-     */
-    NativeTypeSpec(String desc) {
-        this(desc, false);
-    }
 
     /**
      * Constructs a type with the given description and size.

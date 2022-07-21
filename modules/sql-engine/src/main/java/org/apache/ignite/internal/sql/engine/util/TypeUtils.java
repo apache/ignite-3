@@ -46,6 +46,7 @@ import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NumberNativeType;
+import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -61,6 +62,8 @@ public class TypeUtils {
     private static final Set<SqlTypeName> CONVERTABLE_TYPES = EnumSet.of(
             SqlTypeName.DATE,
             SqlTypeName.TIME,
+            SqlTypeName.BINARY,
+            SqlTypeName.VARBINARY,
             SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE,
             SqlTypeName.TIMESTAMP,
             SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE,
@@ -246,9 +249,11 @@ public class TypeUtils {
         } else if (storageType == LocalDate.class) {
             return (int) ((LocalDate) val).toEpochDay();
         } else if (storageType == LocalTime.class) {
-            return (int) (((LocalTime) val).toNanoOfDay() / 1000 / 1000 /* convert to millis */);
+            return (int) (TimeUnit.NANOSECONDS.toMillis(((LocalTime) val).toNanoOfDay()));
         } else if (storageType == LocalDateTime.class) {
-            return ((LocalDateTime) val).toEpochSecond(ZoneOffset.UTC);
+            var dt = (LocalDateTime) val;
+
+            return TimeUnit.SECONDS.toMillis(dt.toEpochSecond(ZoneOffset.UTC)) + TimeUnit.NANOSECONDS.toMillis(dt.getNano());
         } else if (storageType == Duration.class) {
             return TimeUnit.SECONDS.toMillis(((Duration) val).getSeconds())
                     + TimeUnit.NANOSECONDS.toMillis(((Duration) val).getNano());
@@ -271,9 +276,10 @@ public class TypeUtils {
         } else if (storageType == LocalDate.class && val instanceof Integer) {
             return LocalDate.ofEpochDay((Integer) val);
         } else if (storageType == LocalTime.class && val instanceof Integer) {
-            return LocalTime.ofNanoOfDay(Long.valueOf((Integer) val) * 1000 * 1000 /* convert from millis */);
+            return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(Long.valueOf((Integer) val)));
         } else if (storageType == LocalDateTime.class && (val instanceof Long)) {
-            return LocalDateTime.ofEpochSecond((Long) val / 1000, (int) ((Long) val % 1000) * 1000 * 1000, ZoneOffset.UTC);
+            return LocalDateTime.ofEpochSecond(TimeUnit.MILLISECONDS.toSeconds((Long) val),
+                    (int) TimeUnit.MILLISECONDS.toNanos((Long) val % 1000), ZoneOffset.UTC);
         } else if (storageType == Duration.class && val instanceof Long) {
             return Duration.ofMillis((Long) val);
         } else if (storageType == Period.class && val instanceof Integer) {
@@ -411,11 +417,23 @@ public class TypeUtils {
             case DATE:
                 return factory.createSqlType(SqlTypeName.DATE);
             case TIME:
-                return factory.createSqlType(SqlTypeName.TIME);
+                assert nativeType instanceof TemporalNativeType;
+
+                var time = (TemporalNativeType) nativeType;
+
+                return factory.createSqlType(SqlTypeName.TIME, time.precision());
             case TIMESTAMP:
-                return factory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
+                assert nativeType instanceof TemporalNativeType;
+
+                var ts = (TemporalNativeType) nativeType;
+
+                return factory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, ts.precision());
             case DATETIME:
-                return factory.createSqlType(SqlTypeName.TIMESTAMP);
+                assert nativeType instanceof TemporalNativeType;
+
+                var dt = (TemporalNativeType) nativeType;
+
+                return factory.createSqlType(SqlTypeName.TIMESTAMP, dt.precision());
             default:
                 throw new IllegalStateException("Unexpected native type " + nativeType);
         }

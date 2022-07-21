@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.Storable;
@@ -43,7 +44,6 @@ import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.util.IgniteCursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -477,20 +477,16 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
                 }
 
                 if (log.isInfoEnabled()) {
-                    log.info("Bucket [b=" + b
-                            + ", size=" + size
-                            + ", stripes=" + (stripes != null ? stripes.length : 0)
-                            + ", stripesEmpty=" + empty + ']');
+                    log.info("Bucket [b={}, size={}, stripes={}, stripesEmpty={}]",
+                            b, size, stripes != null ? stripes.length : 0, empty);
                 }
             }
         }
 
         if (dataPages > 0) {
             if (log.isInfoEnabled()) {
-                log.info("FreeList [name=" + name()
-                        + ", buckets=" + BUCKETS
-                        + ", dataPages=" + dataPages
-                        + ", reusePages=" + bucketsSize.get(REUSE_BUCKET) + "]");
+                log.info("FreeList [name={}, buckets={}, dataPages={}, reusePages={}]",
+                        name(), BUCKETS, dataPages, bucketsSize.get(REUSE_BUCKET));
             }
         }
     }

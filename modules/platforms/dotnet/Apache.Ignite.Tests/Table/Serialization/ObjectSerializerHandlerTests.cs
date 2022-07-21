@@ -28,13 +28,9 @@ namespace Apache.Ignite.Tests.Table.Serialization
     /// <summary>
     /// Tests for <see cref="ObjectSerializerHandler{T}"/>.
     /// </summary>
+    // ReSharper disable NotAccessedPositionalProperty.Local
     public class ObjectSerializerHandlerTests
     {
-        // ReSharper disable NotAccessedPositionalProperty.Local
-        private record BadPoco(Guid Key, DateTimeOffset Val);
-
-        private record UnsignedPoco(ulong Key, string Val);
-
         private static readonly Schema Schema = new(1, 1, new[]
         {
             new Column("Key", ClientDataType.Int64, false, true, 0),
@@ -150,5 +146,9 @@ namespace Apache.Ignite.Tests.Table.Serialization
             writer.Flush();
             return pooledWriter.GetWrittenMemory().ToArray();
         }
+
+        private record BadPoco(Guid Key, DateTimeOffset Val);
+
+        private record UnsignedPoco(ulong Key, string Val);
     }
 }

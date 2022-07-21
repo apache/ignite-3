@@ -34,11 +34,12 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.sql.IgniteSql;
@@ -50,7 +51,7 @@ import org.apache.ignite.tx.IgniteTransactions;
  */
 public class ClientHandlerModule implements IgniteComponent {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ClientHandlerModule.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ClientHandlerModule.class);
 
     /** Configuration registry. */
     private final ConfigurationRegistry registry;
@@ -213,14 +214,14 @@ public class ClientHandlerModule implements IgniteComponent {
 
         if (ch == null) {
             String msg = "Cannot start thin client connector endpoint. "
-                    + "All ports in range [" + desiredPort + ", " + (desiredPort + portRange) + "] are in use.";
+                    + "All ports are in use [ports=[" + desiredPort + ", " + (desiredPort + portRange) + "]]";
 
-            LOG.error(msg);
+            LOG.debug(msg);
 
             throw new IgniteException(msg);
         }
 
-        LOG.info("Thin client protocol started successfully on port " + port);
+        LOG.info("Thin client protocol started successfully[port={}]", port);
 
         return ch.closeFuture();
     }
