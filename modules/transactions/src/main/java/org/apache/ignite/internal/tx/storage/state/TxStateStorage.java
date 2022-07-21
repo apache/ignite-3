@@ -34,7 +34,7 @@ public interface TxStateStorage extends AutoCloseable {
      * Start the storage.
      *
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_CREATE_ERR} error code in case when
-     * creation of the storage has failed.
+     *                                 creation of the storage has failed.
      */
     void start();
 
@@ -56,7 +56,7 @@ public interface TxStateStorage extends AutoCloseable {
      * @param txId Tx id.
      * @return Tx meta.
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
-     * the operation has failed.
+     *                                 the operation has failed.
      */
     TxMeta get(UUID txId);
 
@@ -66,7 +66,7 @@ public interface TxStateStorage extends AutoCloseable {
      * @param txId Tx id.
      * @param txMeta Tx meta.
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
-     * the operation has failed.
+     *                                 the operation has failed.
      */
     void put(UUID txId, TxMeta txMeta);
 
@@ -78,7 +78,7 @@ public interface TxStateStorage extends AutoCloseable {
      * @param txMeta Tx meta.
      * @return Whether the CAS operation is successful.
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
-     * the operation has failed.
+     *                                 the operation has failed.
      */
     boolean compareAndSet(UUID txId, @NotNull TxState txStateExpected, @NotNull TxMeta txMeta);
 
@@ -87,7 +87,7 @@ public interface TxStateStorage extends AutoCloseable {
      *
      * @param txId Tx id.
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
-     * the operation has failed.
+     *                                 the operation has failed.
      */
     void remove(UUID txId);
 
@@ -95,7 +95,7 @@ public interface TxStateStorage extends AutoCloseable {
      * Removes all data from the storage and frees all resources.
      *
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_DESTROY_ERR} error code in case when
-     * the operation has failed.
+     *                                 the operation has failed.
      */
     void destroy();
 
