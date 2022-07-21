@@ -22,67 +22,83 @@ import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 
+/**
+ * Snapshot writer used for RAFT log truncation.
+ */
 class PartitionSnapshotWriter extends SnapshotWriter {
-    private final PartitionSnapshotStorage partitionSnapshotStorage;
+    /** Instance of snapshot storage for shared fields access. */
+    private final PartitionSnapshotStorage snapshotStorage;
 
-    public PartitionSnapshotWriter(PartitionSnapshotStorage partitionSnapshotStorage) {
-        this.partitionSnapshotStorage = partitionSnapshotStorage;
+    /**
+     * Constructor.
+     *
+     * @param snapshotStorage Snapshot storage.
+     */
+    public PartitionSnapshotWriter(PartitionSnapshotStorage snapshotStorage) {
+        this.snapshotStorage = snapshotStorage;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean init(Void opts) {
+        // No-op.
         return true;
     }
 
     /** {@inheritDoc} */
     @Override
     public String getPath() {
-        return partitionSnapshotStorage.snapshotUri;
+        return snapshotStorage.snapshotUri;
     }
 
     /** {@inheritDoc} */
     @Override
     public Set<String> listFiles() {
+        // No files in the snapshot.
         return Set.of();
     }
 
     /** {@inheritDoc} */
     @Override
     public Message getFileMeta(String fileName) {
+        // No files in the snapshot.
         return null;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean saveMeta(SnapshotMeta meta) {
+        // No-op. Meta is already in the storage.
         return true;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean addFile(String fileName, Message fileMeta) {
-        throw new UnsupportedOperationException("addFile");
+        throw new UnsupportedOperationException("Impossible to add file to the snapshot. Operation is not available.");
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean removeFile(String fileName) {
-        throw new UnsupportedOperationException("removeFile");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void close() {
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void close(boolean keepDataOnError) {
+        throw new UnsupportedOperationException("Impossible to remove file from the snapshot. Operation is not available.");
     }
 
     /** {@inheritDoc} */
     @Override
     public void shutdown() {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void close() {
+        // No-op.
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void close(boolean keepDataOnError) {
+        // No-op.
     }
 }

@@ -24,15 +24,30 @@ import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
+import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
+import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 
 /**
  * Snapshot storage factory for {@link MvPartitionStorage}. Utilizes the fact that every partition already stores its latest applied index
  * and thus can inself be used as its own snapshot.
+ *
+ * <p/>Uses {@link MvPartitionStorage#persistedIndex()} and configuration, passed into constructor, to create a {@link SnapshotMeta} object
+ * in {@link SnapshotReader#load()}.
+ *
+ * <p/>Snapshot writer doesn't allow explicit save of any actual file. {@link SnapshotWriter#saveMeta(SnapshotMeta)} simply returns
+ * {@code true}, and {@link SnapshotWriter#addFile(String)} throws an exception.
  */
 public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
+    /** Partition storage. */
     private final MvPartitionStorage partitionStorage;
+
+    /** List of peers. */
     private final List<String> peers;
+
+    /** List of learners. */
     private final List<String> learners;
+
+    /** RAFT log index read from {@link MvPartitionStorage#persistedIndex()} during factory instantiation. */
     private final long persistedRaftIndex;
 
     /**
@@ -53,10 +68,13 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
         persistedRaftIndex = partitionStorage.persistedIndex();
     }
 
+    /** {@inheritDoc} */
     @Override
     public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
         SnapshotMeta snapshotMeta = new RaftMessagesFactory().snapshotMeta()
                 .lastIncludedIndex(persistedRaftIndex)
+                // According to the code of org.apache.ignite.raft.jraft.core.NodeImpl.bootstrap, it's "dangerous" to init term with a value
+                // greater than 1.
                 .lastIncludedTerm(persistedRaftIndex > 0 ? 1 : 0)
                 .peersList(peers)
                 .learnersList(learners)

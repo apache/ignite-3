@@ -23,9 +23,18 @@ import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 
+/**
+ * Snapshot reader used for raft group bootstrap. Reads initial state of the storage.
+ */
 class InitPartitionSnapshotReader extends SnapshotReader {
+    /** Instance of snapshot storage for shared fields access. */
     private final PartitionSnapshotStorage snapshotStorage;
 
+    /**
+     * Constructor.
+     *
+     * @param snapshotStorage Snapshot storage.
+     */
     public InitPartitionSnapshotReader(PartitionSnapshotStorage snapshotStorage) {
         this.snapshotStorage = snapshotStorage;
     }
@@ -45,12 +54,14 @@ class InitPartitionSnapshotReader extends SnapshotReader {
     /** {@inheritDoc} */
     @Override
     public Set<String> listFiles() {
+        // No files in the snapshot.
         return Set.of();
     }
 
     /** {@inheritDoc} */
     @Override
     public Message getFileMeta(String fileName) {
+        // No files in the snapshot.
         return null;
     }
 
@@ -70,10 +81,12 @@ class InitPartitionSnapshotReader extends SnapshotReader {
     /** {@inheritDoc} */
     @Override
     public void shutdown() {
+        // No-op.
     }
 
     /** {@inheritDoc} */
     @Override
     public void close() throws IOException {
+        // No-op.
     }
 }

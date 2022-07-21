@@ -26,18 +26,37 @@ import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
+import org.jetbrains.annotations.Nullable;
 
+/**
+ * Snapshot storage for {@link MvPartitionStorage}.
+ *
+ * @see PartitionSnapshotStorageFactory
+ */
 class PartitionSnapshotStorage implements SnapshotStorage {
+    /** Snapshot URI. Points to a snopshot folder. Never created on physical storage. */
     final String snapshotUri;
 
+    /** Raft options. */
     final RaftOptions raftOptions;
 
+    /** Instance of partition storage. */
     final MvPartitionStorage partitionStorage;
 
+    /** Snapshot meta, constructed from the storage data and reaft group configuration. */
     final SnapshotMeta snapshotMeta;
 
-    SnapshotThrottle snapshotThrottle;
+    /** Snapshot throttle instance. */
+    @Nullable SnapshotThrottle snapshotThrottle;
 
+    /**
+     * Constructor.
+     *
+     * @param snapshotUri Snapshot URI.
+     * @param raftOptions RAFT options.
+     * @param partitionStorage Partition storage.
+     * @param snapshotMeta Snapshot meta.
+     */
     public PartitionSnapshotStorage(
             String snapshotUri,
             RaftOptions raftOptions,
@@ -53,12 +72,14 @@ class PartitionSnapshotStorage implements SnapshotStorage {
     /** {@inheritDoc} */
     @Override
     public boolean init(Void opts) {
+        // No-op.
         return true;
     }
 
     /** {@inheritDoc} */
     @Override
     public void shutdown() {
+        // No-op.
     }
 
     /** {@inheritDoc} */
