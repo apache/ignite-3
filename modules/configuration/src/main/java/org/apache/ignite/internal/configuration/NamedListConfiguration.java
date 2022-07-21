@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -129,7 +128,7 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
     public List<UUID> internalIds() {
         NamedListView<VIEWT> value = value();
 
-        return new ArrayList<>(((NamedListNode) value).internalIds());
+        return List.copyOf(((NamedListNode<?>) value).internalIds());
     }
 
     /** {@inheritDoc} */

@@ -835,7 +835,7 @@ public class ConfigurationUtil {
                         assert pathNode.namedListEntry;
 
                         if (!pathNode.unresolvedName && KeyPathNode.INTERNAL_IDS.equals(pathNode.key)) {
-                            return (T) new ArrayList<>(node.internalIds());
+                            return (T) List.copyOf(node.internalIds());
                         }
 
                         String name = pathNode.unresolvedName

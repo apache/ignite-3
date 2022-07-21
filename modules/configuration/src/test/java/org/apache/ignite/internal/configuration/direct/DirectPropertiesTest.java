@@ -208,8 +208,7 @@ public class DirectPropertiesTest {
         DirectConfiguration cfg = registry.getConfiguration(DirectConfiguration.KEY);
 
         cfg.children()
-                .change(change -> change.create("foo", value -> {
-                }))
+                .change(change -> change.create("foo", value -> {}))
                 .get(1, TimeUnit.SECONDS);
 
         UUID fooId = cfg.children().get("foo").id().value();
