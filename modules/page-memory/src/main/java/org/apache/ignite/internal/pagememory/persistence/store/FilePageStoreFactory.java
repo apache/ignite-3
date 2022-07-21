@@ -30,7 +30,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * Factory for creating {@link FilePageStore}.
  */
-class FilePageStoreFactory {
+public class FilePageStoreFactory {
     /** Latest file page store version. */
     private final int latestVersion = FilePageStore.VERSION_1;
 

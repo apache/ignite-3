@@ -49,6 +49,15 @@ class TestPageStoreUtils {
     }
 
     /**
+     * Converts varags to an array of integers.
+     *
+     * @param ints Array of integers.
+     */
+    public static int[] arr(int... ints) {
+        return ints;
+    }
+
+    /**
      * Page index supplier.
      */
     interface PageIndexSupplier {

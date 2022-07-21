@@ -55,7 +55,7 @@ public class FilePageStoreFactoryTest {
         Path testFilePath = workDir.resolve("test");
 
         try (FileIo fileIo = createFileIo(testFilePath)) {
-            fileIo.writeFully(new FilePageStoreHeader(-1, PAGE_SIZE).toByteBuffer(), 0);
+            fileIo.writeFully(new FilePageStoreHeader(-1, PAGE_SIZE).toByteBuffer().rewind(), 0);
 
             Exception exception = assertThrows(
                     IgniteInternalCheckedException.class,

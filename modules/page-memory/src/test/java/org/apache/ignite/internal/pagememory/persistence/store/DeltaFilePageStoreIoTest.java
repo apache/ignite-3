@@ -21,9 +21,12 @@ import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
+import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.DELTA_FILE_VERSION_1;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
+import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.arr;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,24 +34,29 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * For {@link FilePageStoreIo} testing.
+ * For {@link DeltaFilePageStoreIo} testing.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
+public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
     @Test
     void testPageOffset() throws Exception {
-        try (FilePageStoreIo filePageStoreIo = createFilePageStoreIo(workDir.resolve("test"))) {
+        Path testFilePath = workDir.resolve("test");
+
+        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(VERSION_1, PAGE_SIZE, arr(0, 1, 2));
+
+        try (DeltaFilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, header)) {
             assertEquals(PAGE_SIZE, filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 0)));
             assertEquals(2 * PAGE_SIZE, filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 1)));
             assertEquals(3 * PAGE_SIZE, filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 2)));
+
+            assertThat(filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 3)), lessThan(0L));
+            assertThat(filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 4)), lessThan(0L));
         }
     }
 
@@ -56,16 +64,16 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
     void testHeaderSize() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        try (FilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath)) {
+        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(VERSION_1, PAGE_SIZE, arr(0, 1, 2));
+
+        try (DeltaFilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, header)) {
             assertEquals(PAGE_SIZE, filePageStoreIo.headerSize());
         }
 
-        try (FilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, new FilePageStoreHeader(VERSION_1, 2 * PAGE_SIZE))) {
-            assertEquals(2 * PAGE_SIZE, filePageStoreIo.headerSize());
-        }
+        header = new DeltaFilePageStoreIoHeader(VERSION_1, PAGE_SIZE, IntStream.range(0, PAGE_SIZE / 4).toArray());
 
-        try (FilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, new FilePageStoreHeader(VERSION_1, 3 * PAGE_SIZE))) {
-            assertEquals(3 * PAGE_SIZE, filePageStoreIo.headerSize());
+        try (DeltaFilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, header)) {
+            assertEquals(2 * PAGE_SIZE, filePageStoreIo.headerSize());
         }
     }
 
@@ -73,9 +81,9 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
     void testHeaderBuffer() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        FilePageStoreHeader header = new FilePageStoreHeader(VERSION_1, PAGE_SIZE);
+        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(VERSION_1, PAGE_SIZE, arr(0, 1, 2));
 
-        try (FilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, header)) {
+        try (DeltaFilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, header)) {
             assertEquals(header.toByteBuffer().rewind(), filePageStoreIo.headerBuffer().rewind());
         }
     }
@@ -84,26 +92,32 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
     void testCheckHeader() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        FilePageStoreHeader header = new FilePageStoreHeader(VERSION_1, PAGE_SIZE);
+        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(VERSION_1, PAGE_SIZE, arr(0, 1, 2));
 
         try (
-                FilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, header);
+                DeltaFilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, header);
                 FileIo fileIo = new RandomAccessFileIo(testFilePath, READ, WRITE, CREATE);
         ) {
             Exception exception = assertThrows(IOException.class, () -> filePageStoreIo.checkHeader(fileIo));
             assertThat(exception.getMessage(), startsWith("Missing file header"));
 
-            fileIo.writeFully(new FilePageStoreHeader(-1, PAGE_SIZE).toByteBuffer().rewind(), 0);
+            fileIo.writeFully(new DeltaFilePageStoreIoHeader(-1, PAGE_SIZE, arr(0, 1, 2)).toByteBuffer().rewind(), 0);
             fileIo.force();
 
             exception = assertThrows(IOException.class, () -> filePageStoreIo.checkHeader(fileIo));
             assertThat(exception.getMessage(), startsWith("Invalid file version"));
 
-            fileIo.writeFully(new FilePageStoreHeader(VERSION_1, 2 * PAGE_SIZE).toByteBuffer().rewind(), 0);
+            fileIo.writeFully(new DeltaFilePageStoreIoHeader(VERSION_1, 2 * PAGE_SIZE, arr(0, 1, 2)).toByteBuffer().rewind(), 0);
             fileIo.force();
 
             exception = assertThrows(IOException.class, () -> filePageStoreIo.checkHeader(fileIo));
             assertThat(exception.getMessage(), startsWith("Invalid file pageSize"));
+
+            fileIo.writeFully(new DeltaFilePageStoreIoHeader(VERSION_1, PAGE_SIZE, arr(2, 1, 0)).toByteBuffer().rewind(), 0);
+            fileIo.force();
+
+            exception = assertThrows(IOException.class, () -> filePageStoreIo.checkHeader(fileIo));
+            assertThat(exception.getMessage(), startsWith("Invalid file pageIndexes"));
 
             fileIo.writeFully(header.toByteBuffer().rewind(), 0);
             fileIo.force();
@@ -114,11 +128,14 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
 
     /** {@inheritDoc} */
     @Override
-    protected FilePageStoreIo createFilePageStoreIo(Path filePath) {
-        return createFilePageStoreIo(filePath, new FilePageStoreHeader(VERSION_1, PAGE_SIZE));
+    DeltaFilePageStoreIo createFilePageStoreIo(Path filePath) {
+        return createFilePageStoreIo(
+                filePath,
+                new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, PAGE_SIZE, arr(0, 1, 2, 3, 5, 6, 7, 8, 9))
+        );
     }
 
-    private FilePageStoreIo createFilePageStoreIo(Path filePath, FilePageStoreHeader header) {
-        return new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header);
+    private DeltaFilePageStoreIo createFilePageStoreIo(Path filePath, DeltaFilePageStoreIoHeader header) {
+        return new DeltaFilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header);
     }
 }

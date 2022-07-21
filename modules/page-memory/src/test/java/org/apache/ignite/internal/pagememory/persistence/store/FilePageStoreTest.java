@@ -35,6 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * For {@link FilePageStore} testing.
  */
+// TODO: IGNITE-17372 добавить/поправить тесты
 @ExtendWith(WorkDirectoryExtension.class)
 public class FilePageStoreTest {
     private static final int PAGE_SIZE = 1024;

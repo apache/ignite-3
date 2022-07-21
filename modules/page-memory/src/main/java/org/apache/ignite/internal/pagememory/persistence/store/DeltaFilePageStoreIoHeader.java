@@ -27,7 +27,7 @@ import org.apache.ignite.internal.fileio.FileIo;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link DeltaFilePageStore} header.
+ * {@link DeltaFilePageStoreIo} header.
  *
  * <p>Total length in bytes {@link #headerSize()}.
  *
@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  *     </li>
  * </ul>
  */
-class DeltaFilePageStoreHeader {
+class DeltaFilePageStoreIoHeader {
     /** File signature. */
     private static final long SIGNATURE = 0xDEAFAEE072020173L;
 
@@ -65,7 +65,7 @@ class DeltaFilePageStoreHeader {
      * @param pageSize Page size in bytes.
      * @param pageIndexes Page indexes.
      */
-    DeltaFilePageStoreHeader(int version, int pageSize, int[] pageIndexes) {
+    DeltaFilePageStoreIoHeader(int version, int pageSize, int[] pageIndexes) {
         assert pageSize >= COMMON_HEADER_SIZE : pageSize;
 
         this.version = version;
@@ -130,10 +130,10 @@ class DeltaFilePageStoreHeader {
      * Reads the header of the delta file page store.
      *
      * @param fileIo Delta file page store fileIo.
-     * @param headerBuffer Buffer for reading {@link DeltaFilePageStoreHeader header} from {@code fileIo}.
+     * @param headerBuffer Buffer for reading {@link DeltaFilePageStoreIoHeader header} from {@code fileIo}.
      * @throws IOException If there are errors when reading the delta file page store header.
      */
-    static @Nullable DeltaFilePageStoreHeader readHeader(FileIo fileIo, ByteBuffer headerBuffer) throws IOException {
+    static @Nullable DeltaFilePageStoreIoHeader readHeader(FileIo fileIo, ByteBuffer headerBuffer) throws IOException {
         assert headerBuffer.remaining() >= COMMON_HEADER_SIZE : headerBuffer.remaining();
         assert headerBuffer.order() == nativeOrder() : headerBuffer.order();
 
@@ -158,7 +158,7 @@ class DeltaFilePageStoreHeader {
         int arrayLen = headerBuffer.getInt();
 
         if (arrayLen == 0) {
-            return new DeltaFilePageStoreHeader(version, pageSize, new int[0]);
+            return new DeltaFilePageStoreIoHeader(version, pageSize, new int[0]);
         }
 
         int[] pageIndexes = new int[arrayLen];
@@ -182,7 +182,7 @@ class DeltaFilePageStoreHeader {
             i += len;
         }
 
-        return new DeltaFilePageStoreHeader(version, pageSize, pageIndexes);
+        return new DeltaFilePageStoreIoHeader(version, pageSize, pageIndexes);
     }
 
     /**

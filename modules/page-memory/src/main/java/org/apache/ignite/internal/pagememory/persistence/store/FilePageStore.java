@@ -43,8 +43,11 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public class FilePageStore implements PageStore {
-    /** File version. */
+    /** File page store version. */
     public static final int VERSION_1 = 1;
+
+    /** Delta file page store IO version. */
+    public static final int DELTA_FILE_VERSION_1 = 1;
 
     /** File page store IO. */
     private final FilePageStoreIo fileIo;
@@ -124,7 +127,8 @@ public class FilePageStore implements PageStore {
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
     public void readByPhysicalOffset(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
-        fileIo.readByPhysicalOffset(pageId, pageBuf, keepCrc);
+        // TODO: IGNITE-17372 возможно надо будет переименовать или вроде того
+        fileIo.read(pageId, pageBuf, keepCrc);
     }
 
     /** {@inheritDoc} */
