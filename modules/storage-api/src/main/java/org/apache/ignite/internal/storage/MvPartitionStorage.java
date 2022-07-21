@@ -32,17 +32,17 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface MvPartitionStorage extends AutoCloseable {
     /**
-     * Last known replicator index. {@code 0} if index is unknown.
+     * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
      */
-    long appliedIndex();
+    long lastAppliedIndex();
 
     /**
-     * Sets the last known replicator index.
+     * Sets the last applied index value.
      */
-    void appliedIndex(long appliedIndex) throws StorageException;
+    void lastAppliedIndex(long lastAppliedIndex) throws StorageException;
 
     /**
-     * {@link #appliedIndex()} value consistent with the data, already persisted on the storage.
+     * {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
      */
     long persistedIndex();
 

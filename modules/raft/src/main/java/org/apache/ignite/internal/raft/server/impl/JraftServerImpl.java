@@ -502,13 +502,13 @@ public class JraftServerImpl implements RaftServer {
 
                         WriteCommand command = done == null ? JDKMarshaller.DEFAULT.unmarshall(data.array()) : done.command();
 
-                        long appliedIndex = iter.getIndex();
+                        long lastAppliedIndex = iter.getIndex();
 
                         return new CommandClosure<>() {
                             /** {@inheritDoc} */
                             @Override
-                            public long appliedIndex() {
-                                return appliedIndex;
+                            public long lastAppliedIndex() {
+                                return lastAppliedIndex;
                             }
 
                             /** {@inheritDoc} */

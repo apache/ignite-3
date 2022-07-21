@@ -108,7 +108,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     private final Slice upperBound;
 
     /** Key to store applied index value in meta. */
-    private byte[] appliedIndexKey;
+    private byte[] lastAppliedIndexKey;
 
     /**
      * Constructor.
@@ -131,16 +131,16 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         upperBound = new Slice(partitionEndPrefix());
 
-        appliedIndexKey = ("index" + partitionId).getBytes(StandardCharsets.UTF_8);
+        lastAppliedIndexKey = ("index" + partitionId).getBytes(StandardCharsets.UTF_8);
     }
 
     /** {@inheritDoc} */
     @Override
-    public long appliedIndex() {
+    public long lastAppliedIndex() {
         byte[] appliedIndexBytes;
 
         try {
-            appliedIndexBytes = db.get(meta, appliedIndexKey);
+            appliedIndexBytes = db.get(meta, lastAppliedIndexKey);
         } catch (RocksDBException e) {
             throw new StorageException(e);
         }
@@ -154,9 +154,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public void appliedIndex(long appliedIndex) throws StorageException {
+    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
         try {
-            db.put(meta, appliedIndexKey, ByteUtils.longToBytes(appliedIndex));
+            db.put(meta, lastAppliedIndexKey, ByteUtils.longToBytes(lastAppliedIndex));
         } catch (RocksDBException e) {
             throw new StorageException(e);
         }
@@ -165,7 +165,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public long persistedIndex() {
-        return appliedIndex();
+        return lastAppliedIndex();
     }
 
     /** {@inheritDoc} */
@@ -631,7 +631,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      */
     public void destroy() {
         try {
-            db.delete(meta, appliedIndexKey);
+            db.delete(meta, lastAppliedIndexKey);
         } catch (RocksDBException e) {
             throw new StorageException("Failed to cleanup partition meta on destruction", e);
         }

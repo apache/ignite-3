@@ -73,10 +73,10 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     );
 
     /**
-     * Applied index value.
+     * Last applied index value.
      */
     //TODO Make it persistent. IGNITE-17077
-    private volatile long appliedIndex = 0;
+    private volatile long lastAppliedIndex = 0;
 
     /**
      * Constructor.
@@ -132,20 +132,20 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public long appliedIndex() {
-        return appliedIndex;
+    public long lastAppliedIndex() {
+        return lastAppliedIndex;
     }
 
     /** {@inheritDoc} */
     @Override
-    public void appliedIndex(long appliedIndex) throws StorageException {
-        this.appliedIndex = appliedIndex;
+    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
+        this.lastAppliedIndex = lastAppliedIndex;
     }
 
     /** {@inheritDoc} */
     @Override
     public long persistedIndex() {
-        return appliedIndex;
+        return lastAppliedIndex;
     }
 
     /** {@inheritDoc} */

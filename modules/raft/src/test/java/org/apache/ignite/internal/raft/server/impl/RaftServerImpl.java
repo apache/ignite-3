@@ -73,7 +73,7 @@ public class RaftServerImpl implements RaftServer {
 
     private final BlockingQueue<CommandClosureEx<WriteCommand>> writeQueue;
 
-    private final AtomicLong appliedIndex = new AtomicLong();
+    private final AtomicLong lastAppliedIndex = new AtomicLong();
 
     private volatile Thread readWorker;
 
@@ -235,7 +235,7 @@ public class RaftServerImpl implements RaftServer {
             BlockingQueue<CommandClosureEx<T>> queue,
             RaftGroupListener lsnr
     ) {
-        long appliedIndex = req.command() instanceof ReadCommand ? 0 : this.appliedIndex.incrementAndGet();
+        long lastAppliedIndex = req.command() instanceof ReadCommand ? 0 : this.lastAppliedIndex.incrementAndGet();
 
         if (!queue.offer(new CommandClosureEx<>() {
             /** {@inheritDoc} */
@@ -246,8 +246,8 @@ public class RaftServerImpl implements RaftServer {
 
             /** {@inheritDoc} */
             @Override
-            public long appliedIndex() {
-                return appliedIndex;
+            public long lastAppliedIndex() {
+                return lastAppliedIndex;
             }
 
             /** {@inheritDoc} */

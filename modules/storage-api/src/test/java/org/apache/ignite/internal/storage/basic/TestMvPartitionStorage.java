@@ -43,7 +43,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private final List<TestSortedIndexMvStorage> indexes;
 
-    private long appliedIndex = 0;
+    private long lastAppliedIndex = 0;
 
     private final int partitionId;
 
@@ -80,22 +80,22 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public long appliedIndex() {
-        return appliedIndex;
+    public long lastAppliedIndex() {
+        return lastAppliedIndex;
     }
 
     /** {@inheritDoc} */
     @Override
-    public void appliedIndex(long appliedIndex) throws StorageException {
-        assert appliedIndex > this.appliedIndex : "current=" + this.appliedIndex + ", new=" + appliedIndex;
+    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
+        assert lastAppliedIndex > this.lastAppliedIndex : "current=" + this.lastAppliedIndex + ", new=" + lastAppliedIndex;
 
-        this.appliedIndex = appliedIndex;
+        this.lastAppliedIndex = lastAppliedIndex;
     }
 
     /** {@inheritDoc} */
     @Override
     public long persistedIndex() {
-        return appliedIndex;
+        return lastAppliedIndex;
     }
 
     /** {@inheritDoc} */
