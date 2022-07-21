@@ -25,9 +25,9 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
-import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Delayed page writes tracker. Provides delayed write implementations and allows to check if page is actually being written to page store.
@@ -185,9 +185,7 @@ public class DelayedPageReplacementTracker {
                 boolean interrupted = false;
 
                 while (locked.contains(id)) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("Found replaced page [" + id + "] which is being written to page store, wait for finish replacement");
-                    }
+                    log.debug("Found replaced page which is being written to page store, wait for finish replacement [id={}]", id);
 
                     try {
                         // Uninterruptable wait.

@@ -543,18 +543,16 @@ public class MutableRowTupleAdapterTest {
         assertEquals(val1, val2);
     }
 
-    @SuppressWarnings("unchecked")
     private <T extends Temporal> T truncateToDefaultPrecision(T temporal) {
-        return (T) temporal.with(NANO_OF_SECOND, truncateToDefaultPrecision(temporal.get(NANO_OF_SECOND)));
+        int precision = temporal instanceof Instant ? ColumnType.TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION
+                : ColumnType.TemporalColumnType.DEFAULT_TIME_PRECISION;
+
+        return (T) temporal.with(NANO_OF_SECOND,
+                truncatePrecision(temporal.get(NANO_OF_SECOND), tailFactor(precision)));
     }
 
-    private int truncateToDefaultPrecision(int nanos) {
-        int factor = tailFactorForDefaultPrecision();
+    private int truncatePrecision(int nanos, int factor) {
         return nanos / factor * factor;
-    }
-
-    private int tailFactorForDefaultPrecision() {
-        return tailFactor(ColumnType.TemporalColumnType.DEFAULT_PRECISION);
     }
 
     private int tailFactor(int precision) {

@@ -40,7 +40,7 @@ public class ColumnTypeValidatorImpl implements Validator<ColumnTypeValidator, C
         try {
             SchemaConfigurationConverter.convert(newType);
         } catch (IllegalArgumentException ex) {
-            ctx.addIssue(new ValidationIssue(ctx.currentKey() + ": " + ex.getMessage()));
+            ctx.addIssue(new ValidationIssue(ctx.currentKey(), ctx.currentKey() + ": " + ex.getMessage()));
 
             return;
         }
@@ -53,7 +53,7 @@ public class ColumnTypeValidatorImpl implements Validator<ColumnTypeValidator, C
                 || newType.precision() != oldType.precision()
                 || newType.scale() != oldType.scale()
                 || newType.length() != oldType.length()) {
-            ctx.addIssue(new ValidationIssue("Unsupported column type change: " + ctx.currentKey()));
+            ctx.addIssue(new ValidationIssue(ctx.currentKey(), "Unsupported column type change: " + ctx.currentKey()));
         }
 
     }

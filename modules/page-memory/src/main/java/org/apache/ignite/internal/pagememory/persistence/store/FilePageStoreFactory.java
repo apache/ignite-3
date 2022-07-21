@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader.readHeader;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.internal.fileio.FileIo;
@@ -27,16 +28,14 @@ import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Checks version in files if it's present on the disk, creates store with the latest version otherwise.
+ * Factory for creating {@link FilePageStore}.
  */
 class FilePageStoreFactory {
-    /** Latest page store version. */
-    public final int latestVersion = FilePageStore.VERSION_1;
+    /** Latest file page store version. */
+    private final int latestVersion = FilePageStore.VERSION_1;
 
-    /** {@link FileIo} factory. */
     private final FileIoFactory fileIoFactory;
 
-    /** Page size in bytes. */
     private final int pageSize;
 
     /**
@@ -45,10 +44,7 @@ class FilePageStoreFactory {
      * @param fileIoFactory File IO factory.
      * @param pageSize Page size in bytes.
      */
-    public FilePageStoreFactory(
-            FileIoFactory fileIoFactory,
-            int pageSize
-    ) {
+    public FilePageStoreFactory(FileIoFactory fileIoFactory, int pageSize) {
         this.fileIoFactory = fileIoFactory;
         this.pageSize = pageSize;
     }
@@ -56,58 +52,50 @@ class FilePageStoreFactory {
     /**
      * Creates instance of {@link FilePageStore}.
      *
+     * <p>If the file exists, an attempt will be made to read its {@link FilePageStoreHeader header} and create the {@link FilePageStore}.
+     *
      * @param filePath File page store path.
+     * @param headerBuffer Buffer for reading {@link FilePageStoreHeader header} from {@code filePath}.
      * @return File page store.
      * @throws IgniteInternalCheckedException if failed
      */
-    public FilePageStore createPageStore(Path filePath) throws IgniteInternalCheckedException {
+    public FilePageStore createPageStore(Path filePath, ByteBuffer headerBuffer) throws IgniteInternalCheckedException {
+        assert headerBuffer.remaining() == pageSize : headerBuffer.remaining();
+
         if (!Files.exists(filePath)) {
-            return createPageStore(filePath, pageSize, latestVersion);
+            return createPageStore(filePath, new FilePageStoreHeader(latestVersion, pageSize));
         }
 
         try (FileIo fileIo = fileIoFactory.create(filePath)) {
-            int commonHeaderSize = FilePageStore.COMMON_HEADER_SIZE;
+            FilePageStoreHeader header = readHeader(fileIo, headerBuffer);
 
-            if (fileIo.size() < commonHeaderSize) {
-                return createPageStore(filePath, pageSize, latestVersion);
+            if (header == null) {
+                header = new FilePageStoreHeader(latestVersion, pageSize);
             }
 
-            ByteBuffer commonHeader = ByteBuffer.allocate(commonHeaderSize).order(ByteOrder.nativeOrder());
-
-            fileIo.readFully(commonHeader);
-
-            commonHeader.rewind();
-
-            // Read signature.
-            commonHeader.getLong();
-
-            int ver = commonHeader.getInt();
-
-            return createPageStore(filePath, pageSize, ver);
+            return createPageStore(filePath, header);
         } catch (IOException e) {
-            throw new IgniteInternalCheckedException("Error while creating file page store [file=" + filePath + "]:", e);
+            throw new IgniteInternalCheckedException("Error while creating file page store [file=" + filePath + "]", e);
         }
     }
 
-    /**
-     * Instantiates specific version of {@link FilePageStore}.
-     *
-     * @param filePath File page store path.
-     * @param ver File page store version.
-     * @param pageSize Page size in bytes.
-     */
     private FilePageStore createPageStore(
             Path filePath,
-            int pageSize,
-            int ver
+            FilePageStoreHeader header
     ) throws IgniteInternalCheckedException {
-        if (ver == FilePageStore.VERSION_1) {
-            return new FilePageStore(filePath, fileIoFactory, pageSize);
+        if (header.version() == FilePageStore.VERSION_1) {
+            return new FilePageStore(
+                    header.version(),
+                    header.pageSize(),
+                    header.headerSize(),
+                    filePath,
+                    fileIoFactory
+            );
         }
 
         throw new IgniteInternalCheckedException(String.format(
                 "Unknown version of file page store [version=%s, file=%s]",
-                ver,
+                header.version(),
                 filePath
         ));
     }

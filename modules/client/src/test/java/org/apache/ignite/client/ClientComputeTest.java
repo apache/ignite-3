@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -127,7 +129,7 @@ public class ClientComputeTest {
                     () -> client.compute().<String>executeColocated("bad-tbl", key, "job").join());
 
             assertInstanceOf(IgniteClientException.class, ex.getCause());
-            assertEquals("Table 'bad-tbl' does not exist.", ex.getCause().getMessage());
+            assertThat(ex.getCause().getMessage(), containsString("Table 'bad-tbl' does not exist"));
         }
     }
 

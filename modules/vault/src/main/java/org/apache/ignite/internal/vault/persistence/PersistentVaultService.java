@@ -25,6 +25,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.future.InFlightFutures;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
@@ -55,7 +57,9 @@ public class PersistentVaultService implements VaultService {
         RocksDB.loadLibrary();
     }
 
-    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("vault"));
+    private static final IgniteLogger LOG = Loggers.forClass(PersistentVaultService.class);
+
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("vault", LOG));
 
     private final InFlightFutures futureTracker = new InFlightFutures();
 

@@ -17,26 +17,19 @@
 
 package org.apache.ignite.cli.commands.decorators;
 
-import java.util.Iterator;
-import java.util.Map.Entry;
-import org.apache.ignite.cli.commands.decorators.core.Decorator;
-import org.apache.ignite.cli.commands.decorators.core.TerminalOutput;
-import org.apache.ignite.cli.config.Config;
+import java.util.stream.Collectors;
+import org.apache.ignite.cli.config.Profile;
+import org.apache.ignite.cli.core.decorator.Decorator;
+import org.apache.ignite.cli.core.decorator.TerminalOutput;
 
 /**
- * Decorator for printing {@link Config}.
+ * Decorator for printing {@link Profile}.
  */
-public class ConfigDecorator implements Decorator<Config, TerminalOutput> {
+public class ConfigDecorator implements Decorator<Profile, TerminalOutput> {
     @Override
-    public TerminalOutput decorate(Config data) {
-        StringBuilder builder = new StringBuilder();
-        for (Iterator<Entry<Object, Object>> iterator = data.getProperties().entrySet().iterator(); iterator.hasNext(); ) {
-            Entry<Object, Object> entry = iterator.next();
-            builder.append(entry.getKey()).append("=").append(entry.getValue());
-            if (iterator.hasNext()) {
-                builder.append(System.lineSeparator());
-            }
-        }
-        return builder::toString;
+    public TerminalOutput decorate(Profile data) {
+        return () -> data.getAll().entrySet().stream()
+                .map(entry -> entry.getKey() + "=" + entry.getValue())
+                .collect(Collectors.joining(System.lineSeparator()));
     }
 }

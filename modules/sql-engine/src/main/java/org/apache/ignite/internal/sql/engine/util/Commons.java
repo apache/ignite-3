@@ -77,6 +77,7 @@ import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
@@ -106,7 +107,6 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
@@ -394,7 +394,7 @@ public final class Commons {
             try {
                 ((AutoCloseable) o).close();
             } catch (Exception e) {
-                log.warn("Failed to close resource: " + e.getMessage(), e);
+                log.warn("Failed to close resource", e);
             }
         }
     }

@@ -27,6 +27,8 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorView;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
@@ -44,7 +46,6 @@ import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteSystemProperties;
 
 /**
@@ -73,7 +74,7 @@ import org.apache.ignite.lang.IgniteSystemProperties;
  */
 public class VolatilePageMemory implements PageMemory {
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(VolatilePageMemory.class);
+    private static final IgniteLogger LOG = Loggers.forClass(VolatilePageMemory.class);
 
     /** Ignite page memory concurrency level. */
     private static final String IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL = "IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL";
@@ -250,9 +251,7 @@ public class VolatilePageMemory implements PageMemory {
     @Override
     public void stop(boolean deallocate) throws IgniteInternalException {
         synchronized (segmentsLock) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Stopping page memory.");
-            }
+            LOG.debug("Stopping page memory");
 
             started = false;
 
@@ -682,8 +681,8 @@ public class VolatilePageMemory implements PageMemory {
 
             if (oldRef != null) {
                 if (LOG.isInfoEnabled()) {
-                    LOG.info("Allocated next memory segment for region [name=" + dataRegionConfigView.name()
-                            + ", size=" + IgniteUtils.readableSize(region.size(), true) + ']');
+                    LOG.info("Allocated next memory segment for region [name={}, size={}]",
+                            dataRegionConfigView.name(), IgniteUtils.readableSize(region.size(), true));
                 }
             }
 

@@ -54,14 +54,17 @@ import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.rest.RestComponent;
-import org.apache.ignite.internal.rest.api.RestFactory;
+import org.apache.ignite.internal.rest.RestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
+import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -81,7 +84,6 @@ import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
@@ -104,7 +106,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class IgniteImpl implements Ignite {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteImpl.class);
 
     /**
      * Path to the persistent storage used by the {@link VaultService} component.
@@ -204,7 +206,7 @@ public class IgniteImpl implements Ignite {
     IgniteImpl(String name, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
         this.name = name;
 
-        longJvmPauseDetector = new LongJvmPauseDetector(name);
+        longJvmPauseDetector = new LongJvmPauseDetector(name, Loggers.forClass(LongJvmPauseDetector.class));
 
         lifecycleManager = new LifecycleManager(name);
 
@@ -275,10 +277,14 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
-        RestFactory factory = new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
-        RestFactory clusterManagementRestFactory = new ClusterManagementRestFactory(clusterSvc);
+        RestFactory presentationsFactory = new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
+        RestFactory clusterManagementRestFactory = new ClusterManagementRestFactory(clusterSvc, cmgMgr);
+        RestFactory nodeManagementRestFactory = new NodeManagementRestFactory(lifecycleManager, () -> name);
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
-        restComponent = new RestComponent(List.of(factory, clusterManagementRestFactory), restConfiguration);
+        restComponent = new RestComponent(
+                List.of(presentationsFactory, clusterManagementRestFactory, nodeManagementRestFactory),
+                restConfiguration
+        );
 
         baselineMgr = new BaselineManager(
                 clusterCfgMgr,
@@ -324,6 +330,7 @@ public class IgniteImpl implements Ignite {
                 registry,
                 clusterSvc,
                 distributedTblMgr,
+                schemaManager,
                 dataStorageMgr,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions())
         );
@@ -348,10 +355,6 @@ public class IgniteImpl implements Ignite {
         var modulesProvider = new ServiceLoaderModulesProvider();
         List<ConfigurationModule> modules = modulesProvider.modules(classLoader);
 
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Configuration modules loaded: {}", modules);
-        }
-
         if (modules.isEmpty()) {
             throw new IllegalStateException("No configuration modules were loaded, this means Ignite cannot start. "
                     + "Please make sure that the classloader for loading services is correct.");
@@ -359,10 +362,8 @@ public class IgniteImpl implements Ignite {
 
         var configModules = new ConfigurationModules(modules);
 
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Local root keys: {}", configModules.local().rootKeys());
-            LOG.info("Distributed root keys: {}", configModules.distributed().rootKeys());
-        }
+        LOG.info("Configuration modules loaded [modules={}, localRoots={}, distRoots={}]",
+                modules, configModules.local().rootKeys(), configModules.distributed().rootKeys());
 
         return configModules;
     }
@@ -450,7 +451,7 @@ public class IgniteImpl implements Ignite {
                         LOG.info("Components started, performing recovery");
 
                         // Recovery future must be created before configuration listeners are triggered.
-                        CompletableFuture<Void> recoveryFuture = RecoveryCompletionFutureFactory.create(
+                        CompletableFuture<?> recoveryFuture = RecoveryCompletionFutureFactory.create(
                                 clusterCfgMgr,
                                 fut -> new ConfigurationCatchUpListener(cfgStorage, fut, LOG)
                         );
@@ -494,9 +495,9 @@ public class IgniteImpl implements Ignite {
     }
 
     private RuntimeException handleStartException(Throwable e) {
-        String errMsg = "Unable to start node=[" + name + "].";
+        String errMsg = "Unable to start [node=" + name + "]";
 
-        LOG.error(errMsg, e);
+        LOG.debug(errMsg, e);
 
         lifecycleManager.stopNode();
 

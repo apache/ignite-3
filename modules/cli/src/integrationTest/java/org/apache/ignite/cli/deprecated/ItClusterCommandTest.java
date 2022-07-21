@@ -49,6 +49,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 class ItClusterCommandTest extends AbstractCliIntegrationTest {
+    private static final String TOPOLOGY_SNAPSHOT_LOG_RECORD_PREFIX = "Topology snapshot [nodes=";
+
     private static final Node FIRST_NODE = new Node(0, 10100, 10300);
 
     private static final Node SECOND_NODE = new Node(1, 11100, 11300);
@@ -88,8 +90,15 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
         return new NoOpHandler() {
             @Override
             public void publish(LogRecord record) {
-                if (record.getMessage().contains("Topology snapshot [nodes=" + NODES.size() + "]")) {
-                    physicalTopologyIsFull.countDown();
+                var msg = record.getMessage();
+
+                if (msg.startsWith(TOPOLOGY_SNAPSHOT_LOG_RECORD_PREFIX)) {
+                    var ids = msg.substring(TOPOLOGY_SNAPSHOT_LOG_RECORD_PREFIX.length(), msg.lastIndexOf(']'))
+                            .split(",");
+
+                    if (ids.length == NODES.size()) {
+                        physicalTopologyIsFull.countDown();
+                    }
                 }
             }
         };

@@ -19,8 +19,9 @@ package org.apache.ignite.internal.cluster.management.network;
 
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
@@ -30,7 +31,7 @@ import org.apache.ignite.network.NetworkMessageHandler;
  * Class for creating {@link NetworkMessageHandler} instances that share some common logic.
  */
 public class CmgMessageHandlerFactory {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ClusterManagementGroupManager.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
 
     private final IgniteSpinBusyLock busyLock;
 
@@ -70,7 +71,7 @@ public class CmgMessageHandlerFactory {
             try {
                 handler.onReceived(message, senderAddr, correlationId);
             } catch (Exception e) {
-                LOG.error("CMG message handling failed", e);
+                LOG.debug("CMG message handling failed", e);
 
                 if (correlationId != null) {
                     clusterService.messagingService().respond(senderAddr, initFailed(e), correlationId);

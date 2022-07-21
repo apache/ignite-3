@@ -24,7 +24,7 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.configuration.rest.presentation.hocon.HoconPresentation;
-import org.apache.ignite.internal.rest.api.RestFactory;
+import org.apache.ignite.internal.rest.RestFactory;
 
 /**
  * Factory that defines beans required for the rest module.

@@ -17,14 +17,20 @@
 
 package org.apache.ignite.cli.commands.cluster;
 
-import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigReplSubCommand;
+import org.apache.ignite.cli.commands.cluster.config.ClusterConfigReplSubCommand;
+import org.apache.ignite.cli.commands.cluster.init.ClusterInitReplSubCommand;
+import org.apache.ignite.cli.commands.cluster.status.ClusterStatusReplSubCommand;
 import picocli.CommandLine.Command;
 
 /**
  * Cluster command in REPL mode.
  */
 @Command(name = "cluster",
-        subcommands = {ClusterConfigReplSubCommand.class, ClusterInitReplSubCommand.class},
+        subcommands = {
+                ClusterConfigReplSubCommand.class,
+                ClusterInitReplSubCommand.class,
+                ClusterStatusReplSubCommand.class
+        },
         description = "Manages an Ignite cluster.")
 public class ClusterReplCommand {
 }

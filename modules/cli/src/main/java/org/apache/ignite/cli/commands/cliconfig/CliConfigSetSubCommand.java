@@ -25,6 +25,7 @@ import org.apache.ignite.cli.call.cliconfig.CliConfigSetCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 /**
@@ -35,13 +36,16 @@ public class CliConfigSetSubCommand extends BaseCommand implements Callable<Inte
     @Parameters(arity = "1..*")
     private Map<String, String> parameters;
 
+    @Option(names = {"--profile", "-p"}, description = "Set property in specified profile.")
+    private String profileName;
+
     @Inject
     private CliConfigSetCall call;
 
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new CliConfigSetCallInput(parameters))
+                .inputProvider(() -> new CliConfigSetCallInput(parameters, profileName))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .build()

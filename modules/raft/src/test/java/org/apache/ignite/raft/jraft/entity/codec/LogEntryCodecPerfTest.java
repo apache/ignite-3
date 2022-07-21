@@ -16,6 +16,10 @@
  */
 package org.apache.ignite.raft.jraft.entity.codec;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.BrokenBarrierException;
@@ -24,7 +28,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
@@ -36,12 +41,8 @@ import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
-
 public class LogEntryCodecPerfTest {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(LogEntryCodecPerfTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LogEntryCodecPerfTest.class);
 
     static byte[] DATA = new byte[512];
 

@@ -166,6 +166,24 @@ namespace Apache.Ignite.Internal.Proto
             return true;
         }
 
+        /// <summary>
+        /// Reads an int value if it is the next token..
+        /// </summary>
+        /// <param name="reader">Reader.</param>
+        /// <param name="res">result.</param>
+        /// <returns><c>true</c> if could read and integer value; <c>false</c> otherwise.</returns>
+        public static bool TryReadInt(this ref MessagePackReader reader, out int res)
+        {
+            if (reader.NextMessagePackType == MessagePackType.Integer)
+            {
+                res = reader.ReadInt32();
+                return true;
+            }
+
+            res = 0;
+            return false;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void ValidateExtensionType(
             ref MessagePackReader reader,

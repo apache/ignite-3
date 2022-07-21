@@ -25,6 +25,8 @@ import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.setOf;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -175,44 +177,44 @@ public class CollectionUtilsTest {
     }
 
     @Test
-    void testCollectionUnion() {
-        assertTrue(union(new Collection[0]).isEmpty());
-        assertTrue(union((Collection<Object>[]) null).isEmpty());
-        assertTrue(union(List.of()).isEmpty());
+    void testConcatCollection() {
+        assertTrue(concat(new Collection[0]).isEmpty());
+        assertTrue(concat((Collection<Object>[]) null).isEmpty());
+        assertTrue(concat((Collection<Object>) List.of()).isEmpty());
 
-        assertEquals(List.of(1), collect(union(List.of(1), Set.of())));
-        assertEquals(List.of(1), collect(union(List.of(), Set.of(1))));
+        assertThat(concat(List.of(1), Set.of()), contains(1));
+        assertThat(concat(List.of(), Set.of(1)), contains(1));
 
-        assertEquals(List.of(1, 2), collect(union(List.of(1), Set.of(2))));
-        assertEquals(List.of(1, 2, 2), collect(union(List.of(1), List.of(2), Set.of(2))));
+        assertThat(concat(List.of(1), Set.of(2)), contains(1, 2));
+        assertThat(concat(List.of(1), List.of(2), Set.of(2)), contains(1, 2, 2));
 
-        assertFalse(union(new Collection[0]).contains(0));
-        assertFalse(union(List.of()).contains(0));
-        assertFalse(union(List.of(1)).contains(0));
-        assertFalse(union(List.of(1), Set.of()).contains(0));
-        assertFalse(union(List.of(), Set.of(1)).contains(0));
-        assertFalse(union(List.of(1), Set.of(2, 3)).contains(0));
+        assertFalse(concat(new Collection[0]).contains(0));
+        assertFalse(concat((Collection<Object>) List.of()).contains(0));
+        assertFalse(concat((Collection<Integer>) List.of(1)).contains(0));
+        assertFalse(concat(List.of(1), Set.of()).contains(0));
+        assertFalse(concat(List.of(), Set.of(1)).contains(0));
+        assertFalse(concat(List.of(1), Set.of(2, 3)).contains(0));
 
-        assertTrue(union(List.of(0)).contains(0));
-        assertTrue(union(List.of(), Set.of(0)).contains(0));
-        assertTrue(union(List.of(0), Set.of()).contains(0));
+        assertTrue(concat((Collection<Integer>) List.of(0)).contains(0));
+        assertTrue(concat(List.of(), Set.of(0)).contains(0));
+        assertTrue(concat(List.of(0), Set.of()).contains(0));
 
-        assertEquals(0, union(new Collection[0]).size());
-        assertEquals(0, union(List.of()).size());
-        assertEquals(1, union(List.of(1)).size());
-        assertEquals(1, union(List.of(), Set.of(1)).size());
-        assertEquals(1, union(List.of(1), Set.of()).size());
-        assertEquals(2, union(List.of(1), Set.of(2)).size());
-        assertEquals(3, union(List.of(1), Set.of(2, 3)).size());
-        assertEquals(5, union(List.of(1, 4, 5), Set.of(2, 3)).size());
+        assertEquals(0, concat(new Collection[0]).size());
+        assertEquals(0, concat((Collection<Object>) List.of()).size());
+        assertEquals(1, concat((Collection<Integer>) List.of(1)).size());
+        assertEquals(1, concat(List.of(), Set.of(1)).size());
+        assertEquals(1, concat(List.of(1), Set.of()).size());
+        assertEquals(2, concat(List.of(1), Set.of(2)).size());
+        assertEquals(3, concat(List.of(1), Set.of(2, 3)).size());
+        assertEquals(5, concat(List.of(1, 4, 5), Set.of(2, 3)).size());
 
         Collection<Integer> integers = new ArrayList<>(List.of(1, 2, 3));
 
-        Collection<Integer> union = union(integers);
+        Collection<Integer> concat = concat(integers);
 
         integers.remove(1);
 
-        assertEquals(2, union.size());
+        assertEquals(2, concat.size());
     }
 
     /**

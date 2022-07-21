@@ -16,23 +16,24 @@
  */
 package org.apache.ignite.raft.jraft.util.concurrent;
 
-import java.util.Collection;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReadWriteLock;
-import org.apache.ignite.lang.IgniteLogger;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Collection;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReadWriteLock;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.junit.jupiter.api.Test;
+
 /**
  *
  */
 public class LongHeldDetectingReadWriteLockTest {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(LongHeldDetectingReadWriteLockTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LongHeldDetectingReadWriteLockTest.class);
 
     @Test
     public void testLongHeldWriteLock() throws InterruptedException {

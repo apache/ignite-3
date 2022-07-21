@@ -30,6 +30,8 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -49,6 +51,8 @@ public class RocksDbStorageEngine implements StorageEngine {
     /** Engine name. */
     public static final String ENGINE_NAME = "rocksdb";
 
+    private static final IgniteLogger LOG = Loggers.forClass(RocksDbStorageEngine.class);
+
     static {
         RocksDB.loadLibrary();
     }
@@ -59,7 +63,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     private final ExecutorService threadPool = Executors.newFixedThreadPool(
             Runtime.getRuntime().availableProcessors(),
-            new NamedThreadFactory("rocksdb-storage-engine-pool")
+            new NamedThreadFactory("rocksdb-storage-engine-pool", LOG)
     );
 
     private final Map<String, RocksDbDataRegion> regions = new ConcurrentHashMap<>();

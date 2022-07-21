@@ -35,22 +35,12 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-rest-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-configuration</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-cluster-management</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-rest-api</artifactId>
         </dependency>
 
         <!-- 3rd party dependencies -->
@@ -122,6 +112,8 @@
                     </dependency>
                 </dependencies>
                 <configuration>
+                    <!-- required by https://micronaut-projects.github.io/micronaut-openapi/latest/guide/index.html -->
+                    <fork>true</fork>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.apache.ignite</groupId>
@@ -140,7 +132,7 @@
                         </path>
                     </annotationProcessorPaths>
                     <compilerArgs>
-                        <arg>-J-Dmicronaut.openapi.target.file=openapi/openapi.yaml</arg>
+                        <arg>-J-Dmicronaut.openapi.config.file=openapi/openapi.properties</arg>
                     </compilerArgs>
                 </configuration>
             </plugin>

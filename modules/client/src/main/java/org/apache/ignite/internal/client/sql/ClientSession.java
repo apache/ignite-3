@@ -111,7 +111,7 @@ public class ClientSession implements Session {
 
             packProperties(w, clientStatement.properties());
 
-            w.out().packObject(clientStatement.query());
+            w.out().packString(clientStatement.query());
             w.out().packBoolean(clientStatement.prepared());
 
             w.out().packObjectArray(arguments);

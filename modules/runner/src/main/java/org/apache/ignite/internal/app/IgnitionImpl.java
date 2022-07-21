@@ -32,9 +32,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
@@ -44,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class IgnitionImpl implements Ignition {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(IgnitionImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(IgnitionImpl.class);
 
     private static final String[] BANNER = {
             "",
@@ -198,9 +199,9 @@ public class IgnitionImpl implements Ignition {
         IgniteImpl prevNode = nodes.putIfAbsent(nodeName, nodeToStart);
 
         if (prevNode != null) {
-            String errMsg = "Node with name=[" + nodeName + "] already exists.";
+            String errMsg = "Node already exists [name=" + nodeName + "]";
 
-            LOG.error(errMsg);
+            LOG.debug(errMsg);
 
             throw new IgniteException(errMsg);
         }

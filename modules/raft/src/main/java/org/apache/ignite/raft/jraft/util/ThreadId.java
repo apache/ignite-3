@@ -19,14 +19,15 @@ package org.apache.ignite.raft.jraft.util;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Replicator id with lock.
  */
 public class ThreadId {
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ThreadId.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ThreadId.class);
 
     private static final int TRY_LOCK_TIMEOUT_MS = 10;
 

@@ -23,7 +23,8 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
@@ -40,7 +41,7 @@ import org.apache.ignite.raft.jraft.util.Requires;
  * Stores log in heap.
  */
 public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(LocalLogStorage.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LocalLogStorage.class);
 
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
     private final Lock readLock = this.readWriteLock.readLock();

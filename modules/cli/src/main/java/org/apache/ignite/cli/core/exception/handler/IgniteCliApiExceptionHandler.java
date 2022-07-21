@@ -22,14 +22,15 @@ import java.net.UnknownHostException;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.exception.IgniteCliApiException;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
 /**
  * Exception handler for {@link IgniteCliApiException}.
  */
 public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliApiException> {
-    private static final IgniteLogger log = IgniteLogger.forClass(IgniteCliApiExceptionHandler.class);
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteCliApiExceptionHandler.class);
 
     @Override
     public int handle(ExceptionWriter err, IgniteCliApiException e) {
@@ -39,19 +40,19 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
             ApiException cause = (ApiException) e.getCause();
             Throwable apiCause = cause.getCause();
             if (apiCause instanceof UnknownHostException) {
-                message = "Could not determine IP address when connecting to URL: " + e.getUrl();
+                message = "Could not determine IP address when connecting to URL [url=" + e.getUrl() + ']';
             } else if (apiCause instanceof ConnectException) {
-                message = "Could not connect to URL: " + e.getUrl();
+                message = "Could not connect to URL [url=" + e.getUrl() + ']';
             } else if (apiCause != null) {
                 message = apiCause.getMessage();
             } else {
-                message = "An error occurred, error code: " + cause.getCode() + ", response: " + cause.getResponseBody();
+                message = "An error occurred [errorCode=" + cause.getCode() + ", response=" + cause.getResponseBody() + ']';
             }
         } else {
             message = e.getCause() != e ? e.getCause().getMessage() : e.getMessage();
         }
 
-        log.error(message, e);
+        LOG.error(message, e);
 
         err.write(message);
 

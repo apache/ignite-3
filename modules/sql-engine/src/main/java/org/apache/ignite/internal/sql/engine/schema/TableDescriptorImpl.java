@@ -37,6 +37,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 
 /**
  * TableDescriptorImpl.
@@ -156,7 +157,9 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
         final RexBuilder rexBuilder = ctx.getRexBuilder();
         final IgniteTypeFactory typeFactory = (IgniteTypeFactory) rexBuilder.getTypeFactory();
 
-        return rexBuilder.makeLiteral(desc.defaultValue(), deriveLogicalType(typeFactory, desc), false);
+        Object defaultValue = TypeUtils.toInternal(null, desc.defaultValue());
+
+        return rexBuilder.makeLiteral(defaultValue, deriveLogicalType(typeFactory, desc), false);
     }
 
     /** {@inheritDoc} */
