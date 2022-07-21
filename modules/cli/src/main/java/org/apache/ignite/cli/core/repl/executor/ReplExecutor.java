@@ -108,6 +108,8 @@ public class ReplExecutor {
 
             QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader));
 
+            repl.onStart();
+
             while (!interrupted.get()) {
                 try {
                     executor.cleanUp();

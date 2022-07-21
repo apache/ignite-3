@@ -19,13 +19,18 @@ package org.apache.ignite.cli.commands.questions;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.cli.call.connect.ConnectCall;
 import org.apache.ignite.cli.call.connect.ConnectCallInput;
+import org.apache.ignite.cli.config.ConfigConstants;
 import org.apache.ignite.cli.config.ConfigManagerProvider;
+import org.apache.ignite.cli.config.StateConfig;
 import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.cli.core.flow.builder.Flows;
+import org.apache.ignite.cli.core.flow.question.AcceptedQuestionAnswer;
+import org.apache.ignite.cli.core.flow.question.InterruptQuestionAnswer;
 import org.apache.ignite.cli.core.repl.Session;
 import org.apache.ignite.cli.core.repl.context.CommandLineContextProvider;
 
@@ -68,5 +73,43 @@ public class ConnectToClusterQuestion {
 
     private String clusterUrlOrSessionNode(String clusterUrl) {
         return clusterUrl != null ? clusterUrl : session.nodeUrl();
+    }
+
+    /**
+     * Ask for connect to the cluster and suggest to save the last connected URL as default.
+     */
+    public void askQuestionOnReplStart() {
+        String defaultUrl = provider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
+        String lastConnectedUrl = StateConfig.getStateConfig().getProperty(ConfigConstants.LAST_CONNECTED_URL);
+        String question;
+        String clusterUrl;
+        if (lastConnectedUrl != null) {
+            question = "Do you want to connect to the last connected node " + lastConnectedUrl + " ? [Y/n]";
+            clusterUrl = lastConnectedUrl;
+        } else {
+            question = "Do you want to connect to the default node " + defaultUrl + " ? [Y/n]";
+            clusterUrl = defaultUrl;
+        }
+
+        FlowBuilder<Object, String> builder = Flows.question(question,
+                        List.of(new AcceptedQuestionAnswer<>((a, i) -> new ConnectCallInput(clusterUrl)),
+                                new InterruptQuestionAnswer<>())
+                )
+                .then(Flows.fromCall(connectCall));
+
+        // If urls are different, suggest saving last connected url as default in case of successful connect
+        if (!Objects.equals(lastConnectedUrl, defaultUrl)) {
+            String saveQuestion = "Would you like to use " + lastConnectedUrl + " as the default URL? [Y/n]";
+            builder = builder
+                    .ifThen(s -> session.isConnectedToNode(), Flows.<String, String>question(saveQuestion,
+                            List.of(new AcceptedQuestionAnswer<>((a, i) -> lastConnectedUrl),
+                                    new InterruptQuestionAnswer<>())
+                    ).then(Flows.<String, String>from(url -> {
+                        provider.get().setProperty(ConfigConstants.CLUSTER_URL, url);
+                        return "Config saved";
+                    }).toOutput(CommandLineContextProvider.getContext()).build()).build());
+        }
+
+        builder.toOutput(CommandLineContextProvider.getContext()).build().start(Flowable.empty());
     }
 }

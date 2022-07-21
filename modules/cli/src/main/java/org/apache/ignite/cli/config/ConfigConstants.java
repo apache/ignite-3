@@ -31,6 +31,7 @@ public final class ConfigConstants {
     public static final String CURRENT_PROFILE = "current_profile";
     public static final String CLUSTER_URL = "ignite.cluster-url";
     public static final String JDBC_URL = "ignite.jdbc-url";
+    public static final String LAST_CONNECTED_URL = "ignite.last-connected-url";
 
     private ConfigConstants() {
 

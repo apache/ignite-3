@@ -18,6 +18,9 @@
 package org.apache.ignite.cli.core.repl;
 
 import jakarta.inject.Singleton;
+import org.apache.ignite.cli.config.Config;
+import org.apache.ignite.cli.config.ConfigConstants;
+import org.apache.ignite.cli.config.StateConfig;
 
 /**
  * Connection session that in fact is holder for state: connected or disconnected.
@@ -33,6 +36,8 @@ public class Session {
     private String nodeName;
 
     private String jdbcUrl;
+
+    private final Config config = StateConfig.getStateConfig();
 
     public boolean isConnectedToNode() {
         return connectedToNode;
@@ -56,6 +61,9 @@ public class Session {
 
     public void setNodeUrl(String nodeUrl) {
         this.nodeUrl = nodeUrl;
+        if (nodeUrl != null) {
+            config.setProperty(ConfigConstants.LAST_CONNECTED_URL, nodeUrl);
+        }
     }
 
     public String jdbcUrl() {
