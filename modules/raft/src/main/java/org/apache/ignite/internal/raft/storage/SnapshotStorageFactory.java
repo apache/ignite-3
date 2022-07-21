@@ -1,12 +1,12 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,15 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.core;
+
+package org.apache.ignite.internal.raft.storage;
 
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.LogStorage;
-import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
+import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 
-public class TestJRaftServiceFactory extends DefaultJRaftServiceFactory {
-    @Override
-    public LogStorage createLogStorage(final String uri, final RaftOptions raftOptions) {
-        return new LocalLogStorage(raftOptions);
-    }
+/** Snapshot storage factory interface. */
+@FunctionalInterface
+public interface SnapshotStorageFactory {
+    /**
+     * Creates a snapshot storage.
+     *
+     * @param uri Snapshot URI.
+     * @param raftOptions Raft options.
+     * @return Snapshot storage.
+     */
+    SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions);
 }
