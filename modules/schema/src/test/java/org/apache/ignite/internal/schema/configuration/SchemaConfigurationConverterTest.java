@@ -112,7 +112,7 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
         confRegistry.getConfiguration(TablesConfiguration.KEY).change(
                 ch -> SchemaConfigurationConverter.createTable(tbl, ch)
                         .changeTables(
-                                tblsCh -> tblsCh.update(tbl.canonicalName(), tblCh -> tblCh.changeReplicas(1).changeIntId(1))
+                                tblsCh -> tblsCh.update(tbl.canonicalName(), tblCh -> tblCh.changeReplicas(1).changeTableId(1))
                         )
         ).get();
     }
@@ -288,7 +288,7 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
         confRegistry.getConfiguration(TablesConfiguration.KEY).change(
                 ch -> SchemaConfigurationConverter.createTable(tableDefinition, ch)
                         .changeTables(
-                                tblsCh -> tblsCh.update(tableDefinition.canonicalName(), tblCh -> tblCh.changeReplicas(1).changeIntId(1))
+                                tblsCh -> tblsCh.update(tableDefinition.canonicalName(), tblCh -> tblCh.changeReplicas(1).changeTableId(1))
                         )
         ).join();
 

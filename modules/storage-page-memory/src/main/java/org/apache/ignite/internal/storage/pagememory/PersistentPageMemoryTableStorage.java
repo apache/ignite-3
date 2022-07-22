@@ -71,7 +71,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         TableView tableView = tableCfg.value();
 
         try {
-            dataRegion.filePageStoreManager().initialize(tableView.name(), tableView.intId(), tableView.partitions());
+            dataRegion.filePageStoreManager().initialize(tableView.name(), tableView.tableId(), tableView.partitions());
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error initializing file page stores for table: " + tableView.name(), e);
         }
@@ -93,7 +93,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         try {
             PersistentPageMemory persistentPageMemory = dataRegion.pageMemory();
 
-            int grpId = tableView.intId();
+            int grpId = tableView.tableId();
 
             CheckpointProgress currentProgress = checkpointManager.currentProgress();
 
@@ -172,7 +172,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      */
     FilePageStore ensurePartitionFilePageStore(TableView tableView, int partId) throws StorageException {
         try {
-            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(tableView.intId(), partId);
+            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(tableView.tableId(), partId);
 
             filePageStore.ensure();
 
@@ -202,7 +202,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     ) throws StorageException {
         try {
             return new TableFreeList(
-                    tableView.intId(),
+                    tableView.tableId(),
                     partId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
@@ -237,7 +237,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             PartitionMeta partitionMeta,
             boolean initNewTree
     ) throws StorageException {
-        int grpId = tableView.intId();
+        int grpId = tableView.tableId();
 
         try {
             return new TableTree(

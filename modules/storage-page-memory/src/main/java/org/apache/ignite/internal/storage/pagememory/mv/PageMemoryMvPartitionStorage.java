@@ -85,7 +85,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         this.versionChainFreeList = versionChainFreeList;
         this.rowVersionFreeList = rowVersionFreeList;
 
-        groupId = tableConfig.intId();
+        groupId = tableConfig.tableId();
 
         try {
             versionChainTree = createVersionChainTree(partId, tableConfig, dataRegion, versionChainFreeList);

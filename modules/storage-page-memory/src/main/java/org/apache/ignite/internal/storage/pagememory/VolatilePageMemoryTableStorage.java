@@ -95,7 +95,7 @@ class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             int partId,
             TableFreeList freeList
     ) throws StorageException {
-        int grpId = tableView.intId();
+        int grpId = tableView.tableId();
 
         try {
             return new TableTree(
