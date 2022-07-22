@@ -45,14 +45,4 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
     protected IgniteSql igniteSql() {
         return client.sql();
     }
-
-    @Override
-    public void errors() {
-        super.errors();
-    }
-
-    @Override
-    public void ddl() {
-        super.ddl();
-    }
 }

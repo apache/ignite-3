@@ -52,9 +52,4 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
     public void closeSession() throws ExecutionException, InterruptedException {
         super.closeSession();
     }
-
-    @Override
-    public void errors() {
-        super.errors();
-    }
 }
