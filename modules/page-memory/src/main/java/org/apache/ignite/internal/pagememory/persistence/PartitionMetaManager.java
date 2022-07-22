@@ -97,7 +97,7 @@ public class PartitionMetaManager {
         try {
             if (filePageStore.size() > filePageStore.headerSize()) {
                 // Reads the partition meta.
-                filePageStore.readDirectlyWithoutPageIdCheck(partitionMetaPageId, buffer, false);
+                filePageStore.readWithoutPageIdCheck(partitionMetaPageId, buffer, false);
 
                 return new PartitionMeta(checkpointId, ioRegistry.resolve(bufferAddr), bufferAddr);
             } else {

@@ -80,17 +80,17 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
     /**
      * Returns the page size in bytes.
      */
-    abstract int pageSize();
+    public abstract int pageSize();
 
     /**
      * Returns the size of the header in bytes.
      */
-    abstract int headerSize();
+    public abstract int headerSize();
 
     /**
      * Returns a buffer with a file page storage header.
      */
-    abstract ByteBuffer headerBuffer();
+    public abstract ByteBuffer headerBuffer();
 
     /**
      * Checks the file page storage header.
@@ -98,14 +98,14 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * @param fileIo File page store IO to read the header.
      * @throws IOException If there is an error reading the header or the header did not pass the check.
      */
-    abstract void checkHeader(FileIo fileIo) throws IOException;
+    public abstract void checkHeader(FileIo fileIo) throws IOException;
 
     /**
      * Returns page offset within the store file.
      *
      * @param pageId Page ID.
      */
-    abstract long pageOffset(long pageId);
+    public abstract long pageOffset(long pageId);
 
     /**
      * Stops the file page store IO.
@@ -113,7 +113,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * @param clean {@code True} to clean file page store.
      * @throws IgniteInternalCheckedException If failed.
      */
-    void stop(boolean clean) throws IgniteInternalCheckedException {
+    public void stop(boolean clean) throws IgniteInternalCheckedException {
         try {
             stop0(clean);
         } catch (IOException e) {
@@ -138,10 +138,11 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * @param pageBuf Page buffer to read into.
      * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code
      * keepCrc}.
+     * @return {@code True} if the page was read successfully.
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
-    void read(long pageId, long pageOff, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
-        read0(pageId, pageOff, pageBuf, !skipCrc, keepCrc);
+    public boolean read(long pageId, long pageOff, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
+        return read0(pageId, pageOff, pageBuf, !skipCrc, keepCrc);
     }
 
     /**
@@ -152,7 +153,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * @param calculateCrc If {@code false} crc calculation will be forcibly skipped.
      * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
      */
-    void write(long pageId, ByteBuffer pageBuf, boolean calculateCrc) throws IgniteInternalCheckedException {
+    public void write(long pageId, ByteBuffer pageBuf, boolean calculateCrc) throws IgniteInternalCheckedException {
         ensure();
 
         boolean interrupted = false;
@@ -232,7 +233,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      *
      * @throws IgniteInternalCheckedException If sync failed (IO error occurred).
      */
-    void sync() throws IgniteInternalCheckedException {
+    public void sync() throws IgniteInternalCheckedException {
         readWriteLock.writeLock().lock();
 
         try {
@@ -253,7 +254,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
     /**
      * Returns {@code true} if the file page store exists.
      */
-    boolean exists() {
+    public boolean exists() {
         if (fileExists == null) {
             readWriteLock.readLock().lock();
 
@@ -274,7 +275,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      *
      * @throws IgniteInternalCheckedException If initialization failed (IO error occurred).
      */
-    void ensure() throws IgniteInternalCheckedException {
+    public void ensure() throws IgniteInternalCheckedException {
         if (!initialized) {
             readWriteLock.writeLock().lock();
 
@@ -337,7 +338,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      *
      * @throws IgniteInternalCheckedException If an I/O error occurs.
      */
-    long size() throws IgniteInternalCheckedException {
+    public long size() throws IgniteInternalCheckedException {
         readWriteLock.readLock().lock();
 
         try {
@@ -463,9 +464,10 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * @param pageBuf Page buffer to read into.
      * @param checkCrc Check CRC on page.
      * @param keepCrc By default reading zeroes CRC which was on file, but you can keep it in pageBuf if set keepCrc.
+     * @return {@code True} if the page was read successfully.
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
-    private void read0(
+    private boolean read0(
             long pageId,
             long pageOff,
             ByteBuffer pageBuf,
@@ -488,7 +490,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
             if (n < 0) {
                 pageBuf.put(new byte[pageBuf.remaining()]);
 
-                return;
+                return false;
             }
 
             int savedCrc32 = PageIo.getCrc(pageBuf);
@@ -514,6 +516,8 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
             if (keepCrc) {
                 PageIo.setCrc(pageBuf, savedCrc32);
             }
+
+            return true;
         } catch (IOException e) {
             throw new IgniteInternalCheckedException("Failed to read page [file=" + filePath + ", pageId=" + pageId + "]", e);
         }

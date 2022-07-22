@@ -30,7 +30,9 @@ import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -55,7 +57,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * For {@link FilePageStore} testing.
  */
-// TODO: IGNITE-17372 добавить/поправить тесты
 @ExtendWith(WorkDirectoryExtension.class)
 public class FilePageStoreTest {
     private static final int PAGE_SIZE = 1024;
@@ -307,33 +308,91 @@ public class FilePageStoreTest {
 
     @Test
     void testReadDirectlyWithoutPageIdCheck() throws Exception {
-        DeltaFilePageStoreIo deltaIo0 = mock(DeltaFilePageStoreIo.class);
-        DeltaFilePageStoreIo deltaIo1 = mock(DeltaFilePageStoreIo.class);
+        RandomAccessFileIoFactory ioFactory = new RandomAccessFileIoFactory();
 
-        FilePageStoreIo filePageStoreIo = spy(new FilePageStoreIo(
-                new RandomAccessFileIoFactory(),
-                workDir.resolve("test"),
-                new FilePageStoreHeader(VERSION_1, PAGE_SIZE)
-        ));
+        FilePageStoreHeader filePageStoreHeader = new FilePageStoreHeader(VERSION_1, PAGE_SIZE);
 
-        ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
+        DeltaFilePageStoreIoHeader deltaHeader0 = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr(1));
+        DeltaFilePageStoreIoHeader deltaHeader1 = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(2));
 
-        try (FilePageStore filePageStore = new FilePageStore(filePageStoreIo, deltaIo0)) {
-            filePageStore.setDeltaFilePageStoreIoFactory((index, pageIndexes) -> deltaIo1);
-            filePageStore.setCompleteCreationDeltaFilePageStoreIoCallback(deltaFilePageStoreIo -> {});
+        Path filePageStoreFilePath = workDir.resolve("filePageStore");
 
-            filePageStore.getOrCreateNewDeltaFile(TestPageStoreUtils::arr).get(1, SECONDS);
+        Path deltaFilePath0 = workDir.resolve("delta0");
+        Path deltaFilePath1 = workDir.resolve("delta1");
+
+        try (
+                DeltaFilePageStoreIo deltaIo0 = spy(new DeltaFilePageStoreIo(ioFactory, deltaFilePath0, deltaHeader0));
+                FilePageStoreIo filePageStoreIo = spy(new FilePageStoreIo(ioFactory, filePageStoreFilePath, filePageStoreHeader));
+                FilePageStore filePageStore = new FilePageStore(filePageStoreIo, deltaIo0);
+        ) {
+            filePageStore.setDeltaFilePageStoreIoFactory((index, pageIndexes) -> {
+                assertEquals(1, index);
+                assertArrayEquals(deltaHeader1.pageIndexes(), pageIndexes);
+
+                return spy(new DeltaFilePageStoreIo(ioFactory, deltaFilePath1, deltaHeader1));
+            });
+
+            filePageStore.setCompleteCreationDeltaFilePageStoreIoCallback(AbstractFilePageStoreIo::sync);
+
+            DeltaFilePageStoreIo deltaIo1 = filePageStore.getOrCreateNewDeltaFile(deltaHeader1::pageIndexes).get(1, SECONDS);
+
+            // Fills with data.
+            long pageId0 = createDataPageId(filePageStore::allocatePage);
+            long pageId1 = createDataPageId(filePageStore::allocatePage);
+            long pageId2 = createDataPageId(filePageStore::allocatePage);
+
+            filePageStoreIo.write(pageId0, createPageByteBuffer(pageId0, PAGE_SIZE), true);
+            deltaIo0.write(pageId1, createPageByteBuffer(pageId1, PAGE_SIZE), true);
+            deltaIo1.write(pageId2, createPageByteBuffer(pageId2, PAGE_SIZE), true);
+
+            filePageStoreIo.sync();
+            deltaIo0.sync();
             filePageStore.completeNewDeltaFile();
 
-            long pageId = createDataPageId(() -> 101);
+            // Checks page reading.
+            ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
 
-            assertDoesNotThrow(() -> filePageStore.readDirectlyWithoutPageIdCheck(pageId, buffer, true));
+            try {
+                // Check read page from filePageStoreIo.
+                assertTrue(filePageStore.readWithoutPageIdCheck(pageId0, buffer, true));
 
-            verify(filePageStoreIo, times(1)).read(eq(pageId), anyLong(), eq(buffer), eq(true));
-            verify(deltaIo0, times(0)).read(eq(pageId), anyLong(), eq(buffer), eq(true));
-            verify(deltaIo1, times(0)).read(eq(pageId), anyLong(), eq(buffer), eq(true));
-        } finally {
-            freeBuffer(buffer);
+                assertEquals(pageId0, PageIo.getPageId(buffer.rewind()));
+
+                verify(deltaIo0, times(0)).read(eq(pageId0), anyLong(), eq(buffer), eq(true));
+                verify(deltaIo1, times(0)).read(eq(pageId0), anyLong(), eq(buffer), eq(true));
+                verify(filePageStoreIo, times(1)).read(eq(pageId0), anyLong(), eq(buffer), eq(true));
+
+                // Check read page from deltaIo0.
+                assertTrue(filePageStore.readWithoutPageIdCheck(pageId1, buffer.rewind(), true));
+
+                assertEquals(pageId1, PageIo.getPageId(buffer.rewind()));
+
+                verify(deltaIo0, times(1)).read(eq(pageId1), anyLong(), eq(buffer), eq(true));
+                verify(deltaIo1, times(0)).read(eq(pageId1), anyLong(), eq(buffer), eq(true));
+                verify(filePageStoreIo, times(0)).read(eq(pageId1), anyLong(), eq(buffer), eq(true));
+
+                // Check read page from deltaIo1.
+                assertTrue(filePageStore.readWithoutPageIdCheck(pageId2, buffer.rewind(), true));
+
+                assertEquals(pageId2, PageIo.getPageId(buffer.rewind()));
+
+                verify(deltaIo0, times(0)).read(eq(pageId2), anyLong(), eq(buffer), eq(true));
+                verify(deltaIo1, times(1)).read(eq(pageId2), anyLong(), eq(buffer), eq(true));
+                verify(filePageStoreIo, times(0)).read(eq(pageId2), anyLong(), eq(buffer), eq(true));
+
+                // Let's check the reading of a non-existent page.
+                long pageId3 = createDataPageId(() -> 3);
+
+                assertFalse(filePageStore.readWithoutPageIdCheck(pageId3, buffer.rewind(), true));
+
+                assertEquals(0, PageIo.getPageId(buffer.rewind()));
+
+                verify(deltaIo0, times(0)).read(eq(pageId3), anyLong(), eq(buffer), eq(true));
+                verify(deltaIo1, times(0)).read(eq(pageId3), anyLong(), eq(buffer), eq(true));
+                verify(filePageStoreIo, times(1)).read(eq(pageId3), anyLong(), eq(buffer), eq(true));
+            } finally {
+                freeBuffer(buffer);
+            }
         }
     }
 

@@ -49,7 +49,6 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 // TODO: IGNITE-17372 модифицировать описание
-// TODO: IGNITE-17372 тут еще надо будет методы поправить
 public class FilePageStore implements PageStore {
     private static final VarHandle PAGE_COUNT;
 
@@ -158,18 +157,26 @@ public class FilePageStore implements PageStore {
     }
 
     /**
-     * Reads a page, unlike {@link #read(long, ByteBuffer, boolean)}, reads directly from the file page store (not starting from the delta
-     * file page stores) and does not check the {@code pageId} so that its {@code pageIdx} is not greater than the {@link #pages() number of
-     * allocated pages}.
+     * Reads a page, unlike {@link #read(long, ByteBuffer, boolean)}, does not check the {@code pageId} so that its {@code pageIdx} is not
+     * greater than the {@link #pages() number of allocated pages}.
      *
      * @param pageId Page ID.
      * @param pageBuf Page buffer to read into.
      * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code
      * keepCrc}.
+     * @return {@code True} if the page was read successfully.
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
-    public void readDirectlyWithoutPageIdCheck(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
-        filePageStoreIo.read(pageId, filePageStoreIo.pageOffset(pageId), pageBuf, keepCrc);
+    public boolean readWithoutPageIdCheck(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
+        for (DeltaFilePageStoreIo deltaFilePageStoreIo : deltaFilePageStoreIos) {
+            long pageOff = deltaFilePageStoreIo.pageOffset(pageId);
+
+            if (pageOff >= 0) {
+                return deltaFilePageStoreIo.read(pageId, pageOff, pageBuf, keepCrc);
+            }
+        }
+
+        return filePageStoreIo.read(pageId, filePageStoreIo.pageOffset(pageId), pageBuf, keepCrc);
     }
 
     /** {@inheritDoc} */

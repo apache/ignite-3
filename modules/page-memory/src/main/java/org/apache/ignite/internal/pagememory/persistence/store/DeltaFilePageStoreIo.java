@@ -95,8 +95,6 @@ public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
      */
     @Override
     public long pageOffset(long pageId) {
-        // TODO: IGNITE-17372 учесть логикой в FilePageStore
-
         int searchResult = binarySearch(header.pageIndexes(), pageIndex(pageId));
 
         if (searchResult < 0) {
@@ -109,7 +107,7 @@ public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
     /**
      * Returns the index of the delta file page store.
      */
-    int fileIndex() {
+    public int fileIndex() {
         return header.index();
     }
 }
