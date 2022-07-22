@@ -37,18 +37,17 @@ import org.jetbrains.annotations.Nullable;
 /**
  * FilePageStore is a {@link PageStore} implementation that uses regular files to store pages.
  *
- * <p>Actual read and write operations are performed with {@link FileIo} abstract interface, list of its implementations is a good source
- * of information about functionality in Ignite Native Persistence.
+ * <p>It consists of the main file page store and delta file page stores, when reading the page at the beginning, the page is searched in
+ * the delta files and only then in the main file.
  *
  * <p>On a physical level each instance of {@code FilePageStore} corresponds to a partition file assigned to the local node.
  *
- * <p>Consists of:
- * <ul>
- *     <li>Header - {@link FilePageStoreHeader}. </li>
- *     <li>Body - data pages are multiples of {@link FilePageStoreHeader#pageSize() pageSize}.</li>
- * </ul>
+ * <p>Actual read and write operations are performed with {@link FileIo} abstract interface, list of its implementations is a good source
+ * of information about functionality in Ignite Native Persistence.
+ *
+ * <p>To create a delta file first invoke {@link #getOrCreateNewDeltaFile(Supplier)} then fill it and then invoke {@link
+ * #completeNewDeltaFile()}.
  */
-// TODO: IGNITE-17372 модифицировать описание
 public class FilePageStore implements PageStore {
     private static final VarHandle PAGE_COUNT;
 

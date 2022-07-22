@@ -33,7 +33,7 @@ import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 
 /**
- * todo: IGNITE-17372 добавить описание.
+ * Implementation of the class for working with the delta file page storage IO.
  */
 public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
     private final DeltaFilePageStoreIoHeader header;
