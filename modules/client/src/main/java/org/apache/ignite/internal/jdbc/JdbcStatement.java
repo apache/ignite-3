@@ -36,13 +36,15 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
+import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteRequest;
-import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteResult;
-import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteRequest;
-import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteResult;
-import org.apache.ignite.internal.jdbc.proto.event.QuerySingleResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
+import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 
@@ -131,10 +133,10 @@ public class JdbcStatement implements Statement {
             throw new SQLException("SQL query is empty.");
         }
 
-        QueryExecuteRequest req = new QueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql,
+        JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql,
                 args == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : args.toArray());
 
-        QueryExecuteResult res;
+        Response res;
         try {
             res = conn.handler().queryAsync(req).join();
         } catch (CompletionException e) {
@@ -147,18 +149,24 @@ public class JdbcStatement implements Statement {
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
         }
 
-        for (QuerySingleResult jdbcRes : res.results()) {
+        JdbcQueryExecuteResponse result = (JdbcQueryExecuteResponse) res;
+
+        JdbcQueryExecuteResult executeResult = result.result();
+
+        for (JdbcQuerySingleResult jdbcRes : executeResult.results()) {
             if (!jdbcRes.hasResults()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(jdbcRes.err(), jdbcRes.status());
             }
         }
 
-        resSets = new ArrayList<>(res.results().size());
+        resSets = new ArrayList<>(executeResult.results().size());
 
-        for (QuerySingleResult jdbcRes : res.results()) {
-            resSets.add(new JdbcResultSet(this, jdbcRes.cursorId(), pageSize,
+        JdbcQueryCursorHandler handler = new JdbcClientQueryCursorHandler(result.getChannel());
+
+        for (JdbcQuerySingleResult jdbcRes : executeResult.results()) {
+            resSets.add(new JdbcResultSet(handler, this, jdbcRes.cursorId(), pageSize,
                     jdbcRes.last(), jdbcRes.items(), jdbcRes.isQuery(), false, jdbcRes.updateCount(),
-                    closeOnCompletion, conn.handler()));
+                    closeOnCompletion));
         }
 
         assert !resSets.isEmpty() : "At least one results set is expected";
@@ -540,10 +548,10 @@ public class JdbcStatement implements Statement {
             return INT_EMPTY_ARRAY;
         }
 
-        BatchExecuteRequest req = new BatchExecuteRequest(conn.getSchema(), batch);
+        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(conn.getSchema(), batch);
 
         try {
-            BatchExecuteResult res = conn.handler().batchAsync(req).join();
+            JdbcBatchExecuteResult res = conn.handler().batchAsync(req).join();
 
             if (!res.hasResults()) {
                 throw new BatchUpdateException(res.err(),

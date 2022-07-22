@@ -24,7 +24,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import org.apache.ignite.lang.IgniteLogger;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.AbstractTopologyService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -36,7 +38,7 @@ import org.apache.ignite.network.TopologyService;
  */
 final class ScaleCubeTopologyService extends AbstractTopologyService {
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ScaleCubeTopologyService.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ScaleCubeTopologyService.class);
 
     /**
      * Inner representation of a ScaleCube cluster.
@@ -70,7 +72,7 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
             members.put(member.address(), member);
             consistentIdToMemberMap.put(member.name(), member);
 
-            LOG.info("Node joined: " + member);
+            LOG.info("Node joined [node={}]", member);
 
             fireAppearedEvent(member);
         } else if (event.isRemoved()) {
@@ -92,21 +94,13 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
                 }
             });
 
-            LOG.info("Node left: " + member);
+            LOG.info("Node left [member={}]", member);
 
             fireDisappearedEvent(member);
         }
 
         if (LOG.isInfoEnabled()) {
-            StringBuilder snapshotMsg = new StringBuilder("Topology snapshot [nodes=")
-                    .append(members.size())
-                    .append("]\n");
-
-            for (ClusterNode node : members.values()) {
-                snapshotMsg.append("  ^-- ").append(node).append('\n');
-            }
-
-            LOG.info(snapshotMsg.toString().trim());
+            LOG.info("Topology snapshot [nodes={}]", members.values().stream().map(ClusterNode::name).collect(Collectors.toList()));
         }
     }
 

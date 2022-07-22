@@ -20,17 +20,19 @@ package org.apache.ignite.internal.sql.engine.exec;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * QueryTaskExecutorImpl.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.UncaughtExceptionHandler {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(QueryTaskExecutorImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(QueryTaskExecutorImpl.class);
 
     private static final UUID QUERY_ID_STUB = UUID.randomUUID();
 
@@ -53,7 +55,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
         this.stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
                 4,
                 NamedThreadFactory.threadPrefix(nodeName, "sql-execution-pool"),
-                null,
+                new LogUncaughtExceptionHandler(LOG),
                 false,
                 0
         );
@@ -77,7 +79,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
                     try {
                         qryTask.run();
                     } catch (Throwable e) {
-                        LOG.warn("Uncaught exception", e);
+                        LOG.debug("Uncaught exception", e);
 
                         /*
                          * No exceptions are rethrown here to preserve the current thread from being destroyed,

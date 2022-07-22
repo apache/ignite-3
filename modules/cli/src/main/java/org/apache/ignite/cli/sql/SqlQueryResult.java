@@ -18,8 +18,8 @@
 package org.apache.ignite.cli.sql;
 
 import org.apache.ignite.cli.commands.decorators.TableDecorator;
-import org.apache.ignite.cli.commands.decorators.core.Decorator;
-import org.apache.ignite.cli.commands.decorators.core.TerminalOutput;
+import org.apache.ignite.cli.core.decorator.Decorator;
+import org.apache.ignite.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.cli.sql.table.Table;
 
 /**

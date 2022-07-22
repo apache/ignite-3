@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -28,7 +29,7 @@ import org.junit.jupiter.api.Test;
  * Hash spool test.
  */
 public class ItHashSpoolTest extends AbstractBasicIntegrationTest {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(AbstractBasicIntegrationTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(AbstractBasicIntegrationTest.class);
 
     /**
      * After each.

@@ -23,8 +23,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -93,9 +93,7 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
         // Runner thread must be recorded first as other operations may depend on it being present.
         runner = Thread.currentThread();
 
-        if (log.isDebugEnabled()) {
-            log.debug("Ignite runnable started: " + name);
-        }
+        log.debug("Ignite runnable started [name={}]", name);
 
         try {
             if (isCancelled.get()) {
@@ -109,16 +107,14 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
 
             body();
         } catch (InterruptedException e) {
-            if (log.isDebugEnabled()) {
-                log.debug("Caught interrupted exception: " + e);
-            }
+            log.debug("Caught interrupted exception", e);
 
             Thread.currentThread().interrupt();
         } catch (Throwable e) {
             // Catch everything to make sure that it gets logged properly and
             // not to kill any threads from the underlying thread pool.
 
-            log.error("Runtime error caught during ignite runnable execution: " + this, e);
+            log.warn("Runtime error caught during ignite runnable execution [worker={}]", e, this);
 
             if (e instanceof Error) {
                 throw e;
@@ -138,11 +134,11 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
 
             if (log.isDebugEnabled()) {
                 if (isCancelled.get()) {
-                    log.debug("Ignite runnable finished due to cancellation: " + name);
+                    log.debug("Ignite runnable finished due to cancellation [threadName={}]", name);
                 } else if (runner.isInterrupted()) {
-                    log.debug("Ignite runnable finished due to interruption without cancellation: " + name);
+                    log.debug("Ignite runnable finished due to interruption without cancellation [threadName={}]", name);
                 } else {
-                    log.debug("Ignite runnable finished normally: " + name);
+                    log.debug("Ignite runnable finished normally [threadName={}]", name);
                 }
             }
 
@@ -193,9 +189,7 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
      * Cancels this runnable.
      */
     public void cancel() {
-        if (log.isDebugEnabled()) {
-            log.debug("Cancelling ignite runnable: " + this);
-        }
+        log.debug("Cancelling ignite runnable [worker={}]", this);
 
         onCancel(isCancelled.compareAndSet(false, true));
     }
@@ -206,9 +200,7 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
      * @throws InterruptedException Thrown in case of interruption.
      */
     public void join() throws InterruptedException {
-        if (log.isDebugEnabled()) {
-            log.debug("Joining ignite runnable: " + this);
-        }
+        log.debug("Joining ignite runnable [worker={}]", this);
 
         if ((runner == null && isCancelled.get()) || finished) {
             return;

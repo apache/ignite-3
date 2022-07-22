@@ -20,7 +20,8 @@ package org.apache.ignite.cli.deprecated.ui;
 import java.io.PrintWriter;
 import java.time.Duration;
 import java.util.concurrent.locks.LockSupport;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import picocli.CommandLine.Help.Ansi;
 
 /**
@@ -28,7 +29,7 @@ import picocli.CommandLine.Help.Ansi;
  */
 public class ProgressBar implements AutoCloseable {
     /** Logger. **/
-    private final IgniteLogger log = IgniteLogger.forClass(getClass());
+    private final IgniteLogger log = Loggers.forClass(getClass());
 
     /** Out to output the progress bar UI.. */
     private final PrintWriter out;
@@ -110,7 +111,7 @@ public class ProgressBar implements AutoCloseable {
         var reservedSpace = 7;
 
         if (targetBarWidth < reservedSpace) {
-            log.warn("Terminal width is so small to show the progress bar");
+            log.warn("Terminal width is too small to show the progress bar");
 
             return "";
         }

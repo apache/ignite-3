@@ -353,16 +353,16 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo) {
+    public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, boolean includeTombstones) {
         synchronized (mux) {
-            return new RangeCursor(keyFrom, keyTo, rev);
+            return new RangeCursor(keyFrom, keyTo, rev, includeTombstones);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound) {
-        return new RangeCursor(keyFrom, keyTo, revUpperBound);
+    public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound, boolean includeTombstones) {
+        return new RangeCursor(keyFrom, keyTo, revUpperBound, includeTombstones);
     }
 
     /** {@inheritDoc} */
@@ -642,12 +642,15 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
         private byte[] lastRetKey;
 
+        private final boolean includeTombstones;
+
         private boolean finished;
 
-        RangeCursor(byte[] keyFrom, byte[] keyTo, long rev) {
+        RangeCursor(byte[] keyFrom, byte[] keyTo, long rev, boolean includeTombstones) {
             this.keyFrom = keyFrom;
             this.keyTo = keyTo;
             this.rev = rev;
+            this.includeTombstones = includeTombstones;
             this.it = createIterator();
         }
 
@@ -718,11 +721,13 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
                                 Entry entry = doGetValue(key, lastRev);
 
-                                assert !entry.empty() : "Iterator should not return empty entry.";
+                                if (!entry.tombstone() || includeTombstones) {
+                                    assert !entry.empty() : "Iterator should not return empty entry.";
 
-                                nextRetEntry = entry;
+                                    nextRetEntry = entry;
 
-                                break;
+                                    break;
+                                }
                             }
                         }
                     }

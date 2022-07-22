@@ -35,7 +35,6 @@ import static org.apache.ignite.internal.pagememory.persistence.PageHeader.tempB
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeTimestamp;
 import static org.apache.ignite.internal.pagememory.persistence.PagePool.SEGMENT_INDEX_MASK;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.effectivePageId;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.tag;
@@ -74,6 +73,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
@@ -99,7 +100,6 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -132,7 +132,7 @@ import org.jetbrains.annotations.TestOnly;
 @SuppressWarnings({"LockAcquiredButNotSafelyReleased"})
 public class PersistentPageMemory implements PageMemory {
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(PersistentPageMemory.class);
+    private static final IgniteLogger LOG = Loggers.forClass(PersistentPageMemory.class);
 
     /** Full relative pointer mask. */
     public static final long RELATIVE_PTR_MASK = 0xFFFFFFFFFFFFFFL;
@@ -334,12 +334,9 @@ public class PersistentPageMemory implements PageMemory {
             this.segments = segments;
 
             if (LOG.isInfoEnabled()) {
-                LOG.info("Started page memory [memoryAllocated=" + readableSize(totalAllocated, false)
-                        + ", pages=" + pages
-                        + ", tableSize=" + readableSize(totalTblSize, false)
-                        + ", replacementSize=" + readableSize(totalReplSize, false)
-                        + ", checkpointBuffer=" + readableSize(checkpointBufferSize, false)
-                        + ']');
+                LOG.info("Started page memory [memoryAllocated={}, pages={}, tableSize={}, replacementSize={}, checkpointBuffer={}]",
+                        readableSize(totalAllocated, false), pages, readableSize(totalTblSize, false),
+                        readableSize(totalReplSize, false), readableSize(checkpointBufferSize, false));
             }
         }
     }
@@ -352,9 +349,7 @@ public class PersistentPageMemory implements PageMemory {
                 return;
             }
 
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Stopping page memory.");
-            }
+            LOG.debug("Stopping page memory");
 
             if (segments != null) {
                 for (Segment seg : segments) {
@@ -507,7 +502,7 @@ public class PersistentPageMemory implements PageMemory {
     /** {@inheritDoc} */
     @Override
     public long allocatePage(int grpId, int partId, byte flags) throws IgniteInternalCheckedException {
-        assert partId <= MAX_PARTITION_ID || partId == INDEX_PARTITION && flags == FLAG_AUX : "flags = " + flags + ", partId = " + partId;
+        assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
 
         assert started;
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
@@ -597,19 +592,6 @@ public class PersistentPageMemory implements PageMemory {
         assert false : "Free page should be never called directly when persistence is enabled.";
 
         return false;
-    }
-
-    /**
-     * Gets partition metadata page ID for specified grpId and partId.
-     *
-     * @param grpId Group ID.
-     * @param partId Partition ID.
-     * @return Meta page for grpId and partId.
-     */
-    public long partitionMetaPageId(int grpId, int partId) {
-        assert started;
-
-        return pageId(partId, FLAG_AUX, 0);
     }
 
     /** {@inheritDoc} */
@@ -878,16 +860,16 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
-     * Get current prartition generation tag.
+     * Get current partition generation tag.
      *
      * @param seg Segment.
-     * @param fullId Full page id.
+     * @param fullPageId Full page id.
      * @return Current partition generation tag.
      */
-    private int generationTag(Segment seg, FullPageId fullId) {
+    private int generationTag(Segment seg, FullPageId fullPageId) {
         return seg.partGeneration(
-                fullId.groupId(),
-                partitionId(fullId.pageId())
+                fullPageId.groupId(),
+                partitionId(fullPageId.pageId())
         );
     }
 
@@ -924,11 +906,11 @@ public class PersistentPageMemory implements PageMemory {
 
             int tag = 0;
 
-            for (Segment seg : segments) {
-                seg.writeLock().lock();
+            for (Segment segment : segments) {
+                segment.writeLock().lock();
 
                 try {
-                    int newTag = seg.incrementPartGeneration(grpId, partId);
+                    int newTag = segment.incrementPartGeneration(grpId, partId);
 
                     if (tag == 0) {
                         tag = newTag;
@@ -936,7 +918,7 @@ public class PersistentPageMemory implements PageMemory {
 
                     assert tag == newTag;
                 } finally {
-                    seg.writeLock().unlock();
+                    segment.writeLock().unlock();
                 }
             }
 
@@ -949,7 +931,7 @@ public class PersistentPageMemory implements PageMemory {
      *
      * @param grpId Group ID.
      */
-    public void onCacheGroupDestroyed(int grpId) {
+    public void onGroupDestroyed(int grpId) {
         for (Segment seg : segments) {
             seg.writeLock().lock();
 
@@ -1170,7 +1152,7 @@ public class PersistentPageMemory implements PageMemory {
                 assert getVersion(page + PAGE_OVERHEAD) != 0 : dumpPage(pageId, fullId.groupId());
                 assert getType(page + PAGE_OVERHEAD) != 0 : hexLong(pageId);
             } catch (AssertionError ex) {
-                LOG.error("Failed to unlock page [fullPageId=" + fullId + ", binPage=" + toHexString(page, systemPageSize()) + ']');
+                LOG.debug("Failed to unlock page [fullPageId={}, binPage={}]", fullId, toHexString(page, systemPageSize()));
 
                 throw ex;
             }
@@ -1476,11 +1458,6 @@ public class PersistentPageMemory implements PageMemory {
         public boolean tryToRemovePage(FullPageId fullPageId, long absPtr) throws IgniteInternalCheckedException {
             assert writeLock().isHeldByCurrentThread();
 
-            // Do not evict group meta pages.
-            if (fullPageId.pageId() == META_PAGE_ID) {
-                return false;
-            }
-
             if (isAcquired(absPtr)) {
                 return false;
             }
@@ -1558,20 +1535,6 @@ public class PersistentPageMemory implements PageMemory {
                 loadedPages.remove(grpId, effectivePageId(pageId));
             }
 
-            CheckpointPages cpPages = checkpointPages;
-
-            if (cpPages != null) {
-                cpPages.markAsSaved(new FullPageId(pageId, grpId));
-            }
-
-            Collection<FullPageId> dirtyPages = this.dirtyPages;
-
-            if (dirtyPages != null) {
-                if (dirtyPages.remove(new FullPageId(pageId, grpId))) {
-                    dirtyPagesCntr.decrementAndGet();
-                }
-            }
-
             return relPtr;
         }
 
@@ -1586,11 +1549,9 @@ public class PersistentPageMemory implements PageMemory {
 
             if (pageReplacementWarned == 0) {
                 if (pageReplacementWarnedFieldUpdater.compareAndSet(PersistentPageMemory.this, 0, 1)) {
-                    String msg = "Page replacements started, pages will be rotated with disk, this will affect "
+                    LOG.warn("Page replacements started, pages will be rotated with disk, this will affect "
                             + "storage performance (consider increasing PageMemoryDataRegionConfiguration#setMaxSize for "
-                            + "data region): " + dataRegionConfigView.name();
-
-                    LOG.warn(msg);
+                            + "data region) [region={}]", dataRegionConfigView.name());
                 }
             }
 
@@ -1700,7 +1661,7 @@ public class PersistentPageMemory implements PageMemory {
             }
 
             if (gen == Integer.MAX_VALUE) {
-                LOG.warn("Partition tag overflow [grpId=" + grpId + ", partId=" + partId + "]");
+                LOG.info("Partition tag overflow [grpId={}, partId={}]", grpId, partId);
 
                 partGenerationMap.put(grpPart, 0);
 
@@ -2080,26 +2041,23 @@ public class PersistentPageMemory implements PageMemory {
             return List.of();
         }
 
-        Collection<FullPageId>[] collections = new Collection[segments.length];
+        Set<FullPageId>[] dirtyPageIds = new Set[segments.length];
 
         for (int i = 0; i < segments.length; i++) {
-            Segment seg = segments[i];
+            Segment segment = segments[i];
 
-            if (seg.checkpointPages != null) {
-                throw new IgniteInternalException("Failed to begin checkpoint (it is already in progress).");
-            }
+            assert segment.checkpointPages == null : "Failed to begin checkpoint (it is already in progress)";
 
-            Set<FullPageId> dirtyPages = seg.dirtyPages;
-            collections[i] = dirtyPages;
+            Set<FullPageId> segmentDirtyPages = (dirtyPageIds[i] = segment.dirtyPages);
 
-            seg.checkpointPages = new CheckpointPages(dirtyPages, allowToReplace);
+            segment.checkpointPages = new CheckpointPages(segmentDirtyPages, allowToReplace);
 
-            seg.resetDirtyPages();
+            segment.resetDirtyPages();
         }
 
         safeToUpdate.set(true);
 
-        return CollectionUtils.union(collections);
+        return CollectionUtils.concat(dirtyPageIds);
     }
 
     /**

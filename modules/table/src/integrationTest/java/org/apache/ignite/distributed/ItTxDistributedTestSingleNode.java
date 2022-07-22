@@ -35,7 +35,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
@@ -72,6 +75,8 @@ import org.mockito.Mockito;
  * Distributed transaction test using a single partition table.
  */
 public class ItTxDistributedTestSingleNode extends TxAbstractTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ItTxDistributedTestSingleNode.class);
+
     public static final int NODE_PORT_BASE = 20_000;
 
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
@@ -172,7 +177,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         txManagers = new HashMap<>(nodes);
 
         executor = new ScheduledThreadPoolExecutor(20,
-                new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
+                new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
         for (int i = 0; i < nodes; i++) {
             var raftSrv = new Loza(cluster.get(i), workDir.resolve("node" + i));
@@ -275,7 +280,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         grpId,
                         partNodes,
                         () -> new PartitionListener(tblId,
-                                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManagers.get(node)))
+                                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManagers.get(node))),
+                        RaftGroupOptions.defaults()
                 );
             }
 

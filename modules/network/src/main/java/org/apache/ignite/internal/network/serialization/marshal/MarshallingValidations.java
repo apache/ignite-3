@@ -20,7 +20,7 @@ package org.apache.ignite.internal.network.serialization.marshal;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Map;
-import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.internal.network.serialization.Classes;
 import org.jetbrains.annotations.Nullable;
@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
  * Validations that are run before marshalling objects.
  */
 class MarshallingValidations {
-    private final Map<Class<?>, Marshallability> marshallabilityMap = new WeakHashMap<>();
+    private final Map<Class<?>, Marshallability> marshallabilityMap = new ConcurrentHashMap<>();
 
     private final Function<Class<?>, Marshallability> marshallabilityFunction = this::marshallability;
 

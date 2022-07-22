@@ -19,7 +19,8 @@ package org.apache.ignite.raft.server;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -33,7 +34,7 @@ import org.junit.jupiter.api.TestInfo;
  * Abstract test for raft server.
  */
 abstract class RaftServerAbstractTest {
-    protected static final IgniteLogger LOG = IgniteLogger.forClass(RaftServerAbstractTest.class);
+    protected static final IgniteLogger LOG = Loggers.forClass(RaftServerAbstractTest.class);
 
     protected static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 

@@ -60,6 +60,11 @@ class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         );
     }
 
+    @Override
+    public boolean isVolatile() {
+        return true;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void destroy() throws StorageException {
@@ -69,7 +74,8 @@ class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     /** {@inheritDoc} */
     @Override
     public PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        return new PageMemoryMvPartitionStorage(partitionId,
+        return new PageMemoryMvPartitionStorage(
+                partitionId,
                 tableCfg.value(),
                 dataRegion,
                 dataRegion.versionChainFreeList(),
@@ -96,12 +102,12 @@ class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             return new TableTree(
                     grpId,
                     tableView.name(),
+                    partId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
                     dataRegion.pageMemory().allocatePage(grpId, partId, FLAG_AUX),
                     freeList,
-                    partId,
                     true
             );
         } catch (IgniteInternalCheckedException e) {

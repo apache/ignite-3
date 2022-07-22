@@ -49,8 +49,10 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
 
                 TableDefinitionBuilderImpl.validateIndices(tbl.indices(), tbl.columns(), tbl.colocationColumns());
             } catch (IllegalArgumentException e) {
-                ctx.addIssue(new ValidationIssue("Validator works success by key " + ctx.currentKey() + ". Found "
-                        + newTable.columns().size() + " columns"));
+                ctx.addIssue(new ValidationIssue(
+                        ctx.currentKey(),
+                        "Validator works success by key " + ctx.currentKey() + ". Found "
+                                + newTable.columns().size() + " columns"));
             }
         }
     }

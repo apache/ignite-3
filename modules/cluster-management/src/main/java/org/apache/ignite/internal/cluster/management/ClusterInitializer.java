@@ -31,8 +31,9 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMes
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.InitCompleteMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.StringUtils;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
@@ -41,7 +42,7 @@ import org.apache.ignite.network.NetworkMessage;
  * Class for performing cluster initialization.
  */
 public class ClusterInitializer {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ClusterInitializer.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterInitializer.class);
 
     private final ClusterService clusterService;
 
@@ -92,11 +93,11 @@ public class ClusterInitializer {
             // check that provided Meta Storage nodes are present in the topology
             List<ClusterNode> msNodes = resolveNodes(clusterService, metaStorageNodeNames);
 
-            LOG.info("Resolved MetaStorage nodes: {}", msNodes);
+            LOG.info("Resolved MetaStorage nodes[nodes={}]", msNodes);
 
             List<ClusterNode> cmgNodes = resolveNodes(clusterService, cmgNodeNames);
 
-            LOG.info("Resolved CMG nodes: {}", cmgNodes);
+            LOG.info("Resolved CMG nodes[nodes={}]", cmgNodes);
 
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()
                     .metaStorageNodes(metaStorageNodeNames)
@@ -108,10 +109,10 @@ public class ClusterInitializer {
                     .handle((v, e) -> {
                         if (e == null) {
                             LOG.info(
-                                    "Init message sent successfully:\n\tCMG nodes: {}\n\tMetaStorage nodes: {}\n\tCluster name: {}",
+                                    "Cluster initialized [clusterName={}, cmgNodes={}, msNodes={}]",
+                                    initMessage.clusterName(),
                                     initMessage.cmgNodes(),
-                                    initMessage.metaStorageNodes(),
-                                    initMessage.clusterName()
+                                    initMessage.metaStorageNodes()
                             );
 
                             return CompletableFuture.<Void>completedFuture(null);
@@ -120,12 +121,12 @@ public class ClusterInitializer {
                                 e = e.getCause();
                             }
 
-                            LOG.error("Initialization failed: {}", e, e.getMessage());
+                            LOG.info("Initialization failed [reason={}]", e, e.getMessage());
 
                             if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
                                 return CompletableFuture.<Void>failedFuture(e);
                             } else {
-                                LOG.error("Critical error encountered, rolling back the init procedure");
+                                LOG.debug("Critical error encountered, rolling back the init procedure");
 
                                 return cancelInit(cmgNodes, e);
                             }
@@ -144,7 +145,7 @@ public class ClusterInitializer {
 
         return sendMessage(nodes, cancelMessage)
                 .exceptionally(nestedEx -> {
-                    LOG.error("Error when canceling init", nestedEx);
+                    LOG.debug("Error when canceling init", nestedEx);
 
                     e.addSuppressed(nestedEx);
 

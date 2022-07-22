@@ -31,6 +31,7 @@ public class ItBplusTreeFakeReuseVolatilePageMemoryTest extends ItBplusTreeVolat
     @Override
     protected ReuseList createReuseList(
             int grpId,
+            int partId,
             PageMemory pageMem,
             long rootId,
             boolean initNew

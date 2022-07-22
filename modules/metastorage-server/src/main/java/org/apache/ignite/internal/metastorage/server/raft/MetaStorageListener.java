@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
+import static java.util.Objects.requireNonNull;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -250,15 +252,16 @@ public class MetaStorageListener implements RaftGroupListener {
                 IgniteUuid cursorId = rangeCmd.getCursorId();
 
                 Cursor<Entry> cursor = (rangeCmd.revUpperBound() != -1)
-                        ? storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.revUpperBound()) :
-                        storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo());
+                        ? storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.revUpperBound(), rangeCmd.includeTombstones()) :
+                        storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.includeTombstones());
 
                 cursors.put(
                         cursorId,
                         new CursorMeta(
                                 cursor,
                                 CursorType.RANGE,
-                                rangeCmd.requesterNodeId()
+                                rangeCmd.requesterNodeId(),
+                                rangeCmd.batchSize()
                         )
                 );
 
@@ -276,9 +279,21 @@ public class MetaStorageListener implements RaftGroupListener {
 
                 try {
                     if (cursorDesc.type() == CursorType.RANGE) {
-                        Entry e = (Entry) cursorDesc.cursor().next();
+                        int batchSize = requireNonNull(cursorDesc.batchSize());
 
-                        clo.result(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
+                        List<SingleEntryResponse> resp = new ArrayList<>(batchSize);
+
+                        for (int i = 0; i < batchSize; i++) {
+                            if (cursorDesc.cursor().hasNext()) {
+                                Entry e = (Entry) cursorDesc.cursor().next();
+
+                                resp.add(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
+                            } else {
+                                break;
+                            }
+                        }
+
+                        clo.result(new MultipleEntryResponse(resp));
                     } else if (cursorDesc.type() == CursorType.WATCH) {
                         WatchEvent evt = (WatchEvent) cursorDesc.cursor().next();
 
@@ -330,7 +345,8 @@ public class MetaStorageListener implements RaftGroupListener {
                         new CursorMeta(
                                 cursor,
                                 CursorType.WATCH,
-                                watchCmd.requesterNodeId()
+                                watchCmd.requesterNodeId(),
+                                null
                         )
                 );
 
@@ -347,7 +363,8 @@ public class MetaStorageListener implements RaftGroupListener {
                         new CursorMeta(
                                 cursor,
                                 CursorType.WATCH,
-                                watchCmd.requesterNodeId()
+                                watchCmd.requesterNodeId(),
+                                null
                         )
                 );
 
@@ -512,20 +529,26 @@ public class MetaStorageListener implements RaftGroupListener {
         /** Id of the node that creates cursor. */
         private final String requesterNodeId;
 
+        /** Maximum size of the batch that is sent in single response message. */
+        private final @Nullable Integer batchSize;
+
         /**
          * The constructor.
          *
          * @param cursor          Cursor.
          * @param type            Cursor type.
          * @param requesterNodeId Id of the node that creates cursor.
+         * @param batchSize       Batch size.
          */
         CursorMeta(Cursor<?> cursor,
                 CursorType type,
-                String requesterNodeId
+                String requesterNodeId,
+                @Nullable Integer batchSize
         ) {
             this.cursor = cursor;
             this.type = type;
             this.requesterNodeId = requesterNodeId;
+            this.batchSize = batchSize;
         }
 
         /**
@@ -547,6 +570,13 @@ public class MetaStorageListener implements RaftGroupListener {
          */
         public String requesterNodeId() {
             return requesterNodeId;
+        }
+
+        /**
+         * Returns maximum size of the batch that is sent in single response message.
+         */
+        public @Nullable Integer batchSize() {
+            return batchSize;
         }
     }
 

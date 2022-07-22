@@ -38,19 +38,19 @@ class SqlCommandTest extends CliCommandTestBase {
         assertAll(
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Missing required argument (specify one of these): (-e=<command> | -f=<file>)")
+                () -> assertErrOutputContains("Missing required argument (specify one of these): (<command> | -f=<file>)")
         );
     }
 
     @Test
     @DisplayName("Should throw error if both --execute or --script-file options are present")
     void mutuallyExclusiveOptions() {
-        execute("--jdbc-url=", "--execute=", "--script-file=");
+        execute("--jdbc-url=", "select", "--script-file=");
 
         assertAll(
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("--execute=<command>, --script-file=<file> are mutually exclusive (specify only one)")
+                () -> assertErrOutputContains("<command>, --script-file=<file> are mutually exclusive (specify only one)")
         );
     }
 }

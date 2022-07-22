@@ -25,13 +25,14 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.network.message.ScaleCubeMessageBuilder;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
@@ -50,7 +51,7 @@ import reactor.core.publisher.MonoProcessor;
  */
 class ScaleCubeDirectMarshallerTransport implements Transport {
     /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(Transport.class);
+    private static final IgniteLogger LOG = Loggers.forClass(Transport.class);
 
     /** Message subject. */
     private final DirectProcessor<Message> subject = DirectProcessor.create();
@@ -101,7 +102,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
                 .doFinally(s -> onStop.onComplete())
                 .subscribe(
                         null,
-                        ex -> LOG.warn("Failed to stop {}: {}", address, ex.toString())
+                        ex -> LOG.warn("Failed to stop [address={}, reason={}]", address, ex.toString())
                 );
     }
 
@@ -132,11 +133,11 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
      */
     private Mono<Void> doStop() {
         return Mono.defer(() -> {
-            LOG.info("Stopping {}", address);
+            LOG.info("Stopping [address={}]", address);
 
             sink.complete();
 
-            LOG.info("Stopped {}", address);
+            LOG.info("Stopped [address={}]", address);
             return Mono.empty();
         });
     }

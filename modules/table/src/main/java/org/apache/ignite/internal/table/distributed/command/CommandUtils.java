@@ -23,10 +23,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -36,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CommandUtils {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(CommandUtils.class);
+    private static final IgniteLogger LOG = Loggers.forClass(CommandUtils.class);
 
     /**
      * Writes a list of rows to byte array.
@@ -65,7 +66,7 @@ public class CommandUtils {
 
             return baos.toByteArray();
         } catch (IOException e) {
-            LOG.error("Could not write rows to stream [rows=" + rows.size() + ']', e);
+            LOG.debug("unable to write rows to stream [rowsCount={}]", e, rows.size());
 
             throw new IgniteInternalException(e);
         }
@@ -89,7 +90,7 @@ public class CommandUtils {
 
             return baos.toByteArray();
         } catch (IOException e) {
-            LOG.error("Could not write row to stream [row=" + row + ']', e);
+            LOG.debug("Unable to write row to stream [row={}]", e, row);
 
             throw new IgniteInternalException(e);
         }
@@ -133,7 +134,7 @@ public class CommandUtils {
                 consumer.accept(new ByteBufferRow(rowBytes));
             }
         } catch (IOException e) {
-            LOG.error("Could not read rows from stream.", e);
+            LOG.warn("Unable to read rows from stream", e);
         }
     }
 

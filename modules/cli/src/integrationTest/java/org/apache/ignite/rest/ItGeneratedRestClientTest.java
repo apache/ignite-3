@@ -21,12 +21,19 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,10 +47,14 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.rest.client.api.ClusterConfigurationApi;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
+import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
+import org.apache.ignite.rest.client.model.ClusterState;
 import org.apache.ignite.rest.client.model.InitCommand;
+import org.apache.ignite.rest.client.model.NodeState;
+import org.apache.ignite.rest.client.model.Problem;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,6 +87,12 @@ public class ItGeneratedRestClientTest {
 
     private ClusterManagementApi clusterManagementApi;
 
+    private NodeManagementApi nodeManagementApi;
+
+    private ObjectMapper objectMapper;
+
+    private String firstNodeName;
+
     private static String buildConfig(int nodeIdx) {
         return "{\n"
                 + "  network: {\n"
@@ -104,12 +121,17 @@ public class ItGeneratedRestClientTest {
             clusterNodes.add(future.join());
         }
 
+        firstNodeName = clusterNodes.get(0).name();
+
         ApiClient client = Configuration.getDefaultApiClient();
         client.setBasePath("http://localhost:" + BASE_REST_PORT);
 
         clusterConfigurationApi = new ClusterConfigurationApi(client);
         nodeConfigurationApi = new NodeConfigurationApi(client);
         clusterManagementApi = new ClusterManagementApi(client);
+        nodeManagementApi = new NodeManagementApi(client);
+
+        objectMapper = new ObjectMapper();
     }
 
     @AfterEach
@@ -155,13 +177,17 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void getClusterConfigurationByPathBadRequest() {
-        try {
-            clusterConfigurationApi.getClusterConfigurationByPath("no.such.path");
-            fail("Expected ApiException to be thrown");
-        } catch (ApiException e) {
-            assertEquals(400, e.getCode());
-        }
+    void getClusterConfigurationByPathBadRequest() throws JsonProcessingException {
+        var thrown = assertThrows(
+                ApiException.class,
+                () -> clusterConfigurationApi.getClusterConfigurationByPath("no.such.path")
+        );
+
+        assertThat(thrown.getCode(), equalTo(400));
+
+        Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
+        assertThat(problem.getStatus(), equalTo(400));
+        assertThat(problem.getDetail(), containsString("Configuration value 'no' has not been found"));
     }
 
     @Test
@@ -185,13 +211,17 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void getNodeConfigurationByPathBadRequest() {
-        try {
-            nodeConfigurationApi.getNodeConfigurationByPath("no.such.path");
-            fail("Expected ApiException to be thrown");
-        } catch (ApiException e) {
-            assertEquals(400, e.getCode());
-        }
+    void getNodeConfigurationByPathBadRequest() throws JsonProcessingException {
+        var thrown = assertThrows(
+                ApiException.class,
+                () -> nodeConfigurationApi.getNodeConfigurationByPath("no.such.path")
+        );
+
+        assertThat(thrown.getCode(), equalTo(400));
+
+        Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
+        assertThat(problem.getStatus(), equalTo(400));
+        assertThat(problem.getDetail(), containsString("Configuration value 'no' has not been found"));
     }
 
     @Test
@@ -210,19 +240,55 @@ public class ItGeneratedRestClientTest {
     @Test
     void initCluster() {
         assertDoesNotThrow(() -> {
-            String nodeName = clusterNodes.get(0).name();
-            clusterManagementApi.init(new InitCommand().clusterName("cluster").metaStorageNodes(List.of(nodeName)).cmgNodes(List.of()));
+            // in fact, this is the second init that means nothing but just testing that the second init does not throw and exception
+            // the main init is done before the test
+            clusterManagementApi.init(
+                    new InitCommand()
+                            .clusterName("cluster")
+                            .metaStorageNodes(List.of(firstNodeName))
+                            .cmgNodes(List.of())
+            );
         });
     }
 
     @Test
-    void initClusterNoSuchNode() {
-        try {
-            clusterManagementApi.init(new InitCommand().metaStorageNodes(List.of("no-such-node")).cmgNodes(List.of()));
-            fail("Expected ApiException to be thrown");
-        } catch (ApiException e) {
-            assertEquals(400, e.getCode());
-        }
+    void clusterState() {
+        assertDoesNotThrow(() -> {
+            ClusterState clusterState = clusterManagementApi.clusterState();
+
+            assertThat(clusterState, is(notNullValue()));
+            assertThat(clusterState.getClusterTag().getClusterName(), is(equalTo("cluster")));
+            assertThat(clusterState.getCmgNodes(), contains(firstNodeName));
+        });
+    }
+
+    @Test
+    void initClusterNoSuchNode() throws JsonProcessingException {
+        var thrown = assertThrows(
+                ApiException.class,
+                () -> clusterManagementApi.init(
+                        new InitCommand()
+                                .clusterName("cluster")
+                                .metaStorageNodes(List.of("no-such-node"))
+                                .cmgNodes(List.of()))
+        );
+
+        assertThat(thrown.getCode(), equalTo(400));
+
+        Problem problem = objectMapper.readValue(thrown.getResponseBody(), Problem.class);
+        assertThat(problem.getStatus(), equalTo(400));
+        assertThat(problem.getDetail(), containsString("Node \"no-such-node\" is not present in the physical topology"));
+    }
+
+    @Test
+    void nodeState() {
+        assertDoesNotThrow(() -> {
+            NodeState nodeState = nodeManagementApi.nodeState();
+
+            assertThat(nodeState, is(notNullValue()));
+            assertThat(nodeState.getState(), is(notNullValue()));
+            assertThat(nodeState.getName(), is(firstNodeName));
+        });
     }
 
     private CompletableFuture<Ignite> startNodeAsync(TestInfo testInfo, int index) {

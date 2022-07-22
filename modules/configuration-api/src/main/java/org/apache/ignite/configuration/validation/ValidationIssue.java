@@ -24,6 +24,10 @@ import org.apache.ignite.internal.tostring.S;
  * Class that stores information about issues found during the configuration validation.
  */
 public class ValidationIssue {
+    /** Configuration key. */
+    @IgniteToStringInclude
+    private final String key;
+
     /** Message. */
     @IgniteToStringInclude
     private final String message;
@@ -33,8 +37,18 @@ public class ValidationIssue {
      *
      * @param message Error message.
      */
-    public ValidationIssue(String message) {
+    public ValidationIssue(String key, String message) {
+        this.key = key;
         this.message = message;
+    }
+
+    /**
+     * Returns configuration key that did not pass the validation.
+     *
+     * @return Configuration key.
+     */
+    public String key() {
+        return key;
     }
 
     /**

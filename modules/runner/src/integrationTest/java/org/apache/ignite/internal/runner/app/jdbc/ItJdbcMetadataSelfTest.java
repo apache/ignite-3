@@ -163,7 +163,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
         TableDefinition metaTableDef = SchemaBuilders.tableBuilder("PUBLIC", "METATEST")
                 .columns(
-                        SchemaBuilders.column("DECIMAL_COL", ColumnType.decimalOf()).build(),
+                        SchemaBuilders.column("DECIMAL_COL", ColumnType.decimal()).build(),
                         SchemaBuilders.column("DATE_COL", ColumnType.DATE).build(),
                         SchemaBuilders.column("ID", ColumnType.INT32).asNullable(false).build())
                 .withPrimaryKey("ID")

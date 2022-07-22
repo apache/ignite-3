@@ -17,7 +17,8 @@
 package org.apache.ignite.raft.jraft.closure;
 
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
@@ -26,7 +27,7 @@ import org.apache.ignite.raft.jraft.Status;
  * Read index closure
  */
 public abstract class ReadIndexClosure implements Closure {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ReadIndexClosure.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ReadIndexClosure.class);
 
     private static final AtomicIntegerFieldUpdater<ReadIndexClosure> STATE_UPDATER =
         AtomicIntegerFieldUpdater.newUpdater(ReadIndexClosure.class, "state");

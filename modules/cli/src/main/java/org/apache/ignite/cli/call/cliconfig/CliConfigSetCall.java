@@ -19,8 +19,9 @@ package org.apache.ignite.cli.call.cliconfig;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import java.util.Map.Entry;
-import org.apache.ignite.cli.config.Config;
+import org.apache.ignite.cli.config.ConfigManager;
+import org.apache.ignite.cli.config.ConfigManagerProvider;
+import org.apache.ignite.cli.config.Profile;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
 
@@ -30,15 +31,14 @@ import org.apache.ignite.cli.core.call.DefaultCallOutput;
 @Singleton
 public class CliConfigSetCall implements Call<CliConfigSetCallInput, Object> {
     @Inject
-    private Config config;
+    private ConfigManagerProvider configManagerProvider;
 
     @Override
     public DefaultCallOutput<Object> execute(CliConfigSetCallInput input) {
-        for (Entry<String, String> entry : input.getParameters().entrySet()) {
-            config.setProperty(entry.getKey(), entry.getValue());
-        }
-        config.saveConfig();
-
+        ConfigManager configManager = configManagerProvider.get();
+        String profileName = input.getProfileName();
+        Profile config = profileName == null ? configManager.getCurrentProfile() : configManager.getProfile(profileName);
+        config.setProperties(input.getParameters());
         return DefaultCallOutput.empty();
     }
 }

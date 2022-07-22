@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Proto
     using System;
     using System.Diagnostics;
     using MessagePack;
+    using Transactions;
 
     /// <summary>
     /// Extension methods for <see cref="MessagePackWriter"/>.
@@ -248,6 +249,23 @@ namespace Apache.Ignite.Internal.Proto
             foreach (var obj in arr)
             {
                 writer.WriteObjectWithType(obj);
+            }
+        }
+
+        /// <summary>
+        /// Writes a transaction.
+        /// </summary>
+        /// <param name="writer">Writer.</param>
+        /// <param name="tx">Transaction.</param>
+        public static void WriteTx(this ref MessagePackWriter writer, Transaction? tx)
+        {
+            if (tx == null)
+            {
+                writer.WriteNil();
+            }
+            else
+            {
+                writer.Write(tx.Id);
             }
         }
     }

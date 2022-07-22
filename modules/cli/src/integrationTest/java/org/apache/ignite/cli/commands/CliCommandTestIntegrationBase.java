@@ -25,6 +25,10 @@ import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import org.apache.ignite.cli.IntegrationTestBase;
+import org.apache.ignite.cli.commands.cliconfig.TestConfigManagerHelper;
+import org.apache.ignite.cli.commands.cliconfig.TestConfigManagerProvider;
+import org.apache.ignite.cli.config.ConfigDefaultValueProvider;
+import org.apache.ignite.cli.config.ini.IniConfigManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import picocli.CommandLine;
@@ -38,6 +42,12 @@ public class CliCommandTestIntegrationBase extends IntegrationTestBase {
 
     @Inject
     private ApplicationContext context;
+
+    @Inject
+    ConfigDefaultValueProvider configDefaultValueProvider;
+
+    @Inject
+    TestConfigManagerProvider configManagerProvider;
 
     private CommandLine cmd;
     private StringWriter sout;
@@ -53,7 +63,9 @@ public class CliCommandTestIntegrationBase extends IntegrationTestBase {
     @BeforeEach
     public void setUp(TestInfo testInfo) throws Exception {
         super.setUp(testInfo);
+        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createIntegrationTests());
         cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
+        cmd.setDefaultValueProvider(configDefaultValueProvider);
         sout = new StringWriter();
         serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));

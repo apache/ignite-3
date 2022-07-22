@@ -31,11 +31,11 @@ public interface JRaftServiceFactory {
     /**
      * Creates a raft log storage.
      *
-     * @param groupId The name of the raft group.
+     * @param uri The log storage uri from {@link NodeOptions#getLogUri()}
      * @param raftOptions the raft options.
      * @return storage to store raft log entires.
      */
-    LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions);
+    LogStorage createLogStorage(final String uri, final RaftOptions raftOptions);
 
     /**
      * Creates a raft snapshot storage

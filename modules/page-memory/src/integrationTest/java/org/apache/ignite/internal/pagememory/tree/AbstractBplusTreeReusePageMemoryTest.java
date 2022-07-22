@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.tree;
 
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.effectivePageId;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,7 +37,9 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 public abstract class AbstractBplusTreeReusePageMemoryTest extends AbstractBplusTreePageMemoryTest {
     /** {@inheritDoc} */
     @Override
-    protected ReuseList createReuseList(int grpId,
+    protected ReuseList createReuseList(
+            int grpId,
+            int partId,
             PageMemory pageMem,
             long rootId,
             boolean initNew
@@ -46,6 +47,7 @@ public abstract class AbstractBplusTreeReusePageMemoryTest extends AbstractBplus
         return new TestReuseList(
                 "test",
                 grpId,
+                partId,
                 pageMem,
                 new TestPageLockListener(),
                 rootId,
@@ -70,6 +72,7 @@ public abstract class AbstractBplusTreeReusePageMemoryTest extends AbstractBplus
          *
          * @param name Structure name (for debug purpose).
          * @param grpId Group ID.
+         * @param partId Partition ID.
          * @param pageMem Page memory.
          * @param lockLsnr Page lock listener.
          * @param metaPageId Metadata page ID.
@@ -79,12 +82,13 @@ public abstract class AbstractBplusTreeReusePageMemoryTest extends AbstractBplus
         public TestReuseList(
                 String name,
                 int grpId,
+                int partId,
                 PageMemory pageMem,
                 PageLockListener lockLsnr,
                 long metaPageId,
                 boolean initNew
         ) throws IgniteInternalCheckedException {
-            super(name, grpId, pageMem, lockLsnr, FLAG_AUX, BaseIgniteAbstractTest.log, metaPageId, initNew, null);
+            super(name, grpId, partId, pageMem, lockLsnr, BaseIgniteAbstractTest.log, metaPageId, initNew, null);
         }
 
         static boolean checkNoLocks() {

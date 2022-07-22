@@ -21,6 +21,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -44,6 +46,8 @@ import org.apache.ignite.raft.jraft.util.timer.Timer;
  * Some helper methods for jraft usage.
  */
 public final class JRaftUtils {
+    private static final IgniteLogger LOG = Loggers.forClass(JRaftUtils.class);
+
     /**
      * Bootstrap a non-empty raft node.
      *
@@ -135,7 +139,7 @@ public final class JRaftUtils {
             .maximumThreads(opts.getRpcProcessorThreadPoolSize()) //
             .keepAliveSeconds(60L) //
             .workQueue(new ArrayBlockingQueue<>(10000)) //
-            .threadFactory(new NamedThreadFactory(prefix, true)) //
+            .threadFactory(createThreadFactory(prefix)) //
             .build();
     }
 
@@ -187,7 +191,7 @@ public final class JRaftUtils {
      * @return a new {@link ThreadFactory} instance
      */
     public static ThreadFactory createThreadFactory(final String prefixName) {
-        return new NamedThreadFactory(prefixName, true);
+        return new NamedThreadFactory(prefixName, true, LOG);
     }
 
     /**

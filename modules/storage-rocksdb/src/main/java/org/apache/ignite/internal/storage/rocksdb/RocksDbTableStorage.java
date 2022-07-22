@@ -312,6 +312,11 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         });
     }
 
+    @Override
+    public boolean isVolatile() {
+        return false;
+    }
+
     /**
      * Checks that a passed partition id is within the proper bounds.
      *

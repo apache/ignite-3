@@ -33,7 +33,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -52,7 +56,6 @@ import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
-import org.apache.ignite.raft.jraft.core.DefaultJRaftServiceFactory;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl;
@@ -63,15 +66,12 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
-import org.apache.ignite.raft.jraft.storage.LogStorageFactory;
-import org.apache.ignite.raft.jraft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -131,7 +131,6 @@ public class JraftServerImpl implements RaftServer {
         this.opts.setRpcConnectTimeoutMs(this.opts.getElectionTimeoutMs() / 3);
         this.opts.setRpcDefaultTimeout(this.opts.getElectionTimeoutMs() / 2);
         this.opts.setSharedPools(true);
-        this.opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageFactory));
 
         if (opts.getServerName() == null) {
             this.opts.setServerName(service.localConfiguration().getName());
@@ -316,14 +315,24 @@ public class JraftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr, @Nullable List<Peer> initialConf) {
-        return startRaftGroup(groupId, RaftGroupEventsListener.noopLsnr, lsnr, initialConf);
+    public synchronized boolean startRaftGroup(
+            String groupId,
+            RaftGroupListener lsnr,
+            @Nullable List<Peer> initialConf,
+            RaftGroupOptions groupOptions
+    ) {
+        return startRaftGroup(groupId, RaftGroupEventsListener.noopLsnr, lsnr, initialConf, groupOptions);
     }
 
     /** {@inheritDoc} */
     @Override
-    public synchronized boolean startRaftGroup(String groupId, @NotNull RaftGroupEventsListener evLsnr,
-            RaftGroupListener lsnr, @Nullable List<Peer> initialConf) {
+    public synchronized boolean startRaftGroup(
+            String groupId,
+            RaftGroupEventsListener evLsnr,
+            RaftGroupListener lsnr,
+            @Nullable List<Peer> initialConf,
+            RaftGroupOptions groupOptions
+    ) {
         if (groups.containsKey(groupId)) {
             return false;
         }
@@ -331,6 +340,7 @@ public class JraftServerImpl implements RaftServer {
         // Thread pools are shared by all raft groups.
         NodeOptions nodeOptions = opts.copy();
 
+        // TODO: IGNITE-17083 - Do not create paths for volatile stores at all when we get rid of snapshot storage on FS.
         Path serverDataPath = getServerDataPath(groupId);
 
         try {
@@ -339,12 +349,30 @@ public class JraftServerImpl implements RaftServer {
             throw new IgniteInternalException(e);
         }
 
+        nodeOptions.setLogUri(groupId);
+
         nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
+
         nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
 
         nodeOptions.setFsm(new DelegatingStateMachine(lsnr));
 
         nodeOptions.setRaftGrpEvtsLsnr(evLsnr);
+
+        LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory() == null
+                ? this.logStorageFactory : groupOptions.getLogStorageFactory();
+
+        IgniteJraftServiceFactory serviceFactory = new IgniteJraftServiceFactory(logStorageFactory);
+
+        if (groupOptions.snapshotStorageFactory() != null) {
+            serviceFactory.setSnapshotStorageFactory(groupOptions.snapshotStorageFactory());
+        }
+
+        if (groupOptions.raftMetaStorageFactory() != null) {
+            serviceFactory.setRaftMetaStorageFactory(groupOptions.raftMetaStorageFactory());
+        }
+
+        nodeOptions.setServiceFactory(serviceFactory);
 
         if (initialConf != null) {
             List<PeerId> mapped = initialConf.stream().map(PeerId::fromPeer).collect(Collectors.toList());

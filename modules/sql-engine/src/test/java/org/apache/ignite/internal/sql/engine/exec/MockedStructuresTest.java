@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.EN
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.startsWith;
@@ -181,6 +182,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     DataStorageManager dataStorageManager;
 
+    SchemaManager schemaManager;
+
     /** Returns current method name. */
     private static String getCurrentMethodName() {
         return StackWalker.getInstance()
@@ -234,12 +237,17 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         dataStorageManager.start();
 
+        schemaManager = new SchemaManager(revisionUpdater, tblsCfg);
+
+        schemaManager.start();
+
         tblManager = mockManagers();
 
         queryProc = new SqlQueryProcessor(
                 revisionUpdater,
                 cs,
                 tblManager,
+                schemaManager,
                 dataStorageManager,
                 () -> dataStorageModules.collectSchemasFields(List.of(
                         RocksDbDataStorageConfigurationSchema.class,
@@ -572,7 +580,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ))
         );
 
-        assertThat(exception.getMessage(), startsWith("Unsuspected table option type"));
+        assertThat(exception.getMessage(), containsString("Unsuspected table option type"));
 
         exception = assertThrows(
                 IgniteException.class,
@@ -582,7 +590,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ))
         );
 
-        assertThat(exception.getMessage(), startsWith("Unexpected table option"));
+        assertThat(exception.getMessage(), containsString("Unexpected table option"));
 
         exception = assertThrows(
                 IgniteException.class,
@@ -592,7 +600,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ))
         );
 
-        assertThat(exception.getMessage(), startsWith("Table option validation failed"));
+        assertThat(exception.getMessage(), containsString("Table option validation failed"));
     }
 
     @Test
@@ -628,7 +636,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      * @return Table manager.
      */
     private TableManager mockManagers() throws NodeStoppingException {
-        when(rm.prepareRaftGroup(any(), any(), any())).thenAnswer(mock -> {
+        when(rm.prepareRaftGroup(any(), any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
@@ -636,7 +644,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             return completedFuture(raftGrpSrvcMock);
         });
 
-        when(rm.updateRaftGroup(any(), any(), any(), any(), any())).thenAnswer(mock -> {
+        when(rm.updateRaftGroup(any(), any(), any(), any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
@@ -685,8 +693,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     }
 
     private TableManager createTableManager() {
-        SchemaManager sm = new SchemaManager(revisionUpdater, tblsCfg);
-
         TableManager tableManager = new TableManager(
                 revisionUpdater,
                 tblsCfg,
@@ -696,10 +702,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 tm,
                 dataStorageManager,
                 msm,
-                sm
+                schemaManager
         );
 
-        sm.start();
         tableManager.start();
 
         return tableManager;

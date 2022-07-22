@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.EMPTY;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -25,7 +25,6 @@ import static org.mockito.Mockito.mock;
 import java.util.List;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -38,11 +37,11 @@ public class CheckpointTest {
 
         assertFalse(new Checkpoint(EMPTY, progress).hasDelta());
 
-        IgniteBiTuple<PersistentPageMemory, FullPageId[]> biTuple = new IgniteBiTuple<>(
+        DataRegionDirtyPages<FullPageId[]> biTuple = new DataRegionDirtyPages<>(
                 mock(PersistentPageMemory.class),
                 new FullPageId[]{new FullPageId(0, 1)}
         );
 
-        assertTrue(new Checkpoint(new IgniteConcurrentMultiPairQueue<>(List.of(biTuple)), progress).hasDelta());
+        assertTrue(new Checkpoint(new CheckpointDirtyPages(List.of(biTuple)), progress).hasDelta());
     }
 }

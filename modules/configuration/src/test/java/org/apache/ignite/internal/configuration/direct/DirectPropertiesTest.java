@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.direct;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalIds;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -207,8 +208,7 @@ public class DirectPropertiesTest {
         DirectConfiguration cfg = registry.getConfiguration(DirectConfiguration.KEY);
 
         cfg.children()
-                .change(change -> change.create("foo", value -> {
-                }))
+                .change(change -> change.create("foo", value -> {}))
                 .get(1, TimeUnit.SECONDS);
 
         UUID fooId = cfg.children().get("foo").id().value();
@@ -244,6 +244,27 @@ public class DirectPropertiesTest {
         assertThat(directProxy(getByInternalId(cfg.children(), fooId)).id().value(), is(equalTo(fooId)));
 
         assertThat(directProxy(getByInternalId(cfg.children(), fooId).id()).value(), is(equalTo(fooId)));
+    }
+
+    /**
+     * Checks simple scenarios of getting internalIds of named list.
+     */
+    @Test
+    public void testNamedListDirectInternalIds() throws Exception {
+        DirectConfiguration cfg = registry.getConfiguration(DirectConfiguration.KEY);
+
+        cfg.children()
+                .change(change -> change.create("foo", value -> {
+                }))
+                .get(1, TimeUnit.SECONDS);
+
+        UUID fooId = cfg.children().get("foo").id().value();
+
+        assertThat(fooId, is(notNullValue()));
+
+        // Check all possible ways to access internal ids.
+        assertThat(internalIds(directProxy(cfg).children()), is(equalTo(List.of(fooId))));
+        assertThat(internalIds(directProxy(cfg.children())), is(equalTo(List.of(fooId))));
     }
 
     /**
@@ -377,7 +398,7 @@ public class DirectPropertiesTest {
     }
 
     /**
-     * Same as {@link #testDirectProperties} but checks Named List properties.
+     * Same as {@link #testNamedListDirectInternalId()} but checks Named List properties.
      */
     @Test
     public void testNamedListDirectNestedInternalId() throws Exception {
@@ -504,6 +525,37 @@ public class DirectPropertiesTest {
         assertThat(directProxy(getByInternalId(getByInternalId(cfg.children(), fooId).children2(), booId)).id().value(), is(booId));
 
         assertThat(directProxy(getByInternalId(getByInternalId(cfg.children(), fooId).children2(), booId).id()).value(), is(booId));
+    }
+
+    /**
+     * Same as {@link #testNamedListDirectInternalIds()} but checks Named List properties.
+     */
+    @Test
+    public void testNamedListDirectNestedInternalIds() throws Exception {
+        DirectConfiguration cfg = registry.getConfiguration(DirectConfiguration.KEY);
+
+        cfg.children()
+                .change(list -> list.create("foo", e -> e.changeChildren2(list2 -> list2.create("boo", e2 -> {}))))
+                .get(1, TimeUnit.SECONDS);
+
+        UUID fooId = cfg.children().get("foo").id().value();
+        UUID booId = cfg.children().get("foo").children2().get("boo").id().value();
+
+        assertThat(booId, is(notNullValue()));
+
+        List<UUID> ids = List.of(booId);
+
+        // Check all possible ways to access internal ids, just to be sure.
+        // Using name.
+        assertThat(internalIds(directProxy(cfg).children().get("foo").children2()), is(equalTo(ids)));
+        assertThat(internalIds(directProxy(cfg.children()).get("foo").children2()), is(equalTo(ids)));
+        assertThat(internalIds(directProxy(cfg.children().get("foo")).children2()), is(equalTo(ids)));
+        assertThat(internalIds(directProxy(cfg.children().get("foo").children2())), is(equalTo(ids)));
+
+        // Using internalId.
+        assertThat(internalIds(getByInternalId(directProxy(cfg).children(), fooId).children2()), is(equalTo(ids)));
+        assertThat(internalIds(getByInternalId(directProxy(cfg.children()), fooId).children2()), is(equalTo(ids)));
+        assertThat(internalIds(directProxy(getByInternalId(cfg.children(), fooId).children2())), is(equalTo(ids)));
     }
 
     @Test

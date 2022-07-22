@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.metastorage.client.ItMetaStorageService
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.internal.metastorage.client.Operations.put;
 import static org.apache.ignite.internal.metastorage.client.Operations.remove;
+import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -62,6 +63,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.server.AbstractCompoundCondition;
 import org.apache.ignite.internal.metastorage.server.AbstractSimpleCondition;
@@ -84,7 +87,6 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -114,7 +116,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class ItMetaStorageServiceTest {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ItMetaStorageServiceTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ItMetaStorageServiceTest.class);
 
     /** Base network port. */
     private static final int NODE_PORT_BASE = 20_000;
@@ -236,7 +238,7 @@ public class ItMetaStorageServiceTest {
 
         LOG.info("Cluster started.");
 
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
         metaStorageSvc = prepareMetaStorage();
     }
@@ -539,7 +541,7 @@ public class ItMetaStorageServiceTest {
 
         long expRevUpperBound = 10;
 
-        when(mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound)).thenReturn(mock(Cursor.class));
+        when(mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound, false)).thenReturn(mock(Cursor.class));
 
         metaStorageSvc.range(expKeyFrom, expKeyTo, expRevUpperBound).close();
     }
@@ -555,7 +557,7 @@ public class ItMetaStorageServiceTest {
 
         ByteArray expKeyTo = new ByteArray(new byte[]{3});
 
-        when(mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes())).thenReturn(mock(Cursor.class));
+        when(mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), false)).thenReturn(mock(Cursor.class));
 
         metaStorageSvc.range(expKeyFrom, expKeyTo).close();
     }
@@ -569,7 +571,7 @@ public class ItMetaStorageServiceTest {
     public void testRangeWitNullAsKeyTo() throws Exception {
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
-        when(mockStorage.range(expKeyFrom.bytes(), null)).thenReturn(mock(Cursor.class));
+        when(mockStorage.range(expKeyFrom.bytes(), null, false)).thenReturn(mock(Cursor.class));
 
         metaStorageSvc.range(expKeyFrom, null).close();
     }
@@ -581,7 +583,7 @@ public class ItMetaStorageServiceTest {
     public void testRangeHasNext() {
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
-        when(mockStorage.range(expKeyFrom.bytes(), null)).thenAnswer(invocation -> {
+        when(mockStorage.range(expKeyFrom.bytes(), null, false)).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenReturn(true);
@@ -599,7 +601,7 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testRangeNext() {
-        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key().bytes(), null)).thenAnswer(invocation -> {
+        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key().bytes(), null, false)).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenReturn(true);
@@ -618,7 +620,7 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testRangeNextNoSuchElementException() {
-        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key().bytes(), null)).thenAnswer(invocation -> {
+        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key().bytes(), null, false)).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenReturn(true);
@@ -643,7 +645,7 @@ public class ItMetaStorageServiceTest {
 
         Cursor cursorMock = mock(Cursor.class);
 
-        when(mockStorage.range(expKeyFrom.bytes(), null)).thenReturn(cursorMock);
+        when(mockStorage.range(expKeyFrom.bytes(), null, false)).thenReturn(cursorMock);
 
         Cursor<Entry> cursor = metaStorageSvc.range(expKeyFrom, null);
 
@@ -898,7 +900,7 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testCursorsCleanup() throws Exception {
-        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key().bytes(), null)).thenAnswer(invocation -> {
+        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key().bytes(), null, false)).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenReturn(true);
@@ -1063,7 +1065,7 @@ public class ItMetaStorageServiceTest {
 
         metaStorageRaftSrv.start();
 
-        metaStorageRaftSrv.startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(mockStorage), peers);
+        metaStorageRaftSrv.startRaftGroup(METASTORAGE_RAFT_GROUP_NAME, new MetaStorageListener(mockStorage), peers, defaults());
 
         metaStorageRaftGrpSvc = RaftGroupServiceImpl.start(
                 METASTORAGE_RAFT_GROUP_NAME,

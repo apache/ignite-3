@@ -25,26 +25,6 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * Persistent store of pages.
  */
 public interface PageStore extends Closeable {
-    /** Type for affinity partitions. */
-    byte TYPE_DATA = 1;
-
-    /** Type for index partition. */
-    byte TYPE_IDX = 2;
-
-    /**
-     * Adds page write listener.
-     *
-     * @param listener Page write listener.
-     */
-    void addWriteListener(PageWriteListener listener);
-
-    /**
-     * Removes page write listener.
-     *
-     * @param listener Page write listener.
-     */
-    void removeWriteListener(PageWriteListener listener);
-
     /**
      * Stops the page store.
      *
@@ -59,12 +39,12 @@ public interface PageStore extends Closeable {
      * @return Next page index.
      * @throws IgniteInternalCheckedException If failed to allocate.
      */
-    long allocatePage() throws IgniteInternalCheckedException;
+    int allocatePage() throws IgniteInternalCheckedException;
 
     /**
      * Returns number of allocated pages.
      */
-    long pages();
+    int pages();
 
     /**
      * Reads a page.
@@ -73,22 +53,19 @@ public interface PageStore extends Closeable {
      * @param pageBuf Page buffer to read into.
      * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code
      * keepCrc}.
-     * @return {@code True} if page has been read successfully, {@code false} if page hasn't been written yet.
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
-    boolean read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException;
+    void read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException;
 
     /**
      * Writes a page.
      *
      * @param pageId Page ID.
      * @param pageBuf Page buffer to write from.
-     * @param tag Partition page store version, 1-based incrementing counter. For outdated pages {@code tag} has lower value, and write does
-     *      nothing.
      * @param calculateCrc If {@code false} crc calculation will be forcibly skipped.
      * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
      */
-    void write(long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc) throws IgniteInternalCheckedException;
+    void write(long pageId, ByteBuffer pageBuf, boolean calculateCrc) throws IgniteInternalCheckedException;
 
     /**
      * Sync method used to ensure that the given pages are guaranteed to be written to the page store.

@@ -29,7 +29,6 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Abstract node of execution tree.
@@ -42,8 +41,6 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
     protected static final int IO_BATCH_CNT = 4; //IgniteSystemProperties.getInteger("IGNITE_CALCITE_EXEC_IO_BATCH_CNT", 4);
 
     protected final int inBufSize = Commons.IN_BUFFER_SIZE; //IgniteSystemProperties.getInteger("IGNITE_CALCITE_EXEC_IN_BUFFER_SIZE", 2);
-
-    protected final IgniteLogger log = IgniteLogger.forClass(getClass());
 
     /** For debug purpose. */
     private volatile Thread thread;

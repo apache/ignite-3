@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
@@ -42,7 +43,6 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
 import org.hamcrest.core.SubstringMatcher;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Query checker.
@@ -242,6 +242,8 @@ public abstract class QueryChecker {
 
     private List<Type> expectedColumnTypes;
 
+    private List<MetadataMatcher> metadataMatchers;
+
     private boolean ordered;
 
     private Object[] params = OBJECT_EMPTY_ARRAY;
@@ -322,6 +324,17 @@ public abstract class QueryChecker {
     }
 
     /**
+     * Sets columns metadata.
+     *
+     * @return This.
+     */
+    public QueryChecker columnMetadata(MetadataMatcher... matchers) {
+        metadataMatchers = Arrays.asList(matchers);
+
+        return this;
+    }
+
+    /**
      * Sets plan.
      *
      * @return This.
@@ -377,7 +390,23 @@ public abstract class QueryChecker {
             assertThat("Column types don't match", colTypes, equalTo(expectedColumnTypes));
         }
 
-        var res = CursorUtils.getAllFromCursor(cur);
+        if (metadataMatchers != null) {
+            List<ColumnMetadata> columnMetadata = cur.metadata().columns();
+
+            Iterator<ColumnMetadata> valueIterator = columnMetadata.iterator();
+            Iterator<MetadataMatcher> matcherIterator = metadataMatchers.iterator();
+
+            while (matcherIterator.hasNext() && valueIterator.hasNext()) {
+                MetadataMatcher matcher = matcherIterator.next();
+                ColumnMetadata actualElement = valueIterator.next();
+
+                matcher.check(actualElement);
+            }
+
+            assertEquals(metadataMatchers.size(), columnMetadata.size(), "Column metadata doesn't match");
+        }
+
+        var res = getAllFromCursor(cur);
 
         if (expectedResult != null) {
             if (!ordered) {
@@ -410,7 +439,9 @@ public abstract class QueryChecker {
             Object item1 = it1.next();
             Object item2 = it2.next();
 
-            if (!eq(item1, item2)) {
+            if (item1 instanceof Collection && item2 instanceof Collection) {
+                assertEqualsCollections((Collection<?>) item1, (Collection<?>) item2);
+            } else if (!Objects.deepEquals(item1, item2)) {
                 fail("Collections are not equal (position " + idx + "):\nExpected: " + exp + "\nActual:   " + act);
             }
 
@@ -419,20 +450,9 @@ public abstract class QueryChecker {
     }
 
     /**
-     * Tests whether specified arguments are equal, or both {@code null}.
-     *
-     * @param o1 Object to compare.
-     * @param o2 Object to compare.
-     * @return Returns {@code true} if the specified arguments are equal, or both {@code null}.
-     */
-    private static boolean eq(@Nullable Object o1, @Nullable Object o2) {
-        return o1 == null ? o2 == null : o2 != null && (o1 == o2 || o1.equals(o2));
-    }
-
-    /**
      * List comparator.
      */
-    private class ListComparator implements Comparator<List<?>> {
+    private static class ListComparator implements Comparator<List<?>> {
         /** {@inheritDoc} */
         @SuppressWarnings({"rawtypes", "unchecked"})
         @Override
@@ -448,7 +468,7 @@ public abstract class QueryChecker {
                 Object item1 = it1.next();
                 Object item2 = it2.next();
 
-                if (eq(item1, item2)) {
+                if (Objects.deepEquals(item1, item2)) {
                     continue;
                 }
 
