@@ -95,10 +95,8 @@ public class PartitionMetaManager {
         long partitionMetaPageId = partitionMetaPageId(groupPartitionId.getPartitionId());
 
         try {
-            if (filePageStore.size() > filePageStore.headerSize()) {
+            if (filePageStore.readWithoutPageIdCheck(partitionMetaPageId, buffer, false)) {
                 // Reads the partition meta.
-                filePageStore.readWithoutPageIdCheck(partitionMetaPageId, buffer, false);
-
                 return new PartitionMeta(checkpointId, ioRegistry.resolve(bufferAddr), bufferAddr);
             } else {
                 // Creates and writes a partition meta.
