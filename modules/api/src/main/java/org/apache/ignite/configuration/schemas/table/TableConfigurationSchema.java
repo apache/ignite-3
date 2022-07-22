@@ -38,9 +38,9 @@ public class TableConfigurationSchema {
 
     /** Integer table id. */
     @Immutable
-    @Range(min = 1, max = Integer.MAX_VALUE)
+    @Range(min = 1)
     @Value(hasDefault = true)
-    public int intId = 1;
+    public int tableId = 1;
 
     /** Table partitions. */
     @Range(min = 0, max = 65_000)

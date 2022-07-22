@@ -169,20 +169,20 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * Initializing the file page stores for a group.
      *
      * @param tableName Table name.
-     * @param groupId Integer table id.
+     * @param tableId Integer table id.
      * @param partitions Partition number, must be greater than {@code 0} and less {@link PageIdAllocator#MAX_PARTITION_ID}.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public void initialize(String tableName, int groupId, int partitions) throws IgniteInternalCheckedException {
+    public void initialize(String tableName, int tableId, int partitions) throws IgniteInternalCheckedException {
         assert partitions > 0 && partitions < MAX_PARTITION_ID : partitions;
 
-        initGroupDirLock.lock(groupId);
+        initGroupDirLock.lock(tableId);
 
         try {
-            if (!groupPageStores.containsPageStores(groupId)) {
-                List<FilePageStore> partitionFilePageStores = createFilePageStores(groupId, partitions);
+            if (!groupPageStores.containsPageStores(tableId)) {
+                List<FilePageStore> partitionFilePageStores = createFilePageStores(tableId, partitions);
 
-                List<FilePageStore> old = groupPageStores.put(groupId, partitionFilePageStores);
+                List<FilePageStore> old = groupPageStores.put(tableId, partitionFilePageStores);
 
                 assert old == null : tableName;
             }
@@ -191,7 +191,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             throw e;
         } finally {
-            initGroupDirLock.unlock(groupId);
+            initGroupDirLock.unlock(tableId);
         }
     }
 
