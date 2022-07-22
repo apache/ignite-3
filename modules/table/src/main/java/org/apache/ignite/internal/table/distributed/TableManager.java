@@ -57,7 +57,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.TableChange;
@@ -1036,17 +1035,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A list of direct table ids.
      */
     private List<UUID> directTableIds() {
-        NamedListView<TableView> views = directProxy(tablesCfg.tables()).value();
-
-        List<UUID> tableUuids = new ArrayList<>();
-
-        for (int i = 0; i < views.size(); i++) {
-            ExtendedTableView extView = (ExtendedTableView) views.get(i);
-
-            tableUuids.add(extView.id());
-        }
-
-        return tableUuids;
+        return ConfigurationUtil.internalIds(directProxy(tablesCfg.tables()));
     }
 
     /**
