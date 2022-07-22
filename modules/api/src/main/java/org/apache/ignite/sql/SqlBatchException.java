@@ -36,8 +36,8 @@ public class SqlBatchException extends SqlException {
      * @param updCntrs Array that describes the outcome of a batch execution.
      * @param cause Non-null throwable cause.
      */
-    public SqlBatchException(long[] updCntrs, Throwable cause) {
-        super(cause);
+    public SqlBatchException(int code, long[] updCntrs, Throwable cause) {
+        super(code, cause.getMessage(), cause);
 
         this.updCntrs = updCntrs != null ? updCntrs : ArrayUtils.LONG_EMPTY_ARRAY;
     }
