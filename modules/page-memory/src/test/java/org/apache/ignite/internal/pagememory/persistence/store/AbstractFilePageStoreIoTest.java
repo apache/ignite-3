@@ -167,7 +167,7 @@ public abstract class AbstractFilePageStoreIoTest {
         try (AbstractFilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath)) {
             assertDoesNotThrow(filePageStoreIo::sync);
 
-            filePageStoreIo.write(createDataPageId(() -> 0), createPageByteBuffer(PAGE_SIZE), true);
+            filePageStoreIo.write(createDataPageId(() -> 0), createPageByteBuffer(0, PAGE_SIZE), true);
 
             assertDoesNotThrow(filePageStoreIo::sync);
             assertEquals(2 * PAGE_SIZE, testFilePath.toFile().length());
@@ -185,7 +185,7 @@ public abstract class AbstractFilePageStoreIoTest {
 
             assertEquals(PAGE_SIZE, filePageStoreIo0.size());
 
-            filePageStoreIo0.write(createDataPageId(() -> 0), createPageByteBuffer(PAGE_SIZE), true);
+            filePageStoreIo0.write(createDataPageId(() -> 0), createPageByteBuffer(0, PAGE_SIZE), true);
 
             assertEquals(2 * PAGE_SIZE, filePageStoreIo0.size());
         }
@@ -208,7 +208,7 @@ public abstract class AbstractFilePageStoreIoTest {
 
             long expPageId = createDataPageId(() -> 0);
 
-            ByteBuffer pageByteBuffer = createPageByteBuffer(PAGE_SIZE);
+            ByteBuffer pageByteBuffer = createPageByteBuffer(0, PAGE_SIZE);
 
             filePageStoreIo.write(expPageId, pageByteBuffer, true);
 
@@ -227,7 +227,7 @@ public abstract class AbstractFilePageStoreIoTest {
 
             long expPageId = createDataPageId(() -> 0);
 
-            ByteBuffer pageByteBuffer = createPageByteBuffer(PAGE_SIZE);
+            ByteBuffer pageByteBuffer = createPageByteBuffer(0, PAGE_SIZE);
 
             // Puts random bytes after: type (2 byte) + version (2 byte) + crc (4 byte).
             pageByteBuffer.position(8).put(randomBytes(128));
@@ -236,14 +236,14 @@ public abstract class AbstractFilePageStoreIoTest {
 
             ByteBuffer readBuffer = ByteBuffer.allocate(PAGE_SIZE).order(pageByteBuffer.order());
 
-            filePageStoreIo.read(expPageId, readBuffer, false);
+            filePageStoreIo.read(expPageId, filePageStoreIo.pageOffset(expPageId), readBuffer, false);
 
             assertEquals(pageByteBuffer.rewind(), readBuffer.rewind());
             assertEquals(0, getCrc(readBuffer));
 
             readBuffer = ByteBuffer.allocate(PAGE_SIZE).order(pageByteBuffer.order());
 
-            filePageStoreIo.read(expPageId, readBuffer, true);
+            filePageStoreIo.read(expPageId, filePageStoreIo.pageOffset(expPageId), readBuffer, true);
 
             assertNotEquals(0, getCrc(readBuffer));
         }
@@ -286,7 +286,7 @@ public abstract class AbstractFilePageStoreIoTest {
             // Check that when writing one page and renaming the file, we will not lose anything.
             long expPageId = createDataPageId(() -> 0);
 
-            ByteBuffer pageByteBuffer = createPageByteBuffer(PAGE_SIZE);
+            ByteBuffer pageByteBuffer = createPageByteBuffer(0, PAGE_SIZE);
 
             filePageStoreIo.write(expPageId, pageByteBuffer, true);
 

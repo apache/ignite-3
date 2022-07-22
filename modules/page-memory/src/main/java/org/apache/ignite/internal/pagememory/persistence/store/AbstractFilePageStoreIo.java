@@ -134,13 +134,14 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * Reads a page.
      *
      * @param pageId Page ID.
+     * @param pageOff Page offset in the file.
      * @param pageBuf Page buffer to read into.
      * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code
      * keepCrc}.
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
-    void read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
-        read0(pageId, pageBuf, !skipCrc, keepCrc);
+    void read(long pageId, long pageOff, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
+        read0(pageId, pageOff, pageBuf, !skipCrc, keepCrc);
     }
 
     /**
@@ -458,6 +459,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * Reads a page from the page store.
      *
      * @param pageId Page ID.
+     * @param pageOff Page offset in the file.
      * @param pageBuf Page buffer to read into.
      * @param checkCrc Check CRC on page.
      * @param keepCrc By default reading zeroes CRC which was on file, but you can keep it in pageBuf if set keepCrc.
@@ -465,10 +467,13 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      */
     private void read0(
             long pageId,
+            long pageOff,
             ByteBuffer pageBuf,
             boolean checkCrc,
             boolean keepCrc
     ) throws IgniteInternalCheckedException {
+        assert pageOff >= headerSize() : "pageOff=" + pageOff + ", headerSize=" + headerSize();
+
         ensure();
 
         try {
@@ -477,13 +482,13 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
             assert pageBuf.position() == 0 : pageBuf.position();
             assert pageBuf.order() == nativeOrder() : pageBuf.order();
 
-            long pageOff = pageOffset(pageId);
-
             int n = readWithFailover(pageBuf, pageOff);
 
             // If page was not written yet, nothing to read.
             if (n < 0) {
                 pageBuf.put(new byte[pageBuf.remaining()]);
+
+                return;
             }
 
             int savedCrc32 = PageIo.getCrc(pageBuf);

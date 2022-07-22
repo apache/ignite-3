@@ -46,12 +46,13 @@ class TestPageStoreUtils {
     /**
      * Returns a buffer containing the contents of the {@link TestPageIo}.
      *
+     * @param pageId Page ID.
      * @param pageSize Page size in bytes.
      */
-    static ByteBuffer createPageByteBuffer(int pageSize) {
+    static ByteBuffer createPageByteBuffer(long pageId, int pageSize) {
         ByteBuffer buffer = ByteBuffer.allocateDirect(pageSize).order(nativeOrder());
 
-        new TestPageIo().initNewPage(bufferAddress(buffer), 0, pageSize);
+        new TestPageIo().initNewPage(bufferAddress(buffer), pageId, pageSize);
 
         return buffer;
     }

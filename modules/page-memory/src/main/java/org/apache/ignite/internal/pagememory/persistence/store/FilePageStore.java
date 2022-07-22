@@ -158,9 +158,9 @@ public class FilePageStore implements PageStore {
     }
 
     /**
-     * Reads a page, unlike {@link #read(long, ByteBuffer, boolean)}, checks the page offset in the file not logically (pageOffset <= {@link
-     * #pages()} * {@link FilePageStoreIo#pageSize()}) but physically (pageOffset <= {@link #size()}), which can affect performance when
-     * used in production code.
+     * Reads a page, unlike {@link #read(long, ByteBuffer, boolean)}, reads directly from the file page store (not starting from the delta
+     * file page stores) and does not check the {@code pageId} so that its {@code pageIdx} is not greater than the {@link #pages() number of
+     * allocated pages}.
      *
      * @param pageId Page ID.
      * @param pageBuf Page buffer to read into.
@@ -168,9 +168,8 @@ public class FilePageStore implements PageStore {
      * keepCrc}.
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
-    public void readByPhysicalOffset(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
-        // TODO: IGNITE-17372 возможно надо будет переименовать или вроде того
-        filePageStoreIo.read(pageId, pageBuf, keepCrc);
+    public void readDirectlyWithoutPageIdCheck(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
+        filePageStoreIo.read(pageId, filePageStoreIo.pageOffset(pageId), pageBuf, keepCrc);
     }
 
     /** {@inheritDoc} */
@@ -178,7 +177,17 @@ public class FilePageStore implements PageStore {
     public void read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
         assert pageIndex(pageId) <= pageCount : "pageIdx=" + pageIndex(pageId) + ", pageCount=" + pageCount;
 
-        filePageStoreIo.read(pageId, pageBuf, keepCrc);
+        for (DeltaFilePageStoreIo deltaFilePageStoreIo : deltaFilePageStoreIos) {
+            long pageOff = deltaFilePageStoreIo.pageOffset(pageId);
+
+            if (pageOff >= 0) {
+                deltaFilePageStoreIo.read(pageId, pageOff, pageBuf, keepCrc);
+
+                return;
+            }
+        }
+
+        filePageStoreIo.read(pageId, filePageStoreIo.pageOffset(pageId), pageBuf, keepCrc);
     }
 
     /** {@inheritDoc} */
