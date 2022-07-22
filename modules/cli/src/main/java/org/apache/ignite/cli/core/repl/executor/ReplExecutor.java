@@ -17,16 +17,26 @@
 
 package org.apache.ignite.cli.core.repl.executor;
 
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import org.apache.ignite.cli.call.configuration.ClusterConfigShowCall;
+import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
+import org.apache.ignite.cli.call.configuration.NodeConfigShowCall;
+import org.apache.ignite.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.cli.config.StateFolderProvider;
 import org.apache.ignite.cli.core.exception.handler.PicocliExecutionExceptionHandler;
 import org.apache.ignite.cli.core.exception.handler.ReplExceptionHandlers;
 import org.apache.ignite.cli.core.repl.Repl;
+import org.apache.ignite.cli.core.repl.completer.DynamicCompleterRegistry;
+import org.apache.ignite.cli.core.repl.completer.HoconDynamicCompleter;
+import org.apache.ignite.cli.core.repl.completer.LazyDynamicCompleter;
 import org.apache.ignite.cli.core.repl.expander.NoopExpander;
+import org.jetbrains.annotations.NotNull;
 import org.jline.console.impl.SystemRegistryImpl;
 import org.jline.reader.Completer;
 import org.jline.reader.LineReader;
@@ -79,7 +89,7 @@ public class ReplExecutor {
         try {
             repl.customizeTerminal(terminal);
 
-            PicocliCommands picocliCommands = createPicocliCommands(repl);
+            IgnitePicocliCommands picocliCommands = createPicocliCommands(repl);
             SystemRegistryImpl registry = new SystemRegistryImpl(parser, terminal, workDirProvider, null);
             registry.setCommandRegistries(picocliCommands);
             registry.register("help", picocliCommands);
@@ -132,13 +142,66 @@ public class ReplExecutor {
         return result;
     }
 
-    private PicocliCommands createPicocliCommands(Repl repl) {
+    private IgnitePicocliCommands createPicocliCommands(Repl repl) {
         CommandLine cmd = new CommandLine(repl.commandClass(), factory);
         IDefaultValueProvider defaultValueProvider = repl.defaultValueProvider();
         if (defaultValueProvider != null) {
             cmd.setDefaultValueProvider(defaultValueProvider);
         }
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
-        return new PicocliCommands(cmd);
+
+        DynamicCompleterRegistry completerRegistry = dynamicCompleterRegistry();
+
+        return new IgnitePicocliCommands(cmd, factory, completerRegistry);
+    }
+
+    @NotNull
+    private DynamicCompleterRegistry dynamicCompleterRegistry() {
+        DynamicCompleterRegistry completerRegistry = new DynamicCompleterRegistry();
+
+        LazyDynamicCompleter clusterConfigCompleter = clusterConfigCompleter();
+        completerRegistry.register(new String[]{"cluster", "config", "show"}, clusterConfigCompleter);
+
+        LazyDynamicCompleter nodeConfigCompleter = nodeConfigCompleter();
+        completerRegistry.register(new String[]{"node", "config", "show"}, nodeConfigCompleter);
+
+        return completerRegistry;
+    }
+
+    private LazyDynamicCompleter nodeConfigCompleter() {
+        return new LazyDynamicCompleter(() -> {
+            NodeConfigShowCall nodeConfigShowCall = null;
+            try {
+                nodeConfigShowCall = factory.create(NodeConfigShowCall.class);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            Config config = ConfigFactory.parseString(
+                    nodeConfigShowCall.execute(
+                            // todo: take url from session or use default one
+                            NodeConfigShowCallInput.builder().nodeUrl("http://localhost:10300").build()
+                    ).body()
+            );
+            return new HoconDynamicCompleter(config);
+        });
+    }
+
+    @NotNull
+    private LazyDynamicCompleter clusterConfigCompleter() {
+        return new LazyDynamicCompleter(() -> {
+            ClusterConfigShowCall clusterConfigShowCall = null;
+            try {
+                clusterConfigShowCall = factory.create(ClusterConfigShowCall.class);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            Config config = ConfigFactory.parseString(
+                    clusterConfigShowCall.execute(
+                            // todo: take url from session or use default one
+                            ClusterConfigShowCallInput.builder().clusterUrl("http://localhost:10300").build()
+                    ).body()
+            );
+            return new HoconDynamicCompleter(config);
+        });
     }
 }
