@@ -40,7 +40,7 @@ public class TableConfigurationSchema {
     @Immutable
     @Range(min = 1, max = Integer.MAX_VALUE)
     @Value(hasDefault = true)
-    public int intId = 0;
+    public int intId = 1;
 
     /** Table partitions. */
     @Range(min = 0, max = 65_000)
