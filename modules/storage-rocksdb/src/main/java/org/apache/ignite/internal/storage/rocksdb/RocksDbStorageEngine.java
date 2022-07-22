@@ -51,6 +51,9 @@ public class RocksDbStorageEngine implements StorageEngine {
     /** Engine name. */
     public static final String ENGINE_NAME = "rocksdb";
 
+    /** Prefix for table directories. */
+    private static final String TABLE_DIR_PREFIX = "table-";
+
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbStorageEngine.class);
 
     static {
@@ -128,7 +131,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
         RocksDbDataRegion dataRegion = regions.get(dataStorageView.dataRegion());
 
-        Path tablePath = storagePath.resolve(tableView.name());
+        Path tablePath = storagePath.resolve(TABLE_DIR_PREFIX + tableView.intId());
 
         try {
             Files.createDirectories(tablePath);

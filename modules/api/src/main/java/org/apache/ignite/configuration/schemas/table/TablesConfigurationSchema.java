@@ -29,6 +29,10 @@ import org.apache.ignite.configuration.schemas.store.ExistingDataStorage;
 @SuppressWarnings("PMD.UnusedPrivateField")
 @ConfigurationRoot(rootName = "table", type = ConfigurationType.DISTRIBUTED)
 public class TablesConfigurationSchema {
+    /** Global integer id counter. */
+    @Value(hasDefault = true)
+    public int globalIdCounter = 0;
+
     /** List of configured tables. */
     @NamedConfigValue
     @TableValidator

@@ -35,6 +35,11 @@ public class TableConfigurationSchema {
     @InjectedName
     public String name;
 
+    /** Small integer id. */
+    @Value
+    @Range(min = 1, max = Integer.MAX_VALUE)
+    public int intId;
+
     /** Table partitions. */
     @Range(min = 0, max = 65_000)
     @Value(hasDefault = true)
