@@ -47,13 +47,11 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
     }
 
     @Override
-    @Disabled("IGNITE-17135")
     public void errors() {
         super.errors();
     }
 
     @Override
-    @Disabled("IGNITE-17135")
     public void ddl() {
         super.ddl();
     }

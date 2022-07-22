@@ -54,7 +54,6 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
     }
 
     @Override
-    @Disabled("IGNITE-17135")
     public void errors() {
         super.errors();
     }
