@@ -182,6 +182,38 @@ public class FilePageStoreTest {
         }
     }
 
+    @Test
+    void testStop() throws Exception {
+        FilePageStoreIo filePageStoreIo = mock(FilePageStoreIo.class);
+
+        DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
+
+        try (FilePageStore filePageStore = new FilePageStore(filePageStoreIo, deltaFilePageStoreIo)) {
+            filePageStore.stop(true);
+            filePageStore.stop(false);
+
+            verify(filePageStoreIo, times(1)).stop(true);
+            verify(filePageStoreIo, times(1)).stop(false);
+
+            verify(deltaFilePageStoreIo, times(1)).stop(true);
+            verify(deltaFilePageStoreIo, times(1)).stop(false);
+        }
+    }
+
+    @Test
+    void testClose() throws Exception {
+        FilePageStoreIo filePageStoreIo = mock(FilePageStoreIo.class);
+
+        DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
+
+        try (FilePageStore filePageStore = new FilePageStore(filePageStoreIo, deltaFilePageStoreIo)) {
+            filePageStore.close();
+
+            verify(filePageStoreIo, times(1)).close();
+            verify(filePageStoreIo, times(1)).close();
+        }
+    }
+
     private static FilePageStore createFilePageStore(Path filePath) {
         return createFilePageStore(filePath, new FilePageStoreHeader(VERSION_1, PAGE_SIZE));
     }
