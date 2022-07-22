@@ -40,7 +40,11 @@ public class JlineQuestionWriterReader implements QuestionWriterReader {
 
     @Override
     public String readAnswer() {
-        return readLine(reader);
+        LineReader.SuggestionType prev = reader.getAutosuggestion();
+        reader.setAutosuggestion(LineReader.SuggestionType.NONE);
+        String s = readLine(reader);
+        reader.setAutosuggestion(prev);
+        return s;
     }
 
     private String readLine(LineReader reader) {

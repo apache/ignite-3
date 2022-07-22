@@ -19,8 +19,6 @@ package org.apache.ignite.cli.commands.questions;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import java.io.PrintWriter;
-import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.cli.call.connect.ConnectCall;
 import org.apache.ignite.cli.call.connect.ConnectCallInput;
@@ -28,9 +26,8 @@ import org.apache.ignite.cli.config.ConfigManagerProvider;
 import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.cli.core.flow.builder.Flows;
-import org.apache.ignite.cli.core.flow.question.AcceptedQuestionAnswer;
-import org.apache.ignite.cli.core.flow.question.InterruptQuestionAnswer;
 import org.apache.ignite.cli.core.repl.Session;
+import org.apache.ignite.cli.core.repl.context.CommandLineContextProvider;
 
 
 /**
@@ -44,9 +41,6 @@ public class ConnectToClusterQuestion {
 
     @Inject
     private ConfigManagerProvider provider;
-
-    @Inject
-    private SpecBean specBean;
 
     @Inject
     private Session session;
@@ -63,17 +57,11 @@ public class ConnectToClusterQuestion {
         String question = "You are not connected to node. Do you want to connect to the default node "
                 + clusterProperty + " ? [Y/n] ";
 
-        PrintWriter out = specBean.getSpec().commandLine().getOut();
-        PrintWriter err = specBean.getSpec().commandLine().getErr();
-
         return Flows.from(clusterUrlOrSessionNode(clusterUrl))
-                .ifThen(Objects::isNull, Flows.<String, ConnectCallInput>question(question,
-                                List.of(
-                                        new AcceptedQuestionAnswer<>((a, s) -> new ConnectCallInput(clusterProperty)),
-                                        new InterruptQuestionAnswer<>()
-                                )
-                        ).then(Flows.fromCall(connectCall))
-                        .toOutput(out, err)
+                .ifThen(Objects::isNull, Flows.<String, ConnectCallInput>acceptQuestion(question,
+                                () -> new ConnectCallInput(clusterProperty))
+                        .then(Flows.fromCall(connectCall))
+                        .toOutput(CommandLineContextProvider.getContext())
                         .build())
                 .then(prevUrl -> Flowable.success(clusterUrlOrSessionNode(clusterUrl)));
     }

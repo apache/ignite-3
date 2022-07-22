@@ -15,23 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.questions;
+package org.apache.ignite.cli.core.repl.context;
 
-import jakarta.inject.Singleton;
-import picocli.CommandLine;
-import picocli.CommandLine.Model.CommandSpec;
+import java.io.PrintWriter;
 
 /**
- * {@inheritDoc}
+ * Context of current command line.
  */
-@Singleton
-@CommandLine.Command()
-public class SpecBean {
-    @CommandLine.Spec
-    private CommandSpec spec;
+public interface CommandLineContext {
+    /**
+     * Command line output.
+     *
+     * @return {@link PrintWriter} of std output.
+     */
+    PrintWriter out();
 
-
-    public CommandSpec getSpec() {
-        return spec;
-    }
+    /**
+     * Command line error output.
+     *
+     * @return {@link PrintWriter} of error output.
+     */
+    PrintWriter err();
 }

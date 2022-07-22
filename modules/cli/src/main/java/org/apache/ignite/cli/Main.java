@@ -77,7 +77,8 @@ public class Main {
     }
 
     private static boolean isatty() {
-        return System.console() != null;
+        return true;
+        //return System.console() != null;
     }
 
     private static void enterRepl(MicronautFactory micronautFactory) throws Exception {

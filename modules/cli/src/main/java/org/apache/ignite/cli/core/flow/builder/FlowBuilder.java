@@ -24,6 +24,7 @@ import java.util.function.Predicate;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.flow.Flow;
 import org.apache.ignite.cli.core.flow.question.QuestionAnswer;
+import org.apache.ignite.cli.core.repl.context.CommandLineContext;
 
 /**
  * Builder of {@link Flow}.
@@ -48,6 +49,10 @@ public interface FlowBuilder<I, O>  {
     FlowBuilder<I, O> exceptionHandler(ExceptionHandler<?> exceptionHandler);
 
     FlowBuilder<I, O> toOutput(PrintWriter output, PrintWriter errorOutput);
+
+    default FlowBuilder<I, O> toOutput(CommandLineContext context) {
+        return toOutput(context.out(), context.err());
+    }
 
     Flow<I, O> build();
 }

@@ -22,7 +22,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import org.apache.ignite.cli.commands.questions.SpecBean;
 import org.apache.ignite.cli.config.StateFolderProvider;
 import org.apache.ignite.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.cli.core.exception.handler.PicocliExecutionExceptionHandler;
@@ -30,6 +29,7 @@ import org.apache.ignite.cli.core.exception.handler.ReplExceptionHandlers;
 import org.apache.ignite.cli.core.flow.question.JlineQuestionWriterReader;
 import org.apache.ignite.cli.core.flow.question.QuestionAskerFactory;
 import org.apache.ignite.cli.core.repl.Repl;
+import org.apache.ignite.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.cli.core.repl.expander.NoopExpander;
 import org.jline.console.impl.SystemRegistryImpl;
 import org.jline.reader.Completer;
@@ -67,7 +67,7 @@ public class ReplExecutor {
      * Constructor.
      *
      * @param commandsFactory picocli commands factory.
-     * @param terminal terminal instance.
+     * @param terminal        terminal instance.
      */
     public ReplExecutor(PicocliCommandsFactory commandsFactory, Terminal terminal) {
         this.factory = commandsFactory;
@@ -140,12 +140,11 @@ public class ReplExecutor {
 
     private PicocliCommands createPicocliCommands(Repl repl) {
         CommandLine cmd = new CommandLine(repl.commandClass(), factory);
-        //This needed for spec field injection in SpecBean class.
-        new CommandLine(SpecBean.class, factory);
         IDefaultValueProvider defaultValueProvider = repl.defaultValueProvider();
         if (defaultValueProvider != null) {
             cmd.setDefaultValueProvider(defaultValueProvider);
         }
+        CommandLineContextProvider.setCmd(cmd);
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
         return new PicocliCommands(cmd);
     }
