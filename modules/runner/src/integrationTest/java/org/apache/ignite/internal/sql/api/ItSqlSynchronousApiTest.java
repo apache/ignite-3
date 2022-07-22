@@ -212,14 +212,14 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         // Planning error.
         assertThrowsWithCause(
                 () -> ses.execute(null, "CREATE TABLE TEST (VAL INT)"),
-                IgniteException.class,
+                SqlException.class,
                 "Table without PRIMARY KEY is not supported"
         );
 
         // Execute error.
         assertThrowsWithCause(
                 () -> ses.execute(null, "SELECT 1 / ?", 0),
-                ArithmeticException.class,
+                SqlException.class,
                 "/ by zero"
         );
     }
