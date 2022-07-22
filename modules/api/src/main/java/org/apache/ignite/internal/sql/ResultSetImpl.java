@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.NO_RESULT_SET_ERR;
+
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletionStage;
@@ -83,7 +85,7 @@ public class ResultSetImpl implements ResultSet {
     @Override
     public boolean hasNext() {
         if (it == null) {
-            throw new SqlException("There are no results");
+            throw new SqlException(NO_RESULT_SET_ERR, "There are no results");
         }
 
         return it.hasNext();
@@ -93,7 +95,7 @@ public class ResultSetImpl implements ResultSet {
     @Override
     public SqlRow next() {
         if (it == null) {
-            throw new SqlException("There are no results");
+            throw new SqlException(NO_RESULT_SET_ERR, "There are no results");
         }
 
         return it.next();

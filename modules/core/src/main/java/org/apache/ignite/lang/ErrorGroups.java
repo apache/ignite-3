@@ -88,6 +88,9 @@ public class ErrorGroups {
         public static final int SESSION_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(2);
 
         /** Invalid query error. */
-        public static final int INVALID_QUERY_ERR = SQL_ERR_GROUP.registerErrorCode(2);
+        public static final int INVALID_QUERY_ERR = SQL_ERR_GROUP.registerErrorCode(3);
+
+        /** Query without a result set error. */
+        public static final int NO_RESULT_SET_ERR = SQL_ERR_GROUP.registerErrorCode(4);
     }
 }
