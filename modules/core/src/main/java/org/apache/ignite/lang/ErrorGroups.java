@@ -37,17 +37,20 @@ public class ErrorGroups {
 
         /** Table already exists. */
         public static int TABLE_ALREADY_EXISTS_ERR = TABLE_ERR_GROUP.registerErrorCode(1);
+
         /** Table not found. */
         public static int TABLE_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode(2);
+
         /** Column already exists. */
         public static int COLUMN_ALREADY_EXISTS_ERR = TABLE_ERR_GROUP.registerErrorCode(3);
+
         /** Column not found. */
         public static int COLUMN_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode(4);
     }
 
-    /** Clint error group. */
+    /** Client error group. */
     public static class Client {
-        /** Table error group. */
+        /** Client error group. */
         public static final ErrorGroup CLIENT_ERR_GROUP = ErrorGroup.newGroup("CLIENT", 3);
 
         /** Connection failed. */
