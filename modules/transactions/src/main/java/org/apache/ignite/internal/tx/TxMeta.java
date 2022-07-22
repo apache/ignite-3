@@ -25,6 +25,9 @@ import org.apache.ignite.hlc.HybridTimestamp;
 
 /** Transaction meta. */
 public class TxMeta implements Serializable {
+    /** Serial version UID. */
+    private static final long serialVersionUID = -172513482743911860L;
+
     /** Tx state. */
     private final TxState txState;
 
