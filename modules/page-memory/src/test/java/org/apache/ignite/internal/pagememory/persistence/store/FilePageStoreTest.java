@@ -17,15 +17,27 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
+import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.arr;
 import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.createDataPageId;
 import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.createPageByteBuffer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -133,11 +145,52 @@ public class FilePageStoreTest {
         }
     }
 
+    @Test
+    void testGetOrCreateNewDeltaFile() throws Exception {
+        try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"))) {
+            DeltaFilePageStoreIoFactory factory = spy(new DeltaFilePageStoreIoFactory() {
+                /** {@inheritDoc} */
+                @Override
+                public DeltaFilePageStoreIo create(int index, int[] pageIndexes) {
+                    return mock(DeltaFilePageStoreIo.class);
+                }
+            });
+
+            filePageStore.setDeltaFilePageStoreIoFactory(factory);
+
+            int[] pageIndexes = arr(0, 1, 2);
+
+            Supplier<int[]> pageIndexesSupplier = spy(new Supplier<int[]>() {
+                /** {@inheritDoc} */
+                @Override
+                public int[] get() {
+                    return pageIndexes;
+                }
+            });
+
+            CompletableFuture<DeltaFilePageStoreIo> future0 = filePageStore.getOrCreateNewDeltaFile(pageIndexesSupplier);
+            CompletableFuture<DeltaFilePageStoreIo> future1 = filePageStore.getOrCreateNewDeltaFile(pageIndexesSupplier);
+
+            assertSame(future0, future1);
+
+            assertDoesNotThrow(() -> future0.get(1, SECONDS));
+
+            verify(factory, times(1)).create(0, pageIndexes);
+            verify(factory, times(1)).create(anyInt(), any(int[].class));
+
+            verify(pageIndexesSupplier, times(1)).get();
+        }
+    }
+
     private static FilePageStore createFilePageStore(Path filePath) {
         return createFilePageStore(filePath, new FilePageStoreHeader(VERSION_1, PAGE_SIZE));
     }
 
-    private static FilePageStore createFilePageStore(Path filePath, FilePageStoreHeader header) {
-        return new FilePageStore(new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header));
+    private static FilePageStore createFilePageStore(
+            Path filePath,
+            FilePageStoreHeader header,
+            DeltaFilePageStoreIo... deltaFilePageStoreIos
+    ) {
+        return new FilePageStore(new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header), deltaFilePageStoreIos);
     }
 }

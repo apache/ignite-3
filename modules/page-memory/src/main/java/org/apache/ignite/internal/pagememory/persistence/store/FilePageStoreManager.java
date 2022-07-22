@@ -340,11 +340,19 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
         try {
             for (int i = 0; i < partitions; i++) {
-                Path partFilePath = groupWorkDir.resolve(String.format(PART_FILE_TEMPLATE, i));
+                int part = i;
+
+                Path partFilePath = groupWorkDir.resolve(String.format(PART_FILE_TEMPLATE, part));
 
                 Path[] partDeltaFiles = findPartitionDeltaFiles(groupWorkDir, partitions);
 
-                partitionFilePageStores.add(filePageStoreFactory.createPageStore(buffer.rewind(), partFilePath, partDeltaFiles));
+                FilePageStore filePageStore = filePageStoreFactory.createPageStore(buffer.rewind(), partFilePath, partDeltaFiles);
+
+                filePageStore.setDeltaFilePageStoreIoFactory((index, pageIndexes) -> createLatest(groupWorkDir, part, index, pageIndexes));
+
+                filePageStore.setCompleteCreationDeltaFilePageStoreIoCallback(deltaIo -> renameDeltaFile(groupWorkDir, part, deltaIo));
+
+                partitionFilePageStores.add(filePageStore);
             }
 
             return unmodifiableList(partitionFilePageStores);
@@ -378,5 +386,53 @@ public class FilePageStoreManager implements PageReadWriteManager {
                     e
             );
         }
+    }
+
+    /**
+     * Creates a delta file page store (with file name like "part-1-delta-1.bin.tmp") of the latest version.
+     *
+     * @param groupWorkDir Group directory.
+     * @param partition Partition number.
+     * @param index Delta file page store index.
+     * @param pageIndexes Page indexes.
+     */
+    DeltaFilePageStoreIo createLatest(Path groupWorkDir, int partition, int index, int[] pageIndexes) {
+        return filePageStoreFactory.createLatestVersion(
+                groupWorkDir.resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, partition, index)),
+                index,
+                pageIndexes
+        );
+    }
+
+    /**
+     * Renames the delta file page store from temporary to permanent, such as "part-1-delta-1.bin.tmp" to "part-1-delta-1.bin".
+     *
+     * @param groupWorkDir Group directory.
+     * @param partition Partition number.
+     * @param deltaIo Delta file page store.
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    void renameDeltaFile(Path groupWorkDir, int partition, DeltaFilePageStoreIo deltaIo) throws IgniteInternalCheckedException {
+        assert deltaIo.filePath().getFileName().toString().equals(tmpDeltaFileName(partition, deltaIo.fileIndex())) :
+                "expected=" + tmpDeltaFileName(partition, deltaIo.fileIndex()) + ", actual=" + deltaIo.filePath().getFileName();
+
+        Path newFilePath = groupWorkDir.resolve(String.format(PART_DELTA_FILE_TEMPLATE, partition, deltaIo.fileIndex()));
+
+        try {
+            deltaIo.renameFilePath(newFilePath);
+        } catch (IOException e) {
+            throw new IgniteInternalCheckedException(
+                    IgniteStringFormatter.format(
+                            "Failed to rename file [source={}, target={}]",
+                            deltaIo.filePath(),
+                            newFilePath
+                    ),
+                    e
+            );
+        }
+    }
+
+    private static String tmpDeltaFileName(int partition, int index) {
+        return String.format(TMP_PART_DELTA_FILE_TEMPLATE, partition, index);
     }
 }

@@ -266,4 +266,37 @@ public abstract class AbstractFilePageStoreIoTest {
             assertEquals(PAGE_SIZE, filePageStoreIo.pageSize());
         }
     }
+
+    @Test
+    void testRenameFilePath() throws Exception {
+        Path testFilePath = workDir.resolve("test");
+
+        try (AbstractFilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath)) {
+            // Nothing should happen.
+            assertDoesNotThrow(() -> filePageStoreIo.renameFilePath(testFilePath));
+
+            assertEquals(testFilePath, filePageStoreIo.filePath());
+
+            Path testFilePath0 = workDir.resolve("test0");
+
+            filePageStoreIo.renameFilePath(testFilePath0);
+
+            assertEquals(testFilePath0, filePageStoreIo.filePath());
+
+            // Check that when writing one page and renaming the file, we will not lose anything.
+            long expPageId = createDataPageId(() -> 0);
+
+            ByteBuffer pageByteBuffer = createPageByteBuffer(PAGE_SIZE);
+
+            filePageStoreIo.write(expPageId, pageByteBuffer, true);
+
+            Path testFilePath1 = workDir.resolve("test1");
+
+            filePageStoreIo.renameFilePath(testFilePath1);
+
+            assertEquals(testFilePath1, filePageStoreIo.filePath());
+
+            assertEquals(2 * PAGE_SIZE, Files.size(testFilePath1));
+        }
+    }
 }

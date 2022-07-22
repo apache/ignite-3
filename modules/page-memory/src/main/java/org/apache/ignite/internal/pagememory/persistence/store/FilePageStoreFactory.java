@@ -138,4 +138,24 @@ class FilePageStoreFactory {
                 filePath
         ));
     }
+
+    /**
+     * Creates a delta file page store of the latest version.
+     *
+     * @param filePath Path to the delta file page store.
+     * @param index Delta file page store index.
+     * @param pageIndexes Page indexes.
+     */
+    public DeltaFilePageStoreIo createLatestVersion(Path filePath, int index, int[] pageIndexes) {
+        return new DeltaFilePageStoreIo(
+                fileIoFactory,
+                filePath,
+                new DeltaFilePageStoreIoHeader(
+                        latestDeltaFileVersion,
+                        index,
+                        pageSize,
+                        pageIndexes
+                )
+        );
+    }
 }

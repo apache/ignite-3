@@ -21,6 +21,7 @@ import static java.nio.ByteOrder.nativeOrder;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.util.IgniteUtils.atomicMoveFile;
 import static org.apache.ignite.internal.util.IgniteUtils.hexInt;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 import static org.apache.ignite.internal.util.IgniteUtils.toHexString;
@@ -253,14 +254,14 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      */
     boolean exists() {
         if (fileExists == null) {
-            readWriteLock.writeLock().lock();
+            readWriteLock.readLock().lock();
 
             try {
                 if (fileExists == null) {
                     fileExists = Files.exists(filePath) && filePath.toFile().length() >= headerSize();
                 }
             } finally {
-                readWriteLock.writeLock().unlock();
+                readWriteLock.readLock().unlock();
             }
         }
 
@@ -336,12 +337,16 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * @throws IgniteInternalCheckedException If an I/O error occurs.
      */
     long size() throws IgniteInternalCheckedException {
+        readWriteLock.readLock().lock();
+
         try {
             FileIo io = fileIo;
 
             return io == null ? 0 : io.size();
         } catch (IOException e) {
             throw new IgniteInternalCheckedException(e);
+        } finally {
+            readWriteLock.readLock().unlock();
         }
     }
 
@@ -396,10 +401,6 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * @param fileIo Old fileIo.
      */
     private void reinit(FileIo fileIo) throws IOException {
-        if (!initialized) {
-            return;
-        }
-
         if (fileIo != this.fileIo) {
             return;
         }
@@ -559,7 +560,43 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
     /**
      * Returns file page store path.
      */
-    Path filePath() {
+    public Path filePath() {
         return filePath;
+    }
+
+    /**
+     * Renames the current file page store path to a new one.
+     *
+     * @param newFilePath New file page store path.
+     * @throws IOException If failed.
+     */
+    public void renameFilePath(Path newFilePath) throws IOException {
+        initialized = false;
+
+        readWriteLock.writeLock().lock();
+
+        try {
+            Path filePath = this.filePath;
+
+            if (!filePath.equals(newFilePath)) {
+                FileIo fileIo = this.fileIo;
+
+                if (fileIo != null) {
+                    fileIo.force();
+
+                    fileIo.close();
+
+                    atomicMoveFile(filePath, newFilePath, null);
+                }
+
+                this.filePath = newFilePath;
+
+                if (fileIo != null) {
+                    reinit(fileIo);
+                }
+            }
+        } finally {
+            readWriteLock.writeLock().unlock();
+        }
     }
 }

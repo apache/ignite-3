@@ -29,10 +29,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIo;
@@ -166,6 +168,20 @@ public class FilePageStoreFactoryTest {
                     filePageStorePath,
                     deltaPageStorePath0, deltaPageStorePath1
             ));
+        }
+    }
+
+    @Test
+    void testCreateLatestVersion() throws Exception {
+        Path testFilePath = workDir.resolve("test");
+
+        FilePageStoreFactory filePageStoreFactory = createFilePageStoreFactory();
+
+        try (DeltaFilePageStoreIo latestVersion = filePageStoreFactory.createLatestVersion(testFilePath, 1, arr(1, 2, 3))) {
+            assertEquals(testFilePath, latestVersion.filePath());
+            assertFalse(Files.exists(latestVersion.filePath()));
+
+            assertEquals(1, latestVersion.fileIndex());
         }
     }
 

@@ -27,7 +27,9 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -51,9 +53,17 @@ import org.jetbrains.annotations.Nullable;
 public class FilePageStore implements PageStore {
     private static final VarHandle PAGE_COUNT;
 
+    private static final VarHandle NEW_DELTA_FILE_PAGE_STORE_IO_FUTURE;
+
     static {
         try {
             PAGE_COUNT = MethodHandles.lookup().findVarHandle(FilePageStore.class, "pageCount", int.class);
+
+            NEW_DELTA_FILE_PAGE_STORE_IO_FUTURE = MethodHandles.lookup().findVarHandle(
+                    FilePageStore.class,
+                    "newDeltaFilePageStoreIoFuture",
+                    CompletableFuture.class
+            );
         } catch (ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -76,6 +86,15 @@ public class FilePageStore implements PageStore {
 
     /** Delta file page store IOs. */
     private final List<DeltaFilePageStoreIo> deltaFilePageStoreIos;
+
+    /** Future with a new delta file page store. */
+    private volatile @Nullable CompletableFuture<DeltaFilePageStoreIo> newDeltaFilePageStoreIoFuture;
+
+    /** {@link DeltaFilePageStoreIo} factory. */
+    private volatile @Nullable DeltaFilePageStoreIoFactory deltaFilePageStoreIoFactory;
+
+    /** Callback on completion of delta file page store creation. */
+    private volatile @Nullable CompleteCreationDeltaFilePageStoreIoCallback completeCreationDeltaFilePageStoreIoCallback;
 
     /**
      * Constructor.
@@ -231,5 +250,83 @@ public class FilePageStore implements PageStore {
      */
     public void setPageAllocationListener(PageAllocationListener listener) {
         pageAllocationListener = listener;
+    }
+
+    /**
+     * Sets the delta file page store factory.
+     *
+     * @param factory Factory.
+     */
+    public void setDeltaFilePageStoreIoFactory(DeltaFilePageStoreIoFactory factory) {
+        deltaFilePageStoreIoFactory = factory;
+    }
+
+    /**
+     * Sets the callback on completion of delta file page store creation.
+     *
+     * @param callback Callback.
+     */
+    public void setCompleteCreationDeltaFilePageStoreIoCallback(CompleteCreationDeltaFilePageStoreIoCallback callback) {
+        completeCreationDeltaFilePageStoreIoCallback = callback;
+    }
+
+    /**
+     * Gets or creates a new delta file, a new delta file will be created when the previous one is {@link #completeNewDeltaFile()
+     * completed}.
+     *
+     * <p>Thread safe.
+     *
+     * @param pageIndexesSupplier Page indexes supplier for the new delta file page store.
+     * @return Future that will be completed when the new delta file page store is created.
+     */
+    public CompletableFuture<DeltaFilePageStoreIo> getOrCreateNewDeltaFile(Supplier<int[]> pageIndexesSupplier) {
+        assert deltaFilePageStoreIoFactory != null;
+
+        CompletableFuture<DeltaFilePageStoreIo> future = this.newDeltaFilePageStoreIoFuture;
+
+        if (future != null) {
+            return future;
+        }
+
+        if (!NEW_DELTA_FILE_PAGE_STORE_IO_FUTURE.compareAndSet(this, null, future = new CompletableFuture<>())) {
+            // Another thread started creating a delta file.
+            return newDeltaFilePageStoreIoFuture;
+        }
+
+        int nextIndex = deltaFilePageStoreIos.isEmpty() ? 0 : deltaFilePageStoreIos.get(0).fileIndex() + 1;
+
+        DeltaFilePageStoreIo deltaFilePageStoreIo = deltaFilePageStoreIoFactory.create(nextIndex, pageIndexesSupplier.get());
+
+        // Should add to the head, since read operations should always start from the most recent.
+        deltaFilePageStoreIos.add(0, deltaFilePageStoreIo);
+
+        future.complete(deltaFilePageStoreIo);
+
+        return future;
+    }
+
+    /**
+     * Completes the {@link #getOrCreateNewDeltaFile(Supplier) creation} of a new delta file.
+     *
+     * <p>Thread safe.
+     *
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    public void completeNewDeltaFile() throws IgniteInternalCheckedException {
+        assert completeCreationDeltaFilePageStoreIoCallback != null;
+
+        CompletableFuture<DeltaFilePageStoreIo> future = this.newDeltaFilePageStoreIoFuture;
+
+        if (future == null) {
+            // Already completed in another thread.
+            return;
+        }
+
+        if (!NEW_DELTA_FILE_PAGE_STORE_IO_FUTURE.compareAndSet(this, future, null)) {
+            // Another thread completes the new delta file.
+            return;
+        }
+
+        completeCreationDeltaFilePageStoreIoCallback.onCompletionOfCreation(future.join());
     }
 }
