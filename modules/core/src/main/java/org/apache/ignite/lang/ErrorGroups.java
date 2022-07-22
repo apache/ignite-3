@@ -82,12 +82,12 @@ public class ErrorGroups {
         public static final ErrorGroup SQL_ERR_GROUP = ErrorGroup.newGroup("SQL", 4);
 
         /** No more pages in the cursor error. */
-        public static int CURSOR_NO_MORE_PAGES_ERR = SQL_ERR_GROUP.registerErrorCode(1);
+        public static final int CURSOR_NO_MORE_PAGES_ERR = SQL_ERR_GROUP.registerErrorCode(1);
 
         /** Session not found error. */
-        public static int SESSION_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(2);
+        public static final int SESSION_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(2);
 
         /** Invalid query error. */
-        public static int INVALID_QUERY_ERR = SQL_ERR_GROUP.registerErrorCode(2);
+        public static final int INVALID_QUERY_ERR = SQL_ERR_GROUP.registerErrorCode(2);
     }
 }
