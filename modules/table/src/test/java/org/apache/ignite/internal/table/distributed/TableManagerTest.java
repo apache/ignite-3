@@ -292,8 +292,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS);
 
-                tableChange.changeIntId(1);
-
                 tableChange.changeDataStorage(c -> c.convert(RocksDbDataStorageChange.class));
 
                 var extConfCh = ((ExtendedTableChange) tableChange);

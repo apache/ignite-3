@@ -95,7 +95,7 @@ public class VolatilePageMemoryPartitionStorageTest extends AbstractPartitionSto
         engine.start();
 
         tableCfg
-                .change(c -> c.changeDataStorage(dsc -> dsc.convert(VolatilePageMemoryDataStorageChange.class)).changeIntId(1))
+                .change(c -> c.changeDataStorage(dsc -> dsc.convert(VolatilePageMemoryDataStorageChange.class)))
                 .get(1, TimeUnit.SECONDS);
 
         assertEquals(
