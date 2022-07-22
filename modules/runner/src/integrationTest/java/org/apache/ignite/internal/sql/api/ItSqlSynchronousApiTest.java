@@ -219,7 +219,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         // Execute error.
         assertThrowsWithCause(
                 () -> ses.execute(null, "SELECT 1 / ?", 0),
-                SqlException.class,
+                IgniteException.class,
                 "/ by zero"
         );
     }
