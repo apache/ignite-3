@@ -60,11 +60,11 @@ public class ClientUtils {
         e = ExceptionUtils.unwrapCause(e);
 
         if (e instanceof IgniteClientConnectionException) {
-            return new IgniteClientConnectionException(((IgniteException) e).code(), e.getMessage(), e.getCause());
+            return new IgniteClientConnectionException(((IgniteException) e).traceId(), ((IgniteException) e).code(), e.getMessage(), e.getCause());
         }
 
         if (e instanceof IgniteException) {
-            return new IgniteException(((IgniteException) e).code(), e.getMessage(), e.getCause());
+            return new IgniteException(((IgniteException) e).traceId(), ((IgniteException) e).code(), e.getMessage(), e.getCause());
         }
 
         return new IgniteException(UNKNOWN_ERR, e.getMessage(), e);

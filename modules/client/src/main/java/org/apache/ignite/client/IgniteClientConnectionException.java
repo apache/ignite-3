@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -35,6 +36,18 @@ public class IgniteClientConnectionException extends IgniteException {
      */
     public IgniteClientConnectionException(int code, String msg, Throwable cause) {
         super(code, msg, cause);
+    }
+
+    /**
+     * Creates a new exception with the given trace id, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public IgniteClientConnectionException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 
     /**
