@@ -36,7 +36,7 @@ public class TableConfigurationSchema {
     @InjectedName
     public String name;
 
-    /** Small integer id. */
+    /** Integer table id. */
     @Immutable
     @Range(min = 1, max = Integer.MAX_VALUE)
     @Value(hasDefault = true)
