@@ -88,9 +88,15 @@ public class ErrorGroups {
         public static final int SESSION_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(2);
 
         /** Invalid query error. */
-        public static final int INVALID_QUERY_ERR = SQL_ERR_GROUP.registerErrorCode(3);
+        public static final int QUERY_INVALID_ERR = SQL_ERR_GROUP.registerErrorCode(3);
 
         /** Query without a result set error. */
-        public static final int NO_RESULT_SET_ERR = SQL_ERR_GROUP.registerErrorCode(4);
+        public static final int QUERY_NO_RESULT_SET_ERR = SQL_ERR_GROUP.registerErrorCode(4);
+
+        /** Missing primary key error. */
+        public static final int PRIMARY_KEY_MISSING_ERR = SQL_ERR_GROUP.registerErrorCode(5);
+
+        /** Multiple primary keys error. */
+        public static final int PRIMARY_KEYS_MULTIPLE_ERR = SQL_ERR_GROUP.registerErrorCode(6);
     }
 }

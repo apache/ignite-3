@@ -17,6 +17,7 @@
 
 package org.apache.ignite.sql;
 
+import java.util.UUID;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
@@ -40,6 +41,20 @@ public class SqlBatchException extends SqlException {
         super(code, cause.getMessage(), cause);
 
         this.updCntrs = updCntrs != null ? updCntrs : ArrayUtils.LONG_EMPTY_ARRAY;
+    }
+
+    /**
+     * Creates a new exception with the given trace id, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public SqlBatchException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
+
+        updCntrs = cause instanceof SqlBatchException ? ((SqlBatchException)cause).updCntrs : null;
     }
 
     /**

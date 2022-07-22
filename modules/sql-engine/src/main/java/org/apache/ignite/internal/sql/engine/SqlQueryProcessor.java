@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
-import static org.apache.ignite.lang.ErrorGroups.Sql.INVALID_QUERY_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
@@ -334,7 +334,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 )
                 .thenApply(nodes -> {
                     if (nodes.size() > 1) {
-                        throw new SqlException(INVALID_QUERY_ERR, "Multiple statements aren't allowed.");
+                        throw new SqlException(QUERY_INVALID_ERR, "Multiple statements aren't allowed.");
                     }
 
                     return nodes.get(0);

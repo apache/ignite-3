@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.INVALID_QUERY_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -199,7 +199,7 @@ public class SessionImpl implements Session {
                     transaction,
                     (QueryValidator) plan -> {
                         if (plan.type() != Type.DML) {
-                            throw new SqlException(INVALID_QUERY_ERR, "Invalid SQL statement type in the batch [plan=" + plan + ']');
+                            throw new SqlException(QUERY_INVALID_ERR, "Invalid SQL statement type in the batch [plan=" + plan + ']');
                         }
                     }
             );

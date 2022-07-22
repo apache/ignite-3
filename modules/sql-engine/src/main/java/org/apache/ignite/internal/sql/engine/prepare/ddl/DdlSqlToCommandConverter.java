@@ -21,6 +21,8 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEYS_MULTIPLE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEY_MISSING_ERR;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -69,6 +71,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -215,9 +218,9 @@ public class DdlSqlToCommandConverter {
         }
 
         if (nullOrEmpty(pkConstraints)) {
-            throw new IgniteException("Table without PRIMARY KEY is not supported");
+            throw new SqlException(PRIMARY_KEY_MISSING_ERR, "Table without PRIMARY KEY is not supported");
         } else if (pkConstraints.size() > 1) {
-            throw new IgniteException("Unexpected amount of primary key constraints ["
+            throw new SqlException(PRIMARY_KEYS_MULTIPLE_ERR, "Unexpected amount of primary key constraints ["
                     + "expected at most one, but was " + pkConstraints.size() + "; "
                     + "querySql=\"" + ctx.query() + "\"]");
         }
