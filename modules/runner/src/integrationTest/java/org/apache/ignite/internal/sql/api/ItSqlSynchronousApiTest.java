@@ -198,7 +198,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         // Parse error.
         assertThrowsWithCause(
                 () -> ses.execute(null, "SELECT ID FROM"),
-                IgniteInternalException.class,
+                SqlException.class,
                 "Failed to parse query"
         );
 
