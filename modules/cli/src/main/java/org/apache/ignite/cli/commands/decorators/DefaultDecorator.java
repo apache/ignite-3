@@ -17,8 +17,8 @@
 
 package org.apache.ignite.cli.commands.decorators;
 
-import org.apache.ignite.cli.commands.decorators.core.Decorator;
-import org.apache.ignite.cli.commands.decorators.core.TerminalOutput;
+import org.apache.ignite.cli.core.decorator.Decorator;
+import org.apache.ignite.cli.core.decorator.TerminalOutput;
 
 /**
  * Default decorator that calls toString method.

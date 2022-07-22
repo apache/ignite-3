@@ -18,33 +18,19 @@
 package org.apache.ignite.internal.rest.configuration;
 
 import io.micronaut.context.annotation.Requires;
-import io.micronaut.http.annotation.Body;
-import io.micronaut.http.annotation.Consumes;
 import io.micronaut.http.annotation.Controller;
-import io.micronaut.http.annotation.Get;
-import io.micronaut.http.annotation.Patch;
-import io.micronaut.http.annotation.PathVariable;
-import io.micronaut.http.annotation.Produces;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Named;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
-import org.apache.ignite.internal.rest.api.Problem;
-import org.apache.ignite.internal.rest.constants.MediaType;
+import org.apache.ignite.internal.rest.api.configuration.NodeConfigurationApi;
 import org.apache.ignite.internal.rest.exception.handler.IgniteExceptionHandler;
 
 /**
  * Node configuration controller.
  */
 @Controller("/management/v1/configuration/node")
-@Tag(name = "nodeConfiguration")
 @Requires(classes = IgniteExceptionHandler.class)
-public class NodeConfigurationController extends AbstractConfigurationController {
+public class NodeConfigurationController extends AbstractConfigurationController implements NodeConfigurationApi {
 
     public NodeConfigurationController(@Named("nodeCfgPresentation") ConfigurationPresentation<String> nodeCfgPresentation) {
         super(nodeCfgPresentation);
@@ -55,23 +41,6 @@ public class NodeConfigurationController extends AbstractConfigurationController
      *
      * @return the whole node configuration in HOCON format.
      */
-    @Operation(operationId = "getNodeConfiguration")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200",
-                    content = @Content(mediaType = MediaType.TEXT_PLAIN,
-                            schema = @Schema(type = "string")),
-                    description = "Whole node configuration"),
-            @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
-            @ApiResponse(responseCode = "400", description = "Incorrect configuration",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-
-    })
-    @Produces({
-            MediaType.TEXT_PLAIN, // todo: IGNITE-17082
-            MediaType.PROBLEM_JSON
-    })
-    @Get
     @Override
     public String getConfiguration() {
         return super.getConfiguration();
@@ -83,25 +52,8 @@ public class NodeConfigurationController extends AbstractConfigurationController
      * @param path to represent a node configuration.
      * @return system configuration in HOCON format represented by given path.
      */
-    @Operation(operationId = "getNodeConfigurationByPath")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200",
-                    content = @Content(mediaType = MediaType.TEXT_PLAIN,
-                            schema = @Schema(type = "string")),
-                    description = "Configuration represented by path"),
-            @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
-            @ApiResponse(responseCode = "400", description = "Incorrect configuration",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-
-    })
-    @Produces({
-            MediaType.TEXT_PLAIN, // todo: IGNITE-17082
-            MediaType.PROBLEM_JSON
-    })
-    @Get("/{path}")
     @Override
-    public String getConfigurationByPath(@PathVariable String path) {
+    public String getConfigurationByPath(String path) {
         return super.getConfigurationByPath(path);
     }
 
@@ -110,20 +62,8 @@ public class NodeConfigurationController extends AbstractConfigurationController
      *
      * @param updatedConfiguration the node configuration to update. This is represented as a plain text.
      */
-    @Operation(operationId = "updateNodeConfiguration")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Configuration updated"),
-            @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
-            @ApiResponse(responseCode = "400", description = "Incorrect configuration",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-
-    })
-    @Consumes(MediaType.TEXT_PLAIN) // todo: IGNITE-17082
-    @Produces(MediaType.PROBLEM_JSON)
-    @Patch
     @Override
-    public CompletableFuture<Void> updateConfiguration(@Body String updatedConfiguration) throws Throwable {
+    public CompletableFuture<Void> updateConfiguration(String updatedConfiguration) {
         return super.updateConfiguration(updatedConfiguration);
     }
 }

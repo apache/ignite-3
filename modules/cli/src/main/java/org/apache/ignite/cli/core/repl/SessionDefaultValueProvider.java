@@ -49,7 +49,7 @@ public class SessionDefaultValueProvider implements IDefaultValueProvider {
     public String defaultValue(ArgSpec argSpec) throws Exception {
         if (session.isConnectedToNode()) {
             if (Objects.equals(argSpec.descriptionKey(), ConfigConstants.JDBC_URL)) {
-                return session.getJdbcUrl();
+                return session.jdbcUrl();
             }
         }
         return defaultValueProvider.defaultValue(argSpec);

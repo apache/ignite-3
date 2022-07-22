@@ -18,63 +18,68 @@
 package org.apache.ignite.internal.cluster.management.rest;
 
 import io.micronaut.http.annotation.Body;
-import io.micronaut.http.annotation.Consumes;
 import io.micronaut.http.annotation.Controller;
-import io.micronaut.http.annotation.Post;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.internal.cluster.management.rest.exception.InvalidArgumentClusterInitializationException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.rest.api.Problem;
-import org.apache.ignite.internal.rest.constants.MediaType;
+import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
+import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
+import org.apache.ignite.internal.rest.api.cluster.ClusterTagDto;
+import org.apache.ignite.internal.rest.api.cluster.IgniteProductVersionDto;
+import org.apache.ignite.internal.rest.api.cluster.InitCommand;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * Cluster management controller.
+ * Cluster management controller implementation.
  */
-@Controller("/management/v1/cluster/init")
-@Tag(name = "clusterManagement")
-public class ClusterManagementController {
+@Controller("/management/v1/cluster")
+public class ClusterManagementController implements ClusterManagementApi {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementController.class);
 
     private final ClusterInitializer clusterInitializer;
+
+    private final ClusterManagementGroupManager clusterManagementGroupManager;
 
     /**
      * Cluster management controller constructor.
      *
      * @param clusterInitializer cluster initializer.
+     * @param clusterManagementGroupManager cluster management group manager.
      */
-    public ClusterManagementController(ClusterInitializer clusterInitializer) {
+    public ClusterManagementController(ClusterInitializer clusterInitializer,
+            ClusterManagementGroupManager clusterManagementGroupManager) {
         this.clusterInitializer = clusterInitializer;
+        this.clusterManagementGroupManager = clusterManagementGroupManager;
     }
 
-    /**
-     * Initializes cluster.
-     *
-     * @return Completable future that will be completed when cluster is initialized.
-     */
-    @Post
-    @Operation(operationId = "init")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Cluster initialized"),
-            @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
-            @ApiResponse(responseCode = "400", description = "Incorrect configuration",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<ClusterStateDto> clusterState() {
+        try {
+            return clusterManagementGroupManager.clusterState()
+                    .thenApply(this::mapClusterState)
+                    .thenApply(res -> {
+                        if (res == null) {
+                            throw new ClusterNotInitializedException();
+                        }
+                        return res;
+                    });
+        } catch (ExecutionException | InterruptedException e) {
+            throw new IgniteException(e);
+        }
+    }
 
-    })
-    @Consumes(MediaType.APPLICATION_JSON)
-    public CompletableFuture<Void> init(@Body InitCommand initCommand) throws ExecutionException, InterruptedException {
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> init(@Body InitCommand initCommand) {
         if (LOG.isInfoEnabled()) {
             LOG.info("Received init command [metaStorageNodes={}, cmgNodes={}]", initCommand.metaStorageNodes(),
                     initCommand.cmgNodes());
@@ -84,6 +89,20 @@ public class ClusterManagementController {
                 .exceptionally(ex -> {
                     throw mapException(ex);
                 });
+    }
+
+    private ClusterStateDto mapClusterState(ClusterState clusterState) {
+        if (clusterState == null) {
+            return null;
+        }
+
+        return new ClusterStateDto(
+                clusterState.cmgNodes(),
+                clusterState.metaStorageNodes(),
+                new IgniteProductVersionDto(clusterState.igniteVersion().major(), clusterState.igniteVersion().minor(),
+                        clusterState.igniteVersion().maintenance(), clusterState.igniteVersion().snapshot(),
+                        clusterState.igniteVersion().alphaVersion()),
+                new ClusterTagDto(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId()));
     }
 
     private RuntimeException mapException(Throwable ex) {

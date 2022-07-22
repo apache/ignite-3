@@ -57,7 +57,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.TableChange;
@@ -84,6 +83,7 @@ import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactory;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -122,6 +122,7 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.table.Table;
@@ -521,7 +522,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private RaftGroupOptions groupOptionsForInternalTable(InternalTable internalTbl) {
-        return RaftGroupOptions.forTable(internalTbl.storage().isVolatile());
+        if (internalTbl.storage().isVolatile()) {
+            return RaftGroupOptions.forVolatileStores()
+                    .setLogStorageFactory(new VolatileLogStorageFactory())
+                    .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage());
+        } else {
+            return RaftGroupOptions.forPersistentStores();
+        }
     }
 
     /** {@inheritDoc} */
@@ -1028,17 +1035,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A list of direct table ids.
      */
     private List<UUID> directTableIds() {
-        NamedListView<TableView> views = directProxy(tablesCfg.tables()).value();
-
-        List<UUID> tableUuids = new ArrayList<>();
-
-        for (int i = 0; i < views.size(); i++) {
-            ExtendedTableView extView = (ExtendedTableView) views.get(i);
-
-            tableUuids.add(extView.id());
-        }
-
-        return tableUuids;
+        return ConfigurationUtil.internalIds(directProxy(tablesCfg.tables()));
     }
 
     /**
