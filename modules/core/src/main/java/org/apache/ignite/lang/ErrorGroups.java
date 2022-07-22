@@ -20,6 +20,7 @@ package org.apache.ignite.lang;
 /**
  * Defines error groups and its errors.
  */
+@SuppressWarnings("PublicInnerClass")
 public class ErrorGroups {
     /** Common error group. */
     public static class Common {
@@ -27,7 +28,7 @@ public class ErrorGroups {
         public static final ErrorGroup COMMON_ERR_GROUP = ErrorGroup.newGroup("CMN", 1);
 
         /** Unknown error. */
-        public static int UNKNOWN_ERR = COMMON_ERR_GROUP.registerErrorCode(1);
+        public static final int UNKNOWN_ERR = COMMON_ERR_GROUP.registerErrorCode(1);
     }
 
     /** Tables error group. */
@@ -36,16 +37,16 @@ public class ErrorGroups {
         public static final ErrorGroup TABLE_ERR_GROUP = ErrorGroup.newGroup("TBL", 2);
 
         /** Table already exists. */
-        public static int TABLE_ALREADY_EXISTS_ERR = TABLE_ERR_GROUP.registerErrorCode(1);
+        public static final int TABLE_ALREADY_EXISTS_ERR = TABLE_ERR_GROUP.registerErrorCode(1);
 
         /** Table not found. */
-        public static int TABLE_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode(2);
+        public static final int TABLE_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode(2);
 
         /** Column already exists. */
-        public static int COLUMN_ALREADY_EXISTS_ERR = TABLE_ERR_GROUP.registerErrorCode(3);
+        public static final int COLUMN_ALREADY_EXISTS_ERR = TABLE_ERR_GROUP.registerErrorCode(3);
 
         /** Column not found. */
-        public static int COLUMN_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode(4);
+        public static final int COLUMN_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode(4);
     }
 
     /** Client error group. */
@@ -54,25 +55,25 @@ public class ErrorGroups {
         public static final ErrorGroup CLIENT_ERR_GROUP = ErrorGroup.newGroup("CLIENT", 3);
 
         /** Connection failed. */
-        public static int CONNECTION_ERR = CLIENT_ERR_GROUP.registerErrorCode(1);
+        public static final int CONNECTION_ERR = CLIENT_ERR_GROUP.registerErrorCode(1);
 
         /** Protocol breakdown. */
-        public static int PROTOCOL_ERR = CLIENT_ERR_GROUP.registerErrorCode(2);
+        public static final int PROTOCOL_ERR = CLIENT_ERR_GROUP.registerErrorCode(2);
 
         /** Incompatible protocol version. */
-        public static int PROTOCOL_COMPATIBILITY_ERR = CLIENT_ERR_GROUP.registerErrorCode(3);
+        public static final int PROTOCOL_COMPATIBILITY_ERR = CLIENT_ERR_GROUP.registerErrorCode(3);
 
         /** Table not found by ID. */
-        public static int TABLE_ID_NOT_FOUND_ERR = CLIENT_ERR_GROUP.registerErrorCode(4);
+        public static final int TABLE_ID_NOT_FOUND_ERR = CLIENT_ERR_GROUP.registerErrorCode(4);
 
         /** Authentication error. */
-        public static int AUTHENTICATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(5);
+        public static final int AUTHENTICATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(5);
 
         /** Authorization error. */
-        public static int AUTHORIZATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(6);
+        public static final int AUTHORIZATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(6);
 
         /** Configuration error. */
-        public static int CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(7);
+        public static final int CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(7);
     }
 
     /** SQL error group. */
