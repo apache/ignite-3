@@ -225,7 +225,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             payloadCh.close();
             pendingReqs.remove(id);
 
-            throw ClientUtils.convertException(t);
+            throw IgniteException.wrap(t);
         }
     }
 
@@ -362,7 +362,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var res = connectTimeout > 0 ? fut.get(connectTimeout, TimeUnit.MILLISECONDS) : fut.get();
             handshakeRes(res, ver);
         } catch (Throwable e) {
-            throw ClientUtils.convertException(e);
+            throw IgniteException.wrap(e);
         }
     }
 
