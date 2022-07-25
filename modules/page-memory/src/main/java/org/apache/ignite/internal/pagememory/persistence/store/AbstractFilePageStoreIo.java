@@ -137,11 +137,10 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * @param pageOff Page offset in the file.
      * @param pageBuf Page buffer to read into.
      * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code true}.
-     * @return {@code True} if the page was read successfully.
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
-    public boolean read(long pageId, long pageOff, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
-        return read0(pageId, pageOff, pageBuf, !skipCrc, keepCrc);
+    public void read(long pageId, long pageOff, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
+        read0(pageId, pageOff, pageBuf, !skipCrc, keepCrc);
     }
 
     /**
@@ -461,10 +460,9 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * @param pageBuf Page buffer to read into.
      * @param checkCrc Check CRC on page.
      * @param keepCrc By default reading zeroes CRC which was on file, but you can keep it in pageBuf if set keepCrc.
-     * @return {@code True} if the page was read successfully.
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
-    private boolean read0(
+    private void read0(
             long pageId,
             long pageOff,
             ByteBuffer pageBuf,
@@ -488,7 +486,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
             if (n < 0) {
                 pageBuf.put(new byte[pageBuf.remaining()]);
 
-                return false;
+                return;
             }
 
             int savedCrc32 = PageIo.getCrc(pageBuf);
@@ -515,7 +513,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
                 PageIo.setCrc(pageBuf, savedCrc32);
             }
 
-            return true;
+            return;
         } catch (IOException e) {
             throw new IgniteInternalCheckedException("Failed to read page [file=" + filePath + ", pageId=" + pageId + "]", e);
         }

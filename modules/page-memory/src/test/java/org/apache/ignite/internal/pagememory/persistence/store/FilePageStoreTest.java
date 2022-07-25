@@ -30,9 +30,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -354,7 +352,7 @@ public class FilePageStoreTest {
 
             try {
                 // Check read page from filePageStoreIo.
-                assertTrue(filePageStore.readWithoutPageIdCheck(pageId0, buffer, true));
+                filePageStore.readWithoutPageIdCheck(pageId0, buffer, true);
 
                 assertEquals(pageId0, PageIo.getPageId(buffer.rewind()));
 
@@ -363,7 +361,7 @@ public class FilePageStoreTest {
                 verify(filePageStoreIo, times(1)).read(eq(pageId0), anyLong(), eq(buffer), eq(true));
 
                 // Check read page from deltaIo0.
-                assertTrue(filePageStore.readWithoutPageIdCheck(pageId1, buffer.rewind(), true));
+                filePageStore.readWithoutPageIdCheck(pageId1, buffer.rewind(), true);
 
                 assertEquals(pageId1, PageIo.getPageId(buffer.rewind()));
 
@@ -372,7 +370,7 @@ public class FilePageStoreTest {
                 verify(filePageStoreIo, times(0)).read(eq(pageId1), anyLong(), eq(buffer), eq(true));
 
                 // Check read page from deltaIo1.
-                assertTrue(filePageStore.readWithoutPageIdCheck(pageId2, buffer.rewind(), true));
+                filePageStore.readWithoutPageIdCheck(pageId2, buffer.rewind(), true);
 
                 assertEquals(pageId2, PageIo.getPageId(buffer.rewind()));
 
@@ -383,7 +381,7 @@ public class FilePageStoreTest {
                 // Let's check the reading of a non-existent page.
                 long pageId3 = createDataPageId(() -> 3);
 
-                assertFalse(filePageStore.readWithoutPageIdCheck(pageId3, buffer.rewind(), true));
+                filePageStore.readWithoutPageIdCheck(pageId3, buffer.rewind(), true);
 
                 assertEquals(0, PageIo.getPageId(buffer.rewind()));
 
@@ -393,6 +391,31 @@ public class FilePageStoreTest {
             } finally {
                 freeBuffer(buffer);
             }
+        }
+    }
+
+    @Test
+    void testDeltaFileCount() throws Exception {
+        Path testFilePath = workDir.resolve("test");
+
+        try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
+            filePageStore.setDeltaFilePageStoreIoFactory((index, pageIndexes) -> mock(DeltaFilePageStoreIo.class));
+
+            assertEquals(0, filePageStore.deltaFileCount());
+
+            filePageStore.getOrCreateNewDeltaFile(TestPageStoreUtils::arr).get(1, SECONDS);
+
+            assertEquals(1, filePageStore.deltaFileCount());
+        }
+
+        try (FilePageStore filePageStore = createFilePageStore(testFilePath, mock(DeltaFilePageStoreIo.class))) {
+            filePageStore.setDeltaFilePageStoreIoFactory((index, pageIndexes) -> mock(DeltaFilePageStoreIo.class));
+
+            assertEquals(1, filePageStore.deltaFileCount());
+
+            filePageStore.getOrCreateNewDeltaFile(TestPageStoreUtils::arr).get(1, SECONDS);
+
+            assertEquals(2, filePageStore.deltaFileCount());
         }
     }
 

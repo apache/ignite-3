@@ -354,6 +354,8 @@ public class FilePageStoreManagerTest {
 
         DeltaFilePageStoreIo latest = manager.createLatest(grpDir, 0, 0, arr());
 
+        latest.ensure();
+
         manager.renameDeltaFile(grpDir, 0, latest);
 
         assertEquals(

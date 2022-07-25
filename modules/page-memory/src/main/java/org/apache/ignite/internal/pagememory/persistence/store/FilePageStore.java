@@ -159,21 +159,21 @@ public class FilePageStore implements PageStore {
      *
      * @param pageId Page ID.
      * @param pageBuf Page buffer to read into.
-     * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code
-     * keepCrc}.
-     * @return {@code True} if the page was read successfully.
+     * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code true}.
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
-    public boolean readWithoutPageIdCheck(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
+    public void readWithoutPageIdCheck(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
         for (DeltaFilePageStoreIo deltaFilePageStoreIo : deltaFilePageStoreIos) {
             long pageOff = deltaFilePageStoreIo.pageOffset(pageId);
 
             if (pageOff >= 0) {
-                return deltaFilePageStoreIo.read(pageId, pageOff, pageBuf, keepCrc);
+                deltaFilePageStoreIo.read(pageId, pageOff, pageBuf, keepCrc);
+
+                return;
             }
         }
 
-        return filePageStoreIo.read(pageId, filePageStoreIo.pageOffset(pageId), pageBuf, keepCrc);
+        filePageStoreIo.read(pageId, filePageStoreIo.pageOffset(pageId), pageBuf, keepCrc);
     }
 
     /** {@inheritDoc} */
@@ -341,5 +341,12 @@ public class FilePageStore implements PageStore {
         }
 
         completeCreationDeltaFilePageStoreIoCallback.onCompletionOfCreation(future.join());
+    }
+
+    /**
+     * Returns the number of delta files.
+     */
+    public int deltaFileCount() {
+        return deltaFilePageStoreIos.size();
     }
 }

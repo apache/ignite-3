@@ -243,14 +243,14 @@ public abstract class AbstractFilePageStoreIoTest {
 
             readBuffer = ByteBuffer.allocate(PAGE_SIZE).order(pageByteBuffer.order());
 
-            assertTrue(filePageStoreIo.read(expPageId, filePageStoreIo.pageOffset(expPageId), readBuffer, true));
+            filePageStoreIo.read(expPageId, filePageStoreIo.pageOffset(expPageId), readBuffer, true);
 
             assertNotEquals(0, getCrc(readBuffer));
 
             // Checks for reading a page beyond the file.
             expPageId = createDataPageId(() -> 1);
 
-            assertFalse(filePageStoreIo.read(expPageId, filePageStoreIo.pageOffset(expPageId), readBuffer.rewind(), true));
+            filePageStoreIo.read(expPageId, filePageStoreIo.pageOffset(expPageId), readBuffer.rewind(), true);
 
             assertEquals(ByteBuffer.allocate(PAGE_SIZE).order(pageByteBuffer.order()), readBuffer.rewind());
         }
