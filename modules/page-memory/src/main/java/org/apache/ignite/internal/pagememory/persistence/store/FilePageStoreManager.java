@@ -348,8 +348,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
                 FilePageStore filePageStore = filePageStoreFactory.createPageStore(buffer.rewind(), partFilePath, partDeltaFiles);
 
-                filePageStore.setCompleteCreationDeltaFilePageStoreIoCallback(deltaIo -> renameDeltaFile(groupWorkDir, part, deltaIo));
-
                 partitionFilePageStores.add(filePageStore);
             }
 
@@ -389,45 +387,24 @@ public class FilePageStoreManager implements PageReadWriteManager {
     }
 
     /**
-     * Renames the delta file page store from temporary to permanent, such as "part-1-delta-1.bin.tmp" to "part-1-delta-1.bin".
+     * Returns the temporary path to the delta file page store, like "part-1-delta-1.bin.tmp".
      *
-     * @param groupWorkDir Group directory.
-     * @param partition Partition number.
-     * @param deltaIo Delta file page store.
-     * @throws IgniteInternalCheckedException If failed.
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     * @param index Index of the delta file page store.
      */
-    void renameDeltaFile(Path groupWorkDir, int partition, DeltaFilePageStoreIo deltaIo) throws IgniteInternalCheckedException {
-        assert deltaIo.filePath().getFileName().toString().equals(tmpDeltaFileName(partition, deltaIo.fileIndex())) :
-                "expected=" + tmpDeltaFileName(partition, deltaIo.fileIndex()) + ", actual=" + deltaIo.filePath().getFileName();
-
-        Path newFilePath = groupWorkDir.resolve(String.format(PART_DELTA_FILE_TEMPLATE, partition, deltaIo.fileIndex()));
-
-        try {
-            deltaIo.renameFilePath(newFilePath);
-        } catch (IOException e) {
-            throw new IgniteInternalCheckedException(
-                    IgniteStringFormatter.format(
-                            "Failed to rename file [source={}, target={}]",
-                            deltaIo.filePath(),
-                            newFilePath
-                    ),
-                    e
-            );
-        }
-    }
-
-    private static String tmpDeltaFileName(int partition, int index) {
-        return String.format(TMP_PART_DELTA_FILE_TEMPLATE, partition, index);
+    Path tmpDeltaFilePageStorePath(int groupId, int partitionId, int index) {
+        return dbDir.resolve(GROUP_DIR_PREFIX + groupId).resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, partitionId, index));
     }
 
     /**
-     * Returns the path to the delta file page store.
+     * Returns the path to the delta file page store, like "part-1-delta-1.bin".
      *
      * @param groupId Group ID.
      * @param partitionId Partition ID.
      * @param index Index of the delta file page store.
      */
     Path deltaFilePageStorePath(int groupId, int partitionId, int index) {
-        return dbDir.resolve(GROUP_DIR_PREFIX + groupId).resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, partitionId, index));
+        return dbDir.resolve(GROUP_DIR_PREFIX + groupId).resolve(String.format(PART_DELTA_FILE_TEMPLATE, partitionId, index));
     }
 }

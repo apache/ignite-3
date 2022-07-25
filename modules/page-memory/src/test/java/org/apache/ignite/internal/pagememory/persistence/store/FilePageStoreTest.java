@@ -250,8 +250,6 @@ public class FilePageStoreTest {
                 FilePageStoreIo filePageStoreIo = spy(new FilePageStoreIo(ioFactory, filePageStoreFilePath, filePageStoreHeader));
                 FilePageStore filePageStore = new FilePageStore(filePageStoreIo, deltaIo0);
         ) {
-            filePageStore.setCompleteCreationDeltaFilePageStoreIoCallback(AbstractFilePageStoreIo::sync);
-
             DeltaFilePageStoreIo deltaIo1 = filePageStore
                     .getOrCreateNewDeltaFile(this::deltaFilePath, deltaHeader1::pageIndexes)
                     .get(1, SECONDS);
@@ -315,8 +313,6 @@ public class FilePageStoreTest {
                 FilePageStoreIo filePageStoreIo = spy(new FilePageStoreIo(ioFactory, filePageStoreFilePath, filePageStoreHeader));
                 FilePageStore filePageStore = new FilePageStore(filePageStoreIo, deltaIo0);
         ) {
-            filePageStore.setCompleteCreationDeltaFilePageStoreIoCallback(AbstractFilePageStoreIo::sync);
-
             DeltaFilePageStoreIo deltaIo1 = filePageStore
                     .getOrCreateNewDeltaFile(this::deltaFilePath, deltaHeader1::pageIndexes)
                     .get(1, SECONDS);

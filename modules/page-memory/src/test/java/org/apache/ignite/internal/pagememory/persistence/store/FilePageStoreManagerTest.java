@@ -318,43 +318,37 @@ public class FilePageStoreManagerTest {
     }
 
     @Test
-    void testDeltaFilePageStorePath() throws Exception {
+    void testTmpDeltaFilePageStorePath() throws Exception {
         FilePageStoreManager manager = createManager();
 
         Path tableDir = workDir.resolve("db/table-0");
 
         assertEquals(
                 tableDir.resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, 0, 0)),
-                manager.deltaFilePageStorePath(0, 0, 0)
+                manager.tmpDeltaFilePageStorePath(0, 0, 0)
         );
 
         assertEquals(
                 tableDir.resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, 1, 2)),
-                manager.deltaFilePageStorePath(0, 1, 2)
+                manager.tmpDeltaFilePageStorePath(0, 1, 2)
         );
     }
 
     @Test
-    void testRenameDeltaFile() throws Exception {
-        // TODO: IGNITE-17372 испрвить
-    //        FilePageStoreManager manager = createManager();
-    //
-    //        manager.start();
-    //
-    //        manager.initialize("test", 1, 1);
-    //
-    //        Path grpDir = workDir.resolve("db/group-test");
-    //
-    //        DeltaFilePageStoreIo latest = manager.createLatest(grpDir, 0, 0, arr());
-    //
-    //        latest.ensure();
-    //
-    //        manager.renameDeltaFile(grpDir, 0, latest);
-    //
-    //        assertEquals(
-    //                grpDir.resolve(String.format(PART_DELTA_FILE_TEMPLATE, 0, 0)),
-    //                latest.filePath()
-    //        );
+    void testDeltaFilePageStorePath() throws Exception {
+        FilePageStoreManager manager = createManager();
+
+        Path tableDir = workDir.resolve("db/table-0");
+
+        assertEquals(
+                tableDir.resolve(String.format(PART_DELTA_FILE_TEMPLATE, 0, 0)),
+                manager.deltaFilePageStorePath(0, 0, 0)
+        );
+
+        assertEquals(
+                tableDir.resolve(String.format(PART_DELTA_FILE_TEMPLATE, 1, 2)),
+                manager.deltaFilePageStorePath(0, 1, 2)
+        );
     }
 
     private FilePageStoreManager createManager() throws Exception {

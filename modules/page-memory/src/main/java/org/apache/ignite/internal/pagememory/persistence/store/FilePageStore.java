@@ -93,9 +93,6 @@ public class FilePageStore implements PageStore {
     /** Future with a new delta file page store. */
     private volatile @Nullable CompletableFuture<DeltaFilePageStoreIo> newDeltaFilePageStoreIoFuture;
 
-    /** Callback on completion of delta file page store creation. */
-    private volatile @Nullable CompleteCreationDeltaFilePageStoreIoCallback completeCreationDeltaFilePageStoreIoCallback;
-
     /**
      * Constructor.
      *
@@ -270,15 +267,6 @@ public class FilePageStore implements PageStore {
     }
 
     /**
-     * Sets the callback on completion of delta file page store creation.
-     *
-     * @param callback Callback.
-     */
-    public void setCompleteCreationDeltaFilePageStoreIoCallback(CompleteCreationDeltaFilePageStoreIoCallback callback) {
-        completeCreationDeltaFilePageStoreIoCallback = callback;
-    }
-
-    /**
      * Gets or creates a new delta file, a new delta file will be created when the previous one is {@link #completeNewDeltaFile()
      * completed}.
      *
@@ -330,12 +318,8 @@ public class FilePageStore implements PageStore {
      * Completes the {@link #getOrCreateNewDeltaFile(IntFunction, Supplier) creation} of a new delta file.
      *
      * <p>Thread safe.
-     *
-     * @throws IgniteInternalCheckedException If failed.
      */
-    public void completeNewDeltaFile() throws IgniteInternalCheckedException {
-        assert completeCreationDeltaFilePageStoreIoCallback != null;
-
+    public void completeNewDeltaFile() {
         CompletableFuture<DeltaFilePageStoreIo> future = this.newDeltaFilePageStoreIoFuture;
 
         if (future == null) {
@@ -343,12 +327,7 @@ public class FilePageStore implements PageStore {
             return;
         }
 
-        if (!NEW_DELTA_FILE_PAGE_STORE_IO_FUTURE.compareAndSet(this, future, null)) {
-            // Another thread completes the new delta file.
-            return;
-        }
-
-        completeCreationDeltaFilePageStoreIoCallback.onCompletionOfCreation(future.join());
+        NEW_DELTA_FILE_PAGE_STORE_IO_FUTURE.compareAndSet(this, future, null);
     }
 
     /**
