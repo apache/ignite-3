@@ -26,37 +26,37 @@ import org.apache.ignite.cli.config.ini.IniFile;
  * Config file which stores information between application restarts, but not part of the config.
  */
 public class StateConfig {
-    private static final String CONFIG_FILE_NAME = "config.ini";
 
     /**
      * Returns an instance of {@link Config} holding the properties.
      *
+     * @param file INI file.
      * @return new instance of {@link Config}
      */
-    public static Config getStateConfig() {
-        IniFile file = getStateConfigIniFile();
-        return new IniConfig(file.getTopLevelSection(), file::store);
+
+    public static Config getStateConfig(File file) {
+        IniFile iniFile = loadStateConfig(file);
+        return new IniConfig(iniFile.getTopLevelSection(), iniFile::store);
     }
 
-    private static IniFile getStateConfigIniFile() {
+    private static IniFile loadStateConfig(File file) {
         try {
-            return new IniFile(StateFolderProvider.getStateFile(CONFIG_FILE_NAME));
+            return new IniFile(file);
         } catch (IOException e) {
-            return createDefaultConfig();
+            return createDefaultConfig(file);
         }
     }
 
-    private static IniFile createDefaultConfig() {
-        File configFile = StateFolderProvider.getStateFile(CONFIG_FILE_NAME);
+    private static IniFile createDefaultConfig(File file) {
         try {
-            configFile.getParentFile().mkdirs();
-            configFile.delete();
-            configFile.createNewFile();
-            IniFile ini = new IniFile(configFile);
+            file.getParentFile().mkdirs();
+            file.delete();
+            file.createNewFile();
+            IniFile ini = new IniFile(file);
             ini.store();
             return ini;
         } catch (IOException e) {
-            throw new ConfigInitializationException(configFile.getAbsolutePath(), e);
+            throw new ConfigInitializationException(file.getAbsolutePath(), e);
         }
     }
 }

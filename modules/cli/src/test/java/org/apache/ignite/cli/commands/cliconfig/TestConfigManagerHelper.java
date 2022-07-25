@@ -30,28 +30,34 @@ import org.apache.ignite.cli.config.ConfigManager;
  * Test factory for {@link ConfigManager}.
  */
 public class TestConfigManagerHelper {
-    public static final String EMPTY = "empty.ini";
-    public static final String TWO_SECTION_WITH_INTERNAL_PART = "two_section_with_internal.ini";
-    public static final String TWO_SECTION_WITHOUT_INTERNAL_PART = "two_section_without_internal.ini";
-    public static final String INTEGRATION_TESTS = "integration_tests.ini";
+    private static final String EMPTY = "empty.ini";
+    private static final String TWO_SECTION_WITH_INTERNAL_PART = "two_section_with_internal.ini";
+    private static final String TWO_SECTION_WITHOUT_INTERNAL_PART = "two_section_without_internal.ini";
+    private static final String INTEGRATION_TESTS = "integration_tests.ini";
+
+    private static final String CLUSTER_URL_NON_DEFAULT = "cluster_url_non_default.ini";
 
     public static File createEmptyConfig() {
-        return createIniFile(EMPTY);
+        return copyResourceToTempFile(EMPTY);
     }
 
     public static File createSectionWithInternalPart() {
-        return createIniFile(TWO_SECTION_WITH_INTERNAL_PART);
+        return copyResourceToTempFile(TWO_SECTION_WITH_INTERNAL_PART);
     }
 
     public static File createSectionWithoutInternalPart() {
-        return createIniFile(TWO_SECTION_WITHOUT_INTERNAL_PART);
+        return copyResourceToTempFile(TWO_SECTION_WITHOUT_INTERNAL_PART);
     }
 
     public static File createIntegrationTests() {
-        return createIniFile(INTEGRATION_TESTS);
+        return copyResourceToTempFile(INTEGRATION_TESTS);
     }
 
-    private static File createIniFile(String iniResource) {
+    public static File createClusterUrlNonDefault() {
+        return copyResourceToTempFile(CLUSTER_URL_NON_DEFAULT);
+    }
+
+    public static File copyResourceToTempFile(String iniResource) {
         try {
             File tempFile = File.createTempFile("cli", null);
 

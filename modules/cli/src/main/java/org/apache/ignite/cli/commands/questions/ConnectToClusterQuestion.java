@@ -24,7 +24,7 @@ import org.apache.ignite.cli.call.connect.ConnectCall;
 import org.apache.ignite.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.cli.config.ConfigConstants;
 import org.apache.ignite.cli.config.ConfigManagerProvider;
-import org.apache.ignite.cli.config.StateConfig;
+import org.apache.ignite.cli.config.StateConfigProvider;
 import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.cli.core.flow.builder.Flows;
@@ -42,7 +42,10 @@ public class ConnectToClusterQuestion {
     private ConnectCall connectCall;
 
     @Inject
-    private ConfigManagerProvider provider;
+    private ConfigManagerProvider configManagerProvider;
+
+    @Inject
+    private StateConfigProvider stateConfigProvider;
 
     @Inject
     private Session session;
@@ -55,7 +58,7 @@ public class ConnectToClusterQuestion {
      * @return {@link FlowBuilder} instance with question in case when cluster url.
      */
     public FlowBuilder<Void, String> askQuestionIfNotConnected(String clusterUrl) {
-        String clusterProperty = provider.get().getCurrentProperty("ignite.cluster-url");
+        String clusterProperty = configManagerProvider.get().getCurrentProperty("ignite.cluster-url");
         String question = "You are not connected to node. Do you want to connect to the default node "
                 + clusterProperty + " ? [Y/n] ";
 
@@ -76,8 +79,8 @@ public class ConnectToClusterQuestion {
      * Ask for connect to the cluster and suggest to save the last connected URL as default.
      */
     public void askQuestionOnReplStart() {
-        String defaultUrl = provider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
-        String lastConnectedUrl = StateConfig.getStateConfig().getProperty(ConfigConstants.LAST_CONNECTED_URL);
+        String defaultUrl = configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
+        String lastConnectedUrl = stateConfigProvider.get().getProperty(ConfigConstants.LAST_CONNECTED_URL);
         String question;
         String clusterUrl;
         if (lastConnectedUrl != null) {
@@ -99,7 +102,7 @@ public class ConnectToClusterQuestion {
     private FlowBuilder<String, String> defaultUrlQuestion(String lastConnectedUrl) {
         return Flows.acceptQuestion("Would you like to use " + lastConnectedUrl + " as the default URL? [Y/n]",
                 () -> {
-                    provider.get().setProperty(ConfigConstants.CLUSTER_URL, lastConnectedUrl);
+                    configManagerProvider.get().setProperty(ConfigConstants.CLUSTER_URL, lastConnectedUrl);
                     return "Config saved";
                 }
         );
