@@ -152,14 +152,14 @@ public class SchemaDescriptorConverter {
 
         switch (defaultValueType) {
             case NULL:
-                return new Column(columnOrder, colCfg.name(), type, colCfg.nullable(), DefaultValueProvider.constantProvider(null));
+                return new Column(columnOrder, colCfg.name(), type, colCfg.nullable());
             case CONSTANT:
-                var constantValue = (ConstantValue) colCfg.defaultValueDefinition();
+                ConstantValue constantValue = colCfg.defaultValueDefinition();
 
                 return new Column(columnOrder, colCfg.name(), type, colCfg.nullable(),
                         DefaultValueProvider.constantProvider(constantValue.value()));
             case FUNCTION_CALL:
-                var functionCall = (FunctionCall) colCfg.defaultValueDefinition();
+                FunctionCall functionCall = colCfg.defaultValueDefinition();
 
                 return new Column(columnOrder, colCfg.name(), type, colCfg.nullable(),
                         DefaultValueProvider.forValueGenerator(DefaultValueGenerator.valueOf(functionCall.functionName())));

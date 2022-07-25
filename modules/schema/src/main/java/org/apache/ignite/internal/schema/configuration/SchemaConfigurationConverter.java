@@ -359,10 +359,10 @@ public class SchemaConfigurationConverter {
         colChg.changeType(colTypeInit -> convert(col.type(), colTypeInit));
 
         if (col.defaultValueDefinition() != null) {
-            colChg.changeDefaultValue(colDefault -> {
+            colChg.changeDefaultValueProvider(colDefault -> {
                 switch (col.defaultValueDefinition().type()) {
                     case CONSTANT:
-                        var constantValue = (ConstantValue) col.defaultValueDefinition();
+                        ConstantValue constantValue = col.defaultValueDefinition();
 
                         colDefault.convert(ConstantValueDefaultChange.class).changeDefaultValue(
                                 convertDefaultToConfiguration(constantValue.value(), col.type())
@@ -370,7 +370,7 @@ public class SchemaConfigurationConverter {
 
                         break;
                     case FUNCTION_CALL:
-                        var functionCall = (FunctionCall) col.defaultValueDefinition();
+                        FunctionCall functionCall = col.defaultValueDefinition();
 
                         colDefault.convert(FunctionCallDefaultChange.class).changeFunctionName(functionCall.functionName());
 
@@ -401,16 +401,18 @@ public class SchemaConfigurationConverter {
 
         DefaultValueDefinition valueSupplier;
 
-        if (colView.defaultValue() instanceof NullValueDefaultView) {
+        var defaultValueProvider = colView.defaultValueProvider();
+
+        if (defaultValueProvider instanceof NullValueDefaultView) {
             valueSupplier = DefaultValueDefinition.nullValue();
-        } else if (colView.defaultValue() instanceof FunctionCallDefaultView) {
-            valueSupplier = DefaultValueDefinition.functionCall(((FunctionCallDefaultView) colView.defaultValue()).functionName());
-        } else if (colView.defaultValue() instanceof ConstantValueDefaultView) {
+        } else if (defaultValueProvider instanceof FunctionCallDefaultView) {
+            valueSupplier = DefaultValueDefinition.functionCall(((FunctionCallDefaultView) defaultValueProvider).functionName());
+        } else if (defaultValueProvider instanceof ConstantValueDefaultView) {
             valueSupplier = DefaultValueDefinition.constant(
-                    convertDefaultFromConfiguration(((ConstantValueDefaultView) colView.defaultValue()).defaultValue(), type)
+                    convertDefaultFromConfiguration(((ConstantValueDefaultView) defaultValueProvider).defaultValue(), type)
             );
         } else {
-            throw new IllegalStateException("Unknown value supplier class " + colView.defaultValue().getClass().getName());
+            throw new IllegalStateException("Unknown value supplier class " + defaultValueProvider.getClass().getName());
         }
 
         return new ColumnDefinitionImpl(

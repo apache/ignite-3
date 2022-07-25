@@ -24,6 +24,8 @@ import java.util.Objects;
  */
 @SuppressWarnings("PublicInnerClass")
 public class DefaultValueDefinition {
+    private static final DefaultValueDefinition NULL = new DefaultValueDefinition(DefaultValueType.NULL);
+
     /**
      * Defines value provider as functional provider.
      *
@@ -52,7 +54,7 @@ public class DefaultValueDefinition {
      * @return Default value definition.
      */
     public static DefaultValueDefinition nullValue() {
-        return new DefaultValueDefinition(DefaultValueType.NULL);
+        return NULL;
     }
 
     /** Types of the defaults. */
@@ -93,7 +95,7 @@ public class DefaultValueDefinition {
         }
     }
 
-    /** Defines default value provider as a function call. */
+    /** Defines default value provider as a constant. */
     public static class ConstantValue extends DefaultValueDefinition {
         private final Object value;
 

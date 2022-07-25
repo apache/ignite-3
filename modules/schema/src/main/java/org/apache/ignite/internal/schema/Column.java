@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema;
 
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Column descriptor which contains a column name, a type and a nullability flag.
@@ -85,7 +84,7 @@ public class Column {
             String name,
             NativeType type,
             boolean nullable,
-            @NotNull DefaultValueProvider defaultValueProvider
+            DefaultValueProvider defaultValueProvider
     ) {
         this(-1, -1, name, type, nullable, defaultValueProvider);
     }
@@ -121,7 +120,7 @@ public class Column {
             String name,
             NativeType type,
             boolean nullable,
-            @NotNull DefaultValueProvider defaultValueProvider
+            DefaultValueProvider defaultValueProvider
     ) {
         this(-1, columnOrder, name, type, nullable, defaultValueProvider);
     }
@@ -142,7 +141,7 @@ public class Column {
             String name,
             NativeType type,
             boolean nullable,
-            @NotNull DefaultValueProvider defaultValueProvider
+            DefaultValueProvider defaultValueProvider
     ) {
         this.schemaIndex = schemaIndex;
         this.columnOrder = columnOrder;

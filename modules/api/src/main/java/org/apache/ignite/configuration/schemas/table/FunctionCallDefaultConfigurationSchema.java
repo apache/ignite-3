@@ -30,6 +30,5 @@ import org.apache.ignite.configuration.validation.Immutable;
 public class FunctionCallDefaultConfigurationSchema extends ColumnDefaultConfigurationSchema {
     /** Name of a function that should be used to generate next value. */
     @Value
-    @Immutable
     public String functionName;
 }

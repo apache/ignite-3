@@ -44,5 +44,5 @@ public class ColumnConfigurationSchema {
 
     /** Default value. */
     @ConfigValue
-    public ColumnDefaultConfigurationSchema defaultValue;
+    public ColumnDefaultConfigurationSchema defaultValueProvider;
 }

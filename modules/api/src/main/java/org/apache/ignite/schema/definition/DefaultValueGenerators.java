@@ -18,35 +18,10 @@
 package org.apache.ignite.schema.definition;
 
 /**
- * Table column descriptor.
+ * Enumeration of all supported value generators that could be used as a default value provider
+ * (i.e. could be specified as a default in column definition).
  */
-public interface ColumnDefinition {
-    /**
-     * Returns column name.
-     *
-     * @return Column name.
-     */
-    String name();
-
-    /**
-     * Returns column type.
-     *
-     * @return Column type.
-     */
-    ColumnType type();
-
-    /**
-     * Returns {@code Nullable} flag value.
-     *
-     * @return {@code True} if null-values is allowed, {@code false} otherwise.
-     */
-    boolean nullable();
-
-    /**
-     * Returns default value definition.
-     *
-     * @param <T> Desired subtype of the definition.
-     * @return Default value definition.
-     */
-    <T extends DefaultValueDefinition> T defaultValueDefinition();
+public class DefaultValueGenerators {
+    /** Generator that generates random UUID string. */
+    public static final String GEN_RANDOM_UUID = "GEN_RANDOM_UUID";
 }

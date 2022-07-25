@@ -262,7 +262,7 @@ abstract class AbstractSchemaChangeTest {
                         colListChanger -> colListChanger
                                 .update(
                                         IgniteObjectName.parse(colName),
-                                        colChanger -> colChanger.changeDefaultValue(colDefChange -> colDefChange.convert(
+                                        colChanger -> colChanger.changeDefaultValueProvider(colDefChange -> colDefChange.convert(
                                                 ConstantValueDefaultChange.class).changeDefaultValue(defSup.get().toString()))
                                 )
                 )
