@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,8 +41,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>On a physical level each instance of {@code FilePageStore} corresponds to a partition file assigned to the local node.
  *
- * <p>Actual read and write operations are performed with {@link FileIo} abstract interface, list of its implementations is a good source
- * of information about functionality in Ignite Native Persistence.
+ * <p>Actual read and write operations are performed with {@link FilePageStoreIo} and {@link DeltaFilePageStoreIo}.
  *
  * <p>To create a delta file first invoke {@link #getOrCreateNewDeltaFile(Supplier)} then fill it and then invoke {@link
  * #completeNewDeltaFile()}.
@@ -127,7 +125,7 @@ public class FilePageStore implements PageStore {
     public int allocatePage() throws IgniteInternalCheckedException {
         ensure();
 
-        int pageIdx = (Integer) PAGE_COUNT.getAndAdd(this, 1);
+        int pageIdx = (int) PAGE_COUNT.getAndAdd(this, 1);
 
         PageAllocationListener listener = this.pageAllocationListener;
 

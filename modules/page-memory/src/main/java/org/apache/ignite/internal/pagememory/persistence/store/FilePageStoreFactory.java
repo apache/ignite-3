@@ -58,7 +58,7 @@ class FilePageStoreFactory {
      * file page store files, headers must be present.
      *
      * @param headerBuffer Buffer for reading headers.
-     * @param filePageStorePath File page store path.
+     * @param filePageStorePath File page store path (for example the path to the partition file).
      * @param deltaFilePaths Paths to existing delta files page stores of the file page storage.
      * @throws IgniteInternalCheckedException if failed
      */
@@ -99,6 +99,8 @@ class FilePageStoreFactory {
                     assert deltaFileHeader != null : deltaFileHeader;
 
                     deltaFileIos[i] = createDeltaFilePageStoreIo(deltaFilePath, deltaFileHeader);
+                } catch (IOException e) {
+                    throw new IgniteInternalCheckedException("Error while creating delta file page store [file=" + deltaFilePath + "]", e);
                 }
             }
 

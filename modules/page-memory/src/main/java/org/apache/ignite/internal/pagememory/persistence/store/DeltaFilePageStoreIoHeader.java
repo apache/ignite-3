@@ -176,6 +176,8 @@ public class DeltaFilePageStoreIoHeader {
             return new DeltaFilePageStoreIoHeader(version, index, pageSize, new int[0]);
         }
 
+        assert headerBuffer.remaining() % 4 == 0 : fileIo;
+
         int[] pageIndexes = new int[arrayLen];
 
         int i = 0;
@@ -186,6 +188,8 @@ public class DeltaFilePageStoreIoHeader {
                 fileIo.readFully(headerBuffer.rewind(), filePosition);
 
                 filePosition += headerBuffer.rewind().capacity();
+
+                assert headerBuffer.remaining() % 4 == 0 : fileIo;
             }
 
             int len = Math.min(headerBuffer.remaining() / 4, arrayLen - i);

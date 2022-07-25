@@ -59,7 +59,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
     public static final String PART_FILE_PREFIX = "part-";
 
     /** Partition delta file prefix. */
-    public static final String PART_DELTA_FILE_PREFIX = "part-%d-delta-";
+    public static final String PART_DELTA_FILE_PREFIX = PART_FILE_PREFIX + "%d-delta-";
 
     /** Partition file template, example "part-1.bin". */
     public static final String PART_FILE_TEMPLATE = PART_FILE_PREFIX + "%d" + FILE_SUFFIX;
@@ -370,10 +370,12 @@ public class FilePageStoreManager implements PageReadWriteManager {
     Path[] findPartitionDeltaFiles(Path groupWorkDir, int partition) throws IgniteInternalCheckedException {
         assert partition >= 0 : partition;
 
+        String partitionDeltaFilePrefix = String.format(PART_DELTA_FILE_PREFIX, partition);
+
         try (Stream<Path> deltaFileStream = Files.find(
                 groupWorkDir,
                 1,
-                (path, basicFileAttributes) -> path.getFileName().toString().startsWith(String.format(PART_DELTA_FILE_PREFIX, partition)))
+                (path, basicFileAttributes) -> path.getFileName().toString().startsWith(partitionDeltaFilePrefix))
         ) {
             return deltaFileStream.toArray(Path[]::new);
         } catch (IOException e) {

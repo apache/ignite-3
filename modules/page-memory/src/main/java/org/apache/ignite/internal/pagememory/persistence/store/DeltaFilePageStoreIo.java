@@ -89,7 +89,7 @@ public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
     }
 
     /**
-     * Returns page offset within the store file, {@code -1} if not found page in delta file.
+     * Returns page offset within the store file, {@code -1} if page not found in delta file.
      *
      * @param pageId Page ID.
      */

@@ -64,7 +64,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
     private volatile boolean initialized;
 
     /** Caches the existence state of file. After it is initialized, it will be not {@code null} during lifecycle. */
-    private volatile @Nullable Boolean fileExists;
+    private @Nullable Boolean fileExists;
 
     /**
      * Constructor.
@@ -88,7 +88,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
     public abstract int headerSize();
 
     /**
-     * Returns a buffer with a file page storage header.
+     * Returns a buffer with the contents of the file page store header, for writing to a file.
      */
     public abstract ByteBuffer headerBuffer();
 
@@ -136,8 +136,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * @param pageId Page ID.
      * @param pageOff Page offset in the file.
      * @param pageBuf Page buffer to read into.
-     * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code
-     * keepCrc}.
+     * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code true}.
      * @return {@code True} if the page was read successfully.
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
@@ -234,11 +233,11 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * @throws IgniteInternalCheckedException If sync failed (IO error occurred).
      */
     public void sync() throws IgniteInternalCheckedException {
-        readWriteLock.writeLock().lock();
+        ensure();
+
+        readWriteLock.readLock().lock();
 
         try {
-            ensure();
-
             FileIo fileIo = this.fileIo;
 
             if (fileIo != null) {
@@ -247,7 +246,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
         } catch (IOException e) {
             throw new IgniteInternalCheckedException("Failed to fsync file [filePath=" + filePath + ']', e);
         } finally {
-            readWriteLock.writeLock().unlock();
+            readWriteLock.readLock().unlock();
         }
     }
 
@@ -255,19 +254,17 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * Returns {@code true} if the file page store exists.
      */
     public boolean exists() {
-        if (fileExists == null) {
-            readWriteLock.readLock().lock();
+        readWriteLock.readLock().lock();
 
-            try {
-                if (fileExists == null) {
-                    fileExists = Files.exists(filePath) && filePath.toFile().length() >= headerSize();
-                }
-            } finally {
-                readWriteLock.readLock().unlock();
+        try {
+            if (fileExists == null) {
+                fileExists = Files.exists(filePath) && filePath.toFile().length() >= headerSize();
             }
-        }
 
-        return fileExists;
+            return fileExists;
+        } finally {
+            readWriteLock.readLock().unlock();
+        }
     }
 
     /**
@@ -486,6 +483,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
 
             int n = readWithFailover(pageBuf, pageOff);
 
+            // TODO: IGNITE-17397 Investigate the ability to read a empty page
             // If page was not written yet, nothing to read.
             if (n < 0) {
                 pageBuf.put(new byte[pageBuf.remaining()]);
@@ -590,13 +588,13 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
             if (!filePath.equals(newFilePath)) {
                 FileIo fileIo = this.fileIo;
 
-                if (fileIo != null) {
-                    fileIo.force();
+                assert fileIo != null : "Tried to rename right after creation: " + filePath;
 
-                    fileIo.close();
+                fileIo.force();
 
-                    atomicMoveFile(filePath, newFilePath, null);
-                }
+                fileIo.close();
+
+                atomicMoveFile(filePath, newFilePath, null);
 
                 this.filePath = newFilePath;
 

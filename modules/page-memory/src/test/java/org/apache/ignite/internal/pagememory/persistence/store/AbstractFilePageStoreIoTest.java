@@ -279,6 +279,8 @@ public abstract class AbstractFilePageStoreIoTest {
         Path testFilePath = workDir.resolve("test");
 
         try (AbstractFilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath)) {
+            filePageStoreIo.ensure();
+
             // Nothing should happen.
             assertDoesNotThrow(() -> filePageStoreIo.renameFilePath(testFilePath));
 
