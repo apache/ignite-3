@@ -26,6 +26,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface DefaultValueProvider {
     /**
+     * Provider that returns {@code null} every time.
+     */
+    DefaultValueProvider NULL_PROVIDER = new ConstantValueProvider(null);
+
+    /**
      * Type of the value provider.
      */
     enum Type {
@@ -70,6 +75,10 @@ public interface DefaultValueProvider {
      * @return Value provider.
      */
     static DefaultValueProvider constantProvider(@Nullable Object val) {
+        if (val == null) {
+            return NULL_PROVIDER;
+        }
+
         return new ConstantValueProvider(val);
     }
 
