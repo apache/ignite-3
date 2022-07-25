@@ -499,42 +499,42 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 assert internalTbl.storage() instanceof MvTableStorage :
                         "Only multi version storages are supported. Current storage is a " + internalTbl.storage().getClass().getName();
 
-                    futures[partId] = CompletableFuture
-                            .supplyAsync(
-                                    () -> ((MvTableStorage) internalTbl.storage()).getOrCreateMvPartition(partId), ioExecutor)
-                            .thenComposeAsync((partitionStorage) -> {
-                                try {
-                                    return raftMgr.updateRaftGroup(
+                futures[partId] = CompletableFuture
+                    .supplyAsync(
+                            () -> ((MvTableStorage) internalTbl.storage()).getOrCreateMvPartition(partId), ioExecutor)
+                    .thenComposeAsync((partitionStorage) -> {
+                        try {
+                            return raftMgr.updateRaftGroup(
+                                    partitionRaftGroupName(tblId, partId),
+                                    newPartAssignment,
+                                    // start new nodes, only if it is table creation
+                                    // other cases will be covered by rebalance logic
+                                    (oldPartAssignment.isEmpty()) ? newPartAssignment : Collections.emptyList(),
+                                    () -> new PartitionListener(tblId,
+                                            new VersionedRowStore(
+                                                    partitionStorage,
+                                                    txManager)),
+                                    () -> new RebalanceRaftGroupEventsListener(
+                                            metaStorageMgr,
+                                            tablesCfg.tables().get(tablesById.get(tblId).name()),
                                             partitionRaftGroupName(tblId, partId),
-                                            newPartAssignment,
-                                            // start new nodes, only if it is table creation
-                                            // other cases will be covered by rebalance logic
-                                            (oldPartAssignment.isEmpty()) ? newPartAssignment : Collections.emptyList(),
-                                            () -> new PartitionListener(tblId,
-                                                    new VersionedRowStore(
-                                                            partitionStorage,
-                                                            txManager)),
-                                            () -> new RebalanceRaftGroupEventsListener(
-                                                    metaStorageMgr,
-                                                    tablesCfg.tables().get(tablesById.get(tblId).name()),
-                                                    partitionRaftGroupName(tblId, partId),
-                                                    partId,
-                                                    busyLock,
-                                                    movePartition(() -> internalTbl.partitionRaftGroupService(partId)),
-                                                    rebalanceScheduler),
-                                            groupOptionsForInternalTable(internalTbl)
-                                    );
-                                } catch (NodeStoppingException ex) {
-                                    return CompletableFuture.failedFuture(ex);
-                                }
-                            }).thenAccept(
-                                    updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
-                                            .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
+                                            partId,
+                                            busyLock,
+                                            movePartition(() -> internalTbl.partitionRaftGroupService(partId)),
+                                            rebalanceScheduler),
+                                    groupOptionsForInternalTable(internalTbl)
+                            );
+                        } catch (NodeStoppingException ex) {
+                            return CompletableFuture.failedFuture(ex);
+                        }
+                    }).thenAccept(
+                            updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
+                                    .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
                     ).exceptionally(th -> {
                         LOG.warn("Unable to update raft groups on the node", th);
 
-                    return null;
-                });
+                        return null;
+                    });
 
                 return completedFuture(tablesById);
             });

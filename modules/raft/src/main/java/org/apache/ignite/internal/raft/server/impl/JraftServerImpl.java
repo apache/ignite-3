@@ -371,9 +371,9 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
 
-                nodeOptions.setFsm(new DelegatingStateMachine(lsnr));
+            nodeOptions.setFsm(new DelegatingStateMachine(lsnr));
 
-                nodeOptions.setRaftGrpEvtsLsnr(evLsnr);
+            nodeOptions.setRaftGrpEvtsLsnr(evLsnr);
 
             LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory() == null
                     ? this.logStorageFactory : groupOptions.getLogStorageFactory();
@@ -496,7 +496,7 @@ public class JraftServerImpl implements RaftServer {
     }
 
     /**
-     * Initialize (if needed) and receive per-group lock,
+     * Initialize (if needed) and receive per raft group lock,
      * to prevent concurrent start of the same raft group.
      *
      * @param grpId Group id.
