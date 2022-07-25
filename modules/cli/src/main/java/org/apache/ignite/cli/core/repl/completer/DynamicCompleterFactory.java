@@ -19,19 +19,23 @@ package org.apache.ignite.cli.core.repl.completer;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import io.micronaut.context.annotation.Factory;
+import io.micronaut.context.annotation.Bean;
 import java.util.Set;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCallInput;
 
-@Factory
+/**
+ * Factory that creates {@link DynamicCompleter}s.
+ */
+@Bean
 public class DynamicCompleterFactory {
     private final NodeConfigShowCall nodeConfigShowCall;
     private final ClusterConfigShowCall clusterConfigShowCall;
     private final NodeUrlProvider urlProvider;
 
+    /** Default constructor. */
     public DynamicCompleterFactory(
             NodeConfigShowCall nodeConfigShowCall,
             ClusterConfigShowCall clusterConfigShowCall,
@@ -42,16 +46,18 @@ public class DynamicCompleterFactory {
         this.urlProvider = urlProvider;
     }
 
+    /** Creates node config completer with given activation prefix. */
     public LazyDynamicCompleter nodeConfigCompleter(String activationPrefix) {
         return nodeConfigCompleter(Set.of(activationPrefix));
     }
 
+    /** Creates node config completer with given set of activation prefixes. */
     public LazyDynamicCompleter nodeConfigCompleter(Set<String> activationPrefixes) {
         return new LazyDynamicCompleter(() -> {
             try {
                 Config config = ConfigFactory.parseString(
                         nodeConfigShowCall.execute(
-                                // todo
+                                // todo https://issues.apache.org/jira/browse/IGNITE-17416
                                 NodeConfigShowCallInput.builder().nodeUrl(urlProvider.resolveUrl(new String[]{""})).build()
                         ).body()
                 );
@@ -62,16 +68,18 @@ public class DynamicCompleterFactory {
         });
     }
 
+    /** Creates cluster config completer with given activation prefix. */
     public LazyDynamicCompleter clusterConfigCompleter(String activationPrefix) {
         return clusterConfigCompleter(Set.of(activationPrefix));
     }
 
+    /** Creates cluster config completer with given set of activation prefixes. */
     public LazyDynamicCompleter clusterConfigCompleter(Set<String> activationPrefixes) {
         return new LazyDynamicCompleter(() -> {
             try {
                 Config config = ConfigFactory.parseString(
                         clusterConfigShowCall.execute(
-                                // todo
+                                // todo https://issues.apache.org/jira/browse/IGNITE-17416
                                 ClusterConfigShowCallInput.builder().clusterUrl(urlProvider.resolveUrl(new String[]{""})).build()
                         ).body()
                 );

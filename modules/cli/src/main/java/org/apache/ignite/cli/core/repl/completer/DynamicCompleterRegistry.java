@@ -23,11 +23,15 @@ import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+/**
+ * Registry that holds all available dynamic completers.
+ */
 @Singleton
 public class DynamicCompleterRegistry {
 
     private final List<CompletionStrategy> completionStrategiesList = new ArrayList<>();
 
+    /** Returns the list of dynamic completers that can provide completions for given typed words. */
     public List<DynamicCompleter> findCompleters(String[] words) {
         return completionStrategiesList.stream()
                 .filter(strategy -> strategy.canBeApplied(words))
@@ -35,10 +39,12 @@ public class DynamicCompleterRegistry {
                 .collect(Collectors.toList());
     }
 
+    /** Registers dynamic completer that can be found by given predicate. */
     public void register(Predicate<String[]> predicate, DynamicCompleter completer) {
         completionStrategiesList.add(new CompletionStrategy(predicate, completer));
     }
 
+    /** Registers dynamic completer that can be found by given prefix. */
     public void register(String[] prefixWords, DynamicCompleter completer) {
         register((String[] words) -> samePrefix(words, prefixWords), completer);
     }

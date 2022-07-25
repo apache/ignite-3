@@ -21,6 +21,9 @@ import jakarta.inject.Singleton;
 import java.util.Arrays;
 import org.apache.ignite.cli.core.repl.Session;
 
+/**
+ * Filters completions according to the current session state.
+ */
 @Singleton
 public class DynamicCompleterFilter implements CompleterFilter {
     private final Session session;

@@ -25,6 +25,9 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Completes typed words with hocon schema keys.
+ */
 public class HoconDynamicCompleter implements DynamicCompleter {
 
     private final Config config;
@@ -38,6 +41,7 @@ public class HoconDynamicCompleter implements DynamicCompleter {
     /** Words, after those the completer should have been activated. */
     private final Set<String> activationPostfixes;
 
+    /** Default constructor that created an instance from given set of postfixes after those the completion is expected. */
     public HoconDynamicCompleter(Set<String> activationPostfixes, Config config) {
         this.activationPostfixes = activationPostfixes;
         this.config = config;

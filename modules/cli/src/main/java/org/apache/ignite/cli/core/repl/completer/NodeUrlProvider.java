@@ -21,17 +21,22 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.cli.config.ConfigManagerProvider;
 import org.apache.ignite.cli.core.repl.Session;
 
+/**
+ * Url provider for completer.
+ */
 @Singleton
 public class NodeUrlProvider {
 
     private final Session session;
     private final ConfigManagerProvider configManagerProvider;
 
+    /** Default constructor. */
     public NodeUrlProvider(Session session, ConfigManagerProvider configManagerProvider) {
         this.session = session;
         this.configManagerProvider = configManagerProvider;
     }
 
+    /** Resolves the url for given words. */
     public String resolveUrl(String[] words) {
         String urlInWords = findClusterUrlIn(words);
         if (urlInWords != null) {

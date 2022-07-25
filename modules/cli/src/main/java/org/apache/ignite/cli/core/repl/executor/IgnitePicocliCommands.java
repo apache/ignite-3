@@ -48,7 +48,7 @@ import picocli.CommandLine.Model.OptionSpec;
 import picocli.shell.jline3.PicocliCommands;
 
 /**
- * Inspired by {@link PicocliCommands} but with custom dynamic completer.
+ * Inspired by {@link PicocliCommands} but with custom dynamic completer and completer filtering.
  */
 public class IgnitePicocliCommands implements CommandRegistry {
 
@@ -58,6 +58,7 @@ public class IgnitePicocliCommands implements CommandRegistry {
     private final DynamicCompleterRegistry completerRegistry;
     private final List<CompleterFilter> completerFilters;
 
+    /** Default constructor. */
     public IgnitePicocliCommands(CommandLine cmd, DynamicCompleterRegistry completerRegistry, List<CompleterFilter> completerFilters) {
         this.cmd = cmd;
         this.completerFilters = completerFilters;
@@ -153,7 +154,6 @@ public class IgnitePicocliCommands implements CommandRegistry {
         return out;
     }
 
-    // For JLine >= 3.16.0
     @Override
     public Object invoke(CommandRegistry.CommandSession session, String command, Object[] args) throws Exception {
         List<String> arguments = new ArrayList<>();

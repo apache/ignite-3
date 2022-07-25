@@ -17,8 +17,6 @@
 
 package org.apache.ignite.cli.core.repl.completer;
 
-import org.apache.ignite.internal.util.StringIntrospection;
-
 /**
  * Filters the result of completer.
  */

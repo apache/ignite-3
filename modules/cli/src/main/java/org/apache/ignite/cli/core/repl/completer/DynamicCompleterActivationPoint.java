@@ -19,15 +19,22 @@ package org.apache.ignite.cli.core.repl.completer;
 
 import jakarta.inject.Singleton;
 
+/**
+ * Activation point that links commands with dynamic completers.
+ */
 @Singleton
 public class DynamicCompleterActivationPoint {
 
     private final DynamicCompleterFactory factory;
 
+    /** Default constructor. */
     public DynamicCompleterActivationPoint(DynamicCompleterFactory factory) {
         this.factory = factory;
     }
 
+    /**
+     * Registers all dynamic completers in given {@link DynamicCompleterRegistry}.
+     */
     public void activateDynamicCompleter(DynamicCompleterRegistry registry) {
         registry.register(new String[]{"cluster", "config", "show"}, factory.clusterConfigCompleter("--selector"));
         registry.register(new String[]{"cluster", "config", "update"}, factory.clusterConfigCompleter(""));
