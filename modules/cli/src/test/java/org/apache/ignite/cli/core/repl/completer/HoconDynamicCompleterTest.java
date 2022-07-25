@@ -19,18 +19,19 @@ package org.apache.ignite.cli.core.repl.completer;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 
 import com.typesafe.config.ConfigFactory;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class HoconDynamicCompleterTest {
     HoconDynamicCompleter completer;
 
     private static HoconDynamicCompleter completerFrom(String configString) {
-        return new HoconDynamicCompleter(ConfigFactory.parseString(configString));
+        Set<String> activationPostfixes = Set.of("--selector");
+        return new HoconDynamicCompleter(activationPostfixes, ConfigFactory.parseString(configString));
     }
 
     @Test
@@ -65,6 +66,24 @@ class HoconDynamicCompleterTest {
     }
 
     @Test
+    void completesMultiRootsWhenLastWordPartiallyTyped() {
+        // Given
+        completer = completerFrom(
+                "root1: { subRoot1: { subSubRoot1: value1 } }, "
+                        + "root2: { subRoot2: value2 }, "
+                        + "root3: value3");
+        // And last word is "roo"
+        String[] typedWords = {"cluster", "config", "show", "--selector", "roo"};
+
+        // When
+        List<String> completions = completer.complete(typedWords);
+
+        // Then
+        assertThat(completions, containsInAnyOrder("root1", "root2", "root3"));
+    }
+
+
+    @Test
     void completePartialPath() {
         // Given
         completer = completerFrom("root: { subRoot: { subSubRoot: value } }");
@@ -82,8 +101,8 @@ class HoconDynamicCompleterTest {
     void completeWholePath() {
         // Given
         completer = completerFrom("root: { subRoot: { subSubRoot1: value1, subSubRoot2: value2 } }");
-        // And typed a part of the path
-        String[] typedWords = {"cluster", "config", "show", "--selector", "root.subRoot"};
+        // And typed a part of the path but with "." at the end
+        String[] typedWords = {"cluster", "config", "show", "--selector", "root.subRoot."};
 
         // When
         List<String> completions = completer.complete(typedWords);
@@ -104,5 +123,48 @@ class HoconDynamicCompleterTest {
 
         // Then
         assertThat(completions, hasSize(0));
+    }
+
+    @Test
+    void doesNotCompletesIfLastWordIsClusterUrl() {
+        // Given
+        completer = completerFrom("root: { subRoot: value }");
+        // And --cluster-url is the last typed word
+        String[] typedWords = {"cluster", "config", "show", "--cluster-url"};
+
+        // When
+        List<String> completions = completer.complete(typedWords);
+
+        // Then
+        assertThat(completions, hasSize(0));
+    }
+
+    @Test
+    void doesNotCompletesIfLastWordIsClusterUrlAndEmptyString() {
+        // Given
+        completer = completerFrom("root: { subRoot: value }");
+        // And --cluster-url is the last typed word
+        String[] typedWords = {"cluster", "config", "show", "--cluster-url", ""};
+
+        // When
+        List<String> completions = completer.complete(typedWords);
+
+        // Then
+        assertThat(completions, hasSize(0));
+    }
+
+    @Test
+    void shouldAlwaysCompleteIfActivationPostfixIsEmptyString() {
+        // Given empty string activation profile
+        Set<String> activationPostfixes = Set.of("");
+        completer = new HoconDynamicCompleter(activationPostfixes, ConfigFactory.parseString("root: { subRoot: value }"));
+        // And
+        String[] typedWords = {"cluster", "config", "update", ""};
+
+        // When
+        List<String> completions = completer.complete(typedWords);
+
+        // Then
+        assertThat(completions, containsInAnyOrder("root"));
     }
 }

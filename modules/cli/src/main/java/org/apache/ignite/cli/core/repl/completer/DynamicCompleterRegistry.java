@@ -17,11 +17,13 @@
 
 package org.apache.ignite.cli.core.repl.completer;
 
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+@Singleton
 public class DynamicCompleterRegistry {
 
     private final List<CompletionStrategy> completionStrategiesList = new ArrayList<>();

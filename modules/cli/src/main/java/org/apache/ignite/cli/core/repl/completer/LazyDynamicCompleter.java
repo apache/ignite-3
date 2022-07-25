@@ -20,6 +20,9 @@ package org.apache.ignite.cli.core.repl.completer;
 import java.util.List;
 import java.util.function.Supplier;
 
+/**
+ * Wrapper for the dynamic completer that is going to be initialized on demand.
+ */
 public class LazyDynamicCompleter implements DynamicCompleter {
 
     private final Supplier<DynamicCompleter> delegateInitializer;
@@ -28,10 +31,12 @@ public class LazyDynamicCompleter implements DynamicCompleter {
 
     private final Object lock = new Object();
 
+    /** Default constructor. Supplier will be called once it is needed. */
     public LazyDynamicCompleter(Supplier<DynamicCompleter> delegateInitializer) {
         this.delegateInitializer = delegateInitializer;
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<String> complete(String[] words) {
         if (lazyDelegate == null) {

@@ -29,11 +29,17 @@ public class HoconDynamicCompleter implements DynamicCompleter {
 
     private final Config config;
 
+    /** Stores all keys that exist in the given config. Strings are stored in format: "root.subkey.subsubkey". */
     private final Set<String> leafs;
 
+    /** List of all possible completions. */
     private final List<String> completions;
 
-    public HoconDynamicCompleter(Config config) {
+    /** Words, after those the completer should have been activated. */
+    private final Set<String> activationPostfixes;
+
+    public HoconDynamicCompleter(Set<String> activationPostfixes, Config config) {
+        this.activationPostfixes = activationPostfixes;
         this.config = config;
         this.leafs = config.entrySet().stream().map(Entry::getKey).collect(Collectors.toSet());
         this.completions = this.compile();
@@ -42,22 +48,46 @@ public class HoconDynamicCompleter implements DynamicCompleter {
     private List<String> compile() {
         ArrayList<String> result = new ArrayList<>();
 
-        walkAndAdd("", config.root().keySet(), result);
+        String rootPrefix = "";
+        walkAndAdd(rootPrefix, config.root().keySet(), result);
 
         return result;
     }
 
+    /**
+     * Completes the given typed words with the config keys that a in the same level as the last typed words.
+     * <p/>
+     * Example: given typed words ["cluster", "config", "show", "--selector", "a"], The last word is "a", only root config values will be
+     * suggested to autocomplete: "aimem", "aipersist". If user hits "aimem" and types dot "." then only subkeys of "aimem." will be
+     * suggested: "aimem.pageSize", "aimem.regions".
+     */
     @Override
     public List<String> complete(String[] words) {
-        final String lastWord = words[words.length - 1];
-        if (lastWord.equals("--selector") || lastWord.isEmpty()) {
+        final String lastWord = findLastNotEmptyWord(words);
+
+        if (activationPostfixes.contains(lastWord)
+                // activation profile contains empty string and the last typed word is empty
+                || (activationPostfixes.contains("") && words[words.length - 1].isEmpty())) {
             // roots
             return completions.stream().filter(s -> s.split("\\.").length == 1).collect(Collectors.toList());
         }
 
-        final int deepLevel = lastWord.split("\\.").length;
-        return completions.stream().filter(s -> s.startsWith(lastWord) && deepLevel + 1 == s.split("\\.").length)
+        final int deepLevel = lastWord.endsWith(".")
+                ? lastWord.split("\\.").length + 1
+                : lastWord.split("\\.").length;
+
+        return completions.stream()
+                .filter(s -> s.startsWith(lastWord) && deepLevel == s.split("\\.").length)
                 .collect(Collectors.toList());
+    }
+
+    private String findLastNotEmptyWord(String[] words) {
+        for (int i = words.length - 1; i >= 0; i--) {
+            if (!words[i].isEmpty()) {
+                return words[i];
+            }
+        }
+        return "";
     }
 
     private void walkAndAdd(String keyPrefix, Set<String> keySet, List<String> result) {

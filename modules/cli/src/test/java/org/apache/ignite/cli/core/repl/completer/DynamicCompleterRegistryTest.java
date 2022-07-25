@@ -19,6 +19,8 @@ package org.apache.ignite.cli.core.repl.completer;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
 
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,5 +70,22 @@ class DynamicCompleterRegistryTest {
 
         // Then
         assertThat(completers, containsInAnyOrder(completer1, completer2));
+    }
+
+    @Test
+    void returnsEmptyCollectionIfThereIsNoSuitableCompleter() {
+        // Given
+        registry.register(new String[]{"command1", "subcommand1"}, completer1);
+        registry.register(new String[]{"command1", "subcommand1"}, completer2);
+        registry.register(new String[]{"command2"}, completer3);
+
+        // Then
+        assertThat(registry.findCompleters(new String[]{"command1"}), is(empty()));
+        assertThat(registry.findCompleters(new String[]{"command3"}), is(empty()));
+        // But if command start with one of the registered prefixes
+        assertThat(
+                registry.findCompleters(new String[]{"command1", "subcommand1", "subsubcommand1"}),
+                containsInAnyOrder(completer1, completer2)
+        );
     }
 }
