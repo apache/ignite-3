@@ -33,7 +33,7 @@ public class CallInitializedIntegrationTestBase extends IntegrationTestBase {
     void beforeAll(TestInfo testInfo) throws ExecutionException, InterruptedException {
         startNodes(testInfo);
         String metaStorageNodeName = testNodeName(testInfo, 0);
-        super.initializeCluster(metaStorageNodeName);
+        initializeCluster(metaStorageNodeName);
     }
 
     @AfterAll

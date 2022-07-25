@@ -24,7 +24,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Collection;
 import org.apache.ignite.internal.rest.api.Problem;
@@ -42,11 +41,9 @@ public interface TopologyApi {
      */
     @Get("physical")
     @Operation(operationId = "physical")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Physical topology returned"),
-            @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    })
+    @ApiResponse(responseCode = "200", description = "Physical topology returned")
+    @ApiResponse(responseCode = "500", description = "Internal error",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces(MediaType.APPLICATION_JSON)
     Collection<ClusterNodeDto> physicalTopology();
 
@@ -55,11 +52,9 @@ public interface TopologyApi {
      */
     @Get("logical")
     @Operation(operationId = "logical")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Logical topology returned"),
-            @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    })
+    @ApiResponse(responseCode = "200", description = "Logical topology returned")
+    @ApiResponse(responseCode = "500", description = "Internal error",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces(MediaType.APPLICATION_JSON)
     Collection<ClusterNodeDto> logicalTopology();
 }

@@ -286,28 +286,23 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void nodeState() {
-        assertDoesNotThrow(() -> {
-            NodeState nodeState = nodeManagementApi.nodeState();
+    void nodeState() throws ApiException {
+        NodeState nodeState = nodeManagementApi.nodeState();
 
-            assertThat(nodeState, is(notNullValue()));
-            assertThat(nodeState.getState(), is(notNullValue()));
-            assertThat(nodeState.getName(), is(firstNodeName));
-        });
+        assertThat(nodeState, is(notNullValue()));
+        assertThat(nodeState.getState(), is(notNullValue()));
+        assertThat(nodeState.getName(), is(firstNodeName));
+
     }
 
     @Test
-    void logicalTopology() {
-        assertDoesNotThrow(() -> {
-            assertThat(topologyApi.logical(), hasSize(3));
-        });
+    void logicalTopology() throws ApiException {
+        assertThat(topologyApi.logical(), hasSize(3));
     }
 
     @Test
-    void physicalTopology() {
-        assertDoesNotThrow(() -> {
-            assertThat(topologyApi.physical(), hasSize(3));
-        });
+    void physicalTopology() throws ApiException {
+        assertThat(topologyApi.physical(), hasSize(3));
     }
 
     private CompletableFuture<Ignite> startNodeAsync(TestInfo testInfo, int index) {
