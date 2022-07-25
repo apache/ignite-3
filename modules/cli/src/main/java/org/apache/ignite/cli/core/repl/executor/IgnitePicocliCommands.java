@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.cli.core.repl.completer.CompleterFilter;
 import org.apache.ignite.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.cli.core.repl.completer.DynamicCompleterRegistry;
 import org.jetbrains.annotations.NotNull;
@@ -55,17 +56,22 @@ public class IgnitePicocliCommands implements CommandRegistry {
     private final Set<String> commands;
     private final Map<String, String> aliasCommand = new HashMap<>();
     private final DynamicCompleterRegistry completerRegistry;
+    private final List<CompleterFilter> completerFilters;
 
-    public IgnitePicocliCommands(CommandLine cmd, DynamicCompleterRegistry completerRegistry) {
-
+    public IgnitePicocliCommands(CommandLine cmd, DynamicCompleterRegistry completerRegistry, List<CompleterFilter> completerFilters) {
         this.cmd = cmd;
-        commands = cmd.getCommandSpec().subcommands().keySet();
+        this.completerFilters = completerFilters;
+        this.completerRegistry = completerRegistry;
+        this.commands = cmd.getCommandSpec().subcommands().keySet();
+        putAliases(cmd);
+    }
+
+    private void putAliases(CommandLine cmd) {
         for (String c : commands) {
             for (String a : cmd.getSubcommands().get(c).getCommandSpec().aliases()) {
                 aliasCommand.put(a, c);
             }
         }
-        this.completerRegistry = completerRegistry;
     }
 
     /** {@inheritDoc} */
@@ -188,8 +194,9 @@ public class IgnitePicocliCommands implements CommandRegistry {
                     commandLine.cursor(),
                     cs);
 
+            List<String> staticCandidates = new ArrayList<>();
             for (CharSequence c : cs) {
-                candidates.add(new Candidate(c.toString()));
+                staticCandidates.add(c.toString());
             }
 
             List<DynamicCompleter> completers = completerRegistry.findCompleters(words);
@@ -198,16 +205,25 @@ public class IgnitePicocliCommands implements CommandRegistry {
                     completers.stream()
                             .map(c -> c.complete(words))
                             .flatMap(List::stream)
-                            .map(this::candidate)
+                            .map(this::dynamicCandidate)
                             .forEach(candidates::add);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
             }
+
+            String[] filteredCandidates = completerFilters.get(0).filter(words, staticCandidates.toArray(String[]::new));
+            for (int i = 1; i < completerFilters.size(); i++) {
+                filteredCandidates = completerFilters.get(i).filter(words, filteredCandidates);
+            }
+
+            for (String c : filteredCandidates) {
+                candidates.add(new Candidate(c));
+            }
         }
 
         @NotNull
-        private Candidate candidate(String one) {
+        private Candidate dynamicCandidate(String one) {
             // more dots means deeper level of the config tree, so we don't want to show them in the completion at firs positions
             // the epson of dots wise-versa wanted to be placed at the first position
             int sortingPriority = one.split("\\.").length;

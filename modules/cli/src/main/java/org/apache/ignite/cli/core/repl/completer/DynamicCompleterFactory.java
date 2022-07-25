@@ -48,13 +48,17 @@ public class DynamicCompleterFactory {
 
     public LazyDynamicCompleter nodeConfigCompleter(Set<String> activationPrefixes) {
         return new LazyDynamicCompleter(() -> {
-            Config config = ConfigFactory.parseString(
-                    nodeConfigShowCall.execute(
-                            // todo
-                            NodeConfigShowCallInput.builder().nodeUrl(urlProvider.resolveUrl(new String[]{""})).build()
-                    ).body()
-            );
-            return new HoconDynamicCompleter(activationPrefixes, config);
+            try {
+                Config config = ConfigFactory.parseString(
+                        nodeConfigShowCall.execute(
+                                // todo
+                                NodeConfigShowCallInput.builder().nodeUrl(urlProvider.resolveUrl(new String[]{""})).build()
+                        ).body()
+                );
+                return new HoconDynamicCompleter(activationPrefixes, config);
+            } catch (Exception e) {
+                return new HoconDynamicCompleter(activationPrefixes, ConfigFactory.parseString(""));
+            }
         });
     }
 
@@ -64,13 +68,17 @@ public class DynamicCompleterFactory {
 
     public LazyDynamicCompleter clusterConfigCompleter(Set<String> activationPrefixes) {
         return new LazyDynamicCompleter(() -> {
-            Config config = ConfigFactory.parseString(
-                    clusterConfigShowCall.execute(
-                            // todo
-                            ClusterConfigShowCallInput.builder().clusterUrl(urlProvider.resolveUrl(new String[]{""})).build()
-                    ).body()
-            );
-            return new HoconDynamicCompleter(activationPrefixes, config);
+            try {
+                Config config = ConfigFactory.parseString(
+                        clusterConfigShowCall.execute(
+                                // todo
+                                ClusterConfigShowCallInput.builder().clusterUrl(urlProvider.resolveUrl(new String[]{""})).build()
+                        ).body()
+                );
+                return new HoconDynamicCompleter(activationPrefixes, config);
+            } catch (Exception e) {
+                return new HoconDynamicCompleter(activationPrefixes, ConfigFactory.parseString(""));
+            }
         });
     }
 }

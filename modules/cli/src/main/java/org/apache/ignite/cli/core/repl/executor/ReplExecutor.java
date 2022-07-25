@@ -17,29 +17,20 @@
 
 package org.apache.ignite.cli.core.repl.executor;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Set;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import org.apache.ignite.cli.call.configuration.ClusterConfigShowCall;
-import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
-import org.apache.ignite.cli.call.configuration.NodeConfigShowCall;
-import org.apache.ignite.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.cli.config.StateFolderProvider;
 import org.apache.ignite.cli.core.exception.handler.PicocliExecutionExceptionHandler;
 import org.apache.ignite.cli.core.exception.handler.ReplExceptionHandlers;
 import org.apache.ignite.cli.core.repl.Repl;
 import org.apache.ignite.cli.core.repl.completer.DynamicCompleterActivationPoint;
+import org.apache.ignite.cli.core.repl.completer.DynamicCompleterFilter;
 import org.apache.ignite.cli.core.repl.completer.DynamicCompleterRegistry;
-import org.apache.ignite.cli.core.repl.completer.HoconDynamicCompleter;
-import org.apache.ignite.cli.core.repl.completer.LazyDynamicCompleter;
-import org.apache.ignite.cli.core.repl.completer.NodeUrlProvider;
 import org.apache.ignite.cli.core.repl.expander.NoopExpander;
-import org.jetbrains.annotations.NotNull;
 import org.jline.console.impl.SystemRegistryImpl;
 import org.jline.reader.Completer;
 import org.jline.reader.LineReader;
@@ -156,6 +147,8 @@ public class ReplExecutor {
         DynamicCompleterActivationPoint activationPoint = factory.create(DynamicCompleterActivationPoint.class);
         activationPoint.activateDynamicCompleter(completerRegistry);
 
-        return new IgnitePicocliCommands(cmd, completerRegistry);
+        DynamicCompleterFilter dynamicCompleterFilter = factory.create(DynamicCompleterFilter.class);
+
+        return new IgnitePicocliCommands(cmd, completerRegistry, List.of(dynamicCompleterFilter));
     }
 }
