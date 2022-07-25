@@ -625,11 +625,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                         .changePartitions(PARTITIONS)
         );
 
-        assertFalse(tbl2Fut.isDone());
-
         assertTrue(createTblLatch.await(10, TimeUnit.SECONDS));
-
-        assertFalse(tbl2Fut.isDone());
 
         TableImpl tbl2 = (TableImpl) tbl2Fut.get();
 

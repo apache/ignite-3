@@ -725,6 +725,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         var extConfCh = ((ExtendedTableChange) tableChange);
 
+                        int intTableId = tablesChange.globalIdCounter() + 1;
+                        tablesChange.changeGlobalIdCounter(intTableId);
+
+                        extConfCh.changeTableId(intTableId);
+
                         tableCreateFuts.put(extConfCh.id(), tblFut);
 
                         // Affinity assignments calculation.
