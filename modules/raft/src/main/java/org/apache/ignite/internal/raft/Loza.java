@@ -205,8 +205,6 @@ public class Loza implements IgniteComponent {
 
         List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
 
-        String locNodeName = clusterNetSvc.topologyService().localMember().name();
-
         boolean hasLocalRaft = shouldHaveRaftGroupLocally(nodes);
 
         if (hasLocalRaft) {
@@ -214,8 +212,7 @@ public class Loza implements IgniteComponent {
 
             if (!raftServer.startRaftGroup(groupId, raftGrpEvtsLsnrSupplier.get(), lsnrSupplier.get(), peers, groupOptions)) {
                 throw new IgniteInternalException(IgniteStringFormatter.format(
-                        "Raft group on the node is already started [node={}, raftGrp={}]",
-                        locNodeName,
+                        "Raft group on the node is already started [raftGrp={}]",
                         groupId
                 ));
             }
@@ -263,11 +260,8 @@ public class Loza implements IgniteComponent {
             LOG.info("Start new raft node for group={} with initial peers={}", grpId, peers);
 
             if (!raftServer.startRaftGroup(grpId, raftGrpEvtsLsnr, lsnr, peers, groupOptions)) {
-                String locNodeName = clusterNetSvc.topologyService().localMember().name();
-
                 throw new IgniteInternalException(IgniteStringFormatter.format(
-                        "Raft group on the node is already started [node={}, raftGrp={}]",
-                        locNodeName,
+                        "Raft group on the node is already started [raftGrp={}]",
                         grpId
                 ));
             }

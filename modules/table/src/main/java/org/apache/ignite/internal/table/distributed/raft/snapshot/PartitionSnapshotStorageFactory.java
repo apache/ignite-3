@@ -74,7 +74,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
         SnapshotMeta snapshotMeta = new RaftMessagesFactory().snapshotMeta()
                 .lastIncludedIndex(persistedRaftIndex)
                 // According to the code of org.apache.ignite.raft.jraft.core.NodeImpl.bootstrap, it's "dangerous" to init term with a value
-                // greater than 1.
+                // greater than 1. 0 value of persisted index means that the underlying storage is empty.
                 .lastIncludedTerm(persistedRaftIndex > 0 ? 1 : 0)
                 .peersList(peers)
                 .learnersList(learners)

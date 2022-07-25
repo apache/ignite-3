@@ -82,7 +82,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 invocationClose -> {
                     Command cmd = invocationClose.getArgument(0);
 
-                    long lastAppliedIndex = raftIndex.incrementAndGet();
+                    long commandIndex = raftIndex.incrementAndGet();
 
                     CompletableFuture<Serializable> res = new CompletableFuture<>();
 
@@ -114,8 +114,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                     CommandClosure<WriteCommand> clo = new CommandClosure<>() {
                                         /** {@inheritDoc} */
                                         @Override
-                                        public long lastAppliedIndex() {
-                                            return lastAppliedIndex;
+                                        public long index() {
+                                            return commandIndex;
                                         }
 
                                         /** {@inheritDoc} */

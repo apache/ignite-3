@@ -34,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
  * @see PartitionSnapshotStorageFactory
  */
 class PartitionSnapshotStorage implements SnapshotStorage {
-    /** Snapshot URI. Points to a snopshot folder. Never created on physical storage. */
+    /** Snapshot URI. Points to a snapshot folder. Never created on physical storage. */
     final String snapshotUri;
 
     /** Raft options. */

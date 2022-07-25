@@ -32,7 +32,7 @@ public interface CommandClosure<R extends Command> {
      * Corresponding log index of the command. Present for write commands only.
      * Returns {@code 0} for read commands.
      */
-    default long lastAppliedIndex() {
+    default long index() {
         return 0;
     }
 

@@ -575,7 +575,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         };
     }
 
-    // TODO IGNITE-16769 Implement correct PartitionStorage rows count calculation.
     @Override
     public long rowsCount() {
         try (

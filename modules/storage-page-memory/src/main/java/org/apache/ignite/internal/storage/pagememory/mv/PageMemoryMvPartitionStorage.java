@@ -75,7 +75,6 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     /**
      * Last applied index value.
      */
-    //TODO Make it persistent. IGNITE-17077
     private volatile long lastAppliedIndex = 0;
 
     /**

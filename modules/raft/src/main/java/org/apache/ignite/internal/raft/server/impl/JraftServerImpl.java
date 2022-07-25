@@ -502,13 +502,13 @@ public class JraftServerImpl implements RaftServer {
 
                         WriteCommand command = done == null ? JDKMarshaller.DEFAULT.unmarshall(data.array()) : done.command();
 
-                        long lastAppliedIndex = iter.getIndex();
+                        long commandIndex = iter.getIndex();
 
                         return new CommandClosure<>() {
                             /** {@inheritDoc} */
                             @Override
-                            public long lastAppliedIndex() {
-                                return lastAppliedIndex;
+                            public long index() {
+                                return commandIndex;
                             }
 
                             /** {@inheritDoc} */
@@ -556,6 +556,7 @@ public class JraftServerImpl implements RaftServer {
 
                         File[] snapshotFiles = file.listFiles();
 
+                        // Files array can be null if shanpshot folder doesn't exist.
                         if (snapshotFiles != null) {
                             for (File file0 : snapshotFiles) {
                                 if (file0.isFile()) {

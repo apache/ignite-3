@@ -141,6 +141,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @return Rows count.
      * @throws StorageException If failed to obtain size.
      * @deprecated It's not yet defined what a "count" is. This value is not easily defined for multiversioned storages.
+     *      TODO IGNITE-16769 Implement correct PartitionStorage rows count calculation.
      */
     @Deprecated
     long rowsCount() throws StorageException;
