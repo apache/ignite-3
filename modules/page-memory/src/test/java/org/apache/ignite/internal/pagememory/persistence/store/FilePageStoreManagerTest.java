@@ -108,7 +108,7 @@ public class FilePageStoreManagerTest {
         try {
             Files.createDirectories(workDir.resolve("db"));
 
-            Path testGroupDir = workDir.resolve("db/group-test");
+            Path testGroupDir = workDir.resolve("db/table-0");
 
             Files.createFile(testGroupDir);
 
@@ -170,14 +170,14 @@ public class FilePageStoreManagerTest {
             assertTrue(pageStores.add(partitionPageStore0));
             assertTrue(stores.contains(partitionPageStore0));
 
-            assertTrue(partitionPageStore0.filePath().endsWith("db/group-test/part-0.bin"));
+            assertTrue(partitionPageStore0.filePath().endsWith("db/table-0/part-0.bin"));
 
             FilePageStore partitionPageStore1 = manager.getStore(0, 1);
 
             assertTrue(pageStores.add(partitionPageStore1));
             assertTrue(stores.contains(partitionPageStore1));
 
-            assertTrue(partitionPageStore1.filePath().endsWith("db/group-test/part-1.bin"));
+            assertTrue(partitionPageStore1.filePath().endsWith("db/table-0/part-1.bin"));
 
             IgniteInternalCheckedException exception = assertThrows(IgniteInternalCheckedException.class, () -> manager.getStore(1, 0));
 
@@ -216,7 +216,7 @@ public class FilePageStoreManagerTest {
             manager0.stop();
         }
 
-        try (Stream<Path> files = Files.list(workDir.resolve("db/group-test0"))) {
+        try (Stream<Path> files = Files.list(workDir.resolve("db/table-0"))) {
             assertThat(
                     files.map(Path::getFileName).map(Path::toString).collect(toSet()),
                     containsInAnyOrder("part-0.bin")
@@ -240,7 +240,7 @@ public class FilePageStoreManagerTest {
             manager1.stop();
         }
 
-        assertThat(workDir.resolve("db/group-test1").toFile().listFiles(), emptyArray());
+        assertThat(workDir.resolve("db/table-1").toFile().listFiles(), emptyArray());
     }
 
     @Test
