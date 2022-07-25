@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.MARKER_STORED_TO_DISK;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGE_SNAPSHOT_TAKEN;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SNAPSHOT_TAKEN;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.ArrayList;
@@ -181,7 +181,7 @@ class CheckpointWorkflow {
 
             curr.currentCheckpointPagesCount(dirtyPages.dirtyPageCount);
 
-            curr.transitTo(PAGE_SNAPSHOT_TAKEN);
+            curr.transitTo(PAGES_SNAPSHOT_TAKEN);
         } finally {
             checkpointReadWriteLock.writeUnlock();
 

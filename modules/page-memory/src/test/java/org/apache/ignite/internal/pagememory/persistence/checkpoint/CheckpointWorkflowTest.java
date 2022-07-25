@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.MARKER_STORED_TO_DISK;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGE_SNAPSHOT_TAKEN;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SNAPSHOT_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.newReadWriteLock;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.toListDirtyPageIds;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.AFTER_CHECKPOINT_END;
@@ -58,7 +58,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
@@ -177,8 +176,6 @@ public class CheckpointWorkflowTest {
 
         DataRegion<PersistentPageMemory> dataRegion = () -> pageMemory;
 
-        PartitionMeta partitionMeta = mock(PartitionMeta.class);
-
         workflow = new CheckpointWorkflow(
                 "test",
                 markersStorage,
@@ -262,7 +259,7 @@ public class CheckpointWorkflowTest {
 
                 assertFalse(readWriteLock.isWriteLockHeldByCurrentThread());
 
-                assertThat(checkpointStateArgumentCaptor.getAllValues(), equalTo(List.of(LOCK_TAKEN, PAGE_SNAPSHOT_TAKEN, LOCK_RELEASED)));
+                assertThat(checkpointStateArgumentCaptor.getAllValues(), equalTo(List.of(LOCK_TAKEN, PAGES_SNAPSHOT_TAKEN, LOCK_RELEASED)));
 
                 assertThat(pagesCountArgumentCaptor.getAllValues(), equalTo(List.of(3)));
 
@@ -298,7 +295,7 @@ public class CheckpointWorkflowTest {
 
         assertThat(
                 checkpointStateArgumentCaptor.getAllValues(),
-                equalTo(List.of(LOCK_TAKEN, PAGE_SNAPSHOT_TAKEN, LOCK_RELEASED, MARKER_STORED_TO_DISK))
+                equalTo(List.of(LOCK_TAKEN, PAGES_SNAPSHOT_TAKEN, LOCK_RELEASED, MARKER_STORED_TO_DISK))
         );
 
         verify(markersStorage, times(1)).onCheckpointBegin(checkpointId);
