@@ -48,7 +48,8 @@ import org.jetbrains.annotations.Nullable;
  * Abstract class for performing IO operations on file page storage.
  */
 public abstract class AbstractFilePageStoreIo implements Closeable {
-    private final FileIoFactory ioFactory;
+    /** {@link FileIo} factory. */
+    protected final FileIoFactory ioFactory;
 
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 

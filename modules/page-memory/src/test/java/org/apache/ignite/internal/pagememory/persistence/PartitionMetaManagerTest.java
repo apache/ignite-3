@@ -19,7 +19,6 @@ package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.PartitionMeta.partitionMetaPageId;
-import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.DELTA_FILE_VERSION_1;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
-import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIoHeader;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreIo;
@@ -130,19 +128,16 @@ public class PartitionMetaManagerTest {
 
             // Check with delta file.
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
-                filePageStore.setDeltaFilePageStoreIoFactory((index, pageIndexes) -> new DeltaFilePageStoreIo(
-                        new RandomAccessFileIoFactory(),
-                        workDir.resolve("testDelta" + index),
-                        new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, index, PAGE_SIZE, pageIndexes)
-                ));
-
                 manager.writeMetaToBuffer(
                         partId,
                         new PartitionMeta(UUID.randomUUID(), 200, 1000, 4).metaSnapshot(null),
                         buffer.rewind()
                 );
 
-                DeltaFilePageStoreIo deltaFilePageStoreIo = filePageStore.getOrCreateNewDeltaFile(() -> new int[]{0}).get(1, SECONDS);
+                DeltaFilePageStoreIo deltaFilePageStoreIo = filePageStore.getOrCreateNewDeltaFile(
+                        index -> workDir.resolve("testDelta" + index),
+                        () -> new int[]{0}
+                ).get(1, SECONDS);
 
                 deltaFilePageStoreIo.write(partitionMetaPageId(partId.getPartitionId()), buffer.rewind(), true);
 

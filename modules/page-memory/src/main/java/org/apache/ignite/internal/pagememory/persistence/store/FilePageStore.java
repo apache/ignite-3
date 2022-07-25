@@ -29,6 +29,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -43,7 +44,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Actual read and write operations are performed with {@link FilePageStoreIo} and {@link DeltaFilePageStoreIo}.
  *
- * <p>To create a delta file first invoke {@link #getOrCreateNewDeltaFile(Supplier)} then fill it and then invoke {@link
+ * <p>To create a delta file first invoke {@link #getOrCreateNewDeltaFile(IntFunction, Supplier)} then fill it and then invoke {@link
  * #completeNewDeltaFile()}.
  */
 public class FilePageStore implements PageStore {
@@ -71,6 +72,12 @@ public class FilePageStore implements PageStore {
     /** Delta file page store IO version. */
     public static final int DELTA_FILE_VERSION_1 = 1;
 
+    /** Latest file page store version. */
+    public static final int LATEST_FILE_PAGE_STORE_VERSION = VERSION_1;
+
+    /** Latest delta file page store IO version. */
+    public static final int LATEST_DELTA_FILE_PAGE_STORE_VERSION = DELTA_FILE_VERSION_1;
+
     /** File page store IO. */
     private final FilePageStoreIo filePageStoreIo;
 
@@ -85,9 +92,6 @@ public class FilePageStore implements PageStore {
 
     /** Future with a new delta file page store. */
     private volatile @Nullable CompletableFuture<DeltaFilePageStoreIo> newDeltaFilePageStoreIoFuture;
-
-    /** {@link DeltaFilePageStoreIo} factory. */
-    private volatile @Nullable DeltaFilePageStoreIoFactory deltaFilePageStoreIoFactory;
 
     /** Callback on completion of delta file page store creation. */
     private volatile @Nullable CompleteCreationDeltaFilePageStoreIoCallback completeCreationDeltaFilePageStoreIoCallback;
@@ -266,15 +270,6 @@ public class FilePageStore implements PageStore {
     }
 
     /**
-     * Sets the delta file page store factory.
-     *
-     * @param factory Factory.
-     */
-    public void setDeltaFilePageStoreIoFactory(DeltaFilePageStoreIoFactory factory) {
-        deltaFilePageStoreIoFactory = factory;
-    }
-
-    /**
      * Sets the callback on completion of delta file page store creation.
      *
      * @param callback Callback.
@@ -289,12 +284,14 @@ public class FilePageStore implements PageStore {
      *
      * <p>Thread safe.
      *
-     * @param pageIndexesSupplier Page indexes supplier for the new delta file page store.
+     * @param deltaFilPathFunction Function to get the path to the delta file page store, the argument is the index of the delta file.
+     * @param pageIndexesSupplier Page indexes supplier that will only be called if the current thread creates a delta file page store.
      * @return Future that will be completed when the new delta file page store is created.
      */
-    public CompletableFuture<DeltaFilePageStoreIo> getOrCreateNewDeltaFile(Supplier<int[]> pageIndexesSupplier) {
-        assert deltaFilePageStoreIoFactory != null;
-
+    public CompletableFuture<DeltaFilePageStoreIo> getOrCreateNewDeltaFile(
+            IntFunction<Path> deltaFilPathFunction,
+            Supplier<int[]> pageIndexesSupplier
+    ) {
         CompletableFuture<DeltaFilePageStoreIo> future = this.newDeltaFilePageStoreIoFuture;
 
         if (future != null) {
@@ -308,7 +305,18 @@ public class FilePageStore implements PageStore {
 
         int nextIndex = deltaFilePageStoreIos.isEmpty() ? 0 : deltaFilePageStoreIos.get(0).fileIndex() + 1;
 
-        DeltaFilePageStoreIo deltaFilePageStoreIo = deltaFilePageStoreIoFactory.create(nextIndex, pageIndexesSupplier.get());
+        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(
+                LATEST_DELTA_FILE_PAGE_STORE_VERSION,
+                nextIndex,
+                filePageStoreIo.pageSize(),
+                pageIndexesSupplier.get()
+        );
+
+        DeltaFilePageStoreIo deltaFilePageStoreIo = new DeltaFilePageStoreIo(
+                filePageStoreIo.ioFactory,
+                deltaFilPathFunction.apply(nextIndex),
+                header
+        );
 
         // Should add to the head, since read operations should always start from the most recent.
         deltaFilePageStoreIos.add(0, deltaFilePageStoreIo);
@@ -319,7 +327,7 @@ public class FilePageStore implements PageStore {
     }
 
     /**
-     * Completes the {@link #getOrCreateNewDeltaFile(Supplier) creation} of a new delta file.
+     * Completes the {@link #getOrCreateNewDeltaFile(IntFunction, Supplier) creation} of a new delta file.
      *
      * <p>Thread safe.
      *

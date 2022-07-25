@@ -348,8 +348,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
                 FilePageStore filePageStore = filePageStoreFactory.createPageStore(buffer.rewind(), partFilePath, partDeltaFiles);
 
-                filePageStore.setDeltaFilePageStoreIoFactory((index, pageIndexes) -> createLatest(groupWorkDir, part, index, pageIndexes));
-
                 filePageStore.setCompleteCreationDeltaFilePageStoreIoCallback(deltaIo -> renameDeltaFile(groupWorkDir, part, deltaIo));
 
                 partitionFilePageStores.add(filePageStore);
@@ -391,22 +389,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
     }
 
     /**
-     * Creates a delta file page store (with file name like "part-1-delta-1.bin.tmp") of the latest version.
-     *
-     * @param groupWorkDir Group directory.
-     * @param partition Partition number.
-     * @param index Delta file page store index.
-     * @param pageIndexes Page indexes.
-     */
-    DeltaFilePageStoreIo createLatest(Path groupWorkDir, int partition, int index, int[] pageIndexes) {
-        return filePageStoreFactory.createLatestVersion(
-                groupWorkDir.resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, partition, index)),
-                index,
-                pageIndexes
-        );
-    }
-
-    /**
      * Renames the delta file page store from temporary to permanent, such as "part-1-delta-1.bin.tmp" to "part-1-delta-1.bin".
      *
      * @param groupWorkDir Group directory.
@@ -436,5 +418,16 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
     private static String tmpDeltaFileName(int partition, int index) {
         return String.format(TMP_PART_DELTA_FILE_TEMPLATE, partition, index);
+    }
+
+    /**
+     * Returns the path to the delta file page store.
+     *
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     * @param index Index of the delta file page store.
+     */
+    Path deltaFilePageStorePath(int groupId, int partitionId, int index) {
+        return dbDir.resolve(GROUP_DIR_PREFIX + groupId).resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, partitionId, index));
     }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.LATEST_FILE_PAGE_STORE_VERSION;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -30,12 +32,6 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * Factory for creating {@link FilePageStore}.
  */
 class FilePageStoreFactory {
-    /** Latest file page store version. */
-    private final int latestFilePageStoreVersion = FilePageStore.VERSION_1;
-
-    /** Latest delta file page store IO version. */
-    private final int latestDeltaFileVersion = FilePageStore.DELTA_FILE_VERSION_1;
-
     private final FileIoFactory fileIoFactory;
 
     private final int pageSize;
@@ -72,14 +68,14 @@ class FilePageStoreFactory {
         if (!Files.exists(filePageStorePath)) {
             assert deltaFilePaths.length == 0 : Arrays.toString(deltaFilePaths);
 
-            return createFilePageStore(filePageStorePath, new FilePageStoreHeader(latestFilePageStoreVersion, pageSize));
+            return createFilePageStore(filePageStorePath, new FilePageStoreHeader(LATEST_FILE_PAGE_STORE_VERSION, pageSize));
         }
 
         try (FileIo fileIo = fileIoFactory.create(filePageStorePath)) {
             FilePageStoreHeader header = FilePageStoreHeader.readHeader(fileIo, headerBuffer);
 
             if (header == null) {
-                header = new FilePageStoreHeader(latestFilePageStoreVersion, pageSize);
+                header = new FilePageStoreHeader(LATEST_FILE_PAGE_STORE_VERSION, pageSize);
             }
 
             if (deltaFilePaths.length == 0) {
@@ -139,25 +135,5 @@ class FilePageStoreFactory {
                 header.version(),
                 filePath
         ));
-    }
-
-    /**
-     * Creates a delta file page store of the latest version.
-     *
-     * @param filePath Path to the delta file page store.
-     * @param index Delta file page store index.
-     * @param pageIndexes Page indexes.
-     */
-    public DeltaFilePageStoreIo createLatestVersion(Path filePath, int index, int[] pageIndexes) {
-        return new DeltaFilePageStoreIo(
-                fileIoFactory,
-                filePath,
-                new DeltaFilePageStoreIoHeader(
-                        latestDeltaFileVersion,
-                        index,
-                        pageSize,
-                        pageIndexes
-                )
-        );
     }
 }
