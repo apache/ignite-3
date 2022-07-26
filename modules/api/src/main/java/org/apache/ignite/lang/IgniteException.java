@@ -26,6 +26,7 @@ import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
 import java.lang.reflect.Constructor;
+import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.jetbrains.annotations.Nullable;
@@ -264,6 +265,8 @@ public class IgniteException extends RuntimeException {
      * @return Public exception.
      */
     public static IgniteException wrap(Throwable e) {
+        Objects.requireNonNull(e);
+
         e = ExceptionUtils.unwrapCause(e);
 
         if (e instanceof IgniteException) {
