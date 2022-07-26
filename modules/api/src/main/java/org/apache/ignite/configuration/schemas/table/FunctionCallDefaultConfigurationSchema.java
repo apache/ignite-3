@@ -21,7 +21,6 @@ import static org.apache.ignite.configuration.schemas.table.ColumnDefaultConfigu
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
 
 /**
  * Configuration of a value provider which returns the value returned by a function call.

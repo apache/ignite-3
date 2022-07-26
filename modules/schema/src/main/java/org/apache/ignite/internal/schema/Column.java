@@ -186,6 +186,9 @@ public class Column {
         return nullable;
     }
 
+    /**
+     * Returns provider for a column's default.
+     */
     public DefaultValueProvider defaultValueProvider() {
         return defaultValueProvider;
     }

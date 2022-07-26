@@ -68,10 +68,7 @@ public class DataStorageManagerTest {
             polymorphicExtensions = {
                     UnknownDataStorageConfigurationSchema.class,
                     FirstDataStorageConfigurationSchema.class,
-                    SecondDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
+                    SecondDataStorageConfigurationSchema.class
             }
     )
     private DataStorageConfiguration dataStorageConfig;
@@ -80,7 +77,10 @@ public class DataStorageManagerTest {
             HashIndexConfigurationSchema.class,
             UnknownDataStorageConfigurationSchema.class,
             FirstDataStorageConfigurationSchema.class,
-            SecondDataStorageConfigurationSchema.class
+            SecondDataStorageConfigurationSchema.class,
+            ConstantValueDefaultConfigurationSchema.class,
+            FunctionCallDefaultConfigurationSchema.class,
+            NullValueDefaultConfigurationSchema.class
     })
     private TablesConfiguration tablesConfig;
 

@@ -31,6 +31,9 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.configuration.schemas.table.ColumnChange;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexChange;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -64,7 +67,13 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
     @BeforeEach
     void setUp(@InjectConfiguration(
-            polymorphicExtensions = {SortedIndexConfigurationSchema.class, TestConcurrentHashMapDataStorageConfigurationSchema.class},
+            polymorphicExtensions = {
+                    SortedIndexConfigurationSchema.class,
+                    TestConcurrentHashMapDataStorageConfigurationSchema.class,
+                    ConstantValueDefaultConfigurationSchema.class,
+                    FunctionCallDefaultConfigurationSchema.class,
+                    NullValueDefaultConfigurationSchema.class
+            },
             // This value only required for configuration validity, it's not used otherwise.
             value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
     ) TableConfiguration tableCfg) {
