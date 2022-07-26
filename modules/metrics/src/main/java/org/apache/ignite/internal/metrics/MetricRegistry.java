@@ -23,20 +23,34 @@ import java.util.TreeMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class MetricsRegistry {
+/**
+ * Metric registry. Metrics source (see {@link MetricSource} must be registered in this metrics registry after initialization
+ * of corresponding component and must be unregistered in case of component is destroyed or stopped. Metrics registry also
+ * provides access to all enabled metrics through corresponding metrics sets. Metrics registry lifetime is equal to the node lifetime.
+ */
+public class MetricRegistry {
     private final Lock lock = new ReentrantLock();
 
     /** Version always should be changed on metrics enabled/disabled action. */
-    private long ver;
-    private final Map<String, MetricsSource> sources = new HashMap<>();
+    private long version;
 
-    private final Map<String, MetricsSet> sets = new TreeMap<>();
+    /** Registered metric sources. */
+    private final Map<String, MetricSource> sources = new HashMap<>();
 
-    public void registerSource(MetricsSource src) {
+    /** Enabled metric sets. */
+    private final Map<String, MetricSet> sets = new TreeMap<>();
+
+    /**
+     * Register metric source. It must be registered in this metrics registry after initialization of corresponding component
+     * and must be unregistered in case of component is destroyed or stopped, see {@link #unregisterSource(MetricSource)}.
+     *
+     * @param src Metric source.
+     */
+    public void registerSource(MetricSource src) {
         lock.lock();
 
         try {
-            MetricsSource old = sources.putIfAbsent(src.name(), src);
+            MetricSource old = sources.putIfAbsent(src.name(), src);
 
             if (old != null)
                 throw new IllegalStateException("Metrics source with given name is already exists: " + src.name());
@@ -45,7 +59,12 @@ public class MetricsRegistry {
         }
     }
 
-    public void unregisterSource(MetricsSource src) {
+    /**
+     * Unregister metric source. It must be unregistered in case of corrsponding component is destroyed or stopped.
+     *
+     * @param src Metric source.
+     */
+    public void unregisterSource(MetricSource src) {
         lock.lock();
 
         try {
@@ -57,27 +76,43 @@ public class MetricsRegistry {
         }
     }
 
-
-    public void enable(final String srcName) {
+    /**
+     * Enable metric set for the given metric source.
+     *
+     * @param srcName Metric source name.
+     * @return Metric set, or {@code null} if the metric set is already enabled.
+     */
+    public MetricSet enable(final String srcName) {
         lock.lock();
 
         try {
-            MetricsSource src = sources.get(srcName);
+            MetricSource src = sources.get(srcName);
 
             if (src == null)
                 throw new IllegalStateException("Metrics source with given name doesn't exists: " + srcName);
 
-            sets.put(srcName, src.enable());
+            MetricSet metricSet = src.enable();
+
+            if (metricSet != null) {
+                sets.put(srcName, metricSet);
+            }
+
+            return metricSet;
         } finally {
             lock.unlock();
         }
     }
 
+    /**
+     * Disable metric set for the given metric source.
+     *
+     * @param srcName Metric source name.
+     */
     public void disable(final String srcName) {
         lock.lock();
 
         try {
-            MetricsSource src = sources.get(srcName);
+            MetricSource src = sources.get(srcName);
 
             src.disable();
 

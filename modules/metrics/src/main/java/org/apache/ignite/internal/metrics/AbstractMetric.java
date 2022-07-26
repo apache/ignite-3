@@ -20,7 +20,7 @@ package org.apache.ignite.internal.metrics;
 import org.jetbrains.annotations.Nullable;
 
 public abstract class AbstractMetric implements Metric {
-    /** Metric name. It is local for a particular {@link MetricsSet}. */
+    /** Metric name. It is local for a particular {@link MetricSet}. */
     private final String name;
 
     /** Metric description. */

@@ -27,7 +27,7 @@ import org.jetbrains.annotations.TestOnly;
  * The Metric set that consists of set of metrics identified by a metric name.
  * The metrics set is immutable.
  */
-public class MetricsSet implements Iterable<Metric> {
+public class MetricSet implements Iterable<Metric> {
     /** Metrics set name. */
     private final String name;
 
@@ -35,17 +35,29 @@ public class MetricsSet implements Iterable<Metric> {
     private final Map<String, Metric> metrics;
 
     /**
+     * Metric set version.
+     */
+    private final long version;
+
+    /**
      * Creates an instance of a metrics set with given name and metrics.
      *
      * @param name Metrics set name.
      * @param metrics Metrics.
+     * @param version Metric set version.
      */
-    public MetricsSet(String name, Map<String, Metric> metrics) {
+    public MetricSet(String name, Map<String, Metric> metrics, long version) {
         this.name = name;
         this.metrics = Collections.unmodifiableMap(metrics);
+        this.version = version;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Get metric by name.
+     *
+     * @param name Metric name.
+     * @return Metric.
+     */
     @Nullable
     @TestOnly
     public <M extends Metric> M get(String name) {
@@ -62,4 +74,12 @@ public class MetricsSet implements Iterable<Metric> {
         return name;
     }
 
+    /**
+     * Version.
+     *
+     * @return Version.
+     */
+    public long version() {
+        return version;
+    }
 }

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.metrics;
 /**
  * Interface for all metrics source.
  */
-public interface MetricsSource {
+public interface MetricSource {
     /**
      * Returns metric source name.
      *
@@ -29,14 +29,15 @@ public interface MetricsSource {
     String name();
 
     /**
-     * Enables metrics for metric source. Creates and returns {@link MetricsSet} built during enabling.
+     * Enables metrics for metric source. Creates and returns {@link MetricSet} built during enabling. Nothing happens if
+     * the metrics are already enabled for this source.
      *
-     * @return Newly created {@link MetricsSet} instance or {@code null} if metrics are already enabled.
+     * @return Newly created {@link MetricSet} instance or {@code null} if metrics are already enabled.
      */
-    MetricsSet enable();
+    MetricSet enable();
 
     /**
-     * Disables metrics for metric source.
+     * Disables metrics for metric source. Nothing happens if the metrics are already disabled for this source.
      */
     void disable();
 

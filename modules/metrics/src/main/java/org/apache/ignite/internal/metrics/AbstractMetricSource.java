@@ -19,18 +19,20 @@ package org.apache.ignite.internal.metrics;
 
 import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
 
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import java.util.function.Supplier;
 
 /**
  * Base class for all metric sources.
  *
  * @param <T> Holder type.
  */
-public abstract class AbstractMetricsSource<T extends AbstractMetricsSource.Holder<T>> implements MetricsSource {
+public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder<T>> implements MetricSource {
     /** Holder field updater. */
     @SuppressWarnings("rawtypes")
-    private static final AtomicReferenceFieldUpdater<AbstractMetricsSource, Holder> HOLDER_FIELD_UPD =
-            newUpdater(AbstractMetricsSource.class, AbstractMetricsSource.Holder.class, "holder");
+    private static final AtomicReferenceFieldUpdater<AbstractMetricSource, Holder> HOLDER_FIELD_UPD =
+            newUpdater(AbstractMetricSource.class, AbstractMetricSource.Holder.class, "holder");
 
     /** Metric source name. */
     private final String name;
@@ -38,12 +40,15 @@ public abstract class AbstractMetricsSource<T extends AbstractMetricsSource.Hold
     /** Metric instances holder. */
     private volatile T holder;
 
+    /** Version. */
+    private final AtomicLong version = new AtomicLong();
+
     /**
      * Base constructor for all metric source implemnetations.
      *
      * @param name Metric source name.
      */
-    protected AbstractMetricsSource(String name) {
+    protected AbstractMetricSource(String name) {
         this.name = name;
     }
 
@@ -82,17 +87,26 @@ public abstract class AbstractMetricsSource<T extends AbstractMetricsSource.Hold
      */
     protected abstract T createHolder();
 
+    /**
+     * Version supplier for versioning the metric set.
+     *
+     * @return Version supplier, supplying metric set version.
+     */
+    protected Supplier<Long> versionSupplier() {
+        return version::incrementAndGet;
+    }
+
     /** {@inheritDoc} */
-    @Override public final MetricsSet enable() {
-        MetricsSetBuilder bldr = new MetricsSetBuilder(name);
+    @Override public final MetricSet enable() {
+        MetricSetBuilder bldr = new MetricSetBuilder(name, versionSupplier());
 
         T hldr = createHolder();
 
         init(bldr, hldr);
 
-        MetricsSet reg = bldr.build();
+        MetricSet metricSet = bldr.build();
 
-        return HOLDER_FIELD_UPD.compareAndSet(this, null, hldr) ? reg : null;
+        return HOLDER_FIELD_UPD.compareAndSet(this, null, hldr) ? metricSet : null;
     }
 
     /** {@inheritDoc} */
@@ -106,7 +120,7 @@ public abstract class AbstractMetricsSource<T extends AbstractMetricsSource.Hold
     /**
      * Method is responsible for:
      * <ol>
-     *     <li>Creation of {@link MetricsSet} instance using provided {@link MetricsSetBuilder}.</li>
+     *     <li>Creation of {@link MetricSet} instance using provided {@link MetricSetBuilder}.</li>
      *     <li>Creation of metric instances in given holder.</li>
      *     <li>Other initialization if needed.</li>
      * <ol/>
@@ -114,11 +128,11 @@ public abstract class AbstractMetricsSource<T extends AbstractMetricsSource.Hold
      * @param bldr Metric registry builder.
      * @param holder Metric instances holder.
      */
-    protected abstract void init(MetricsSetBuilder bldr, T holder);
+    protected abstract void init(MetricSetBuilder bldr, T holder);
 
     /**
      * Method is responsible for cleanup and release of all resources initialized or created during {@link #init} method
-     * execution. Note that {@link MetricsSet} and {@link Holder} instances will be released automatically.
+     * execution. Note that {@link MetricSet} and {@link Holder} instances will be released automatically.
      *
      * @param holder Metric instances holder.
      */

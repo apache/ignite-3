@@ -19,15 +19,16 @@ package org.apache.ignite.internal.metrics.examples.threadpool;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import org.apache.ignite.internal.metrics.AbstractMetricsSource;
-import org.apache.ignite.internal.metrics.MetricsSetBuilder;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.metrics.AbstractMetricSource;
+import org.apache.ignite.internal.metrics.MetricSetBuilder;
 
 import java.util.concurrent.ThreadPoolExecutor;
 
-public class ThreadPoolMetricsSource extends AbstractMetricsSource<ThreadPoolMetricsSource.Holder> {
+public class ThreadPoolMetricSource extends AbstractMetricSource<ThreadPoolMetricSource.Holder> {
     private final ThreadPoolExecutor exec;
 
-    public ThreadPoolMetricsSource(String name, ThreadPoolExecutor exec) {
+    public ThreadPoolMetricSource(String name, ThreadPoolExecutor exec) {
         super(name);
 
         this.exec = exec;
@@ -40,7 +41,7 @@ public class ThreadPoolMetricsSource extends AbstractMetricsSource<ThreadPoolMet
     }
 
     @Override
-    protected void init(MetricsSetBuilder bldr, Holder holder) {
+    protected void init(MetricSetBuilder bldr, Holder holder) {
         bldr.intGauge(
                 "ActiveCount",
                 "Approximate number of threads that are actively executing tasks.",
@@ -85,7 +86,7 @@ public class ThreadPoolMetricsSource extends AbstractMetricsSource<ThreadPoolMet
         );
     }
 
-    protected static class Holder implements AbstractMetricsSource.Holder<Holder> {
+    protected static class Holder implements AbstractMetricSource.Holder<Holder> {
 
     }
 }

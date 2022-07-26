@@ -38,7 +38,7 @@ public class DistributionMetric extends AbstractMetric implements Metric {
      *
      * @param name Name.
      * @param desc Description.
-     * @param bounds Bounds.
+     * @param bounds Bounds of the buckets.
      */
     public DistributionMetric(String name, @Nullable String desc, long[] bounds) {
         super(name, desc);
