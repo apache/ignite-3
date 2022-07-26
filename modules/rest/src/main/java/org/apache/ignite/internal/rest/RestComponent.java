@@ -35,6 +35,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
+import org.apache.ignite.internal.rest.api.cluster.TopologyApi;
 import org.apache.ignite.internal.rest.api.configuration.ClusterConfigurationApi;
 import org.apache.ignite.internal.rest.api.configuration.NodeConfigurationApi;
 import org.apache.ignite.internal.rest.api.node.NodeManagementApi;
@@ -56,7 +57,8 @@ import org.jetbrains.annotations.Nullable;
         ClusterConfigurationApi.class,
         NodeConfigurationApi.class,
         ClusterManagementApi.class,
-        NodeManagementApi.class
+        NodeManagementApi.class,
+        TopologyApi.class
 })
 public class RestComponent implements IgniteComponent {
     /** Default port. */

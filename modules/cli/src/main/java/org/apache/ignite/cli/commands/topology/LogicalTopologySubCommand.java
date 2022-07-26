@@ -15,45 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.node.status;
+package org.apache.ignite.cli.commands.topology;
 
 import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
 import java.util.concurrent.Callable;
-import org.apache.ignite.cli.call.node.status.NodeStatusCall;
+import org.apache.ignite.cli.call.cluster.topology.LogicalTopologyCall;
+import org.apache.ignite.cli.call.cluster.topology.TopologyCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.NodeStatusDecorator;
+import org.apache.ignite.cli.commands.decorators.TopologyDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.call.StatusCallInput;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 /**
- * Display the node status.
+ * Command that show logical cluster topology.
  */
-@Command(name = "status",
-        description = "Prints status of the node.")
-@Singleton
-public class NodeStatusSubCommand extends BaseCommand implements Callable<Integer> {
-
+@Command(name = "logical")
+public class LogicalTopologySubCommand extends BaseCommand implements Callable<Integer> {
     /**
      * Node url option.
      */
-    @SuppressWarnings("PMD.UnusedPrivateField")
-    @Option(names = {"--node-url"}, description = "Url to node.", descriptionKey = "ignite.cluster-url")
-    private String nodeUrl;
+    @Option(names = {"--cluster-url"}, description = "Url to ignite node.", descriptionKey = "ignite.cluster-url")
+    private String clusterUrl;
 
     @Inject
-    private NodeStatusCall nodeStatusCall;
+    private LogicalTopologyCall call;
 
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(nodeStatusCall)
-                .inputProvider(() -> new StatusCallInput(nodeUrl))
+        return CallExecutionPipeline.builder(call)
+                .inputProvider(() -> TopologyCallInput.builder().clusterUrl(clusterUrl).build())
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new NodeStatusDecorator())
+                .decorator(new TopologyDecorator())
                 .build()
                 .runPipeline();
     }

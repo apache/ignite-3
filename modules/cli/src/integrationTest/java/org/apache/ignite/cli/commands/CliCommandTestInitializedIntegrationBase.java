@@ -15,12 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.call;
+package org.apache.ignite.cli.commands;
 
-import org.apache.ignite.cli.IntegrationTestBase;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+
+import java.util.concurrent.ExecutionException;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInfo;
 
 /**
- * Base class for call integration tests. Contains common methods and useful assertions.
+ * Extends {@link CliCommandTestNotInitializedIntegrationBase} and initializes ignite cluster.
  */
-public class CallIntegrationTestBase extends IntegrationTestBase {
+public class CliCommandTestInitializedIntegrationBase extends CliCommandTestNotInitializedIntegrationBase {
+
+    @BeforeAll
+    @Override
+    void beforeAll(TestInfo testInfo) throws ExecutionException, InterruptedException {
+        startNodes(testInfo);
+        super.initializeCluster(metaStorageNodeName(testInfo));
+    }
+
+    protected String metaStorageNodeName(TestInfo testInfo) {
+        return testNodeName(testInfo, 0);
+    }
 }

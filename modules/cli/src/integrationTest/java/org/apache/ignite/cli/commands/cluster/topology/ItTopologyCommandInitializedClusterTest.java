@@ -15,27 +15,45 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.version;
+package org.apache.ignite.cli.commands.cluster.topology;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.cli.commands.CliCommandTestInitializedIntegrationBase;
+import org.apache.ignite.cli.commands.topology.TopologyCommand;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class ItVersionCommandTest extends CliCommandTestInitializedIntegrationBase {
+/**
+ * Tests for {@link TopologyCommand}.
+ */
+class ItTopologyCommandInitializedClusterTest extends CliCommandTestInitializedIntegrationBase {
 
     @Test
-    @DisplayName("Should print cli version that is got from pom.xml")
-    void printVersion() {
+    @DisplayName("Should print physical topology when valid cluster url is provided")
+    void printPhysicalTopology() {
         // When
-        execute("--version");
+        execute("cluster", "topology", "physical", "--cluster-url", NODE_URL);
 
         // Then
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Apache Ignite CLI ver")
+                this::assertOutputIsNotEmpty
+        );
+    }
+
+    @Test
+    @DisplayName("Should print logical topology when valid cluster url is provided but cluster")
+    void printLogicalTopology() {
+        // When
+        execute("cluster", "topology", "logical", "--cluster-url", NODE_URL);
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                this::assertOutputIsNotEmpty
         );
     }
 }

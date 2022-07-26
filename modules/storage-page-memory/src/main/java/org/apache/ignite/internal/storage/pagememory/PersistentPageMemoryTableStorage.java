@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.storage.StorageUtils.groupId;
 
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
@@ -72,8 +71,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         TableView tableView = tableCfg.value();
 
         try {
-            // TODO: IGNITE-16665 Directory name needs to be corrected to support table renaming
-            dataRegion.filePageStoreManager().initialize(tableView.name(), groupId(tableView), tableView.partitions());
+            dataRegion.filePageStoreManager().initialize(tableView.name(), tableView.tableId(), tableView.partitions());
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error initializing file page stores for table: " + tableView.name(), e);
         }
@@ -95,7 +93,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         try {
             PersistentPageMemory persistentPageMemory = dataRegion.pageMemory();
 
-            int grpId = groupId(tableView);
+            int grpId = tableView.tableId();
 
             CheckpointProgress currentProgress = checkpointManager.currentProgress();
 
@@ -174,7 +172,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      */
     FilePageStore ensurePartitionFilePageStore(TableView tableView, int partId) throws StorageException {
         try {
-            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(groupId(tableView), partId);
+            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(tableView.tableId(), partId);
 
             filePageStore.ensure();
 
@@ -204,7 +202,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     ) throws StorageException {
         try {
             return new TableFreeList(
-                    groupId(tableView),
+                    tableView.tableId(),
                     partId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
@@ -239,7 +237,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             PartitionMeta partitionMeta,
             boolean initNewTree
     ) throws StorageException {
-        int grpId = groupId(tableView);
+        int grpId = tableView.tableId();
 
         try {
             return new TableTree(

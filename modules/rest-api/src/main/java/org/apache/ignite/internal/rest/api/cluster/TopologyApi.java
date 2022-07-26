@@ -17,57 +17,44 @@
 
 package org.apache.ignite.internal.rest.api.cluster;
 
-import io.micronaut.http.annotation.Body;
-import io.micronaut.http.annotation.Consumes;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
-import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.Produces;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.util.concurrent.CompletableFuture;
+import java.util.Collection;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.MediaType;
 
 /**
- * Cluster management controller.
+ * Cluster topology endpoint.
  */
-@Controller("/management/v1/cluster")
-@Tag(name = "clusterManagement")
-public interface ClusterManagementApi {
+@Controller("/management/v1/cluster/topology")
+@Tag(name = "topology")
+public interface TopologyApi {
 
     /**
-     * Returns cluster state.
+     * Cluster physical topology.
      */
-    @Get("state")
-    @Operation(operationId = "clusterState")
-    @ApiResponse(responseCode = "200", description = "Return cluster state",
-            content = @Content(mediaType = MediaType.APPLICATION_JSON,
-                    schema = @Schema(implementation = ClusterStateDto.class)))
-    @ApiResponse(responseCode = "404", description = "Cluster state not found, it means that the cluster is not initialized")
+    @Get("physical")
+    @Operation(operationId = "physical")
+    @ApiResponse(responseCode = "200", description = "Physical topology returned")
     @ApiResponse(responseCode = "500", description = "Internal error",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Produces({
-            MediaType.APPLICATION_JSON,
-            MediaType.PROBLEM_JSON
-    })
-    CompletableFuture<ClusterStateDto> clusterState();
+    @Produces(MediaType.APPLICATION_JSON)
+    Collection<ClusterNodeDto> physicalTopology();
 
     /**
-     * Initializes cluster.
-     *
-     * @return Completable future that will be completed when cluster is initialized.
+     * Cluster logical topology.
      */
-    @Post("init")
-    @Operation(operationId = "init")
-    @ApiResponse(responseCode = "200", description = "Cluster initialized")
+    @Get("logical")
+    @Operation(operationId = "logical")
+    @ApiResponse(responseCode = "200", description = "Logical topology returned")
     @ApiResponse(responseCode = "500", description = "Internal error",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "400", description = "Incorrect configuration",
-            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Consumes(MediaType.APPLICATION_JSON)
-    CompletableFuture<Void> init(@Body InitCommand initCommand);
+    @Produces(MediaType.APPLICATION_JSON)
+    Collection<ClusterNodeDto> logicalTopology();
 }

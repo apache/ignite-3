@@ -20,7 +20,7 @@ package org.apache.ignite.cli.commands.sql;
 import static org.apache.ignite.cli.core.exception.handler.SqlExceptionHandler.CLIENT_CONNECTION_FAILED_MESSAGE;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.apache.ignite.cli.commands.CliCommandTestIntegrationBase;
+import org.apache.ignite.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -30,7 +30,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Tests for {@link SqlCommand}.
  */
-class ItSqlCommandTest extends CliCommandTestIntegrationBase {
+class ItSqlCommandTest extends CliCommandTestInitializedIntegrationBase {
 
     @BeforeEach
     public void setUp(TestInfo testInfo) throws Exception {

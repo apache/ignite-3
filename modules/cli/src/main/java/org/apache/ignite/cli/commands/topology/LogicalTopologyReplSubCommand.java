@@ -15,62 +15,56 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.node.status;
+package org.apache.ignite.cli.commands.topology;
 
 import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
 import java.util.concurrent.Callable;
-import org.apache.ignite.cli.call.node.status.NodeStatusCall;
+import org.apache.ignite.cli.call.cluster.topology.LogicalTopologyCall;
+import org.apache.ignite.cli.call.cluster.topology.TopologyCallInput;
+import org.apache.ignite.cli.call.cluster.topology.TopologyCallInput.TopologyCallInputBuilder;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.NodeStatusDecorator;
+import org.apache.ignite.cli.commands.decorators.TopologyDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.call.StatusCallInput;
 import org.apache.ignite.cli.core.repl.Session;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 /**
- * Display the node status in REPL.
+ * Command that show logical cluster topology in REPL mode.
  */
-@Command(name = "status",
-        description = "Prints status of the node.")
-@Singleton
-public class NodeStatusReplSubCommand extends BaseCommand implements Callable<Integer> {
-
+@Command(name = "logical")
+public class LogicalTopologyReplSubCommand extends BaseCommand implements Callable<Integer> {
     /**
      * Node url option.
      */
-    @SuppressWarnings("PMD.UnusedPrivateField")
-    @Option(
-            names = {"--node-url"}, description = "Url to node.", descriptionKey = "ignite.cluster-url"
-    )
-    private String nodeUrl;
-
-    @Inject
-    private NodeStatusCall nodeStatusCall;
+    @Option(names = {"--cluster-url"}, description = "Url to ignite node.", descriptionKey = "ignite.cluster-url")
+    private String clusterUrl;
 
     @Inject
     private Session session;
 
+    @Inject
+    private LogicalTopologyCall call;
+
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        String inputUrl;
+        TopologyCallInputBuilder inputBuilder = TopologyCallInput.builder();
 
-        if (nodeUrl != null) {
-            inputUrl = nodeUrl;
-        } else if (session.isConnectedToNode()) {
-            inputUrl = session.nodeUrl();
+        if (clusterUrl != null) {
+            inputBuilder.clusterUrl(clusterUrl);
+        } else if (session.isConnectedToNode())  {
+            inputBuilder.clusterUrl(session.nodeUrl());
         } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--node-url' option.");
+            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--cluster-url' option.");
             return 2;
         }
 
-        return CallExecutionPipeline.builder(nodeStatusCall)
-                .inputProvider(() -> new StatusCallInput(inputUrl))
+        return CallExecutionPipeline.builder(call)
+                .inputProvider(inputBuilder::build)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new NodeStatusDecorator())
+                .decorator(new TopologyDecorator())
                 .build()
                 .runPipeline();
     }
