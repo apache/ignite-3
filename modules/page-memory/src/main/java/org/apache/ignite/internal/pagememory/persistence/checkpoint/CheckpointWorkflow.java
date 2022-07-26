@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.MARKER_STORED_TO_DISK;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SNAPSHOT_TAKEN;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.ArrayList;
@@ -176,8 +177,8 @@ class CheckpointWorkflow {
 
             tracker.onMarkCheckpointBeginEnd();
 
-            // There are allowable to replace pages only after checkpoint marker was stored to disk.
-            dirtyPages = beginCheckpoint(dataRegions, curr.futureFor(MARKER_STORED_TO_DISK));
+            // Page replacement is allowed only after sorting dirty pages.
+            dirtyPages = beginCheckpoint(dataRegions, curr.futureFor(PAGES_SORTED));
 
             curr.currentCheckpointPagesCount(dirtyPages.dirtyPageCount);
 
