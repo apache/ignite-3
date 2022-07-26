@@ -19,6 +19,7 @@ package org.apache.ignite.schema.definition.builder;
 
 import java.util.Map;
 import org.apache.ignite.schema.definition.ColumnDefinition;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Table column builder.
@@ -39,7 +40,7 @@ public interface ColumnDefinitionBuilder extends SchemaObjectBuilder {
      * @param defValExpr Default value expression.
      * @return {@code this} for chaining.
      */
-    ColumnDefinitionBuilder withDefaultValue(Object defValExpr);
+    ColumnDefinitionBuilder withDefaultValue(@Nullable Object defValExpr);
 
     /** {@inheritDoc} */
     @Override

@@ -24,6 +24,7 @@ import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.DefaultValueDefinition;
 import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Column builder.
@@ -39,7 +40,7 @@ public class ColumnDefinitionBuilderImpl implements ColumnDefinitionBuilder {
     private boolean nullable;
 
     /** Default value expression. */
-    private Object defValExpr;
+    private @Nullable Object defValExpr;
 
     /**
      * Constructor.
@@ -62,7 +63,7 @@ public class ColumnDefinitionBuilderImpl implements ColumnDefinitionBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public ColumnDefinitionBuilderImpl withDefaultValue(Object defValExpr) {
+    public ColumnDefinitionBuilderImpl withDefaultValue(@Nullable Object defValExpr) {
         this.defValExpr = defValExpr;
 
         return this;

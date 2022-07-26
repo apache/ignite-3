@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.lang.reflect.Method;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.util.UUID;
 
 /**
@@ -26,29 +28,25 @@ import java.util.UUID;
  */
 public enum DefaultValueGenerator {
     /** Generator that generates random UUID string. */
-    GEN_RANDOM_UUID("genRandomUuid");
+    GEN_RANDOM_UUID("genRandomUuid", String.class);
 
-    private final Method method;
+    private final MethodHandle methodHandle;
 
-    DefaultValueGenerator(String methodName) {
+    DefaultValueGenerator(String methodName, Class<?> resultCls) {
         try {
-            this.method = DefaultValueGenerator.class.getMethod(methodName);
-        } catch (NoSuchMethodException e) {
+            this.methodHandle = MethodHandles.lookup().findStatic(
+                    DefaultValueGenerator.class, methodName, MethodType.methodType(resultCls)
+            );
+        } catch (NoSuchMethodException | IllegalAccessException e) {
             throw new IllegalStateException(e);
         }
     }
 
-    /**
-     * Returns next value.
-     *
-     * @param <T> Param to cast value to.
-     * @return Next value.
-     */
-    @SuppressWarnings("unchecked")
-    public <T> T next() {
+    /** Returns next value. */
+    public Object next() {
         try {
-            return (T) method.invoke(method.getDeclaringClass());
-        } catch (Exception e) {
+            return methodHandle.invoke();
+        } catch (Throwable e) {
             throw new IllegalStateException(e);
         }
     }
