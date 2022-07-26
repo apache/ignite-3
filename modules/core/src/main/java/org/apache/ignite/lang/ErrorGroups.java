@@ -102,7 +102,7 @@ public class ErrorGroups {
         /** Schema not found. */
         public static final int SCHEMA_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(7);
 
-        /** Storage engine not valie. */
+        /** Storage engine not valid. */
         public static final int STORAGE_ENGINE_NOT_VALID_ERR = SQL_ERR_GROUP.registerErrorCode(8);
     }
 }
