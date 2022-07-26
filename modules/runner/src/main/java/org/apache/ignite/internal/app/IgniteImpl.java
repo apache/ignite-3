@@ -79,6 +79,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.message.TxMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -422,6 +423,8 @@ public class IgniteImpl implements Ignite {
                     cmgMgr
             );
 
+            IgniteUtils.onNodeStart();
+
             LOG.info("Components started, joining the cluster");
 
             return cmgMgr.joinFuture()
@@ -509,6 +512,8 @@ public class IgniteImpl implements Ignite {
      */
     public void stop() {
         lifecycleManager.stopNode();
+
+        IgniteUtils.onNodeStop();
     }
 
     /** {@inheritDoc} */
