@@ -58,7 +58,7 @@ public class DefaultJRaftServiceFactory implements JRaftServiceFactory {
         return new LocalRaftMetaStorage(uri, raftOptions);
     }
 
-    @Override public HybridClock getHybridClock() {
+    @Override public HybridClock getClock() {
         return clock;
     }
 }

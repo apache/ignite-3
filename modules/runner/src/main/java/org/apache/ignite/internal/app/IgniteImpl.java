@@ -37,7 +37,6 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.SystemTimeProvider;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesSerializationRegistryInitializer;
@@ -254,7 +253,7 @@ public class IgniteImpl implements Ignite {
                 nodeCfgMgr.configurationRegistry().getConfiguration(ComputeConfiguration.KEY)
         );
 
-        clock = new HybridClock(new SystemTimeProvider());
+        clock = new HybridClock();
 
         raftMgr = new Loza(clusterSvc, workDir, clock);
 

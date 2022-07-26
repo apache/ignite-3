@@ -1541,7 +1541,6 @@ public class Replicator implements ThreadId.OnError {
      */
     private boolean sendEntries(final long nextSendingIndex) {
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory().appendEntriesRequest();
-        rb.timestamp(options.getNode().clockNow());
         if (!fillCommonFields(rb, nextSendingIndex - 1, false)) {
             // unlock id in installSnapshot
             installSnapshot();

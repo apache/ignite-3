@@ -17,25 +17,21 @@
 
 package org.apache.ignite.hlc;
 
+import java.time.Clock;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * A Hybrid Logical Clock.
  */
 public class HybridClock {
-    /** Physical time provider. */
-    private final SystemTimeProvider physicalTimeProvider;
-
     /** Latest timestamp. */
     private HybridTimestamp latestTime;
 
     /**
      * The constructor which initializes the latest time to current time by system clock.
      */
-    public HybridClock(SystemTimeProvider physicalTimeProvider) {
-        this.physicalTimeProvider = physicalTimeProvider;
-
-        this.latestTime = new HybridTimestamp(physicalTimeProvider.getPhysicalTime(), 0);
+    public HybridClock() {
+        this.latestTime = new HybridTimestamp(Clock.systemUTC().instant().toEpochMilli(), 0);
     }
 
     /**
@@ -44,7 +40,7 @@ public class HybridClock {
      * @return The hybrid timestamp.
      */
     public synchronized HybridTimestamp now() {
-        long currentTimeMillis = physicalTimeProvider.getPhysicalTime();
+        long currentTimeMillis = Clock.systemUTC().instant().toEpochMilli();
 
         if (latestTime.getPhysical() >= currentTimeMillis) {
             latestTime = latestTime.addTicks(1);
@@ -62,7 +58,7 @@ public class HybridClock {
      * @return The hybrid timestamp.
      */
     public synchronized HybridTimestamp update(HybridTimestamp requestTime) {
-        HybridTimestamp now = new HybridTimestamp(physicalTimeProvider.getPhysicalTime(), -1);
+        HybridTimestamp now = new HybridTimestamp(Clock.systemUTC().instant().toEpochMilli(), -1);
 
         latestTime = HybridTimestamp.max(now, requestTime, latestTime);
 
@@ -72,6 +68,7 @@ public class HybridClock {
     }
 
     /** {@inheritDoc} */
+    @Override
     public String toString() {
         return S.toString(HybridClock.class, this);
     }

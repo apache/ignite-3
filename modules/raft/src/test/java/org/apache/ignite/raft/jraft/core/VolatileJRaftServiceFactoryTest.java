@@ -18,7 +18,6 @@
 package org.apache.ignite.raft.jraft.core;
 
 import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.SystemTimeProvider;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.VolatileStorage;
 import org.junit.jupiter.api.Test;
@@ -28,7 +27,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 
 class VolatileJRaftServiceFactoryTest {
-    private final VolatileJRaftServiceFactory serviceFactory = new VolatileJRaftServiceFactory(new HybridClock(new SystemTimeProvider()));
+    private final VolatileJRaftServiceFactory serviceFactory = new VolatileJRaftServiceFactory(new HybridClock());
 
     @Test
     void producesVolatileMetaStorage() {

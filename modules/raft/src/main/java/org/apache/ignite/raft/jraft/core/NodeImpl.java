@@ -855,7 +855,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
-        this.clock = serviceFactory.getHybridClock();
+        this.clock = serviceFactory.getClock();
         // Term is not an option since changing it is very dangerous
         final long bootstrapLogTerm = opts.getLastLogIndex() > 0 ? 1 : 0;
         final LogId bootstrapId = new LogId(opts.getLastLogIndex(), bootstrapLogTerm);
@@ -952,7 +952,7 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireNonNull(opts.getRaftOptions(), "Null raft options");
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
-        this.clock = serviceFactory.getHybridClock();
+        this.clock = serviceFactory.getClock();
         this.options = opts;
         this.raftOptions = opts.getRaftOptions();
         this.metrics = new NodeMetrics(opts.isEnableMetrics());
@@ -1855,12 +1855,11 @@ public class NodeImpl implements Node, RaftServerService {
             }
             while (false);
 
-            RequestVoteResponseBuilder rb = raftOptions.getRaftMessagesFactory()
-                    .requestVoteResponse()
-                    .term(this.currTerm)
-                    .granted(granted);
-
-            return rb.build();
+            return raftOptions.getRaftMessagesFactory()
+                .requestVoteResponse()
+                .term(this.currTerm)
+                .granted(granted)
+                .build();
         }
         finally {
             if (doUnlock) {
@@ -1971,12 +1970,11 @@ public class NodeImpl implements Node, RaftServerService {
             }
             while (false);
 
-            RequestVoteResponseBuilder rb = raftOptions.getRaftMessagesFactory()
-                    .requestVoteResponse()
-                    .term(this.currTerm)
-                    .granted(request.term() == this.currTerm && candidateId.equals(this.votedId));
-
-            return rb.build();
+            return raftOptions.getRaftMessagesFactory()
+                .requestVoteResponse()
+                .term(this.currTerm)
+                .granted(request.term() == this.currTerm && candidateId.equals(this.votedId))
+                .build();
         }
         finally {
             if (doUnlock) {
@@ -2817,7 +2815,6 @@ public class NodeImpl implements Node, RaftServerService {
                     electSelf();
                 }
             }
-
         }
         finally {
             if (doUnlock) {

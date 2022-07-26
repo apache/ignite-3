@@ -66,7 +66,7 @@ public class VolatileJRaftServiceFactory implements JRaftServiceFactory {
     }
 
     @Override
-    public HybridClock getHybridClock() {
+    public HybridClock getClock() {
         return clock;
     }
 }

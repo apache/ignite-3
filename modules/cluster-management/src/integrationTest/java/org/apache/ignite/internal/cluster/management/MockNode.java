@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.SystemTimeProvider;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
@@ -75,7 +74,7 @@ public class MockNode {
 
         this.clusterService = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
-        Loza raftManager = new Loza(clusterService, workDir, new HybridClock(new SystemTimeProvider()));
+        Loza raftManager = new Loza(clusterService, workDir, new HybridClock());
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,

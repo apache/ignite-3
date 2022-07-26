@@ -67,7 +67,6 @@ import java.util.function.BooleanSupplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.hlc.HybridClock;
-import org.apache.ignite.hlc.SystemTimeProvider;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
@@ -2928,7 +2927,7 @@ public class ItNodeTest {
             }
         };
         logStorageProvider.start();
-        opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageProvider, new HybridClock(new SystemTimeProvider())));
+        opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageProvider, new HybridClock()));
         opts.setLastLogIndex(fsm.getLogs().size());
         opts.setRaftMetaUri(dataPath + File.separator + "meta");
         opts.setSnapshotUri(dataPath + File.separator + "snapshot");
@@ -2949,7 +2948,7 @@ public class ItNodeTest {
             }
         };
         log2.start();
-        nodeOpts.setServiceFactory(new DefaultJRaftServiceFactory(log2, new HybridClock(new SystemTimeProvider())));
+        nodeOpts.setServiceFactory(new DefaultJRaftServiceFactory(log2, new HybridClock()));
         nodeOpts.setFsm(fsm);
 
         RaftGroupService service = createService("test", new PeerId(addr, 0), nodeOpts);
@@ -2982,7 +2981,7 @@ public class ItNodeTest {
             }
         };
         logStorageProvider.start();
-        opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageProvider, new HybridClock(new SystemTimeProvider())));
+        opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageProvider, new HybridClock()));
         opts.setLastLogIndex(0);
         opts.setRaftMetaUri(dataPath + File.separator + "meta");
         opts.setSnapshotUri(dataPath + File.separator + "snapshot");
@@ -3003,7 +3002,7 @@ public class ItNodeTest {
             }
         };
         log2.start();
-        nodeOpts.setServiceFactory(new DefaultJRaftServiceFactory(log2, new HybridClock(new SystemTimeProvider())));
+        nodeOpts.setServiceFactory(new DefaultJRaftServiceFactory(log2, new HybridClock()));
 
         RaftGroupService service = createService("test", new PeerId(addr, 0), nodeOpts);
 
@@ -3783,7 +3782,7 @@ public class ItNodeTest {
         for (PeerId peer : peers) {
             RaftOptions opts = new RaftOptions();
             opts.setElectionHeartbeatFactor(4); // Election timeout divisor.
-            HybridClock clock = new HybridClock(new SystemTimeProvider());
+            HybridClock clock = new HybridClock();
             assertTrue(cluster.start(peer.getEndpoint(), false, 300, false, null, opts, clock));
         }
 
@@ -3818,7 +3817,7 @@ public class ItNodeTest {
                 if (msgs[0] instanceof AppendEntriesRequestImpl) {
                     AppendEntriesRequestImpl msg = (AppendEntriesRequestImpl) msgs[0];
 
-                    if (msg.data() == null) {
+                    if (msg.entriesList() == null && msg.data() == null) {
                         heartbeatRequest.set(true);
                         assertTrue(msg.timestamp() != null);
                     } else {
@@ -3854,7 +3853,7 @@ public class ItNodeTest {
         DefaultLogStorageFactory log = new DefaultLogStorageFactory(Path.of(dataPath, "node" + nodeIdx, "log"));
         log.start();
 
-        options.setServiceFactory(new DefaultJRaftServiceFactory(log, new HybridClock(new SystemTimeProvider())));
+        options.setServiceFactory(new DefaultJRaftServiceFactory(log, new HybridClock()));
 
         return options;
     }

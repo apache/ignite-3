@@ -63,7 +63,7 @@ public interface JRaftServiceFactory {
      *
      * @return A hybrid logical clock.
      */
-    HybridClock getHybridClock();
+    HybridClock getClock();
 
     /**
      * Creates a log entry codec factory.
