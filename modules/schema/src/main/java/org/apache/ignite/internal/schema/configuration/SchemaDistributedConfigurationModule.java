@@ -50,6 +50,7 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
         );
     }
 
+    /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(

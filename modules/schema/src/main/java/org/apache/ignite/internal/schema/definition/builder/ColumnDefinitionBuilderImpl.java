@@ -62,7 +62,7 @@ public class ColumnDefinitionBuilderImpl implements ColumnDefinitionBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public ColumnDefinitionBuilderImpl withDefaultValueExpression(Object defValExpr) {
+    public ColumnDefinitionBuilderImpl withDefaultValue(Object defValExpr) {
         this.defValExpr = defValExpr;
 
         return this;

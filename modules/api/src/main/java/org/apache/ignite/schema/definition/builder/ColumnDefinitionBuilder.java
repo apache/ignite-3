@@ -39,7 +39,7 @@ public interface ColumnDefinitionBuilder extends SchemaObjectBuilder {
      * @param defValExpr Default value expression.
      * @return {@code this} for chaining.
      */
-    ColumnDefinitionBuilder withDefaultValueExpression(Object defValExpr);
+    ColumnDefinitionBuilder withDefaultValue(Object defValExpr);
 
     /** {@inheritDoc} */
     @Override

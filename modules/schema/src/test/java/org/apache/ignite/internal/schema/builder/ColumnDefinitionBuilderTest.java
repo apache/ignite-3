@@ -42,7 +42,7 @@ public class ColumnDefinitionBuilderTest {
 
         var dflt = LocalDate.now();
 
-        ColumnDefinition col = builder.withDefaultValueExpression(dflt).build();
+        ColumnDefinition col = builder.withDefaultValue(dflt).build();
 
         assertEquals("TEST", col.name());
         assertEquals(ColumnType.DATE, col.type());

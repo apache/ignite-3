@@ -18,10 +18,14 @@
 package org.apache.ignite.internal.schema.serializer;
 
 import static java.math.RoundingMode.HALF_UP;
+import static org.apache.ignite.internal.schema.DefaultValueGenerator.GEN_RANDOM_UUID;
 import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
+import static org.apache.ignite.internal.schema.DefaultValueProvider.forValueGenerator;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -42,6 +46,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DefaultValueGenerator;
+import org.apache.ignite.internal.schema.DefaultValueProvider;
+import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -201,13 +208,47 @@ public class AbstractSerializerTest {
 
         SchemaDescriptor deserialize = assembler.deserialize(serialize);
 
-        assertThat(deserialize.keyColumns().length(), equalTo(1));
+        assertThat(deserialize.valueColumns().length(), equalTo(1));
 
         var column = deserialize.valueColumns().columns()[0];
 
         assertThat(column.name(), equalTo(columnName));
         assertThat(column.nullable(), equalTo(nullable));
         assertThat(column.defaultValue(), equalTo(arg.defaultValue));
+    }
+
+    /**
+     * Validates functional default serialisation.
+     */
+    @Test
+    public void functionalDefaultSerialization() {
+        AbstractSchemaSerializer assembler = SchemaSerializerImpl.INSTANCE;
+
+        SchemaDescriptor desc = new SchemaDescriptor(100500,
+                new Column[]{
+                        new Column("ID", NativeTypes.stringOf(64), false, forValueGenerator(GEN_RANDOM_UUID))
+                },
+                new Column[]{
+                        new Column("VAL", NativeTypes.INT8, true)
+                }
+        );
+
+        byte[] serialize = assembler.serialize(desc);
+
+        SchemaDescriptor deserialize = assembler.deserialize(serialize);
+
+        assertThat(deserialize.keyColumns().length(), equalTo(1));
+
+        var column = deserialize.keyColumns().columns()[0];
+
+        assertThat(column.name(), equalTo("ID"));
+        assertThat(column.nullable(), equalTo(false));
+        assertThat(column.defaultValueProvider().type(), equalTo(Type.FUNCTIONAL));
+
+        var defaultVal = column.defaultValue();
+
+        assertThat(defaultVal, notNullValue());
+        assertThat(column.defaultValue(), not(equalTo(defaultVal))); // should generate next value
     }
 
     /**

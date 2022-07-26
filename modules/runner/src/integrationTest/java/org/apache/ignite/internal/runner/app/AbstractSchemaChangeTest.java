@@ -201,7 +201,7 @@ abstract class AbstractSchemaChangeTest {
                 SchemaBuilders.column("valBlob", ColumnType.blob()).asNullable(true).build(),
                 SchemaBuilders.column("valDecimal", ColumnType.decimal()).asNullable(true).build(),
                 SchemaBuilders.column("valBigInt", ColumnType.number()).asNullable(true).build(),
-                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValueExpression("default").build()
+                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
         ).withPrimaryKey("key").build();
 
         nodes.get(0).tables().createTable(

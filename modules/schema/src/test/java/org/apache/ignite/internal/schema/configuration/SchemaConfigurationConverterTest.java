@@ -46,10 +46,13 @@ import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.schema.definition.ColumnDefinitionImpl;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.DefaultValueDefinition;
 import org.apache.ignite.schema.definition.DefaultValueDefinition.ConstantValue;
+import org.apache.ignite.schema.definition.DefaultValueDefinition.FunctionCall;
+import org.apache.ignite.schema.definition.DefaultValueGenerators;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.builder.HashIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.PartialIndexDefinitionBuilder;
@@ -273,6 +276,43 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
     }
 
     /**
+     * Validates conversion of functional default.
+     */
+    @Test
+    public void convertFunctionalDefault() {
+        final var keyColumnName = "KEY";
+
+        TableDefinition tableDefinition = SchemaBuilders.tableBuilder("PUBLIC", "TEST")
+                .columns(
+                        new ColumnDefinitionImpl(
+                                keyColumnName, ColumnType.string(), false,
+                                DefaultValueDefinition.functionCall(DefaultValueGenerators.GEN_RANDOM_UUID)
+                        ),
+                        SchemaBuilders.column("VAL", ColumnType.INT8).build()
+                )
+                .withPrimaryKey(keyColumnName)
+                .build();
+
+        confRegistry.getConfiguration(TablesConfiguration.KEY).change(
+                ch -> SchemaConfigurationConverter.createTable(tableDefinition, ch)
+                        .changeTables(
+                                tblsCh -> tblsCh.update(tableDefinition.canonicalName(), tblCh -> tblCh.changeReplicas(1).changeTableId(1))
+                        )
+        ).join();
+
+        var tableConfiguration = confRegistry.getConfiguration(TablesConfiguration.KEY)
+                .tables().get(tableDefinition.canonicalName());
+
+        var columns = SchemaConfigurationConverter.convert(tableConfiguration.value()).columns();
+
+        assertThat(columns, hasSize(2));
+        assertThat(columns.get(0).name(), equalTo(keyColumnName));
+        assertThat(columns.get(0).defaultValueDefinition(), instanceOf(FunctionCall.class));
+        assertThat(((FunctionCall) columns.get(0).defaultValueDefinition()).functionName(),
+                equalTo(DefaultValueGenerators.GEN_RANDOM_UUID));
+    }
+
+    /**
      * Ensures that column default are properly converted from definition to configuration and vice versa.
      *
      * @param arg Argument object describing default value to verify.
@@ -287,7 +327,7 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
         var tableDefinition = SchemaBuilders.tableBuilder("PUBLIC", "TEST")
                 .columns(
                         SchemaBuilders.column(keyColumnName, ColumnType.INT32).build(),
-                        SchemaBuilders.column(columnName, arg.type).withDefaultValueExpression(arg.defaultValue).build()
+                        SchemaBuilders.column(columnName, arg.type).withDefaultValue(arg.defaultValue).build()
                 )
                 .withPrimaryKey("ID")
                 .build();

@@ -72,8 +72,9 @@ public class ColumnDefinitionImpl implements ColumnDefinition {
 
     /** {@inheritDoc} */
     @Override
-    public DefaultValueDefinition defaultValueDefinition() {
-        return defaultValueDefinition;
+    @SuppressWarnings("unchecked")
+    public <T extends DefaultValueDefinition> T defaultValueDefinition() {
+        return (T) defaultValueDefinition;
     }
 
     /** {@inheritDoc} */

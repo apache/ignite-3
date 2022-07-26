@@ -129,7 +129,7 @@ public class DdlCommandHandler {
                             IgniteTypeFactory.relDataTypeToColumnType(col.type())
                     )
                     .asNullable(col.nullable())
-                    .withDefaultValueExpression(col.defaultValue());
+                    .withDefaultValue(col.defaultValue());
 
             colsInner.add(col0.build());
         }
@@ -323,7 +323,7 @@ public class DdlCommandHandler {
                                         IgniteTypeFactory.relDataTypeToColumnType(col.type())
                                 )
                                 .asNullable(col.nullable())
-                                .withDefaultValueExpression(col.defaultValue());
+                                .withDefaultValue(col.defaultValue());
 
                         cols.create(col.name(), colChg -> convert(col0.build(), colChg));
                     }
