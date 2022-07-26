@@ -271,7 +271,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 new NamedThreadFactory("rebalance-scheduler", LOG));
 
         ioExecutor = new ThreadPoolExecutor(
-                25,
+                Math.min(Utils.cpus() * 3, 25),
                 Integer.MAX_VALUE,
                 100,
                 TimeUnit.MILLISECONDS,

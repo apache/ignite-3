@@ -25,13 +25,13 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
@@ -74,6 +74,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
+import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -96,8 +97,9 @@ public class JraftServerImpl implements RaftServer {
     /** Started groups. */
     private ConcurrentMap<String, RaftGroupService> groups = new ConcurrentHashMap<>();
 
-    /** Lock storage, needed to prevent concurrent start of the same raft group. */
-    private ConcurrentHashMap<String, Lock> startGroupInProgressLocks = new ConcurrentHashMap<>();
+    /** Lock storage with predefined monitor objects,
+     * needed to prevent concurrent start of the same raft group. */
+    private final List<Object> startGroupInProgressMonitors;
 
     /** Node manager. */
     private final NodeManager nodeManager;
@@ -107,6 +109,9 @@ public class JraftServerImpl implements RaftServer {
 
     /** Request executor. */
     private ExecutorService requestExecutor;
+
+    /** The number of parallel raft groups starts. */
+    private static final int SIMULTANEOUS_GROUP_START_PARALLELISM = Math.min(Utils.cpus() * 3, 25);
 
     /**
      * The constructor.
@@ -152,6 +157,14 @@ public class JraftServerImpl implements RaftServer {
          than suspicion timeout for the 1000 nodes cluster with ping interval equals 500ms.
          */
         this.opts.setElectionTimeoutStrategy(new ExponentialBackoffTimeoutStrategy(11_000, 3));
+
+        var monitors = new ArrayList<>(SIMULTANEOUS_GROUP_START_PARALLELISM);
+
+        for (int i = 0; i < SIMULTANEOUS_GROUP_START_PARALLELISM; i++) {
+            monitors.add(new Object());
+        }
+
+        startGroupInProgressMonitors = Collections.unmodifiableList(monitors);
     }
 
     /** {@inheritDoc} */
@@ -343,11 +356,7 @@ public class JraftServerImpl implements RaftServer {
             return false;
         }
 
-        Lock lock = groupLock(grpId);
-
-        lock.lock();
-
-        try {
+        synchronized (groupMonitor(grpId)) {
             // double check if group wasn't created before receiving the lock.
             if (groups.containsKey(grpId)) {
                 return false;
@@ -411,33 +420,21 @@ public class JraftServerImpl implements RaftServer {
             groups.put(grpId, server);
 
             return true;
-        } finally {
-            lock.unlock();
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean stopRaftGroup(String grpId) {
-        Lock lock = groupLock(grpId);
+        RaftGroupService svc = groups.remove(grpId);
 
-        lock.lock();
+        boolean stopped = svc != null;
 
-        try {
-            RaftGroupService svc = groups.remove(grpId);
-
-            boolean stopped = svc != null;
-
-            if (stopped) {
-                svc.shutdown();
-
-                startGroupInProgressLocks.remove(grpId);
-            }
-
-            return stopped;
-        } finally {
-            lock.unlock();
+        if (stopped) {
+            svc.shutdown();
         }
+
+        return stopped;
     }
 
     /** {@inheritDoc} */
@@ -496,22 +493,13 @@ public class JraftServerImpl implements RaftServer {
     }
 
     /**
-     * Initialize (if needed) and receive per raft group lock,
-     * to prevent concurrent start of the same raft group.
+     * Returns the monitor object, which can be used to synchronize start operation by group id.
      *
      * @param grpId Group id.
-     * @return lock
+     * @return Monitor object.
      */
-    private Lock groupLock(String grpId) {
-        var newGroupLock = new ReentrantLock();
-
-        Lock lock;
-
-        if ((lock = startGroupInProgressLocks.putIfAbsent(grpId, newGroupLock)) == null) {
-            lock = newGroupLock;
-        }
-
-        return lock;
+    private Object groupMonitor(String grpId) {
+        return startGroupInProgressMonitors.get(Math.abs(grpId.hashCode() % SIMULTANEOUS_GROUP_START_PARALLELISM));
     }
 
     /**
