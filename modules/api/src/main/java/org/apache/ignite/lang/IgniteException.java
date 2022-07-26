@@ -281,14 +281,7 @@ public class IgniteException extends RuntimeException {
         if (e instanceof IgniteCheckedException) {
             IgniteCheckedException iex = (IgniteCheckedException) e;
 
-            try {
-                Constructor<?> ctor = e.getClass().getDeclaredConstructor(UUID.class, int.class, String.class, Throwable.class);
-
-                return (IgniteException) ctor.newInstance(iex.traceId(), iex.code(), e.getMessage(), e);
-            } catch (Exception ex) {
-                throw new RuntimeException("IgniteCheckedException-derived class does not have required constructor: " +
-                        e.getClass().getName());
-            }
+            return new IgniteException(iex.traceId(), iex.code(), e.getMessage(), e);
         }
 
         return new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
