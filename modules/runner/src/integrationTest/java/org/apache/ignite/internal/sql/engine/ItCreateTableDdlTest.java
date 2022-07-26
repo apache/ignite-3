@@ -68,7 +68,7 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
                         IgniteException.class,
                         () -> sql("CREATE TABLE T0(ID INT, VAL INT, PRIMARY KEY (ID1, ID0, ID2))")
                 ).getMessage(),
-                containsString("Primary key constrain contains undefined columns: [cols=[ID0, ID2, ID1]]")
+                containsString("Primary key constraint contains undefined columns: [cols=[ID0, ID2, ID1]]")
         );
     }
 

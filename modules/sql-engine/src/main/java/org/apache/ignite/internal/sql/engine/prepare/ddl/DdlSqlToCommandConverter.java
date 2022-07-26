@@ -23,6 +23,9 @@ import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageCo
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEYS_MULTIPLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEY_MISSING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STORAGE_ENGINE_NOT_VALID_ERR;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -258,7 +261,7 @@ public class DdlSqlToCommandConverter {
 
         for (SqlColumnDeclaration col : colDeclarations) {
             if (!col.name.isSimple()) {
-                throw new IgniteException("Unexpected value of columnName ["
+                throw new SqlException(QUERY_INVALID_ERR, "Unexpected value of columnName ["
                         + "expected a simple identifier, but was " + col.name + "; "
                         + "querySql=\"" + ctx.query() + "\"]");
             }
@@ -266,7 +269,7 @@ public class DdlSqlToCommandConverter {
             String name = col.name.getSimple();
 
             if (col.dataType.getNullable() != null && col.dataType.getNullable() && dedupSetPk.contains(name)) {
-                throw new IgniteException("Primary key cannot contain nullable column [col=" + name + "]");
+                throw new SqlException(QUERY_INVALID_ERR, "Primary key cannot contain nullable column [col=" + name + "]");
             }
 
             RelDataType relType = planner.convert(col.dataType, !dedupSetPk.contains(name));
@@ -282,7 +285,7 @@ public class DdlSqlToCommandConverter {
         }
 
         if (!dedupSetPk.isEmpty()) {
-            throw new IgniteException("Primary key constrain contains undefined columns: [cols=" + dedupSetPk + "]");
+            throw new SqlException(QUERY_INVALID_ERR, "Primary key constraint contains undefined columns: [cols=" + dedupSetPk + "]");
         }
 
         createTblCmd.columns(cols);
@@ -419,9 +422,9 @@ public class DdlSqlToCommandConverter {
             SqlIdentifier schemaId = id.skipLast(1);
 
             if (!schemaId.isSimple()) {
-                throw new IgniteException("Unexpected value of schemaName ["
+                throw new SqlException(QUERY_INVALID_ERR, "Unexpected value of schemaName ["
                         + "expected a simple identifier, but was " + schemaId + "; "
-                        + "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
+                        + "querySql=\"" + ctx.query() + "\"]");
             }
 
             schemaName = schemaId.getSimple();
@@ -441,9 +444,9 @@ public class DdlSqlToCommandConverter {
         SqlIdentifier objId = id.getComponent(id.skipLast(1).names.size());
 
         if (!objId.isSimple()) {
-            throw new IgniteException("Unexpected value of " + objDesc + " ["
+            throw new SqlException(QUERY_INVALID_ERR, "Unexpected value of " + objDesc + " ["
                     + "expected a simple identifier, but was " + objId + "; "
-                    + "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
+                    + "querySql=\"" + ctx.query() + "\"]");
         }
 
         return objId.getSimple();
@@ -451,8 +454,7 @@ public class DdlSqlToCommandConverter {
 
     private void ensureSchemaExists(PlanningContext ctx, String schemaName) {
         if (ctx.catalogReader().getRootSchema().getSubSchema(schemaName, true) == null) {
-            throw new IgniteException("Schema with name " + schemaName + " not found"/*,
-                IgniteQueryErrorCode.SCHEMA_NOT_FOUND*/);
+            throw new SqlException(SCHEMA_NOT_FOUND_ERR, "Schema with name " + schemaName + " not found");
         }
     }
 
@@ -503,7 +505,7 @@ public class DdlSqlToCommandConverter {
             String defaultDataStorage = defaultDataStorageSupplier.get();
 
             if (defaultDataStorage.equals(UNKNOWN_DATA_STORAGE)) {
-                throw new IgniteException("Default data storage is not defined, query:" + ctx.query());
+                throw new SqlException(STORAGE_ENGINE_NOT_VALID_ERR, "Default data storage is not defined, query:" + ctx.query());
             }
 
             return defaultDataStorage;
@@ -514,7 +516,7 @@ public class DdlSqlToCommandConverter {
         String dataStorage = engineName.getSimple().toUpperCase();
 
         if (!dataStorageNames.containsKey(dataStorage)) {
-            throw new IgniteException(String.format(
+            throw new SqlException(STORAGE_ENGINE_NOT_VALID_ERR, String.format(
                     "Unexpected data storage engine [engine=%s, expected=%s, query=%s]",
                     dataStorage, dataStorageNames, ctx.query()
             ));
