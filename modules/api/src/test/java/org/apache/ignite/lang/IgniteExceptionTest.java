@@ -17,23 +17,41 @@
 
 package org.apache.ignite.lang;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.concurrent.CompletionException;
+import org.apache.ignite.lang.ErrorGroups.Table;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Tests ignite exceptions.
+ */
 public class IgniteExceptionTest {
     @Test
     public void testWrapUncheckedException() {
-        TableNotFoundException originalEx = new TableNotFoundException("my-tbl-name");
+        var originalEx = new TableNotFoundException("my-tbl-name");
         var wrappedEx = new CompletionException(originalEx);
         var res = IgniteException.wrap(wrappedEx);
 
-        assertEquals(originalEx.getMessage(), res.getMessage());
+        assertThat(res.getMessage(), containsString("Table does not exist [name=my-tbl-name]"));
         assertEquals(originalEx.traceId(), res.traceId());
         assertEquals(originalEx.code(), res.code());
         assertEquals(originalEx.getClass(), res.getClass());
+        assertSame(originalEx, res.getCause());
+    }
+
+    @Test
+    public void testWrapCheckedException() {
+        var originalEx = new IgniteCheckedException(Table.COLUMN_ALREADY_EXISTS_ERR, "Msg.");
+        var wrappedEx = new CompletionException(originalEx);
+        var res = IgniteException.wrap(wrappedEx);
+
+        assertThat(res.getMessage(), containsString("Msg."));
+        assertEquals(originalEx.traceId(), res.traceId());
+        assertEquals(originalEx.code(), res.code());
         assertSame(originalEx, res.getCause());
     }
 }
