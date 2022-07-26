@@ -44,13 +44,16 @@ import picocli.CommandLine;
 public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTestBase {
     /** Correct ignite jdbc url. */
     protected static final String JDBC_URL = "jdbc:ignite:thin://127.0.0.1:10800";
+
     @Inject
-    ConfigDefaultValueProvider configDefaultValueProvider;
+    private ConfigDefaultValueProvider configDefaultValueProvider;
+
     @Inject
-    protected
-    TestConfigManagerProvider configManagerProvider;
+    protected TestConfigManagerProvider configManagerProvider;
+
     @Inject
     private ApplicationContext context;
+
     private CommandLine cmd;
 
     private StringWriter sout;

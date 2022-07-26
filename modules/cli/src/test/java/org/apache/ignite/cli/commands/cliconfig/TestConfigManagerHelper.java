@@ -57,13 +57,19 @@ public class TestConfigManagerHelper {
         return copyResourceToTempFile(CLUSTER_URL_NON_DEFAULT);
     }
 
-    public static File copyResourceToTempFile(String iniResource) {
+    /**
+     * Helper method to copy file from the classpath to the temporary file which will be deleted on exit.
+     *
+     * @param resource The resource name
+     * @return A temporary file containing the resource's contents
+     */
+    public static File copyResourceToTempFile(String resource) {
         try {
             File tempFile = File.createTempFile("cli", null);
 
             try (FileOutputStream fileOutputStream = new FileOutputStream(tempFile)) {
                 FileChannel dest = fileOutputStream.getChannel();
-                InputStream resourceAsStream = TestConfigManagerHelper.class.getClassLoader().getResourceAsStream(iniResource);
+                InputStream resourceAsStream = TestConfigManagerHelper.class.getClassLoader().getResourceAsStream(resource);
                 ReadableByteChannel src = Channels.newChannel(resourceAsStream);
                 dest.transferFrom(src, 0, Integer.MAX_VALUE);
                 tempFile.deleteOnExit();
