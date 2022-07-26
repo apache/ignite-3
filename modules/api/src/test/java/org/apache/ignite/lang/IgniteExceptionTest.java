@@ -56,6 +56,9 @@ public class IgniteExceptionTest {
         assertSame(originalEx, res.getCause());
     }
 
+    /**
+     * Custom exception for tests.
+     */
     public static class CustomTestException extends IgniteException {
         public CustomTestException(UUID traceId, int code, String message, Throwable cause) {
             super(traceId, code, message, cause);
