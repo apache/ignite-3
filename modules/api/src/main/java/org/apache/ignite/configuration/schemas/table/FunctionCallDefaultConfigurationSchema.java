@@ -17,32 +17,17 @@
 
 package org.apache.ignite.configuration.schemas.table;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.InjectedName;
+import static org.apache.ignite.configuration.schemas.table.ColumnDefaultConfigurationSchema.FUNCTION_CALL_TYPE;
+
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
 
 /**
- * Configuration for single column in SQL table.
+ * Configuration of a value provider which returns the value returned by a function call.
  */
-@Config
-public class ColumnConfigurationSchema {
-    /** Column name. */
-    @InjectedName
-    public String name;
-
-    /** Column type. */
-    @ConfigValue
-    @ColumnTypeValidator
-    public ColumnTypeConfigurationSchema type;
-
-    /** Nullable flag. */
+@PolymorphicConfigInstance(FUNCTION_CALL_TYPE)
+public class FunctionCallDefaultConfigurationSchema extends ColumnDefaultConfigurationSchema {
+    /** Name of a function that should be used to generate next value. */
     @Value
-    @Immutable
-    public boolean nullable;
-
-    /** Default value. */
-    @ConfigValue
-    public ColumnDefaultConfigurationSchema defaultValueProvider;
+    public String functionName;
 }

@@ -17,32 +17,24 @@
 
 package org.apache.ignite.configuration.schemas.table;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.InjectedName;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 
 /**
- * Configuration for single column in SQL table.
+ * Configuration of default value for table column.
  */
-@Config
-public class ColumnConfigurationSchema {
-    /** Column name. */
-    @InjectedName
-    public String name;
+@PolymorphicConfig
+public class ColumnDefaultConfigurationSchema {
+    /** Default value is not specified or specified as null explicitly. */
+    public static final String NULL_VALUE_TYPE = "NULL";
 
-    /** Column type. */
-    @ConfigValue
-    @ColumnTypeValidator
-    public ColumnTypeConfigurationSchema type;
+    /** Default value is non-null constant. */
+    public static final String CONSTANT_VALUE_TYPE = "CONSTANT";
 
-    /** Nullable flag. */
-    @Value
-    @Immutable
-    public boolean nullable;
+    /** Default value provided by a function call. */
+    public static final String FUNCTION_CALL_TYPE = "FUNCTION";
 
-    /** Default value. */
-    @ConfigValue
-    public ColumnDefaultConfigurationSchema defaultValueProvider;
+    /** Type of the default value provider. */
+    @PolymorphicId(hasDefault = true)
+    public String type = NULL_VALUE_TYPE;
 }

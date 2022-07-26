@@ -456,7 +456,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         List<ColumnDefinition> cols = new ArrayList<>();
         cols.add(SchemaBuilders.column("key", ColumnType.INT64).build());
         cols.add(SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build());
-        cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValueExpression("default").build());
+        cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build());
 
         return node.tables().createTable(
                 schemaName + "." + shortTableName,
@@ -480,7 +480,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
                                     SchemaBuilders.column("key", ColumnType.INT64).build(),
                                     SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build(),
                                     SchemaBuilders.column("valStr", ColumnType.string())
-                                            .withDefaultValueExpression("default").build()
+                                            .withDefaultValue("default").build()
                             )).withPrimaryKey("key").build(),
                             tblCh).changeReplicas(2).changePartitions(10)
             );
@@ -524,7 +524,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      */
     protected void addColumn(Ignite node, String schemaName, String shortTableName) {
         ColumnDefinition col = SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable(true)
-                .withDefaultValueExpression("default").build();
+                .withDefaultValue("default").build();
 
         addColumnInternal(node, schemaName, shortTableName, col);
     }
@@ -558,7 +558,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      */
     protected void addColumnIfNotExists(Ignite node, String schemaName, String shortTableName) {
         ColumnDefinition col = SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable(true)
-                .withDefaultValueExpression("default").build();
+                .withDefaultValue("default").build();
 
         try {
             addColumnInternal(node, schemaName, shortTableName, col);

@@ -43,10 +43,15 @@ import org.apache.ignite.configuration.schemas.table.ColumnChange;
 import org.apache.ignite.configuration.schemas.table.ColumnTypeChange;
 import org.apache.ignite.configuration.schemas.table.ColumnTypeView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultChange;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultView;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultChange;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultView;
 import org.apache.ignite.configuration.schemas.table.HashIndexChange;
 import org.apache.ignite.configuration.schemas.table.HashIndexView;
 import org.apache.ignite.configuration.schemas.table.IndexColumnChange;
 import org.apache.ignite.configuration.schemas.table.IndexColumnView;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultView;
 import org.apache.ignite.configuration.schemas.table.PartialIndexChange;
 import org.apache.ignite.configuration.schemas.table.PartialIndexView;
 import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
@@ -69,6 +74,9 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.ColumnType.DecimalColumnType;
+import org.apache.ignite.schema.definition.DefaultValueDefinition;
+import org.apache.ignite.schema.definition.DefaultValueDefinition.ConstantValue;
+import org.apache.ignite.schema.definition.DefaultValueDefinition.FunctionCall;
 import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.index.HashIndexDefinition;
@@ -350,8 +358,31 @@ public class SchemaConfigurationConverter {
     public static ColumnChange convert(ColumnDefinition col, ColumnChange colChg) {
         colChg.changeType(colTypeInit -> convert(col.type(), colTypeInit));
 
-        if (col.defaultValue() != null) {
-            colChg.changeDefaultValue(convertDefaultToConfiguration(col.defaultValue(), col.type()));
+        if (col.defaultValueDefinition() != null) {
+            colChg.changeDefaultValueProvider(colDefault -> {
+                switch (col.defaultValueDefinition().type()) {
+                    case CONSTANT:
+                        ConstantValue constantValue = col.defaultValueDefinition();
+
+                        colDefault.convert(ConstantValueDefaultChange.class).changeDefaultValue(
+                                convertDefaultToConfiguration(constantValue.value(), col.type())
+                        );
+
+                        break;
+                    case FUNCTION_CALL:
+                        FunctionCall functionCall = col.defaultValueDefinition();
+
+                        colDefault.convert(FunctionCallDefaultChange.class).changeFunctionName(functionCall.functionName());
+
+                        break;
+                    case NULL:
+                        // do nothing
+                        break;
+                    default:
+                        throw new IllegalStateException("Unknown default value definition type [type="
+                                + col.defaultValueDefinition().type() + ']');
+                }
+            });
         }
 
         colChg.changeNullable(col.nullable());
@@ -368,11 +399,27 @@ public class SchemaConfigurationConverter {
     public static ColumnDefinition convert(ColumnView colView) {
         var type = convert(colView.type());
 
+        DefaultValueDefinition valueSupplier;
+
+        var defaultValueProvider = colView.defaultValueProvider();
+
+        if (defaultValueProvider instanceof NullValueDefaultView) {
+            valueSupplier = DefaultValueDefinition.nullValue();
+        } else if (defaultValueProvider instanceof FunctionCallDefaultView) {
+            valueSupplier = DefaultValueDefinition.functionCall(((FunctionCallDefaultView) defaultValueProvider).functionName());
+        } else if (defaultValueProvider instanceof ConstantValueDefaultView) {
+            valueSupplier = DefaultValueDefinition.constant(
+                    convertDefaultFromConfiguration(((ConstantValueDefaultView) defaultValueProvider).defaultValue(), type)
+            );
+        } else {
+            throw new IllegalStateException("Unknown value supplier class " + defaultValueProvider.getClass().getName());
+        }
+
         return new ColumnDefinitionImpl(
                 colView.name(),
                 type,
                 colView.nullable(),
-                convertDefaultFromConfiguration(colView.defaultValue(), type)
+                valueSupplier
         );
     }
 
@@ -546,10 +593,6 @@ public class SchemaConfigurationConverter {
     }
 
     private static @Nullable Object convertDefaultFromConfiguration(String defaultValue, ColumnType type) {
-        if (defaultValue.isEmpty()) {
-            return null;
-        }
-
         switch (type.typeSpec()) {
             case INT8:
                 return Byte.parseByte(defaultValue);

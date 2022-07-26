@@ -17,32 +17,17 @@
 
 package org.apache.ignite.configuration.schemas.table;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.InjectedName;
+import static org.apache.ignite.configuration.schemas.table.ColumnDefaultConfigurationSchema.CONSTANT_VALUE_TYPE;
+
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
 
 /**
- * Configuration for single column in SQL table.
+ * Configuration of a value provider which returns the same constant value.
  */
-@Config
-public class ColumnConfigurationSchema {
-    /** Column name. */
-    @InjectedName
-    public String name;
-
-    /** Column type. */
-    @ConfigValue
-    @ColumnTypeValidator
-    public ColumnTypeConfigurationSchema type;
-
-    /** Nullable flag. */
+@PolymorphicConfigInstance(CONSTANT_VALUE_TYPE)
+public class ConstantValueDefaultConfigurationSchema extends ColumnDefaultConfigurationSchema {
+    /** The value to be used as default for a column. */
     @Value
-    @Immutable
-    public boolean nullable;
-
-    /** Default value. */
-    @ConfigValue
-    public ColumnDefaultConfigurationSchema defaultValueProvider;
+    public String defaultValue;
 }
