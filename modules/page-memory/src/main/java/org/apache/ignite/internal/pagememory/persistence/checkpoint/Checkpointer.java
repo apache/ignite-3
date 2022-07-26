@@ -279,9 +279,9 @@ public class Checkpointer extends IgniteWorker {
                 throw new IgniteInternalCheckedException(e);
             }
 
-            updateHeartbeat();
+            assert currentCheckpointProgress.pagesToWrite() != null;
 
-            currentCheckpointProgress.initCounters(chp.dirtyPagesSize);
+            updateHeartbeat();
 
             if (chp.hasDelta()) {
                 if (log.isInfoEnabled()) {

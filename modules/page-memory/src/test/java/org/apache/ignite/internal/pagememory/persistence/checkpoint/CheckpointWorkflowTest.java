@@ -42,8 +42,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -218,14 +221,17 @@ public class CheckpointWorkflowTest {
 
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), empty());
 
-                verify(markersStorage, times(0)).onCheckpointBegin(checkpointId);
+                verify(markersStorage, never()).onCheckpointBegin(checkpointId);
 
-                verify(tracker, times(0)).onWriteLockWaitStart();
-                verify(tracker, times(0)).onMarkCheckpointBeginStart();
-                verify(tracker, times(0)).onMarkCheckpointBeginEnd();
-                verify(tracker, times(0)).onWriteLockRelease();
-                verify(tracker, times(0)).onSplitAndSortCheckpointPagesStart();
-                verify(tracker, times(0)).onSplitAndSortCheckpointPagesEnd();
+                verify(tracker, never()).onWriteLockWaitStart();
+                verify(tracker, never()).onMarkCheckpointBeginStart();
+                verify(tracker, never()).onMarkCheckpointBeginEnd();
+                verify(tracker, never()).onWriteLockRelease();
+                verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
+                verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
+
+                verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
+                verify(progressImpl, never()).initCounters(anyInt());
             }
 
             /** {@inheritDoc} */
@@ -239,14 +245,17 @@ public class CheckpointWorkflowTest {
 
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), equalTo(List.of(LOCK_TAKEN)));
 
-                verify(markersStorage, times(0)).onCheckpointBegin(checkpointId);
+                verify(markersStorage, never()).onCheckpointBegin(checkpointId);
 
                 verify(tracker, times(1)).onWriteLockWaitStart();
                 verify(tracker, times(1)).onMarkCheckpointBeginStart();
-                verify(tracker, times(0)).onMarkCheckpointBeginEnd();
-                verify(tracker, times(0)).onWriteLockRelease();
-                verify(tracker, times(0)).onSplitAndSortCheckpointPagesStart();
-                verify(tracker, times(0)).onSplitAndSortCheckpointPagesEnd();
+                verify(tracker, never()).onMarkCheckpointBeginEnd();
+                verify(tracker, never()).onWriteLockRelease();
+                verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
+                verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
+
+                verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
+                verify(progressImpl, never()).initCounters(anyInt());
             }
 
             /** {@inheritDoc} */
@@ -264,14 +273,17 @@ public class CheckpointWorkflowTest {
 
                 assertThat(pagesCountArgumentCaptor.getAllValues(), equalTo(List.of(3)));
 
-                verify(markersStorage, times(0)).onCheckpointBegin(checkpointId);
+                verify(markersStorage, never()).onCheckpointBegin(checkpointId);
 
                 verify(tracker, times(1)).onWriteLockWaitStart();
                 verify(tracker, times(1)).onMarkCheckpointBeginStart();
                 verify(tracker, times(1)).onMarkCheckpointBeginEnd();
                 verify(tracker, times(1)).onWriteLockRelease();
-                verify(tracker, times(0)).onSplitAndSortCheckpointPagesStart();
-                verify(tracker, times(0)).onSplitAndSortCheckpointPagesEnd();
+                verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
+                verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
+
+                verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
+                verify(progressImpl, never()).initCounters(anyInt());
             }
         }, dataRegion);
 
@@ -283,6 +295,9 @@ public class CheckpointWorkflowTest {
         verify(tracker, times(1)).onWriteLockRelease();
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesStart();
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesEnd();
+
+        verify(progressImpl, times(1)).pagesToWrite(any(CheckpointDirtyPages.class));
+        verify(progressImpl, times(1)).initCounters(anyInt());
 
         CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.nextPartitionView(null);
 
@@ -296,7 +311,7 @@ public class CheckpointWorkflowTest {
 
         assertThat(
                 checkpointStateArgumentCaptor.getAllValues(),
-                equalTo(List.of(LOCK_TAKEN, PAGES_SNAPSHOT_TAKEN, LOCK_RELEASED, MARKER_STORED_TO_DISK))
+                equalTo(List.of(LOCK_TAKEN, PAGES_SNAPSHOT_TAKEN, LOCK_RELEASED, MARKER_STORED_TO_DISK, PAGES_SORTED))
         );
 
         verify(markersStorage, times(1)).onCheckpointBegin(checkpointId);
@@ -329,6 +344,8 @@ public class CheckpointWorkflowTest {
 
         doNothing().when(progressImpl).transitTo(checkpointStateArgumentCaptor.capture());
 
+        CheckpointDirtyPages checkpointDirtyPages = mock(CheckpointDirtyPages.class);
+
         UUID checkpointId = UUID.randomUUID();
 
         when(progressImpl.id()).thenReturn(checkpointId);
@@ -348,6 +365,9 @@ public class CheckpointWorkflowTest {
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), empty());
 
                 verify(markersStorage, times(1)).onCheckpointEnd(checkpointId);
+
+                verify(progressImpl, times(1)).pagesToWrite(isNull());
+                verify(progressImpl, times(1)).clearCounters();
             }
         };
 
@@ -365,6 +385,10 @@ public class CheckpointWorkflowTest {
         verify(progressImpl, times(1)).clearCounters();
 
         verify(pageMemory, times(1)).finishCheckpoint();
+
+        verify(progressImpl, times(1)).pagesToWrite(isNull());
+
+        verify(progressImpl, times(1)).clearCounters();
 
         // Checks with empty dirty pages.
 

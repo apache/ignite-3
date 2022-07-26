@@ -406,7 +406,15 @@ public class CheckpointerTest {
         CheckpointWorkflow mock = mock(CheckpointWorkflow.class);
 
         when(mock.markCheckpointBegin(anyLong(), any(CheckpointProgressImpl.class), any(CheckpointMetricsTracker.class)))
-                .then(answer -> new Checkpoint(dirtyPages, answer.getArgument(1)));
+                .then(answer -> {
+                    CheckpointProgressImpl progress = answer.getArgument(1);
+
+                    progress.pagesToWrite(dirtyPages);
+
+                    progress.initCounters(dirtyPages.dirtyPagesCount());
+
+                    return new Checkpoint(dirtyPages, progress);
+                });
 
         doAnswer(answer -> {
             ((Checkpoint) answer.getArgument(0)).progress.transitTo(FINISHED);

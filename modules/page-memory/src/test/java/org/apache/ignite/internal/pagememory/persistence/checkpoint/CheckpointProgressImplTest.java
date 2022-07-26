@@ -401,4 +401,19 @@ public class CheckpointProgressImplTest {
         progressImpl.transitTo(SCHEDULED);
         assertEquals(FINISHED, progressImpl.state());
     }
+
+    @Test
+    void testPagesToWrite() {
+        CheckpointProgressImpl progressImpl = new CheckpointProgressImpl(0);
+
+        assertNull(progressImpl.pagesToWrite());
+
+        progressImpl.pagesToWrite(CheckpointDirtyPages.EMPTY);
+
+        assertSame(CheckpointDirtyPages.EMPTY, progressImpl.pagesToWrite());
+
+        progressImpl.pagesToWrite(null);
+
+        assertNull(progressImpl.pagesToWrite());
+    }
 }
