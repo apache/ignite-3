@@ -17,12 +17,25 @@
 
 package org.apache.ignite.internal.raft.server;
 
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.RaftMetaStorageFactory;
+import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
+
 /**
  * Options specific to a Raft group that is being started.
  */
 public class RaftGroupOptions {
     /** Whether volatile stores should be used for the corresponding Raft Group. Classic Raft uses persistent ones. */
     private final boolean volatileStores;
+
+    /** Log storage factory. */
+    private LogStorageFactory logStorageFactory;
+
+    /** Snapshot storage factory. */
+    private SnapshotStorageFactory snapshotStorageFactory;
+
+    /** Raft meta storage factory. */
+    private RaftMetaStorageFactory raftMetaStorageFactory;
 
     /**
      * Returns default options as defined by classic Raft (so stores are persistent).
@@ -51,16 +64,6 @@ public class RaftGroupOptions {
         return new RaftGroupOptions(true);
     }
 
-    /**
-     * Creates options derived from table configuration.
-     *
-     * @param isVolatile Whether the table is configured as volatile (in-memory) or not.
-     * @return Options derived from table configuration.
-     */
-    public static RaftGroupOptions forTable(boolean isVolatile) {
-        return isVolatile ? forVolatileStores() : forPersistentStores();
-    }
-
     private RaftGroupOptions(boolean volatileStores) {
         this.volatileStores = volatileStores;
     }
@@ -74,5 +77,53 @@ public class RaftGroupOptions {
      */
     public boolean volatileStores() {
         return volatileStores;
+    }
+
+    /**
+     * Returns a log storage factory that's used to create log storage for a raft group.
+     */
+    public LogStorageFactory getLogStorageFactory() {
+        return logStorageFactory;
+    }
+
+    /**
+     * Adds log storage factory to options.
+     */
+    public RaftGroupOptions setLogStorageFactory(LogStorageFactory logStorageFactory) {
+        this.logStorageFactory = logStorageFactory;
+
+        return this;
+    }
+
+    /**
+     * Returns a snapshot storage factory that's used to create snapshot storage for a raft group.
+     */
+    public SnapshotStorageFactory snapshotStorageFactory() {
+        return snapshotStorageFactory;
+    }
+
+    /**
+     * Adds snapshot storage factory to options.
+     */
+    public RaftGroupOptions snapshotStorageFactory(SnapshotStorageFactory snapshotStorageFactory) {
+        this.snapshotStorageFactory = snapshotStorageFactory;
+
+        return this;
+    }
+
+    /**
+     * Returns a raft meta storage factory that's used to create raft meta storage for a raft group.
+     */
+    public RaftMetaStorageFactory raftMetaStorageFactory() {
+        return raftMetaStorageFactory;
+    }
+
+    /**
+     * Adds raft meta storage factory to options.
+     */
+    public RaftGroupOptions raftMetaStorageFactory(RaftMetaStorageFactory raftMetaStorageFactory) {
+        this.raftMetaStorageFactory = raftMetaStorageFactory;
+
+        return this;
     }
 }

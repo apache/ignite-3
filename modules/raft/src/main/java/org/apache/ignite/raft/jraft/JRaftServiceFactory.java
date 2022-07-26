@@ -17,13 +17,11 @@
 package org.apache.ignite.raft.jraft;
 
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
-import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
-import org.apache.ignite.raft.jraft.util.timer.DefaultRaftTimerFactory;
 import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
 
 /**
@@ -33,11 +31,11 @@ public interface JRaftServiceFactory {
     /**
      * Creates a raft log storage.
      *
-     * @param groupId The name of the raft group.
+     * @param uri The log storage uri from {@link NodeOptions#getLogUri()}
      * @param raftOptions the raft options.
      * @return storage to store raft log entires.
      */
-    LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions);
+    LogStorage createLogStorage(final String uri, final RaftOptions raftOptions);
 
     /**
      * Creates a raft snapshot storage
@@ -62,16 +60,12 @@ public interface JRaftServiceFactory {
      *
      * @return a codec factory to create encoder/decoder for raft log entry.
      */
-    default LogEntryCodecFactory createLogEntryCodecFactory() {
-        return LogEntryV1CodecFactory.getInstance();
-    }
+    LogEntryCodecFactory createLogEntryCodecFactory();
 
     /**
      * Creates raft timer factory.
      *
      * @return The factory.
      */
-    default RaftTimerFactory createRaftTimerFactory() {
-        return new DefaultRaftTimerFactory();
-    }
+    RaftTimerFactory createRaftTimerFactory();
 }

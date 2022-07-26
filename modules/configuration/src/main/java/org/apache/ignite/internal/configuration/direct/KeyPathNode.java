@@ -24,6 +24,9 @@ import org.apache.ignite.internal.tostring.S;
  * Key path node, used to represent key and its meta information.
  */
 public class KeyPathNode {
+    /** Special resolved named list key that indicates reading all its internal ids. */
+    public static final String INTERNAL_IDS = "<internal_ids>";
+
     /** Key in path. */
     @IgniteToStringInclude
     public final String key;
