@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+
 import java.time.Duration;
 import java.time.Period;
 import java.util.ArrayList;
@@ -24,10 +26,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlColumnType;
@@ -134,11 +136,13 @@ class ClientAsyncResultSet implements AsyncResultSet {
         requireResultSet();
 
         if (closed) {
-            return CompletableFuture.failedFuture(new IgniteClientException("Cursor is closed."));
+            // TODO IGNITE-17135 - same error code and message as on server.
+            return CompletableFuture.failedFuture(new IgniteException(UNKNOWN_ERR, "Cursor is closed."));
         }
 
         if (!hasMorePages()) {
-            return CompletableFuture.failedFuture(new IgniteClientException("No more pages."));
+            // TODO IGNITE-17135 - same error code and message as on server.
+            return CompletableFuture.failedFuture(new IgniteException(UNKNOWN_ERR, "No more pages."));
         }
 
         return ch.serviceAsync(

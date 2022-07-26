@@ -17,29 +17,46 @@
 
 package org.apache.ignite.client;
 
+import java.util.UUID;
+import org.apache.ignite.lang.IgniteException;
+
 /**
  * Indicates all the Ignite servers specified in the client configuration are no longer available.
  */
-public class IgniteClientConnectionException extends IgniteClientException {
+public class IgniteClientConnectionException extends IgniteException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
     /**
-     * Constructs a new exception with the specified detail message.
-     *
-     * @param msg the detail message.
-     */
-    public IgniteClientConnectionException(String msg) {
-        super(msg);
-    }
-
-    /**
      * Constructs a new exception with the specified cause and detail message.
      *
+     * @param code  the error code.
      * @param msg   the detail message.
      * @param cause the cause.
      */
-    public IgniteClientConnectionException(String msg, Throwable cause) {
-        super(msg, cause);
+    public IgniteClientConnectionException(int code, String msg, Throwable cause) {
+        super(code, msg, cause);
+    }
+
+    /**
+     * Creates a new exception with the given trace id, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public IgniteClientConnectionException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
+    }
+
+    /**
+     * Constructs a new exception with the specified detail message.
+     *
+     * @param code  the error code.
+     * @param msg   the detail message.
+     */
+    public IgniteClientConnectionException(int code, String msg) {
+        super(code, msg);
     }
 }

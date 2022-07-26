@@ -41,7 +41,7 @@ public class ConfigurationTest extends AbstractClientTest {
     public void testClientValidatesAddresses() {
         IgniteClient.Builder builder = IgniteClient.builder();
 
-        var ex = assertThrows(IgniteClientException.class, builder::build);
+        var ex = assertThrows(IgniteException.class, builder::build);
 
         assertThat(ex.getMessage(), containsString("Empty addresses"));
     }
@@ -87,7 +87,7 @@ public class ConfigurationTest extends AbstractClientTest {
                 .addressFinder(() -> new String[]{addr})
                 .build();
 
-        // Builder can be reused and it won't affect already created clients.
+        // Builder can be reused, and it won't affect already created clients.
         IgniteClient client2 = builder
                 .connectTimeout(2345)
                 .reconnectThrottlingPeriod(1234)

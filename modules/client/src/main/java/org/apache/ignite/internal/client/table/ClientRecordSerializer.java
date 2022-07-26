@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.UUID;
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -33,6 +33,7 @@ import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallerUtil;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -93,7 +94,7 @@ public class ClientRecordSerializer<R> {
         try {
             marshaller.writeObject(rec, writer);
         } catch (MarshallerException e) {
-            throw new IgniteClientException(e.getMessage(), e);
+            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }
     }
 
@@ -128,7 +129,7 @@ public class ClientRecordSerializer<R> {
             marshaller.writeObject(rec, writer);
             marshaller.writeObject(rec2, writer);
         } catch (MarshallerException e) {
-            throw new IgniteClientException(e.getMessage(), e);
+            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }
     }
 
@@ -152,7 +153,7 @@ public class ClientRecordSerializer<R> {
                 marshaller.writeObject(rec, writer);
             }
         } catch (MarshallerException e) {
-            throw new IgniteClientException(e.getMessage(), e);
+            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }
     }
 
@@ -177,7 +178,7 @@ public class ClientRecordSerializer<R> {
                 }
             }
         } catch (MarshallerException e) {
-            throw new IgniteClientException(e.getMessage(), e);
+            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }
 
         return res;
@@ -190,7 +191,7 @@ public class ClientRecordSerializer<R> {
         try {
             return (R) marshaller.readObject(reader, null);
         } catch (MarshallerException e) {
-            throw new IgniteClientException(e.getMessage(), e);
+            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }
     }
 
@@ -211,7 +212,7 @@ public class ClientRecordSerializer<R> {
 
             return res;
         } catch (MarshallerException e) {
-            throw new IgniteClientException(e.getMessage(), e);
+            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }
     }
 }
