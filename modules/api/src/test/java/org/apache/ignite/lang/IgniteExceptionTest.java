@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
+import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.junit.jupiter.api.Test;
@@ -32,11 +33,11 @@ import org.junit.jupiter.api.Test;
 public class IgniteExceptionTest {
     @Test
     public void testWrapUncheckedException() {
-        var originalEx = new TableNotFoundException("my-tbl-name");
+        var originalEx = new CustomTestException(UUID.randomUUID(), Table.TABLE_NOT_FOUND_ERR, "Error foo bar", null);
         var wrappedEx = new CompletionException(originalEx);
         var res = IgniteException.wrap(wrappedEx);
 
-        assertThat(res.getMessage(), containsString("Table does not exist [name=my-tbl-name]"));
+        assertThat(res.getMessage(), containsString("Error foo bar"));
         assertEquals(originalEx.traceId(), res.traceId());
         assertEquals(originalEx.code(), res.code());
         assertEquals(originalEx.getClass(), res.getClass());
@@ -53,5 +54,11 @@ public class IgniteExceptionTest {
         assertEquals(originalEx.traceId(), res.traceId());
         assertEquals(originalEx.code(), res.code());
         assertSame(originalEx, res.getCause());
+    }
+
+    public static class CustomTestException extends IgniteException {
+        public CustomTestException(UUID traceId, int code, String message, Throwable cause) {
+            super(traceId, code, message, cause);
+        }
     }
 }
