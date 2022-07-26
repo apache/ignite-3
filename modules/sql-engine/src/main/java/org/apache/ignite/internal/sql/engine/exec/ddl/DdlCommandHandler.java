@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convertDefaultToConfiguration;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -31,6 +31,9 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultChange;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultChange;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultChange;
 import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
@@ -41,6 +44,8 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.ConstantValue;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.FunctionCall;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -59,7 +64,6 @@ import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.PrimaryKeyDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
 
@@ -116,40 +120,64 @@ public class DdlCommandHandler {
 
     /** Handles create table command. */
     private boolean handleCreateTable(CreateTableCommand cmd) {
-        final PrimaryKeyDefinitionBuilder pkeyDef = SchemaBuilders.primaryKey();
-
-        pkeyDef.withColumns(IgniteObjectName.quoteNames(cmd.primaryKeyColumns()));
-        pkeyDef.withColocationColumns(IgniteObjectName.quoteNames(cmd.colocationColumns()));
-
-        final List<org.apache.ignite.schema.definition.ColumnDefinition> colsInner = new ArrayList<>();
-
-        for (ColumnDefinition col : cmd.columns()) {
-            ColumnDefinitionBuilder col0 = SchemaBuilders.column(
-                            IgniteObjectName.quote(col.name()),
-                            IgniteTypeFactory.relDataTypeToColumnType(col.type())
-                    )
-                    .asNullable(col.nullable())
-                    .withDefaultValue(col.defaultValue());
-
-            colsInner.add(col0.build());
-        }
-
         Consumer<TableChange> tblChanger = tableChange -> {
-            TableChange conv = convert(SchemaBuilders.tableBuilder(
-                            IgniteObjectName.quote(cmd.schemaName()),
-                            IgniteObjectName.quote(cmd.tableName())
-                    )
-                    .columns(colsInner)
-                    .withPrimaryKey(pkeyDef.build()).build(), tableChange);
+            tableChange.changeColumns(columnsChange -> {
+                for (var col : cmd.columns()) {
+                    columnsChange.create(col.name(), columnChange -> {
+                        var columnType = IgniteTypeFactory.relDataTypeToColumnType(col.type());
+
+                        columnChange.changeType(columnTypeChange -> convert(columnType, columnTypeChange));
+                        columnChange.changeNullable(col.nullable());
+                        columnChange.changeDefaultValueProvider(defaultChange -> {
+                            switch (col.defaultValueDefinition().type()) {
+                                case CONSTANT:
+                                    ConstantValue constantValue = col.defaultValueDefinition();
+
+                                    var val = constantValue.value();
+
+                                    if (val != null) {
+                                        defaultChange.convert(ConstantValueDefaultChange.class)
+                                                .changeDefaultValue(convertDefaultToConfiguration(val, columnType));
+                                    } else {
+                                        defaultChange.convert(NullValueDefaultChange.class);
+                                    }
+
+                                    break;
+                                case FUNCTION_CALL:
+                                    FunctionCall functionCall = col.defaultValueDefinition();
+
+                                    defaultChange.convert(FunctionCallDefaultChange.class)
+                                            .changeFunctionName(functionCall.functionName());
+
+                                    break;
+                                default:
+                                    throw new IllegalStateException("Unknown default value definition type [type="
+                                            + col.defaultValueDefinition().type() + ']');
+                            }
+                        });
+                    });
+                }
+            });
+
+            var colocationKeys = cmd.colocationColumns();
+
+            if (nullOrEmpty(colocationKeys)) {
+                colocationKeys = cmd.primaryKeyColumns();
+            }
+
+            var colocationKeys0 = colocationKeys;
+
+            tableChange.changePrimaryKey(pkChange -> pkChange.changeColumns(cmd.primaryKeyColumns().toArray(String[]::new))
+                    .changeColocationColumns(colocationKeys0.toArray(String[]::new)));
 
             tableChange.changeDataStorage(dataStorageManager.tableDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()));
 
             if (cmd.partitions() != null) {
-                conv.changePartitions(cmd.partitions());
+                tableChange.changePartitions(cmd.partitions());
             }
 
             if (cmd.replicas() != null) {
-                conv.changeReplicas(cmd.replicas());
+                tableChange.changeReplicas(cmd.replicas());
             }
         };
 
@@ -323,7 +351,7 @@ public class DdlCommandHandler {
                                         IgniteTypeFactory.relDataTypeToColumnType(col.type())
                                 )
                                 .asNullable(col.nullable())
-                                .withDefaultValue(col.defaultValue());
+                                .withDefaultValue(col.defaultValueDefinition());
 
                         cols.create(col.name(), colChg -> convert(col0.build(), colChg));
                     }

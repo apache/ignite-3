@@ -566,7 +566,15 @@ public class SchemaConfigurationConverter {
         return tblChange.changeColumns(colChg -> colChg.delete(columnName));
     }
 
-    private static String convertDefaultToConfiguration(Object defaultValue, ColumnType type) {
+    /**
+     * Converts literal to a string representation.
+     *
+     * @param defaultValue Value to convert.
+     * @param type Type iof the value.
+     * @return String representation of given literal.
+     * @throws NullPointerException If given value or type is null.
+     */
+    public static String convertDefaultToConfiguration(Object defaultValue, ColumnType type) {
         switch (type.typeSpec()) {
             case INT8:
             case INT16:
