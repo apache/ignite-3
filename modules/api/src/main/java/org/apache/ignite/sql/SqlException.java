@@ -19,7 +19,6 @@ package org.apache.ignite.sql;
 
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * SQL exception base class.

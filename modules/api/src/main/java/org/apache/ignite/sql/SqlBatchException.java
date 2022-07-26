@@ -54,7 +54,7 @@ public class SqlBatchException extends SqlException {
     public SqlBatchException(UUID traceId, int code, String message, Throwable cause) {
         super(traceId, code, message, cause);
 
-        updCntrs = cause instanceof SqlBatchException ? ((SqlBatchException)cause).updCntrs : null;
+        updCntrs = cause instanceof SqlBatchException ? ((SqlBatchException) cause).updCntrs : null;
     }
 
     /**
