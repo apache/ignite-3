@@ -45,7 +45,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableView;
@@ -158,7 +161,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                     PartialIndexConfigurationSchema.class,
                     UnknownDataStorageConfigurationSchema.class,
                     RocksDbDataStorageConfigurationSchema.class,
-                    TestConcurrentHashMapDataStorageConfigurationSchema.class
+                    TestConcurrentHashMapDataStorageConfigurationSchema.class,
+                    ConstantValueDefaultConfigurationSchema.class,
+                    FunctionCallDefaultConfigurationSchema.class,
+                    NullValueDefaultConfigurationSchema.class
             }
     )
     private TablesConfiguration tblsCfg;

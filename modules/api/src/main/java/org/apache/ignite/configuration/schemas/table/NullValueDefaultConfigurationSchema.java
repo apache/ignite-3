@@ -17,32 +17,13 @@
 
 package org.apache.ignite.configuration.schemas.table;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.InjectedName;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
+import static org.apache.ignite.configuration.schemas.table.ColumnDefaultConfigurationSchema.NULL_VALUE_TYPE;
+
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
 /**
- * Configuration for single column in SQL table.
+ * Configuration of a value provider that returns null.
  */
-@Config
-public class ColumnConfigurationSchema {
-    /** Column name. */
-    @InjectedName
-    public String name;
-
-    /** Column type. */
-    @ConfigValue
-    @ColumnTypeValidator
-    public ColumnTypeConfigurationSchema type;
-
-    /** Nullable flag. */
-    @Value
-    @Immutable
-    public boolean nullable;
-
-    /** Default value. */
-    @ConfigValue
-    public ColumnDefaultConfigurationSchema defaultValueProvider;
+@PolymorphicConfigInstance(NULL_VALUE_TYPE)
+public class NullValueDefaultConfigurationSchema extends ColumnDefaultConfigurationSchema {
 }

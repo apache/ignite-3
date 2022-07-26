@@ -28,11 +28,17 @@ import java.util.Arrays;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
+import org.apache.ignite.internal.schema.DefaultValueGenerator;
+import org.apache.ignite.internal.schema.DefaultValueProvider.FunctionalValueProvider;
+import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.definition.ColumnDefinitionImpl;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.DefaultValueDefinition;
+import org.apache.ignite.schema.definition.DefaultValueGenerators;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.TableDefinitionBuilder;
@@ -127,11 +133,11 @@ public class SchemaDescriptorConverterTest extends AbstractSchemaConverterTest {
                 .columns(
                         SchemaBuilders.column(keyColumnName, ColumnType.INT32).build(),
                         SchemaBuilders.column(columnName, arg.type)
-                                .withDefaultValueExpression(arg.defaultValue)
+                                .withDefaultValue(arg.defaultValue)
                                 .asNullable(nullable)
                                 .build()
                 )
-                .withPrimaryKey("ID")
+                .withPrimaryKey(keyColumnName)
                 .build();
 
         SchemaDescriptor schemaDescriptor = SchemaDescriptorConverter.convert(1, tableDefinition);
@@ -142,7 +148,38 @@ public class SchemaDescriptorConverterTest extends AbstractSchemaConverterTest {
 
         assertThat(column.name(), equalTo(columnName));
         assertThat(column.nullable(), equalTo(nullable));
+        assertThat(column.defaultValueProvider().type(), equalTo(Type.CONSTANT));
         assertThat(column.defaultValue(), equalTo(arg.defaultValue));
+    }
+
+    /**
+     * Validates conversion of functional default.
+     */
+    @Test
+    public void convertFunctionalDefault() {
+        final String keyColumnName = "ID";
+
+        var tableDefinition = SchemaBuilders.tableBuilder("PUBLIC", "TEST")
+                .columns(
+                        new ColumnDefinitionImpl(
+                                keyColumnName, ColumnType.string(), false,
+                                DefaultValueDefinition.functionCall(DefaultValueGenerators.GEN_RANDOM_UUID)
+                        ),
+                        SchemaBuilders.column("VAL", ColumnType.INT8).asNullable(true).build()
+                )
+                .withPrimaryKey(keyColumnName)
+                .build();
+
+        SchemaDescriptor schemaDescriptor = SchemaDescriptorConverter.convert(1, tableDefinition);
+
+        assertEquals(1, schemaDescriptor.keyColumns().length());
+
+        var column = schemaDescriptor.keyColumns().columns()[0];
+
+        assertThat(column.name(), equalTo(keyColumnName));
+        assertThat(column.nullable(), equalTo(false));
+        assertThat(column.defaultValueProvider().type(), equalTo(Type.FUNCTIONAL));
+        assertThat(((FunctionalValueProvider) column.defaultValueProvider()).name(), equalTo(DefaultValueGenerator.GEN_RANDOM_UUID.name()));
     }
 
     /**
