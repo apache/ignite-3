@@ -35,7 +35,6 @@ import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.StorageUtils;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
@@ -86,7 +85,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         this.versionChainFreeList = versionChainFreeList;
         this.rowVersionFreeList = rowVersionFreeList;
 
-        groupId = StorageUtils.groupId(tableConfig);
+        groupId = tableConfig.tableId();
 
         try {
             versionChainTree = createVersionChainTree(partId, tableConfig, dataRegion, versionChainFreeList);

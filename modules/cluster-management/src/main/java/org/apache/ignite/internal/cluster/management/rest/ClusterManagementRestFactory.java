@@ -24,6 +24,7 @@ import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.rest.RestFactory;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.TopologyService;
 
 /**
  * Factory that creates beans that are needed for {@link ClusterManagementController}.
@@ -31,11 +32,12 @@ import org.apache.ignite.network.ClusterService;
 @Factory
 public class ClusterManagementRestFactory implements RestFactory {
     private final ClusterService clusterService;
-    private final ClusterManagementGroupManager clusterManagementGroupManager;
 
-    public ClusterManagementRestFactory(ClusterService clusterService, ClusterManagementGroupManager clusterManagementGroupManager) {
+    private final ClusterManagementGroupManager cmgManager;
+
+    public ClusterManagementRestFactory(ClusterService clusterService, ClusterManagementGroupManager cmgManager) {
         this.clusterService = clusterService;
-        this.clusterManagementGroupManager = clusterManagementGroupManager;
+        this.cmgManager = cmgManager;
     }
 
     @Bean
@@ -46,7 +48,13 @@ public class ClusterManagementRestFactory implements RestFactory {
 
     @Bean
     @Singleton
-    public ClusterManagementGroupManager clusterManagementGroupManager() {
-        return clusterManagementGroupManager;
+    public ClusterManagementGroupManager cmgManager() {
+        return cmgManager;
+    }
+
+    @Bean
+    @Singleton
+    public TopologyService topologyService() {
+        return clusterService.topologyService();
     }
 }

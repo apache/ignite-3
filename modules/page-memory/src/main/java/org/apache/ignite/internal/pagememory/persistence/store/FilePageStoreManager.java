@@ -56,7 +56,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
     public static final String PART_FILE_TEMPLATE = PART_FILE_PREFIX + "%d" + FILE_SUFFIX;
 
     /** Group directory prefix. */
-    public static final String GROUP_DIR_PREFIX = "group-";
+    public static final String GROUP_DIR_PREFIX = "table-";
 
     /** Logger. */
     private final IgniteLogger log;
@@ -168,30 +168,30 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /**
      * Initializing the file page stores for a group.
      *
-     * @param grpName Group name.
-     * @param grpId Group ID.
+     * @param tableName Table name.
+     * @param tableId Integer table id.
      * @param partitions Partition number, must be greater than {@code 0} and less {@link PageIdAllocator#MAX_PARTITION_ID}.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public void initialize(String grpName, int grpId, int partitions) throws IgniteInternalCheckedException {
+    public void initialize(String tableName, int tableId, int partitions) throws IgniteInternalCheckedException {
         assert partitions > 0 && partitions < MAX_PARTITION_ID : partitions;
 
-        initGroupDirLock.lock(grpId);
+        initGroupDirLock.lock(tableId);
 
         try {
-            if (!groupPageStores.containsPageStores(grpId)) {
-                List<FilePageStore> partitionFilePageStores = createFilePageStores(grpName, partitions);
+            if (!groupPageStores.containsPageStores(tableId)) {
+                List<FilePageStore> partitionFilePageStores = createFilePageStores(tableId, partitions);
 
-                List<FilePageStore> old = groupPageStores.put(grpId, partitionFilePageStores);
+                List<FilePageStore> old = groupPageStores.put(tableId, partitionFilePageStores);
 
-                assert old == null : grpName;
+                assert old == null : tableName;
             }
         } catch (IgniteInternalCheckedException e) {
             // TODO: IGNITE-16899 By analogy with 2.0, fail a node
 
             throw e;
         } finally {
-            initGroupDirLock.unlock(grpId);
+            initGroupDirLock.unlock(tableId);
         }
     }
 
@@ -279,8 +279,8 @@ public class FilePageStoreManager implements PageReadWriteManager {
         }
     }
 
-    private Path ensureGroupWorkDir(String grpName) throws IgniteInternalCheckedException {
-        Path groupWorkDir = dbDir.resolve(GROUP_DIR_PREFIX + grpName);
+    private Path ensureGroupWorkDir(int groupId) throws IgniteInternalCheckedException {
+        Path groupWorkDir = dbDir.resolve(GROUP_DIR_PREFIX + groupId);
 
         try {
             Files.createDirectories(groupWorkDir);
@@ -294,10 +294,10 @@ public class FilePageStoreManager implements PageReadWriteManager {
     }
 
     private List<FilePageStore> createFilePageStores(
-            String grpName,
+            int groupId,
             int partitions
     ) throws IgniteInternalCheckedException {
-        Path groupWorkDir = ensureGroupWorkDir(grpName);
+        Path groupWorkDir = ensureGroupWorkDir(groupId);
 
         List<FilePageStore> partitionFilePageStores = new ArrayList<>(partitions);
 

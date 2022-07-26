@@ -15,24 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.cluster;
+package org.apache.ignite.cli.commands.topology;
 
-import org.apache.ignite.cli.commands.cluster.config.ClusterConfigReplSubCommand;
-import org.apache.ignite.cli.commands.cluster.init.ClusterInitReplSubCommand;
-import org.apache.ignite.cli.commands.cluster.status.ClusterStatusReplSubCommand;
-import org.apache.ignite.cli.commands.topology.TopologyReplCommand;
+import jakarta.inject.Singleton;
+import java.util.concurrent.Callable;
+import org.apache.ignite.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
 
 /**
- * Cluster command in REPL mode.
+ * Command that prints ignite cluster topology in REPL mode.
  */
-@Command(name = "cluster",
-        subcommands = {
-                ClusterConfigReplSubCommand.class,
-                ClusterInitReplSubCommand.class,
-                ClusterStatusReplSubCommand.class,
-                TopologyReplCommand.class
-        },
-        description = "Manages an Ignite cluster.")
-public class ClusterReplCommand {
+@Command(name = "topology", description = "Prints topology information.",
+        subcommands = {PhysicalTopologyReplSubCommand.class, LogicalTopologyReplSubCommand.class })
+@Singleton
+public class TopologyReplCommand extends BaseCommand implements Callable<Integer> {
+
+    /** {@inheritDoc} */
+    @Override
+    public Integer call() {
+        return 0;
+    }
 }
