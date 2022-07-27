@@ -2927,7 +2927,7 @@ public class ItNodeTest {
             }
         };
         logStorageProvider.start();
-        opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageProvider, new HybridClock()));
+        opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageProvider));
         opts.setLastLogIndex(fsm.getLogs().size());
         opts.setRaftMetaUri(dataPath + File.separator + "meta");
         opts.setSnapshotUri(dataPath + File.separator + "snapshot");
@@ -2948,7 +2948,7 @@ public class ItNodeTest {
             }
         };
         log2.start();
-        nodeOpts.setServiceFactory(new DefaultJRaftServiceFactory(log2, new HybridClock()));
+        nodeOpts.setServiceFactory(new DefaultJRaftServiceFactory(log2));
         nodeOpts.setFsm(fsm);
 
         RaftGroupService service = createService("test", new PeerId(addr, 0), nodeOpts);
@@ -2981,7 +2981,7 @@ public class ItNodeTest {
             }
         };
         logStorageProvider.start();
-        opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageProvider, new HybridClock()));
+        opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageProvider));
         opts.setLastLogIndex(0);
         opts.setRaftMetaUri(dataPath + File.separator + "meta");
         opts.setSnapshotUri(dataPath + File.separator + "snapshot");
@@ -3002,7 +3002,7 @@ public class ItNodeTest {
             }
         };
         log2.start();
-        nodeOpts.setServiceFactory(new DefaultJRaftServiceFactory(log2, new HybridClock()));
+        nodeOpts.setServiceFactory(new DefaultJRaftServiceFactory(log2));
 
         RaftGroupService service = createService("test", new PeerId(addr, 0), nodeOpts);
 
@@ -3853,7 +3853,7 @@ public class ItNodeTest {
         DefaultLogStorageFactory log = new DefaultLogStorageFactory(Path.of(dataPath, "node" + nodeIdx, "log"));
         log.start();
 
-        options.setServiceFactory(new DefaultJRaftServiceFactory(log, new HybridClock()));
+        options.setServiceFactory(new DefaultJRaftServiceFactory(log));
 
         return options;
     }

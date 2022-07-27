@@ -16,7 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
-import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
@@ -32,18 +31,6 @@ import org.apache.ignite.raft.jraft.util.StringUtils;
  * The factory for JRaft services producing volatile stores. Useful for Raft groups hosting partitions of in-memory tables.
  */
 public class VolatileJRaftServiceFactory implements JRaftServiceFactory {
-    /**
-     * A hybrid logical clock.
-     */
-    private final HybridClock clock;
-
-    /**
-     * @param clock A hybrid logical clock.
-     */
-    public VolatileJRaftServiceFactory(HybridClock clock) {
-        this.clock = clock;
-    }
-
     @Override
     public LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions) {
         Requires.requireTrue(StringUtils.isNotBlank(groupId), "Blank group id.");
@@ -63,10 +50,5 @@ public class VolatileJRaftServiceFactory implements JRaftServiceFactory {
     @Override
     public RaftMetaStorage createRaftMetaStorage(final String uri, final RaftOptions raftOptions) {
         return new VolatileRaftMetaStorage();
-    }
-
-    @Override
-    public HybridClock getClock() {
-        return clock;
     }
 }

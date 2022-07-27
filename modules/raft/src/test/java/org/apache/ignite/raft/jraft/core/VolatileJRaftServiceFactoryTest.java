@@ -27,7 +27,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 
 class VolatileJRaftServiceFactoryTest {
-    private final VolatileJRaftServiceFactory serviceFactory = new VolatileJRaftServiceFactory(new HybridClock());
+    private final VolatileJRaftServiceFactory serviceFactory = new VolatileJRaftServiceFactory();
 
     @Test
     void producesVolatileMetaStorage() {

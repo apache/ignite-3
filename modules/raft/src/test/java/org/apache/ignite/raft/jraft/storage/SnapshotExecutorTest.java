@@ -127,7 +127,7 @@ public class SnapshotExecutorTest extends BaseStorageTest {
         Mockito.when(node.getOptions()).thenReturn(options);
         Mockito.when(node.getRpcClientService()).thenReturn(raftClientService);
         DefaultLogStorageFactory logStorageProvider = Mockito.mock(DefaultLogStorageFactory.class);
-        Mockito.when(node.getServiceFactory()).thenReturn(new DefaultJRaftServiceFactory(logStorageProvider, new HybridClock()));
+        Mockito.when(node.getServiceFactory()).thenReturn(new DefaultJRaftServiceFactory(logStorageProvider));
         executor = new SnapshotExecutorImpl();
         final SnapshotExecutorOptions opts = new SnapshotExecutorOptions();
         opts.setFsmCaller(fSMCaller);

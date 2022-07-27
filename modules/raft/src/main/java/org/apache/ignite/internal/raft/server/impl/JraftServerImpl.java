@@ -132,7 +132,7 @@ public class JraftServerImpl implements RaftServer {
         this.opts.setRpcConnectTimeoutMs(this.opts.getElectionTimeoutMs() / 3);
         this.opts.setRpcDefaultTimeout(this.opts.getElectionTimeoutMs() / 2);
         this.opts.setSharedPools(true);
-        this.opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageFactory, opts.getClock()));
+        this.opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageFactory));
 
         if (opts.getServerName() == null) {
             this.opts.setServerName(service.localConfiguration().getName());
@@ -361,7 +361,7 @@ public class JraftServerImpl implements RaftServer {
         nodeOptions.setRaftGrpEvtsLsnr(evLsnr);
 
         if (groupOptions.volatileStores()) {
-            nodeOptions.setServiceFactory(new VolatileJRaftServiceFactory(nodeOptions.getClock()));
+            nodeOptions.setServiceFactory(new VolatileJRaftServiceFactory());
         }
 
         if (initialConf != null) {
