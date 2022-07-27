@@ -31,9 +31,6 @@ import java.util.concurrent.locks.ReentrantLock;
 public class MetricRegistry {
     private final Lock lock = new ReentrantLock();
 
-    /** Version always should be changed on metrics enabled/disabled action. */
-    private long version;
-
     /** Registered metric sources. */
     private final Map<String, MetricSource> sources = new HashMap<>();
 
