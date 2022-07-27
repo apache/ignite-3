@@ -270,10 +270,7 @@ public class DdlSqlToCommandConverter {
 
             dedupSetPk.remove(name);
 
-            Object dflt = null;
-            if (col.expression != null) {
-                dflt = fromLiteral(relType, ((SqlLiteral) col.expression));
-            }
+            DefaultValueDefinition dflt = convertDefault(col.expression, relType);
 
             cols.add(new ColumnDefinition(name, relType, dflt));
         }
@@ -310,13 +307,10 @@ public class DdlSqlToCommandConverter {
 
             assert col.name.isSimple();
 
-            Object dflt = null;
-            if (col.expression != null) {
-                dflt = ((SqlLiteral) col.expression).getValue();
-            }
+            RelDataType relType = ctx.planner().convert(col.dataType, true);
+            DefaultValueDefinition dflt = convertDefault(col.expression, relType);
 
             String name = col.name.getSimple();
-            RelDataType relType = ctx.planner().convert(col.dataType, true);
 
             cols.add(new ColumnDefinition(name, relType, dflt));
         }
@@ -324,6 +318,20 @@ public class DdlSqlToCommandConverter {
         alterTblCmd.columns(cols);
 
         return alterTblCmd;
+    }
+
+    private DefaultValueDefinition convertDefault(SqlNode expression, RelDataType relType) {
+        if (expression instanceof SqlIdentifier) {
+            return DefaultValueDefinition.functionCall(((SqlIdentifier) expression).getSimple());
+        }
+
+        Object val = null;
+
+        if (expression instanceof SqlLiteral) {
+            val = fromLiteral(relType, (SqlLiteral) expression);
+        }
+
+        return DefaultValueDefinition.constant(val);
     }
 
     /**

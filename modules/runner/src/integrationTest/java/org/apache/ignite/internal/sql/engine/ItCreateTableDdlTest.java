@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -59,6 +60,16 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
                 () -> sql("CREATE TABLE T0(ID INT NULL PRIMARY KEY, VAL INT)"),
                 "Primary key cannot contain nullable column [col=ID]"
         );
+    }
+
+    @Test
+    public void pkWithFunctionalDefault() {
+        sql("create table t (id varchar default gen_random_uuid primary key, val int)");
+        sql("insert into t (val) values (1), (2)");
+
+        var result = sql("select * from t");
+
+        assertThat(result, hasSize(2)); // both rows are inserted without conflict
     }
 
     @Test

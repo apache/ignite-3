@@ -93,7 +93,12 @@ void TableElement(List<SqlNode> list) :
 {
     id = SimpleIdentifier() type = DataTypeEx() nullable = NullableOptDefaultNull()
     (
-        <DEFAULT_> { s.add(this); } dflt = Literal() {
+        <DEFAULT_> { s.add(this); }
+        (
+            dflt = Literal()
+        |
+            dflt = SimpleIdentifier()
+        )  {
             strategy = ColumnStrategy.DEFAULT;
         }
     |

@@ -44,6 +44,8 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.FunctionCall;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -213,6 +215,34 @@ public class DdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
         assertThat(
                 createTable.primaryKeyColumns(),
                 hasItem(Commons.IMPLICIT_PK_COL_NAME)
+        );
+    }
+
+    @Test
+    public void tableWithAutogenPkColumn() throws SqlParseException {
+        var node = parse("CREATE TABLE t (id varchar default gen_random_uuid primary key, val int)");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        var cmd = new DdlSqlToCommandConverter(Map.of(), () -> "default").convert((SqlDdl) node, createContext());
+
+        assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
+
+        var createTable = (CreateTableCommand) cmd;
+
+        assertThat(
+                createTable.columns(),
+                allOf(
+                        hasItem(columnThat("column with name \"VAL\"", cd -> "VAL".equals(cd.name()))),
+                        hasItem(columnThat("PK with functional default",
+                                cd -> "ID".equals(cd.name())
+                                        && !cd.nullable()
+                                        && SqlTypeName.VARCHAR.equals(cd.type().getSqlTypeName())
+                                        && cd.defaultValueDefinition().type() == Type.FUNCTION_CALL
+                                        && "GEN_RANDOM_UUID".equals(((FunctionCall) cd.defaultValueDefinition()).functionName())
+                                )
+                        )
+                )
         );
     }
 
