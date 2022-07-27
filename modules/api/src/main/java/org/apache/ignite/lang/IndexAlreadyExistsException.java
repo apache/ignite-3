@@ -17,6 +17,8 @@
 
 package org.apache.ignite.lang;
 
+import java.util.UUID;
+
 /**
  * This exception is thrown when a new index failed to be created, because another index with the same name already exists.
  */
@@ -28,5 +30,17 @@ public class IndexAlreadyExistsException extends IgniteException {
      */
     public IndexAlreadyExistsException(String name) {
         super(IgniteStringFormatter.format("Index already exists [name={}]", name));
+    }
+
+    /**
+     * Creates a new exception with the given trace id, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public IndexAlreadyExistsException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

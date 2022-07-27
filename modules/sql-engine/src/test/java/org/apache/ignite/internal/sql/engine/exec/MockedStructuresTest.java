@@ -84,7 +84,6 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -97,6 +96,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -297,10 +297,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         assertThrows(TableAlreadyExistsException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql2)));
 
         // todo: correct exception need to be thrown https://issues.apache.org/jira/browse/IGNITE-16084
-        assertThrows(IgniteInternalException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
+        assertThrows(SqlException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
                 "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,replicas=1")));
 
-        assertThrows(IgniteInternalException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
+        assertThrows(SqlException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
                 "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas__wrong=1")));
 
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))",

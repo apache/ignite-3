@@ -23,6 +23,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.ResultSetImpl;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.tx.Transaction;
@@ -53,11 +54,10 @@ public interface Session extends AutoCloseable {
     default ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
-        // TODO: IGNITE-17135 fix exception handling.
         try {
             return new ResultSetImpl(executeAsync(transaction, query, arguments).join());
         } catch (CompletionException e) {
-            throw new SqlException(e);
+            throw IgniteException.wrap(e);
         }
     }
 
@@ -72,11 +72,10 @@ public interface Session extends AutoCloseable {
     default ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
 
-        // TODO: IGNITE-17135 fix exception handling.
         try {
             return new ResultSetImpl(executeAsync(transaction, statement, arguments).join());
         } catch (CompletionException e) {
-            throw new SqlException(e);
+            throw IgniteException.wrap(e);
         }
     }
 
@@ -134,11 +133,10 @@ public interface Session extends AutoCloseable {
      * @throws SqlBatchException If the batch fails.
      */
     default long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
-        // TODO: IGNITE-17135 fix exception handling.
         try {
             return executeBatchAsync(transaction, dmlQuery, batch).join();
         } catch (CompletionException e) {
-            throw new SqlException(e);
+            throw IgniteException.wrap(e);
         }
     }
 

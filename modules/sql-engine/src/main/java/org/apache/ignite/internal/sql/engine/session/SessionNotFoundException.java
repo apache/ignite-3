@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.session;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import org.apache.ignite.sql.SqlException;
 
 /**
- * Exception is thrown when someone try to perform action on behalf of a session that has already expired or never exists.
+ * Exception is thrown when someone tries to perform action on behalf of a session that has already expired or never exists.
  */
-public class SessionNotFound extends SqlException {
+public class SessionNotFoundException extends SqlException {
     private final SessionId sessionId;
 
     /**
@@ -32,8 +33,8 @@ public class SessionNotFound extends SqlException {
      *
      * @param sessionId A session id.
      */
-    public SessionNotFound(SessionId sessionId) {
-        super(format("Session not found [{}]", sessionId));
+    public SessionNotFoundException(SessionId sessionId) {
+        super(SESSION_NOT_FOUND_ERR, format("Session not found [{}]", sessionId));
 
         this.sessionId = sessionId;
     }
