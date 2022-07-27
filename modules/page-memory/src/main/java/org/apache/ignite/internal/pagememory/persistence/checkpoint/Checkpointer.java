@@ -46,6 +46,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryChec
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -425,7 +426,7 @@ public class Checkpointer extends IgniteWorker {
 
         tracker.onFsyncStart();
 
-        syncUpdatedStores(updatedPartitions);
+        syncUpdatedPageStores(updatedPartitions);
 
         if (shutdownNow.getAsBoolean()) {
             currentCheckpointProgress.fail(new NodeStoppingException("Node is stopping."));
@@ -436,28 +437,20 @@ public class Checkpointer extends IgniteWorker {
         return true;
     }
 
-    private void syncUpdatedStores(
-            ConcurrentMap<GroupPartitionId, LongAdder> updatedStoresForSync
+    private void syncUpdatedPageStores(
+            ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions
     ) throws IgniteInternalCheckedException {
         ThreadPoolExecutor pageWritePool = checkpointWritePagesPool;
 
         if (pageWritePool == null) {
-            for (Map.Entry<GroupPartitionId, LongAdder> entry : updatedStoresForSync.entrySet()) {
+            for (Map.Entry<GroupPartitionId, LongAdder> entry : updatedPartitions.entrySet()) {
                 if (shutdownNow) {
                     return;
                 }
 
-                blockingSectionBegin();
+                fsyncDeltaFilePageStoreOnCheckpointThread(entry.getKey(), entry.getValue());
 
-                try {
-                    GroupPartitionId partitionId = entry.getKey();
-
-                    filePageStoreManager.getStore(partitionId.getGroupId(), partitionId.getPartitionId()).sync();
-                } finally {
-                    blockingSectionEnd();
-                }
-
-                currentCheckpointProgress.syncedPagesCounter().addAndGet(entry.getValue().intValue());
+                renameDeltaFileOnCheckpointThread(entry.getKey());
             }
         } else {
             int checkpointThreads = pageWritePool.getMaximumPoolSize();
@@ -468,7 +461,7 @@ public class Checkpointer extends IgniteWorker {
                 futures[i] = new CompletableFuture<>();
             }
 
-            BlockingQueue<Entry<GroupPartitionId, LongAdder>> queue = new LinkedBlockingQueue<>(updatedStoresForSync.entrySet());
+            BlockingQueue<Entry<GroupPartitionId, LongAdder>> queue = new LinkedBlockingQueue<>(updatedPartitions.entrySet());
 
             for (int i = 0; i < checkpointThreads; i++) {
                 int threadIdx = i;
@@ -482,17 +475,9 @@ public class Checkpointer extends IgniteWorker {
                                 return;
                             }
 
-                            blockingSectionBegin();
+                            fsyncDeltaFilePageStoreOnCheckpointThread(entry.getKey(), entry.getValue());
 
-                            try {
-                                GroupPartitionId partitionId = entry.getKey();
-
-                                filePageStoreManager.getStore(partitionId.getGroupId(), partitionId.getPartitionId()).sync();
-                            } finally {
-                                blockingSectionEnd();
-                            }
-
-                            currentCheckpointProgress.syncedPagesCounter().addAndGet(entry.getValue().intValue());
+                            renameDeltaFileOnCheckpointThread(entry.getKey());
 
                             entry = queue.poll();
                         }
@@ -726,5 +711,36 @@ public class Checkpointer extends IgniteWorker {
                 - max(safeAbs(deviationMills) / 200, 1);
 
         return safeAbs(frequency + startDelay);
+    }
+
+    private void fsyncDeltaFilePageStoreOnCheckpointThread(
+            GroupPartitionId partitionId,
+            LongAdder pagesWritten
+    ) throws IgniteInternalCheckedException {
+        blockingSectionBegin();
+
+        try {
+            FilePageStore filePageStore = filePageStoreManager.getStore(partitionId.getGroupId(), partitionId.getPartitionId());
+
+            // TODO: IGNITE-17230 вот тут надо синкать дельта файл
+            filePageStore.sync();
+        } finally {
+            blockingSectionEnd();
+        }
+
+        currentCheckpointProgress.syncedPagesCounter().addAndGet(pagesWritten.intValue());
+    }
+
+    private void renameDeltaFileOnCheckpointThread(GroupPartitionId partitionId) throws IgniteInternalCheckedException {
+        blockingSectionBegin();
+
+        try {
+            FilePageStore filePageStore = filePageStoreManager.getStore(partitionId.getGroupId(), partitionId.getPartitionId());
+
+            // TODO: IGNITE-17230 вот тут надо будет переименовывать дельта файл и завешать его
+            assert filePageStore != null;
+        } finally {
+            blockingSectionEnd();
+        }
     }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
@@ -28,9 +29,10 @@ public interface CheckpointPageWriter {
     /**
      * Writes the page to the page store.
      *
+     * @param pageMemory Page memory.
      * @param fullPageId Full page id.
      * @param buf Byte buffer to write from.
      * @throws IgniteInternalCheckedException If failed.
      */
-    void write(FullPageId fullPageId, ByteBuffer buf) throws IgniteInternalCheckedException;
+    void write(PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer buf) throws IgniteInternalCheckedException;
 }

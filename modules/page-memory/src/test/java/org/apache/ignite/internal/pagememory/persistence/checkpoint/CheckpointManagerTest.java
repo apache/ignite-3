@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager.pageIndexesForDeltaFilePageStore;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager.safeToUpdateAllPageMemories;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -26,11 +29,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.DataRegion;
+import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
@@ -119,5 +125,27 @@ public class CheckpointManagerTest {
         assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion0)));
         assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion1)));
         assertTrue(safeToUpdateAllPageMemories(List.of(dataRegion0, dataRegion1)));
+    }
+
+    @Test
+    void testPageIndexesForDeltaFilePageStore() {
+        PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
+        PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
+
+        CheckpointDirtyPages dirtyPages = new CheckpointDirtyPages(List.of(
+                new DataRegionDirtyPages<>(pageMemory0, dirtyPageArray(0, 0, 1)),
+                new DataRegionDirtyPages<>(pageMemory1, dirtyPageArray(0, 1, 2, 3, 4))
+        ));
+
+        assertArrayEquals(new int[]{0, 1}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0)));
+        assertArrayEquals(new int[]{0, 2, 3, 4}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1)));
+    }
+
+    private static FullPageId[] dirtyPageArray(int grpId, int partId, int... pageIndex) {
+        Arrays.sort(pageIndex);
+
+        return IntStream.of(pageIndex)
+                .mapToObj(pageIdx -> new FullPageId(pageId(partId, (byte) 0, pageIdx), grpId))
+                .toArray(FullPageId[]::new);
     }
 }

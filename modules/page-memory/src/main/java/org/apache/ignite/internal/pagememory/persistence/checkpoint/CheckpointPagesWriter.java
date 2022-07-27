@@ -186,6 +186,8 @@ public class CheckpointPagesWriter implements Runnable {
 
             FullPageId fullId = queueResult.getValue();
 
+            PersistentPageMemory pageMemory = queueResult.getKey();
+
             if (hasPartitionChanged(partitionId, fullId)) {
                 updatedPartitions.computeIfAbsent(partitionId = toPartitionId(fullId), partId -> {
                     writeMetaPage.set(true);
@@ -194,13 +196,11 @@ public class CheckpointPagesWriter implements Runnable {
                 });
 
                 if (writeMetaPage.get()) {
-                    writePartitionMeta(partitionId, tmpWriteBuf.rewind());
+                    writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
 
                     writeMetaPage.set(false);
                 }
             }
-
-            PersistentPageMemory pageMemory = queueResult.getKey();
 
             tmpWriteBuf.rewind();
 
@@ -245,21 +245,25 @@ public class CheckpointPagesWriter implements Runnable {
 
                 checkpointProgress.writtenPagesCounter().incrementAndGet();
 
-                pageWriter.write(fullPageId, buf);
+                pageWriter.write(pageMemory, fullPageId, buf);
 
                 updatedPartitions.get(toPartitionId(fullPageId)).increment();
             }
         };
     }
 
-    private void writePartitionMeta(GroupPartitionId partitionId, ByteBuffer buffer) throws IgniteInternalCheckedException {
+    private void writePartitionMeta(
+            PersistentPageMemory pageMemory,
+            GroupPartitionId partitionId,
+            ByteBuffer buffer
+    ) throws IgniteInternalCheckedException {
         PartitionMetaSnapshot partitionMetaSnapshot = partitionMetaManager.getMeta(partitionId).metaSnapshot(checkpointProgress.id());
 
         partitionMetaManager.writeMetaToBuffer(partitionId, partitionMetaSnapshot, buffer.rewind());
 
         FullPageId fullPageId = new FullPageId(partitionMetaPageId(partitionId.getPartitionId()), partitionId.getGroupId());
 
-        pageWriter.write(fullPageId, buffer.rewind());
+        pageWriter.write(pageMemory, fullPageId, buffer.rewind());
 
         checkpointProgress.writtenPagesCounter().incrementAndGet();
 

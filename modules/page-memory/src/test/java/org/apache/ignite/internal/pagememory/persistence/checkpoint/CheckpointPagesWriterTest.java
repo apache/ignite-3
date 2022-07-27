@@ -61,7 +61,6 @@ import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -114,11 +113,9 @@ public class CheckpointPagesWriterTest {
 
         ThreadLocal<ByteBuffer> threadBuf = createThreadLocalBuffer();
 
-        PageStore pageStore = mock(PageStore.class);
-
         ArgumentCaptor<FullPageId> writtenFullPageIds = ArgumentCaptor.forClass(FullPageId.class);
 
-        CheckpointPageWriter pageWriter = createCheckpointPageWriter(pageStore, writtenFullPageIds);
+        CheckpointPageWriter pageWriter = createCheckpointPageWriter(writtenFullPageIds);
 
         ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions = new ConcurrentHashMap<>();
 
@@ -208,7 +205,7 @@ public class CheckpointPagesWriterTest {
                 () -> {},
                 createThreadLocalBuffer(),
                 new CheckpointProgressImpl(0),
-                createCheckpointPageWriter(mock(PageStore.class), null),
+                createCheckpointPageWriter(null),
                 ioRegistry,
                 createPartitionMetaManager(Map.of(groupPartId, mock(PartitionMeta.class))),
                 () -> false
@@ -259,7 +256,7 @@ public class CheckpointPagesWriterTest {
                 () -> {},
                 createThreadLocalBuffer(),
                 new CheckpointProgressImpl(0),
-                createCheckpointPageWriter(mock(PageStore.class), null),
+                createCheckpointPageWriter(null),
                 ioRegistry,
                 createPartitionMetaManager(Map.of(groupPartId, mock(PartitionMeta.class))),
                 () -> checkpointWritePageCount.get() > 0
@@ -323,17 +320,15 @@ public class CheckpointPagesWriterTest {
     /**
      * Returns mocked instance of {@link CheckpointPageWriter}.
      *
-     * @param pageStore Return value for {@link CheckpointPageWriter#write}.
      * @param fullPageIdArgumentCaptor Collector of pages that will fall into {@link CheckpointPageWriter#write}.
      */
     private static CheckpointPageWriter createCheckpointPageWriter(
-            PageStore pageStore,
             @Nullable ArgumentCaptor<FullPageId> fullPageIdArgumentCaptor
     ) throws Exception {
         CheckpointPageWriter pageWriter = mock(CheckpointPageWriter.class);
 
         if (fullPageIdArgumentCaptor != null) {
-            doNothing().when(pageWriter).write(fullPageIdArgumentCaptor.capture(), any(ByteBuffer.class));
+            doNothing().when(pageWriter).write(any(PersistentPageMemory.class), fullPageIdArgumentCaptor.capture(), any(ByteBuffer.class));
         }
 
         return pageWriter;
