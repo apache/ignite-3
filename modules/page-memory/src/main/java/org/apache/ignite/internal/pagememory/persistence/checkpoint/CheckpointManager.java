@@ -243,7 +243,7 @@ public class CheckpointManager {
      * @param calculateCrc If {@code false} crc calculation will be forcibly skipped.
      * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
      */
-    void writePageToDeltaFilePageStore(
+    public void writePageToDeltaFilePageStore(
             PersistentPageMemory pageMemory,
             FullPageId pageId,
             ByteBuffer pageBuf,

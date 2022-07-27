@@ -44,6 +44,7 @@ import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
@@ -84,7 +85,7 @@ public class CheckpointPagesWriter implements Runnable {
     private final CheckpointProgressImpl checkpointProgress;
 
     /** Writer which able to write one page. */
-    private final CheckpointPageWriter pageWriter;
+    private final WriteDirtyPage pageWriter;
 
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
@@ -120,7 +121,7 @@ public class CheckpointPagesWriter implements Runnable {
             Runnable beforePageWrite,
             ThreadLocal<ByteBuffer> threadBuf,
             CheckpointProgressImpl checkpointProgress,
-            CheckpointPageWriter pageWriter,
+            WriteDirtyPage pageWriter,
             PageIoRegistry ioRegistry,
             PartitionMetaManager partitionMetaManager,
             BooleanSupplier shutdownNow

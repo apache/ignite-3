@@ -20,6 +20,8 @@ package org.apache.ignite.internal.pagememory.persistence.replacement;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -27,12 +29,12 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Not thread safe and stateful class for page replacement of one page with write() delay. This allows to write page content without holding
  * segment lock. Page data is copied into temp buffer during {@link #writePage(FullPageId, ByteBuffer, int)} and then sent to real
- * implementation by {@link #finishReplacement()}.
+ * implementation by {@link #finishReplacement}.
  */
 // TODO: IGNITE-15818 Maybe refactor.
 public class DelayedDirtyPageStoreWrite implements PageStoreWriter {
     /** Real flush dirty page implementation. */
-    private final PageStoreWriter flushDirtyPage;
+    private final WriteDirtyPage flushDirtyPage;
 
     /** Page size. */
     private final int pageSize;
@@ -43,15 +45,15 @@ public class DelayedDirtyPageStoreWrite implements PageStoreWriter {
     /** Replacing pages tracker, used to register & unregister pages being written. */
     private final DelayedPageReplacementTracker tracker;
 
-    /** Full page id to be written on {@link #finishReplacement()} or null if nothing to write. */
+    /** Full page id to be written on {@link #finishReplacement} or null if nothing to write. */
     @Nullable
     private FullPageId fullPageId;
 
-    /** Byte buffer with page data to be written on {@link #finishReplacement()} or null if nothing to write. */
+    /** Byte buffer with page data to be written on {@link #finishReplacement} or null if nothing to write. */
     @Nullable
     private ByteBuffer byteBuf;
 
-    /** Partition update tag to be used in{@link #finishReplacement()} or null if -1 to write. */
+    /** Partition update tag to be used in{@link #finishReplacement} or null if -1 to write. */
     private int tag = -1;
 
     /**
@@ -63,7 +65,7 @@ public class DelayedDirtyPageStoreWrite implements PageStoreWriter {
      * @param tracker tracker to lock/unlock page reads.
      */
     public DelayedDirtyPageStoreWrite(
-            PageStoreWriter flushDirtyPage,
+            WriteDirtyPage flushDirtyPage,
             ThreadLocal<ByteBuffer> byteBufThreadLoc,
             // TODO: IGNITE-17017 Move to common config
             int pageSize,
@@ -99,13 +101,13 @@ public class DelayedDirtyPageStoreWrite implements PageStoreWriter {
      *
      * @throws IgniteInternalCheckedException if write failed.
      */
-    public void finishReplacement() throws IgniteInternalCheckedException {
+    public void finishReplacement(PersistentPageMemory pageMemory) throws IgniteInternalCheckedException {
         if (byteBuf == null && fullPageId == null) {
             return;
         }
 
         try {
-            flushDirtyPage.writePage(fullPageId, byteBuf, tag);
+            flushDirtyPage.write(pageMemory, fullPageId, byteBuf);
         } finally {
             tracker.unlock(fullPageId);
 

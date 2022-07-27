@@ -234,7 +234,7 @@ public class PersistentPageMemory implements PageMemory {
             long checkpointBufferSize,
             PageReadWriteManager pageStoreManager,
             @Nullable PageChangeTracker changeTracker,
-            PageStoreWriter flushDirtyPageForReplacement,
+            WriteDirtyPage flushDirtyPageForReplacement,
             CheckpointTimeoutLock checkpointTimeoutLock,
             // TODO: IGNITE-17017 Move to common config
             int pageSize

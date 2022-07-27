@@ -15,24 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.checkpoint;
+package org.apache.ignite.internal.pagememory.persistence;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Interface which allows writing one page to page store.
+ * Interface which allows writing dirty page.
  */
-public interface CheckpointPageWriter {
+public interface WriteDirtyPage {
     /**
      * Writes the page to the page store.
      *
      * @param pageMemory Page memory.
      * @param fullPageId Full page id.
-     * @param buf Byte buffer to write from.
+     * @param buffer Byte buffer to write from.
      * @throws IgniteInternalCheckedException If failed.
      */
-    void write(PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer buf) throws IgniteInternalCheckedException;
+    void write(PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer buffer) throws IgniteInternalCheckedException;
 }

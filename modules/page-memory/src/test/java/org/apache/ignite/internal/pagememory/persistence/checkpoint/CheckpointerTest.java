@@ -69,6 +69,7 @@ import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -435,14 +436,10 @@ public class CheckpointerTest {
         return mock;
     }
 
-    private CheckpointPagesWriterFactory createCheckpointPagesWriterFactory(
-            PartitionMetaManager partitionMetaManager
-    ) throws Exception {
-        CheckpointPageWriter checkpointPageWriter = mock(CheckpointPageWriter.class);
-
+    private CheckpointPagesWriterFactory createCheckpointPagesWriterFactory(PartitionMetaManager partitionMetaManager) {
         return new CheckpointPagesWriterFactory(
                 log,
-                checkpointPageWriter,
+                mock(WriteDirtyPage.class),
                 ioRegistry,
                 partitionMetaManager,
                 PAGE_SIZE

@@ -27,7 +27,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
+import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 
 /**
  * Delayed page writes tracker. Provides delayed write implementations and allows to check if page is actually being written to page store.
@@ -37,7 +37,7 @@ public class DelayedPageReplacementTracker {
     private final int pageSize;
 
     /** Flush dirty page real implementation. */
-    private final PageStoreWriter flushDirtyPage;
+    private final WriteDirtyPage flushDirtyPage;
 
     /** Logger. */
     private final IgniteLogger log;
@@ -76,7 +76,7 @@ public class DelayedPageReplacementTracker {
     public DelayedPageReplacementTracker(
             // TODO: IGNITE-17017 Move to common config
             int pageSize,
-            PageStoreWriter flushDirtyPage,
+            WriteDirtyPage flushDirtyPage,
             IgniteLogger log,
             int segmentCnt
     ) {

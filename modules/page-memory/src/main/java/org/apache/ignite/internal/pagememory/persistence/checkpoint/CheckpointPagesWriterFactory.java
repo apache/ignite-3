@@ -29,6 +29,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 
 /**
@@ -44,7 +45,7 @@ public class CheckpointPagesWriterFactory {
     private final ThreadLocal<ByteBuffer> threadBuf;
 
     /** Writer which writes pages to page store during the checkpoint. */
-    private final CheckpointPageWriter checkpointPageWriter;
+    private final WriteDirtyPage dirtyPageWriter;
 
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
@@ -56,21 +57,21 @@ public class CheckpointPagesWriterFactory {
      * Constructor.
      *
      * @param log Logger.
-     * @param checkpointPageWriter Checkpoint page writer.
+     * @param dirtyPageWriter Checkpoint page writer.
      * @param ioRegistry Page IO registry.
      * @param partitionMetaManager Partition meta information manager.
      * @param pageSize Page size in bytes.
      */
     CheckpointPagesWriterFactory(
             IgniteLogger log,
-            CheckpointPageWriter checkpointPageWriter,
+            WriteDirtyPage dirtyPageWriter,
             PageIoRegistry ioRegistry,
             PartitionMetaManager partitionMetaManager,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
         this.log = log;
-        this.checkpointPageWriter = checkpointPageWriter;
+        this.dirtyPageWriter = dirtyPageWriter;
         this.ioRegistry = ioRegistry;
         this.partitionMetaManager = partitionMetaManager;
 
@@ -113,7 +114,7 @@ public class CheckpointPagesWriterFactory {
                 beforePageWrite,
                 threadBuf,
                 checkpointProgress,
-                checkpointPageWriter,
+                dirtyPageWriter,
                 ioRegistry,
                 partitionMetaManager,
                 shutdownNow

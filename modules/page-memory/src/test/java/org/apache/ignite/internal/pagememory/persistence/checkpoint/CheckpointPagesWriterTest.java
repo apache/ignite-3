@@ -61,6 +61,7 @@ import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -115,7 +116,7 @@ public class CheckpointPagesWriterTest {
 
         ArgumentCaptor<FullPageId> writtenFullPageIds = ArgumentCaptor.forClass(FullPageId.class);
 
-        CheckpointPageWriter pageWriter = createCheckpointPageWriter(writtenFullPageIds);
+        WriteDirtyPage pageWriter = createDirtyPageWriter(writtenFullPageIds);
 
         ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions = new ConcurrentHashMap<>();
 
@@ -205,7 +206,7 @@ public class CheckpointPagesWriterTest {
                 () -> {},
                 createThreadLocalBuffer(),
                 new CheckpointProgressImpl(0),
-                createCheckpointPageWriter(null),
+                createDirtyPageWriter(null),
                 ioRegistry,
                 createPartitionMetaManager(Map.of(groupPartId, mock(PartitionMeta.class))),
                 () -> false
@@ -256,7 +257,7 @@ public class CheckpointPagesWriterTest {
                 () -> {},
                 createThreadLocalBuffer(),
                 new CheckpointProgressImpl(0),
-                createCheckpointPageWriter(null),
+                createDirtyPageWriter(null),
                 ioRegistry,
                 createPartitionMetaManager(Map.of(groupPartId, mock(PartitionMeta.class))),
                 () -> checkpointWritePageCount.get() > 0
@@ -318,20 +319,20 @@ public class CheckpointPagesWriterTest {
     }
 
     /**
-     * Returns mocked instance of {@link CheckpointPageWriter}.
+     * Returns mocked instance of {@link WriteDirtyPage}.
      *
-     * @param fullPageIdArgumentCaptor Collector of pages that will fall into {@link CheckpointPageWriter#write}.
+     * @param fullPageIdArgumentCaptor Collector of pages that will fall into {@link WriteDirtyPage#write}.
      */
-    private static CheckpointPageWriter createCheckpointPageWriter(
+    private static WriteDirtyPage createDirtyPageWriter(
             @Nullable ArgumentCaptor<FullPageId> fullPageIdArgumentCaptor
     ) throws Exception {
-        CheckpointPageWriter pageWriter = mock(CheckpointPageWriter.class);
+        WriteDirtyPage writer = mock(WriteDirtyPage.class);
 
         if (fullPageIdArgumentCaptor != null) {
-            doNothing().when(pageWriter).write(any(PersistentPageMemory.class), fullPageIdArgumentCaptor.capture(), any(ByteBuffer.class));
+            doNothing().when(writer).write(any(PersistentPageMemory.class), fullPageIdArgumentCaptor.capture(), any(ByteBuffer.class));
         }
 
-        return pageWriter;
+        return writer;
     }
 
     private static FullPageId fullPageId(int grpId, int partId, int pageIdx) {
