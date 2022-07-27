@@ -23,9 +23,11 @@ import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -34,6 +36,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.tx.Timestamp;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -95,11 +98,17 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** Partitions column family. */
     private final ColumnFamilyHandle cf;
 
+    /** Meta column family. */
+    private final ColumnFamilyHandle meta;
+
     /** Write options. */
     private final WriteOptions writeOpts = new WriteOptions();
 
     /** Upper bound for scans and reads. */
     private final Slice upperBound;
+
+    /** Key to store applied index value in meta. */
+    private byte[] lastAppliedIndexKey;
 
     /**
      * Constructor.
@@ -107,11 +116,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * @param partitionId Partition id.
      * @param db RocksDB instance.
      * @param cf Column family handle to store partition data.
+     * @param meta Column family handle to store partition metadata.
      */
-    public RocksDbMvPartitionStorage(int partitionId, RocksDB db, ColumnFamilyHandle cf) {
+    public RocksDbMvPartitionStorage(int partitionId, RocksDB db, ColumnFamilyHandle cf, ColumnFamilyHandle meta) {
         this.partitionId = partitionId;
         this.db = db;
         this.cf = cf;
+        this.meta = meta;
 
         heapKeyBuffer = withInitial(() ->
                 ByteBuffer.allocate(MAX_KEY_SIZE)
@@ -119,6 +130,42 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         );
 
         upperBound = new Slice(partitionEndPrefix());
+
+        lastAppliedIndexKey = ("index" + partitionId).getBytes(StandardCharsets.UTF_8);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long lastAppliedIndex() {
+        byte[] appliedIndexBytes;
+
+        try {
+            appliedIndexBytes = db.get(meta, lastAppliedIndexKey);
+        } catch (RocksDBException e) {
+            throw new StorageException(e);
+        }
+
+        if (appliedIndexBytes == null) {
+            return 0;
+        }
+
+        return ByteUtils.bytesToLong(appliedIndexBytes);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
+        try {
+            db.put(meta, lastAppliedIndexKey, ByteUtils.longToBytes(lastAppliedIndex));
+        } catch (RocksDBException e) {
+            throw new StorageException(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long persistedIndex() {
+        return lastAppliedIndex();
     }
 
     /** {@inheritDoc} */
@@ -526,6 +573,67 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 }
             }
         };
+    }
+
+    @Override
+    public long rowsCount() {
+        try (
+                var upperBound = new Slice(partitionEndPrefix());
+                var options = new ReadOptions().setIterateUpperBound(upperBound);
+                RocksIterator it = db.newIterator(cf, options)
+        ) {
+            it.seek(partitionStartPrefix());
+
+            long size = 0;
+
+            while (it.isValid()) {
+                ++size;
+                it.next();
+            }
+
+            return size;
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void forEach(BiConsumer<RowId, BinaryRow> consumer) {
+        try (
+                var upperBound = new Slice(partitionEndPrefix());
+                var options = new ReadOptions().setIterateUpperBound(upperBound);
+                RocksIterator it = db.newIterator(cf, options)
+        ) {
+            it.seek(partitionStartPrefix());
+
+            while (it.isValid()) {
+                byte[] keyBytes = it.key();
+                byte[] valueBytes = it.value();
+
+                boolean valueHasTxId = keyBytes.length == ROW_PREFIX_SIZE;
+
+                if (!isTombstone(valueBytes, valueHasTxId)) {
+                    ByteBuffer keyBuf = ByteBuffer.wrap(keyBytes).order(BIG_ENDIAN);
+                    RowId rowId = new UuidRowId(keyBuf.getLong(), keyBuf.getLong());
+
+                    BinaryRow binaryRow = wrapValueIntoBinaryRow(valueBytes, valueHasTxId);
+
+                    consumer.accept(rowId, binaryRow);
+                }
+
+                it.next();
+            }
+        }
+    }
+
+    /**
+     * Deletes partition data from the storage.
+     */
+    public void destroy() {
+        try {
+            db.delete(meta, lastAppliedIndexKey);
+        } catch (RocksDBException e) {
+            throw new StorageException("Failed to cleanup partition meta on destruction", e);
+        }
     }
 
     /** {@inheritDoc} */
