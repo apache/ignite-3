@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.metrics;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLongArray;
+import java.util.stream.Collectors;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -26,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
  * Note, that {@link #value()} will return array length of {@code bounds.length + 1}.
  * Last element contains count of measurements bigger than most right value of bounds.
  */
-public class DistributionMetric extends AbstractMetric implements Metric {
+public class DistributionMetric extends AbstractMetric implements CompositeMetric {
     /** Count of measurement for each bound. */
     public final AtomicLongArray measurements;
 
@@ -102,7 +105,9 @@ public class DistributionMetric extends AbstractMetric implements Metric {
 
     /** {@inheritDoc} */
     @Override public @Nullable String getAsString() {
-        return Arrays.toString(value());
+        return asScalarMetrics().stream()
+            .map(m -> m.name() + ": " + ((LongMetric) m).value())
+            .collect(Collectors.joining(",", "[", "]"));
     }
 
     /**
@@ -112,5 +117,24 @@ public class DistributionMetric extends AbstractMetric implements Metric {
      */
     public long[] bounds() {
         return bounds;
+    }
+
+    /** {@inheritDoc} */
+    @Override public List<Metric> asScalarMetrics() {
+        List<Metric> res = new ArrayList<>();
+
+        for (int i = 0; i < measurements.length(); i++) {
+            String from = i == 0 ? "0" : String.valueOf(bounds[i - 1]);
+            String to = i == measurements.length() - 1 ? String.valueOf(bounds[i]) : "";
+
+            String name = new StringBuilder(from).append('_').append(to).toString();
+
+            final int index = i;
+            LongGauge gauge = new LongGauge(name, "Single distribution bucket", () -> measurements.get(index));
+
+            res.add(gauge);
+        }
+
+        return res;
     }
 }
