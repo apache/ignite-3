@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
@@ -60,7 +61,7 @@ public class LozaTest extends IgniteAbstractTest {
         Mockito.doReturn(Mockito.mock(MessagingService.class)).when(clusterNetSvc).messagingService();
         Mockito.doReturn(Mockito.mock(TopologyService.class)).when(clusterNetSvc).topologyService();
 
-        Loza loza = new Loza(clusterNetSvc, workDir);
+        Loza loza = new Loza(clusterNetSvc, workDir, new HybridClock());
 
         loza.start();
 

@@ -57,7 +57,7 @@ public class HybridClock {
      * @param requestTime Timestamp from request.
      * @return The hybrid timestamp.
      */
-    public synchronized HybridTimestamp tick(HybridTimestamp requestTime) {
+    public synchronized HybridTimestamp update(HybridTimestamp requestTime) {
         HybridTimestamp now = new HybridTimestamp(Clock.systemUTC().instant().toEpochMilli(), -1);
 
         latestTime = HybridTimestamp.max(now, requestTime, latestTime);

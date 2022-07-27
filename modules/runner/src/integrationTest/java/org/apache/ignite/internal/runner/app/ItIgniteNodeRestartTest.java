@@ -51,6 +51,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -220,7 +221,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 nettyBootstrapFactory
         );
 
-        var raftMgr = new Loza(clusterSvc, dir);
+        var raftMgr = new Loza(clusterSvc, dir, new HybridClock());
 
         var txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
 

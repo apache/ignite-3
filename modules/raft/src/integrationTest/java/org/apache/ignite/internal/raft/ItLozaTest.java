@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
@@ -116,7 +117,7 @@ public class ItLozaTest {
 
             CompletableFuture<NetworkMessage> exception = CompletableFuture.failedFuture(new IOException());
 
-            loza = new Loza(service, dataPath);
+            loza = new Loza(service, dataPath, new HybridClock());
 
             loza.start();
 

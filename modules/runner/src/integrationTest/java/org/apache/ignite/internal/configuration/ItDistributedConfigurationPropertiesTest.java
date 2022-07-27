@@ -37,6 +37,7 @@ import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ConcurrentMapClusterStateStorage;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
@@ -109,7 +110,7 @@ public class ItDistributedConfigurationPropertiesTest {
                     new StaticNodeFinder(memberAddrs)
             );
 
-            raftManager = new Loza(clusterService, workDir);
+            raftManager = new Loza(clusterService, workDir, new HybridClock());
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

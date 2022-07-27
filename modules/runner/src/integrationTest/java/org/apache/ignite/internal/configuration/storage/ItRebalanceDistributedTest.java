@@ -47,6 +47,7 @@ import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigur
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ConcurrentMapClusterStateStorage;
@@ -407,7 +408,7 @@ public class ItRebalanceDistributedTest {
 
             lockManager = new HeapLockManager();
 
-            raftManager = new Loza(clusterService, dir);
+            raftManager = new Loza(clusterService, dir, new HybridClock());
 
             txManager = new TableTxManagerImpl(clusterService, lockManager);
 
