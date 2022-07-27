@@ -19,17 +19,21 @@ package org.apache.ignite.internal.replicator;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.replicator.listener.ListenerCompoundResponse;
+import org.apache.ignite.internal.replicator.listener.ListenerFutureResponse;
+import org.apache.ignite.internal.replicator.listener.ListenerInstantResponse;
+import org.apache.ignite.internal.replicator.listener.ListenerResponse;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.CleanupRequest;
+import org.apache.ignite.internal.replicator.message.InstantResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReplicaRequestLocator;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.WaiteOperationsResultRequest;
-import org.apache.ignite.internal.replicator.message.WaiteOperationsResultResponse;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
@@ -75,13 +79,11 @@ public class Replica {
      * @return Response.
      */
     public ReplicaResponse processRequest(ReplicaRequest request) { // define proper set of exceptions that might be thrown.
-        assert replicaGrpId.equals(request.locator().groupId()) : IgniteStringFormatter.format(
-                "Partition mismatch: request does not match the replica [reqPartId={}, replicaGrpId={}]", request.locator().groupId(),
+        assert replicaGrpId.equals(request.groupId()) : IgniteStringFormatter.format(
+                "Partition mismatch: request does not match the replica [reqPartId={}, replicaGrpId={}]", request.groupId(),
                 replicaGrpId);
 
         //TODO:IGNITE-17378 Check replica is alive.
-
-        ReplicaResponse response;
 
         try {
             if (request instanceof WaiteOperationsResultRequest) {
@@ -89,56 +91,101 @@ public class Replica {
             }
 
             if (request instanceof CleanupRequest) {
-                ops.remove(request.locator().transactionId());
+                return handleCleanupRequest((CleanupRequest) request);
+            }
 
-                return REPLICA_MESSAGES_FACTORY
-                        .cleanupResponse()
+            ListenerResponse listResp = listener.invoke(request);
+
+            if (listResp instanceof ListenerCompoundResponse) {
+                var listCompResp = (ListenerCompoundResponse) listResp;
+
+                ops.computeIfAbsent(listCompResp.operationLocator().operationId(), uuid -> new ConcurrentHashMap<>())
+                        .put(listCompResp.operationLocator().operationId(), listCompResp.resultFuture());
+
+                return REPLICA_MESSAGES_FACTORY.compoundResponse()
+                        .operationId(listCompResp.operationLocator().operationId())
+                        .result(listCompResp.result())
                         .build();
             }
 
-            IgniteBiTuple<ReplicaResponse, CompletableFuture> result = listener.invoke(request);
+            if (listResp instanceof ListenerFutureResponse) {
+                var listFutResp = (ListenerFutureResponse) listResp;
 
-            response = result.get1();
+                ops.computeIfAbsent(listFutResp.operationLocator().operationContextId(), uuid -> new ConcurrentHashMap<>())
+                        .put(listFutResp.operationLocator().operationId(), listFutResp.resultFuture());
 
-            if (result.get2() != null) {
-                ops.computeIfAbsent(request.locator().transactionId(), uuid -> new ConcurrentHashMap<>())
-                        .put(response.operationId(), result.get2());
+                return REPLICA_MESSAGES_FACTORY.futureResponse()
+                        .operationId(listFutResp.operationLocator().operationId())
+                        .build();
             }
+
+            assert listResp instanceof ListenerInstantResponse : IgniteStringFormatter.format(
+                    "Unexpected listener response type [type={}]", listResp.getClass().getSimpleName());
+
+            var listInstResp = (ListenerInstantResponse) listResp;
+
+            return REPLICA_MESSAGES_FACTORY.instantResponse()
+                    .result(listInstResp.result())
+                    .build();
+
         } catch (Exception ex) {
-            response = REPLICA_MESSAGES_FACTORY
+            return REPLICA_MESSAGES_FACTORY
                     .waiteOperationsResultResponse()
                     .build();
         }
+    }
 
-        return response;
+    /**
+     * Handles a cleanup request.
+     *
+     * @param cleanRequest Cleanup request.
+     * @return Cleanup response.
+     */
+    private InstantResponse handleCleanupRequest(CleanupRequest cleanRequest) {
+        ops.remove(cleanRequest.operationContextId());
+
+        ListenerResponse listResp = listener.invoke(cleanRequest);
+
+        assert listResp instanceof ListenerInstantResponse : IgniteStringFormatter.format(
+                "Unexpected listener response type [type={}]", listResp.getClass().getSimpleName());
+
+        var listInstResp = (ListenerInstantResponse) listResp;
+
+        return REPLICA_MESSAGES_FACTORY.instantResponse()
+                .result(listInstResp.result())
+                .build();
     }
 
     /**
      * Handles a wait operation request.
      *
-     * @param request Wait operation request.
+     * @param opsRequest Wait operation request.
      * @return Wait operations result.
      */
-    private WaiteOperationsResultResponse handleWaitOperationsResultRequest(WaiteOperationsResultRequest request) {
-        var opsRequest = request;
-
-        Collection<UUID> opIds = opsRequest.operationIds();
+    private InstantResponse handleWaitOperationsResultRequest(WaiteOperationsResultRequest opsRequest) {
+        Collection<ReplicaRequestLocator> opIds = opsRequest.operationLocators();
 
         HashMap<UUID, Object> opRes = null;
 
         if (opIds != null && !opIds.isEmpty()) {
             opRes = new HashMap<>(opIds.size());
 
-            for (Entry<UUID, CompletableFuture> op : ops.get(opsRequest.locator().transactionId()).entrySet()) {
-                if (opIds.contains(op.getKey())) {
-                    opRes.put(op.getKey(), op.getValue().join());
+            for (ReplicaRequestLocator locator : opIds) {
+                ConcurrentHashMap<UUID, CompletableFuture> prefixOps = ops.get(locator.operationContextId());
+
+                if (prefixOps != null) {
+                    CompletableFuture opFut = prefixOps.get(locator.operationId());
+
+                    if (opFut != null) {
+                        opRes.put(locator.operationId(), opFut.join());
+                    }
                 }
             }
         }
 
         return REPLICA_MESSAGES_FACTORY
-                .waiteOperationsResultResponse()
-                .results(opRes)
+                .instantResponse()
+                .result(opRes)
                 .build();
     }
 }

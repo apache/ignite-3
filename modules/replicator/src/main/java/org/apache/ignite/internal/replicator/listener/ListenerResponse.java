@@ -15,13 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.message;
-
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.internal.replicator.listener;
 
 /**
- * Cleanup response. The message is sent in response of {@link CleanupRequest}.
+ * The listener response.
  */
-@Transferable(ReplicaMessageGroup.CLEANUP_RESPONSE)
-public interface CleanupResponse extends ReplicaResponse {
+public interface ListenerResponse {
 }

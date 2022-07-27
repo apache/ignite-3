@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.replicator.message;
 
 import java.util.Collection;
-import java.util.UUID;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -27,12 +26,11 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(ReplicaMessageGroup.COMPLETE_OP_REQUEST)
 public interface WaiteOperationsResultRequest extends ReplicaRequest {
-
     /**
-     * Ids of operations that were started before, to wait to complete.
+     * Locators of the several operations.
      *
-     * @return List of operation ids.
+     * @return List of operation locators.
      */
     @Marshallable
-    Collection<UUID> operationIds();
+    Collection<ReplicaRequestLocator> operationLocators();
 }

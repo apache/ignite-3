@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.replicator.message;
 
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * Replica request.
@@ -26,10 +25,9 @@ import org.apache.ignite.network.annotations.Marshallable;
  */
 public interface ReplicaRequest extends NetworkMessage {
     /**
-     * Gets a request locator. The locator identifies which replica group handles the request.
+     * Gets a replication group id.
      *
-     * @return Request locator.
+     * @return Replication group id.
      */
-    @Marshallable
-    ReplicaRequestLocator locator();
+    String groupId();
 }

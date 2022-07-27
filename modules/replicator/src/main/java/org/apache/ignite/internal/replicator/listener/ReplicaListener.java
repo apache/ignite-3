@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.message;
+package org.apache.ignite.internal.replicator.listener;
 
-import java.util.UUID;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
 /**
- * Cleanup request. The message is sent for removing an open resources on the replica side.
+ * Replica listener.
+ * TODO:IGNITE-17258 Implement ReplicaListener.
  */
-@Transferable(ReplicaMessageGroup.CLEANUP_REQUEST)
-public interface CleanupRequest extends ReplicaRequest {
+public interface ReplicaListener {
 
     /**
-     * Gets a context id that identifies an operation group to clean.
+     * Invokes a replica listener to process request.
      *
-     * @return Operation context.
+     * @param request Replica request.
+     * @return Listener response.
      */
-    UUID operationContextId();
+    public ListenerResponse invoke(ReplicaRequest request);
 }

@@ -29,17 +29,18 @@ public class ReplicaMessageGroup {
      */
     public static final short COMPLETE_OP_REQUEST = 0;
 
-    /**
-     * Message type for {@link WaiteOperationsResultResponse}.
-     */
-    public static final short COMPLETE_OP_RESPONSE = 1;
-
     /** Message type for {@link CleanupRequest}. */
-    public static final short CLEANUP_REQUEST = 2;
-
-    /** Message type for {@link CleanupResponse}. */
-    public static final short CLEANUP_RESPONSE = 3;
+    public static final short CLEANUP_REQUEST = 1;
 
     /** Message type for {@link ErrorReplicaResponse}. */
-    public static final short ERROR_REPLICA_RESPONSE = 4;
+    public static final short ERROR_REPLICA_RESPONSE = 2;
+
+    /** Message type for {@link InstantResponse}. */
+    public static final short INSTANT_RESPONSE = 3;
+
+    /** Message type for {@link FutureResponse}. */
+    public static final short FUTURE_RESPONSE = 4;
+
+    /** Message type for {@link CompoundResponse}. */
+    public static final short COMPOUND_RESPONSE = 5;
 }

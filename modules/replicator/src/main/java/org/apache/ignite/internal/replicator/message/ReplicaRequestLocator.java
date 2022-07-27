@@ -18,22 +18,58 @@
 package org.apache.ignite.internal.replicator.message;
 
 import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The class identifies a replication request as a part of a business transaction.
  */
-public interface ReplicaRequestLocator {
+public class ReplicaRequestLocator {
     /**
-     * Gets a replication group id.
-     *
-     * @return Replication group id.
+     * Operation context is used to combine operation into one group.
+     * The operation context id can be the similar for several operations.
      */
-    String groupId();
+    private final UUID operationContextId;
 
     /**
-     * Gets a transaction id. The id is the same for several requests in one transaction.
+     * The id determines a specific operation.
+     */
+    private final UUID operationId;
+
+    /**
+     * The constructor creates a locator for the common group.
+     *
+     * @param operationId Operation id.
+     */
+    public ReplicaRequestLocator(UUID operationId) {
+        this(null, operationId);
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param operationContextId Operation context id.
+     * @param operationId Operation id.
+     */
+    public ReplicaRequestLocator(@Nullable UUID operationContextId, UUID operationId) {
+        this.operationContextId = operationContextId;
+        this.operationId = operationId;
+    }
+
+    /**
+     * Gets a locator prefix. If the prefix is {@code null}, the locator identifies an operation in the common group.
      *
      * @return Transaction id.
      */
-    UUID transactionId();
+    public UUID operationContextId() {
+        return operationContextId;
+    }
+
+    /**
+     * An id that is assigned to an operation.
+     *
+     * @return Operation id.
+     */
+    public UUID operationId() {
+        return operationId;
+    }
 }

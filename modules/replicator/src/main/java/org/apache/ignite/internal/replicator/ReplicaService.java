@@ -17,22 +17,15 @@
 
 package org.apache.ignite.internal.replicator;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.replicator.exception.ExceptionUtils;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
-import org.apache.ignite.internal.replicator.message.CleanupResponse;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.ReplicaRequestLocator;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
-import org.apache.ignite.internal.replicator.message.WaiteOperationsResultResponse;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -87,7 +80,7 @@ public class ReplicaService {
      */
     private CompletableFuture<ReplicaResponse> sendToReplica(ClusterNode node, ReplicaRequest req) throws NodeStoppingException {
         if (localNode.equals(node)) {
-            Replica replica = replicaManager.replica(req.locator().groupId());
+            Replica replica = replicaManager.replica(req.groupId());
 
             if (replica == null) {
                 //TODO:IGNITE-17255 Provide an exceptional response when the replica is absent.
@@ -103,10 +96,10 @@ public class ReplicaService {
         }).whenComplete((response, throwable) -> {
             if (throwable != null) {
                 if (throwable instanceof TimeoutException) {
-                    throw new ReplicationTimeoutException(req.locator().groupId());
+                    throw new ReplicationTimeoutException(req.groupId());
                 }
 
-                throw new ReplicationException(req.locator().groupId(), throwable);
+                throw new ReplicationException(req.groupId(), throwable);
             }
 
             if (response instanceof ErrorReplicaResponse) {
@@ -120,8 +113,7 @@ public class ReplicaService {
 
     /**
      * Passes a request to replication. The result future is completed with instant response. The completion means the requested node
-     * received the request, but the full process of replication might not complete yet. Use {@link ReplicaResponse#operationId()} to wait
-     * of entire process.
+     * received the request, but the full process of replication might not complete yet.
      *
      * @param node    Replica node.
      * @param request Request.
@@ -134,8 +126,7 @@ public class ReplicaService {
 
     /**
      * Passes a request to replication. The result future is completed with instant response. The completion means the requested node
-     * received the request, but the full process of replication might not complete yet. Use {@link ReplicaResponse#operationId()} to wait
-     * of entire process.
+     * received the request, but the full process of replication might not complete yet.
      *
      * @param node      Replica node.
      * @param request   Request.
@@ -147,60 +138,5 @@ public class ReplicaService {
             throws NodeStoppingException {
         return sendToReplica(node, request);
 
-    }
-
-    /**
-     * Waits of replication operations.
-     *
-     * @param node                Replica node.
-     * @param requestGroupLocator Locator is determining a set of operation over one replica group.
-     * @param operationIds        Ids operation to wait.
-     * @return Future to the map of an operation id to its result.
-     * @throws NodeStoppingException Is thrown when the node is stopping.
-     */
-    public CompletableFuture<Map<UUID, Object>> waitForResult(ClusterNode node, ReplicaRequestLocator requestGroupLocator,
-            UUID... operationIds) throws NodeStoppingException {
-        if (operationIds == null || operationIds.length == 0) {
-            return CompletableFuture.completedFuture(Collections.emptyMap());
-        }
-
-        return sendToReplica(node, REPLICA_MESSAGES_FACTORY
-                .waiteOperationsResultRequest()
-                .locator(requestGroupLocator)
-                .operationIds(Arrays.asList(operationIds))
-                .build())
-                .thenApply(replicaResponse -> {
-                    assert replicaResponse instanceof WaiteOperationsResultResponse : IgniteStringFormatter.format(
-                            "Response type is incorrect [type={}, expectedType={}]", replicaResponse.getClass().getSimpleName(),
-                            WaiteOperationsResultResponse.class.getSimpleName());
-
-                    var waitOpsResp = (WaiteOperationsResultResponse) replicaResponse;
-
-                    return waitOpsResp.results();
-                });
-    }
-
-    /**
-     * Clears results on the replica node. After the method is invoked, waiting of replication operations through {@link
-     * ReplicaService#waitForResult(ClusterNode, ReplicaRequestLocator, UUID...)} with the same {@link ReplicaRequestLocator} are not
-     * possible.
-     *
-     * @param node                Replica node.
-     * @param requestGroupLocator Locator is determining a set of operation over one replica group.
-     * @return Response future.
-     * @throws NodeStoppingException Is thrown when the node is stopping.
-     */
-    public CompletableFuture<Void> clearResult(ClusterNode node, ReplicaRequestLocator requestGroupLocator) throws NodeStoppingException {
-        return sendToReplica(node, REPLICA_MESSAGES_FACTORY
-                .cleanupRequest()
-                .locator(requestGroupLocator)
-                .build())
-                .thenApply(replicaResponse -> {
-                    assert replicaResponse instanceof CleanupResponse : IgniteStringFormatter.format(
-                            "Response type is incorrect [type={}, expectedType={}]", replicaResponse.getClass().getSimpleName(),
-                            WaiteOperationsResultResponse.class.getSimpleName());
-
-                    return null;
-                });
     }
 }

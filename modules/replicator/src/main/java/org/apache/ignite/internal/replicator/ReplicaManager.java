@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.exception.ReplicaAlreadyIsStartedException;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
@@ -170,7 +171,7 @@ public class ReplicaManager implements IgniteComponent {
 
                     ReplicaRequest request = (ReplicaRequest) message;
 
-                    Replica replica = replicas.get(request.locator().groupId());
+                    Replica replica = replicas.get(request.groupId());
 
                     if (replica == null) {
                         //TODO:IGNITE-17255 Send an exceptional response to the client side when the replica is absent.

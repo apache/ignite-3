@@ -17,22 +17,18 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * It is a response to {@link WaiteOperationsResultRequest}.
+ * The response returns when the replication process continues to the future.
  */
-@Transferable(ReplicaMessageGroup.COMPLETE_OP_RESPONSE)
-public interface WaiteOperationsResultResponse extends ReplicaResponse {
-
+@Transferable(ReplicaMessageGroup.FUTURE_RESPONSE)
+public interface FutureResponse extends ReplicaResponse {
     /**
-     * Ids of operations that were started before, to wait to complete.
+     * Operation id in the replica with which the response is sent.
      *
-     * @return Map of operation id to the result.
+     * @return Operation id.
      */
-    @Marshallable
-    Map<UUID, Object> results();
+    UUID operationId();
 }

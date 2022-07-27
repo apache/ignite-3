@@ -15,25 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator;
-
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.ReplicaResponse;
-import org.apache.ignite.lang.IgniteBiTuple;
+package org.apache.ignite.internal.replicator.listener;
 
 /**
- * Replica listener.
- * TODO:IGNITE-17258 Implement ReplicaListener.
+ * The listener response returns when the replication process completes.
  */
-public interface ReplicaListener {
+public class ListenerInstantResponse implements ListenerResponse {
+    /**
+     * Result.
+     */
+    private Object result;
 
     /**
-     * Invokes Replica listener to process request.
-     * If the request does not trigger anything in the future, the second attribute in a tuple result is {@code null}.
+     * The constructor.
      *
-     * @param request Replica request.
-     * @return Tuple of an instant response and a future to further asynchronous process.
+     * @param result Result.
      */
-    public IgniteBiTuple<ReplicaResponse, CompletableFuture> invoke(ReplicaRequest request);
+    public ListenerInstantResponse(Object result) {
+        this.result = result;
+    }
+
+    /**
+     * Gets a result.
+     *
+     * @return Some result of the replication process.
+     */
+    public Object result() {
+        return result;
+    }
 }

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
 
 /**
@@ -25,11 +24,4 @@ import org.apache.ignite.network.NetworkMessage;
  * TODO:IGNITE-17258 Add a specific response type for a replica listener. (@Transferable(ReplicaMessageGroup.TYPE_RESPONSE))
  */
 public interface ReplicaResponse extends NetworkMessage {
-
-    /**
-     * Operation id in the replica with which the response is sent.
-     *
-     * @return Operation id.
-     */
-    UUID operationId();
 }

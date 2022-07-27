@@ -17,19 +17,11 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import java.util.UUID;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Cleanup request. The message is sent for removing an open resources on the replica side.
+ * The response returns when the replication process has some intermediate result, and also it will continue in the future.
  */
-@Transferable(ReplicaMessageGroup.CLEANUP_REQUEST)
-public interface CleanupRequest extends ReplicaRequest {
-
-    /**
-     * Gets a context id that identifies an operation group to clean.
-     *
-     * @return Operation context.
-     */
-    UUID operationContextId();
+@Transferable(ReplicaMessageGroup.COMPOUND_RESPONSE)
+public interface CompoundResponse extends InstantResponse, FutureResponse {
 }
