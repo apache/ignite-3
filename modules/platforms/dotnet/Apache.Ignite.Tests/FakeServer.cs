@@ -121,17 +121,21 @@ namespace Apache.Ignite.Tests
             return new PooledBuffer(buf, 0, size);
         }
 
-        private static void Send(Socket socket, long requestId, PooledArrayBufferWriter writer, int resultCode = 0)
-            => Send(socket, requestId, writer.GetWrittenMemory().Slice(PooledArrayBufferWriter.ReservedPrefixSize), resultCode);
+        private static void Send(Socket socket, long requestId, PooledArrayBufferWriter writer, bool isError = false)
+            => Send(socket, requestId, writer.GetWrittenMemory().Slice(PooledArrayBufferWriter.ReservedPrefixSize), isError);
 
-        private static void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, int resultCode = 0)
+        private static void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, bool isError = false)
         {
             using var header = new PooledArrayBufferWriter();
             var writer = new MessagePackWriter(header);
 
             writer.Write(0); // Message type.
             writer.Write(requestId);
-            writer.Write(resultCode); // Success.
+
+            if (!isError)
+            {
+                writer.WriteNil(); // Success.
+            }
 
             writer.Flush();
 
@@ -267,6 +271,13 @@ namespace Apache.Ignite.Tests
 
                 using var handshakeBufferWriter = new PooledArrayBufferWriter();
                 var handshakeWriter = handshakeBufferWriter.GetMessageWriter();
+
+                // Version.
+                handshakeWriter.Write(3);
+                handshakeWriter.Write(0);
+                handshakeWriter.Write(0);
+
+                handshakeWriter.WriteNil(); // Success
                 handshakeWriter.Write(0); // Idle timeout.
                 handshakeWriter.Write(Node.Id); // Node id.
                 handshakeWriter.Write(Node.Name); // Node name (consistent id).
@@ -275,8 +286,7 @@ namespace Apache.Ignite.Tests
                 handshakeWriter.Flush();
 
                 var handshakeMem = handshakeBufferWriter.GetWrittenMemory().Slice(PooledArrayBufferWriter.ReservedPrefixSize);
-                handler.Send(new byte[] { 0, 0, 0, (byte)(4 + handshakeMem.Length) }); // Size.
-                handler.Send(new byte[] { 3, 0, 0, 0 }); // Version and success flag.
+                handler.Send(new byte[] { 0, 0, 0, (byte)handshakeMem.Length }); // Size.
 
                 handler.Send(handshakeMem.Span);
 
@@ -376,9 +386,13 @@ namespace Apache.Ignite.Tests
                     // Fake error message for any other op code.
                     using var errWriter = new PooledArrayBufferWriter();
                     var w = new MessagePackWriter(errWriter);
+                    w.Write(Guid.Empty);
+                    w.Write(65537);
+                    w.Write("ErrCls: ");
                     w.Write(Err);
+                    w.WriteNil(); // Stack trace.
                     w.Flush();
-                    Send(handler, requestId, errWriter, 1);
+                    Send(handler, requestId, errWriter, isError: true);
                 }
 
                 handler.Disconnect(true);

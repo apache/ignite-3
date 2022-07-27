@@ -21,8 +21,10 @@ import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.rest.RestFactory;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.TopologyService;
 
 /**
  * Factory that creates beans that are needed for {@link ClusterManagementController}.
@@ -31,13 +33,28 @@ import org.apache.ignite.network.ClusterService;
 public class ClusterManagementRestFactory implements RestFactory {
     private final ClusterService clusterService;
 
-    public ClusterManagementRestFactory(ClusterService clusterService) {
+    private final ClusterManagementGroupManager cmgManager;
+
+    public ClusterManagementRestFactory(ClusterService clusterService, ClusterManagementGroupManager cmgManager) {
         this.clusterService = clusterService;
+        this.cmgManager = cmgManager;
     }
 
     @Bean
     @Singleton
     public ClusterInitializer clusterInitializer() {
         return new ClusterInitializer(clusterService);
+    }
+
+    @Bean
+    @Singleton
+    public ClusterManagementGroupManager cmgManager() {
+        return cmgManager;
+    }
+
+    @Bean
+    @Singleton
+    public TopologyService topologyService() {
+        return clusterService.topologyService();
     }
 }

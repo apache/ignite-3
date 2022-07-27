@@ -24,7 +24,7 @@ import org.apache.ignite.schema.definition.ColumnType;
  * the column type, and vice versa.
  *
  * <p>The converter can be used to convert object (or their fields), which type is incompatible with the schema.
- * E.g. serialize an arbitrary object to a byte[] for storing is a BLOB column {@link ColumnType#blobOf()}.
+ * E.g. serialize an arbitrary object to a byte[] for storing is a BLOB column {@link ColumnType#blob()}.
  *
  * @param <ObjectT> Object type.
  * @param <ColumnT> Column type.

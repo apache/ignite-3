@@ -38,6 +38,7 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -118,12 +119,19 @@ public class InteropOperationsTest {
         TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager());
         txManager.start();
 
-        INT_TABLE = new DummyInternalTableImpl(new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager), txManager);
+        AtomicLong raftIndex = new AtomicLong();
+
+        INT_TABLE = new DummyInternalTableImpl(
+                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
+                txManager,
+                raftIndex
+        );
+
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(SCHEMA);
 
         List<PartitionListener> partitionListeners = List.of(INT_TABLE.getPartitionListener());
 
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners);
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners, pl -> raftIndex);
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
         TABLE = new TableImpl(INT_TABLE, schemaRegistry);

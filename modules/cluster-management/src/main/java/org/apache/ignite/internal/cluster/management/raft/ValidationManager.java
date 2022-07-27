@@ -175,7 +175,7 @@ class ValidationManager implements AutoCloseable {
     private void scheduleValidatedNodeRemoval(String nodeId) {
         // TODO: delay should be configurable, see https://issues.apache.org/jira/browse/IGNITE-16785
         Future<?> future = executor.schedule(() -> {
-            LOG.info("Removing node {} from the list of validated nodes since no JoinReady requests have been received", nodeId);
+            LOG.info("Removing node from the list of validated nodes since no JoinReady requests have been received [node={}]", nodeId);
 
             cleanupFutures.remove(nodeId);
 

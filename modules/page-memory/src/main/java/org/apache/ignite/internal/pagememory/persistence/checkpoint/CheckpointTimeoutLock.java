@@ -170,7 +170,7 @@ public class CheckpointTimeoutLock {
                         }
                     }
                 } catch (CheckpointReadLockTimeoutException e) {
-                    log.error(e.getMessage(), e);
+                    log.debug(e.getMessage(), e);
 
                     throw e;
 

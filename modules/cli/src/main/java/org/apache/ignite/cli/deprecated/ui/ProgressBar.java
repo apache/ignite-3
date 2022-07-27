@@ -111,7 +111,7 @@ public class ProgressBar implements AutoCloseable {
         var reservedSpace = 7;
 
         if (targetBarWidth < reservedSpace) {
-            log.warn("Terminal width is so small to show the progress bar");
+            log.warn("Terminal width is too small to show the progress bar");
 
             return "";
         }

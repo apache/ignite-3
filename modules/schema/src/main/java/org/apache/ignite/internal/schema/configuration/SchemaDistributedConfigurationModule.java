@@ -18,10 +18,15 @@
 package org.apache.ignite.internal.schema.configuration;
 
 import java.lang.annotation.Annotation;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
@@ -42,6 +47,16 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
         return Map.of(
                 TableValidator.class, Set.of(TableValidatorImpl.INSTANCE),
                 ColumnTypeValidator.class, Set.of(ColumnTypeValidatorImpl.INSTANCE)
+        );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Collection<Class<?>> polymorphicSchemaExtensions() {
+        return List.of(
+                ConstantValueDefaultConfigurationSchema.class,
+                FunctionCallDefaultConfigurationSchema.class,
+                NullValueDefaultConfigurationSchema.class
         );
     }
 }

@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
-import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
@@ -38,9 +37,7 @@ class PageReadWriteManagerImpl implements org.apache.ignite.internal.pagememory.
      *
      * @param filePageStoreManager File page store manager.
      */
-    public PageReadWriteManagerImpl(
-            FilePageStoreManager filePageStoreManager
-    ) {
+    public PageReadWriteManagerImpl(FilePageStoreManager filePageStoreManager) {
         this.filePageStoreManager = filePageStoreManager;
     }
 
@@ -64,13 +61,12 @@ class PageReadWriteManagerImpl implements org.apache.ignite.internal.pagememory.
             int grpId,
             long pageId,
             ByteBuffer pageBuf,
-            int tag,
             boolean calculateCrc
     ) throws IgniteInternalCheckedException {
         FilePageStore pageStore = filePageStoreManager.getStore(grpId, partitionId(pageId));
 
         try {
-            pageStore.write(pageId, pageBuf, tag, calculateCrc);
+            pageStore.write(pageId, pageBuf, calculateCrc);
         } catch (IgniteInternalCheckedException e) {
             // TODO: IGNITE-16899 By analogy with 2.0, fail a node
 
@@ -88,19 +84,13 @@ class PageReadWriteManagerImpl implements org.apache.ignite.internal.pagememory.
         FilePageStore pageStore = filePageStoreManager.getStore(grpId, partId);
 
         try {
-            long pageIdx = pageStore.allocatePage();
+            int pageIdx = pageStore.allocatePage();
 
-            return pageId(partId, flags, (int) pageIdx);
+            return pageId(partId, flags, pageIdx);
         } catch (IgniteInternalCheckedException e) {
             // TODO: IGNITE-16899 By analogy with 2.0, fail a node
 
             throw e;
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return S.toString(PageReadWriteManagerImpl.class, this);
     }
 }

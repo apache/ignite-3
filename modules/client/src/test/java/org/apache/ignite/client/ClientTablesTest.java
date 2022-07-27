@@ -29,6 +29,7 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -96,7 +97,7 @@ public class ClientTablesTest extends AbstractClientTest {
                 () -> client.tables().createTable(DEFAULT_TABLE, consumer));
 
         assertTrue(ex.getMessage().endsWith(FakeIgniteTables.TABLE_EXISTS));
-        assertEquals(IgniteClientException.class, ex.getCause().getClass());
+        assertEquals(TableAlreadyExistsException.class, ex.getCause().getClass());
 
         var serverTables = server.tables().tables();
         assertEquals(1, serverTables.size());

@@ -17,12 +17,17 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.BitSet;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteColocatedRequest;
@@ -43,7 +48,6 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequ
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
-import org.apache.ignite.client.handler.requests.table.ClientTableIdDoesNotExistException;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllExactRequest;
@@ -66,7 +70,6 @@ import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitReque
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorView;
-import org.apache.ignite.internal.client.proto.ClientErrorCode;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -78,6 +81,7 @@ import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.network.ClusterNode;
@@ -191,7 +195,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             var clientVer = ProtocolVersion.unpack(unpacker);
 
             if (!clientVer.equals(ProtocolVersion.LATEST_VER)) {
-                throw new IgniteException("Unsupported version: "
+                throw new IgniteException(PROTOCOL_COMPATIBILITY_ERR, "Unsupported version: "
                         + clientVer.major() + "." + clientVer.minor() + "." + clientVer.patch());
             }
 
@@ -208,7 +212,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             // Response.
             ProtocolVersion.LATEST_VER.pack(packer);
-            packer.packInt(ClientErrorCode.SUCCESS);
+            packer.packNil(); // No error.
 
             packer.packLong(configuration.idleTimeout());
 
@@ -228,14 +232,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             try {
                 ProtocolVersion.LATEST_VER.pack(errPacker);
 
-                String message = t.getMessage();
-
-                if (message == null) {
-                    message = t.getClass().getName();
-                }
-
-                errPacker.packInt(ClientErrorCode.FAILED);
-                errPacker.packString(message);
+                writeErrorCore(t, errPacker);
 
                 write(errPacker, ctx);
             } catch (Throwable t2) {
@@ -257,7 +254,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void writeError(long requestId, Throwable err, ChannelHandlerContext ctx) {
-        LOG.error("Error processing client request", err);
+        LOG.debug("Error processing client request", err);
 
         var packer = getPacker(ctx.alloc());
 
@@ -267,24 +264,41 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packInt(ServerMessageType.RESPONSE);
             packer.packLong(requestId);
 
-            var errorCode = err instanceof ClientTableIdDoesNotExistException
-                    ? ClientErrorCode.TABLE_ID_DOES_NOT_EXIST
-                    : ClientErrorCode.FAILED;
-
-            packer.packInt(errorCode);
-
-            String msg = err.getMessage();
-
-            if (msg == null) {
-                msg = err.getClass().getName();
-            }
-
-            packer.packString(msg);
+            writeErrorCore(err, packer);
 
             write(packer, ctx);
         } catch (Throwable t) {
             packer.close();
             exceptionCaught(ctx, t);
+        }
+    }
+
+    private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
+        err = ExceptionUtils.unwrapCause(err);
+
+        if (err instanceof IgniteException) {
+            IgniteException iex = (IgniteException) err;
+            packer.packUuid(iex.traceId());
+            packer.packInt(iex.code());
+        } else {
+            packer.packUuid(UUID.randomUUID());
+            packer.packInt(UNKNOWN_ERR);
+        }
+
+        packer.packString(err.getClass().getName());
+
+        String msg = err.getMessage();
+
+        if (msg == null) {
+            packer.packNil();
+        } else {
+            packer.packString(msg);
+        }
+
+        if (configuration.sendServerExceptionStackTraceToClient()) {
+            packer.packString(ExceptionUtils.getFullStackTrace(err));
+        } else {
+            packer.packNil();
         }
     }
 
@@ -306,7 +320,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             out.packInt(ServerMessageType.RESPONSE);
             out.packLong(requestId);
-            out.packInt(ClientErrorCode.SUCCESS);
+            out.packNil(); // No error.
 
             var fut = processOperation(in, out, opCode);
 
@@ -456,7 +470,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientSqlCursorCloseRequest.process(in, resources);
 
             default:
-                throw new IgniteException("Unexpected operation code: " + opCode);
+                throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
         }
     }
 
@@ -469,7 +483,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        LOG.error(cause.getMessage(), cause);
+        LOG.info(cause.getMessage(), cause);
 
         ctx.close();
     }

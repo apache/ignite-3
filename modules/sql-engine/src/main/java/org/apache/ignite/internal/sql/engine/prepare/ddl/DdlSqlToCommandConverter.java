@@ -21,13 +21,24 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEYS_MULTIPLE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEY_MISSING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STORAGE_ENGINE_NOT_VALID_ERR;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -48,6 +59,9 @@ import org.apache.calcite.sql.ddl.SqlDropTable;
 import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.util.DateString;
+import org.apache.calcite.util.TimeString;
+import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn;
@@ -60,6 +74,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -206,9 +221,9 @@ public class DdlSqlToCommandConverter {
         }
 
         if (nullOrEmpty(pkConstraints)) {
-            throw new IgniteException("Table without PRIMARY KEY is not supported");
+            throw new SqlException(PRIMARY_KEY_MISSING_ERR, "Table without PRIMARY KEY is not supported");
         } else if (pkConstraints.size() > 1) {
-            throw new IgniteException("Unexpected amount of primary key constraints ["
+            throw new SqlException(PRIMARY_KEYS_MULTIPLE_ERR, "Unexpected amount of primary key constraints ["
                     + "expected at most one, but was " + pkConstraints.size() + "; "
                     + "querySql=\"" + ctx.query() + "\"]");
         }
@@ -246,7 +261,7 @@ public class DdlSqlToCommandConverter {
 
         for (SqlColumnDeclaration col : colDeclarations) {
             if (!col.name.isSimple()) {
-                throw new IgniteException("Unexpected value of columnName ["
+                throw new SqlException(QUERY_INVALID_ERR, "Unexpected value of columnName ["
                         + "expected a simple identifier, but was " + col.name + "; "
                         + "querySql=\"" + ctx.query() + "\"]");
             }
@@ -254,23 +269,20 @@ public class DdlSqlToCommandConverter {
             String name = col.name.getSimple();
 
             if (col.dataType.getNullable() != null && col.dataType.getNullable() && dedupSetPk.contains(name)) {
-                throw new IgniteException("Primary key cannot contain nullable column [col=" + name + "]");
+                throw new SqlException(QUERY_INVALID_ERR, "Primary key cannot contain nullable column [col=" + name + "]");
             }
 
             RelDataType relType = planner.convert(col.dataType, !dedupSetPk.contains(name));
 
             dedupSetPk.remove(name);
 
-            Object dflt = null;
-            if (col.expression != null) {
-                dflt = ((SqlLiteral) col.expression).getValue();
-            }
+            DefaultValueDefinition dflt = convertDefault(col.expression, relType);
 
             cols.add(new ColumnDefinition(name, relType, dflt));
         }
 
         if (!dedupSetPk.isEmpty()) {
-            throw new IgniteException("Primary key constrain contains undefined columns: [cols=" + dedupSetPk + "]");
+            throw new SqlException(QUERY_INVALID_ERR, "Primary key constraint contains undefined columns: [cols=" + dedupSetPk + "]");
         }
 
         createTblCmd.columns(cols);
@@ -301,13 +313,10 @@ public class DdlSqlToCommandConverter {
 
             assert col.name.isSimple();
 
-            Object dflt = null;
-            if (col.expression != null) {
-                dflt = ((SqlLiteral) col.expression).getValue();
-            }
+            RelDataType relType = ctx.planner().convert(col.dataType, true);
+            DefaultValueDefinition dflt = convertDefault(col.expression, relType);
 
             String name = col.name.getSimple();
-            RelDataType relType = ctx.planner().convert(col.dataType, true);
 
             cols.add(new ColumnDefinition(name, relType, dflt));
         }
@@ -315,6 +324,20 @@ public class DdlSqlToCommandConverter {
         alterTblCmd.columns(cols);
 
         return alterTblCmd;
+    }
+
+    private DefaultValueDefinition convertDefault(SqlNode expression, RelDataType relType) {
+        if (expression instanceof SqlIdentifier) {
+            return DefaultValueDefinition.functionCall(((SqlIdentifier) expression).getSimple());
+        }
+
+        Object val = null;
+
+        if (expression instanceof SqlLiteral) {
+            val = fromLiteral(relType, (SqlLiteral) expression);
+        }
+
+        return DefaultValueDefinition.constant(val);
     }
 
     /**
@@ -407,9 +430,9 @@ public class DdlSqlToCommandConverter {
             SqlIdentifier schemaId = id.skipLast(1);
 
             if (!schemaId.isSimple()) {
-                throw new IgniteException("Unexpected value of schemaName ["
+                throw new SqlException(QUERY_INVALID_ERR, "Unexpected value of schemaName ["
                         + "expected a simple identifier, but was " + schemaId + "; "
-                        + "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
+                        + "querySql=\"" + ctx.query() + "\"]");
             }
 
             schemaName = schemaId.getSimple();
@@ -429,9 +452,9 @@ public class DdlSqlToCommandConverter {
         SqlIdentifier objId = id.getComponent(id.skipLast(1).names.size());
 
         if (!objId.isSimple()) {
-            throw new IgniteException("Unexpected value of " + objDesc + " ["
+            throw new SqlException(QUERY_INVALID_ERR, "Unexpected value of " + objDesc + " ["
                     + "expected a simple identifier, but was " + objId + "; "
-                    + "querySql=\"" + ctx.query() + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
+                    + "querySql=\"" + ctx.query() + "\"]");
         }
 
         return objId.getSimple();
@@ -439,8 +462,7 @@ public class DdlSqlToCommandConverter {
 
     private void ensureSchemaExists(PlanningContext ctx, String schemaName) {
         if (ctx.catalogReader().getRootSchema().getSubSchema(schemaName, true) == null) {
-            throw new IgniteException("Schema with name " + schemaName + " not found"/*,
-                IgniteQueryErrorCode.SCHEMA_NOT_FOUND*/);
+            throw new SqlException(SCHEMA_NOT_FOUND_ERR, "Schema with name " + schemaName + " not found");
         }
     }
 
@@ -491,7 +513,7 @@ public class DdlSqlToCommandConverter {
             String defaultDataStorage = defaultDataStorageSupplier.get();
 
             if (defaultDataStorage.equals(UNKNOWN_DATA_STORAGE)) {
-                throw new IgniteException("Default data storage is not defined, query:" + ctx.query());
+                throw new SqlException(STORAGE_ENGINE_NOT_VALID_ERR, "Default data storage is not defined, query:" + ctx.query());
             }
 
             return defaultDataStorage;
@@ -502,7 +524,7 @@ public class DdlSqlToCommandConverter {
         String dataStorage = engineName.getSimple().toUpperCase();
 
         if (!dataStorageNames.containsKey(dataStorage)) {
-            throw new IgniteException(String.format(
+            throw new SqlException(STORAGE_ENGINE_NOT_VALID_ERR, String.format(
                     "Unexpected data storage engine [engine=%s, expected=%s, query=%s]",
                     dataStorage, dataStorageNames, ctx.query()
             ));
@@ -556,5 +578,58 @@ public class DdlSqlToCommandConverter {
 
     private TableOptionInfo<?> dataStorageFieldOptionInfo(Entry<String, Class<?>> e) {
         return new TableOptionInfo<>(e.getKey(), e.getValue(), null, (cmd, o) -> cmd.addDataStorageOption(e.getKey(), o));
+    }
+
+    /**
+     * Creates a value of required type from the literal.
+     */
+    private static Object fromLiteral(RelDataType columnType, SqlLiteral literal) {
+        try {
+            switch (columnType.getSqlTypeName()) {
+                case VARCHAR:
+                case CHAR:
+                    return literal.getValueAs(String.class);
+                case DATE:
+                    return LocalDate.ofEpochDay(literal.getValueAs(DateString.class).getDaysSinceEpoch());
+                case TIME:
+                    return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(literal.getValueAs(TimeString.class).getMillisOfDay()));
+                case TIMESTAMP: {
+                    var tsString = literal.getValueAs(TimestampString.class);
+
+                    return LocalDateTime.ofEpochSecond(
+                            TimeUnit.MILLISECONDS.toSeconds(tsString.getMillisSinceEpoch()),
+                            (int) (TimeUnit.MILLISECONDS.toNanos(tsString.getMillisSinceEpoch() % 1000)),
+                            ZoneOffset.UTC
+                    );
+                }
+                case TIMESTAMP_WITH_LOCAL_TIME_ZONE: {
+                    // TODO: IGNITE-17376
+                    throw new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-17376");
+                }
+                case INTEGER:
+                    return literal.getValueAs(Integer.class);
+                case BIGINT:
+                    return literal.getValueAs(Long.class);
+                case SMALLINT:
+                    return literal.getValueAs(Short.class);
+                case TINYINT:
+                    return literal.getValueAs(Byte.class);
+                case DECIMAL:
+                    return literal.getValueAs(BigDecimal.class);
+                case DOUBLE:
+                    return literal.getValueAs(Double.class);
+                case REAL:
+                case FLOAT:
+                    return literal.getValueAs(Float.class);
+                case BINARY:
+                case VARBINARY:
+                    return literal.getValueAs(byte[].class);
+                default:
+                    throw new IllegalStateException("Unknown type [type=" + columnType + ']');
+            }
+        } catch (Throwable th) {
+            // catch throwable here because literal throws an AssertionError when unable to cast value to a given class
+            throw new IgniteException("Unable co convert literal", th);
+        }
     }
 }

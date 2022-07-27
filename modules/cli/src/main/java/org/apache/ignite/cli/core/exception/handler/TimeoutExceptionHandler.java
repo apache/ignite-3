@@ -27,11 +27,11 @@ import org.apache.ignite.internal.logger.Loggers;
  * Exception handler for {@link TimeoutException}.
  */
 public class TimeoutExceptionHandler implements ExceptionHandler<TimeoutException> {
-    private static final IgniteLogger log = Loggers.forClass(TimeoutExceptionHandler.class);
+    private static final IgniteLogger LOG = Loggers.forClass(TimeoutExceptionHandler.class);
 
     @Override
     public int handle(ExceptionWriter err, TimeoutException e) {
-        log.error("Timeout exception ", e);
+        LOG.error("Timeout exception", e);
         err.write("Command failed with timeout.");
         return 1;
     }

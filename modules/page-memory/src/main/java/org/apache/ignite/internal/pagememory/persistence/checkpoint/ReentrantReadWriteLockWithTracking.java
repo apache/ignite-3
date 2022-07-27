@@ -145,10 +145,7 @@ public class ReentrantReadWriteLockWithTracking implements ReadWriteLock {
                 long timeout = coarseCurrentTimeMillis() - val.get2();
 
                 if (timeout > readLockThreshold) {
-                    log.warn(
-                            "ReadLock held the lock more than " + timeout + " ms.",
-                            new IgniteInternalException()
-                    );
+                    log.warn("ReadLock held for too long [heldFor={}ms]", new IgniteInternalException(), timeout);
                 }
             }
 

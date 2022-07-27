@@ -25,7 +25,10 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Table storage that contains meta, partitions and SQL indexes.
+ *
+ * @deprecated Replaced with {@link MvTableStorage}.
  */
+@Deprecated
 public interface TableStorage {
     /**
      * Retrieves or creates a partition for the current table. Not expected to be called concurrently with the same partition id.

@@ -31,12 +31,14 @@ import java.util.List;
 import java.util.Map;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestView;
-import org.apache.ignite.internal.cluster.management.rest.ClusterManagementController;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.rest.configuration.ClusterConfigurationController;
-import org.apache.ignite.internal.rest.configuration.NodeConfigurationController;
+import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
+import org.apache.ignite.internal.rest.api.cluster.TopologyApi;
+import org.apache.ignite.internal.rest.api.configuration.ClusterConfigurationApi;
+import org.apache.ignite.internal.rest.api.configuration.NodeConfigurationApi;
+import org.apache.ignite.internal.rest.api.node.NodeManagementApi;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
@@ -46,8 +48,18 @@ import org.jetbrains.annotations.Nullable;
  * <p>It is started on port 10300 by default but it is possible to change this in configuration itself. Refer to default config file in
  * resources for the example.
  */
-@OpenAPIDefinition(info = @Info(title = "Ignite REST module", version = "3.0.0-alpha", license = @License(name = "Apache 2.0", url = "https://ignite.apache.org"), contact = @Contact(email = "user@ignite.apache.org")))
-@OpenAPIInclude(classes = {ClusterConfigurationController.class, NodeConfigurationController.class, ClusterManagementController.class})
+@OpenAPIDefinition(info = @Info(
+        title = "Ignite REST module",
+        version = "3.0.0-alpha",
+        license = @License(name = "Apache 2.0", url = "https://ignite.apache.org"),
+        contact = @Contact(email = "user@ignite.apache.org")))
+@OpenAPIInclude(classes = {
+        ClusterConfigurationApi.class,
+        NodeConfigurationApi.class,
+        ClusterManagementApi.class,
+        NodeManagementApi.class,
+        TopologyApi.class
+})
 public class RestComponent implements IgniteComponent {
     /** Default port. */
     public static final int DFLT_PORT = 10300;
@@ -56,7 +68,7 @@ public class RestComponent implements IgniteComponent {
     private static final String LOCALHOST = "localhost";
 
     /** Ignite logger. */
-    private final IgniteLogger log = Loggers.forClass(RestComponent.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RestComponent.class);
 
     /** Factories that produce beans needed for REST controllers. */
     private final List<RestFactory> restFactories;
@@ -89,22 +101,23 @@ public class RestComponent implements IgniteComponent {
             try {
                 port = portCandidate;
                 context = buildMicronautContext(portCandidate).start();
-                log.info("REST protocol started successfully");
+                LOG.info("REST protocol started successfully");
                 return;
             } catch (ApplicationStartupException e) {
                 BindException bindException = findBindException(e);
                 if (bindException != null) {
-                    log.error("Got exception " + bindException + " during node start on port "
-                            + portCandidate + " , trying again");
+                    LOG.debug("Got exception during node start, going to try again [port={}]", portCandidate);
                     continue;
                 }
                 throw new RuntimeException(e);
             }
         }
 
+        LOG.debug("Unable to start REST endpoint. All ports are in use [ports=[{}, {}]]", desiredPort, (desiredPort + portRange));
+
         String msg = "Cannot start REST endpoint. " + "All ports in range [" + desiredPort + ", " + (desiredPort + portRange)
                 + "] are in use.";
-        log.error(msg);
+
         throw new RuntimeException(msg);
     }
 

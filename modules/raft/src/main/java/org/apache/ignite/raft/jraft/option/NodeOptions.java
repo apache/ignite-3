@@ -19,8 +19,6 @@ package org.apache.ignite.raft.jraft.option;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
-import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
-import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -34,7 +32,9 @@ import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.util.Copiable;
+import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.StringUtils;
+import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.apache.ignite.raft.jraft.util.timer.Timer;
@@ -108,6 +108,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     // Listener for raft group reconfiguration events.
     private RaftGroupEventsListener raftGrpEvtsLsnr;
+
+    // Describe a specific LogStorage in format ${type}://${parameters}
+    private String logUri;
 
     // Describe a specific RaftMetaStorage in format ${type}://${parameters}
     private String raftMetaUri;
@@ -277,8 +280,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      * Service factory.
      */
     public JRaftServiceFactory getServiceFactory() {
-        assert this.serviceFactory != null;
-
         return this.serviceFactory;
     }
 
@@ -348,6 +349,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     public void validate() {
+        if (StringUtils.isBlank(this.logUri)) {
+            throw new IllegalArgumentException("Blank logUri");
+        }
         if (StringUtils.isBlank(this.raftMetaUri)) {
             throw new IllegalArgumentException("Blank raftMetaUri");
         }
@@ -443,6 +447,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setFsm(final StateMachine fsm) {
         this.fsm = fsm;
+    }
+
+    public String getLogUri() {
+        return this.logUri;
+    }
+
+    public void setLogUri(final String logUri) {
+        this.logUri = logUri;
     }
 
     public String getRaftMetaUri() {
@@ -608,7 +620,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setRpcDefaultTimeout(this.getRpcDefaultTimeout());
         nodeOptions.setRpcConnectTimeoutMs(this.getRpcConnectTimeoutMs());
         nodeOptions.setElectionTimeoutStrategy(this.getElectionTimeoutStrategy());
-        nodeOptions.setServiceFactory(this.getServiceFactory());
 
         return nodeOptions;
     }
@@ -619,7 +630,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
             + ", decayPriorityGap=" + decayPriorityGap + ", leaderLeaseTimeRatio=" + leaderLeaseTimeRatio
             + ", snapshotIntervalSecs=" + snapshotIntervalSecs + ", snapshotLogIndexMargin="
             + snapshotLogIndexMargin + ", catchupMargin=" + catchupMargin + ", initialConf=" + initialConf
-            + ", fsm=" + fsm + ", raftMetaUri='" + raftMetaUri + '\''
+            + ", fsm=" + fsm + ", logUri='" + logUri + '\'' + ", raftMetaUri='" + raftMetaUri + '\''
             + ", snapshotUri='" + snapshotUri + '\'' + ", filterBeforeCopyRemote=" + filterBeforeCopyRemote
             + ", disableCli=" + disableCli + ", timerPoolSize="
             + timerPoolSize + ", cliRpcThreadPoolSize=" + cliRpcThreadPoolSize + ", raftRpcThreadPoolSize="

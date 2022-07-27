@@ -27,9 +27,9 @@ import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.ColumnStrategy;
+import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.NullInitializerExpressionFactory;
 import org.apache.calcite.util.ImmutableBitSet;
@@ -37,6 +37,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 
 /**
  * TableDescriptorImpl.
@@ -147,16 +148,28 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     /** {@inheritDoc} */
     @Override
     public RexNode newColumnDefaultValue(RelOptTable tbl, int colIdx, InitializerContext ctx) {
-        final ColumnDescriptor desc = descriptors[colIdx];
+        var descriptor = descriptors[colIdx];
+        var rexBuilder = ctx.getRexBuilder();
 
-        if (desc.defaultStrategy() != DefaultValueStrategy.DEFAULT_CONSTANT) {
-            return super.newColumnDefaultValue(tbl, colIdx, ctx);
+        switch (descriptor.defaultStrategy()) {
+            case DEFAULT_NULL: {
+                final RelDataType fieldType = tbl.getRowType().getFieldList().get(colIdx).getType();
+
+                return rexBuilder.makeNullLiteral(fieldType);
+            }
+            case DEFAULT_CONSTANT: {
+                var typeFactory = (IgniteTypeFactory) rexBuilder.getTypeFactory();
+
+                Object defaultValue = TypeUtils.toInternal(null, descriptor.defaultValue());
+
+                return rexBuilder.makeLiteral(defaultValue, deriveLogicalType(typeFactory, descriptor), false);
+            }
+            case DEFAULT_COMPUTED: {
+                return rexBuilder.makeCall(SqlStdOperatorTable.DEFAULT);
+            }
+            default:
+                throw new IllegalStateException("Unknown default strategy: " + descriptor.defaultStrategy());
         }
-
-        final RexBuilder rexBuilder = ctx.getRexBuilder();
-        final IgniteTypeFactory typeFactory = (IgniteTypeFactory) rexBuilder.getTypeFactory();
-
-        return rexBuilder.makeLiteral(desc.defaultValue(), deriveLogicalType(typeFactory, desc), false);
     }
 
     /** {@inheritDoc} */

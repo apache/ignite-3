@@ -17,45 +17,75 @@
 
 package org.apache.ignite.sql;
 
+import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * SQL exception base class.
  */
 public class SqlException extends IgniteException {
     /**
-     * Empty constructor for subclasses.
+     * Creates a new exception with the given error code and detail message.
+     *
+     * @param code Full error code.
+     * @param message Detail message.
      */
-    protected SqlException() {
-        // No-op.
+    public SqlException(int code, String message) {
+        super(code, message);
     }
 
     /**
-     * Creates a new exception with the given error message.
+     * Creates a new exception with the given trace id, error code and detail message.
      *
-     * @param msg Error message.
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
      */
-    public SqlException(String msg) {
-        super(msg);
+    public SqlException(UUID traceId, int code, String message) {
+        super(traceId, code, message);
     }
 
     /**
-     * Creates a new grid exception with the given throwable as a cause and source of error message.
+     * Creates a new exception with the given error code and cause.
      *
-     * @param cause Non-null throwable cause.
-     */
-    public SqlException(Throwable cause) {
-        super(cause);
-    }
-
-    /**
-     * Creates a new exception with the given error message and optional nested exception.
-     *
-     * @param msg Error message.
+     * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public SqlException(String msg, @Nullable Throwable cause) {
-        super(msg, cause);
+    public SqlException(int code, Throwable cause) {
+        super(code, cause);
+    }
+
+    /**
+     * Creates a new exception with the given trace id, error code and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public SqlException(UUID traceId, int code, Throwable cause) {
+        super(traceId, code, cause);
+    }
+
+    /**
+     * Creates a new exception with the given error code, detail message and cause.
+     *
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public SqlException(int code, String message, Throwable cause) {
+        super(code, message, cause);
+    }
+
+    /**
+     * Creates a new exception with the given trace id, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public SqlException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

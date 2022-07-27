@@ -25,27 +25,22 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.INT8;
 import static org.apache.ignite.internal.schema.NativeTypes.UUID;
 
-import java.io.Serializable;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.math.RoundingMode;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.DecimalNativeType;
+import org.apache.ignite.internal.schema.DefaultValueGenerator;
+import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaException;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.DefaultValueDefinition.ConstantValue;
+import org.apache.ignite.schema.definition.DefaultValueDefinition.DefaultValueType;
+import org.apache.ignite.schema.definition.DefaultValueDefinition.FunctionCall;
 import org.apache.ignite.schema.definition.TableDefinition;
 
 /**
@@ -75,12 +70,6 @@ public class SchemaDescriptorConverter {
 
             case INT64:
                 return INT64;
-
-            case UINT8:
-            case UINT16:
-            case UINT32:
-            case UINT64:
-                throw new UnsupportedOperationException("Unsigned types are not supported yet.");
 
             case FLOAT:
                 return FLOAT;
@@ -154,8 +143,29 @@ public class SchemaDescriptorConverter {
     public static Column convert(int columnOrder, ColumnDefinition colCfg) {
         NativeType type = convert(colCfg.type());
 
-        return new Column(columnOrder, colCfg.name(), type, colCfg.nullable(),
-                new ConstantSupplier(convertDefault(type, (String) colCfg.defaultValue())));
+        DefaultValueType defaultValueType;
+        if (colCfg.defaultValueDefinition() == null) {
+            defaultValueType = DefaultValueType.NULL;
+        } else {
+            defaultValueType = colCfg.defaultValueDefinition().type();
+        }
+
+        switch (defaultValueType) {
+            case NULL:
+                return new Column(columnOrder, colCfg.name(), type, colCfg.nullable());
+            case CONSTANT:
+                ConstantValue constantValue = colCfg.defaultValueDefinition();
+
+                return new Column(columnOrder, colCfg.name(), type, colCfg.nullable(),
+                        DefaultValueProvider.constantProvider(constantValue.value()));
+            case FUNCTION_CALL:
+                FunctionCall functionCall = colCfg.defaultValueDefinition();
+
+                return new Column(columnOrder, colCfg.name(), type, colCfg.nullable(),
+                        DefaultValueProvider.forValueGenerator(DefaultValueGenerator.valueOf(functionCall.functionName())));
+            default:
+                throw new IllegalStateException("Unknown type " + colCfg.defaultValueDefinition().type());
+        }
     }
 
     /**
@@ -191,64 +201,18 @@ public class SchemaDescriptorConverter {
     }
 
     /**
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-14479 Fix default conversion.
-     *
-     * @param type Column type.
-     * @param dflt Column default value.
-     * @return Parsed object.
-     */
-    private static Serializable convertDefault(NativeType type, String dflt) {
-        if (dflt == null || dflt.isEmpty()) {
-            return null;
-        }
-
-        switch (type.spec()) {
-            case INT8:
-                return Byte.parseByte(dflt);
-            case INT16:
-                return Short.parseShort(dflt);
-            case INT32:
-                return Integer.parseInt(dflt);
-            case INT64:
-                return Long.parseLong(dflt);
-            case FLOAT:
-                return Float.parseFloat(dflt);
-            case DOUBLE:
-                return Double.parseDouble(dflt);
-            case DECIMAL:
-                return new BigDecimal(dflt).setScale(((DecimalNativeType) type).scale(), RoundingMode.HALF_UP);
-            case NUMBER:
-                return new BigInteger(dflt);
-            case STRING:
-                return dflt;
-            case UUID:
-                return java.util.UUID.fromString(dflt);
-            case DATE:
-                return LocalDate.parse(dflt);
-            case TIME:
-                return LocalTime.parse(dflt);
-            case DATETIME:
-                return LocalDateTime.parse(dflt);
-            case TIMESTAMP:
-                return Instant.parse(dflt);
-            default:
-                throw new SchemaException("Default value is not supported for type: type=" + type.toString());
-        }
-    }
-
-    /**
      * Constant value supplier.
      */
-    private static class ConstantSupplier implements Supplier<Object>, Serializable {
+    private static class ConstantSupplier implements Supplier<Object> {
         /** Value. */
-        private final Serializable val;
+        private final Object val;
 
         /**
          * Constructor.
          *
          * @param val Value.
          */
-        ConstantSupplier(Serializable val) {
+        ConstantSupplier(Object val) {
             this.val = val;
         }
 

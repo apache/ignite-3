@@ -24,8 +24,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -43,8 +41,6 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
     protected static final int IO_BATCH_CNT = 4; //IgniteSystemProperties.getInteger("IGNITE_CALCITE_EXEC_IO_BATCH_CNT", 4);
 
     protected final int inBufSize = Commons.IN_BUFFER_SIZE; //IgniteSystemProperties.getInteger("IGNITE_CALCITE_EXEC_IN_BUFFER_SIZE", 2);
-
-    protected final IgniteLogger log = Loggers.forClass(getClass());
 
     /** For debug purpose. */
     private volatile Thread thread;

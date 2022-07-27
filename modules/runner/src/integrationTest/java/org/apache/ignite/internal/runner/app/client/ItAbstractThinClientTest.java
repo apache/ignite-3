@@ -90,6 +90,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
                 "{\n"
                         + "  network.port: 3345,\n"
                         + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
+                        + "  clientConnector.sendServerExceptionStackTraceToClient: true\n"
                         + "}"
         );
 

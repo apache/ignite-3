@@ -463,7 +463,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             assertThatExitCodeIs(1, exitCode);
 
             assertThatStdoutIsEmpty();
-            assertErrOutputEqual("An error occurred, error code: 500, response: Oops");
+            assertErrOutputEqual("An error occurred [errorCode=500, response=Oops]");
         }
 
         @Test

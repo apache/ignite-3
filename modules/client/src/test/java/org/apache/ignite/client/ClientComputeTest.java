@@ -17,10 +17,10 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
@@ -119,7 +120,7 @@ public class ClientComputeTest {
     }
 
     @Test
-    public void testExecuteColocatedThrowsClientExceptionWhenTableDoesNotExist() throws Exception {
+    public void testExecuteColocatedThrowsTableNotFoundExceptionWhenTableDoesNotExist() throws Exception {
         initServers(reqId -> false);
 
         try (var client = getClient(server1)) {
@@ -128,8 +129,9 @@ public class ClientComputeTest {
             var ex = assertThrows(CompletionException.class,
                     () -> client.compute().<String>executeColocated("bad-tbl", key, "job").join());
 
-            assertInstanceOf(IgniteClientException.class, ex.getCause());
-            assertThat(ex.getCause().getMessage(), containsString("Table 'bad-tbl' does not exist"));
+            var tblNotFoundEx = (TableNotFoundException) ex.getCause();
+            assertThat(tblNotFoundEx.getMessage(), containsString("Table does not exist [name=bad-tbl]"));
+            assertEquals(TABLE_NOT_FOUND_ERR, tblNotFoundEx.code());
         }
     }
 

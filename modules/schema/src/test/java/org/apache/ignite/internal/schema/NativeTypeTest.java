@@ -170,7 +170,7 @@ public class NativeTypeTest {
         assertEquals(FLOAT, from(ColumnType.FLOAT));
         assertEquals(DOUBLE, from(ColumnType.DOUBLE));
         assertEquals(DATE, from(ColumnType.DATE));
-        assertEquals(BYTES, from(ColumnType.blobOf()));
+        assertEquals(BYTES, from(ColumnType.blob()));
         assertEquals(STRING, from(ColumnType.string()));
 
         assertEquals(time(), from(ColumnType.time(ColumnType.TemporalColumnType.DEFAULT_TIME_PRECISION)));

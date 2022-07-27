@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
@@ -58,7 +59,7 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
-import org.apache.ignite.internal.sql.engine.session.SessionNotFound;
+import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -290,7 +291,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         var session = sessionManager.session(sessionId);
 
         if (session == null) {
-            return CompletableFuture.failedFuture(new SessionNotFound(sessionId));
+            return CompletableFuture.failedFuture(new SessionNotFoundException(sessionId));
         }
 
         var schemaName = session.queryProperties().get(QueryProperty.DEFAULT_SCHEMA);
@@ -333,7 +334,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 )
                 .thenApply(nodes -> {
                     if (nodes.size() > 1) {
-                        throw new SqlException("Multiple statements aren't allowed.");
+                        throw new SqlException(QUERY_INVALID_ERR, "Multiple statements aren't allowed.");
                     }
 
                     return nodes.get(0);

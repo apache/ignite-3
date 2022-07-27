@@ -103,7 +103,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
         );
 
         addColumn(grid, SchemaBuilders.column("valStrNew", ColumnType.string()).asNullable(true)
-                .withDefaultValueExpression("default").build());
+                .withDefaultValue("default").build());
 
         // Check old row conversion.
         Tuple keyTuple = Tuple.create().set("key", 1L);
@@ -185,7 +185,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
         createTable(grid);
 
         final ColumnDefinition column = SchemaBuilders.column("val", ColumnType.string()).asNullable(true)
-                .withDefaultValueExpression("default").build();
+                .withDefaultValue("default").build();
 
         KeyValueView<Tuple, Tuple> kvView = grid.get(0).tables().table(TABLE).keyValueView();
 
@@ -228,7 +228,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
         );
 
         addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).asNullable(true)
-                .withDefaultValueExpression("default").build());
+                .withDefaultValue("default").build());
 
         kvView.put(null, Tuple.create().set("key", 5L), Tuple.create().set("valInt", 555));
 
@@ -276,7 +276,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
         kvView.put(null, Tuple.create().set("key", 1L), Tuple.create().set("valInt", 111));
 
         changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "newDefault");
-        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValueExpression("newDefault").build());
+        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValue("newDefault").build());
 
         kvView.put(null, Tuple.create().set("key", 2L), Tuple.create().set("valInt", 222));
 

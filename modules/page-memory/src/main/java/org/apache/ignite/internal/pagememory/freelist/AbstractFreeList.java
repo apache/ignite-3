@@ -477,20 +477,16 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
                 }
 
                 if (log.isInfoEnabled()) {
-                    log.info("Bucket [b=" + b
-                            + ", size=" + size
-                            + ", stripes=" + (stripes != null ? stripes.length : 0)
-                            + ", stripesEmpty=" + empty + ']');
+                    log.info("Bucket [b={}, size={}, stripes={}, stripesEmpty={}]",
+                            b, size, stripes != null ? stripes.length : 0, empty);
                 }
             }
         }
 
         if (dataPages > 0) {
             if (log.isInfoEnabled()) {
-                log.info("FreeList [name=" + name()
-                        + ", buckets=" + BUCKETS
-                        + ", dataPages=" + dataPages
-                        + ", reusePages=" + bucketsSize.get(REUSE_BUCKET) + "]");
+                log.info("FreeList [name={}, buckets={}, dataPages={}, reusePages={}]",
+                        name(), BUCKETS, dataPages, bucketsSize.get(REUSE_BUCKET));
             }
         }
     }
