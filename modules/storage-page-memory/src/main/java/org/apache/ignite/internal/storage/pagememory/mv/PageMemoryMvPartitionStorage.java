@@ -24,6 +24,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.DataRegion;
@@ -69,6 +70,11 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     private final ThreadLocal<ScanVersionChainByTimestamp> scanVersionChainByTimestampCache = ThreadLocal.withInitial(
             ScanVersionChainByTimestamp::new
     );
+
+    /**
+     * Last applied index value.
+     */
+    private volatile long lastAppliedIndex = 0;
 
     /**
      * Constructor.
@@ -120,6 +126,24 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
                 versionChainFreeList1,
                 initNew
         );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long lastAppliedIndex() {
+        return lastAppliedIndex;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
+        this.lastAppliedIndex = lastAppliedIndex;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long persistedIndex() {
+        return lastAppliedIndex;
     }
 
     /** {@inheritDoc} */
@@ -464,6 +488,22 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         }
 
         return new ScanCursor(treeCursor, keyFilter, transactionId, timestamp);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long rowsCount() {
+        try {
+            return versionChainTree.size();
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error occurred while fetching the size.", e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void forEach(BiConsumer<RowId, BinaryRow> consumer) {
+        // No-op. Nothing to recover for a volatile storage. See usages and a comment about PK index rebuild.
     }
 
     /** {@inheritDoc} */

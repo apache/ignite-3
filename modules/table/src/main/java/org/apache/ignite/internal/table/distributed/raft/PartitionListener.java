@@ -135,6 +135,18 @@ public class PartitionListener implements RaftGroupListener {
                 return;
             }
 
+            long commandIndex = clo.index();
+
+            long storageAppliedIndex = storage.lastAppliedIndex();
+
+            assert storageAppliedIndex < commandIndex
+                    : "Pending write command has a higher index than already processed commands [commandIndex=" + commandIndex
+                    + ", storageAppliedIndex=" + storageAppliedIndex + ']';
+
+            // TODO IGNITE-17081 IGNITE-17077
+            // Applied index is set non-atomically. This is a wrong and non-recoverable behavior. Will be fixed later.
+            storage.lastAppliedIndex(commandIndex);
+
             if (command instanceof InsertCommand) {
                 clo.result(handleInsertCommand((InsertCommand) command));
             } else if (command instanceof DeleteCommand) {
@@ -404,11 +416,13 @@ public class PartitionListener implements RaftGroupListener {
 
         boolean stateChanged = txManager.changeState(txId, TxState.PENDING, cmd.finish() ? TxState.COMMITED : TxState.ABORTED);
 
-        if (txManager.state(txId) == TxState.COMMITED) {
+        // This code is technically incorrect and assumes that "stateChanged" is always true. This was done because transaction state is not
+        // persisted and thus FinishTxCommand couldn't be completed on recovery after node restart ("changeState" uses "replace").
+        if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
             cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(key -> {
                 storage.commitWrite(ByteBuffer.wrap(key), txId);
             });
-        } else if (txManager.state(txId) == TxState.ABORTED) {
+        } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
             cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(key -> {
                 storage.abortWrite(ByteBuffer.wrap(key));
             });

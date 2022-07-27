@@ -26,6 +26,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -71,6 +72,8 @@ public class RaftServerImpl implements RaftServer {
     private final BlockingQueue<CommandClosureEx<ReadCommand>> readQueue;
 
     private final BlockingQueue<CommandClosureEx<WriteCommand>> writeQueue;
+
+    private final AtomicLong raftIndex = new AtomicLong();
 
     private volatile Thread readWorker;
 
@@ -232,17 +235,28 @@ public class RaftServerImpl implements RaftServer {
             BlockingQueue<CommandClosureEx<T>> queue,
             RaftGroupListener lsnr
     ) {
+        long commandIndex = req.command() instanceof ReadCommand ? 0 : raftIndex.incrementAndGet();
+
         if (!queue.offer(new CommandClosureEx<>() {
+            /** {@inheritDoc} */
             @Override
             public RaftGroupListener listener() {
                 return lsnr;
             }
 
+            /** {@inheritDoc} */
+            @Override
+            public long index() {
+                return commandIndex;
+            }
+
+            /** {@inheritDoc} */
             @Override
             public T command() {
                 return (T) req.command();
             }
 
+            /** {@inheritDoc} */
             @Override
             public void result(Serializable res) {
                 NetworkMessage msg;
