@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.io.netty;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -91,7 +93,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
             return new NettyClientConnection(f.channel(), msgHnd, stateHnd);
         } catch (Throwable t) {
-            throw new IgniteClientConnectionException(t.getMessage(), t);
+            throw new IgniteClientConnectionException(UNKNOWN_ERR, t.getMessage(), t);
         }
     }
 }

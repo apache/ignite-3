@@ -64,7 +64,7 @@ namespace Apache.Ignite
         /// <param name="message">The message.</param>
         /// <param name="cause">The cause.</param>
         /// <param name="statusCode">The error code.</param>
-        public IgniteClientException(string message, Exception? cause, ClientErrorCode statusCode)
+        public IgniteClientException(string message, Exception? cause, int statusCode)
             : base(message, cause)
         {
             ErrorCode = statusCode;
@@ -78,13 +78,13 @@ namespace Apache.Ignite
         protected IgniteClientException(SerializationInfo info, StreamingContext ctx)
             : base(info, ctx)
         {
-            ErrorCode = (ClientErrorCode)info.GetInt32(ErrorCodeField);
+            ErrorCode = info.GetInt32(ErrorCodeField);
         }
 
         /// <summary>
         /// Gets the error code.
         /// </summary>
-        public ClientErrorCode ErrorCode { get; }
+        public int ErrorCode { get; }
 
         /// <summary>
         /// When overridden in a derived class, sets the <see cref="SerializationInfo" />
@@ -98,7 +98,7 @@ namespace Apache.Ignite
         {
             base.GetObjectData(info, context);
 
-            info.AddValue(ErrorCodeField, (int) ErrorCode);
+            info.AddValue(ErrorCodeField, ErrorCode);
         }
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -316,9 +317,9 @@ public class RecordBinaryViewOperationsTest {
                 1,
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("val".toUpperCase(), NativeTypes.INT64, true, () -> 28L),
-                        new Column("str".toUpperCase(), NativeTypes.stringOf(3), true, () -> "ABC"),
-                        new Column("blob".toUpperCase(), NativeTypes.blobOf(3), true, () -> new byte[]{0, 1, 2})
+                        new Column("val".toUpperCase(), NativeTypes.INT64, true, constantProvider(28L)),
+                        new Column("str".toUpperCase(), NativeTypes.stringOf(3), true, constantProvider("ABC")),
+                        new Column("blob".toUpperCase(), NativeTypes.blobOf(3), true, constantProvider(new byte[]{0, 1, 2}))
                 }
         );
 

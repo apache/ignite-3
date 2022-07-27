@@ -24,7 +24,10 @@ import static org.hamcrest.Matchers.is;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -69,7 +72,10 @@ public class RocksDbStorageEngineTest {
                     name = "table",
                     polymorphicExtensions = {
                             HashIndexConfigurationSchema.class,
-                            RocksDbDataStorageConfigurationSchema.class
+                            RocksDbDataStorageConfigurationSchema.class,
+                            ConstantValueDefaultConfigurationSchema.class,
+                            FunctionCallDefaultConfigurationSchema.class,
+                            NullValueDefaultConfigurationSchema.class,
                     }
             ) TableConfiguration tableCfg
     ) {
@@ -95,7 +101,10 @@ public class RocksDbStorageEngineTest {
                     name = "table",
                     polymorphicExtensions = {
                             HashIndexConfigurationSchema.class,
-                            RocksDbDataStorageConfigurationSchema.class
+                            RocksDbDataStorageConfigurationSchema.class,
+                            ConstantValueDefaultConfigurationSchema.class,
+                            FunctionCallDefaultConfigurationSchema.class,
+                            NullValueDefaultConfigurationSchema.class,
                     }
             ) TableConfiguration tableCfg
     ) {

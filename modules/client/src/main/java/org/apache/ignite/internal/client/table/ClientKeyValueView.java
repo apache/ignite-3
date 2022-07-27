@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
 import java.io.Serializable;
 import java.util.Collection;
@@ -29,7 +30,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -37,6 +37,7 @@ import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
@@ -475,7 +476,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
 
             return res;
         } catch (MarshallerException e) {
-            throw new IgniteClientException(e.getMessage(), e);
+            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }
     }
 }

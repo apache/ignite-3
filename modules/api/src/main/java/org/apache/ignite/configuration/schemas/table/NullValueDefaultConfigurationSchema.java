@@ -15,12 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.call;
+package org.apache.ignite.configuration.schemas.table;
 
-import org.apache.ignite.cli.IntegrationTestBase;
+import static org.apache.ignite.configuration.schemas.table.ColumnDefaultConfigurationSchema.NULL_VALUE_TYPE;
+
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
 /**
- * Base class for call integration tests. Contains common methods and useful assertions.
+ * Configuration of a value provider that returns null.
  */
-public class CallIntegrationTestBase extends IntegrationTestBase {
+@PolymorphicConfigInstance(NULL_VALUE_TYPE)
+public class NullValueDefaultConfigurationSchema extends ColumnDefaultConfigurationSchema {
 }

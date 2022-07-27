@@ -26,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.compute.ClientCompute;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
@@ -117,7 +116,7 @@ public class TcpIgniteClient implements IgniteClient {
      * @param cfg Thin client configuration.
      * @return Future representing pending completion of the operation.
      */
-    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) throws IgniteClientException {
+    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) {
         var client = new TcpIgniteClient(cfg);
 
         return client.initAsync().thenApply(x -> client);

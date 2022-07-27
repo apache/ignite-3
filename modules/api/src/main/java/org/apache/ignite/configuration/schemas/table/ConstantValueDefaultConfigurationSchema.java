@@ -15,21 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.configuration.schemas.table;
+
+import static org.apache.ignite.configuration.schemas.table.ColumnDefaultConfigurationSchema.CONSTANT_VALUE_TYPE;
+
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Client error codes.
+ * Configuration of a value provider which returns the same constant value.
  */
-public class ClientErrorCode {
-    /** Operation succeeded (no error). */
-    public static final int SUCCESS = 0;
-
-    /** General error (uncategorized). */
-    public static final int FAILED = 1;
-
-    /** Authentication or authorization failure. */
-    public static final int AUTH_FAILED = 2;
-
-    /** Table id does not exist. */
-    public static final int TABLE_ID_DOES_NOT_EXIST = 3;
+@PolymorphicConfigInstance(CONSTANT_VALUE_TYPE)
+public class ConstantValueDefaultConfigurationSchema extends ColumnDefaultConfigurationSchema {
+    /** The value to be used as default for a column. */
+    @Value
+    public String defaultValue;
 }

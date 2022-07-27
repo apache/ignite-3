@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -25,7 +28,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -33,6 +35,7 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -150,7 +153,7 @@ public class ClientTable implements Table {
             int schemaCnt = r.in().unpackMapHeader();
 
             if (schemaCnt == 0) {
-                throw new IgniteClientException("Schema not found: " + ver);
+                throw new IgniteException(UNKNOWN_ERR, "Schema not found: " + ver);
             }
 
             ClientSchema last = null;
@@ -218,7 +221,8 @@ public class ClientTable implements Table {
             ClientTransaction clientTx = getClientTx(tx);
 
             if (clientTx.channel() != out.clientChannel()) {
-                throw new IgniteClientException("Transaction context has been lost due to connection errors.");
+                // Do not throw IgniteClientConnectionException to avoid retry kicking in.
+                throw new IgniteException(CONNECTION_ERR, "Transaction context has been lost due to connection errors.");
             }
 
             out.out().packLong(clientTx.id());
@@ -227,7 +231,7 @@ public class ClientTable implements Table {
 
     private static ClientTransaction getClientTx(@NotNull Transaction tx) {
         if (!(tx instanceof ClientTransaction)) {
-            throw new IgniteClientException("Unsupported transaction implementation: '"
+            throw new IgniteException(UNKNOWN_ERR, "Unsupported transaction implementation: '"
                     + tx.getClass()
                     + "'. Use IgniteClient.transactions() to start transactions.");
         }

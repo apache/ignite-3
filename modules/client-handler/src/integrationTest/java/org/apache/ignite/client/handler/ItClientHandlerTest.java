@@ -18,11 +18,15 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
@@ -123,7 +127,8 @@ public class ItClientHandlerTest {
             final var major = unpacker.unpackInt();
             final var minor = unpacker.unpackInt();
             final var patch = unpacker.unpackInt();
-            final var errorCode = unpacker.unpackInt();
+            final var success = unpacker.tryUnpackNil();
+            assertTrue(success);
 
             final var idleTimeout = unpacker.unpackLong();
             final var nodeId = unpacker.unpackString();
@@ -140,7 +145,6 @@ public class ItClientHandlerTest {
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
-            assertEquals(0, errorCode);
             assertEquals(0, idleTimeout);
             assertEquals("id", nodeId);
             assertEquals("consistent-id", nodeName);
@@ -177,21 +181,26 @@ public class ItClientHandlerTest {
             // Read response.
             var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
             var magic = unpacker.readPayload(4);
-            unpacker.skipValue(3);
-            var len = unpacker.unpackInt();
-            var major = unpacker.unpackInt();
+            unpacker.readPayload(4); // Length.
+            final var major = unpacker.unpackInt();
             final var minor = unpacker.unpackInt();
             final var patch = unpacker.unpackInt();
-            final var errorCode = unpacker.unpackInt();
-            final var err = unpacker.unpackString();
+
+            unpacker.skipValue(); // traceId
+            final var code = unpacker.tryUnpackNil() ? UNKNOWN_ERR : unpacker.unpackInt();
+            final var errClassName = unpacker.unpackString();
+            final var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+            final var errStackTrace = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(88, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
-            assertEquals(1, errorCode);
-            assertThat(err, containsString("Unsupported version: 2.8.0"));
+            assertEquals(PROTOCOL_COMPATIBILITY_ERR, code);
+
+            assertThat(errMsg, containsString("Unsupported version: 2.8.0"));
+            assertEquals("org.apache.ignite.lang.IgniteException", errClassName);
+            assertNull(errStackTrace);
         }
     }
 

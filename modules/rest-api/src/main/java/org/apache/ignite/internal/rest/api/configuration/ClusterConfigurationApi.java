@@ -28,7 +28,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.rest.api.Problem;
@@ -47,16 +46,14 @@ public interface ClusterConfigurationApi {
      * @return the whole cluster configuration in HOCON format.
      */
     @Operation(operationId = "getClusterConfiguration")
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "200",
-                    content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
-                    description = "Get cluster configuration"),
-            @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
-            @ApiResponse(responseCode = "400", description = "Incorrect configuration",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    })
+    @ApiResponse(
+            responseCode = "200",
+            content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
+            description = "Get cluster configuration")
+    @ApiResponse(responseCode = "500", description = "Internal error",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "400", description = "Incorrect configuration",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces({
             MediaType.TEXT_PLAIN, // todo: IGNITE-17082
             MediaType.PROBLEM_JSON
@@ -70,13 +67,11 @@ public interface ClusterConfigurationApi {
      * @param updatedConfiguration the cluster configuration to update.
      */
     @Operation(operationId = "updateClusterConfiguration")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Configuration updated"),
-            @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
-            @ApiResponse(responseCode = "400", description = "Incorrect configuration",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    })
+    @ApiResponse(responseCode = "200", description = "Configuration updated")
+    @ApiResponse(responseCode = "500", description = "Internal error",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "400", description = "Incorrect configuration",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.TEXT_PLAIN) // todo: IGNITE-17082
     @Produces(MediaType.PROBLEM_JSON)
     @Patch
@@ -89,15 +84,13 @@ public interface ClusterConfigurationApi {
      * @return system configuration in HOCON format represented by given path.
      */
     @Operation(operationId = "getClusterConfigurationByPath")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200",
-                    content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
-                    description = "Configuration represented by path"),
-            @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
-            @ApiResponse(responseCode = "400", description = "Incorrect configuration",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    })
+    @ApiResponse(responseCode = "200",
+            content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
+            description = "Configuration represented by path")
+    @ApiResponse(responseCode = "500", description = "Internal error",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "400", description = "Incorrect configuration",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces({
             MediaType.TEXT_PLAIN, // todo: IGNITE-17082
             MediaType.PROBLEM_JSON

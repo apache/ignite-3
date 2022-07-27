@@ -22,14 +22,13 @@ import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 
-import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
+import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
@@ -115,7 +114,7 @@ public class TupleMarshallerVarlenOnlyBenchmark {
 
         schema = new SchemaDescriptor(
                 42,
-                new Column[]{new Column("key", INT64, false, (Supplier<Object> & Serializable) () -> 0L)},
+                new Column[]{new Column("key", INT64, false, DefaultValueProvider.constantProvider(0L))},
                 IntStream.range(0, fieldsCount).boxed()
                         .map(i -> new Column("col" + i, useString ? STRING : BYTES, nullable))
                         .toArray(Column[]::new)
