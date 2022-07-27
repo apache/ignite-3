@@ -59,11 +59,11 @@ public class DelayedPageReplacementTracker {
     };
 
     /**
-     * Dirty page write for replacement operations thread local. Because page write {@link DelayedDirtyPageStoreWrite} is stateful and not
+     * Dirty page write for replacement operations thread local. Because page write {@link DelayedDirtyPageWrite} is stateful and not
      * thread safe, this thread local protects from GC pressure on pages replacement. <br> Map is used instead of build-in thread local to
      * allow GC to remove delayed writers for alive threads after node stop.
      */
-    private final Map<Long, DelayedDirtyPageStoreWrite> delayedPageWriteThreadLocMap = new ConcurrentHashMap<>();
+    private final Map<Long, DelayedDirtyPageWrite> delayedPageWriteThreadLocMap = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -94,9 +94,9 @@ public class DelayedPageReplacementTracker {
     /**
      * Returns delayed page write implementation, finish method to be called to actually write page.
      */
-    public DelayedDirtyPageStoreWrite delayedPageWrite() {
+    public DelayedDirtyPageWrite delayedPageWrite() {
         return delayedPageWriteThreadLocMap.computeIfAbsent(Thread.currentThread().getId(),
-                id -> new DelayedDirtyPageStoreWrite(flushDirtyPage, byteBufThreadLoc, pageSize, this));
+                id -> new DelayedDirtyPageWrite(flushDirtyPage, byteBufThreadLoc, pageSize, this));
     }
 
     /**
