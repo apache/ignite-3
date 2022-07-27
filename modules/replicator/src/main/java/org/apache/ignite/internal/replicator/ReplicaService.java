@@ -23,7 +23,6 @@ import org.apache.ignite.internal.replicator.exception.ExceptionUtils;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
-import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -37,9 +36,6 @@ import org.apache.ignite.network.TopologyService;
  * TODO:IGNITE-17255 Implement ReplicaService.
  */
 public class ReplicaService {
-    /** Replicator network message factory. */
-    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
-
     /** Network timeout. */
     private static final int RPC_TIMEOUT = 3000;
 
