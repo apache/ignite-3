@@ -551,6 +551,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             raftGroupOptions = RaftGroupOptions.forPersistentStores();
         }
 
+        //TODO Revisit peers String representation: https://issues.apache.org/jira/browse/IGNITE-17420
         raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
                 partitionStorage,
                 peers.stream().map(n -> new Peer(n.address())).map(PeerId::fromPeer).map(Object::toString).collect(Collectors.toList()),
