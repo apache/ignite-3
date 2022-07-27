@@ -22,6 +22,8 @@ import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.listener.ListenerCompoundResponse;
 import org.apache.ignite.internal.replicator.listener.ListenerFutureResponse;
 import org.apache.ignite.internal.replicator.listener.ListenerInstantResponse;
@@ -34,6 +36,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequestLocator;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.WaiteOperationsResultRequest;
+import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
@@ -41,6 +44,9 @@ import org.apache.ignite.lang.IgniteStringFormatter;
  * TODO:IGNITE-17257 Implement Replica server-side logic.
  */
 public class Replica {
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(Replica.class);
+
     /** Replicator network message factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
@@ -80,7 +86,7 @@ public class Replica {
      */
     public ReplicaResponse processRequest(ReplicaRequest request) { // define proper set of exceptions that might be thrown.
         assert replicaGrpId.equals(request.groupId()) : IgniteStringFormatter.format(
-                "Partition mismatch: request does not match the replica [reqPartId={}, replicaGrpId={}]", request.groupId(),
+                "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]", request.groupId(),
                 replicaGrpId);
 
         //TODO:IGNITE-17378 Check replica is alive.
@@ -129,8 +135,17 @@ public class Replica {
                     .build();
 
         } catch (Exception ex) {
+            var traceId = UUID.randomUUID();
+
+            LOG.warn("Exception was thrown [traceId={}]", ex, traceId);
+
             return REPLICA_MESSAGES_FACTORY
-                    .waiteOperationsResultResponse()
+                    .errorReplicaResponse()
+                    .errorMessage(IgniteStringFormatter.format("Process replication response finished with exception "
+                            + "[replicaGrpId={}, msg={}]", replicaGrpId, ex.getMessage()))
+                    .errorCode(Replicator.REPLICA_COMMON_ERR)
+                    .errorClassName(ex.getClass().getName())
+                    .errorTraceId(traceId)
                     .build();
         }
     }

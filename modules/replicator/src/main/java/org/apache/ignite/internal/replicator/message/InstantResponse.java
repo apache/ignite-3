@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.replicator.message;
 
+import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -29,5 +30,6 @@ public interface InstantResponse extends ReplicaResponse {
      *
      * @return Some result of the replication process.
      */
+    @Marshallable
     Object result();
 }
