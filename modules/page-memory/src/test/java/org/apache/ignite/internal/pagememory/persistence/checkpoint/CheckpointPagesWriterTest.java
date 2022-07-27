@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -331,10 +332,8 @@ public class CheckpointPagesWriterTest {
     ) throws Exception {
         CheckpointPageWriter pageWriter = mock(CheckpointPageWriter.class);
 
-        if (fullPageIdArgumentCaptor == null) {
-            when(pageWriter.write(any(FullPageId.class), any(ByteBuffer.class))).thenReturn(pageStore);
-        } else {
-            when(pageWriter.write(fullPageIdArgumentCaptor.capture(), any(ByteBuffer.class))).thenReturn(pageStore);
+        if (fullPageIdArgumentCaptor != null) {
+            doNothing().when(pageWriter).write(fullPageIdArgumentCaptor.capture(), any(ByteBuffer.class));
         }
 
         return pageWriter;

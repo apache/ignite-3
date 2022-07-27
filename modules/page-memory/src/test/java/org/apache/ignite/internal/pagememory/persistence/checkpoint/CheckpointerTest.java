@@ -52,7 +52,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -72,7 +71,6 @@ import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -441,8 +439,6 @@ public class CheckpointerTest {
             PartitionMetaManager partitionMetaManager
     ) throws Exception {
         CheckpointPageWriter checkpointPageWriter = mock(CheckpointPageWriter.class);
-
-        when(checkpointPageWriter.write(any(FullPageId.class), any(ByteBuffer.class))).then(answer -> mock(PageStore.class));
 
         return new CheckpointPagesWriterFactory(
                 log,
