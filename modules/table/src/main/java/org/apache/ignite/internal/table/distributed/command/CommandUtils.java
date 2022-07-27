@@ -66,7 +66,7 @@ public class CommandUtils {
 
             return baos.toByteArray();
         } catch (IOException e) {
-            LOG.error("Could not write rows to stream [rows=" + rows.size() + ']', e);
+            LOG.debug("unable to write rows to stream [rowsCount={}]", e, rows.size());
 
             throw new IgniteInternalException(e);
         }
@@ -90,7 +90,7 @@ public class CommandUtils {
 
             return baos.toByteArray();
         } catch (IOException e) {
-            LOG.error("Could not write row to stream [row=" + row + ']', e);
+            LOG.debug("Unable to write row to stream [row={}]", e, row);
 
             throw new IgniteInternalException(e);
         }
@@ -134,7 +134,7 @@ public class CommandUtils {
                 consumer.accept(new ByteBufferRow(rowBytes));
             }
         } catch (IOException e) {
-            LOG.error("Could not read rows from stream.", e);
+            LOG.warn("Unable to read rows from stream", e);
         }
     }
 

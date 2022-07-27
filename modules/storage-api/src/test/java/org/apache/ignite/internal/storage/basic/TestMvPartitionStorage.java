@@ -19,10 +19,12 @@ package org.apache.ignite.internal.storage.basic;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -40,6 +42,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     private final ConcurrentMap<RowId, VersionChain> map = new ConcurrentHashMap<>();
 
     private final List<TestSortedIndexMvStorage> indexes;
+
+    private long lastAppliedIndex = 0;
 
     private final int partitionId;
 
@@ -72,6 +76,26 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         public boolean notContainsWriteIntent() {
             return begin != null && txId == null;
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long lastAppliedIndex() {
+        return lastAppliedIndex;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
+        assert lastAppliedIndex > this.lastAppliedIndex : "current=" + this.lastAppliedIndex + ", new=" + lastAppliedIndex;
+
+        this.lastAppliedIndex = lastAppliedIndex;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long persistedIndex() {
+        return lastAppliedIndex;
     }
 
     /** {@inheritDoc} */
@@ -249,6 +273,30 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 .iterator();
 
         return Cursor.fromIterator(iterator);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long rowsCount() {
+        return map.size();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void forEach(BiConsumer<RowId, BinaryRow> consumer) {
+        for (Entry<RowId, VersionChain> entry : map.entrySet()) {
+            RowId rowId = entry.getKey();
+
+            VersionChain versionChain = entry.getValue();
+
+            for (VersionChain cur = versionChain; cur != null; cur = cur.next) {
+                if (cur.row == null) {
+                    continue;
+                }
+
+                consumer.accept(rowId, cur.row);
+            }
+        }
     }
 
     /** {@inheritDoc} */

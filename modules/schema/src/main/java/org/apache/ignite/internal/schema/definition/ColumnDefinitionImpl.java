@@ -20,7 +20,7 @@ package org.apache.ignite.internal.schema.definition;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.schema.definition.DefaultValueDefinition;
 
 /**
  * Table column.
@@ -35,22 +35,21 @@ public class ColumnDefinitionImpl implements ColumnDefinition {
     /** Nullable flag. */
     private final boolean nullable;
 
-    /** Default value. */
-    private final Object defValExpr;
+    private final DefaultValueDefinition defaultValueDefinition;
 
     /**
      * Constructor.
      *
-     * @param name       Column name.
-     * @param type       Column type.
-     * @param nullable   Nullability flag.
-     * @param defValExpr Default value.
+     * @param name Column name.
+     * @param type Column type.
+     * @param nullable Nullability flag.
+     * @param defaultValueDefinition Default value.
      */
-    public ColumnDefinitionImpl(String name, ColumnType type, boolean nullable, @Nullable Object defValExpr) {
+    public ColumnDefinitionImpl(String name, ColumnType type, boolean nullable, DefaultValueDefinition defaultValueDefinition) {
         this.name = name;
         this.type = type;
         this.nullable = nullable;
-        this.defValExpr = defValExpr;
+        this.defaultValueDefinition = defaultValueDefinition;
     }
 
     /** {@inheritDoc} */
@@ -73,8 +72,9 @@ public class ColumnDefinitionImpl implements ColumnDefinition {
 
     /** {@inheritDoc} */
     @Override
-    public Object defaultValue() {
-        return defValExpr;
+    @SuppressWarnings("unchecked")
+    public <T extends DefaultValueDefinition> T defaultValueDefinition() {
+        return (T) defaultValueDefinition;
     }
 
     /** {@inheritDoc} */

@@ -90,11 +90,8 @@ public class ConfigurationCatchUpListener implements ConfigurationStorageRevisio
 
                 targetRevision = rev;
 
-                log.info("Checking revision on recovery ["
-                        + "targetRevision=" + targetRevision
-                        + ", appliedRevision=" + appliedRevision
-                        + ", acceptableDifference=" + configurationCatchUpDifference + ']'
-                );
+                log.info("Checking revision on recovery [targetRevision={}, appliedRevision={}, acceptableDifference={}]",
+                        targetRevision, appliedRevision, configurationCatchUpDifference);
 
                 if (isConfigurationUpToDate(targetRevision, appliedRevision)) {
                     catchUpFuture.complete(null);

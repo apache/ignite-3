@@ -65,6 +65,7 @@ import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.rest.RestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
+import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -284,10 +285,14 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
-        RestFactory factory = new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
-        RestFactory clusterManagementRestFactory = new ClusterManagementRestFactory(clusterSvc);
+        RestFactory presentationsFactory = new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
+        RestFactory clusterManagementRestFactory = new ClusterManagementRestFactory(clusterSvc, cmgMgr);
+        RestFactory nodeManagementRestFactory = new NodeManagementRestFactory(lifecycleManager, () -> name);
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
-        restComponent = new RestComponent(List.of(factory, clusterManagementRestFactory), restConfiguration);
+        restComponent = new RestComponent(
+                List.of(presentationsFactory, clusterManagementRestFactory, nodeManagementRestFactory),
+                restConfiguration
+        );
 
         baselineMgr = new BaselineManager(
                 clusterCfgMgr,
@@ -358,10 +363,6 @@ public class IgniteImpl implements Ignite {
         var modulesProvider = new ServiceLoaderModulesProvider();
         List<ConfigurationModule> modules = modulesProvider.modules(classLoader);
 
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Configuration modules loaded: {}", modules);
-        }
-
         if (modules.isEmpty()) {
             throw new IllegalStateException("No configuration modules were loaded, this means Ignite cannot start. "
                     + "Please make sure that the classloader for loading services is correct.");
@@ -369,10 +370,8 @@ public class IgniteImpl implements Ignite {
 
         var configModules = new ConfigurationModules(modules);
 
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Local root keys: {}", configModules.local().rootKeys());
-            LOG.info("Distributed root keys: {}", configModules.distributed().rootKeys());
-        }
+        LOG.info("Configuration modules loaded [modules={}, localRoots={}, distRoots={}]",
+                modules, configModules.local().rootKeys(), configModules.distributed().rootKeys());
 
         return configModules;
     }
@@ -504,9 +503,9 @@ public class IgniteImpl implements Ignite {
     }
 
     private RuntimeException handleStartException(Throwable e) {
-        String errMsg = "Unable to start node=[" + name + "].";
+        String errMsg = "Unable to start [node=" + name + "]";
 
-        LOG.error(errMsg, e);
+        LOG.debug(errMsg, e);
 
         lifecycleManager.stopNode();
 

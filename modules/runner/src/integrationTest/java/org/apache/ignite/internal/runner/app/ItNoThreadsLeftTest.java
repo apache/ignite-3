@@ -128,7 +128,7 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
                 schemaName + "." + shortTableName, tblCh -> convert(SchemaBuilders.tableBuilder(schemaName, shortTableName).columns(
                                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                                 SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build(),
-                                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValueExpression("default").build()
+                                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
                         ).withPrimaryKey("key").build(),
                         tblCh).changeReplicas(2).changePartitions(10)
         );

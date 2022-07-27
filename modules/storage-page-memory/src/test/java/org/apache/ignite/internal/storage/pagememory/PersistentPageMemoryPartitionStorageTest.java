@@ -29,7 +29,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -72,7 +75,10 @@ public class PersistentPageMemoryPartitionStorageTest extends AbstractPartitionS
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
                     UnknownDataStorageConfigurationSchema.class,
-                    PersistentPageMemoryDataStorageConfigurationSchema.class
+                    PersistentPageMemoryDataStorageConfigurationSchema.class,
+                    ConstantValueDefaultConfigurationSchema.class,
+                    FunctionCallDefaultConfigurationSchema.class,
+                    NullValueDefaultConfigurationSchema.class,
             }
     )
     private TableConfiguration tableCfg;

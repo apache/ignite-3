@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -189,7 +189,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Transaction tx = client().transactions().begin();
         kvView.put(tx, -100, "1");
 
-        IgniteClientException ex = assertThrows(IgniteClientException.class, () -> kvView.get(null, -100));
+        var ex = assertThrows(IgniteException.class, () -> kvView.get(null, -100));
         assertThat(ex.getMessage(), containsString("TimeoutException"));
 
         tx.rollback();
@@ -235,7 +235,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             }
         };
 
-        var ex = assertThrows(IgniteClientException.class, () -> kvView().put(tx, 1, "1"));
+        var ex = assertThrows(IgniteException.class, () -> kvView().put(tx, 1, "1"));
 
         String expected = "Unsupported transaction implementation: "
                 + "'class org.apache.ignite.internal.runner.app.client.ItThinClientTransactionsTest";
@@ -250,7 +250,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         try (IgniteClient client2 = IgniteClient.builder().addresses(getNodeAddress()).build()) {
             RecordView<Tuple> recordView = client2.tables().tables().get(0).recordView();
 
-            IgniteClientException ex = assertThrows(IgniteClientException.class, () -> recordView.upsert(tx, Tuple.create()));
+            var ex = assertThrows(IgniteException.class, () -> recordView.upsert(tx, Tuple.create()));
 
             assertThat(ex.getMessage(), containsString("Transaction context has been lost due to connection errors"));
         }

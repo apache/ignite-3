@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.storage.StorageUtils.groupId;
 
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -74,7 +73,8 @@ class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     /** {@inheritDoc} */
     @Override
     public PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        return new PageMemoryMvPartitionStorage(partitionId,
+        return new PageMemoryMvPartitionStorage(
+                partitionId,
                 tableCfg.value(),
                 dataRegion,
                 dataRegion.versionChainFreeList(),
@@ -95,13 +95,14 @@ class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             int partId,
             TableFreeList freeList
     ) throws StorageException {
-        int grpId = groupId(tableView);
+        int grpId = tableView.tableId();
 
         try {
             return new TableTree(
                     grpId,
                     tableView.name(),
-                    partId, dataRegion.pageMemory(),
+                    partId,
+                    dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
                     dataRegion.pageMemory().allocatePage(grpId, partId, FLAG_AUX),

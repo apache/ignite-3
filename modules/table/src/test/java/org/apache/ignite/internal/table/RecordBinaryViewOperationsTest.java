@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -28,6 +29,7 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -316,9 +318,9 @@ public class RecordBinaryViewOperationsTest {
                 1,
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("val".toUpperCase(), NativeTypes.INT64, true, () -> 28L),
-                        new Column("str".toUpperCase(), NativeTypes.stringOf(3), true, () -> "ABC"),
-                        new Column("blob".toUpperCase(), NativeTypes.blobOf(3), true, () -> new byte[]{0, 1, 2})
+                        new Column("val".toUpperCase(), NativeTypes.INT64, true, constantProvider(28L)),
+                        new Column("str".toUpperCase(), NativeTypes.stringOf(3), true, constantProvider("ABC")),
+                        new Column("blob".toUpperCase(), NativeTypes.blobOf(3), true, constantProvider(new byte[]{0, 1, 2}))
                 }
         );
 
@@ -694,13 +696,17 @@ public class RecordBinaryViewOperationsTest {
 
         TxManager txManager = new TxManagerImpl(clusterService, lockManager);
 
+        AtomicLong raftIndex = new AtomicLong();
+
         DummyInternalTableImpl table = new DummyInternalTableImpl(
                 new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
-                txManager);
+                txManager,
+                raftIndex
+        );
 
         List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
 
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners);
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners, pl -> raftIndex);
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
         return new TableImpl(table, new DummySchemaManagerImpl(schema));

@@ -25,7 +25,10 @@ import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
+import java.lang.reflect.Constructor;
+import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -251,5 +254,39 @@ public class IgniteException extends RuntimeException {
      */
     public UUID traceId() {
         return traceId;
+    }
+
+
+    /**
+     * Wraps another exception in IgniteException, extracting {@link #traceId} and {@link #code} when the specified exception
+     * or one of its causes is an IgniteException itself.
+     *
+     * @param e Internal exception.
+     * @return Public exception.
+     */
+    public static IgniteException wrap(Throwable e) {
+        Objects.requireNonNull(e);
+
+        e = ExceptionUtils.unwrapCause(e);
+
+        if (e instanceof IgniteException) {
+            IgniteException iex = (IgniteException) e;
+
+            try {
+                Constructor<?> ctor = e.getClass().getDeclaredConstructor(UUID.class, int.class, String.class, Throwable.class);
+
+                return (IgniteException) ctor.newInstance(iex.traceId(), iex.code(), e.getMessage(), e);
+            } catch (Exception ex) {
+                throw new RuntimeException("IgniteException-derived class does not have required constructor: " + e.getClass().getName());
+            }
+        }
+
+        if (e instanceof IgniteCheckedException) {
+            IgniteCheckedException iex = (IgniteCheckedException) e;
+
+            return new IgniteException(iex.traceId(), iex.code(), e.getMessage(), e);
+        }
+
+        return new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
     }
 }

@@ -26,12 +26,12 @@ import org.apache.ignite.internal.logger.Loggers;
  * @param <T> exception type.
  */
 public interface ExceptionHandler<T extends Throwable> {
-    IgniteLogger logger = Loggers.forClass(ExceptionHandler.class);
+    IgniteLogger LOG = Loggers.forClass(ExceptionHandler.class);
 
     ExceptionHandler<Throwable> DEFAULT = new ExceptionHandler<>() {
         @Override
         public int handle(ExceptionWriter err, Throwable e) {
-            logger.error("Unhandled exception ", e);
+            LOG.error("Unhandled exception", e);
             err.write("Internal error!");
             return 1;
         }

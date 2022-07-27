@@ -17,15 +17,21 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -33,15 +39,11 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.client.IgniteClientAuthenticationException;
-import org.apache.ignite.client.IgniteClientAuthorizationException;
 import org.apache.ignite.client.IgniteClientConnectionException;
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
 import org.apache.ignite.internal.client.io.ClientMessageHandler;
-import org.apache.ignite.internal.client.proto.ClientErrorCode;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -140,7 +142,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             sock.close();
 
             for (ClientRequestFuture pendingReq : pendingReqs.values()) {
-                pendingReq.completeExceptionally(new IgniteClientConnectionException("Channel is closed", cause));
+                pendingReq.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", cause));
             }
         }
     }
@@ -188,12 +190,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param payloadWriter Payload writer to stream or {@code null} if request has no payload.
      * @return Request future.
      */
-    private ClientRequestFuture send(int opCode, PayloadWriter payloadWriter)
-            throws IgniteClientException {
+    private ClientRequestFuture send(int opCode, PayloadWriter payloadWriter) {
         long id = reqId.getAndIncrement();
 
         if (closed()) {
-            throw new IgniteClientConnectionException("Channel is closed");
+            throw new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed");
         }
 
         ClientRequestFuture fut = new ClientRequestFuture();
@@ -214,7 +215,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             write(req).addListener(f -> {
                 if (!f.isSuccess()) {
-                    fut.completeExceptionally(new IgniteClientConnectionException("Failed to send request", f.cause()));
+                    fut.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Failed to send request", f.cause()));
                 }
             });
 
@@ -224,7 +225,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             payloadCh.close();
             pendingReqs.remove(id);
 
-            throw convertException(t);
+            throw IgniteException.wrap(t);
         }
     }
 
@@ -249,37 +250,15 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             try (var in = new PayloadInputChannel(this, payload)) {
                 return payloadReader.apply(in);
             } catch (Exception e) {
-                throw new IgniteException("Failed to deserialize server response: " + e.getMessage(), e);
+                throw new IgniteClientConnectionException(PROTOCOL_ERR, "Failed to deserialize server response: " + e.getMessage(), e);
             }
         }, asyncContinuationExecutor);
     }
 
     /**
-     * Converts exception to {@link IgniteClientException}.
-     *
-     * @param e Exception to convert.
-     * @return Resulting exception.
-     */
-    private IgniteClientException convertException(Throwable e) {
-        // For every known class derived from IgniteClientException, wrap cause in a new instance.
-        // We could rethrow e.getCause() when instanceof IgniteClientException,
-        // but this results in an incomplete stack trace from the receiver thread.
-        // This is similar to IgniteUtils.exceptionConverters.
-        if (e.getCause() instanceof IgniteClientConnectionException) {
-            return new IgniteClientConnectionException(e.getMessage(), e.getCause());
-        }
-
-        if (e.getCause() instanceof IgniteClientAuthorizationException) {
-            return new IgniteClientAuthorizationException(e.getMessage(), e.getCause());
-        }
-
-        return new IgniteClientException(e.getMessage(), ClientErrorCode.FAILED, e);
-    }
-
-    /**
      * Process next message from the input stream and complete corresponding future.
      */
-    private void processNextMessage(ByteBuf buf) throws IgniteClientException {
+    private void processNextMessage(ByteBuf buf) throws IgniteException {
         var unpacker = new ClientMessageUnpacker(buf);
 
         if (protocolCtx == null) {
@@ -291,28 +270,56 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         var type = unpacker.unpackInt();
 
         if (type != ServerMessageType.RESPONSE) {
-            throw new IgniteClientException("Unexpected message type: " + type);
+            throw new IgniteClientConnectionException(PROTOCOL_ERR, "Unexpected message type: " + type);
         }
 
         Long resId = unpacker.unpackLong();
 
-        int status = unpacker.unpackInt();
-
         ClientRequestFuture pendingReq = pendingReqs.remove(resId);
 
         if (pendingReq == null) {
-            throw new IgniteClientException(String.format("Unexpected response ID [%s]", resId));
+            throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected response ID [%s]", resId));
         }
 
-        if (status == 0) {
+        if (unpacker.tryUnpackNil()) {
             pendingReq.complete(unpacker);
         } else {
-            var errMsg = unpacker.unpackString();
+            IgniteException err = readError(unpacker);
+
             unpacker.close();
 
-            var err = new IgniteClientException(errMsg, status);
             pendingReq.completeExceptionally(err);
         }
+    }
+
+    /**
+     * Unpacks request error.
+     *
+     * @param unpacker Unpacker.
+     * @return Exception.
+     */
+    private IgniteException readError(ClientMessageUnpacker unpacker) {
+        var traceId = unpacker.unpackUuid();
+        var code = unpacker.unpackInt();
+        var errClassName = unpacker.unpackString();
+        var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+
+        IgniteException causeWithStackTrace = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
+
+        try {
+            Class<?> errCls = Class.forName(errClassName);
+
+            if (IgniteException.class.isAssignableFrom(errCls)) {
+                Constructor<?> constructor = errCls.getDeclaredConstructor(UUID.class, int.class, String.class, Throwable.class);
+
+                return (IgniteException) constructor.newInstance(traceId, code, errMsg, causeWithStackTrace);
+            }
+        } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException
+                | InvocationTargetException ignored) {
+            // Ignore: incompatible exception class. Fall back to generic exception.
+        }
+
+        return new IgniteException(traceId, code, errClassName + ": " + errMsg, causeWithStackTrace);
     }
 
     /** {@inheritDoc} */
@@ -355,7 +362,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var res = connectTimeout > 0 ? fut.get(connectTimeout, TimeUnit.MILLISECONDS) : fut.get();
             handshakeRes(res, ver);
         } catch (Throwable e) {
-            throw convertException(e);
+            throw IgniteException.wrap(e);
         }
     }
 
@@ -377,33 +384,19 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     /** Receive and handle handshake response. */
-    private void handshakeRes(ClientMessageUnpacker unpacker, ProtocolVersion proposedVer)
-            throws IgniteClientConnectionException, IgniteClientAuthenticationException {
+    private void handshakeRes(ClientMessageUnpacker unpacker, ProtocolVersion proposedVer) {
         try (unpacker) {
             ProtocolVersion srvVer = new ProtocolVersion(unpacker.unpackShort(), unpacker.unpackShort(),
                     unpacker.unpackShort());
 
-            var errCode = unpacker.unpackInt();
-
-            if (errCode != ClientErrorCode.SUCCESS) {
-                var msg = unpacker.unpackString();
-
-                if (errCode == ClientErrorCode.AUTH_FAILED) {
-                    throw new IgniteClientAuthenticationException(msg);
-                } else if (proposedVer.equals(srvVer)) {
-                    throw new IgniteClientException("Client protocol error: unexpected server response '" + msg + "'.");
-                } else if (!supportedVers.contains(srvVer)) {
-                    throw new IgniteClientException(String.format(
-                            "Protocol version mismatch: client %s / server %s. Server details: %s",
-                            proposedVer,
-                            srvVer,
-                            msg
-                    ));
-                } else { // Retry with server version.
+            if (!unpacker.tryUnpackNil()) {
+                if (!proposedVer.equals(srvVer) && supportedVers.contains(srvVer)) {
+                    // Retry with server version.
                     handshake(srvVer);
+                    return;
                 }
 
-                throw new IgniteClientConnectionException(msg);
+                throw readError(unpacker);
             }
 
             var serverIdleTimeout = unpacker.unpackLong();

@@ -91,8 +91,8 @@ namespace Apache.Ignite.Tests
             Assert.AreEqual(0, msg[1]);
             Assert.AreEqual(0, msg[2]);
 
-            // Result code.
-            Assert.AreEqual(0, msg[3]);
+            // Result code (null = success).
+            Assert.AreEqual(MessagePackCode.Nil, msg[3]);
         }
 
         private static unsafe void WriteHandshake(Stream stream, int majorVersion = 3)

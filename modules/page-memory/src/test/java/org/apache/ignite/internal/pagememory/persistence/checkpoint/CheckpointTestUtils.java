@@ -17,14 +17,24 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 
 /**
  * Useful class for testing a checkpoint.
@@ -70,5 +80,40 @@ public class CheckpointTestUtils {
      */
     public static List<FullPageId> toListDirtyPageIds(CheckpointDirtyPagesView dirtyPagesView) {
         return IntStream.range(0, dirtyPagesView.size()).mapToObj(dirtyPagesView::get).collect(Collectors.toList());
+    }
+
+    /**
+     * Returns mocked {@link FilePageStoreManager}.
+     *
+     * @param stores Partition file page stores.
+     * @throws Exception If failed.
+     */
+    public static FilePageStoreManager createFilePageStoreManager(
+            Map<GroupPartitionId, FilePageStore> stores
+    ) throws Exception {
+        FilePageStoreManager manager = mock(FilePageStoreManager.class);
+
+        when(manager.getStore(anyInt(), anyInt())).then(answer -> {
+            FilePageStore pageStore = stores.get(new GroupPartitionId(answer.getArgument(0), answer.getArgument(1)));
+
+            assertNotNull(pageStore);
+
+            return pageStore;
+        });
+
+        return manager;
+    }
+
+    /**
+     * Returns mocked {@link PartitionMetaManager}.
+     *
+     * @param metas Meta information of partitions.
+     */
+    public static PartitionMetaManager createPartitionMetaManager(Map<GroupPartitionId, PartitionMeta> metas) {
+        PartitionMetaManager manager = mock(PartitionMetaManager.class);
+
+        when(manager.getMeta(any(GroupPartitionId.class))).then(answer -> metas.get(answer.getArgument(0)));
+
+        return manager;
     }
 }

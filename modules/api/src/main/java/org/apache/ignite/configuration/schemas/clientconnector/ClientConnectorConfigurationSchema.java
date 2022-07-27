@@ -47,4 +47,8 @@ public class ClientConnectorConfigurationSchema {
     @Range(min = 0)
     @Value(hasDefault = true)
     public final long idleTimeout = 0;
+
+    /** Server exception stack trace visibility. */
+    @Value(hasDefault = true)
+    public final boolean sendServerExceptionStackTraceToClient = false;
 }

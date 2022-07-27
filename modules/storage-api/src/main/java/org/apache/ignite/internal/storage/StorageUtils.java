@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.configuration.schemas.table.TableView;
 
 /**
  * Utility class for storages.
@@ -35,16 +34,6 @@ public class StorageUtils {
             result = 31 * result + buf.get(i);
         }
         return result;
-    }
-
-    /**
-     * Returns the group ID.
-     *
-     * @param tableView Table configuration view.
-     */
-    // TODO: IGNITE-16665 Move the group ID to the configuration.
-    public static int groupId(TableView tableView) {
-        return tableView.name().hashCode();
     }
 
     /**

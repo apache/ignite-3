@@ -40,7 +40,7 @@ namespace Apache.Ignite.Tests.Compute
 
         private const string NodeNameJob = ItThinClientComputeTest + "$NodeNameJob";
 
-        private const string ErrorJob = ItThinClientComputeTest + "$ErrorJob";
+        private const string ErrorJob = ItThinClientComputeTest + "$IgniteExceptionJob";
 
         private const string EchoJob = ItThinClientComputeTest + "$EchoJob";
 

@@ -30,7 +30,6 @@ public class DefaultExceptionHandlers extends ExceptionHandlers {
     public DefaultExceptionHandlers() {
         addExceptionHandler(new SqlExceptionHandler());
         addExceptionHandler(new TimeoutExceptionHandler());
-        addExceptionHandler(new IgniteClientExceptionHandler());
         addExceptionHandler(new IgniteCliExceptionHandler());
         addExceptionHandler(new IgniteCliApiExceptionHandler());
         addExceptionHandler(new UnknownCommandExceptionHandler());

@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionException;
-import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
@@ -281,7 +281,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 CompletionException.class,
                 () -> client().sql().createSession().executeAsync(null, "select x from bad").join());
 
-        IgniteClientException clientEx = (IgniteClientException) ex.getCause();
+        var clientEx = (IgniteException) ex.getCause();
 
         assertThat(clientEx.getMessage(), Matchers.containsString("Object 'BAD' not found"));
     }

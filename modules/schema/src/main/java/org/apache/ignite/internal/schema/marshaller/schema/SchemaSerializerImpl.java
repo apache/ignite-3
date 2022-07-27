@@ -22,12 +22,20 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.DecimalNativeType;
+import org.apache.ignite.internal.schema.DefaultValueGenerator;
+import org.apache.ignite.internal.schema.DefaultValueProvider;
+import org.apache.ignite.internal.schema.DefaultValueProvider.FunctionalValueProvider;
+import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -198,27 +206,42 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @return Column size in bytes.
      */
     private int getColumnSize(Column col) {
-        return INT                       //Schema index
-                + INT                       //Column order
-                + BYTE                          //nullable flag
+        var size = INT // schema index
+                + INT // column order
+                + BYTE // nullable flag
                 + getStringSize(col.name())
                 + getNativeTypeSize(col.type())
-                + BYTE + getDefaultObjectSize(col.type(), col.defaultValue());
+                + BYTE; // value provider type
+
+        switch (col.defaultValueProvider().type()) {
+            case CONSTANT:
+                size += BYTE /* value presence flag */ + getDefaultObjectSize(col.type().spec(), col.defaultValue());
+
+                break;
+            case FUNCTIONAL:
+                size += getStringSize(((FunctionalValueProvider) col.defaultValueProvider()).name());
+
+                break;
+            default:
+                throw new IllegalStateException("Unknown value provider type [type=" + col.defaultValueProvider().type() + ']');
+        }
+
+        return size;
     }
 
     /**
      * Gets default object size in bytes based on object native type.
      *
      * @param type Column native type.
-     * @param val  Object.
+     * @param val Object.
      * @return Object size in bytes.
      */
-    private int getDefaultObjectSize(NativeType type, Object val) {
+    private int getDefaultObjectSize(NativeTypeSpec type, Object val) {
         if (val == null) {
             return 0;
         }
 
-        switch (type.spec()) {
+        switch (type) {
             case INT8:
                 return BYTE;
 
@@ -254,6 +277,19 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
             case NUMBER:
                 return INT + ((BigInteger) val).toByteArray().length;
+
+            case DATE:
+                return INT + BYTE + BYTE;
+
+            case TIME:
+                return 3 * BYTE + INT;
+
+            case DATETIME:
+                return getDefaultObjectSize(NativeTypeSpec.DATE, val)
+                        + getDefaultObjectSize(NativeTypeSpec.TIME, val);
+
+            case TIMESTAMP:
+                return LONG + INT;
 
             default:
                 throw new InvalidTypeException("Unexpected type " + type);
@@ -367,7 +403,23 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
         appendString(col.name(), buf);
         appendNativeType(buf, col.type());
 
-        appendDefaultValue(buf, col.type(), col.defaultValue());
+        var valueProvider = col.defaultValueProvider();
+
+        buf.put(valueProvider.type().id());
+        switch (valueProvider.type()) {
+            case CONSTANT:
+                appendDefaultValue(buf, col.type(), col.defaultValue());
+
+                break;
+            case FUNCTIONAL:
+                assert valueProvider instanceof FunctionalValueProvider;
+
+                appendString(((FunctionalValueProvider) valueProvider).name(), buf);
+
+                break;
+            default:
+                throw new IllegalStateException("Unknown provider type: " + valueProvider.type());
+        }
     }
 
     /**
@@ -456,6 +508,32 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
                 break;
             }
+            case DATE: {
+                appendDate((LocalDate) val, buf);
+
+                break;
+            }
+            case TIME: {
+                appendTime((LocalTime) val, buf);
+
+                break;
+            }
+            case DATETIME: {
+                LocalDateTime date = (LocalDateTime) val;
+
+                appendDate(date.toLocalDate(), buf);
+                appendTime(date.toLocalTime(), buf);
+
+                break;
+            }
+            case TIMESTAMP: {
+                Instant timeStamp = (Instant) val;
+
+                buf.putLong(timeStamp.getEpochSecond());
+                buf.putInt(timeStamp.getNano());
+
+                break;
+            }
 
             default:
                 throw new InvalidTypeException("Unexpected type " + type);
@@ -539,6 +617,31 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
     }
 
     /**
+     * Appends date to byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @param date Date value to append.
+     */
+    private void appendDate(LocalDate date, ByteBuffer buf) {
+        buf.putInt(date.getYear());
+        buf.put((byte) date.getMonthValue());
+        buf.put((byte) date.getDayOfMonth());
+    }
+
+    /**
+     * Appends time to byte buffer.
+     *
+     * @param buf Byte buffer.
+     * @param time Time value to append.
+     */
+    private void appendTime(LocalTime time, ByteBuffer buf) {
+        buf.put((byte) time.getHour());
+        buf.put((byte) time.getMinute());
+        buf.put((byte) time.getSecond());
+        buf.putInt(time.getNano());
+    }
+
+    /**
      * Reads column mapping from byte buffer.
      *
      * @param desc SchemaDescriptor.
@@ -601,9 +704,27 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
         NativeType nativeType = fromByteBuffer(buf);
 
-        Object object = readDefaultValue(buf, nativeType);
+        var typeId = buf.get();
 
-        return new Column(columnOrder, name, nativeType, nullable, () -> object).copy(schemaIdx);
+        Type type = DefaultValueProvider.Type.byId(typeId);
+
+        if (type == null) {
+            throw new IllegalStateException("Unknown default supplier type id: " + typeId);
+        }
+
+        switch (type) {
+            case CONSTANT:
+                Object object = readDefaultValue(buf, nativeType);
+
+                return new Column(columnOrder, name, nativeType, nullable, DefaultValueProvider.constantProvider(object)).copy(schemaIdx);
+            case FUNCTIONAL:
+                String generatorName = readString(buf);
+
+                return new Column(columnOrder, name, nativeType, nullable,
+                        DefaultValueProvider.forValueGenerator(DefaultValueGenerator.valueOf(generatorName))).copy(schemaIdx);
+            default:
+                throw new IllegalStateException("Unknown default supplier type: " + type);
+        }
     }
 
     /**
@@ -660,6 +781,18 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
             case NUMBER:
                 return new BigInteger(readByteArray(buf));
+
+            case DATE:
+                return readDate(buf);
+
+            case TIME:
+                return readTime(buf);
+
+            case DATETIME:
+                return LocalDateTime.of(readDate(buf), readTime(buf));
+
+            case TIMESTAMP:
+                return readTimestamp(buf);
 
             default:
                 throw new InvalidTypeException("Unexpected type " + type);
@@ -771,5 +904,35 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
         buf.get(arr);
 
         return arr;
+    }
+
+    /**
+     * Convert buffer into LocalDate representation.
+     *
+     * @param buf Byte buffer.
+     * @return LocalDate instance.
+     */
+    private LocalDate readDate(ByteBuffer buf) {
+        return LocalDate.of(buf.getInt(), buf.get(), buf.get());
+    }
+
+    /**
+     * Convert buffer into LocalTime representation.
+     *
+     * @param buf Byte buffer.
+     * @return LocalTime instance.
+     */
+    private LocalTime readTime(ByteBuffer buf) {
+        return LocalTime.of(buf.get(), buf.get(), buf.get(), buf.getInt());
+    }
+
+    /**
+     * Convert buffer into Instant representation.
+     *
+     * @param buf Byte buffer.
+     * @return Instant instance.
+     */
+    private Instant readTimestamp(ByteBuffer buf) {
+        return Instant.ofEpochSecond(buf.getLong(), buf.getInt());
     }
 }

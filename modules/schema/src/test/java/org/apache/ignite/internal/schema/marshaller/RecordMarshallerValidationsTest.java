@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
+import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
 import static org.apache.ignite.internal.schema.NativeTypes.INT32;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -52,9 +53,9 @@ public class RecordMarshallerValidationsTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void testColsWithDefaultValue(MarshallerFactory factory) throws MarshallerException {
-        Column[] valCols = new Column[] {
+        Column[] valCols = new Column[]{
                 new Column("fbyte1".toUpperCase(), INT32, false),
-                new Column("fbyte2".toUpperCase(), INT32, false, () -> 0x42)
+                new Column("fbyte2".toUpperCase(), INT32, false, constantProvider(0x42))
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(1, KEY_COLS, valCols);
@@ -78,7 +79,7 @@ public class RecordMarshallerValidationsTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void testColsWithNullable(MarshallerFactory factory) throws MarshallerException {
-        Column[] valCols = new Column[] {
+        Column[] valCols = new Column[]{
                 new Column("fbyte1".toUpperCase(), INT32, false),
                 new Column("fbyte2".toUpperCase(), INT32, true)
         };
@@ -105,7 +106,7 @@ public class RecordMarshallerValidationsTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void testReadOnly(MarshallerFactory factory) throws MarshallerException {
-        Column[] valCols = new Column[] {
+        Column[] valCols = new Column[]{
                 new Column("fbyte1".toUpperCase(), INT32, false),
                 new Column("fbyte2".toUpperCase(), INT32, false)
         };
@@ -146,7 +147,7 @@ public class RecordMarshallerValidationsTest {
 
         assertTrue(fullRec.getClass().isInstance(restoredRec));
 
-        assertThrows(IllegalArgumentException. class, () -> factory.create(schema, TestK2V1.class), "No field found for column k1");
+        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, TestK2V1.class), "No field found for column k1");
     }
 
     /**
