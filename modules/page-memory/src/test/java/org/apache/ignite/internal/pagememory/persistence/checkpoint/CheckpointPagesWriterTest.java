@@ -41,10 +41,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -121,7 +119,7 @@ public class CheckpointPagesWriterTest {
 
         CheckpointPageWriter pageWriter = createCheckpointPageWriter(pageStore, writtenFullPageIds);
 
-        ConcurrentMap<PageStore, LongAdder> updStores = new ConcurrentHashMap<>();
+        ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions = new ConcurrentHashMap<>();
 
         CompletableFuture<?> doneFuture = new CompletableFuture<>();
 
@@ -132,14 +130,11 @@ public class CheckpointPagesWriterTest {
         PartitionMeta partitionMeta0 = mock(PartitionMeta.class);
         PartitionMeta partitionMeta1 = mock(PartitionMeta.class);
 
-        Set<GroupPartitionId> savedPartitionMetas = new HashSet<>();
-
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 log,
                 tracker,
                 writePageIds,
-                savedPartitionMetas,
-                updStores,
+                updatedPartitions,
                 doneFuture,
                 beforePageWrite,
                 threadBuf,
@@ -158,10 +153,10 @@ public class CheckpointPagesWriterTest {
 
         assertTrue(writePageIds.isEmpty());
 
-        assertThat(savedPartitionMetas, containsInAnyOrder(groupPartId0, groupPartId1));
+        assertThat(updatedPartitions.keySet(), containsInAnyOrder(groupPartId0, groupPartId1));
 
-        assertThat(updStores.keySet(), equalTo(Set.of(pageStore)));
-        assertThat(updStores.get(pageStore).sum(), equalTo(8L));
+        assertThat(updatedPartitions.get(groupPartId0).sum(), equalTo(6L));
+        assertThat(updatedPartitions.get(groupPartId1).sum(), equalTo(2L));
 
         assertThat(tracker.dataPagesWritten(), equalTo(4));
         assertThat(progressImpl.writtenPagesCounter().get(), equalTo(8));
@@ -207,11 +202,9 @@ public class CheckpointPagesWriterTest {
                 log,
                 new CheckpointMetricsTracker(),
                 new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(fullPageId(0, 0, 1)))),
-                new HashSet<>(),
                 new ConcurrentHashMap<>(),
                 doneFuture,
-                () -> {
-                },
+                () -> {},
                 createThreadLocalBuffer(),
                 new CheckpointProgressImpl(0),
                 createCheckpointPageWriter(mock(PageStore.class), null),
@@ -254,17 +247,15 @@ public class CheckpointPagesWriterTest {
 
         GroupPartitionId groupPartId = groupPartId(0, 0);
 
-        Set<GroupPartitionId> savedPartitionMetas = new HashSet<>();
+        ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions = new ConcurrentHashMap<>();
 
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 log,
                 new CheckpointMetricsTracker(),
                 writePageIds,
-                savedPartitionMetas,
-                new ConcurrentHashMap<>(),
+                updatedPartitions,
                 doneFuture,
-                () -> {
-                },
+                () -> {},
                 createThreadLocalBuffer(),
                 new CheckpointProgressImpl(0),
                 createCheckpointPageWriter(mock(PageStore.class), null),
@@ -278,7 +269,7 @@ public class CheckpointPagesWriterTest {
         assertDoesNotThrow(() -> doneFuture.get(1, TimeUnit.SECONDS));
 
         assertThat(writePageIds.size(), equalTo(1));
-        assertThat(savedPartitionMetas, contains(groupPartId));
+        assertThat(updatedPartitions.keySet(), contains(groupPartId));
     }
 
     /**

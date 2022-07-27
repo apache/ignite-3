@@ -129,6 +129,7 @@ public class CheckpointManager {
                 longJvmPauseDetector,
                 checkpointWorkflow,
                 checkpointPagesWriterFactory,
+                filePageStoreManager,
                 checkpointConfig
         );
 

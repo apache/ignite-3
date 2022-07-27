@@ -34,5 +34,6 @@ public interface CheckpointPageWriter {
      * @return {@link PageStore} which was used to write.
      * @throws IgniteInternalCheckedException If failed.
      */
+    // TODO: IGNITE-17230 проверить нужно ли возвращать значение
     PageStore write(FullPageId fullPageId, ByteBuffer buf) throws IgniteInternalCheckedException;
 }

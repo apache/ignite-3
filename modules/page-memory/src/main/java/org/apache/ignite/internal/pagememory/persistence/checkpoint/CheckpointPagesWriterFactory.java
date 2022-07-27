@@ -19,7 +19,6 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
@@ -30,7 +29,6 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 
 /**
@@ -90,8 +88,7 @@ public class CheckpointPagesWriterFactory {
      *
      * @param tracker Checkpoint metrics tracker.
      * @param dirtyPageIdQueue Checkpoint dirty page ID queue to write.
-     * @param savedPartitionMetas Partitions for which meta has been saved.
-     * @param updStores Updated page store storage.
+     * @param updatedPartitions Updated partitions.
      * @param doneWriteFut Write done future.
      * @param beforePageWrite Before page write callback.
      * @param checkpointProgress Current checkpoint data.
@@ -100,8 +97,7 @@ public class CheckpointPagesWriterFactory {
     CheckpointPagesWriter build(
             CheckpointMetricsTracker tracker,
             IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPageIdQueue,
-            Set<GroupPartitionId> savedPartitionMetas,
-            ConcurrentMap<PageStore, LongAdder> updStores,
+            ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions,
             CompletableFuture<?> doneWriteFut,
             Runnable beforePageWrite,
             CheckpointProgressImpl checkpointProgress,
@@ -112,8 +108,7 @@ public class CheckpointPagesWriterFactory {
                 log,
                 tracker,
                 dirtyPageIdQueue,
-                savedPartitionMetas,
-                updStores,
+                updatedPartitions,
                 doneWriteFut,
                 beforePageWrite,
                 threadBuf,

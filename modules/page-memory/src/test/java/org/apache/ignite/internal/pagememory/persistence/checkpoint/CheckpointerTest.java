@@ -43,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -54,6 +55,7 @@ import static org.mockito.Mockito.when;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -68,6 +70,8 @@ import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.AfterAll;
@@ -110,6 +114,7 @@ public class CheckpointerTest {
                 null,
                 createCheckpointWorkflow(EMPTY),
                 createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
+                mock(FilePageStoreManager.class),
                 checkpointConfig
         );
 
@@ -141,6 +146,7 @@ public class CheckpointerTest {
                 null,
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
+                mock(FilePageStoreManager.class),
                 checkpointConfig
         ));
 
@@ -239,6 +245,7 @@ public class CheckpointerTest {
                 null,
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
+                mock(FilePageStoreManager.class),
                 checkpointConfig
         );
 
@@ -266,6 +273,7 @@ public class CheckpointerTest {
                 null,
                 createCheckpointWorkflow(EMPTY),
                 createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
+                mock(FilePageStoreManager.class),
                 checkpointConfig
         ));
 
@@ -346,6 +354,7 @@ public class CheckpointerTest {
                 null,
                 createCheckpointWorkflow(dirtyPages),
                 createCheckpointPagesWriterFactory(partitionMetaManager),
+                createFilePageStoreManager(Map.of(new GroupPartitionId(0, 0), mock(FilePageStore.class))),
                 checkpointConfig
         ));
 
@@ -366,6 +375,7 @@ public class CheckpointerTest {
                 null,
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
+                mock(FilePageStoreManager.class),
                 checkpointConfig
         );
 
@@ -441,6 +451,15 @@ public class CheckpointerTest {
                 partitionMetaManager,
                 PAGE_SIZE
         );
+    }
+
+    private static FilePageStoreManager createFilePageStoreManager(Map<GroupPartitionId, FilePageStore> pageStores) throws Exception {
+        FilePageStoreManager manager = mock(FilePageStoreManager.class);
+
+        when(manager.getStore(anyInt(), anyInt()))
+                .then(answer -> pageStores.get(new GroupPartitionId(answer.getArgument(0), answer.getArgument(1))));
+
+        return manager;
     }
 
     private static FullPageId fullPageId(int grpId, int partId, int pageIdx) {
