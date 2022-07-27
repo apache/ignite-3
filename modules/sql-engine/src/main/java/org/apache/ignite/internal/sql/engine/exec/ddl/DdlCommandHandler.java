@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.schemas.table.ColumnChange;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultChange;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultChange;
@@ -63,7 +64,6 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
 
@@ -123,39 +123,7 @@ public class DdlCommandHandler {
         Consumer<TableChange> tblChanger = tableChange -> {
             tableChange.changeColumns(columnsChange -> {
                 for (var col : cmd.columns()) {
-                    columnsChange.create(col.name(), columnChange -> {
-                        var columnType = IgniteTypeFactory.relDataTypeToColumnType(col.type());
-
-                        columnChange.changeType(columnTypeChange -> convert(columnType, columnTypeChange));
-                        columnChange.changeNullable(col.nullable());
-                        columnChange.changeDefaultValueProvider(defaultChange -> {
-                            switch (col.defaultValueDefinition().type()) {
-                                case CONSTANT:
-                                    ConstantValue constantValue = col.defaultValueDefinition();
-
-                                    var val = constantValue.value();
-
-                                    if (val != null) {
-                                        defaultChange.convert(ConstantValueDefaultChange.class)
-                                                .changeDefaultValue(convertDefaultToConfiguration(val, columnType));
-                                    } else {
-                                        defaultChange.convert(NullValueDefaultChange.class);
-                                    }
-
-                                    break;
-                                case FUNCTION_CALL:
-                                    FunctionCall functionCall = col.defaultValueDefinition();
-
-                                    defaultChange.convert(FunctionCallDefaultChange.class)
-                                            .changeFunctionName(functionCall.functionName());
-
-                                    break;
-                                default:
-                                    throw new IllegalStateException("Unknown default value definition type [type="
-                                            + col.defaultValueDefinition().type() + ']');
-                            }
-                        });
-                    });
+                    columnsChange.create(col.name(), columnChange -> convertColumnDefinition(col, columnChange));
                 }
             });
 
@@ -327,7 +295,9 @@ public class DdlCommandHandler {
                     List<ColumnDefinition> colsDef0;
 
                     if (!colNotExist) {
-                        colsDef.stream().filter(k -> colNamesToOrders.containsKey(k.name())).findAny()
+                        colsDef.stream()
+                                .filter(k -> colNamesToOrders.containsKey(k.name()))
+                                .findAny()
                                 .ifPresent(c -> {
                                     throw new ColumnAlreadyExistsException(c.name());
                                 });
@@ -346,18 +316,45 @@ public class DdlCommandHandler {
                     }
 
                     for (ColumnDefinition col : colsDef0) {
-                        ColumnDefinitionBuilder col0 = SchemaBuilders.column(
-                                        IgniteObjectName.quote(col.name()),
-                                        IgniteTypeFactory.relDataTypeToColumnType(col.type())
-                                )
-                                .asNullable(col.nullable())
-                                .withDefaultValue(col.defaultValueDefinition());
-
-                        cols.create(col.name(), colChg -> convert(col0.build(), colChg));
+                        cols.create(col.name(), colChg -> convertColumnDefinition(col, colChg));
                     }
                 }));
 
         return ret.get();
+    }
+
+    private void convertColumnDefinition(ColumnDefinition definition, ColumnChange columnChange) {
+        var columnType = IgniteTypeFactory.relDataTypeToColumnType(definition.type());
+
+        columnChange.changeType(columnTypeChange -> convert(columnType, columnTypeChange));
+        columnChange.changeNullable(definition.nullable());
+        columnChange.changeDefaultValueProvider(defaultChange -> {
+            switch (definition.defaultValueDefinition().type()) {
+                case CONSTANT:
+                    ConstantValue constantValue = definition.defaultValueDefinition();
+
+                    var val = constantValue.value();
+
+                    if (val != null) {
+                        defaultChange.convert(ConstantValueDefaultChange.class)
+                                .changeDefaultValue(convertDefaultToConfiguration(val, columnType));
+                    } else {
+                        defaultChange.convert(NullValueDefaultChange.class);
+                    }
+
+                    break;
+                case FUNCTION_CALL:
+                    FunctionCall functionCall = definition.defaultValueDefinition();
+
+                    defaultChange.convert(FunctionCallDefaultChange.class)
+                            .changeFunctionName(functionCall.functionName());
+
+                    break;
+                default:
+                    throw new IllegalStateException("Unknown default value definition type [type="
+                            + definition.defaultValueDefinition().type() + ']');
+            }
+        });
     }
 
     /**
