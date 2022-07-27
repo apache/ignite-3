@@ -139,7 +139,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 Integer.MAX_VALUE, "hello " + Integer.MAX_VALUE).join();
         });
 
-        assertThrows(SqlException.class, () -> {
+        assertThrows(IgniteException.class, () -> {
             ses.execute(tx0, "INSERT INTO testExecuteDdlDml VALUES (?, ?)",
                     Integer.MAX_VALUE, "hello " + Integer.MAX_VALUE);
         });
