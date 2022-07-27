@@ -15,35 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.session;
+package org.apache.ignite.configuration.schemas.table;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.configuration.schemas.table.ColumnDefaultConfigurationSchema.NULL_VALUE_TYPE;
 
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
 /**
- * Exception is thrown when someone try to perform action on behalf of a session that has already expired or never exists.
+ * Configuration of a value provider that returns null.
  */
-public class SessionNotFound extends SqlException {
-    private final SessionId sessionId;
-
-    /**
-     * Constructor.
-     *
-     * @param sessionId A session id.
-     */
-    public SessionNotFound(SessionId sessionId) {
-        super(format("Session not found [{}]", sessionId));
-
-        this.sessionId = sessionId;
-    }
-
-    /**
-     * Returns a sessionId of session which was not found.
-     *
-     * @return A session id.
-     */
-    public SessionId sessionId() {
-        return sessionId;
-    }
+@PolymorphicConfigInstance(NULL_VALUE_TYPE)
+public class NullValueDefaultConfigurationSchema extends ColumnDefaultConfigurationSchema {
 }

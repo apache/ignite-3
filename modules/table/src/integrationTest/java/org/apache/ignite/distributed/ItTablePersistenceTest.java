@@ -39,7 +39,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -113,7 +113,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 NetworkAddress::toString,
                 addressToNode,
                 txManager,
-                mock(TableStorage.class)
+                mock(MvTableStorage.class)
         );
 
         table.upsert(FIRST_VALUE, null).get();
@@ -136,7 +136,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 NetworkAddress::toString,
                 addressToNode,
                 txManager,
-                mock(TableStorage.class)
+                mock(MvTableStorage.class)
         );
 
         // Remove the first key
@@ -165,7 +165,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 NetworkAddress::toString,
                 addressToNode,
                 txManager,
-                mock(TableStorage.class)
+                mock(MvTableStorage.class)
         );
 
         table.upsert(SECOND_VALUE, null).get();

@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.binary.BinaryObjects;
 import org.apache.ignite.internal.schema.Column;
@@ -55,7 +56,7 @@ public class Example {
         TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager());
 
         return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(new VersionedRowStore(
-                new TestMvPartitionStorage(List.of(), 0), txManager), txManager), null));
+                new TestMvPartitionStorage(List.of(), 0), txManager), txManager, new AtomicLong()), null));
     }
 
     /**

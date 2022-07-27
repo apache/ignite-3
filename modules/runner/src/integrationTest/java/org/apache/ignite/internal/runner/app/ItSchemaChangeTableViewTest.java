@@ -93,7 +93,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         );
 
         addColumn(grid, SchemaBuilders.column("valStrNew", ColumnType.string())
-                .asNullable(true).withDefaultValueExpression("default").build());
+                .asNullable(true).withDefaultValue("default").build());
 
         // Check old row conversion.
         Tuple keyTuple1 = Tuple.create().set("key", 1L);
@@ -172,7 +172,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
 
         renameColumn(grid, "valInt", "val2");
         addColumn(grid, SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true)
-                .withDefaultValueExpression(-1).build());
+                .withDefaultValue(-1).build());
 
         // Check old row conversion.
         Tuple keyTuple1 = Tuple.create().set("key", 1L);
@@ -204,7 +204,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         createTable(grid);
 
         final ColumnDefinition column = SchemaBuilders.column("val", ColumnType.string()).asNullable(true)
-                .withDefaultValueExpression("default")
+                .withDefaultValue("default")
                 .build();
 
         RecordView<Tuple> tbl = grid.get(0).tables().table(TABLE).recordView();
@@ -237,7 +237,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
                 )
         );
 
-        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValueExpression("default").build());
+        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValue("default").build());
 
         tbl.insert(null, Tuple.create().set("key", 5L).set("valInt", 555));
 
@@ -284,7 +284,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
         tbl.insert(null, Tuple.create().set("key", 1L).set("valInt", 111));
 
         changeDefault(grid, colName, (Supplier<Object> & Serializable) () -> "newDefault");
-        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValueExpression("newDefault").build());
+        addColumn(grid, SchemaBuilders.column("val", ColumnType.string()).withDefaultValue("newDefault").build());
 
         tbl.insert(null, Tuple.create().set("key", 2L).set("valInt", 222));
 

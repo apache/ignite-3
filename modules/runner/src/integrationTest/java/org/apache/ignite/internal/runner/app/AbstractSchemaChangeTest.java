@@ -34,6 +34,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.schemas.table.ColumnChange;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultChange;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteObjectName;
@@ -200,7 +201,7 @@ abstract class AbstractSchemaChangeTest {
                 SchemaBuilders.column("valBlob", ColumnType.blob()).asNullable(true).build(),
                 SchemaBuilders.column("valDecimal", ColumnType.decimal()).asNullable(true).build(),
                 SchemaBuilders.column("valBigInt", ColumnType.number()).asNullable(true).build(),
-                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValueExpression("default").build()
+                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
         ).withPrimaryKey("key").build();
 
         nodes.get(0).tables().createTable(
@@ -261,7 +262,8 @@ abstract class AbstractSchemaChangeTest {
                         colListChanger -> colListChanger
                                 .update(
                                         IgniteObjectName.parse(colName),
-                                        colChanger -> colChanger.changeDefaultValue(defSup.get().toString())
+                                        colChanger -> colChanger.changeDefaultValueProvider(colDefChange -> colDefChange.convert(
+                                                ConstantValueDefaultChange.class).changeDefaultValue(defSup.get().toString()))
                                 )
                 )
         );

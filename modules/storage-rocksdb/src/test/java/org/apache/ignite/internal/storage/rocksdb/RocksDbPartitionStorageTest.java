@@ -26,7 +26,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.file.Path;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -63,7 +66,10 @@ public class RocksDbPartitionStorageTest extends AbstractPartitionStorageTest {
                     polymorphicExtensions = {
                             HashIndexConfigurationSchema.class,
                             UnknownDataStorageConfigurationSchema.class,
-                            RocksDbDataStorageConfigurationSchema.class
+                            RocksDbDataStorageConfigurationSchema.class,
+                            ConstantValueDefaultConfigurationSchema.class,
+                            FunctionCallDefaultConfigurationSchema.class,
+                            NullValueDefaultConfigurationSchema.class,
                     }
             ) TableConfiguration tableCfg
     ) throws Exception {

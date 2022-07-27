@@ -27,11 +27,12 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.command.GetAllCommand;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -66,10 +67,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param store The store.
      * @param txManager Transaction manager.
      */
-    public DummyInternalTableImpl(VersionedRowStore store, TxManager txManager) {
+    public DummyInternalTableImpl(VersionedRowStore store, TxManager txManager, AtomicLong raftIndex) {
         super("test", UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
-                1, null, null, txManager, mock(TableStorage.class));
+                1, null, null, txManager, mock(MvTableStorage.class));
 
         RaftGroupService svc = partitionMap.get(0);
 
@@ -81,7 +82,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 invocationClose -> {
                     Command cmd = invocationClose.getArgument(0);
 
-                    CompletableFuture res = new CompletableFuture();
+                    long commandIndex = raftIndex.incrementAndGet();
+
+                    CompletableFuture<Serializable> res = new CompletableFuture<>();
 
                     CompletableFuture<Void> fut = partitionListener.onBeforeApply(cmd);
 
@@ -109,11 +112,19 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                     }
                                 } else {
                                     CommandClosure<WriteCommand> clo = new CommandClosure<>() {
+                                        /** {@inheritDoc} */
+                                        @Override
+                                        public long index() {
+                                            return commandIndex;
+                                        }
+
+                                        /** {@inheritDoc} */
                                         @Override
                                         public WriteCommand command() {
                                             return (WriteCommand) cmd;
                                         }
 
+                                        /** {@inheritDoc} */
                                         @Override
                                         public void result(@Nullable Serializable r) {
                                             res.complete(r);

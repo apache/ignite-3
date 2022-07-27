@@ -27,7 +27,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.rest.api.Problem;
@@ -45,14 +44,12 @@ public interface ClusterManagementApi {
      */
     @Get("state")
     @Operation(operationId = "clusterState")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Return cluster state",
-                    content = @Content(mediaType = MediaType.APPLICATION_JSON,
-                            schema = @Schema(implementation = ClusterStateDto.class))),
-            @ApiResponse(responseCode = "404", description = "Cluster state not found, it means that the cluster is not initialized"),
-            @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    })
+    @ApiResponse(responseCode = "200", description = "Return cluster state",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON,
+                    schema = @Schema(implementation = ClusterStateDto.class)))
+    @ApiResponse(responseCode = "404", description = "Cluster state not found, it means that the cluster is not initialized")
+    @ApiResponse(responseCode = "500", description = "Internal error",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces({
             MediaType.APPLICATION_JSON,
             MediaType.PROBLEM_JSON
@@ -66,14 +63,11 @@ public interface ClusterManagementApi {
      */
     @Post("init")
     @Operation(operationId = "init")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Cluster initialized"),
-            @ApiResponse(responseCode = "500", description = "Internal error",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class))),
-            @ApiResponse(responseCode = "400", description = "Incorrect configuration",
-                    content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-
-    })
+    @ApiResponse(responseCode = "200", description = "Cluster initialized")
+    @ApiResponse(responseCode = "500", description = "Internal error",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "400", description = "Incorrect configuration",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.APPLICATION_JSON)
     CompletableFuture<Void> init(@Body InitCommand initCommand);
 }

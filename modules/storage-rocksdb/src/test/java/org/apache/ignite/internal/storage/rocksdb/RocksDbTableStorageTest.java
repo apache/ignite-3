@@ -36,7 +36,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -78,7 +81,10 @@ public class RocksDbTableStorageTest {
                     polymorphicExtensions = {
                             HashIndexConfigurationSchema.class,
                             UnknownDataStorageConfigurationSchema.class,
-                            RocksDbDataStorageConfigurationSchema.class
+                            RocksDbDataStorageConfigurationSchema.class,
+                            ConstantValueDefaultConfigurationSchema.class,
+                            FunctionCallDefaultConfigurationSchema.class,
+                            NullValueDefaultConfigurationSchema.class,
                     }
             ) TableConfiguration tableCfg
     ) throws Exception {

@@ -17,10 +17,27 @@
 
 package org.apache.ignite.cli.call;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.cli.IntegrationTestBase;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInfo;
 
 /**
- * Base class for call integration tests. Contains common methods and useful assertions.
+ * Base class for call integration tests that needs initialized ignite cluster. Contains common methods and useful assertions.
  */
-public class CallIntegrationTestBase extends IntegrationTestBase {
+public class CallInitializedIntegrationTestBase extends IntegrationTestBase {
+    @BeforeAll
+    void beforeAll(TestInfo testInfo) throws ExecutionException, InterruptedException {
+        startNodes(testInfo);
+        String metaStorageNodeName = testNodeName(testInfo, 0);
+        initializeCluster(metaStorageNodeName);
+    }
+
+    @AfterAll
+    void afterAll(TestInfo testInfo) throws Exception {
+        stopNodes(testInfo);
+    }
 }

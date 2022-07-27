@@ -43,10 +43,10 @@ public interface ColumnDefinition {
     boolean nullable();
 
     /**
-     * Returns column default value expression.
+     * Returns default value definition.
      *
-     * @return Default column value expression.
+     * @param <T> Desired subtype of the definition.
+     * @return Default value definition.
      */
-    //TODO: IGNITE-14479: Rename to defaultValueExpr or allow constants? How to distinct expression from string constant???
-    Object defaultValue();
+    <T extends DefaultValueDefinition> T defaultValueDefinition();
 }

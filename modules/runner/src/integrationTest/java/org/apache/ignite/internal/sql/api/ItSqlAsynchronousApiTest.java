@@ -331,7 +331,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         // Parse error.
         {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT ID FROM");
-            assertThrowsWithCause(f::get, IgniteInternalException.class, "Failed to parse query");
+            assertThrowsWithCause(f::get, SqlException.class, "Failed to parse query");
         }
 
         // Multiple statements error.
@@ -349,7 +349,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         // Execute error.
         {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1 / ?", 0);
-            assertThrowsWithCause(f::get, ArithmeticException.class, "/ by zero");
+            assertThrowsWithCause(f::get, IgniteException.class, "/ by zero");
         }
     }
 

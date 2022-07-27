@@ -32,6 +32,10 @@ import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.DecimalNativeType;
+import org.apache.ignite.internal.schema.DefaultValueGenerator;
+import org.apache.ignite.internal.schema.DefaultValueProvider;
+import org.apache.ignite.internal.schema.DefaultValueProvider.FunctionalValueProvider;
+import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -202,12 +206,27 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
      * @return Column size in bytes.
      */
     private int getColumnSize(Column col) {
-        return INT                       //Schema index
-                + INT                       //Column order
-                + BYTE                          //nullable flag
+        var size = INT // schema index
+                + INT // column order
+                + BYTE // nullable flag
                 + getStringSize(col.name())
                 + getNativeTypeSize(col.type())
-                + BYTE + getDefaultObjectSize(col.type().spec(), col.defaultValue());
+                + BYTE; // value provider type
+
+        switch (col.defaultValueProvider().type()) {
+            case CONSTANT:
+                size += BYTE /* value presence flag */ + getDefaultObjectSize(col.type().spec(), col.defaultValue());
+
+                break;
+            case FUNCTIONAL:
+                size += getStringSize(((FunctionalValueProvider) col.defaultValueProvider()).name());
+
+                break;
+            default:
+                throw new IllegalStateException("Unknown value provider type [type=" + col.defaultValueProvider().type() + ']');
+        }
+
+        return size;
     }
 
     /**
@@ -384,7 +403,23 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
         appendString(col.name(), buf);
         appendNativeType(buf, col.type());
 
-        appendDefaultValue(buf, col.type(), col.defaultValue());
+        var valueProvider = col.defaultValueProvider();
+
+        buf.put(valueProvider.type().id());
+        switch (valueProvider.type()) {
+            case CONSTANT:
+                appendDefaultValue(buf, col.type(), col.defaultValue());
+
+                break;
+            case FUNCTIONAL:
+                assert valueProvider instanceof FunctionalValueProvider;
+
+                appendString(((FunctionalValueProvider) valueProvider).name(), buf);
+
+                break;
+            default:
+                throw new IllegalStateException("Unknown provider type: " + valueProvider.type());
+        }
     }
 
     /**
@@ -669,9 +704,27 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
 
         NativeType nativeType = fromByteBuffer(buf);
 
-        Object object = readDefaultValue(buf, nativeType);
+        var typeId = buf.get();
 
-        return new Column(columnOrder, name, nativeType, nullable, () -> object).copy(schemaIdx);
+        Type type = DefaultValueProvider.Type.byId(typeId);
+
+        if (type == null) {
+            throw new IllegalStateException("Unknown default supplier type id: " + typeId);
+        }
+
+        switch (type) {
+            case CONSTANT:
+                Object object = readDefaultValue(buf, nativeType);
+
+                return new Column(columnOrder, name, nativeType, nullable, DefaultValueProvider.constantProvider(object)).copy(schemaIdx);
+            case FUNCTIONAL:
+                String generatorName = readString(buf);
+
+                return new Column(columnOrder, name, nativeType, nullable,
+                        DefaultValueProvider.forValueGenerator(DefaultValueGenerator.valueOf(generatorName))).copy(schemaIdx);
+            default:
+                throw new IllegalStateException("Unknown default supplier type: " + type);
+        }
     }
 
     /**

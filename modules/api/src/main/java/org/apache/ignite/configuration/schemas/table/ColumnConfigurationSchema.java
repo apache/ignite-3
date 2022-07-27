@@ -43,6 +43,6 @@ public class ColumnConfigurationSchema {
     public boolean nullable;
 
     /** Default value. */
-    @Value(hasDefault = true)
-    public String defaultValue = "";
+    @ConfigValue
+    public ColumnDefaultConfigurationSchema defaultValueProvider;
 }

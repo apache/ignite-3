@@ -15,26 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.topology;
+package org.apache.ignite.cli.commands.cluster.topology;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.apache.ignite.cli.commands.CliCommandTestIntegrationBase;
-import org.junit.jupiter.api.Disabled;
+import org.apache.ignite.cli.commands.CliCommandTestNotInitializedIntegrationBase;
+import org.apache.ignite.cli.commands.topology.TopologyCommand;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link TopologyCommand}.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-17092")
-class ItTopologyCommandTest extends CliCommandTestIntegrationBase {
+class ItTopologyCommandNotInitializedClusterTest extends CliCommandTestNotInitializedIntegrationBase {
 
     @Test
-    @DisplayName("Should print topology when valid cluster url is provided")
-    void printTopology() {
+    @DisplayName("Should print physical topology when valid cluster url is provided")
+    void printPhysicalTopology() {
         // When
-        execute("topology", "--cluster-url", NODE_URL);
+        execute("cluster", "topology", "physical", "--cluster-url", NODE_URL);
 
         // Then
         assertAll(
@@ -42,9 +41,20 @@ class ItTopologyCommandTest extends CliCommandTestIntegrationBase {
                 this::assertErrOutputIsEmpty,
                 this::assertOutputIsNotEmpty
         );
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17092
-        //consistent ID, ID, address, status
-        //node 1, e2d4988a-b836-4e7e-a888-2639e6f79ef0, 127.0.0.1, RUNNING
-        //node 2, 5cb561fc-1963-4f95-98f8-deb407669a86, 127.0.0.2, RECOVERY
+    }
+
+    @Test
+    @DisplayName("Should not print logical topology when valid cluster url is provided but cluster is not initialized")
+    void printLogicalTopology() {
+        // When
+        execute("cluster", "topology", "logical", "--cluster-url", NODE_URL);
+
+        // Then prints nothing
+        assertAll(
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains(
+                        "Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster"
+                )
+        );
     }
 }

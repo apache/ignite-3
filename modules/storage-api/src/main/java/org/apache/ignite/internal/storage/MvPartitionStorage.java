@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -30,6 +31,21 @@ import org.jetbrains.annotations.Nullable;
  * <p>Each MvPartitionStorage instance represents exactly one partition.
  */
 public interface MvPartitionStorage extends AutoCloseable {
+    /**
+     * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
+     */
+    long lastAppliedIndex();
+
+    /**
+     * Sets the last applied index value.
+     */
+    void lastAppliedIndex(long lastAppliedIndex) throws StorageException;
+
+    /**
+     * {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
+     */
+    long persistedIndex();
+
     /**
      * Reads either the committed value from the storage or the uncommitted value belonging to given transaction.
      *
@@ -118,4 +134,25 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @throws StorageException If failed to read data from the storage.
      */
     Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, Timestamp timestamp) throws StorageException;
+
+    /**
+     * Returns rows count belongs to current storage.
+     *
+     * @return Rows count.
+     * @throws StorageException If failed to obtain size.
+     * @deprecated It's not yet defined what a "count" is. This value is not easily defined for multiversioned storages.
+     *      TODO IGNITE-16769 Implement correct PartitionStorage rows count calculation.
+     */
+    @Deprecated
+    long rowsCount() throws StorageException;
+
+    /**
+     * Iterates over all versions of all entries, except for tombstones.
+     *
+     * @param consumer Closure to process entries.
+     * @deprecated This method was bord out of desperation and isn't well-designed. Implementation is not polished either. Currently, it's
+     *      only usage is to work-around in-memory PK index rebuild on node restart, which shouldn't even exist in the first place.
+     */
+    @Deprecated
+    void forEach(BiConsumer<RowId, BinaryRow> consumer);
 }

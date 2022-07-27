@@ -20,7 +20,6 @@ package org.apache.ignite.internal.client;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.lang.IgniteException;
 
@@ -41,26 +40,10 @@ public class ClientUtils {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-            throw convertException(e);
+            throw IgniteException.wrap(e);
         } catch (ExecutionException e) {
-            throw convertException(e.getCause());
+            throw IgniteException.wrap(e);
         }
-    }
-
-    /**
-     * Converts an internal exception to a public one.
-     *
-     * @param e Internal exception.
-     * @return Public exception.
-     */
-    public static IgniteException convertException(Throwable e) {
-        if (e instanceof IgniteException) {
-            // TODO: IGNITE-17135 Fix stack trace loss
-            return (IgniteException) e;
-        }
-
-        //TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
-        return new IgniteClientException(e.getMessage(), e);
     }
 
     /**
