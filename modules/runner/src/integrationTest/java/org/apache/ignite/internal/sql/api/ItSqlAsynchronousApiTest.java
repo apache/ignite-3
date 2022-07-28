@@ -485,13 +485,13 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         // Execute error.
         {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1 / ?", 0);
-            assertThrowsWithCause(f::get, SqlException.class, "/ by zero");
+            assertThrowsWithCause(f::get, IgniteException.class, "/ by zero");
         }
 
         // No result set error.
         {
             AsyncResultSet ars = ses.executeAsync(null, "CREATE TABLE TEST (ID INT PRIMARY KEY)").join();
-            assertThrowsWithCause(ars::fetchNextPage, SqlException.class, "Table without PRIMARY KEY is not supported");
+            assertThrowsWithCause(() -> ars.fetchNextPage().toCompletableFuture().get(), SqlException.class, "There are no more pages.");
         }
 
         // Cursor closed error.
