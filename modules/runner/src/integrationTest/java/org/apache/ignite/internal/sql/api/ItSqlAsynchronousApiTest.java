@@ -462,6 +462,11 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void errors() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
 
@@ -479,7 +484,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         // Planning error.
         {
-            CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "CREATE TABLE TEST (VAL INT)");
+            CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "CREATE TABLE TEST2 (VAL INT)");
             assertThrowsWithCause(f::get, SqlException.class, "Table without PRIMARY KEY is not supported");
         }
 
@@ -491,17 +496,13 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         // No result set error.
         {
-            AsyncResultSet ars = ses.executeAsync(null, "CREATE TABLE TEST (ID INT PRIMARY KEY)").join();
+            AsyncResultSet ars = ses.executeAsync(null, "CREATE TABLE TEST3 (ID INT PRIMARY KEY)").join();
             assertThrowsWithCause(() -> ars.fetchNextPage().toCompletableFuture().get(), NoRowSetExpectedException.class,
                     "Query has no result set");
         }
 
         // Cursor closed error.
         {
-            for (int i = 0; i < ROW_COUNT; ++i) {
-                sql("INSERT INTO TEST VALUES (?)", i);
-            }
-
             AsyncResultSet ars = ses.executeAsync(null, "SELECT * FROM TEST").join();
             ars.closeAsync().toCompletableFuture().join();
             assertThrowsWithCause(() -> ars.fetchNextPage().toCompletableFuture().get(), NoRowSetExpectedException.class,
