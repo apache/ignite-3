@@ -65,6 +65,7 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlBatchException;
@@ -491,7 +492,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         // No result set error.
         {
             AsyncResultSet ars = ses.executeAsync(null, "CREATE TABLE TEST (ID INT PRIMARY KEY)").join();
-            assertThrowsWithCause(() -> ars.fetchNextPage().toCompletableFuture().get(), SqlException.class, "There are no more pages.");
+            assertThrowsWithCause(() -> ars.fetchNextPage().toCompletableFuture().get(), NoRowSetExpectedException.class, "There are no more pages.");
         }
 
         // Cursor closed error.
