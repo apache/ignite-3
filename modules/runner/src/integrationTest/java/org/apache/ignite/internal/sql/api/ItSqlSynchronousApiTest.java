@@ -213,7 +213,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void errors() {
+    public void errors() throws InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
@@ -259,6 +259,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         // Cursor closed error.
         {
             ResultSet rs = ses.execute(null, "SELECT * FROM TEST");
+            Thread.sleep(300); // ResultSetImpl fetches next page in background, wait to it to complete to avoid flakiness.
             rs.close();
             assertThrowsWithCause(() -> rs.forEachRemaining(Object::hashCode), CursorClosedException.class);
         }
