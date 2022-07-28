@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_CLOSED_ERR;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
@@ -30,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
+import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -166,7 +165,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
         synchronized (lock) {
             if (closed) {
-                next.completeExceptionally(new SqlException(CURSOR_CLOSED_ERR));
+                next.completeExceptionally(new CursorClosedException());
 
                 return next;
             }
