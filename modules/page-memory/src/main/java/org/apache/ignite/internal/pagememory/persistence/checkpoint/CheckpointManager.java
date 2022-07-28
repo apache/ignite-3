@@ -210,10 +210,10 @@ public class CheckpointManager {
     }
 
     /**
-     * Returns progress of current checkpoint, last finished one or {@code null}, if checkpoint has never started.
+     * Returns the progress of the last checkpoint, or the current checkpoint if in progress, {@code null} if no checkpoint has occurred.
      */
-    public @Nullable CheckpointProgress currentProgress() {
-        return checkpointer.currentProgress();
+    public @Nullable CheckpointProgress lastCheckpointProgress() {
+        return checkpointer.lastCheckpointProgress();
     }
 
     /**

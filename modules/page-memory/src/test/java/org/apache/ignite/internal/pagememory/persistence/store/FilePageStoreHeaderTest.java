@@ -60,7 +60,7 @@ public class FilePageStoreHeaderTest {
         ByteBuffer header = new FilePageStoreHeader(VERSION_1, 512).toByteBuffer();
 
         // Checks that the buffer size should be equal to the page size (header size).
-        assertEquals(512, header.remaining());
+        assertEquals(512, header.rewind().remaining());
 
         // Checks the file page store signature.
         assertEquals(0xF19AC4FE60C530B8L, header.getLong());
@@ -83,7 +83,7 @@ public class FilePageStoreHeaderTest {
 
             ByteBuffer headerBuffer = new FilePageStoreHeader(VERSION_1, 256).toByteBuffer();
 
-            fileIo.writeFully(headerBuffer);
+            fileIo.writeFully(headerBuffer.rewind());
 
             fileIo.force();
 

@@ -390,10 +390,10 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
                 GroupPartitionId groupPartitionId = new GroupPartitionId(GRP_ID, i);
 
-                CheckpointProgress currentProgress = checkpointManager.currentProgress();
+                CheckpointProgress lastCheckpointProgress = checkpointManager.lastCheckpointProgress();
 
                 PartitionMeta partitionMeta = partitionMetaManager.readOrCreateMeta(
-                        currentProgress == null ? null : currentProgress.id(),
+                        lastCheckpointProgress == null ? null : lastCheckpointProgress.id(),
                         groupPartitionId,
                         filePageStore
                 );
@@ -403,9 +403,9 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 filePageStore.setPageAllocationListener(pageIdx -> {
                     assert checkpointManager.checkpointTimeoutLock().checkpointLockIsHeldByThread();
 
-                    CheckpointProgress curr = checkpointManager.currentProgress();
+                    CheckpointProgress last = checkpointManager.lastCheckpointProgress();
 
-                    partitionMeta.incrementPageCount(curr == null ? null : curr.id());
+                    partitionMeta.incrementPageCount(last == null ? null : last.id());
                 });
 
                 filePageStore.pages(partitionMeta.pageCount());
