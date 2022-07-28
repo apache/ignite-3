@@ -498,7 +498,14 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         // Cursor closed error.
         {
-            // TODO
+            for (int i = 0; i < ROW_COUNT; ++i) {
+                sql("INSERT INTO TEST VALUES (?)", i);
+            }
+
+            AsyncResultSet ars = ses.executeAsync(null, "SELECT * FROM TEST").join();
+            ars.closeAsync().toCompletableFuture().join();
+            assertThrowsWithCause(() -> ars.fetchNextPage().toCompletableFuture().get(), NoRowSetExpectedException.class,
+                    "Query has no result set");
         }
     }
 
