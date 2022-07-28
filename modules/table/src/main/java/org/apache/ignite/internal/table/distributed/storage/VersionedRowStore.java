@@ -546,6 +546,7 @@ public class VersionedRowStore {
      * @return The cursor.
      */
     public Cursor<BinaryRow> scan(Predicate<BinaryRow> pred) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-17309 Transactional support for partition scans
         Cursor<BinaryRow> delegate = storage.scan(pred, Timestamp.nextVersion());
 
         // TODO asch add tx support IGNITE-15087.

@@ -71,7 +71,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
      * Before each.
      */
     @BeforeAll
-    void beforeAll(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
+    void beforeAll(TestInfo testInfo, @WorkDirectory Path workDir) {
         this.workDir = workDir;
 
         String node0Name = testNodeName(testInfo, 3344);
