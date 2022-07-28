@@ -104,5 +104,8 @@ public class ErrorGroups {
 
         /** Storage engine not valid. */
         public static final int STORAGE_ENGINE_NOT_VALID_ERR = SQL_ERR_GROUP.registerErrorCode(8);
+
+        /** Cursor is already closed error. */
+        public static final int CURSOR_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode(9);
     }
 }

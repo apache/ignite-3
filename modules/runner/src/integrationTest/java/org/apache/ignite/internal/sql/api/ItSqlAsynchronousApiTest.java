@@ -49,7 +49,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
-import org.apache.ignite.internal.sql.engine.ClosedCursorException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -524,12 +523,12 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         ses.closeAsync().get();
 
-        // Fetched page  is available after cancel.
+        // Fetched page is available after cancel.
         ars0.currentPage();
 
         assertThrowsWithCause(
                 () -> ars0.fetchNextPage().toCompletableFuture().get(),
-                ClosedCursorException.class
+                SqlException.class
         );
 
         assertThrowsWithCause(

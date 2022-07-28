@@ -25,6 +25,15 @@ import org.apache.ignite.lang.IgniteException;
  */
 public class SqlException extends IgniteException {
     /**
+     * Creates a new exception with the given error code.
+     *
+     * @param code Full error code.
+     */
+    public SqlException(int code) {
+        super(code);
+    }
+
+    /**
      * Creates a new exception with the given error code and detail message.
      *
      * @param code Full error code.
