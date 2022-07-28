@@ -42,6 +42,7 @@ import org.apache.ignite.internal.sql.engine.util.AbstractQueryContext;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -79,6 +80,9 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     private final AtomicBoolean cancelFlag = new AtomicBoolean();
 
+    /** Transaction. */
+    private InternalTransaction tx;
+
     /**
      * Need to store timestamp, since SQL standard says that functions such as CURRENT_TIMESTAMP return the same value throughout the
      * query.
@@ -96,6 +100,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      * @param fragmentDesc Partitions information.
      * @param handler      Row handler.
      * @param params       Parameters.
+     * @param tx           Transaction.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
@@ -106,7 +111,8 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             String originatingNodeId,
             FragmentDescription fragmentDesc,
             RowHandler<RowT> handler,
-            Map<String, Object> params
+            Map<String, Object> params,
+            InternalTransaction tx
     ) {
         super(qctx);
 
@@ -118,6 +124,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         this.params = params;
         this.locNodeId = locNodeId;
         this.originatingNodeId = originatingNodeId;
+        this.tx = tx;
 
         expressionFactory = new ExpressionFactoryImpl<>(
                 this,
@@ -330,6 +337,11 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     @FunctionalInterface
     public interface RunnableX {
         void run() throws Throwable;
+    }
+
+    /** Transaction for current context. */
+    public InternalTransaction transaction() {
+        return tx;
     }
 
     /**

@@ -19,6 +19,8 @@ package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 
+import java.util.UUID;
+
 /**
  * Exception is thrown when appropriate table can`t be found.
  */
@@ -30,5 +32,17 @@ public class TableNotFoundException extends IgniteException {
      */
     public TableNotFoundException(String name) {
         super(TABLE_NOT_FOUND_ERR, "Table does not exist [name=" + name + ']');
+    }
+
+    /**
+     * Creates a new exception with the given trace id, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public TableNotFoundException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

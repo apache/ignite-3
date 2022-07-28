@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import java.util.Objects;
 import org.apache.calcite.rel.type.RelDataType;
-import org.jetbrains.annotations.Nullable;
 
 /** Defines a particular column within table. */
 public class ColumnDefinition {
@@ -27,13 +26,13 @@ public class ColumnDefinition {
 
     private final RelDataType type;
 
-    private final Object dflt;
+    private final DefaultValueDefinition defaultValueDefinition;
 
     /** Creates a column definition. */
-    public ColumnDefinition(String name, RelDataType type, @Nullable Object dflt) {
+    public ColumnDefinition(String name, RelDataType type, DefaultValueDefinition defaultValueDefinition) {
         this.name = Objects.requireNonNull(name, "name");
         this.type = Objects.requireNonNull(type, "type");
-        this.dflt = dflt;
+        this.defaultValueDefinition = Objects.requireNonNull(defaultValueDefinition, "defaultValueDefinition");
     }
 
     /**
@@ -51,10 +50,14 @@ public class ColumnDefinition {
     }
 
     /**
-     * Get column's default value.
+     * Returns default value definition.
+     *
+     * @param <T> Desired subtype of the definition.
+     * @return Default value definition.
      */
-    public @Nullable Object defaultValue() {
-        return dflt;
+    @SuppressWarnings("unchecked")
+    public <T extends DefaultValueDefinition> T defaultValueDefinition() {
+        return (T) defaultValueDefinition;
     }
 
     /**

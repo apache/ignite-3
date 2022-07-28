@@ -45,8 +45,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
@@ -197,6 +200,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Executor for scheduling retries of a rebalance. */
     private final ScheduledExecutorService rebalanceScheduler;
 
+    /** Separate executor for IO operations like partition storage initialization
+     * or partition raft group meta data persisting.
+     */
+    private final ExecutorService ioExecutor;
+
     /** Rebalance scheduler pool size. */
     private static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
 
@@ -262,6 +270,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                 new NamedThreadFactory("rebalance-scheduler", LOG));
+
+        ioExecutor = new ThreadPoolExecutor(
+                Math.min(Utils.cpus() * 3, 25),
+                Integer.MAX_VALUE,
+                100,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                new NamedThreadFactory("tableManager-io", LOG));
     }
 
     /** {@inheritDoc} */
@@ -480,53 +496,66 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 InternalTable internalTbl = tablesById.get(tblId).internalTable();
 
-                try {
-                    // TODO: IGNITE-17197 Remove assert after the ticket is resolved.
-                    assert internalTbl.storage() instanceof MvTableStorage :
-                            "Only multi version storages are supported. Current storage is a " + internalTbl.storage().getClass().getName();
+                // TODO: IGNITE-17197 Remove assert after the ticket is resolved.
+                assert internalTbl.storage() instanceof MvTableStorage :
+                        "Only multi version storages are supported. Current storage is a " + internalTbl.storage().getClass().getName();
 
-                    // start new nodes, only if it is table creation
-                    // other cases will be covered by rebalance logic
-                    List<ClusterNode> nodes = (oldPartAssignment.isEmpty()) ? newPartAssignment : Collections.emptyList();
+                // start new nodes, only if it is table creation
+                // other cases will be covered by rebalance logic
+                List<ClusterNode> nodes = (oldPartAssignment.isEmpty()) ? newPartAssignment : Collections.emptyList();
 
-                    String grpId = partitionRaftGroupName(tblId, partId);
+                String grpId = partitionRaftGroupName(tblId, partId);
 
-                    if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
-                        MvPartitionStorage partitionStorage = internalTbl.storage().getOrCreateMvPartition(partId);
+                CompletableFuture<Void> startGroupFut = CompletableFuture.completedFuture(null);
 
-                        RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, partitionStorage, newPartAssignment);
+                if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
+                    startGroupFut = CompletableFuture
+                            .supplyAsync(
+                                    () -> internalTbl.storage().getOrCreateMvPartition(partId), ioExecutor)
+                            .thenComposeAsync((partitionStorage) -> {
+                                RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, partitionStorage,
+                                        newPartAssignment);
 
-                        raftMgr.startRaftGroupNode(
-                                grpId,
-                                newPartAssignment,
-                                new PartitionListener(tblId, new VersionedRowStore(partitionStorage, txManager)),
-                                new RebalanceRaftGroupEventsListener(
-                                        metaStorageMgr,
-                                        tablesCfg.tables().get(tablesById.get(tblId).name()),
-                                        grpId,
-                                        partId,
-                                        busyLock,
-                                        movePartition(() -> internalTbl.partitionRaftGroupService(partId)),
-                                        rebalanceScheduler
-                                ),
-                                groupOptions
-                        );
-                    }
+                                try {
+                                    raftMgr.startRaftGroupNode(
+                                            grpId,
+                                            newPartAssignment,
+                                            new PartitionListener(tblId, new VersionedRowStore(partitionStorage, txManager)),
+                                            new RebalanceRaftGroupEventsListener(
+                                                    metaStorageMgr,
+                                                    tablesCfg.tables().get(tablesById.get(tblId).name()),
+                                                    grpId,
+                                                    partId,
+                                                    busyLock,
+                                                    movePartition(() -> internalTbl.partitionRaftGroupService(partId)),
+                                                    rebalanceScheduler
+                                            ),
+                                            groupOptions
+                                    );
 
-                    futures[partId] = raftMgr.startRaftGroupService(
-                            grpId,
-                            newPartAssignment
-                    ).thenAccept(
-                            updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
-                                    .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
-                    ).exceptionally(th -> {
-                        LOG.warn("Unable to update raft groups on the node", th);
-
-                        return null;
-                    });
-                } catch (NodeStoppingException ex) {
-                    throw new AssertionError("Loza was stopped before Table manager", ex);
+                                    return CompletableFuture.completedFuture(null);
+                                } catch (NodeStoppingException ex) {
+                                    return CompletableFuture.failedFuture(ex);
+                                }
+                            }, ioExecutor);
                 }
+
+                futures[partId] = startGroupFut
+                        .thenComposeAsync((v) -> {
+                            try {
+                                return raftMgr.startRaftGroupService(grpId, newPartAssignment);
+                            } catch (NodeStoppingException ex) {
+                                return CompletableFuture.failedFuture(ex);
+                            }
+                        }, ioExecutor)
+                        .thenAccept(
+                                updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
+                                        .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
+                        ).exceptionally(th -> {
+                            LOG.warn("Unable to update raft groups on the node", th);
+
+                            return null;
+                        });
 
                 return completedFuture(tablesById);
             });
@@ -585,6 +614,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);
     }
 
     /**

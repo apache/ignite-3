@@ -22,16 +22,24 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.cause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.Streams;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
@@ -60,7 +68,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
     /**
      * Clear tables after each test.
      *
-     * @param testInfo Test information oject.
+     * @param testInfo Test information object.
      * @throws Exception If failed.
      */
     @AfterEach
@@ -159,9 +167,19 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
 
+        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
+
+        int txPrevCnt = txManagerInternal.finished();
+
         for (int i = 0; i < ROW_COUNT; ++i) {
             checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", i, i);
         }
+
+        assertEquals(ROW_COUNT, txManagerInternal.finished() - txPrevCnt);
+
+        var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
+
+        states.forEach((k, v) -> assertNotSame(v, TxState.PENDING));
 
         checkDml(ROW_COUNT, ses, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
@@ -183,6 +201,8 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
 
         Set<Integer> set = Streams.stream(rs).map(r -> r.intValue(0)).collect(Collectors.toSet());
 
+        rs.close();
+
         for (int i = 0; i < ROW_COUNT; ++i) {
             assertTrue(set.remove(i), "Results invalid: " + rs);
         }
@@ -198,7 +218,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         // Parse error.
         assertThrowsWithCause(
                 () -> ses.execute(null, "SELECT ID FROM"),
-                IgniteInternalException.class,
+                SqlException.class,
                 "Failed to parse query"
         );
 
@@ -212,14 +232,14 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         // Planning error.
         assertThrowsWithCause(
                 () -> ses.execute(null, "CREATE TABLE TEST (VAL INT)"),
-                IgniteException.class,
+                SqlException.class,
                 "Table without PRIMARY KEY is not supported"
         );
 
         // Execute error.
         assertThrowsWithCause(
                 () -> ses.execute(null, "SELECT 1 / ?", 0),
-                ArithmeticException.class,
+                IgniteException.class,
                 "/ by zero"
         );
     }
@@ -306,7 +326,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         assertThrowsWithCause(() -> ses.execute(null, sql), expectedException, msg);
     }
 
-    private static void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args) {
+    protected static void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args) {
         ResultSet res = ses.execute(
                 null,
                 sql,

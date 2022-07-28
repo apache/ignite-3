@@ -69,6 +69,35 @@ public class SqlDdlParserTest {
     }
 
     /**
+     * Parsing of CREATE TABLE with function identifier as a default expression.
+     */
+    @Test
+    public void createTableAutogenFuncDefault() throws SqlParseException {
+        String query = "create table my_table(id varchar default gen_random_uuid primary key, val varchar)";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
+        assertThat(createTable.columnList(), hasItem(ofTypeMatching(
+                "Column with function's identifier as default",
+                SqlColumnDeclaration.class,
+                col -> "ID".equals(col.name.getSimple())
+                        && col.expression instanceof SqlIdentifier
+                        && "GEN_RANDOM_UUID".equals(((SqlIdentifier) col.expression).getSimple())
+        )));
+        assertThat(createTable.columnList(), hasItem(ofTypeMatching(
+                "PK constraint with name \"ID\"", SqlKeyConstraint.class,
+                constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
+                        .matches(constraint.getOperandList().get(1))
+                        && constraint.getOperandList().get(0) == null
+                        && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
+    }
+
+    /**
      * Parsing of CREATE TABLE statement with quoted identifiers.
      */
     @Test
