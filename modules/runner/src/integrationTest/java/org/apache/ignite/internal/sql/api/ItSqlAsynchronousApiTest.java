@@ -479,13 +479,24 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         // Planning error.
         {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "CREATE TABLE TEST (VAL INT)");
-            assertThrowsWithCause(f::get, IgniteException.class, "Table without PRIMARY KEY is not supported");
+            assertThrowsWithCause(f::get, SqlException.class, "Table without PRIMARY KEY is not supported");
         }
 
         // Execute error.
         {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1 / ?", 0);
-            assertThrowsWithCause(f::get, IgniteException.class, "/ by zero");
+            assertThrowsWithCause(f::get, SqlException.class, "/ by zero");
+        }
+
+        // No result set error.
+        {
+            AsyncResultSet ars = ses.executeAsync(null, "CREATE TABLE TEST (ID INT PRIMARY KEY)").join();
+            assertThrowsWithCause(ars::fetchNextPage, SqlException.class, "Table without PRIMARY KEY is not supported");
+        }
+
+        // Cursor closed error.
+        {
+            // TODO
         }
     }
 
