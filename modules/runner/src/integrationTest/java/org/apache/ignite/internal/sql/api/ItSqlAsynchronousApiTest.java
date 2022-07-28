@@ -492,7 +492,8 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         // No result set error.
         {
             AsyncResultSet ars = ses.executeAsync(null, "CREATE TABLE TEST (ID INT PRIMARY KEY)").join();
-            assertThrowsWithCause(() -> ars.fetchNextPage().toCompletableFuture().get(), NoRowSetExpectedException.class, "There are no more pages.");
+            assertThrowsWithCause(() -> ars.fetchNextPage().toCompletableFuture().get(), NoRowSetExpectedException.class,
+                    "Query has no result set");
         }
 
         // Cursor closed error.
