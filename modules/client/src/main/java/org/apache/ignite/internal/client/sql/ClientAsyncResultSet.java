@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.sql;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_NO_MORE_PAGES_ERR;
 
 import java.time.Duration;
@@ -30,7 +29,7 @@ import java.util.concurrent.CompletionStage;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlColumnType;
@@ -138,8 +137,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
         requireResultSet();
 
         if (closed) {
-            // TODO IGNITE-17135 - same error code and message as on server.
-            return CompletableFuture.failedFuture(new IgniteException(UNKNOWN_ERR, "Cursor is closed."));
+            return CompletableFuture.failedFuture(new CursorClosedException());
         }
 
         if (!hasMorePages()) {

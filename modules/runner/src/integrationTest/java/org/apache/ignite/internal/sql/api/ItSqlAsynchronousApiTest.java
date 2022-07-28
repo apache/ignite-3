@@ -63,6 +63,7 @@ import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -504,8 +505,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         {
             AsyncResultSet ars = ses.executeAsync(null, "SELECT * FROM TEST").join();
             ars.closeAsync().toCompletableFuture().join();
-            assertThrowsWithCause(() -> ars.fetchNextPage().toCompletableFuture().get(), NoRowSetExpectedException.class,
-                    "Query has no result set");
+            assertThrowsWithCause(() -> ars.fetchNextPage().toCompletableFuture().get(), CursorClosedException.class);
         }
     }
 
