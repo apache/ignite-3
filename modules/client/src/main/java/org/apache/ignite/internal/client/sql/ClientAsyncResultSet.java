@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.sql;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_NO_MORE_PAGES_ERR;
 
 import java.time.Duration;
 import java.time.Period;
@@ -33,6 +34,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
@@ -141,8 +143,8 @@ class ClientAsyncResultSet implements AsyncResultSet {
         }
 
         if (!hasMorePages()) {
-            // TODO IGNITE-17135 - same error code and message as on server.
-            return CompletableFuture.failedFuture(new IgniteException(UNKNOWN_ERR, "No more pages."));
+            return CompletableFuture.failedFuture(
+                    new SqlException(CURSOR_NO_MORE_PAGES_ERR, "There are no more pages."));
         }
 
         return ch.serviceAsync(
