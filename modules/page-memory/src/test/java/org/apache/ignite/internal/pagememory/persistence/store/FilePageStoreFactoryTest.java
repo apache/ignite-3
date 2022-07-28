@@ -21,10 +21,13 @@ import static java.nio.ByteOrder.nativeOrder;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.DELTA_FILE_VERSION_1;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader.readHeader;
+import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.arr;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -55,11 +58,11 @@ public class FilePageStoreFactoryTest {
         Path testFilePath = workDir.resolve("test");
 
         try (FileIo fileIo = createFileIo(testFilePath)) {
-            fileIo.writeFully(new FilePageStoreHeader(-1, PAGE_SIZE).toByteBuffer(), 0);
+            fileIo.writeFully(new FilePageStoreHeader(-1, PAGE_SIZE).toByteBuffer().rewind(), 0);
 
             Exception exception = assertThrows(
                     IgniteInternalCheckedException.class,
-                    () -> createFilePageStoreFactory().createPageStore(testFilePath, ByteBuffer.allocate(PAGE_SIZE).order(nativeOrder()))
+                    () -> createFilePageStoreFactory().createPageStore(ByteBuffer.allocate(PAGE_SIZE).order(nativeOrder()), testFilePath)
             );
 
             assertThat(exception.getMessage(), containsString("Unknown version of file page store"));
@@ -73,7 +76,7 @@ public class FilePageStoreFactoryTest {
         ByteBuffer buffer = ByteBuffer.allocateDirect(PAGE_SIZE).order(nativeOrder());
 
         try (
-                FilePageStore filePageStore = createFilePageStoreFactory().createPageStore(testFilePath, buffer);
+                FilePageStore filePageStore = createFilePageStoreFactory().createPageStore(buffer, testFilePath);
                 FileIo fileIo = createFileIo(testFilePath)
         ) {
             assertNull(readHeader(fileIo, buffer.rewind()));
@@ -96,17 +99,73 @@ public class FilePageStoreFactoryTest {
 
         ByteBuffer buffer = ByteBuffer.allocateDirect(PAGE_SIZE).order(nativeOrder());
 
-        try (FilePageStore pageStore = filePageStoreFactory.createPageStore(testFilePath, buffer)) {
+        try (FilePageStore pageStore = filePageStoreFactory.createPageStore(buffer, testFilePath)) {
             pageStore.ensure();
         }
 
         try (
-                FilePageStore filePageStore = filePageStoreFactory.createPageStore(testFilePath, buffer.rewind());
+                FilePageStore filePageStore = filePageStoreFactory.createPageStore(buffer.rewind(), testFilePath);
                 FileIo fileIo = createFileIo(testFilePath);
         ) {
             assertEquals(0, filePageStore.pages());
 
             checkHeader(readHeader(fileIo, buffer.rewind()));
+        }
+    }
+
+    @Test
+    void testUnknownDeltaFilePageStoreVersion() throws Exception {
+        Path filePageStorePath = workDir.resolve("test");
+
+        Path deltaFilePageStorePath = workDir.resolve("testDelta");
+
+        try (
+                FileIo filePageStoreIo = createFileIo(filePageStorePath);
+                FileIo deltaFilePageStoreIo = createFileIo(deltaFilePageStorePath)
+        ) {
+            filePageStoreIo.writeFully(new FilePageStoreHeader(VERSION_1, PAGE_SIZE).toByteBuffer().rewind(), 0);
+            deltaFilePageStoreIo.writeFully(new DeltaFilePageStoreIoHeader(-1, 1, PAGE_SIZE, arr(0)).toByteBuffer().rewind(), 0);
+
+            ByteBuffer buffer = ByteBuffer.allocate(PAGE_SIZE).order(nativeOrder());
+
+            Exception exception = assertThrows(
+                    IgniteInternalCheckedException.class,
+                    () -> createFilePageStoreFactory().createPageStore(buffer, filePageStorePath, deltaFilePageStorePath)
+            );
+
+            assertThat(exception.getMessage(), containsString("Unknown version of delta file page store"));
+        }
+    }
+
+    @Test
+    void testCreateFilePageStoreWithDeltaFiles() throws Exception {
+        Path filePageStorePath = workDir.resolve("test");
+
+        Path deltaPageStorePath0 = workDir.resolve("testDelta0");
+        Path deltaPageStorePath1 = workDir.resolve("testDelta1");
+
+        try (
+                FileIo filePageStoreIo = createFileIo(filePageStorePath);
+                FileIo deltaFilePageStoreIo0 = createFileIo(deltaPageStorePath0);
+                FileIo deltaFilePageStoreIo1 = createFileIo(deltaPageStorePath1);
+        ) {
+            filePageStoreIo.writeFully(new FilePageStoreHeader(VERSION_1, PAGE_SIZE).toByteBuffer().rewind(), 0);
+
+            deltaFilePageStoreIo0.writeFully(
+                    new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(0)).toByteBuffer().rewind(),
+                    0
+            );
+
+            deltaFilePageStoreIo1.writeFully(
+                    new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 2, PAGE_SIZE, arr(1)).toByteBuffer().rewind(),
+                    0
+            );
+
+            assertDoesNotThrow(() -> createFilePageStoreFactory().createPageStore(
+                    ByteBuffer.allocateDirect(PAGE_SIZE).order(nativeOrder()),
+                    filePageStorePath,
+                    deltaPageStorePath0, deltaPageStorePath1
+            ));
         }
     }
 
