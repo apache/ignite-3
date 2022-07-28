@@ -34,8 +34,8 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.metastorage.common.MetaStorageException;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -293,7 +293,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                         break;
 
                     default:
-                        throw new IgniteInternalException(OP_EXECUTION_ERR, "Unknown operation type: " + op.type());
+                        throw new MetaStorageException(OP_EXECUTION_ERR, "Unknown operation type: " + op.type());
                 }
             }
 
@@ -337,7 +337,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                                 break;
 
                             default:
-                                throw new IgniteInternalException(OP_EXECUTION_ERR, "Unknown operation type: " + op.type());
+                                throw new MetaStorageException(OP_EXECUTION_ERR, "Unknown operation type: " + op.type());
                         }
                     }
 

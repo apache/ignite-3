@@ -20,7 +20,7 @@ package org.apache.ignite.internal.metastorage.client;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.metastorage.common.MetaStorageException;
 
 /**
  * Simple result of statement execution, backed by byte[] array.
@@ -98,7 +98,7 @@ public class StatementResult {
     /**
      * Exception to propagate result type conversion issues.
      */
-    public static class ResultConversionException extends IgniteInternalException {
+    public static class ResultConversionException extends MetaStorageException {
 
         /**
          * Constructs new conversion exception.
