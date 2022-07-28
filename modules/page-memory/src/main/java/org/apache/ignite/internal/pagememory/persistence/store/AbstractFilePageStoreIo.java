@@ -482,7 +482,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
 
             int n = readWithFailover(pageBuf, pageOff);
 
-            // TODO: IGNITE-17397 Investigate the ability to read a empty page
+            // TODO: IGNITE-17397 Investigate the ability to read an empty page
             // If page was not written yet, nothing to read.
             if (n < 0) {
                 pageBuf.put(new byte[pageBuf.remaining()]);

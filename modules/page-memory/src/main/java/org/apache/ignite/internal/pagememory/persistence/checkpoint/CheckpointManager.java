@@ -251,7 +251,7 @@ public class CheckpointManager {
     ) throws IgniteInternalCheckedException {
         FilePageStore filePageStore = filePageStoreManager.getStore(pageId.groupId(), pageId.partitionId());
 
-        CheckpointProgress lastCheckpointProgress = currentProgress();
+        CheckpointProgress lastCheckpointProgress = lastCheckpointProgress();
 
         assert lastCheckpointProgress != null : "Checkpoint has not happened yet";
         assert lastCheckpointProgress.inProgress() : "Checkpoint must be in progress";

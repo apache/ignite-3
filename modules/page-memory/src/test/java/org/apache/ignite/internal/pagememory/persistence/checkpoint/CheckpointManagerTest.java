@@ -180,7 +180,7 @@ public class CheckpointManagerTest {
 
         when(checkpointProgress.pagesToWrite()).thenReturn(dirtyPages);
 
-        when(checkpointManager.currentProgress()).thenReturn(checkpointProgress);
+        when(checkpointManager.lastCheckpointProgress()).thenReturn(checkpointProgress);
 
         checkpointManager.writePageToDeltaFilePageStore(
                 pageMemory,

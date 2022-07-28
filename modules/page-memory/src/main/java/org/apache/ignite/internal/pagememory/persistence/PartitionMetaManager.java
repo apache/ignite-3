@@ -99,7 +99,7 @@ public class PartitionMetaManager {
         long partitionMetaPageId = partitionMetaPageId(groupPartitionId.getPartitionId());
 
         try {
-            if (containsPartitionMetaIo(filePageStore)) {
+            if (containsPartitionMeta(filePageStore)) {
                 // Reads the partition meta.
                 try {
                     filePageStore.readWithoutPageIdCheck(partitionMetaPageId, buffer, false);
@@ -157,7 +157,7 @@ public class PartitionMetaManager {
         partitionMeta.writeTo(io, pageAddr);
     }
 
-    private boolean containsPartitionMetaIo(FilePageStore filePageStore) throws IgniteInternalCheckedException {
+    private boolean containsPartitionMeta(FilePageStore filePageStore) throws IgniteInternalCheckedException {
         return filePageStore.deltaFileCount() > 0 || filePageStore.size() > filePageStore.headerSize();
     }
 }
