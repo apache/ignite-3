@@ -20,6 +20,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
+import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -260,11 +262,12 @@ public class CheckpointManager {
 
         assert pagesToWrite != null : "Dirty pages must be sorted out";
 
-        // TODO: IGNITE-17230 вот тут надо создвать или получать дельта файлы
+        CompletableFuture<DeltaFilePageStoreIo> deltaFilePageStoreFuture = filePageStore.getOrCreateNewDeltaFile(
+                index -> filePageStoreManager.tmpDeltaFilePageStorePath(pageId.groupId(), pageId.partitionId(), index),
+                () -> pageIndexesForDeltaFilePageStore(pagesToWrite.getPartitionView(pageMemory, pageId.groupId(), pageId.partitionId()))
+        );
 
-        //() -> pageIndexesForDeltaFile(pagesToWrite.getPartitionView(pageMemory, pageId.groupId(), pageId.partitionId()));
-
-        filePageStore.write(pageId.pageId(), pageBuf, calculateCrc);
+        deltaFilePageStoreFuture.join().write(pageId.pageId(), pageBuf, calculateCrc);
     }
 
     /**

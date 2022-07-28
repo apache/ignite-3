@@ -30,6 +30,10 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -248,7 +252,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             @InjectConfiguration PageMemoryCheckpointConfiguration checkpointConfig,
             @WorkDirectory Path workDir
     ) throws Exception {
-        FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
+        FilePageStoreManager filePageStoreManager = spy(createFilePageStoreManager(workDir));
 
         PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
 
@@ -295,7 +299,9 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                     .futureFor(FINISHED)
                     .get(1, SECONDS);
 
-            // TODO: IGNITE-17230 проверить что создавался дельта файл и переименовывался
+            verify(filePageStoreManager, times(1)).tmpDeltaFilePageStorePath(eq(GRP_ID), eq(PARTITION_ID), eq(0));
+
+            verify(filePageStoreManager, times(1)).deltaFilePageStorePath(eq(GRP_ID), eq(PARTITION_ID), eq(0));
         } finally {
             closeAll(
                     () -> pageMemory.stop(true),

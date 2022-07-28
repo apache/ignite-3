@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMi
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.BlockingQueue;
@@ -46,6 +48,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryChec
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.thread.IgniteThread;
@@ -722,8 +725,11 @@ public class Checkpointer extends IgniteWorker {
         try {
             FilePageStore filePageStore = filePageStoreManager.getStore(partitionId.getGroupId(), partitionId.getPartitionId());
 
-            // TODO: IGNITE-17230 вот тут надо синкать дельта файл
-            filePageStore.sync();
+            CompletableFuture<DeltaFilePageStoreIo> deltaFilePageStoreFuture = filePageStore.getNewDeltaFile();
+
+            assert deltaFilePageStoreFuture != null;
+
+            deltaFilePageStoreFuture.join().sync();
         } finally {
             blockingSectionEnd();
         }
@@ -737,8 +743,25 @@ public class Checkpointer extends IgniteWorker {
         try {
             FilePageStore filePageStore = filePageStoreManager.getStore(partitionId.getGroupId(), partitionId.getPartitionId());
 
-            // TODO: IGNITE-17230 вот тут надо будет переименовывать дельта файл и завешать его
-            assert filePageStore != null;
+            CompletableFuture<DeltaFilePageStoreIo> deltaFilePageStoreFuture = filePageStore.getNewDeltaFile();
+
+            assert deltaFilePageStoreFuture != null;
+
+            DeltaFilePageStoreIo deltaFilePageStoreIo = deltaFilePageStoreFuture.join();
+
+            Path newDeltaFilePath = filePageStoreManager.deltaFilePageStorePath(
+                    partitionId.getGroupId(),
+                    partitionId.getPartitionId(),
+                    deltaFilePageStoreIo.fileIndex()
+            );
+
+            try {
+                deltaFilePageStoreIo.renameFilePath(newDeltaFilePath);
+            } catch (IOException e) {
+                throw new IgniteInternalCheckedException("Error when renaming delta file: " + deltaFilePageStoreIo.filePath(), e);
+            }
+
+            filePageStore.completeNewDeltaFile();
         } finally {
             blockingSectionEnd();
         }

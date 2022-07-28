@@ -29,6 +29,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -387,6 +388,26 @@ public class FilePageStoreTest {
             filePageStore.getOrCreateNewDeltaFile(this::deltaFilePath, TestPageStoreUtils::arr).get(1, SECONDS);
 
             assertEquals(2, filePageStore.deltaFileCount());
+        }
+    }
+
+    @Test
+    void testGetNewDeltaFile() throws Exception {
+        try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"))) {
+            assertNull(filePageStore.getNewDeltaFile());
+
+            CompletableFuture<DeltaFilePageStoreIo> future = filePageStore.getOrCreateNewDeltaFile(
+                    this::deltaFilePath,
+                    TestPageStoreUtils::arr
+            );
+
+            future.get(1, SECONDS);
+
+            assertSame(future, filePageStore.getNewDeltaFile());
+
+            filePageStore.completeNewDeltaFile();
+
+            assertNull(filePageStore.getNewDeltaFile());
         }
     }
 

@@ -315,6 +315,14 @@ public class FilePageStore implements PageStore {
     }
 
     /**
+     * Returns the new delta file store that was created in {@link #getOrCreateNewDeltaFile(IntFunction, Supplier)} and not yet completed by
+     * {@link #completeNewDeltaFile()}.
+     */
+    public @Nullable CompletableFuture<DeltaFilePageStoreIo> getNewDeltaFile() {
+        return newDeltaFilePageStoreIoFuture;
+    }
+
+    /**
      * Completes the {@link #getOrCreateNewDeltaFile(IntFunction, Supplier) creation} of a new delta file.
      *
      * <p>Thread safe.
