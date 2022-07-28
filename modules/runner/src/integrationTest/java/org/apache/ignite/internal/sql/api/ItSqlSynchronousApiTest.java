@@ -55,7 +55,6 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -221,7 +220,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         }
 
         IgniteSql sql = igniteSql();
-        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
+        Session ses = sql.sessionBuilder().defaultPageSize(2).build();
 
         // Parse error.
         assertThrowsWithCause(
@@ -261,7 +260,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         {
             ResultSet rs = ses.execute(null, "SELECT * FROM TEST");
             rs.close();
-            assertThrowsWithCause(rs::next, CursorClosedException.class);
+            assertThrowsWithCause(() -> rs.forEachRemaining(Object::hashCode), CursorClosedException.class);
         }
     }
 
