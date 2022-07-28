@@ -87,7 +87,7 @@ public class ResultSetImpl implements ResultSet {
     @Override
     public boolean hasNext() {
         if (it == null) {
-            throw new NoRowSetExpectedException("There are no results");
+            throw new NoRowSetExpectedException();
         }
 
         return it.hasNext();
@@ -97,7 +97,7 @@ public class ResultSetImpl implements ResultSet {
     @Override
     public SqlRow next() {
         if (it == null) {
-            throw new NoRowSetExpectedException("There are no results");
+            throw new NoRowSetExpectedException();
         }
 
         return it.next();

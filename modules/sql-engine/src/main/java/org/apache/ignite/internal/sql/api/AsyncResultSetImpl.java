@@ -162,7 +162,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     private void requireResultSet() {
         if (!hasRowSet()) {
-            throw new NoRowSetExpectedException("Query has no result set: [type=" + cur.queryType() + ']');
+            throw new NoRowSetExpectedException();
         }
     }
 

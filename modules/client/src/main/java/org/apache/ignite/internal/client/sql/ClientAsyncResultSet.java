@@ -181,7 +181,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
 
     private void requireResultSet() {
         if (!hasRowSet()) {
-            throw new NoRowSetExpectedException("Query has no result set");
+            throw new NoRowSetExpectedException();
         }
     }
 

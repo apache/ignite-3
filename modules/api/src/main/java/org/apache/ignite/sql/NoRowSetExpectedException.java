@@ -27,11 +27,9 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_NO_RESULT_SET_ERR;
 public class NoRowSetExpectedException extends SqlException {
     /**
      * Creates an exception.
-     *
-     * @param msg Message.
      */
-    public NoRowSetExpectedException(String msg) {
-        super(QUERY_NO_RESULT_SET_ERR, msg);
+    public NoRowSetExpectedException() {
+        super(QUERY_NO_RESULT_SET_ERR, "Query has no result set");
     }
 
     /**
