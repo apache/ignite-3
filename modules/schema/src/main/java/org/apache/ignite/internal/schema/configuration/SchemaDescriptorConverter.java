@@ -30,12 +30,17 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DefaultValueGenerator;
+import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.DefaultValueDefinition.ConstantValue;
+import org.apache.ignite.schema.definition.DefaultValueDefinition.DefaultValueType;
+import org.apache.ignite.schema.definition.DefaultValueDefinition.FunctionCall;
 import org.apache.ignite.schema.definition.TableDefinition;
 
 /**
@@ -138,7 +143,29 @@ public class SchemaDescriptorConverter {
     public static Column convert(int columnOrder, ColumnDefinition colCfg) {
         NativeType type = convert(colCfg.type());
 
-        return new Column(columnOrder, colCfg.name(), type, colCfg.nullable(), new ConstantSupplier(colCfg.defaultValue()));
+        DefaultValueType defaultValueType;
+        if (colCfg.defaultValueDefinition() == null) {
+            defaultValueType = DefaultValueType.NULL;
+        } else {
+            defaultValueType = colCfg.defaultValueDefinition().type();
+        }
+
+        switch (defaultValueType) {
+            case NULL:
+                return new Column(columnOrder, colCfg.name(), type, colCfg.nullable());
+            case CONSTANT:
+                ConstantValue constantValue = colCfg.defaultValueDefinition();
+
+                return new Column(columnOrder, colCfg.name(), type, colCfg.nullable(),
+                        DefaultValueProvider.constantProvider(constantValue.value()));
+            case FUNCTION_CALL:
+                FunctionCall functionCall = colCfg.defaultValueDefinition();
+
+                return new Column(columnOrder, colCfg.name(), type, colCfg.nullable(),
+                        DefaultValueProvider.forValueGenerator(DefaultValueGenerator.valueOf(functionCall.functionName())));
+            default:
+                throw new IllegalStateException("Unknown type " + colCfg.defaultValueDefinition().type());
+        }
     }
 
     /**

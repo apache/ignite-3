@@ -35,6 +35,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -199,7 +200,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     public void testMissingKeyColumnThrowsException() {
         var kvView = defaultTable().keyValueView(NamePojo.class, NamePojo.class);
 
-        IgniteClientException e = assertThrows(IgniteClientException.class, () -> kvView.get(null, new NamePojo()));
+        IgniteException e = assertThrows(IgniteException.class, () -> kvView.get(null, new NamePojo()));
 
         assertThat(e.getMessage(), containsString("No field found for column ID"));
     }
@@ -497,7 +498,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         var pojo = new DefaultValuesPojo();
         pojo.strNonNull = null;
 
-        var ex = assertThrows(IgniteClientException.class, () -> pojoView.put(null, 1, pojo));
+        var ex = assertThrows(IgniteException.class, () -> pojoView.put(null, 1, pojo));
 
         assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
     }

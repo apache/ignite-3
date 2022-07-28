@@ -24,34 +24,37 @@ import io.micronaut.context.ApplicationContext;
 import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.cli.IntegrationTestBase;
 import org.apache.ignite.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.cli.config.ConfigDefaultValueProvider;
 import org.apache.ignite.cli.config.ini.IniConfigManager;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import picocli.CommandLine;
 
 /**
- * Integration test base for cli commands. Setup commands, ignite cluster, and provides useful fixtures and assertions.
+ * Integration test base for cli commands. Setup commands, ignite cluster, and provides useful fixtures and assertions. Note: ignite cluster
+ * won't be initialized. If you want to use initialized cluster use {@link CliCommandTestInitializedIntegrationBase}.
  */
-public class CliCommandTestIntegrationBase extends IntegrationTestBase {
+public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTestBase {
     /** Correct ignite jdbc url. */
     protected static final String JDBC_URL = "jdbc:ignite:thin://127.0.0.1:10800";
-
-    @Inject
-    private ApplicationContext context;
-
     @Inject
     ConfigDefaultValueProvider configDefaultValueProvider;
-
     @Inject
     TestConfigManagerProvider configManagerProvider;
-
+    @Inject
+    private ApplicationContext context;
     private CommandLine cmd;
+
     private StringWriter sout;
+
     private StringWriter serr;
+
     private int exitCode = Integer.MIN_VALUE;
 
     /**
@@ -70,6 +73,16 @@ public class CliCommandTestIntegrationBase extends IntegrationTestBase {
         serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));
         cmd.setErr(new PrintWriter(serr));
+    }
+
+    @BeforeAll
+    void beforeAll(TestInfo testInfo) throws ExecutionException, InterruptedException {
+        startNodes(testInfo);
+    }
+
+    @AfterAll
+    void afterAll(TestInfo testInfo) throws Exception {
+        stopNodes(testInfo);
     }
 
     protected Class<?> getCommandClass() {
@@ -130,5 +143,11 @@ public class CliCommandTestIntegrationBase extends IntegrationTestBase {
         assertThat(serr.toString())
                 .as("Expected command error output to be equal to: " + expectedErrOutput)
                 .isEqualTo(expectedErrOutput);
+    }
+
+    protected void assertErrOutputContains(String expectedErrOutput) {
+        assertThat(serr.toString())
+                .as("Expected command error output to contain: " + expectedErrOutput)
+                .contains(expectedErrOutput);
     }
 }

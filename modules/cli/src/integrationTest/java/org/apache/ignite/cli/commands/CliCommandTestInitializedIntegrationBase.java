@@ -15,18 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.handler.requests.table;
+package org.apache.ignite.cli.commands;
+
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+
+import java.util.concurrent.ExecutionException;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInfo;
 
 /**
- * Raised when table with the specified ID does not exist (was dropped).
+ * Extends {@link CliCommandTestNotInitializedIntegrationBase} and initializes ignite cluster.
  */
-public class ClientTableIdDoesNotExistException extends RuntimeException {
-    /**
-     * Constructor.
-     *
-     * @param message Exception message.
-     */
-    public ClientTableIdDoesNotExistException(String message) {
-        super(message);
+public class CliCommandTestInitializedIntegrationBase extends CliCommandTestNotInitializedIntegrationBase {
+
+    @BeforeAll
+    @Override
+    void beforeAll(TestInfo testInfo) throws ExecutionException, InterruptedException {
+        startNodes(testInfo);
+        super.initializeCluster(metaStorageNodeName(testInfo));
+    }
+
+    protected String metaStorageNodeName(TestInfo testInfo) {
+        return testNodeName(testInfo, 0);
     }
 }

@@ -169,7 +169,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         listenerInhibitor.startInhibit();
 
         ColumnDefinition columnDefinition = SchemaBuilders.column("valStr2", ColumnType.string())
-                .withDefaultValueExpression("default")
+                .withDefaultValue("default")
                 .build();
 
         ignite0.tables().alterTable(TABLE_NAME,
@@ -260,7 +260,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder(schemaName, shortTableName).columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build(),
-                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValueExpression("default").build()
+                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
         ).withPrimaryKey("key").build();
 
         node.tables().createTable(

@@ -24,12 +24,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -42,21 +41,21 @@ public interface InternalTable extends AutoCloseable {
      *
      * @return Table storage.
      */
-    @NotNull TableStorage storage();
+    MvTableStorage storage();
 
     /**
      * Gets a table id.
      *
      * @return Table id as UUID.
      */
-    @NotNull UUID tableId();
+    UUID tableId();
 
     /**
      * Gets a name of the table.
      *
      * @return Table name.
      */
-    @NotNull String name();
+    String name();
 
     /**
      * Asynchronously gets a row with same key columns values as given one from the table.
@@ -211,7 +210,7 @@ public interface InternalTable extends AutoCloseable {
      * @param tx The transaction.
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
-    @NotNull Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx);
+    Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx);
 
     /**
      * Gets a count of partitions of the table.
@@ -228,7 +227,7 @@ public interface InternalTable extends AutoCloseable {
      *
      * @return List of current assignments.
      */
-    @NotNull List<String> assignments();
+    List<String> assignments();
 
     /**
      * Returns cluster node that is the leader of the corresponding partition group or throws an exception if

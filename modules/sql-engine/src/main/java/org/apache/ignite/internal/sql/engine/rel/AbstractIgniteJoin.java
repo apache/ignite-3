@@ -277,7 +277,7 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
                     break;
                 }
 
-                // We cannot provide random distribution without unique constrain on join keys,
+                // We cannot provide random distribution without unique constraint on join keys,
                 // so, we require hash distribution (wich satisfies random distribution) instead.
                 DistributionFunction function = distrType == HASH_DISTRIBUTED
                         ? distribution.function()

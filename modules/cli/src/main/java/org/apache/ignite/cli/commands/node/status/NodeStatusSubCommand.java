@@ -40,7 +40,7 @@ public class NodeStatusSubCommand extends BaseCommand implements Callable<Intege
      * Node url option.
      */
     @SuppressWarnings("PMD.UnusedPrivateField")
-    @Option(names = {"--node-url"}, description = "Url to node.", descriptionKey = "ignite.node-url")
+    @Option(names = {"--node-url"}, description = "Url to node.", descriptionKey = "ignite.cluster-url")
     private String nodeUrl;
 
     @Inject

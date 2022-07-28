@@ -21,9 +21,12 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -69,6 +72,28 @@ public class VersionedRowStore {
     public VersionedRowStore(@NotNull MvPartitionStorage storage, @NotNull TxManager txManager) {
         this.storage = Objects.requireNonNull(storage);
         this.txManager = Objects.requireNonNull(txManager);
+
+        Set<RowId> ids = new HashSet<>();
+
+        storage.forEach((rowId, binaryRow) -> {
+            if (ids.add(rowId)) {
+                primaryIndex.put(binaryRow.keySlice(), rowId);
+            }
+        });
+    }
+
+    /**
+     * Sets the last applied index value.
+     */
+    public void lastAppliedIndex(long appliedIndex) {
+        storage.lastAppliedIndex(appliedIndex);
+    }
+
+    /**
+     * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
+     */
+    public long lastAppliedIndex() {
+        return storage.lastAppliedIndex();
     }
 
     /**
@@ -502,7 +527,7 @@ public class VersionedRowStore {
      */
     // TODO: IGNITE-16644 Support snapshots.
     public CompletionStage<Void> snapshot(Path path) {
-        throw new UnsupportedOperationException("Snapshots are not supported yet.");
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -512,7 +537,6 @@ public class VersionedRowStore {
      */
     // TODO: IGNITE-16644 Support snapshots.
     public void restoreSnapshot(Path path) {
-        throw new UnsupportedOperationException("Snapshots are not supported yet.");
     }
 
     /**
@@ -522,6 +546,7 @@ public class VersionedRowStore {
      * @return The cursor.
      */
     public Cursor<BinaryRow> scan(Predicate<BinaryRow> pred) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-17309 Transactional support for partition scans
         Cursor<BinaryRow> delegate = storage.scan(pred, Timestamp.nextVersion());
 
         // TODO asch add tx support IGNITE-15087.
