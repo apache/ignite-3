@@ -17,9 +17,9 @@
 
 package org.apache.ignite.sql;
 
-import java.util.UUID;
-
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_NO_RESULT_SET_ERR;
+
+import java.util.UUID;
 
 /**
  * Exception is thrown when the query doesn't intend to return any rows. E.g. DML or DDL queries.
