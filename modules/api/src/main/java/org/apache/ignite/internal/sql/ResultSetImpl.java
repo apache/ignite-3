@@ -22,6 +22,8 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_NO_RESULT_SET_ERR;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletionStage;
+
+import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
@@ -85,7 +87,7 @@ public class ResultSetImpl implements ResultSet {
     @Override
     public boolean hasNext() {
         if (it == null) {
-            throw new SqlException(QUERY_NO_RESULT_SET_ERR, "There are no results");
+            throw new NoRowSetExpectedException("There are no results");
         }
 
         return it.hasNext();
@@ -95,7 +97,7 @@ public class ResultSetImpl implements ResultSet {
     @Override
     public SqlRow next() {
         if (it == null) {
-            throw new SqlException(QUERY_NO_RESULT_SET_ERR, "There are no results");
+            throw new NoRowSetExpectedException("There are no results");
         }
 
         return it.next();
