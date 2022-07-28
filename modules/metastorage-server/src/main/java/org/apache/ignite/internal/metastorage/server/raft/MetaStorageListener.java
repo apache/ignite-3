@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.metastorage.common.ConditionType;
+import org.apache.ignite.internal.metastorage.common.MetaStorageException;
 import org.apache.ignite.internal.metastorage.common.StatementInfo;
 import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
 import org.apache.ignite.internal.metastorage.common.UpdateInfo;
@@ -79,7 +80,6 @@ import org.apache.ignite.internal.metastorage.server.Update;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
@@ -330,7 +330,7 @@ public class MetaStorageListener implements RaftGroupListener {
                 try {
                     cursorDesc.cursor().close();
                 } catch (Exception e) {
-                    throw new IgniteInternalException(CURSOR_CLOSING_ERR, e);
+                    throw new MetaStorageException(CURSOR_CLOSING_ERR, e);
                 }
 
                 clo.result(null);
@@ -383,7 +383,7 @@ public class MetaStorageListener implements RaftGroupListener {
                         try {
                             cursorDesc.cursor().close();
                         } catch (Exception e) {
-                            throw new IgniteInternalException(CURSOR_CLOSING_ERR, e);
+                            throw new MetaStorageException(CURSOR_CLOSING_ERR, e);
                         }
 
                         cursorsIter.remove();
@@ -419,7 +419,7 @@ public class MetaStorageListener implements RaftGroupListener {
         try {
             storage.close();
         } catch (Exception e) {
-            throw new IgniteInternalException(CLOSING_STORAGE_ERR, "Failed to close storage: " + e.getMessage(), e);
+            throw new MetaStorageException(CLOSING_STORAGE_ERR, "Failed to close storage: " + e.getMessage(), e);
         }
     }
 

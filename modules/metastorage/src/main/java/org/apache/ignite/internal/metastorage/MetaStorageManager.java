@@ -45,6 +45,7 @@ import org.apache.ignite.internal.metastorage.client.Operation;
 import org.apache.ignite.internal.metastorage.client.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.client.StatementResult;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
+import org.apache.ignite.internal.metastorage.common.MetaStorageException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
@@ -58,7 +59,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -865,7 +865,7 @@ public class MetaStorageManager implements IgniteComponent {
         appliedRevision()
                 .thenCompose(appliedRevision -> {
                     if (revision <= appliedRevision) {
-                        throw new IgniteInternalException(DEPLOYING_WATCH_ERR, String.format(
+                        throw new MetaStorageException(DEPLOYING_WATCH_ERR, String.format(
                                 "Current revision (%d) must be greater than the revision in the Vault (%d)",
                                 revision, appliedRevision
                         ));
@@ -914,7 +914,7 @@ public class MetaStorageManager implements IgniteComponent {
                     try {
                         cursor.close();
                     } catch (Exception e) {
-                        throw new IgniteInternalException(CURSOR_CLOSING_ERR, e);
+                        throw new MetaStorageException(CURSOR_CLOSING_ERR, e);
                     }
                 }).get();
             } finally {
@@ -933,7 +933,7 @@ public class MetaStorageManager implements IgniteComponent {
                 try {
                     return innerIterFut.thenApply(Iterator::hasNext).get();
                 } catch (InterruptedException | ExecutionException e) {
-                    throw new IgniteInternalException(CURSOR_EXECUTION_ERR, e);
+                    throw new MetaStorageException(CURSOR_EXECUTION_ERR, e);
                 }
             } finally {
                 busyLock.leaveBusy();
@@ -951,7 +951,7 @@ public class MetaStorageManager implements IgniteComponent {
                 try {
                     return innerIterFut.thenApply(Iterator::next).get();
                 } catch (InterruptedException | ExecutionException e) {
-                    throw new IgniteInternalException(CURSOR_EXECUTION_ERR, e);
+                    throw new MetaStorageException(CURSOR_EXECUTION_ERR, e);
                 }
             } finally {
                 busyLock.leaveBusy();

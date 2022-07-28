@@ -423,8 +423,7 @@ public final class ExceptionUtils {
         if (unwrapped instanceof IgniteInternalException) {
             IgniteInternalException iie = (IgniteInternalException) unwrapped;
             return supplier.apply(iie.traceId(), iie.code(), iie.getMessage(), t);
-        }
-        else if (unwrapped instanceof IgniteInternalCheckedException) {
+        } else if (unwrapped instanceof IgniteInternalCheckedException) {
             IgniteInternalCheckedException iice = (IgniteInternalCheckedException) unwrapped;
             return supplier.apply(iice.traceId(), iice.code(), iice.getMessage(), t);
         }

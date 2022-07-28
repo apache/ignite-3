@@ -28,11 +28,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.common.MetaStorageException;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorCloseCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorHasNextCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCommand;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -88,7 +88,7 @@ public class CursorImpl<T> implements Cursor<T> {
 
             LOG.debug("Unable to evaluate cursor close command", e);
 
-            throw new IgniteInternalException(CURSOR_CLOSING_ERR, e);
+            throw withCause(MetaStorageException::new, CURSOR_CLOSING_ERR, e);
         }
     }
 
@@ -135,7 +135,7 @@ public class CursorImpl<T> implements Cursor<T> {
 
                 LOG.debug("Unable to evaluate cursor hasNext command", e);
 
-                throw withCause(IgniteInternalException::new, CURSOR_EXECUTION_ERR, e);
+                throw withCause(MetaStorageException::new, CURSOR_EXECUTION_ERR, e);
             }
         }
 
@@ -173,7 +173,7 @@ public class CursorImpl<T> implements Cursor<T> {
 
                 LOG.debug("Unable to evaluate cursor hasNext command", e);
 
-                throw withCause(IgniteInternalException::new, CURSOR_EXECUTION_ERR, e);
+                throw withCause(MetaStorageException::new, CURSOR_EXECUTION_ERR, e);
             }
         }
 
