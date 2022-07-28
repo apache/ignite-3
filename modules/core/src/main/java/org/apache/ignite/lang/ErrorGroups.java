@@ -116,7 +116,7 @@ public class ErrorGroups {
     /** Meta storage error group. */
     public static class MetaStorage {
         /** Meta storage error group. */
-        public static final ErrorGroup META_STORAGE_ERR_GROUP = ErrorGroup.newGroup("MTS", 5);
+        public static final ErrorGroup META_STORAGE_ERR_GROUP = ErrorGroup.newGroup("META", 5);
 
         /** Failed to start the underlying key value storage. */
         public static final int STARTING_STORAGE_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(1);
