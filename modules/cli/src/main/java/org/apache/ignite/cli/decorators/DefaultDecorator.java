@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.decorators;
 
 import org.apache.ignite.cli.core.decorator.Decorator;
 import org.apache.ignite.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.cli.sql.SqlQueryResult;
 
 /**
- * Composite decorator for {@link SqlQueryResult}.
+ * Default decorator that calls toString method.
+ *
+ * @param <I> Input type.
  */
-public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, TerminalOutput> {
+public class DefaultDecorator<I> implements Decorator<I, TerminalOutput> {
 
-    private final TableDecorator tableDecorator = new TableDecorator();
-
-    private final DefaultDecorator<String> messageDecorator = new DefaultDecorator<>();
-
+    /** {@inheritDoc} */
     @Override
-    public TerminalOutput decorate(SqlQueryResult data) {
-        return data.getResult(tableDecorator, messageDecorator);
+    public TerminalOutput decorate(I data) {
+        return data::toString;
     }
 }

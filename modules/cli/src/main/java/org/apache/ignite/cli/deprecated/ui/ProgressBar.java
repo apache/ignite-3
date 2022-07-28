@@ -107,7 +107,7 @@ public class ProgressBar implements AutoCloseable {
 
         var completedPart = ((double) curr / (double) max);
 
-        // Space reserved for '||Done!'
+        // Space reserved for '||Done'
         var reservedSpace = 7;
 
         if (targetBarWidth < reservedSpace) {
@@ -133,7 +133,7 @@ public class ProgressBar implements AutoCloseable {
 
             sb.append("|").append(" ".repeat(4 - percentageLen)).append(percentage);
         } else {
-            sb.append("=|@|green,bold Done!|@");
+            sb.append("=|@|green,bold Done|@");
         }
 
         return Ansi.AUTO.string(sb.toString());

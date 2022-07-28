@@ -19,7 +19,6 @@ package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
 import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
-import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.errorMessageFromCause;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
@@ -110,7 +109,7 @@ public class IgniteException extends RuntimeException {
      * @param code Full error code.
      */
     public IgniteException(UUID traceId, int code) {
-        super(errorMessage(traceId, code, null));
+        super();
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -135,7 +134,7 @@ public class IgniteException extends RuntimeException {
      * @param message Detail message.
      */
     public IgniteException(UUID traceId, int code, String message) {
-        super(errorMessage(traceId, code, message));
+        super(message);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -160,7 +159,7 @@ public class IgniteException extends RuntimeException {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteException(UUID traceId, int code, Throwable cause) {
-        super(errorMessageFromCause(traceId, code, cause), cause);
+        super(errorMessageFromCause(cause), cause);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -187,7 +186,7 @@ public class IgniteException extends RuntimeException {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteException(UUID traceId, int code, String message, Throwable cause) {
-        super(errorMessage(traceId, code, message), cause);
+        super(message, cause);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();

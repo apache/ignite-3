@@ -15,16 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.node.config;
+package org.apache.ignite.cli.decorators;
 
-import picocli.CommandLine.Command;
+import java.util.stream.Collectors;
+import org.apache.ignite.cli.config.Profile;
+import org.apache.ignite.cli.core.decorator.Decorator;
+import org.apache.ignite.cli.core.decorator.TerminalOutput;
 
 /**
- * Node config command in REPL mode.
+ * Decorator for printing {@link Profile}.
  */
-@Command(name = "config",
-        subcommands = {NodeConfigShowReplSubCommand.class, NodeConfigUpdateReplSubCommand.class},
-        description = "Node config operations")
-public class NodeConfigReplSubCommand {
-
+public class ConfigDecorator implements Decorator<Profile, TerminalOutput> {
+    @Override
+    public TerminalOutput decorate(Profile data) {
+        return () -> data.getAll().entrySet().stream()
+                .map(entry -> entry.getKey() + "=" + entry.getValue())
+                .collect(Collectors.joining(System.lineSeparator()));
+    }
 }

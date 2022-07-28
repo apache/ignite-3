@@ -150,7 +150,7 @@ public class UrlOptionsNegativeTest {
                 this::assertExitCodeIsFailure,
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputIs(
-                        "Could not determine IP address when connecting to URL [url=http://no-such-host.com]" + System.lineSeparator())
+                        "Unknown host: http://no-such-host.com" + System.lineSeparator())
         );
     }
 
@@ -163,7 +163,8 @@ public class UrlOptionsNegativeTest {
         assertAll(
                 this::assertExitCodeIsFailure,
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Could not connect to URL [url=" + NODE_URL + "]" + System.lineSeparator())
+                () -> assertErrOutputIs("Node unavailable" + System.lineSeparator()
+                        + "Could not connect to node with URL " + NODE_URL + System.lineSeparator())
         );
     }
 
@@ -199,8 +200,7 @@ public class UrlOptionsNegativeTest {
 
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs(
-                        "Could not determine IP address when connecting to URL [url=http://no-such-host.com]" + System.lineSeparator())
+                () -> assertErrOutputIs("Unknown host: http://no-such-host.com" + System.lineSeparator())
         );
     }
 
@@ -212,7 +212,8 @@ public class UrlOptionsNegativeTest {
 
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Could not connect to URL [url=" + NODE_URL + "]" + System.lineSeparator())
+                () -> assertErrOutputIs("Node unavailable" + System.lineSeparator()
+                        + "Could not connect to node with URL " + NODE_URL + System.lineSeparator())
         );
     }
 

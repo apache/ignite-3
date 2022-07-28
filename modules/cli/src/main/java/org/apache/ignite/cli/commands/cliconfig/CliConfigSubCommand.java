@@ -23,9 +23,9 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cliconfig.CliConfigCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.cliconfig.profile.CliConfigProfileCommand;
-import org.apache.ignite.cli.commands.decorators.ConfigDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
+import org.apache.ignite.cli.decorators.ConfigDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 

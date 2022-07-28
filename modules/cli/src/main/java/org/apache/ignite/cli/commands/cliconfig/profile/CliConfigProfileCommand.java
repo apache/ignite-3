@@ -30,13 +30,13 @@ import picocli.CommandLine.Option;
  * Root profile command.
  */
 @Command(name = "profile",
-        description = "Create profile command.",
+        description = "Create profile command",
         subcommands = {
                 CliConfigCreateProfileCommand.class,
                 CliConfigShowProfileCommand.class
         })
 public class CliConfigProfileCommand extends BaseCommand implements Callable<Integer> {
-    @Option(names = {"--set-current", "-s"}, description = "Name of profile which should be activated as default.")
+    @Option(names = {"--set-current", "-s"}, description = "Name of profile which should be activated as default")
     private String profileName;
 
     @Inject

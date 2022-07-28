@@ -17,6 +17,7 @@
 
 package org.apache.ignite.cli.commands.cluster.init;
 
+import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_CLUSTER_URL_MESSAGE;
 import static picocli.CommandLine.Command;
 
 import jakarta.inject.Inject;
@@ -33,28 +34,8 @@ import picocli.CommandLine.Option;
 /**
  * Initializes an Ignite cluster.
  */
-@Command(name = "init", description = "Initializes an Ignite cluster.")
+@Command(name = "init", description = "Initializes an Ignite cluster")
 public class ClusterInitReplSubCommand extends BaseCommand implements Runnable {
-
-    /**
-     * Node url option.
-     */
-    @Option(
-            names = {"--cluster-url"}, description = "Url to ignite node.",
-            descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
-    )
-    private String clusterUrl;
-
-    /**
-     * List of names of the nodes (each represented by a separate command line argument) that will host the Meta Storage. If the
-     * "--cmg-nodes" parameter is omitted, the same nodes will also host the Cluster Management Group.
-     */
-    @Option(names = "--meta-storage-node", required = true, description = {
-            "Name of the node (repeat like '--meta-storage-node node1 --meta-storage-node node2' to specify more than one node)",
-            "that will host the Meta Storage.",
-            "If the --cmg-node parameter is omitted, the same nodes will also host the Cluster Management Group."
-    })
-    private List<String> metaStorageNodes;
 
     /**
      * List of names of the nodes (each represented by a separate command line argument) that will host the Cluster Management Group.
@@ -62,10 +43,23 @@ public class ClusterInitReplSubCommand extends BaseCommand implements Runnable {
     @Option(names = "--cmg-node", description = {
             "Name of the node (repeat like '--cmg-node node1 --cmg-node node2' to specify more than one node)",
             "that will host the Cluster Management Group.",
-            "If omitted, then --meta-storage-node values will also supply the nodes for the Cluster Management Group."
-    })
-    private List<String> cmgNodes = new ArrayList<>();
-
+            "If omitted, then --meta-storage-node values will also supply the nodes for the Cluster Management Group."})
+    private final List<String> cmgNodes = new ArrayList<>();
+    /**
+     * Node url option.
+     */
+    @Option(names = {
+            "--cluster-url"}, description = "Url to ignite node", descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300")
+    private String clusterUrl;
+    /**
+     * List of names of the nodes (each represented by a separate command line argument) that will host the Meta Storage. If the
+     * "--cmg-nodes" parameter is omitted, the same nodes will also host the Cluster Management Group.
+     */
+    @Option(names = "--meta-storage-node", required = true, description = {
+            "Name of the node (repeat like '--meta-storage-node node1 --meta-storage-node node2' to specify more than one node)",
+            "that will host the Meta Storage.",
+            "If the --cmg-node parameter is omitted, the same nodes will also host the Cluster Management Group."})
+    private List<String> metaStorageNodes;
     /** Name of the cluster. */
     @Option(names = "--cluster-name", required = true, description = "Human-readable name of the cluster")
     private String clusterName;
@@ -86,7 +80,7 @@ public class ClusterInitReplSubCommand extends BaseCommand implements Runnable {
         } else if (clusterUrl != null) {
             input.clusterUrl(clusterUrl);
         } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--node-endpoint' option.");
+            spec.commandLine().getErr().println(CONNECT_OR_USE_CLUSTER_URL_MESSAGE.render());
             return;
         }
 

@@ -17,13 +17,15 @@
 
 package org.apache.ignite.cli.commands.node.config;
 
+import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_NODE_URL_MESSAGE;
+
 import jakarta.inject.Inject;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.JsonDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.repl.Session;
+import org.apache.ignite.cli.decorators.JsonDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -37,14 +39,14 @@ public class NodeConfigShowReplSubCommand extends BaseCommand implements Runnabl
     /**
      * Configuration selector option.
      */
-    @Option(names = {"--selector"}, description = "Configuration path selector.")
+    @Option(names = {"--selector"}, description = "Configuration path selector")
     private String selector;
 
     /**
      * Node url option.
      */
     @Option(
-            names = {"--node-url"}, description = "Url to Ignite node."
+            names = {"--node-url"}, description = "Url to Ignite node"
     )
     private String nodeUrl;
 
@@ -63,7 +65,7 @@ public class NodeConfigShowReplSubCommand extends BaseCommand implements Runnabl
         } else if (nodeUrl != null) {
             input.nodeUrl(nodeUrl);
         } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--node-url' option.");
+            spec.commandLine().getErr().println(CONNECT_OR_USE_NODE_URL_MESSAGE.render());
             return;
         }
 

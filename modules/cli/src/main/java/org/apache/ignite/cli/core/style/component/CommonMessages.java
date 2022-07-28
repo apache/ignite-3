@@ -15,30 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.core.style.component;
 
-import static org.apache.ignite.cli.core.style.AnsiStringSupport.ansi;
 import static org.apache.ignite.cli.core.style.AnsiStringSupport.fg;
 
-import org.apache.ignite.cli.call.node.status.NodeStatus;
-import org.apache.ignite.cli.call.node.status.State;
-import org.apache.ignite.cli.core.decorator.Decorator;
-import org.apache.ignite.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.cli.core.style.AnsiStringSupport.Color;
+import org.apache.ignite.cli.core.style.AnsiStringSupport.Style;
 
-/**
- * Decorator for {@link NodeStatus}.
- */
-public class NodeStatusDecorator implements Decorator<NodeStatus, TerminalOutput> {
+/** Common UI messages. */
+public class CommonMessages {
+    public static MessageComponent CONNECT_OR_USE_CLUSTER_URL_MESSAGE = MessageComponent.builder()
+            .message("You are not connected to node")
+            .hint("Run " + Style.BOLD.mark("connect") + " command or use "
+                    + fg(Color.YELLOW).mark("--cluster-url") + " option")
+            .build();
 
-    @Override
-    public TerminalOutput decorate(NodeStatus data) {
-        Color c = data.state().equals(State.STARTED) ? Color.GREEN : Color.YELLOW;
-
-        return () -> ansi(
-                "[name: %s, state: %s]",
-                data.name(),
-                fg(c).mark(data.state().name().toLowerCase())
-        );
-    }
+    public static MessageComponent CONNECT_OR_USE_NODE_URL_MESSAGE = MessageComponent.builder()
+            .message("You are not connected to node")
+            .hint("Run " + Style.BOLD.mark("connect") + " command or use "
+                    + fg(Color.YELLOW).mark("--node-url") + " option")
+            .build();
 }

@@ -15,26 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.decorators;
 
-import com.jakewharton.fliptables.FlipTableConverters;
 import org.apache.ignite.cli.core.decorator.Decorator;
 import org.apache.ignite.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.cli.sql.table.Table;
+import org.apache.ignite.cli.sql.SqlQueryResult;
 
 /**
- * Implementation of {@link Decorator} for {@link Table}.
+ * Composite decorator for {@link SqlQueryResult}.
  */
-public class TableDecorator implements Decorator<Table<String>, TerminalOutput> {
+public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, TerminalOutput> {
 
-    /**
-     * Transform {@link Table} to {@link TerminalOutput}.
-     *
-     * @param table incoming {@link Table}.
-     * @return User friendly interpretation of {@link Table} in {@link TerminalOutput}.
-     */
+    private final TableDecorator tableDecorator = new TableDecorator();
+
+    private final DefaultDecorator<String> messageDecorator = new DefaultDecorator<>();
+
     @Override
-    public TerminalOutput decorate(Table<String> table) {
-        return () -> FlipTableConverters.fromObjects(table.header(), table.content());
+    public TerminalOutput decorate(SqlQueryResult data) {
+        return data.getResult(tableDecorator, messageDecorator);
     }
 }

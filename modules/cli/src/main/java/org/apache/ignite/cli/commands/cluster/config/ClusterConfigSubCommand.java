@@ -24,7 +24,7 @@ import picocli.CommandLine.Command;
  */
 @Command(name = "config",
         subcommands = {ClusterConfigShowSubCommand.class, ClusterConfigUpdateSubCommand.class},
-        description = "Cluster config operations.")
+        description = "Cluster config operations")
 public class ClusterConfigSubCommand {
 
 }

@@ -22,9 +22,9 @@ import jakarta.inject.Singleton;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cluster.status.ClusterStatusCall;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.ClusterStatusDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StatusCallInput;
+import org.apache.ignite.cli.decorators.ClusterStatusDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -33,7 +33,7 @@ import picocli.CommandLine.Option;
  */
 @Command(name = "status",
         aliases = "cluster show", //TODO: https://issues.apache.org/jira/browse/IGNITE-17102
-        description = "Prints status of the cluster.")
+        description = "Prints status of the cluster")
 @Singleton
 public class ClusterStatusSubCommand extends BaseCommand implements Callable<Integer> {
 
@@ -41,7 +41,7 @@ public class ClusterStatusSubCommand extends BaseCommand implements Callable<Int
      * Cluster url option.
      */
     @SuppressWarnings("PMD.UnusedPrivateField")
-    @Option(names = {"--cluster-url"}, description = "Url to cluster node.", descriptionKey = "ignite.cluster-url")
+    @Option(names = {"--cluster-url"}, description = "Url to cluster node", descriptionKey = "ignite.cluster-url")
     private String clusterUrl;
 
     @Inject

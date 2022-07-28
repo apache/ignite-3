@@ -17,6 +17,7 @@
 
 package org.apache.ignite.cli.deprecated.spec;
 
+import com.jakewharton.fliptables.FlipTable;
 import jakarta.inject.Inject;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -24,10 +25,10 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.commands.BaseCommand;
+import org.apache.ignite.cli.core.style.SuccessElement;
 import org.apache.ignite.cli.deprecated.CliPathsConfigLoader;
 import org.apache.ignite.cli.deprecated.IgniteCliException;
 import org.apache.ignite.cli.deprecated.IgnitePaths;
-import org.apache.ignite.cli.deprecated.Table;
 import org.apache.ignite.cli.deprecated.builtins.node.NodeManager;
 import picocli.CommandLine;
 import picocli.CommandLine.Help.Ansi;
@@ -38,7 +39,7 @@ import picocli.CommandLine.Help.ColorScheme;
  */
 @CommandLine.Command(
         name = "node",
-        description = "Manages locally running Ignite nodes.",
+        description = "Manages locally running Ignite nodes",
         subcommands = {
                 NodeCommandSpec.StartNodeCommandSpec.class,
                 NodeCommandSpec.StopNodeCommandSpec.class,
@@ -50,7 +51,7 @@ public class NodeCommandSpec {
     /**
      * Starts Ignite node command.
      */
-    @CommandLine.Command(name = "start", description = "Starts an Ignite node locally.")
+    @CommandLine.Command(name = "start", description = "Starts an Ignite node locally")
     public static class StartNodeCommandSpec extends BaseCommand implements Callable<Integer> {
 
         /** Loader for Ignite distributive paths. */
@@ -86,18 +87,14 @@ public class NodeCommandSpec {
                     ignitePaths.serverJavaUtilLoggingPros(),
                     out);
 
+            out.println(SuccessElement.done().render());
+
+            out.println(String.format("[name: %s, pid: %d]", node.name, node.pid));
+
             out.println();
             out.println("Node is successfully started. To stop, type "
                     + cs.commandText("ignite node stop ") + cs.parameterText(node.name));
-            out.println();
 
-            Table tbl = new Table(0, cs);
-
-            tbl.addRow("@|bold Node name|@", node.name);
-            tbl.addRow("@|bold PID|@", node.pid);
-            tbl.addRow("@|bold Log File|@", node.logFile);
-
-            out.println(tbl);
             return 0;
         }
     }
@@ -132,10 +129,10 @@ public class NodeCommandSpec {
             ColorScheme cs = spec.commandLine().getColorScheme();
 
             consistentIds.forEach(p -> {
-                out.print("Stopping locally running node with consistent ID " + cs.parameterText(p) + "... ");
+                out.println("Stopping locally running node with consistent ID " + cs.parameterText(p) + "...");
 
                 if (nodeMgr.stopWait(p, ignitePaths.cliPidsDir())) {
-                    out.println(cs.text("@|bold,green Done!|@"));
+                    out.println(cs.text("@|bold,green Done|@"));
                 } else {
                     out.println(cs.text("@|bold,red Failed|@"));
                 }
@@ -168,23 +165,22 @@ public class NodeCommandSpec {
             ColorScheme cs = spec.commandLine().getColorScheme();
 
             if (nodes.isEmpty()) {
-                out.println("Currently, there are no locally running nodes.");
-                out.println();
-                out.println("Use the " + cs.commandText("ignite node start")
-                        + " command to start a new node.");
+                out.println("There are no locally running nodes");
+                out.println("use the " + cs.commandText("ignite node start")
+                        + " command to start a new node");
             } else {
+                String[] headers = {"consistent id", "pid", "log file"};
+                String[][] content = nodes.stream().map(
+                        node -> new String[]{
+                                node.name,
+                                String.valueOf(node.pid),
+                                String.valueOf(node.logFile)
+                        }
+                ).toArray(String[][]::new);
+
+                out.println(FlipTable.of(headers, content));
+
                 out.println("Number of running nodes: " + cs.text("@|bold " + nodes.size() + "|@"));
-                out.println();
-
-                Table tbl = new Table(0, cs);
-
-                tbl.addRow("@|bold Consistent ID|@", "@|bold PID|@", "@|bold Log File|@");
-
-                for (NodeManager.RunningNode node : nodes) {
-                    tbl.addRow(node.name, node.pid, node.logFile);
-                }
-
-                out.println(tbl);
             }
             return 0;
         }

@@ -30,7 +30,7 @@ import picocli.CommandLine.Parameters;
 /**
  * Connects to the Ignite 3 node.
  */
-@Command(name = "connect", description = "Connect to Ignite 3 node.")
+@Command(name = "connect", description = "Connect to Ignite 3 node")
 @Singleton
 public class ConnectCommand extends BaseCommand implements Runnable {
 
@@ -38,7 +38,7 @@ public class ConnectCommand extends BaseCommand implements Runnable {
      * Cluster url option.
      */
     @Parameters(
-            description = "Ignite node url.",
+            description = "Ignite node url",
             descriptionKey = ConfigConstants.CLUSTER_URL
     )
     private String nodeUrl;

@@ -22,8 +22,8 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.cli.call.cluster.topology.TopologyCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.TopologyDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.cli.decorators.TopologyDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -35,7 +35,7 @@ public class PhysicalTopologySubCommand extends BaseCommand implements Callable<
     /**
      * Node url option.
      */
-    @Option(names = {"--cluster-url"}, description = "Url to ignite node.", descriptionKey = "ignite.cluster-url")
+    @Option(names = {"--cluster-url"}, description = "Url to ignite node", descriptionKey = "ignite.cluster-url")
     private String clusterUrl;
 
     @Inject

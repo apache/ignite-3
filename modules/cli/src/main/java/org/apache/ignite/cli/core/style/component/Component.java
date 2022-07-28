@@ -15,16 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.node.config;
-
-import picocli.CommandLine.Command;
+package org.apache.ignite.cli.core.style.component;
 
 /**
- * Node config command in REPL mode.
+ * UI component that can render to String.
  */
-@Command(name = "config",
-        subcommands = {NodeConfigShowReplSubCommand.class, NodeConfigUpdateReplSubCommand.class},
-        description = "Node config operations")
-public class NodeConfigReplSubCommand {
-
+public interface Component {
+    String render();
 }

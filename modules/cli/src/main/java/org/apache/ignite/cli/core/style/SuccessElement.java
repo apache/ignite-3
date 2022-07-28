@@ -15,21 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.core.style;
 
-import org.apache.ignite.cli.core.decorator.Decorator;
-import org.apache.ignite.cli.core.decorator.TerminalOutput;
+import static org.apache.ignite.cli.core.style.AnsiStringSupport.Color;
+import static org.apache.ignite.cli.core.style.AnsiStringSupport.ansi;
+import static org.apache.ignite.cli.core.style.AnsiStringSupport.fg;
+
+import org.apache.ignite.cli.core.style.AnsiStringSupport.Style;
 
 /**
- * Default decorator that calls toString method.
- *
- * @param <I> Input type.
+ * UI element that represents a successful message.
  */
-public class DefaultDecorator<I> implements Decorator<I, TerminalOutput> {
+public class SuccessElement {
 
-    /** {@inheritDoc} */
-    @Override
-    public TerminalOutput decorate(I data) {
-        return data::toString;
+    /** Done message. */
+    public static SuccessElement done() {
+        return new SuccessElement();
+    }
+
+    /** Render message to string representation. */
+    public String render() {
+        return ansi(fg(Color.GREEN).with(Style.BOLD).mark("Done"));
     }
 }

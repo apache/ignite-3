@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rest.configuration;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -35,8 +36,8 @@ import jakarta.inject.Inject;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.configuration.rest.presentation.TestRootConfiguration;
+import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
-import org.apache.ignite.internal.rest.api.ValidationProblem;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -136,19 +137,18 @@ public abstract class ConfigurationControllerBaseTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
 
-        var problem = getValidationProblem(thrown);
+        var problem = getProblem(thrown);
         assertEquals(400, problem.status());
-        assertThat(problem.detail(), containsString("ValidationIssue [key=root.foo, message=Error word]"));
-        assertEquals("Error word", problem.invalidParams().stream().findFirst().get().reason()); // todo: check name and reason
+        assertThat(problem.detail(), containsString("Validation did not pass for keys: root.foo"));
+        assertThat(problem.invalidParams(), hasSize(1));
+
+        InvalidParam invalidParam = problem.invalidParams().stream().findFirst().get();
+        assertEquals("root.foo", invalidParam.name());
+        assertEquals("Error word", invalidParam.reason());
     }
 
     @NotNull
     private Problem getProblem(HttpClientResponseException exception) {
         return exception.getResponse().getBody(Problem.class).orElseThrow();
-    }
-
-    @NotNull
-    private ValidationProblem getValidationProblem(HttpClientResponseException exception) {
-        return exception.getResponse().getBody(ValidationProblem.class).orElseThrow();
     }
 }

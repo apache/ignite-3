@@ -17,21 +17,23 @@
 
 package org.apache.ignite.cli.commands.cluster.status;
 
+import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_CLUSTER_URL_MESSAGE;
+
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.apache.ignite.cli.call.cluster.status.ClusterStatusCall;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.ClusterStatusDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StatusCallInput;
 import org.apache.ignite.cli.core.repl.Session;
+import org.apache.ignite.cli.decorators.ClusterStatusDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 /**
  * Command that prints status of ignite cluster.
  */
-@Command(name = "status", description = "Prints status of the cluster.")
+@Command(name = "status", description = "Prints status of the cluster")
 @Singleton
 public class ClusterStatusReplSubCommand extends BaseCommand implements Runnable {
 
@@ -39,7 +41,7 @@ public class ClusterStatusReplSubCommand extends BaseCommand implements Runnable
      * Cluster url option.
      */
     @SuppressWarnings("PMD.UnusedPrivateField")
-    @Option(names = {"--cluster-url"}, description = "Url to cluster node.", descriptionKey = "ignite.cluster-url")
+    @Option(names = {"--cluster-url"}, description = "Url to cluster node", descriptionKey = "ignite.cluster-url")
     private String clusterUrl;
 
     @Inject
@@ -58,7 +60,7 @@ public class ClusterStatusReplSubCommand extends BaseCommand implements Runnable
         } else if (session.isConnectedToNode()) {
             inputUrl = session.nodeUrl();
         } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--cluster-url' option.");
+            spec.commandLine().getErr().println(CONNECT_OR_USE_CLUSTER_URL_MESSAGE.render());
             return;
         }
 

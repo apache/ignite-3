@@ -22,9 +22,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.Locale;
-import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * This class represents a concept of error group. Error group defines a collection of errors that belong to a single semantic component.
@@ -33,10 +30,6 @@ import java.util.regex.Pattern;
 public class ErrorGroup {
     /** Additional prefix that is used in a human-readable format of ignite errors. */
     public static final String ERR_PREFIX = "IGN-";
-
-    /** Error message pattern. */
-    private static final Pattern EXCEPTION_MESSAGE_PATTERN =
-            Pattern.compile("(.*)(IGN)-([A-Z]+)-(\\d+)\\s(TraceId:)([a-f0-9]{8}(?:-[a-f0-9]{4}){4}[a-f0-9]{8})(\\s?)(.*)");
 
     /** List of all registered error groups. */
     private static final Int2ObjectMap<ErrorGroup> registeredGroups = new Int2ObjectOpenHashMap<>();
@@ -180,61 +173,13 @@ public class ErrorGroup {
     }
 
     /**
-     * Creates a new error message with predefined prefix.
+     * Extracts an error message from the cause.
      *
-     * @param traceId Unique identifier of this exception.
-     * @param code Full error code.
-     * @param message Original message.
-     * @return New error message with predefined prefix.
-     */
-    public static String errorMessage(UUID traceId, int code, String message) {
-        return errorMessage(traceId, registeredGroups.get(extractGroupCode(code)).name(), code, message);
-    }
-
-    /**
-     * Creates a new error message with predefined prefix.
-     *
-     * @param traceId Unique identifier of this exception.
-     * @param groupName Group name.
-     * @param code Full error code.
-     * @param message Original message.
-     * @return New error message with predefined prefix.
-     */
-    public static String errorMessage(UUID traceId, String groupName, int code, String message) {
-        return ERR_PREFIX + groupName + '-' + extractErrorCode(code) + " TraceId:" + traceId + ((message != null) ? ' ' + message : "");
-    }
-
-    /**
-     * Creates a new error message with predefined prefix.
-     *
-     * @param traceId Unique identifier of this exception.
-     * @param code Full error code.
      * @param cause Cause.
-     * @return New error message with predefined prefix.
+     * @return Error message.
      */
-    public static String errorMessageFromCause(UUID traceId, int code, Throwable cause) {
-        return errorMessageFromCause(traceId, registeredGroups.get(extractGroupCode(code)).name(), code, cause);
-    }
-
-    /**
-     * Creates a new error message with predefined prefix.
-     *
-     * @param traceId Unique identifier of this exception.
-     * @param groupName Group name.
-     * @param code Full error code.
-     * @param cause Cause.
-     * @return New error message with predefined prefix.
-     */
-    public static String errorMessageFromCause(UUID traceId, String groupName, int code, Throwable cause) {
-        String c = (cause != null && cause.getMessage() != null) ? cause.getMessage() : null;
-
-        if (c != null) {
-            Matcher m = EXCEPTION_MESSAGE_PATTERN.matcher(c);
-
-            c = (m.matches()) ? m.group(8) : c;
-        }
-
-        return errorMessage(traceId, groupName, code, c);
+    public static String errorMessageFromCause(Throwable cause) {
+        return  (cause != null && cause.getMessage() != null) ? cause.getMessage() : null;
     }
 
     /** {@inheritDoc} */

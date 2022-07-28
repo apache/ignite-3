@@ -21,13 +21,13 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.nio.charset.Charset;
 import java.util.function.Supplier;
-import org.apache.ignite.cli.commands.decorators.DefaultDecorator;
 import org.apache.ignite.cli.core.decorator.Decorator;
 import org.apache.ignite.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.exception.handler.DefaultExceptionHandlers;
+import org.apache.ignite.cli.decorators.DefaultDecorator;
 
 /**
  * Call execution pipeline.
@@ -85,8 +85,7 @@ public class CallExecutionPipeline<I extends CallInput, T> {
      *
      * @return builder for {@link CallExecutionPipeline}.
      */
-    public static <I extends CallInput, T> CallExecutionPipelineBuilder<I, T> builder(
-            Call<I, T> call) {
+    public static <I extends CallInput, T> CallExecutionPipelineBuilder<I, T> builder(Call<I, T> call) {
         return new CallExecutionPipelineBuilder<>(call);
     }
 
@@ -111,7 +110,9 @@ public class CallExecutionPipeline<I extends CallInput, T> {
         return 0;
     }
 
-    /** Builder for {@link CallExecutionPipeline}. */
+    /**
+     * Builder for {@link CallExecutionPipeline}.
+     */
     public static class CallExecutionPipelineBuilder<I extends CallInput, T> {
 
         private final Call<I, T> call;
@@ -128,6 +129,15 @@ public class CallExecutionPipeline<I extends CallInput, T> {
 
         public CallExecutionPipelineBuilder(Call<I, T> call) {
             this.call = call;
+        }
+
+        private static PrintWriter wrapOutputStream(OutputStream output) {
+            return new PrintWriter(output, true, getStdoutEncoding());
+        }
+
+        private static Charset getStdoutEncoding() {
+            String encoding = System.getProperty("sun.stdout.encoding");
+            return encoding != null ? Charset.forName(encoding) : Charset.defaultCharset();
         }
 
         public CallExecutionPipelineBuilder<I, T> inputProvider(Supplier<I> inputProvider) {
@@ -170,15 +180,6 @@ public class CallExecutionPipeline<I extends CallInput, T> {
 
         public CallExecutionPipeline<I, T> build() {
             return new CallExecutionPipeline<>(call, output, errOutput, exceptionHandlers, decorator, inputProvider);
-        }
-
-        private static PrintWriter wrapOutputStream(OutputStream output) {
-            return new PrintWriter(output, true, getStdoutEncoding());
-        }
-
-        private static Charset getStdoutEncoding() {
-            String encoding = System.getProperty("sun.stdout.encoding");
-            return encoding != null ? Charset.forName(encoding) : Charset.defaultCharset();
         }
     }
 }

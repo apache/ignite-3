@@ -17,6 +17,8 @@
 
 package org.apache.ignite.cli.commands.node.config;
 
+import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_NODE_URL_MESSAGE;
+
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.apache.ignite.cli.call.configuration.NodeConfigUpdateCall;
@@ -35,21 +37,18 @@ import picocli.CommandLine.Parameters;
         description = "Updates node configuration.")
 @Singleton
 public class NodeConfigUpdateReplSubCommand extends BaseCommand implements Runnable {
+    @Inject
+    NodeConfigUpdateCall call;
     /**
      * Node url option.
      */
-    @Option(names = {"--node-url"}, description = "Url to Ignite node.", descriptionKey = "ignite.cluster-url")
+    @Option(names = {"--node-url"}, description = "Url to Ignite node", descriptionKey = "ignite.cluster-url")
     private String nodeUrl;
-
     /**
      * Configuration that will be updated.
      */
     @Parameters(index = "0")
     private String config;
-
-    @Inject
-    NodeConfigUpdateCall call;
-
     @Inject
     private Session session;
 
@@ -62,7 +61,7 @@ public class NodeConfigUpdateReplSubCommand extends BaseCommand implements Runna
         } else if (nodeUrl != null) {
             input.nodeUrl(nodeUrl);
         } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--cluster-url' option.");
+            spec.commandLine().getErr().println(CONNECT_OR_USE_NODE_URL_MESSAGE.render());
             return;
         }
 
