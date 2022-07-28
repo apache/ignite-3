@@ -91,7 +91,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     /** {@inheritDoc} */
     @Override
     protected PageMemory memory() {
-        return createPageMemoryImpl(defaultSegmentSizes(), defaultCheckpointBufferSize(), null, null);
+        return createPageMemory(defaultSegmentSizes(), defaultCheckpointBufferSize(), null, null);
     }
 
     /** {@inheritDoc} */
@@ -120,7 +120,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 dataRegions
         );
 
-        PersistentPageMemory pageMemory = createPageMemoryImpl(
+        PersistentPageMemory pageMemory = createPageMemory(
                 defaultSegmentSizes(),
                 defaultCheckpointBufferSize(),
                 filePageStoreManager,
@@ -186,7 +186,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         dataRegionCfg.change(c -> c.changeSize(128 * systemPageSize)).get(1, SECONDS);
 
-        PersistentPageMemory pageMemory = createPageMemoryImpl(
+        PersistentPageMemory pageMemory = createPageMemory(
                 new long[]{100 * systemPageSize},
                 28 * systemPageSize,
                 filePageStoreManager,
@@ -243,7 +243,69 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         }
     }
 
-    protected PersistentPageMemory createPageMemoryImpl(
+    @Test
+    void testDeltaFilePageStore(
+            @InjectConfiguration PageMemoryCheckpointConfiguration checkpointConfig,
+            @WorkDirectory Path workDir
+    ) throws Exception {
+        FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
+
+        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
+
+        Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
+
+        CheckpointManager checkpointManager = createCheckpointManager(
+                checkpointConfig,
+                workDir,
+                filePageStoreManager,
+                partitionMetaManager,
+                dataRegions
+        );
+
+        PersistentPageMemory pageMemory = createPageMemory(
+                defaultSegmentSizes(),
+                defaultCheckpointBufferSize(),
+                filePageStoreManager,
+                checkpointManager
+        );
+
+        dataRegions.add(() -> pageMemory);
+
+        filePageStoreManager.start();
+
+        checkpointManager.start();
+
+        pageMemory.start();
+
+        try {
+            initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager);
+
+            checkpointManager.checkpointTimeoutLock().checkpointReadLock();
+
+            try {
+                createDirtyPage(pageMemory);
+                createDirtyPage(pageMemory);
+                createDirtyPage(pageMemory);
+            } finally {
+                checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
+            }
+
+            checkpointManager
+                    .forceCheckpoint("for_test_delta_file_page_store")
+                    .futureFor(FINISHED)
+                    .get(1, SECONDS);
+
+            // TODO: IGNITE-17230 проверить что создавался дельта файл и переименовывался
+        } finally {
+            closeAll(
+                    () -> pageMemory.stop(true),
+                    checkpointManager::stop,
+                    filePageStoreManager::stop
+            );
+        }
+    }
+
+    protected PersistentPageMemory createPageMemory(
             long[] segmentSizes,
             long checkpointBufferSize,
             @Nullable FilePageStoreManager filePageStoreManager,
@@ -262,15 +324,15 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         );
     }
 
-    protected FullPageId createDirtyPage(PersistentPageMemory pageMemoryImpl) throws Exception {
-        FullPageId fullPageId = allocatePage(pageMemoryImpl);
+    protected FullPageId createDirtyPage(PersistentPageMemory pageMemory) throws Exception {
+        FullPageId fullPageId = allocatePage(pageMemory);
 
-        long page = pageMemoryImpl.acquirePage(fullPageId.groupId(), fullPageId.pageId());
+        long page = pageMemory.acquirePage(fullPageId.groupId(), fullPageId.pageId());
 
         try {
-            writePage(pageMemoryImpl, fullPageId, page, 100);
+            writePage(pageMemory, fullPageId, page, 100);
         } finally {
-            pageMemoryImpl.releasePage(fullPageId.groupId(), fullPageId.pageId(), page);
+            pageMemory.releasePage(fullPageId.groupId(), fullPageId.pageId(), page);
         }
 
         return fullPageId;

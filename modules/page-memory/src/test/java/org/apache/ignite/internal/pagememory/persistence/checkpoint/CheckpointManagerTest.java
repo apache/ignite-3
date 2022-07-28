@@ -25,9 +25,12 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -41,6 +44,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryChec
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -139,6 +143,53 @@ public class CheckpointManagerTest {
 
         assertArrayEquals(new int[]{0, 1}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0)));
         assertArrayEquals(new int[]{0, 2, 3, 4}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory1, 0, 1)));
+    }
+
+    @Test
+    void testWritePageToDeltaFilePageStore() throws Exception {
+        FilePageStoreManager filePageStoreManager = mock(FilePageStoreManager.class);
+
+        FilePageStore filePageStore = mock(FilePageStore.class);
+
+        FullPageId dirtyPageId = new FullPageId(pageId(0, (byte) 0, 1), 0);
+
+        when(filePageStoreManager.getStore(eq(dirtyPageId.groupId()), eq(dirtyPageId.partitionId()))).thenReturn(filePageStore);
+
+        CheckpointManager checkpointManager = spy(new CheckpointManager(
+                "test",
+                null,
+                null,
+                checkpointConfig,
+                filePageStoreManager,
+                mock(PartitionMetaManager.class),
+                List.of(),
+                workDir,
+                mock(PageIoRegistry.class),
+                1024
+        ));
+
+        PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
+
+        CheckpointProgress checkpointProgress = mock(CheckpointProgress.class);
+
+        CheckpointDirtyPages dirtyPages = new CheckpointDirtyPages(List.of(
+                new DataRegionDirtyPages<>(pageMemory, new FullPageId[]{dirtyPageId})
+        ));
+
+        when(checkpointProgress.inProgress()).thenReturn(true);
+
+        when(checkpointProgress.pagesToWrite()).thenReturn(dirtyPages);
+
+        when(checkpointManager.currentProgress()).thenReturn(checkpointProgress);
+
+        checkpointManager.writePageToDeltaFilePageStore(
+                pageMemory,
+                dirtyPageId,
+                mock(ByteBuffer.class),
+                true
+        );
+
+        // TODO: IGNITE-17230 проверить что создали лельта файл и что в него сделали запись
     }
 
     private static FullPageId[] dirtyPageArray(int grpId, int partId, int... pageIndex) {
