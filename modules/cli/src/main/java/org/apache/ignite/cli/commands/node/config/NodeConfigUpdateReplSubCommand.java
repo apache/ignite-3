@@ -39,7 +39,7 @@ public class NodeConfigUpdateReplSubCommand extends BaseCommand implements Runna
     /**
      * Node url option.
      */
-    @Option(names = {"--node-url"}, description = "Url to Ignite node.", descriptionKey = "ignite.cluster-url")
+    @Option(names = {"--node-url"}, description = "Url to Ignite node", descriptionKey = "ignite.cluster-url")
     private String nodeUrl;
 
     /**

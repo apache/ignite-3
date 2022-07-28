@@ -30,6 +30,6 @@ public class PicocliExecutionExceptionHandler implements IExecutionExceptionHand
 
     @Override
     public int handleExecutionException(Exception ex, CommandLine commandLine, ParseResult parseResult) {
-        return exceptionHandlers.handleException(System.err::println, ex);
+        return exceptionHandlers.handleException(commandLine.getErr()::println, ex);
     }
 }

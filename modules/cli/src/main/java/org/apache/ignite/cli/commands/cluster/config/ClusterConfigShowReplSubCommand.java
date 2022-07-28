@@ -27,6 +27,8 @@ import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.cli.core.exception.handler.IgniteCliApiExceptionHandler;
 import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.flow.builder.Flows;
+import org.apache.ignite.cli.core.style.AnsiStringSupport.Style;
+import org.apache.ignite.cli.core.style.component.ErrorComponent;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -35,19 +37,19 @@ import picocli.CommandLine.Option;
  * Command that shows configuration from the cluster in REPL mode.
  */
 @Command(name = "show",
-        description = "Shows cluster configuration.")
+        description = "Shows cluster configuration")
 public class ClusterConfigShowReplSubCommand extends BaseCommand implements Runnable {
 
     /**
      * Configuration selector option.
      */
-    @Option(names = {"--selector"}, description = "Configuration path selector.")
+    @Option(names = {"--selector"}, description = "Configuration path selector")
     private String selector;
 
     /**
      * Node url option.
      */
-    @Option(names = {"--cluster-url"}, description = "Url to Ignite node.")
+    @Option(names = {"--cluster-url"}, description = "Url to Ignite node")
     private String clusterUrl;
 
     @Inject
@@ -76,9 +78,15 @@ public class ClusterConfigShowReplSubCommand extends BaseCommand implements Runn
         public int handle(ExceptionWriter err, IgniteCliApiException e) {
             if (e.getCause() instanceof ApiException) {
                 ApiException apiException = (ApiException) e.getCause();
-                if (apiException.getCode() == 500) { //TODO: https://issues.apache.org/jira/browse/IGNITE-17091
-                    err.write("Cannot show cluster config, probably you have not initialized the cluster. "
-                            + "Try to run 'cluster init' command.");
+                if (apiException.getCode() == 500) { //TODO: should be 404
+                    err.write(
+                            ErrorComponent.builder()
+                                    .header("Cannot show cluster config")
+                                    .details("Probably you have not initialized the cluster, try to run " + Style.BOLD.mark("cluster init")
+                                            + "command")
+                                    .build()
+                                    .render()
+                    );
                     return 1;
                 }
             }

@@ -15,31 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.decorators;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.ignite.cli.call.configuration.JsonString;
+import com.jakewharton.fliptables.FlipTableConverters;
 import org.apache.ignite.cli.core.decorator.Decorator;
 import org.apache.ignite.cli.core.decorator.TerminalOutput;
+import org.apache.ignite.cli.sql.table.Table;
 
 /**
- * Pretty json decorator.
+ * Implementation of {@link Decorator} for {@link Table}.
  */
-public class JsonDecorator implements Decorator<JsonString, TerminalOutput> {
+public class TableDecorator implements Decorator<Table, TerminalOutput> {
 
-    /** {@inheritDoc} */
+    /**
+     * Transform {@link Table} to {@link TerminalOutput}.
+     *
+     * @param table incoming {@link Table}.
+     * @return User friendly interpretation of {@link Table} in {@link TerminalOutput}.
+     */
     @Override
-    public TerminalOutput decorate(JsonString json) {
-        ObjectMapper mapper = new ObjectMapper();
-        return () -> {
-            try {
-                return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(mapper.readValue(json.getValue(), JsonNode.class));
-            } catch (JsonProcessingException e) {
-                return json.getValue(); // no-op
-            }
-
-        };
+    public TerminalOutput decorate(Table table) {
+        return () -> FlipTableConverters.fromObjects(table.header(), table.content());
     }
 }

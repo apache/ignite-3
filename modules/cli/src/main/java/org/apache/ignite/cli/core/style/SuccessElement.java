@@ -15,26 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.core.style;
 
-import com.jakewharton.fliptables.FlipTableConverters;
-import org.apache.ignite.cli.core.decorator.Decorator;
-import org.apache.ignite.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.cli.sql.table.Table;
+import static org.apache.ignite.cli.core.style.AnsiStringSupport.Color;
+import static org.apache.ignite.cli.core.style.AnsiStringSupport.ansi;
+import static org.apache.ignite.cli.core.style.AnsiStringSupport.fg;
+
+import org.apache.ignite.cli.core.style.AnsiStringSupport.Style;
 
 /**
- * Implementation of {@link Decorator} for {@link Table}.
+ * UI element that represents a successful message.
  */
-public class TableDecorator implements Decorator<Table, TerminalOutput> {
+public class SuccessElement {
 
-    /**
-     * Transform {@link Table} to {@link TerminalOutput}.
-     *
-     * @param table incoming {@link Table}.
-     * @return User friendly interpretation of {@link Table} in {@link TerminalOutput}.
-     */
-    @Override
-    public TerminalOutput decorate(Table table) {
-        return () -> FlipTableConverters.fromObjects(table.header(), table.content());
+    /** Done message. */
+    public static SuccessElement done() {
+        return new SuccessElement();
+    }
+
+    /** Render message to string representation. */
+    public String render() {
+        return ansi(fg(Color.GREEN).with(Style.BOLD).mark("Done"));
     }
 }

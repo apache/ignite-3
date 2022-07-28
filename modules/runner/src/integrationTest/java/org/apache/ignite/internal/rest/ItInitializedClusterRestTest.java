@@ -140,6 +140,21 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     }
 
     @Test
+    @DisplayName("Cluster configuration can not be updated if provided config did not pass the validation")
+    void clusterConfigurationUpdateValidation() throws IOException, InterruptedException {
+        // When PATCH /management/v1/configuration/cluster invalid with invalid value
+        HttpResponse<String> patchRequest = client.send(
+                patch("/management/v1/configuration/cluster", "rocksDb.defaultRegion.cache=invalid"),
+                BodyHandlers.ofString()
+        );
+
+        // Then
+        assertThat(patchRequest.statusCode(), is(400));
+        // And invalidParams key is in response body
+        assertThat(patchRequest.body(), hasJsonPath("$.invalidParams"));
+    }
+
+    @Test
     @DisplayName("Cluster configuration by path is available when the cluster is initialized")
     void clusterConfigurationByPath() throws IOException, InterruptedException {
         // When GET /management/v1/configuration/cluster and path selector is "rocksDb.defaultRegion"

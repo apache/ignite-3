@@ -33,13 +33,13 @@ import picocli.CommandLine.Parameters;
  * Command that updates cluster configuration in REPL mode.
  */
 @Command(name = "update",
-        description = "Updates cluster configuration.")
+        description = "Updates cluster configuration")
 @Singleton
 public class ClusterConfigUpdateReplSubCommand extends BaseCommand implements Runnable {
     /**
      * Cluster url option.
      */
-    @Option(names = {"--cluster-url"}, description = "Url to Ignite node.", descriptionKey = "ignite.cluster-url")
+    @Option(names = {"--cluster-url"}, description = "Url to Ignite node", descriptionKey = "ignite.cluster-url")
     private String clusterUrl;
 
     /**

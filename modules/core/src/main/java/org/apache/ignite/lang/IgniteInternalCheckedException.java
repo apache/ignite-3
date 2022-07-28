@@ -19,7 +19,6 @@ package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
 import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
-import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.errorMessageFromCause;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
@@ -68,7 +67,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param code Full error code.
      */
     public IgniteInternalCheckedException(UUID traceId, int code) {
-        super(errorMessage(traceId, code, null));
+        super();
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -93,7 +92,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param message Detail message.
      */
     public IgniteInternalCheckedException(UUID traceId, int code, String message) {
-        super(errorMessage(traceId, code, message));
+        super(message);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -118,7 +117,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteInternalCheckedException(UUID traceId, int code, Throwable cause) {
-        super(errorMessageFromCause(traceId, code, cause), cause);
+        super(errorMessageFromCause(cause), cause);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -145,7 +144,7 @@ public class IgniteInternalCheckedException extends Exception {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteInternalCheckedException(UUID traceId, int code, String message, Throwable cause) {
-        super(errorMessage(traceId, code, message), cause);
+        super(message, cause);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -168,7 +167,7 @@ public class IgniteInternalCheckedException extends Exception {
             @Nullable Throwable cause,
             boolean writableStackTrace
     ) {
-        super(errorMessage(traceId, code, message), cause, true, writableStackTrace);
+        super(message, cause, true, writableStackTrace);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();

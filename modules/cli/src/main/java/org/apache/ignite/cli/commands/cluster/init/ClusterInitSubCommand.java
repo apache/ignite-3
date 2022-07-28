@@ -31,14 +31,14 @@ import picocli.CommandLine.Option;
 /**
  * Initializes an Ignite cluster.
  */
-@Command(name = "init", description = "Initializes an Ignite cluster.")
+@Command(name = "init", description = "Initializes an Ignite cluster")
 public class ClusterInitSubCommand extends BaseCommand implements Callable<Integer> {
 
     /**
      * Node url option.
      */
     @Option(
-            names = {"--cluster-url"}, description = "Url to ignite node.",
+            names = {"--cluster-url"}, description = "Url to ignite node",
             descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
     )
     private String clusterUrl;

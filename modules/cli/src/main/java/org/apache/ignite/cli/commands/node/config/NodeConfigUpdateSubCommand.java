@@ -32,13 +32,13 @@ import picocli.CommandLine.Parameters;
  * Command that updates node configuration.
  */
 @Command(name = "update",
-        description = "Updates node configuration.")
+        description = "Updates node configuration")
 @Singleton
 public class NodeConfigUpdateSubCommand extends BaseCommand implements Callable<Integer> {
     /**
      * Node url option.
      */
-    @Option(names = {"--node-url"}, description = "Url to Ignite node.", descriptionKey = "ignite.cluster-url")
+    @Option(names = {"--node-url"}, description = "Url to Ignite node", descriptionKey = "ignite.cluster-url")
     private String nodeUrl;
 
     /**

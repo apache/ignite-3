@@ -15,30 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.decorators;
 
-import static org.apache.ignite.cli.core.style.AnsiStringSupport.ansi;
-import static org.apache.ignite.cli.core.style.AnsiStringSupport.fg;
-
-import org.apache.ignite.cli.call.node.status.NodeStatus;
-import org.apache.ignite.cli.call.node.status.State;
 import org.apache.ignite.cli.core.decorator.Decorator;
 import org.apache.ignite.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.cli.core.style.AnsiStringSupport.Color;
+import org.apache.ignite.cli.sql.SqlQueryResult;
 
 /**
- * Decorator for {@link NodeStatus}.
+ * Composite decorator for {@link SqlQueryResult}.
  */
-public class NodeStatusDecorator implements Decorator<NodeStatus, TerminalOutput> {
+public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, TerminalOutput> {
+
+    private final TableDecorator tableDecorator = new TableDecorator();
+
+    private final DefaultDecorator<String> messageDecorator = new DefaultDecorator<>();
 
     @Override
-    public TerminalOutput decorate(NodeStatus data) {
-        Color c = data.state().equals(State.STARTED) ? Color.GREEN : Color.YELLOW;
-
-        return () -> ansi(
-                "[name: %s, state: %s]",
-                data.name(),
-                fg(c).mark(data.state().name().toLowerCase())
-        );
+    public TerminalOutput decorate(SqlQueryResult data) {
+        return data.getResult(tableDecorator, messageDecorator);
     }
 }

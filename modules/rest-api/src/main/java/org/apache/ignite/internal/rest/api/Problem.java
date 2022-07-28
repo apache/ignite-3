@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rest.api;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.rest.constants.HttpCode;
@@ -50,6 +51,9 @@ public class Problem {
     /** Unique identifier that will help to trace the error in the log (optional). */
     private final UUID traceId;
 
+    /** List of parameter that did not pass the validation (optional). */
+    private final Collection<InvalidParam> invalidParams;
+
     /** Constructor. */
     @JsonCreator
     protected Problem(
@@ -59,7 +63,8 @@ public class Problem {
             @JsonProperty("type") String type,
             @JsonProperty("detail") String detail,
             @JsonProperty("node") String node,
-            @JsonProperty("traceId") UUID traceId) {
+            @JsonProperty("traceId") UUID traceId,
+            @JsonProperty("invalidParams") Collection<InvalidParam> invalidParams) {
         this.title = title;
         this.status = status;
         this.code = code;
@@ -67,6 +72,7 @@ public class Problem {
         this.detail = detail;
         this.node = node;
         this.traceId = traceId;
+        this.invalidParams = invalidParams;
     }
 
     /** Returns {@link ProblemBuilder}. */
@@ -118,6 +124,11 @@ public class Problem {
         return traceId;
     }
 
+    @JsonGetter("invalidParams")
+    public Collection<InvalidParam> invalidParams() {
+        return invalidParams;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -166,6 +177,8 @@ public class Problem {
 
         protected UUID traceId;
 
+        protected Collection<InvalidParam> invalidParams;
+
         public B title(String title) {
             this.title = title;
             return (B) this;
@@ -201,9 +214,14 @@ public class Problem {
             return (B) this;
         }
 
+        public B invalidParams(Collection<InvalidParam> invalidParams) {
+            this.invalidParams = invalidParams;
+            return (B) this;
+        }
+
         @Override
         public T build() {
-            return (T) new Problem(title, status, code, type, detail, node, traceId);
+            return (T) new Problem(title, status, code, type, detail, node, traceId, invalidParams);
         }
     }
 }

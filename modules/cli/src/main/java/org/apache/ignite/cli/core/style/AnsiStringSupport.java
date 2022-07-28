@@ -38,13 +38,32 @@ public final class AnsiStringSupport {
      */
     public static class Fg {
         private final Color color;
+        private Style style;
 
         private Fg(Color color) {
             this.color = color;
         }
 
+        public Fg with(Style style) {
+            this.style = style;
+            return this;
+        }
+
+        /** Marks given text with the configured before style. */
         public String mark(String textToMark) {
+            if (style == Style.BOLD) {
+                return String.format("@|fg(%d),bold %s|@", color.code, textToMark);
+            }
             return String.format("@|fg(%d) %s|@", color.code, textToMark);
+        }
+    }
+
+    /** Represents the text style. */
+    public enum Style {
+        BOLD;
+
+        public String mark(String textToMark) {
+            return String.format("@|bold %s|@", textToMark);
         }
     }
 
@@ -52,7 +71,7 @@ public final class AnsiStringSupport {
      * Represents ansi colors that are used in CLI.
      */
     public enum Color {
-        RED(1), GREEN(2), YELLOW(3);
+        RED(1), GREEN(2), YELLOW(3), GRAY(246);
 
         Color(int code) {
             this.code = code;

@@ -32,7 +32,7 @@ import picocli.CommandLine.Parameters;
  * Command that updates cluster configuration.
  */
 @Command(name = "update",
-        description = "Updates cluster configuration.")
+        description = "Updates cluster configuration")
 @Singleton
 public class ClusterConfigUpdateSubCommand extends BaseCommand implements Callable<Integer> {
     @Inject
@@ -41,7 +41,7 @@ public class ClusterConfigUpdateSubCommand extends BaseCommand implements Callab
     /**
      * Cluster url option.
      */
-    @Option(names = {"--cluster-url"}, description = "Url to Ignite node.", descriptionKey = "ignite.cluster-url")
+    @Option(names = {"--cluster-url"}, description = "Url to Ignite node", descriptionKey = "ignite.cluster-url")
     private String clusterUrl;
 
     /**

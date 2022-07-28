@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
-import org.apache.ignite.internal.rest.api.ValidationProblem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 import org.apache.ignite.lang.IgniteException;
@@ -51,7 +50,7 @@ public class IgniteExceptionHandler implements ExceptionHandler<IgniteException,
 
         if (exception.getCause() instanceof ConfigurationValidationException) {
             return HttpProblemResponse.from(
-                    ValidationProblem.fromHttpCode(HttpCode.BAD_REQUEST)
+                    Problem.fromHttpCode(HttpCode.BAD_REQUEST)
                             .detail(exception.getMessage())
                             .invalidParams(mapValidationIssuesToRestFormat((ConfigurationValidationException) exception.getCause()))
                             .traceId(exception.traceId())

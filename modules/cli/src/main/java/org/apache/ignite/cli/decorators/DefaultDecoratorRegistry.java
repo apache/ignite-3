@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.decorators;
 
 import org.apache.ignite.cli.call.cluster.status.ClusterStatus;
 import org.apache.ignite.cli.call.configuration.JsonString;

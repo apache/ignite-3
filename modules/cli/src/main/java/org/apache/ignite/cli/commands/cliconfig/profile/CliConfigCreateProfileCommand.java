@@ -29,15 +29,15 @@ import picocli.CommandLine.Option;
 /**
  * Command for create CLI profile.
  */
-@Command(name = "create", description = "Create profile command.")
+@Command(name = "create", description = "Create profile command")
 public class CliConfigCreateProfileCommand extends BaseCommand implements Callable<Integer> {
-    @Option(names = {"--name", "-n"}, required = true, description = "Name of new profile.")
+    @Option(names = {"--name", "-n"}, required = true, description = "Name of new profile")
     private String profileName;
 
-    @Option(names = {"--copy-from", "-c"}, description = "Profile whose content will be copied to new one.")
+    @Option(names = {"--copy-from", "-c"}, description = "Profile whose content will be copied to new one")
     private String copyFrom;
 
-    @Option(names = {"--activate", "-a"}, description = "Activate new profile as current or not.")
+    @Option(names = {"--activate", "-a"}, description = "Activate new profile as current or not")
     private boolean activate;
 
 

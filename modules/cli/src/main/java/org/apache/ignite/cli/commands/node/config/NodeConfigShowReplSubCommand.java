@@ -37,14 +37,14 @@ public class NodeConfigShowReplSubCommand extends BaseCommand implements Runnabl
     /**
      * Configuration selector option.
      */
-    @Option(names = {"--selector"}, description = "Configuration path selector.")
+    @Option(names = {"--selector"}, description = "Configuration path selector")
     private String selector;
 
     /**
      * Node url option.
      */
     @Option(
-            names = {"--node-url"}, description = "Url to Ignite node."
+            names = {"--node-url"}, description = "Url to Ignite node"
     )
     private String nodeUrl;
 

@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.decorators;
 
-import java.util.stream.Collectors;
-import org.apache.ignite.cli.config.Profile;
 import org.apache.ignite.cli.core.decorator.Decorator;
 import org.apache.ignite.cli.core.decorator.TerminalOutput;
 
 /**
- * Decorator for printing {@link Profile}.
+ * Default decorator that calls toString method.
+ *
+ * @param <I> Input type.
  */
-public class ProfileDecorator implements Decorator<Profile, TerminalOutput> {
+public class DefaultDecorator<I> implements Decorator<I, TerminalOutput> {
+
+    /** {@inheritDoc} */
     @Override
-    public TerminalOutput decorate(Profile data) {
-        return () -> data.getAll().entrySet().stream()
-                .map(entry -> entry.getKey() + "=" + entry.getValue())
-                .collect(Collectors.joining(System.lineSeparator()));
+    public TerminalOutput decorate(I data) {
+        return data::toString;
     }
 }
