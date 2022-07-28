@@ -344,7 +344,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
                 Path partFilePath = groupWorkDir.resolve(String.format(PART_FILE_TEMPLATE, part));
 
-                Path[] partDeltaFiles = findPartitionDeltaFiles(groupWorkDir, partitions);
+                Path[] partDeltaFiles = findPartitionDeltaFiles(groupWorkDir, part);
 
                 FilePageStore filePageStore = filePageStoreFactory.createPageStore(buffer.rewind(), partFilePath, partDeltaFiles);
 

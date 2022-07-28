@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.lang.System.nanoTime;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.DIRTY_PAGE_COMPARATOR;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
+import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -346,6 +348,10 @@ public class CheckpointerTest {
                 new PartitionMeta(null, 0, 0, 3)
         );
 
+        FilePageStore filePageStore = mock(FilePageStore.class);
+
+        when(filePageStore.getNewDeltaFile()).thenReturn(completedFuture(mock(DeltaFilePageStoreIo.class)));
+
         Checkpointer checkpointer = spy(new Checkpointer(
                 log,
                 "test",
@@ -353,7 +359,7 @@ public class CheckpointerTest {
                 null,
                 createCheckpointWorkflow(dirtyPages),
                 createCheckpointPagesWriterFactory(partitionMetaManager),
-                createFilePageStoreManager(Map.of(new GroupPartitionId(0, 0), mock(FilePageStore.class))),
+                createFilePageStoreManager(Map.of(new GroupPartitionId(0, 0), filePageStore)),
                 checkpointConfig
         ));
 
