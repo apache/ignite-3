@@ -15,27 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.examples.threadpool;
+package org.apache.ignite.internal.metrics;
 
 import java.util.concurrent.ExecutionException;
-import org.apache.ignite.internal.metrics.LongMetric;
-import org.apache.ignite.internal.metrics.MetricRegistry;
 
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.metrics.MetricSet;
+import org.junit.jupiter.api.Test;
 
-public class ThreadPoolExample {
-    public static void main(String[] args) throws ExecutionException, InterruptedException {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class ThreadPoolMetricTest {
+    @Test
+    public void test() throws ExecutionException, InterruptedException {
         // Should be one per node.
         MetricRegistry registry = new MetricRegistry();
 
         // ------------------------------------------------------------------------
 
         // System component, e.g. thread pool executor
-        ThreadPoolExecutor exec = new ThreadPoolExecutor(4, 4,
-                0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
+        ThreadPoolExecutor exec = new ThreadPoolExecutor(4, 4, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
 
         // Metrics source for thread pool
         ThreadPoolMetricSource src = new ThreadPoolMetricSource("example.thread_pool.ExamplePool", exec);
@@ -48,28 +48,20 @@ public class ThreadPoolExample {
         // Enable metrics by signal (or because configuration)
         MetricSet metricSet = registry.enable(src.name());
 
-        exec.submit(() -> {}).get();
-
         LongMetric completedTaskCount = metricSet.get("CompletedTaskCount");
-        System.out.println(completedTaskCount.value());
-        System.out.println("versino: " + metricSet.version());
+
+        assertEquals(0L, completedTaskCount.value());
+
+        exec.submit(() -> {}).get();
+        assertEquals(1L, completedTaskCount.value());
 
         // ------------------------------------------------------------------------
 
         // Disable metrics by signal
         registry.disable(src.name());
 
-        metricSet = registry.enable(src.name());
-
-        completedTaskCount = metricSet.get("CompletedTaskCount");
-        System.out.println(completedTaskCount.value());
-        System.out.println("versino: " + metricSet.version());
-
-        // ------------------------------------------------------------------------
-
         // Component is stopped\destroyed
         registry.unregisterSource(src);
-
         exec.shutdown();
     }
 }

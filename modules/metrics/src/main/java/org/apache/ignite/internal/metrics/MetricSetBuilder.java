@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.function.DoubleSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -36,17 +35,14 @@ public class MetricSetBuilder {
     /** Registered metrics. */
     private Map<String, Metric> metrics = new LinkedHashMap<>();
 
-    private final Supplier<Long> versionSupplier;
-
     /**
      *  Creates a new instance of metrics set builder with given name.
      *
      * @param name Name of metrics set. Can't be null.
      */
-    public MetricSetBuilder(String name, Supplier<Long> versionSupplier) {
+    public MetricSetBuilder(String name) {
         Objects.requireNonNull(name, "Metrics set name can't be null");
         this.name = name;
-        this.versionSupplier = versionSupplier;
     }
 
     public MetricSet build() {
@@ -54,7 +50,7 @@ public class MetricSetBuilder {
             throw new IllegalStateException("Builder can't be used twice.");
         }
 
-        MetricSet reg = new MetricSet(name, metrics, versionSupplier.get());
+        MetricSet reg = new MetricSet(name, metrics);
 
         metrics = null;
 

@@ -36,21 +36,14 @@ public class MetricSet implements Iterable<Metric> {
     private final Map<String, Metric> metrics;
 
     /**
-     * Metric set version.
-     */
-    private final long version;
-
-    /**
      * Creates an instance of a metrics set with given name and metrics.
      *
      * @param name Metrics set name.
      * @param metrics Metrics.
-     * @param version Metric set version.
      */
-    public MetricSet(String name, Map<String, Metric> metrics, long version) {
+    public MetricSet(String name, Map<String, Metric> metrics) {
         this.name = name;
         this.metrics = Collections.unmodifiableMap(metrics);
-        this.version = version;
     }
 
     /**
@@ -83,15 +76,6 @@ public class MetricSet implements Iterable<Metric> {
     /** @return Name of the metrics set. */
     public String name() {
         return name;
-    }
-
-    /**
-     * Version.
-     *
-     * @return Version.
-     */
-    public long version() {
-        return version;
     }
 
     /**

@@ -31,10 +31,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class DistributionMetric extends AbstractMetric implements CompositeMetric {
     /** Count of measurement for each bound. */
-    public final AtomicLongArray measurements;
+    private final AtomicLongArray measurements;
 
     /** Bounds of measurements. */
-    public final long[] bounds;
+    private final long[] bounds;
 
     /**
      * The constructor.
@@ -106,8 +106,8 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
     /** {@inheritDoc} */
     @Override public @Nullable String getAsString() {
         return asScalarMetrics().stream()
-            .map(m -> m.name() + ": " + ((LongMetric) m).value())
-            .collect(Collectors.joining(",", "[", "]"));
+            .map(m -> m.name() + ":" + ((LongMetric) m).value())
+            .collect(Collectors.joining(", ", "[", "]"));
     }
 
     /**
@@ -125,7 +125,7 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
 
         for (int i = 0; i < measurements.length(); i++) {
             String from = i == 0 ? "0" : String.valueOf(bounds[i - 1]);
-            String to = i == measurements.length() - 1 ? String.valueOf(bounds[i]) : "";
+            String to = i == measurements.length() - 1 ? "" : String.valueOf(bounds[i]);
 
             String name = new StringBuilder(from).append('_').append(to).toString();
 

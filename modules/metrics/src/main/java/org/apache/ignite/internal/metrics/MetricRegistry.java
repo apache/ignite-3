@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Metric registry. Metrics source (see {@link MetricSource} must be registered in this metrics registry after initialization
@@ -36,6 +37,9 @@ public class MetricRegistry {
 
     /** Enabled metric sets. */
     private final Map<String, MetricSet> sets = new TreeMap<>();
+
+    /** Version always should be changed on metrics enabled/disabled action. */
+    private volatile long version;
 
     /**
      * Register metric source. It must be registered in this metrics registry after initialization of corresponding component
@@ -92,6 +96,8 @@ public class MetricRegistry {
 
             if (metricSet != null) {
                 sets.put(srcName, metricSet);
+
+                version++;
             }
 
             return metricSet;
@@ -111,11 +117,26 @@ public class MetricRegistry {
         try {
             MetricSource src = sources.get(srcName);
 
+            if (src == null)
+                throw new IllegalStateException("Metrics source with given name doesn't exists: " + srcName);
+
             src.disable();
 
             sets.remove(srcName);
+
+            version++;
         } finally {
             lock.unlock();
         }
+    }
+
+    /**
+     * Returns registry schema version.
+     *
+     * @return Version.
+     */
+    @TestOnly
+    public long version() {
+        return version;
     }
 }

@@ -19,9 +19,7 @@ package org.apache.ignite.internal.metrics;
 
 import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
 
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import java.util.function.Supplier;
 
 /**
  * Base class for all metric sources.
@@ -40,11 +38,8 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
     /** Metric instances holder. */
     private volatile T holder;
 
-    /** Version. */
-    private final AtomicLong version = new AtomicLong();
-
     /**
-     * Base constructor for all metric source implemnetations.
+     * Base constructor for all metric source implementations.
      *
      * @param name Metric source name.
      */
@@ -87,18 +82,9 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
      */
     protected abstract T createHolder();
 
-    /**
-     * Version supplier for versioning the metric set.
-     *
-     * @return Version supplier, supplying metric set version.
-     */
-    protected Supplier<Long> versionSupplier() {
-        return version::incrementAndGet;
-    }
-
     /** {@inheritDoc} */
     @Override public final MetricSet enable() {
-        MetricSetBuilder bldr = new MetricSetBuilder(name, versionSupplier());
+        MetricSetBuilder bldr = new MetricSetBuilder(name);
 
         T hldr = createHolder();
 
