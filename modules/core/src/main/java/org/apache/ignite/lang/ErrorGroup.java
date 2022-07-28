@@ -23,6 +23,8 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * This class represents a concept of error group. Error group defines a collection of errors that belong to a single semantic component.
@@ -31,6 +33,10 @@ import java.util.UUID;
 public class ErrorGroup {
     /** Additional prefix that is used in a human-readable format of ignite errors. */
     public static final String ERR_PREFIX = "IGN-";
+
+    /** Error message pattern. */
+    private static final Pattern EXCEPTION_MESSAGE_PATTERN =
+            Pattern.compile("(.*)(IGN)-([A-Z]+)-(\\d+)\\s(TraceId:)([a-f0-9]{8}(?:-[a-f0-9]{4}){4}[a-f0-9]{8})(\\s?)(.*)");
 
     /** List of all registered error groups. */
     private static final Int2ObjectMap<ErrorGroup> registeredGroups = new Int2ObjectOpenHashMap<>();
@@ -222,7 +228,13 @@ public class ErrorGroup {
     public static String errorMessageFromCause(UUID traceId, String groupName, int code, Throwable cause) {
         String c = (cause != null && cause.getMessage() != null) ? cause.getMessage() : null;
 
-        return (c != null && c.startsWith(ERR_PREFIX)) ? c : errorMessage(traceId, groupName, code, c);
+        if (c != null) {
+            Matcher m = EXCEPTION_MESSAGE_PATTERN.matcher(c);
+
+            c = (m.matches()) ? m.group(8) : c;
+        }
+
+        return errorMessage(traceId, groupName, code, c);
     }
 
     /** {@inheritDoc} */

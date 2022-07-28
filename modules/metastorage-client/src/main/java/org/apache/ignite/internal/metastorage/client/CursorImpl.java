@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_EXECUTION_ERR;
 
@@ -31,7 +32,6 @@ import org.apache.ignite.internal.metastorage.common.command.cursor.CursorCloseC
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorHasNextCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCommand;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -135,15 +135,7 @@ public class CursorImpl<T> implements Cursor<T> {
 
                 LOG.debug("Unable to evaluate cursor hasNext command", e);
 
-                if (e.getCause() instanceof IgniteInternalException) {
-                    IgniteInternalException exception = (IgniteInternalException) e.getCause();
-                    throw new IgniteInternalException(exception.traceId(), exception.code(), exception);
-                } else if (e.getCause() instanceof IgniteInternalCheckedException) {
-                    IgniteInternalCheckedException exception = (IgniteInternalCheckedException) e.getCause();
-                    throw new IgniteInternalException(exception.traceId(), exception.code(), exception);
-                }
-
-                throw new IgniteInternalException(CURSOR_EXECUTION_ERR, e);
+                throw withCause(IgniteInternalException::new, CURSOR_EXECUTION_ERR, e);
             }
         }
 
@@ -181,15 +173,7 @@ public class CursorImpl<T> implements Cursor<T> {
 
                 LOG.debug("Unable to evaluate cursor hasNext command", e);
 
-                if (e.getCause() instanceof IgniteInternalException) {
-                    IgniteInternalException exception = (IgniteInternalException) e.getCause();
-                    throw new IgniteInternalException(exception.traceId(), exception.code(), exception);
-                } else if (e.getCause() instanceof IgniteInternalCheckedException) {
-                    IgniteInternalCheckedException exception = (IgniteInternalCheckedException) e.getCause();
-                    throw new IgniteInternalException(exception.traceId(), exception.code(), exception);
-                }
-
-                throw new IgniteInternalException(CURSOR_EXECUTION_ERR, e);
+                throw withCause(IgniteInternalException::new, CURSOR_EXECUTION_ERR, e);
             }
         }
 
