@@ -84,6 +84,13 @@
     </modules>
 
     <profiles>
+        <profile>
+            <id>cpp</id>
+            <modules>
+                <module>modules/platforms/cpp</module>
+            </modules>
+        </profile>
+
         <!--
             This profile is used to check the code for coding guidelines.
 
