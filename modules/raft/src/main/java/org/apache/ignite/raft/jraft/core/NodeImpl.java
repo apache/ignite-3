@@ -2501,8 +2501,28 @@ public class NodeImpl implements Node, RaftServerService {
         }
         final List<LogEntry> entries = new ArrayList<>();
         entries.add(entry);
-        this.logManager.appendEntries(entries, new LeaderStableClosure(entries));
+
+        var leaderStableClosure = new LeaderStableClosure(entries) {
+            private final SynchronizedClosure done = new SynchronizedClosure();
+
+            @Override
+            public void run(Status status) {
+                super.run(status);
+                done.run(status);
+            }
+        };
+
+        this.logManager.appendEntries(entries, leaderStableClosure);
+
         checkAndSetConfiguration(false);
+
+        try {
+            if (!leaderStableClosure.done.await().isOk()) {
+                // ?
+            }
+        } catch (InterruptedException e) {
+            // ???
+        }
     }
 
     private void unsafeRegisterConfChange(final Configuration oldConf, final Configuration newConf, final Closure done) {
