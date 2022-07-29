@@ -2512,6 +2512,7 @@ public class NodeImpl implements Node, RaftServerService {
             }
         };
 
+        long timeBefore = System.currentTimeMillis();
         this.logManager.appendEntries(entries, leaderStableClosure);
 
         checkAndSetConfiguration(false);
@@ -2522,6 +2523,11 @@ public class NodeImpl implements Node, RaftServerService {
             }
         } catch (InterruptedException e) {
             // ???
+        }
+        long timeAfter = System.currentTimeMillis();
+
+        if (timeAfter - timeBefore > 100) {
+            System.out.println("<$> TOO LONG: " + (timeAfter - timeBefore) + ", groupId = " + groupId);
         }
     }
 
