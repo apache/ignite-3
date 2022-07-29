@@ -424,10 +424,10 @@ public class PartitionListener implements RaftGroupListener {
         // persisted and thus FinishTxCommand couldn't be completed on recovery after node restart ("changeState" uses "replace").
         if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
             txManager.lockManager().locks(txId)
-                    .forEachRemaining(lock -> storage.commitWrite(ByteBuffer.wrap((byte[]) lock.lockKey().key()), txId));
+                    .forEachRemaining(lock -> storage.commitWrite((ByteBuffer) lock.lockKey().key(), txId));
         } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
             txManager.lockManager().locks(txId)
-                    .forEachRemaining(lock -> storage.abortWrite(ByteBuffer.wrap((byte[]) lock.lockKey().key())));
+                    .forEachRemaining(lock -> storage.abortWrite((ByteBuffer) lock.lockKey().key()));
         }
 
         return stateChanged;
