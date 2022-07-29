@@ -29,7 +29,7 @@ import org.apache.ignite.lang.IgniteInternalException;
  */
 public class BinaryTupleSchema {
     /** Size of a tuple header, in bytes. */
-    public static int HEADER_SIZE = 1;
+    public static final int HEADER_SIZE = 1;
 
     /** Mask for size of entries in variable-length offset table. */
     public static final int VARSIZE_MASK = 0b011;
