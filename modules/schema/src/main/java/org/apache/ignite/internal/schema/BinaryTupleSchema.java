@@ -289,6 +289,22 @@ public class BinaryTupleSchema {
     }
 
     /**
+     * Get offset of the byte that contains null-bit of a given tuple element.
+     *
+     * @param index Tuple element index.
+     * @return Offset of the required byte relative to the tuple start.
+     */
+    public static int getNullOffset(int index) { return HEADER_SIZE + index / 8; }
+
+    /**
+     * Get a null-bit mask corresponding to a given tuple element.
+     *
+     * @param index Tuple element index.
+     * @return Mask to extract the required null-bit.
+     */
+   public static byte getNullMask(int index) { return (byte) (1 << (index % 8)); }
+
+    /**
      * Returns the number of elements in the tuple.
      */
     public int elementCount() {
