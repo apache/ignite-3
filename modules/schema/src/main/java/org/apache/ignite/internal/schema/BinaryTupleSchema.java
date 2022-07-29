@@ -289,13 +289,6 @@ public class BinaryTupleSchema {
     }
 
     /**
-     * Returns the null map size in bytes if there are nullable elements, zero otherwise.
-     */
-    public int nullMapSize() {
-        return hasNullableElements() ? nullMapSize(elementCount()) : 0;
-    }
-
-    /**
      * Returns the number of elements in the tuple.
      */
     public int elementCount() {
