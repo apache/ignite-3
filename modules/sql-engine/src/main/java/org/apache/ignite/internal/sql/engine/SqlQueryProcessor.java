@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
-import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -292,7 +292,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         var session = sessionManager.session(sessionId);
 
         if (session == null) {
-            return CompletableFuture.failedFuture(new SessionNotFoundException(sessionId));
+            return CompletableFuture.failedFuture(
+                    new SqlException(SESSION_NOT_FOUND_ERR, format("Session not found [{}]", sessionId)));
         }
 
         var schemaName = session.queryProperties().get(QueryProperty.DEFAULT_SCHEMA);

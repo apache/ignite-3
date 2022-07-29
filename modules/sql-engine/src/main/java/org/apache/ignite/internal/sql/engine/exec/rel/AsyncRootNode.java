@@ -27,8 +27,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
-import org.apache.ignite.internal.sql.engine.ClosedCursorException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
+import org.apache.ignite.sql.CursorClosedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -164,7 +164,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
         synchronized (lock) {
             if (closed) {
-                next.completeExceptionally(new ClosedCursorException());
+                next.completeExceptionally(new CursorClosedException());
 
                 return next;
             }

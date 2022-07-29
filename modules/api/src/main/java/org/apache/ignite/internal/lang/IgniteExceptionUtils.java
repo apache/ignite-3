@@ -15,12 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.lang;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * The exception is used to complete result stage of {@link AsyncCursor#requestNextAsync(int)} invocation when invoked on a closed cursor.
+ * Ignite exception utils.
  */
-public class ClosedCursorException extends IgniteInternalCheckedException {
+public final class IgniteExceptionUtils {
+    /**
+     * Gets the Ignite error code if the specified throwable is an {@link IgniteException}.
+     *
+     * @param t Throwable.
+     * @return Ignite error code or null.
+     */
+    public static Integer getIgniteErrorCode(Throwable t) {
+        return (t instanceof IgniteException) ? ((IgniteException) t).code() : null;
+    }
 }

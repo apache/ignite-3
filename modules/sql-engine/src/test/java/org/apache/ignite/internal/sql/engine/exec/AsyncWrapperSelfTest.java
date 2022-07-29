@@ -33,7 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
-import org.apache.ignite.internal.sql.engine.ClosedCursorException;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -99,7 +99,6 @@ public class AsyncWrapperSelfTest {
      * Call to {@link AsyncCursor#closeAsync()} should be passed to delegate in case the latter implements {@link AutoCloseable}.
      */
     @Test
-    @SuppressWarnings("unchecked")
     public void testClosePropagatedToDelegate() throws Exception {
         var mockIt = (ClosableIterator<Object>) Mockito.mock(ClosableIterator.class);
         var cursor = new AsyncWrapper<>(mockIt);
@@ -153,14 +152,14 @@ public class AsyncWrapperSelfTest {
                 .thenAccept(batch -> assertThat(batch.items(), equalTo(data.subList(0, 1))))
                 .exceptionally(ex -> {
                     assertInstanceOf(CompletionException.class, ex);
-                    assertInstanceOf(ClosedCursorException.class, ex.getCause());
+                    assertInstanceOf(SqlException.class, ex.getCause());
 
                     return null;
                 });
         var stage2 = cursor.closeAsync();
         var stage3 = cursor.requestNextAsync(1)
                 .exceptionally(ex -> {
-                    assertInstanceOf(ClosedCursorException.class, ex);
+                    assertInstanceOf(SqlException.class, ex);
 
                     return null;
                 });
