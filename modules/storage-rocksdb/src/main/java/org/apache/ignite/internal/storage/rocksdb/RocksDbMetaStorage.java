@@ -29,6 +29,7 @@ import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
+import org.rocksdb.WriteBatch;
 
 /**
  * Wrapper around the "meta" Column Family inside a RocksDB-based storage, which stores some auxiliary information needed for internal
@@ -118,11 +119,12 @@ class RocksDbMetaStorage {
     /**
      * Removes the given partition ID from the meta Column Family.
      *
-     * @param partitionId partition ID
+     * @param partitionId Partition ID
+     * @param writeBatch Write batch to store partition metadata remove requests.
      */
-    void removePartitionId(int partitionId) {
+    void removePartitionId(int partitionId, WriteBatch writeBatch) {
         try {
-            metaColumnFamily.delete(partitionIdKey(partitionId));
+            writeBatch.delete(metaColumnFamily.handle(), partitionIdKey(partitionId));
         } catch (RocksDBException e) {
             throw new StorageException("Unable to delete partition " + partitionId + " from the meta Column Family", e);
         }

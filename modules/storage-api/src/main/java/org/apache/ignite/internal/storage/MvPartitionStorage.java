@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -31,6 +33,43 @@ import org.jetbrains.annotations.Nullable;
  * <p>Each MvPartitionStorage instance represents exactly one partition.
  */
 public interface MvPartitionStorage extends AutoCloseable {
+    /**
+     * Closure for executing write operations on the storage.
+     *
+     * @param <E> Type of exception that could be thrown within a closure.
+     * @param <V> Type of the result returned from the closure.
+     */
+    @SuppressWarnings("PublicInnerClass")
+    @FunctionalInterface
+    interface DataAccessClosure<E extends Exception, V> {
+        V execute() throws E, StorageException;
+    }
+
+    /**
+     * Executes {@link DataAccessClosure} atomically, maening that partial result of the incompleted closure will never be written to a
+     * physical device, thus guaranteeing data consistency after restart. Simply runs the closure in case of a volatile storage.
+     *
+     * @param closure Data access closure to be executed.
+     * @param <E> Type of exception that could be thrown within a closure.
+     * @param <V> Type of the result returned from the closure.
+     * @return Closure result.
+     * @throws E If closure thrown exception.
+     * @throws StorageException If failed to write data to the storage.
+     */
+    default <E extends Exception, V> V runConsistently(DataAccessClosure<E, V> closure) throws E, StorageException {
+        return closure.execute();
+    }
+
+    /**
+     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be
+     * completed with the data that has not been written yet. This feature allows implementing a batch flush for several partitions at once.
+     *
+     * @return Future that's completed when flushing of the data is completed.
+     */
+    default CompletionStage<Void> flush() {
+        return CompletableFuture.completedFuture(null);
+    }
+
     /**
      * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
      */
