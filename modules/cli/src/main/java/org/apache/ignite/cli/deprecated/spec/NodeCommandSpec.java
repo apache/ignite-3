@@ -20,6 +20,7 @@ package org.apache.ignite.cli.deprecated.spec;
 import jakarta.inject.Inject;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -29,14 +30,17 @@ import org.apache.ignite.cli.deprecated.IgniteCliException;
 import org.apache.ignite.cli.deprecated.IgnitePaths;
 import org.apache.ignite.cli.deprecated.Table;
 import org.apache.ignite.cli.deprecated.builtins.node.NodeManager;
-import picocli.CommandLine;
+import picocli.CommandLine.ArgGroup;
+import picocli.CommandLine.Command;
 import picocli.CommandLine.Help.Ansi;
 import picocli.CommandLine.Help.ColorScheme;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
 /**
  * Commands for start/stop/list Ignite nodes on the current machine.
  */
-@CommandLine.Command(
+@Command(
         name = "node",
         description = "Manages locally running Ignite nodes.",
         subcommands = {
@@ -50,7 +54,7 @@ public class NodeCommandSpec {
     /**
      * Starts Ignite node command.
      */
-    @CommandLine.Command(name = "start", description = "Starts an Ignite node locally.")
+    @Command(name = "start", description = "Starts an Ignite node locally.")
     public static class StartNodeCommandSpec extends BaseCommand implements Callable<Integer> {
 
         /** Loader for Ignite distributive paths. */
@@ -62,12 +66,31 @@ public class NodeCommandSpec {
         private NodeManager nodeMgr;
 
         /** Consistent id, which will be used by new node. */
-        @CommandLine.Parameters(paramLabel = "name", description = "Name of the new node")
+        @Parameters(paramLabel = "name", description = "Name of the new node")
         public String nodeName;
 
-        /** Path to node config. */
-        @CommandLine.Option(names = "--config", description = "Configuration file to start the node with")
-        private Path configPath;
+        @ArgGroup
+        private ConfigOptions configOptions;
+
+        private static class ConfigOptions {
+            @ArgGroup(exclusive = false)
+            private ConfigArguments args;
+
+            /** Path to node config. */
+            @Option(names = "--config", description = "Configuration file to start the node with")
+            private Path configPath;
+        }
+
+        private static class ConfigArguments {
+            @Option(names = "--port", description = "Node port", required = true)
+            private int port;
+
+            @Option(names = "--rest-port", description = "REST port")
+            private int restPort;
+
+            @Option(names = "--join", description = "Seed nodes", split = ",")
+            private String[] seedNodes;
+        }
 
         /** {@inheritDoc} */
         @Override
@@ -82,7 +105,7 @@ public class NodeCommandSpec {
                     ignitePaths.nodesBaseWorkDir(),
                     ignitePaths.logDir,
                     ignitePaths.cliPidsDir(),
-                    configPath,
+                    getConfigPath(),
                     ignitePaths.serverJavaUtilLoggingPros(),
                     out);
 
@@ -100,12 +123,42 @@ public class NodeCommandSpec {
             out.println(tbl);
             return 0;
         }
+
+        private Path getConfigPath() {
+            if (configOptions == null) {
+                return null;
+            }
+            if (configOptions.configPath != null) {
+                return configOptions.configPath;
+            } else { // port is required
+                try {
+                    Path tempFile = Files.createTempFile("ignite-config", ".hocon");
+                    tempFile.toFile().deleteOnExit();
+                    try (PrintWriter writer = new PrintWriter(tempFile.toFile())) {
+                        writer.println("network.port = " + configOptions.args.port);
+                        if (configOptions.args.seedNodes != null) {
+                            writer.println("network.nodeFinder.netClusterNodes = [");
+                            for (String node : configOptions.args.seedNodes) {
+                                writer.println("  \"" + node + "\"");
+                            }
+                            writer.println("]");
+                        }
+                        if (configOptions.args.restPort != 0) {
+                            writer.println("rest.port = " + configOptions.args.restPort);
+                        }
+                        return tempFile;
+                    }
+                } catch (IOException e) {
+                    throw new IgniteCliException("Can't create temp file for config", e);
+                }
+            }
+        }
     }
 
     /**
      * Command for stopping Ignite node on the current machine.
      */
-    @CommandLine.Command(name = "stop", description = "Stops a locally running Ignite node.")
+    @Command(name = "stop", description = "Stops a locally running Ignite node.")
     public static class StopNodeCommandSpec extends BaseCommand implements Callable<Integer> {
         /** Node manager. */
         @Inject
@@ -116,7 +169,7 @@ public class NodeCommandSpec {
         private CliPathsConfigLoader cliPathsCfgLdr;
 
         /** Consistent ids of nodes to stop. */
-        @CommandLine.Parameters(
+        @Parameters(
                 arity = "1..*",
                 paramLabel = "consistent-ids",
                 description = "Consistent IDs of the nodes to stop (space separated list)"
@@ -147,7 +200,7 @@ public class NodeCommandSpec {
     /**
      * Command for listing the running nodes.
      */
-    @CommandLine.Command(name = "list", description = "Shows the list of currently running local Ignite nodes.")
+    @Command(name = "list", description = "Shows the list of currently running local Ignite nodes.")
     public static class ListNodesCommandSpec extends BaseCommand implements Callable<Integer> {
         /** Node manager. */
         @Inject
@@ -193,7 +246,7 @@ public class NodeCommandSpec {
     /**
      * Command for reading the current classpath of Ignite nodes.
      */
-    @CommandLine.Command(name = "classpath", description = "Shows the current classpath used by the Ignite nodes.")
+    @Command(name = "classpath", description = "Shows the current classpath used by the Ignite nodes.")
     public static class NodesClasspathCommandSpec extends BaseCommand implements Callable<Integer> {
         /** Node manager. */
         @Inject
