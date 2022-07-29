@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -66,7 +67,7 @@ public class HeapLockManager implements LockManager {
 
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
-        // TODO: sanpwc tmp add todo.
+        // TODO: tmp
         switch (lockMode) {
             case EXCLUSIVE:
 
@@ -103,6 +104,7 @@ public class HeapLockManager implements LockManager {
 
     @Override
     public void release(Lock lock) throws LockException {
+        // TODO: tmp
         LockState state = lockState(lock.lockKey());
 
         switch (lock.lockMode()) {
@@ -128,18 +130,24 @@ public class HeapLockManager implements LockManager {
 
     @Override
     public Iterator<Lock> locks(UUID txId) {
-        // TODO: sanpwc implement with index, add todo.
-        return new Iterator<Lock>() {
-            @Override
-            public boolean hasNext() {
-                return false;
-            }
+        // TODO: tmp, use index instead.
+        List<Lock> result = new ArrayList<>();
 
-            @Override
-            public Lock next() {
-                return null;
+        for (Map.Entry<LockKey, LockState> entry : locks.entrySet()) {
+            Waiter waiter = entry.getValue().waiter(txId);
+
+            if (waiter != null) {
+                result.add(
+                        new Lock(
+                                entry.getKey(),
+                                waiter.isForRead() ? LockMode.SHARED : LockMode.EXCLUSIVE,
+                                txId
+                        )
+                );
             }
-        };
+        }
+
+        return result.iterator();
     }
 
     /**
