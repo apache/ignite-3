@@ -1483,7 +1483,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @return Lock manager.
      */
     protected LockManager lockManager(Table t) {
-        return ((TxManagerImpl) txManager(t)).getLockManager();
+        return txManager(t).lockManager();
     }
 
     /**

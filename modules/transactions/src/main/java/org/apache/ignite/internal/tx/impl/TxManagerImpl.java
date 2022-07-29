@@ -22,19 +22,17 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
+import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -43,14 +41,12 @@ import org.apache.ignite.internal.tx.message.TxFinishResponse;
 import org.apache.ignite.internal.tx.message.TxFinishResponseBuilder;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * A transaction manager implementation.
@@ -76,13 +72,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * <p>TODO IGNITE-15931 use Storage for states, implement max size, implement replication.
      */
     private final ConcurrentHashMap<UUID, TxState> states = new ConcurrentHashMap<>();
-
-    /**
-     * The storage for locks acquired by transactions. Each key is mapped to lock type where true is for read.
-     *
-     * <p>TODO IGNITE-15932 use Storage for locks. Introduce limits, deny lock operation if the limit is exceeded.
-     */
-    private final ConcurrentHashMap<UUID, Map<LockKey, Boolean>> locks = new ConcurrentHashMap<>();
 
     /**
      * The constructor.
@@ -147,23 +136,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param txId Transaction id.
      */
     private void unlockAll(UUID txId) {
-        Map<LockKey, Boolean> locks = this.locks.remove(txId);
-
-        if (locks == null) {
-            return;
-        }
-
-        for (Map.Entry<LockKey, Boolean> lock : locks.entrySet()) {
+        lockManager.locks(txId).forEachRemaining(lock -> {
             try {
-                if (lock.getValue()) {
-                    lockManager.tryReleaseShared(lock.getKey(), txId);
-                } else {
-                    lockManager.tryRelease(lock.getKey(), txId);
-                }
+                lockManager.release(lock);
             } catch (LockException e) {
                 assert false; // This shouldn't happen during tx finish.
             }
-        }
+        });
     }
 
     /** {@inheritDoc} */
@@ -174,7 +153,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, UUID txId) {
+    public CompletableFuture<Lock> writeLock(UUID lockId, ByteBuffer keyData, UUID txId) {
         // TODO IGNITE-15933 process tx messages in striped fasion to avoid races. But locks can be acquired from any thread !
         TxState state = state(txId);
 
@@ -186,13 +165,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // Should rollback tx on lock error.
         LockKey lockKey = new LockKey(lockId, keyData);
 
-        return lockManager.tryAcquire(lockKey, txId)
-                .thenAccept(ignored -> recordLock(lockKey, txId, Boolean.FALSE));
+        return lockManager.acquire(txId, lockKey, LockMode.EXCLUSIVE);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, UUID txId) {
+    public CompletableFuture<Lock> readLock(UUID lockId, ByteBuffer keyData, UUID txId) {
         TxState state = state(txId);
 
         if (state != null && state != TxState.PENDING) {
@@ -202,38 +180,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         LockKey lockKey = new LockKey(lockId, keyData);
 
-        return lockManager.tryAcquireShared(lockKey, txId)
-                .thenAccept(ignored -> recordLock(lockKey, txId, Boolean.TRUE));
-    }
-
-    /**
-     * Records the acquired lock for further unlocking.
-     *
-     * @param key The key.
-     * @param txId Transaction id.
-     * @param read Read lock.
-     */
-    private void recordLock(LockKey key, UUID txId, Boolean read) {
-        locks.compute(txId,
-                new BiFunction<UUID, Map<LockKey, Boolean>, Map<LockKey, Boolean>>() {
-                    @Override
-                    public Map<LockKey, Boolean> apply(UUID txId,
-                            Map<LockKey, Boolean> map) {
-                        if (map == null) {
-                            map = new HashMap<>();
-                        }
-
-                        Boolean mode = map.get(key);
-
-                        if (mode == null) {
-                            map.put(key, read);
-                        } else if (read == Boolean.FALSE && mode == Boolean.TRUE) { // Override read lock.
-                            map.put(key, Boolean.FALSE);
-                        }
-
-                        return map;
-                    }
-                });
+        return lockManager.acquire(txId, lockKey, LockMode.SHARED);
     }
 
     /** {@inheritDoc} */
@@ -269,15 +216,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** {@inheritDoc} */
     @Override
-    public Map<IgniteUuid, List<byte[]>> lockedKeys(UUID txId) {
-        return locks.getOrDefault(txId, new HashMap<>()).entrySet().stream()
-                .filter(entry -> !entry.getValue())
-                .collect(Collectors.groupingBy(entry -> entry.getKey().id(),
-                        Collectors.mapping(entry -> entry.getKey().keyBytes(), Collectors.toList())));
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public int finished() {
         return states.size();
     }
@@ -294,84 +232,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // No-op.
     }
 
-    /**
-     * Lock key.
-     */
-    private static class LockKey {
-        /** The id. */
-        private final IgniteUuid id;
-
-        /** The key. */
-        private final ByteBuffer key;
-
-        /**
-         * Key bytes.
-         * TODO: Remove the field after (IGNITE-14793).
-         */
-        private byte[] keyBytes;
-
-        /**
-         * The constructor.
-         *
-         * @param id The id.
-         * @param key The key.
-         */
-        LockKey(IgniteUuid id, ByteBuffer key) {
-            this.id = id;
-            this.key = key;
-
-            ByteBuffer key0 = key.duplicate();
-            byte[] keyBytes = new byte[key0.remaining()];
-            key0.get(keyBytes);
-
-            this.keyBytes = keyBytes;
-        }
-
-        /**
-         * The id.
-         *
-         * @return The id.
-         */
-        public IgniteUuid id() {
-            return id;
-        }
-
-        /**
-         * Key bytes.
-         *
-         * @return Key bytes.
-         */
-        public byte[] keyBytes() {
-            return keyBytes;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            LockKey key1 = (LockKey) o;
-            return id.equals(key1.id) && key.equals(key1.key);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int hashCode() {
-            return Objects.hash(id, key);
-        }
-    }
-
-    /**
-     * Returns a lock manager.
-     *
-     * @return The lock manager.
-     */
-    @TestOnly
-    public LockManager getLockManager() {
+    /** {@inheritDoc} */
+    @Override
+    public LockManager lockManager() {
         return lockManager;
     }
 

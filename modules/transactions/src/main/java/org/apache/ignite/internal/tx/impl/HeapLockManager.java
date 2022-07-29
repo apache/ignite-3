@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -28,8 +29,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
+import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -58,60 +62,81 @@ import org.jetbrains.annotations.Nullable;
  * @see org.apache.ignite.internal.table.TxAbstractTest#testUpgradedLockInvalidation()
  */
 public class HeapLockManager implements LockManager {
-    private ConcurrentHashMap<Object, LockState> locks = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<LockKey, LockState> locks = new ConcurrentHashMap<>();
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> tryAcquire(Object key, UUID txId) {
-        while (true) {
-            LockState state = lockState(key);
+    public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
+        // TODO: sanpwc tmp add todo.
+        switch (lockMode) {
+            case EXCLUSIVE:
 
-            CompletableFuture<Void> future = state.tryAcquire(txId);
+                while (true) {
+                    LockState state = lockState(lockKey);
 
-            if (future == null) {
-                continue; // Obsolete state.
+                    CompletableFuture<Void> future = state.tryAcquire(txId);
+
+                    if (future == null) {
+                        continue; // Obsolete state.
+                    }
+
+                    return future.thenApply(res -> new Lock(lockKey, lockMode, txId));
+                }
+
+            case SHARED:
+
+                while (true) {
+                    LockState state = lockState(lockKey);
+
+                    CompletableFuture<Void> future = state.tryAcquireShared(txId);
+
+                    if (future == null) {
+                        continue; // Obsolete state.
+                    }
+
+                    return future.thenApply(res -> new Lock(lockKey, lockMode, txId));
+                }
+
+            default:
+                return null;
+        }
+    }
+
+    @Override
+    public void release(Lock lock) throws LockException {
+        LockState state = lockState(lock.lockKey());
+
+        switch (lock.lockMode()) {
+            case EXCLUSIVE:
+                if (state.tryRelease(lock.txId())) { // Probably we should clean up empty keys asynchronously.
+                    locks.remove(lock.lockKey(), state);
+                }
+
+                break;
+
+            case SHARED:
+                if (state.tryReleaseShared(lock.txId())) {
+                    assert state.markedForRemove;
+
+                    locks.remove(lock.lockKey(), state);
+                }
+                break;
+        }
+    }
+
+    @Override
+    public Iterator<Lock> locks(UUID txId) {
+        // TODO: sanpwc implement with index, add todo.
+        return new Iterator<Lock>() {
+            @Override
+            public boolean hasNext() {
+                return false;
             }
 
-            return future;
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void tryRelease(Object key, UUID txId) throws LockException {
-        LockState state = lockState(key);
-
-        if (state.tryRelease(txId)) { // Probably we should clean up empty keys asynchronously.
-            locks.remove(key, state);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Void> tryAcquireShared(Object key, UUID txId) {
-        while (true) {
-            LockState state = lockState(key);
-
-            CompletableFuture<Void> future = state.tryAcquireShared(txId);
-
-            if (future == null) {
-                continue; // Obsolete state.
+            @Override
+            public Lock next() {
+                return null;
             }
-
-            return future;
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void tryReleaseShared(Object key, UUID txId) throws LockException {
-        LockState state = lockState(key);
-
-        if (state.tryReleaseShared(txId)) {
-            assert state.markedForRemove;
-
-            locks.remove(key, state);
-        }
+        };
     }
 
     /**
@@ -119,19 +144,19 @@ public class HeapLockManager implements LockManager {
      *
      * @param key The key.
      */
-    private @NotNull LockState lockState(Object key) {
+    private @NotNull LockState lockState(LockKey key) {
         return locks.computeIfAbsent(key, k -> new LockState());
     }
 
     /** {@inheritDoc} */
     @Override
-    public Collection<UUID> queue(Object key) {
+    public Collection<UUID> queue(LockKey key) {
         return lockState(key).queue();
     }
 
     /** {@inheritDoc} */
     @Override
-    public Waiter waiter(Object key, UUID txId) {
+    public Waiter waiter(LockKey key, UUID txId) {
         return lockState(key).waiter(txId);
     }
 
@@ -139,10 +164,14 @@ public class HeapLockManager implements LockManager {
      * A lock state.
      */
     private static class LockState {
-        /** Waiters. */
+        /**
+         * Waiters.
+         */
         private TreeMap<UUID, WaiterImpl> waiters = new TreeMap<>();
 
-        /** Marked for removal flag. */
+        /**
+         * Marked for removal flag.
+         */
         private boolean markedForRemove = false;
 
         /**
