@@ -34,12 +34,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -154,12 +152,16 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         return db;
     }
 
-    /** Returns a column family handle for partitions column family. */
+    /**
+     * Returns a column family handle for partitions column family.
+     */
     public ColumnFamilyHandle partitionCfHandle() {
         return partitionCf.handle();
     }
 
-    /** Returns a column family handle for meta column family. */
+    /**
+     * Returns a column family handle for meta column family.
+     */
     public ColumnFamilyHandle metaCfHandle() {
         return meta.columnFamily().handle();
     }
@@ -259,36 +261,39 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         engine.scheduledPool().schedule(newClosure, delay, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * Returns a listener of RocksDB flush events. This listener is responsible for updating persisted index of partitions.
+     *
+     * @see RocksDbMvPartitionStorage#persistedIndex()
+     * @see RocksDbMvPartitionStorage#refreshPersistedIndex()
+     */
     private AbstractEventListener flushListener() {
         return new AbstractEventListener(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED) {
-            /** */
-            private volatile EnabledEventCallback lastEventType = ON_FLUSH_COMPLETED;
+            /**
+             * Type of last processed event. Real amount of events doesn't matter in atomic flush mode. All "completed" events go after all
+             * "begin" events, and vice versa.
+             */
+            private final AtomicReference<EnabledEventCallback> lastEventType = new AtomicReference<>(ON_FLUSH_COMPLETED);
 
-            /**  */
+            /**
+             * Future that guarantees that last flush was fully processed and the new flush can safely begin.
+             */
             private volatile CompletableFuture<?> lastFlushProcessed = CompletableFuture.completedFuture(null);
 
             /** {@inheritDoc} */
             @Override
             public void onFlushBegin(RocksDB db, FlushJobInfo flushJobInfo) {
-                if (lastEventType == ON_FLUSH_BEGIN) {
-                    return;
+                if (lastEventType.compareAndSet(ON_FLUSH_COMPLETED, ON_FLUSH_BEGIN)) {
+                    lastFlushProcessed.join();
                 }
-
-                lastEventType = ON_FLUSH_BEGIN;
-
-                lastFlushProcessed.join();
             }
 
             /** {@inheritDoc} */
             @Override
             public void onFlushCompleted(RocksDB db, FlushJobInfo flushJobInfo) {
-                if (lastEventType == ON_FLUSH_COMPLETED) {
-                    return;
+                if (lastEventType.compareAndSet(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED)) {
+                    lastFlushProcessed = CompletableFuture.runAsync(this::refreshPersistedIndexes, engine.threadPool());
                 }
-
-                lastFlushProcessed = CompletableFuture.runAsync(this::refreshPersistedIndexes, engine.threadPool());
-
-                lastEventType = ON_FLUSH_COMPLETED;
             }
 
             private void refreshPersistedIndexes() {

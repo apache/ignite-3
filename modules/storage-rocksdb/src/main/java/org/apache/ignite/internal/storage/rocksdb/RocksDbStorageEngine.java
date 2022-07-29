@@ -88,14 +88,23 @@ public class RocksDbStorageEngine implements StorageEngine {
         this.storagePath = storagePath;
     }
 
+    /**
+     * Returns a RocksDB storage engine configuration.
+     */
     public RocksDbStorageEngineConfiguration engineConfiguration() {
         return engineConfig;
     }
 
+    /**
+     * Returns a common thread pool for async operations.
+     */
     public ExecutorService threadPool() {
         return threadPool;
     }
 
+    /**
+     * Returns a scheduled thread pool for async operations.
+     */
     public ScheduledExecutorService scheduledPool() {
         return scheduledPool;
     }

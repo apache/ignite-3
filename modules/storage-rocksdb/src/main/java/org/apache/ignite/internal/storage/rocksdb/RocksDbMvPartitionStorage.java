@@ -153,7 +153,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     public RocksDbMvPartitionStorage(RocksDbTableStorage tableStorage, int partitionId) {
         this.tableStorage = tableStorage;
         this.partitionId = partitionId;
-        //TODO Get these fields from the table storage.
         db = tableStorage.db();
         cf = tableStorage.partitionCfHandle();
         meta = tableStorage.metaCfHandle();
