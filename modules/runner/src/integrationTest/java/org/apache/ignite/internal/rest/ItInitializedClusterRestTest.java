@@ -143,7 +143,10 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @DisplayName("Cluster configuration by path is available when the cluster is initialized")
     void clusterConfigurationByPath() throws IOException, InterruptedException {
         // When GET /management/v1/configuration/cluster and path selector is "rocksDb.defaultRegion"
-        HttpResponse<String> response = client.send(get("/management/v1/configuration/cluster/rocksDb.defaultRegion"), BodyHandlers.ofString());
+        HttpResponse<String> response = client.send(
+                get("/management/v1/configuration/cluster/rocksDb.defaultRegion"),
+                BodyHandlers.ofString()
+        );
 
         // Then cluster configuration is not available
         assertThat(response.statusCode(), is(200));
