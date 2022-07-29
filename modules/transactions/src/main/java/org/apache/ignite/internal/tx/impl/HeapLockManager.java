@@ -120,6 +120,9 @@ public class HeapLockManager implements LockManager {
                     locks.remove(lock.lockKey(), state);
                 }
                 break;
+
+            default:
+                // No-op.
         }
     }
 

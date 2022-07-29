@@ -82,6 +82,7 @@ import org.jetbrains.annotations.TestOnly;
 public class PartitionListener implements RaftGroupListener {
     /**
      * Lock context id.
+     *
      * @see org.apache.ignite.internal.tx.LockKey#contextId
      */
     private final UUID lockContextId;
@@ -422,11 +423,11 @@ public class PartitionListener implements RaftGroupListener {
         // This code is technically incorrect and assumes that "stateChanged" is always true. This was done because transaction state is not
         // persisted and thus FinishTxCommand couldn't be completed on recovery after node restart ("changeState" uses "replace").
         if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
-            txManager.lockManager().locks(txId).
-                    forEachRemaining(lock -> storage.commitWrite(ByteBuffer.wrap((byte[])lock.lockKey().key()), txId));
+            txManager.lockManager().locks(txId)
+                    .forEachRemaining(lock -> storage.commitWrite(ByteBuffer.wrap((byte[]) lock.lockKey().key()), txId));
         } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
-            txManager.lockManager().locks(txId).
-                    forEachRemaining(lock -> storage.abortWrite(ByteBuffer.wrap((byte[])lock.lockKey().key())));
+            txManager.lockManager().locks(txId)
+                    .forEachRemaining(lock -> storage.abortWrite(ByteBuffer.wrap((byte[]) lock.lockKey().key())));
         }
 
         return stateChanged;

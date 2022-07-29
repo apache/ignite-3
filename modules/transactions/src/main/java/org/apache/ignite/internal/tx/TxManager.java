@@ -87,8 +87,7 @@ public interface TxManager extends IgniteComponent {
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      *
-     * @deprecated
-     * @see LockManager#acquire(java.util.UUID, org.apache.ignite.internal.tx.LockKey, org.apache.ignite.internal.tx.LockMode)
+     * @deprecated @see LockManager#acquire(java.util.UUID, org.apache.ignite.internal.tx.LockKey, org.apache.ignite.internal.tx.LockMode)
      */
     @Deprecated
     public CompletableFuture<Lock> writeLock(UUID lockId, ByteBuffer keyData, UUID txId);
@@ -102,13 +101,14 @@ public interface TxManager extends IgniteComponent {
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      *
-     * @deprecated
-     * @see LockManager#acquire(java.util.UUID, org.apache.ignite.internal.tx.LockKey, org.apache.ignite.internal.tx.LockMode)
+     * @deprecated @see LockManager#acquire(java.util.UUID, org.apache.ignite.internal.tx.LockKey, org.apache.ignite.internal.tx.LockMode)
      */
     @Deprecated
     public CompletableFuture<Lock> readLock(UUID lockId, ByteBuffer keyData, UUID txId);
 
     /**
+     * Returns lock manager.
+     *
      * @return Lock manager for the given transactions manager.
      * @deprecated Use lockManager directly.
      */

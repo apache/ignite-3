@@ -11,7 +11,7 @@ public class Lock {
     /** Lock mode. */
     private final LockMode lockMode;
 
-    /** Transaction idenstificator. */
+    /** Transaction identificator. */
     private final UUID txId;
 
     /**
@@ -28,6 +28,8 @@ public class Lock {
     }
 
     /**
+     * Returns lock key.
+     *
      * @return Lock key.
      */
     public LockKey lockKey() {
@@ -35,6 +37,8 @@ public class Lock {
     }
 
     /**
+     * Returns lock mode.
+     *
      * @return Lock mode.
      */
     public LockMode lockMode() {
@@ -42,6 +46,8 @@ public class Lock {
     }
 
     /**
+     * Returns transcation identificator.
+     *
      * @return Tx id.
      */
     public UUID txId() {

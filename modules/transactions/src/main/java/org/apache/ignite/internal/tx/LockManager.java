@@ -47,6 +47,7 @@ public interface LockManager {
 
     /**
      * Retrieves all locks for the specified transaction id.
+     *
      * @param txId Transaction Id.
      * @return An iterator over a collection of locks.
      */

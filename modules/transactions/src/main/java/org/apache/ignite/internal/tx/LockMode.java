@@ -1,5 +1,8 @@
 package org.apache.ignite.internal.tx;
 
+/**
+ * Lock mode.
+ */
 public enum LockMode {
     SHARED,
     EXCLUSIVE,

@@ -2,10 +2,12 @@ package org.apache.ignite.internal.tx;
 
 import java.util.UUID;
 
+/** Lock key. */
 public class LockKey {
-
+    /** Context identificator. */
     private final UUID contextId;
 
+    /** Entity to lock. */
     private final Object key;
 
     public LockKey(Object key) {
@@ -18,13 +20,17 @@ public class LockKey {
     }
 
     /**
-     * @return Context id.
+     * Returns context identificator.
+     *
+     * @return Context identificator.
      */
     public UUID contextId() {
         return contextId;
     }
 
     /**
+     * Returns key.
+     *
      * @return Key.
      */
     public Object key() {
