@@ -372,7 +372,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         Collection<Tuple> wrapped = new ArrayList<>(rows.size());
 
         for (Row row : schemaReg.resolve(rows)) {
-            wrapped.add(row == null ? null : TableRow.tuple(row));
+            if (row != null) {
+                wrapped.add(TableRow.tuple(row));
+            }
         }
 
         return wrapped;
