@@ -324,7 +324,7 @@ public class PersistentPageMemory implements PageMemory {
 
                 totalAllocated += reg.size();
 
-                segments[i] = new Segment(i, regions.get(i), this);
+                segments[i] = new Segment(i, regions.get(i));
 
                 pages += segments[i].pages();
                 totalTblSize += segments[i].tableSize();
@@ -1295,9 +1295,6 @@ public class PersistentPageMemory implements PageMemory {
         /** Padding to read from word beginning. */
         private static final int ACQUIRED_PAGES_PADDING = 4;
 
-        /** Page memory. */
-        private final PersistentPageMemory pageMemory;
-
         /** Page ID to relative pointer map. */
         private final LoadedPagesMap loadedPages;
 
@@ -1343,11 +1340,8 @@ public class PersistentPageMemory implements PageMemory {
          *
          * @param idx Segment index.
          * @param region Memory region.
-         * @param pageMemory Page memory.
          */
-        private Segment(int idx, DirectMemoryRegion region, PersistentPageMemory pageMemory) {
-            this.pageMemory = pageMemory;
-
+        private Segment(int idx, DirectMemoryRegion region) {
             long totalMemory = region.size();
 
             int pages = (int) (totalMemory / sysPageSize);
@@ -1477,7 +1471,7 @@ public class PersistentPageMemory implements PageMemory {
 
                     WriteDirtyPage writeDirtyPage = delayedPageReplacementTracker.delayedPageWrite();
 
-                    writeDirtyPage.write(pageMemory, fullPageId, wrapPointer(absPtr + PAGE_OVERHEAD, pageSize()));
+                    writeDirtyPage.write(PersistentPageMemory.this, fullPageId, wrapPointer(absPtr + PAGE_OVERHEAD, pageSize()));
 
                     setDirty(fullPageId, absPtr, false, true);
 
