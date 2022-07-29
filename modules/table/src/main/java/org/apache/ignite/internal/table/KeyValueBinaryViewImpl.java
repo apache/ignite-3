@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -475,8 +476,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @param rows Binary rows.
      * @return Key-value pairs of tuples.
      */
-    public Map<Tuple, Tuple> unmarshalValue(Collection<BinaryRow> rows) {
-        Map<Tuple, Tuple> pairs = new HashMap<>();
+    private Map<Tuple, Tuple> unmarshalValue(Collection<BinaryRow> rows) {
+        Map<Tuple, Tuple> pairs = new HashMap<>(rows.size());
 
         for (Row row : schemaReg.resolve(rows)) {
             if (row.hasValue()) {
@@ -493,13 +494,15 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @param keys Key tuples.
      * @return Rows.
      */
-    public List<BinaryRowEx> marshalKeys(@NotNull Collection<Tuple> keys) {
+    private List<BinaryRowEx> marshalKeys(Collection<Tuple> keys) {
+        if (keys.isEmpty()) {
+            return Collections.emptyList();
+        }
+
         List<BinaryRowEx> keyRows = new ArrayList<>(keys.size());
 
         for (Tuple keyRec : keys) {
-            final Row keyRow = marshal(Objects.requireNonNull(keyRec), null);
-
-            keyRows.add(keyRow);
+            keyRows.add(marshal(Objects.requireNonNull(keyRec), null));
         }
         return keyRows;
     }
@@ -511,6 +514,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @return Value tuple.
      */
     private Collection<Tuple> unmarshalKeys(Collection<BinaryRow> rows) {
+        if (rows.isEmpty()) {
+            return Collections.emptyList();
+        }
+
         List<Tuple> tuples = new ArrayList<>(rows.size());
 
         for (Row row : schemaReg.resolve(rows)) {

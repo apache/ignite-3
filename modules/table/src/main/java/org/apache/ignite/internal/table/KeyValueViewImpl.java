@@ -450,17 +450,18 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param keys Key objects.
      * @return Binary rows.
      */
-    @NotNull
-    public Collection<BinaryRowEx> marshal(@NotNull Collection<K> keys) {
-        final KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+    private Collection<BinaryRowEx> marshal(Collection<K> keys) {
+        if (keys.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
 
         List<BinaryRowEx> keyRows = new ArrayList<>(keys.size());
 
         try {
             for (K key : keys) {
-                final BinaryRowEx keyRow = marsh.marshal(Objects.requireNonNull(key));
-
-                keyRows.add(keyRow);
+                keyRows.add(marsh.marshal(Objects.requireNonNull(key)));
             }
         } catch (MarshallerException e) {
             throw new org.apache.ignite.lang.MarshallerException(e);
@@ -475,17 +476,18 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param pairs Key-value map.
      * @return Binary rows.
      */
-    @NotNull
-    public List<BinaryRowEx> marshal(@NotNull Map<K, V> pairs) {
-        final KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+    private List<BinaryRowEx> marshal(Map<K, V> pairs) {
+        if (pairs.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
 
         List<BinaryRowEx> rows = new ArrayList<>(pairs.size());
 
         try {
             for (Map.Entry<K, V> pair : pairs.entrySet()) {
-                final BinaryRowEx row = marsh.marshal(Objects.requireNonNull(pair.getKey()), pair.getValue());
-
-                rows.add(row);
+                rows.add(marsh.marshal(Objects.requireNonNull(pair.getKey()), pair.getValue()));
             }
         } catch (MarshallerException e) {
             throw new org.apache.ignite.lang.MarshallerException(e);
@@ -500,13 +502,12 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param rows Binary rows.
      * @return Keys.
      */
-    @NotNull
-    public Collection<K> unmarshalKeys(Collection<BinaryRow> rows) {
+    private Collection<K> unmarshalKeys(Collection<BinaryRow> rows) {
         if (rows.isEmpty()) {
             return Collections.emptyList();
         }
 
-        final KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
 
         List<K> keys = new ArrayList<>(rows.size());
 
@@ -529,8 +530,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param binaryRow Binary row.
      * @return Value object or {@code null} if not exists.
      */
-    private V unmarshalNullableValue(BinaryRow binaryRow) {
-        if (binaryRow == null || !binaryRow.hasValue()) {
+    private @Nullable V unmarshalNullableValue(BinaryRow binaryRow) {
+        if (!binaryRow.hasValue()) {
             return null;
         }
 
@@ -551,13 +552,12 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param rows Binary rows.
      * @return Key-value pairs.
      */
-    @NotNull
-    public Map<K, V> unmarshalPairs(Collection<BinaryRow> rows) {
+    private Map<K, V> unmarshalPairs(Collection<BinaryRow> rows) {
         if (rows.isEmpty()) {
             return Collections.emptyMap();
         }
 
-        final KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
+        KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
 
         Map<K, V> pairs = new HashMap<>(rows.size());
 
@@ -580,7 +580,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @return Value object or {@code null} if not exists.
      * @throws UnexpectedNullValueException if value object is null.
      */
-    private V unmarshallValue(BinaryRow binaryRow) {
+    private @Nullable V unmarshallValue(@Nullable BinaryRow binaryRow) {
         if (binaryRow == null) {
             return null;
         }
