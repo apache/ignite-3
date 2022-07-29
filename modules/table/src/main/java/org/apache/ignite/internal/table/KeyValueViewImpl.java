@@ -530,8 +530,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param binaryRow Binary row.
      * @return Value object or {@code null} if not exists.
      */
-    private @Nullable V unmarshalNullableValue(BinaryRow binaryRow) {
-        if (!binaryRow.hasValue()) {
+    private @Nullable V unmarshalNullableValue(@Nullable BinaryRow binaryRow) {
+        if (binaryRow == null || !binaryRow.hasValue()) {
             return null;
         }
 
