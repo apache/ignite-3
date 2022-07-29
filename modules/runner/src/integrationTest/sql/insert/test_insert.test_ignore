@@ -1,7 +1,7 @@
 # name: test/sql/insert/test_insert.test
 # description: Test insert into and updates of constant values
 # group: [insert]
-# Ignored https://issues.apache.org/jira/browse/IGNITE-14555
+# Ignored https://issues.apache.org/jira/browse/IGNITE-17268
 
 statement ok
 CREATE TABLE integers(i INTEGER)
