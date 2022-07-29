@@ -417,19 +417,19 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<?> destroyPartition(int partitionId) throws StorageException {
-        RocksDbMvPartitionStorage partition = getMvPartition(partitionId);
+        RocksDbMvPartitionStorage mvPartition = getMvPartition(partitionId);
 
-        if (partition != null) {
+        if (mvPartition != null) {
             partitions.set(partitionId, null);
 
             try (WriteBatch writeBatch = new WriteBatch()) {
-                partition.destroy(writeBatch);
+                mvPartition.destroy(writeBatch);
 
                 meta.removePartitionId(partitionId, writeBatch);
 
                 db.write(writeOptions, writeBatch);
             } catch (RocksDBException e) {
-                throw new RuntimeException(e);
+                throw new StorageException("Failed to destroy partition " + partitionId + " of table " + tableCfg.name(), e);
             }
         }
 
