@@ -15,27 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.composite;
 
-import org.jetbrains.annotations.Nullable;
+import java.util.List;
+import org.apache.ignite.internal.metrics.Metric;
 
 /**
- * Basic metric interface.
+ * A composite metric is a group of closely related values. The values themselves are numeric.
  */
-public interface Metric {
+public interface CompositeMetric extends Metric {
     /**
-     * @return Name of the metric.
+     * Get a group of values composing this metric as a list of scalar metrics.
+     *
+     * @return List of scalar metrics.
      */
-    String name();
-
-    /**
-     * @return Description of the metric.
-     */
-    String description();
-
-    /**
-     * @return String representation of metric value.
-     */
-    @Nullable
-    String getAsString();
+    List<Metric> asScalarMetrics();
 }

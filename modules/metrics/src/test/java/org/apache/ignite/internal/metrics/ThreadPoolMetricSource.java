@@ -33,7 +33,6 @@ public class ThreadPoolMetricSource extends AbstractMetricSource<ThreadPoolMetri
         this.exec = exec;
     }
 
-
     /** {@inheritDoc} */
     @Override protected Holder createHolder() {
         return new Holder();

@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.metrics;
 
 import java.util.List;
+import org.apache.ignite.internal.metrics.composite.DistributionMetric;
+import org.apache.ignite.internal.metrics.scalar.AtomicIntMetric;
+import org.apache.ignite.internal.metrics.scalar.IntMetric;
 import org.junit.jupiter.api.Test;
 
 import static java.util.Spliterators.spliteratorUnknownSize;
@@ -29,6 +32,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Tests for metric entities, such as {@link MetricRegistry} and {@link MetricSet}.
+ */
 public class MetricEntitiesTest {
     private static final String SOURCE_NAME = "testSource";
     private static final String SCALAR_METRIC_NAME = "testScalarMetric";
@@ -64,11 +70,17 @@ public class MetricEntitiesTest {
     public void testMetricSet() {
         MetricRegistry registry = new MetricRegistry();
 
-        MetricSource metricSource = new TestMetricSource();
+        TestMetricSource metricSource = new TestMetricSource();
 
         registry.registerSource(metricSource);
 
-        MetricSet metricSet = registry.enable(SOURCE_NAME);
+        assertNull(metricSource.holder());
+
+        MetricSet metricSet = registry.enable(metricSource.name());
+
+        TestMetricSource.Holder holder = metricSource.holder();
+
+        assertNotNull(holder);
 
         assertTrue(metricSet.get(SCALAR_METRIC_NAME) instanceof IntMetric);
         assertTrue(metricSet.get(COMPOSITE_METRIC_NAME) instanceof DistributionMetric);
@@ -76,8 +88,8 @@ public class MetricEntitiesTest {
         List<Metric> metrics = stream(spliteratorUnknownSize(metricSet.iterator(), 0), false).collect(toList());
         assertEquals(2, metrics.size());
 
-        assertEquals(SCALAR_METRIC_NAME, metrics.get(0).name());
-        assertEquals(COMPOSITE_METRIC_NAME, metrics.get(1).name());
+        assertEquals(SCALAR_METRIC_NAME, holder.atomicIntMetric.name());
+        assertEquals(COMPOSITE_METRIC_NAME, holder.distributionMetric.name());
 
         List<Metric> scalarMetrics = stream(spliteratorUnknownSize(metricSet.scalarMetricsIterator(), 0), false).collect(toList());
 
@@ -88,12 +100,13 @@ public class MetricEntitiesTest {
         assertEquals(DISTRIBUTION_BOUNDS[0] + "_" + DISTRIBUTION_BOUNDS[1], scalarMetrics.get(2).name());
         assertEquals(DISTRIBUTION_BOUNDS[1] + "_" + DISTRIBUTION_BOUNDS[2], scalarMetrics.get(3).name());
         assertEquals(DISTRIBUTION_BOUNDS[2] + "_", scalarMetrics.get(4).name());
+
+        registry.disable(metricSource.name());
+
+        assertNull(metricSource.holder());
     }
 
     private static class TestMetricSource extends AbstractMetricSource<TestMetricSource.Holder> {
-        /**
-         * Base constructor for all metric source implementations.
-         */
         protected TestMetricSource() {
             super(SOURCE_NAME);
         }
@@ -103,12 +116,13 @@ public class MetricEntitiesTest {
         }
 
         @Override protected void init(MetricSetBuilder bldr, Holder holder) {
-            bldr.atomicInt(SCALAR_METRIC_NAME, null);
-            bldr.distributionMetric(COMPOSITE_METRIC_NAME, null, DISTRIBUTION_BOUNDS);
+            bldr.register(holder.atomicIntMetric);
+            bldr.register(holder.distributionMetric);
         }
 
         private static class Holder implements AbstractMetricSource.Holder<Holder> {
-            // No-op.
+            final AtomicIntMetric atomicIntMetric = new AtomicIntMetric(SCALAR_METRIC_NAME, null);
+            final DistributionMetric distributionMetric = new DistributionMetric(COMPOSITE_METRIC_NAME, null, DISTRIBUTION_BOUNDS);
         }
     }
 }

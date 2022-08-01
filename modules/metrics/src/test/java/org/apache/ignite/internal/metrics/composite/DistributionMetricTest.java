@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.composite;
 
 import java.util.List;
+import org.apache.ignite.internal.metrics.Metric;
+import org.apache.ignite.internal.metrics.scalar.LongMetric;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

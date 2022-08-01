@@ -113,6 +113,11 @@
             <artifactId>ignite-storage-page-memory</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-metrics</artifactId>
+        </dependency>
+
         <!-- 3rd party dependencies -->
         <dependency>
             <groupId>org.slf4j</groupId>

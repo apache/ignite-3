@@ -15,27 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.scalar;
 
+import org.apache.ignite.internal.metrics.AbstractMetric;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Basic metric interface.
- */
-public interface Metric {
-    /**
-     * @return Name of the metric.
-     */
-    String name();
+import java.util.function.DoubleSupplier;
+
+public class DoubleGauge extends AbstractMetric implements DoubleMetric {
+    /** Value supplier. */
+    private final DoubleSupplier val;
 
     /**
-     * @return Description of the metric.
+     * @param name Name.
+     * @param desc Description.
+     * @param val Supplier.
      */
-    String description();
+    public DoubleGauge(String name, @Nullable String desc, DoubleSupplier val) {
+        super(name, desc);
 
-    /**
-     * @return String representation of metric value.
-     */
-    @Nullable
-    String getAsString();
+        this.val = val;
+    }
+
+    /** {@inheritDoc} */
+    @Override public double value() {
+        return val.getAsDouble();
+    }
 }

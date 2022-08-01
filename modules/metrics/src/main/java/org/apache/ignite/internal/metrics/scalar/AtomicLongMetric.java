@@ -15,26 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.scalar;
 
-import java.util.concurrent.atomic.DoubleAdder;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
+
+import org.apache.ignite.internal.metrics.AbstractMetric;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Double metric.
+ * Long metric implementation.
  */
-public class DoubleAdderMetric extends AbstractMetric implements DoubleMetric {
-    /** Value. */
-    private volatile DoubleAdder val;
+public class AtomicLongMetric extends AbstractMetric implements LongMetric {
+    /** Field updater. */
+    static final AtomicLongFieldUpdater<AtomicLongMetric> updater =
+            AtomicLongFieldUpdater.newUpdater(AtomicLongMetric.class, "val");
+
+    /** Field value. */
+    private volatile long val;
 
     /**
      * @param name Name.
      * @param desc Description.
      */
-    public DoubleAdderMetric(String name, @Nullable String desc) {
+    public AtomicLongMetric(String name, @Nullable String desc) {
         super(name, desc);
-
-        this.val = new DoubleAdder();
     }
 
     /**
@@ -42,8 +46,23 @@ public class DoubleAdderMetric extends AbstractMetric implements DoubleMetric {
      *
      * @param x Value to be added.
      */
-    public void add(double x) {
-        val.add(x);
+    public void add(long x) {
+        updater.getAndAdd(this, x);
+    }
+
+    /** Adds 1 to the metric. */
+    public void increment() {
+        add(1);
+    }
+
+    /** Adds -1 to the metric. */
+    public void decrement() {
+        add(-1);
+    }
+
+    /** {@inheritDoc} */
+    @Override public long value() {
+        return val;
     }
 
     /**
@@ -51,14 +70,7 @@ public class DoubleAdderMetric extends AbstractMetric implements DoubleMetric {
      *
      * @param val Value.
      */
-    public void value(double val) {
-        DoubleAdder adder = new DoubleAdder();
-        adder.add(val);
-        this.val = adder;
-    }
-
-    /** {@inheritDoc} */
-    @Override public double value() {
-        return val.sum();
+    public void value(long val) {
+        this.val = val;
     }
 }

@@ -23,6 +23,16 @@ import java.util.Objects;
 import java.util.function.DoubleSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.metrics.composite.DistributionMetric;
+import org.apache.ignite.internal.metrics.scalar.AtomicDoubleMetric;
+import org.apache.ignite.internal.metrics.scalar.AtomicIntMetric;
+import org.apache.ignite.internal.metrics.scalar.AtomicLongMetric;
+import org.apache.ignite.internal.metrics.scalar.DoubleAdderMetric;
+import org.apache.ignite.internal.metrics.scalar.DoubleGauge;
+import org.apache.ignite.internal.metrics.scalar.HitRateMetric;
+import org.apache.ignite.internal.metrics.scalar.IntGauge;
+import org.apache.ignite.internal.metrics.scalar.LongAdderMetric;
+import org.apache.ignite.internal.metrics.scalar.LongGauge;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -71,10 +81,9 @@ public class MetricSetBuilder {
      *
      * @param metric Metric.
      * @throws IllegalStateException If metric with given name is already added.
-     * @deprecated Wrong method. Breaks contract.
      */
     @SuppressWarnings("unchecked")
-    public <T extends Metric> T register(T metric) {
+    public  <T extends Metric> T register(T metric) {
         T old = (T) metrics.putIfAbsent(metric.name(), metric);
 
         if (old != null) {

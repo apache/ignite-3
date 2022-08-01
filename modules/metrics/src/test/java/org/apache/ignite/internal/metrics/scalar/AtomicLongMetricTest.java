@@ -15,29 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.scalar;
 
-import org.jetbrains.annotations.Nullable;
-
-import java.util.function.DoubleSupplier;
-
-public class DoubleGauge extends AbstractMetric implements DoubleMetric {
-    /** Value supplier. */
-    private final DoubleSupplier val;
-
-    /**
-     * @param name Name.
-     * @param desc Description.
-     * @param val Supplier.
-     */
-    public DoubleGauge(String name, @Nullable String desc, DoubleSupplier val) {
-        super(name, desc);
-
-        this.val = val;
+public class AtomicLongMetricTest extends AbstractLongMetricTest {
+    /** {@inheritDoc} */
+    @Override protected void increment0(LongMetric metric) {
+        ((AtomicLongMetric) metric).increment();
+    }
+    /** {@inheritDoc} */
+    @Override protected void decrement0(LongMetric metric) {
+        ((AtomicLongMetric) metric).decrement();
     }
 
     /** {@inheritDoc} */
-    @Override public double value() {
-        return val.getAsDouble();
+    @Override protected void add0(LongMetric metric, long value) {
+        ((AtomicLongMetric) metric).add(value);
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void setValue0(LongMetric metric, long value) {
+        ((AtomicLongMetric) metric).value(value);
+    }
+
+    /** {@inheritDoc} */
+    @Override protected LongMetric createMetric(String name, String description) {
+        return new AtomicLongMetric(name, description);
     }
 }

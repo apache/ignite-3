@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.scalar;
 
-import java.util.List;
+import org.apache.ignite.internal.metrics.Metric;
 
 /**
- * A composite metric is a group of closely related values. The values themselves are numeric.
+ * Interface for the metrics that holds int primitive.
  */
-public interface CompositeMetric extends Metric {
-    /**
-     * Get a group of values composing this metric as a list of scalar metrics.
-     *
-     * @return List of scalar metrics.
-     */
-    List<Metric> asScalarMetrics();
+public interface IntMetric extends Metric {
+    /** @return Value of the metric. */
+    int value();
+
+    /** {@inheritDoc} */
+    default String getAsString() {
+        return Integer.toString(value());
+    }
 }

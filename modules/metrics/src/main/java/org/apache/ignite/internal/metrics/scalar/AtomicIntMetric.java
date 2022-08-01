@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.scalar;
 
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
+import org.apache.ignite.internal.metrics.AbstractMetric;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -49,9 +50,14 @@ public class AtomicIntMetric extends AbstractMetric implements IntMetric {
         updater.addAndGet(this, x);
     }
 
-    /** Adds 1 to the metric. */
+    /** Increment the metric. */
     public void increment() {
         add(1);
+    }
+
+    /** Decrement the metric. */
+    public void decrement() {
+        add(-1);
     }
 
     /**

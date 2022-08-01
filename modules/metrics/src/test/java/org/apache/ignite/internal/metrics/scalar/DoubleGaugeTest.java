@@ -15,14 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.scalar;
 
-public interface DoubleMetric extends Metric {
-    /** @return Value of the metric. */
-    public double value();
+public class DoubleGaugeTest extends AbstractDoubleMetricTest {
+    /** A value for the supplier. */
+    private double value = 0;
 
     /** {@inheritDoc} */
-    @Override public default String getAsString() {
-        return Double.toString(value());
+    @Override protected void increment0(DoubleMetric metric) {
+        value++;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void decrement0(DoubleMetric metric) {
+        value--;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void add0(DoubleMetric metric, double value) {
+        this.value += value;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void setValue0(DoubleMetric metric, double value) {
+        this.value = value;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected DoubleMetric createMetric(String name, String description) {
+        return new DoubleGauge(name, description, () -> value);
     }
 }

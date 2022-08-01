@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.scalar;
 
 import static org.apache.ignite.internal.util.IgniteUtils.currentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.ensure;
 
 import java.util.concurrent.atomic.AtomicLongArray;
+import org.apache.ignite.internal.metrics.AbstractMetric;
 import org.jetbrains.annotations.Nullable;
 
 /**

@@ -19,6 +19,9 @@ package org.apache.ignite.internal.metrics;
 
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Abstract metric.
+ */
 public abstract class AbstractMetric implements Metric {
     /** Metric name. It is local for a particular {@link MetricSet}. */
     private final String name;

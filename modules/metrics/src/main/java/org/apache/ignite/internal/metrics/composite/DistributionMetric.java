@@ -15,13 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.composite;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.metrics.AbstractMetric;
+import org.apache.ignite.internal.metrics.Metric;
+import org.apache.ignite.internal.metrics.scalar.LongGauge;
+import org.apache.ignite.internal.metrics.scalar.LongMetric;
 import org.jetbrains.annotations.Nullable;
 
 /**

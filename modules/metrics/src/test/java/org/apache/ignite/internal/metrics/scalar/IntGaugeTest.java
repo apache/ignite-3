@@ -15,17 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.scalar;
 
-/**
- * Interface for the metrics that holds int primitive.
- */
-public interface IntMetric extends Metric {
-    /** @return Value of the metric. */
-    int value();
+public class IntGaugeTest extends AbstractIntMetricTest{
+    /** A value for the supplier. */
+    private int value;
 
     /** {@inheritDoc} */
-    default String getAsString() {
-        return Integer.toString(value());
+    @Override protected void increment0(IntMetric metric) {
+        value++;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void decrement0(IntMetric metric) {
+        value--;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void add0(IntMetric metric, int value) {
+        this.value += value;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void setValue0(IntMetric metric, int value) {
+        this.value = value;
+    }
+
+    /** {@inheritDoc} */
+    @Override protected IntMetric createMetric(String name, String description) {
+        return new IntGauge(name, description, () -> value);
     }
 }

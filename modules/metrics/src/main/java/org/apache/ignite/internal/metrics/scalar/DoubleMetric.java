@@ -15,17 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.scalar;
 
-/**
- * Interface for the metrics that holds long primitive.
- */
-public interface LongMetric extends Metric {
+import org.apache.ignite.internal.metrics.Metric;
+
+public interface DoubleMetric extends Metric {
     /** @return Value of the metric. */
-    public long value();
+    public double value();
 
     /** {@inheritDoc} */
     @Override public default String getAsString() {
-        return Long.toString(value());
+        return Double.toString(value());
     }
 }

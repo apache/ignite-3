@@ -13,29 +13,49 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.scalar;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.apache.ignite.internal.util.IgniteUtils.onNodeStart;
+import static org.apache.ignite.internal.util.IgniteUtils.onNodeStop;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Hit rate metric test.
+ */
 public class HitRateMetricTest {
+    @BeforeEach
+    public void beforeAll() {
+        onNodeStart();
+    }
+
+    @AfterEach
+    public void afterAll() {
+        onNodeStop();
+    }
+
     @Test
     public void testHitrateMetric() {
         HitRateMetric hitRateMetric = new HitRateMetric("hitRate", null, 100);
 
         hitRateMetric.increment();
+
+        doSleep(5);
         hitRateMetric.add(2);
 
-        assertEquals(3, hitRateMetric.value());
-
-        doSleep(110);
+        doSleep(20);
 
         hitRateMetric.increment();
 
-        doSleep(100);
+        assertEquals(4, hitRateMetric.value());
 
-        assertEquals(2, hitRateMetric.value());
+        doSleep(100);
+        hitRateMetric.increment();
+
+        assertEquals(1, hitRateMetric.value());
     }
 
     private void doSleep(long time) {

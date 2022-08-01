@@ -15,39 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.scalar;
 
-import java.util.concurrent.atomic.AtomicLongFieldUpdater;
+import java.util.concurrent.atomic.DoubleAdder;
+import org.apache.ignite.internal.metrics.AbstractMetric;
+import org.jetbrains.annotations.Nullable;
 
-public class AtomicDoubleMetric extends AbstractMetric implements DoubleMetric {
-    /** Field updater. */
-    private static final AtomicLongFieldUpdater<AtomicDoubleMetric> updater =
-            AtomicLongFieldUpdater.newUpdater(AtomicDoubleMetric.class, "val");
-
+/**
+ * Double metric.
+ */
+public class DoubleAdderMetric extends AbstractMetric implements DoubleMetric {
     /** Value. */
-    private volatile long val;
+    private volatile DoubleAdder val;
 
     /**
      * @param name Name.
      * @param desc Description.
      */
-    public AtomicDoubleMetric(String name, String desc) {
+    public DoubleAdderMetric(String name, @Nullable String desc) {
         super(name, desc);
+
+        this.val = new DoubleAdder();
     }
 
     /**
-     * Adds given value to the metric value.
+     * Adds x to the metric.
      *
-     * @param v Value to be added.
+     * @param x Value to be added.
      */
-    public void add(double v) {
-        for (;;) {
-            long exp = val;
-            long upd = Double.doubleToLongBits(Double.longBitsToDouble(exp) + v);
-            if (updater.compareAndSet(this, exp, upd)) {
-                break;
-            }
-        }
+    public void add(double x) {
+        val.add(x);
     }
 
     /**
@@ -56,12 +53,13 @@ public class AtomicDoubleMetric extends AbstractMetric implements DoubleMetric {
      * @param val Value.
      */
     public void value(double val) {
-        this.val = Double.doubleToLongBits(val);
+        DoubleAdder adder = new DoubleAdder();
+        adder.add(val);
+        this.val = adder;
     }
 
     /** {@inheritDoc} */
-    @Override
-    public double value() {
-        return Double.longBitsToDouble(val);
+    @Override public double value() {
+        return val.sum();
     }
 }

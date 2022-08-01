@@ -15,48 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.scalar;
 
-import java.util.concurrent.atomic.LongAdder;
-import org.jetbrains.annotations.Nullable;
-
-public class LongAdderMetric extends AbstractMetric implements LongMetric {
-    /** Value. */
-    private volatile LongAdder val;
-
-    /**
-     * @param name Name.
-     * @param desc Description.
-     */
-    public LongAdderMetric(String name, @Nullable String desc) {
-        super(name, desc);
-
-        this.val = new LongAdder();
-    }
-
-    /**
-     * Adds x to the metric.
-     *
-     * @param x Value to be added.
-     */
-    public void add(long x) {
-        val.add(x);
-    }
-
-    /**
-     * Sets value.
-     *
-     * @param val Value.
-     */
-    public void value(long val) {
-        LongAdder adder = new LongAdder();
-        adder.add(val);
-        this.val = adder;
+public class AtomicDoubleMetricTest extends AbstractDoubleMetricTest {
+    /** {@inheritDoc} */
+    @Override protected void increment0(DoubleMetric metric) {
+        ((AtomicDoubleMetric) metric).add(1);
     }
 
     /** {@inheritDoc} */
-    @Override public long value() {
-        return val.sum();
+    @Override protected void decrement0(DoubleMetric metric) {
+        ((AtomicDoubleMetric) metric).add(-1);
     }
 
+    /** {@inheritDoc} */
+    @Override protected void add0(DoubleMetric metric, double value) {
+        ((AtomicDoubleMetric) metric).add(value);
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void setValue0(DoubleMetric metric, double value) {
+        ((AtomicDoubleMetric) metric).value(value);
+    }
+
+    /** {@inheritDoc} */
+    @Override protected DoubleMetric createMetric(String name, String description) {
+        return new AtomicDoubleMetric(name, description);
+    }
 }
