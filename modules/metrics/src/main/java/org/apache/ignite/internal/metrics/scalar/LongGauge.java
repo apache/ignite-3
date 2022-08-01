@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.metrics.scalar;
 
+import java.util.function.LongSupplier;
 import org.apache.ignite.internal.metrics.AbstractMetric;
 import org.jetbrains.annotations.Nullable;
-import java.util.function.LongSupplier;
 
 /**
  * Implementation based on primitive supplier.

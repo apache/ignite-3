@@ -27,6 +27,12 @@ import java.util.concurrent.ThreadPoolExecutor;
 public class ThreadPoolMetricSource extends AbstractMetricSource<ThreadPoolMetricSource.Holder> {
     private final ThreadPoolExecutor exec;
 
+    /**
+     * Constructor.
+     *
+     * @param name Name.
+     * @param exec Executor.
+     */
     public ThreadPoolMetricSource(String name, ThreadPoolExecutor exec) {
         super(name);
 
