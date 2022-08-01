@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
-import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.withCauseAndCode;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_EXECUTION_ERR;
 
@@ -88,7 +88,7 @@ public class CursorImpl<T> implements Cursor<T> {
 
             LOG.debug("Unable to evaluate cursor close command", e);
 
-            throw withCause(MetaStorageException::new, CURSOR_CLOSING_ERR, e);
+            throw withCauseAndCode(MetaStorageException::new, CURSOR_CLOSING_ERR, e);
         }
     }
 
@@ -135,7 +135,7 @@ public class CursorImpl<T> implements Cursor<T> {
 
                 LOG.debug("Unable to evaluate cursor hasNext command", e);
 
-                throw withCause(MetaStorageException::new, CURSOR_EXECUTION_ERR, e);
+                throw withCauseAndCode(MetaStorageException::new, CURSOR_EXECUTION_ERR, e);
             }
         }
 
@@ -173,7 +173,7 @@ public class CursorImpl<T> implements Cursor<T> {
 
                 LOG.debug("Unable to evaluate cursor hasNext command", e);
 
-                throw withCause(MetaStorageException::new, CURSOR_EXECUTION_ERR, e);
+                throw withCauseAndCode(MetaStorageException::new, CURSOR_EXECUTION_ERR, e);
             }
         }
 

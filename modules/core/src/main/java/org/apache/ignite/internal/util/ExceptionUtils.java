@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteTetraFunction;
@@ -335,15 +334,38 @@ public final class ExceptionUtils {
      * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
      * In the case when the provided cause {@code t} is an instance of {@link IgniteInternalException}
      * or {@link IgniteInternalCheckedException}, the original trace identifier and full error code are preserved.
-     * Otherwise, a newly generated trace identifier and {@link Common#UNKNOWN_ERR} are used.
+     * Otherwise, a newly generated trace identifier and {@code defaultCode} are used.
      *
      * @param supplier Reference to a exception constructor.
+     * @param defaultCode Error code to be used in the case when the provided cause {@code t} is not an instance of Ignite exception.
      * @param t Cause to be used.
      * @param <T> Type of a new exception.
      * @return New exception with the given cause.
      */
-    public static <T extends Exception> T withCause(IgniteTriFunction<UUID, Integer, Throwable, T> supplier, Throwable t) {
-        return withCauseInternal((traceId, code, message, cause) -> supplier.apply(traceId, code, t), t);
+    public static <T extends Exception> T withCause(IgniteTriFunction<UUID, Integer, Throwable, T> supplier, int defaultCode, Throwable t) {
+        return withCauseInternal((traceId, code, message, cause) -> supplier.apply(traceId, code, t), defaultCode, t);
+    }
+
+    /**
+     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
+     * In the case when the provided cause {@code t} is an instance of {@link IgniteInternalException}
+     * or {@link IgniteInternalCheckedException}, the original trace identifier and full error code are preserved.
+     * Otherwise, a newly generated trace identifier and {@code defaultCode} are used.
+     *
+     * @param supplier Reference to a exception constructor.
+     * @param defaultCode Error code to be used in the case when the provided cause {@code t} is not an instance of Ignite exception.
+     * @param message Detailed error message.
+     * @param t Cause to be used.
+     * @param <T> Type of a new exception.
+     * @return New exception with the given cause.
+     */
+    public static <T extends Exception> T withCause(
+            IgniteTetraFunction<UUID, Integer, String, Throwable, T> supplier,
+            int defaultCode,
+            String message,
+            Throwable t
+    ) {
+        return withCauseInternal((traceId, code, m, cause) -> supplier.apply(traceId, code, message, t), defaultCode, t);
     }
 
     /**
@@ -359,28 +381,8 @@ public final class ExceptionUtils {
      * @param <T> Type of a new exception.
      * @return New exception with the given cause.
      */
-    public static <T extends Exception> T withCause(IgniteTriFunction<UUID, Integer, Throwable, T> supplier, int code, Throwable t) {
-        return withCauseInternal((traceId, c, message, cause) -> supplier.apply(traceId, code, t), t);
-    }
-
-    /**
-     * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
-     * In the case when the provided cause {@code t} is an instance of {@link IgniteInternalException}
-     * or {@link IgniteInternalCheckedException}, the original trace identifier and full error code are preserved.
-     * Otherwise, a newly generated trace identifier and {@link Common#UNKNOWN_ERR} are used.
-     *
-     * @param supplier Reference to a exception constructor.
-     * @param message Detailed error message.
-     * @param t Cause to be used.
-     * @param <T> Type of a new exception.
-     * @return New exception with the given cause.
-     */
-    public static <T extends Exception> T withCause(
-            IgniteTetraFunction<UUID, Integer, String, Throwable, T> supplier,
-            String message,
-            Throwable t
-    ) {
-        return withCauseInternal((traceId, code, m, cause) -> supplier.apply(traceId, code, message, t), t);
+    public static <T extends Exception> T withCauseAndCode(IgniteTriFunction<UUID, Integer, Throwable, T> supplier, int code, Throwable t) {
+        return withCauseInternal((traceId, c, message, cause) -> supplier.apply(traceId, code, t), code, t);
     }
 
     /**
@@ -397,25 +399,27 @@ public final class ExceptionUtils {
      * @param <T> Type of a new exception.
      * @return New exception with the given cause.
      */
-    public static <T extends Exception> T withCause(
+    public static <T extends Exception> T withCauseAndCode(
             IgniteTetraFunction<UUID, Integer, String, Throwable, T> supplier,
             int code,
             String message,
             Throwable t
     ) {
-        return withCauseInternal((traceId, c, m, cause) -> supplier.apply(traceId, code, message, t), t);
+        return withCauseInternal((traceId, c, m, cause) -> supplier.apply(traceId, code, message, t), code, t);
     }
 
     /**
      * Extracts the trace identifier and full error code from ignite exception and creates a new one based on the provided {@code supplier}.
      *
      * @param supplier Supplier to create a concrete exception instance.
+     * @param defaultCode Error code to be used in the case when the provided cause {@code t} is not an instance of Ignite exception.
      * @param t Cause.
      * @param <T> Type of a new exception.
      * @return New
      */
     private static <T extends Exception> T withCauseInternal(
             IgniteTetraFunction<UUID, Integer, String, Throwable, T> supplier,
+            int defaultCode,
             Throwable t
     ) {
         Throwable unwrapped = unwrapCause(t);
@@ -428,6 +432,6 @@ public final class ExceptionUtils {
             return supplier.apply(iice.traceId(), iice.code(), iice.getMessage(), t);
         }
 
-        return supplier.apply(UUID.randomUUID(), Common.UNKNOWN_ERR, t.getMessage(), t);
+        return supplier.apply(UUID.randomUUID(), defaultCode, t.getMessage(), t);
     }
 }
