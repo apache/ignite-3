@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import picocli.CommandLine.MutuallyExclusiveArgsException;
 
 /**
  * Tests the start ignite nodes.
@@ -73,5 +75,15 @@ public class IgniteCliRunnerTest {
         IgnitionManager.init(NODE_NAME, List.of(NODE_NAME), "cluster");
 
         assertThat(ign, willCompleteSuccessfully());
+    }
+
+    @Test
+    public void testMutuallyExclusiveArgs() {
+        assertThrows(MutuallyExclusiveArgsException.class, () -> IgniteCliRunner.start(
+                "--work-dir", workDir.resolve("node").toAbsolutePath().toString(),
+                "--config", "configPath",
+                "--configStr", "configStr",
+                NODE_NAME
+        ));
     }
 }
