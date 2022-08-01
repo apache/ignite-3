@@ -20,8 +20,11 @@ package org.apache.ignite.internal.network.netty;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.jetbrains.annotations.Async.Execute;
+import org.jetbrains.annotations.Async.Schedule;
 
 /**
  * Netty utilities.
@@ -38,18 +41,21 @@ public class NettyUtils {
      * @return CompletableFuture.
      */
     public static <T, R, F extends Future<R>> CompletableFuture<T> toCompletableFuture(
-            F nettyFuture,
+            @Schedule F nettyFuture,
             Function<F, T> mapper
     ) {
         var fut = new CompletableFuture<T>();
 
-        nettyFuture.addListener((F future) -> {
-            if (future.isSuccess()) {
-                fut.complete(mapper.apply(future));
-            } else if (future.isCancelled()) {
-                fut.cancel(true);
-            } else {
-                fut.completeExceptionally(future.cause());
+        nettyFuture.addListener(new GenericFutureListener<F>() {
+            @Override
+            public void operationComplete(@Execute F future) throws Exception {
+                if (future.isSuccess()) {
+                    fut.complete(mapper.apply(future));
+                } else if (future.isCancelled()) {
+                    fut.cancel(true);
+                } else {
+                    fut.completeExceptionally(future.cause());
+                }
             }
         });
 

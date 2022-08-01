@@ -91,4 +91,8 @@ public class NamedThreadFactory implements ThreadFactory {
     public static String threadPrefix(String nodeName, String poolName) {
         return IgniteThread.threadPrefix(nodeName, poolName);
     }
+
+    public static NamedThreadFactory create(String nodeName, String poolName, IgniteLogger logger) {
+        return new NamedThreadFactory(threadPrefix(nodeName, poolName), logger);
+    }
 }

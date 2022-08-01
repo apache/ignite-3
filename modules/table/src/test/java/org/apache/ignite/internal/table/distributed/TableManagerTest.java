@@ -248,6 +248,9 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Before all test scenarios. */
     @BeforeEach
     void before() {
+        when(rm.messagingService()).thenReturn(mock(MessagingService.class));
+        when(rm.topologyService()).thenReturn(mock(TopologyService.class));
+
         revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
             function.apply(0L).join();
 
@@ -761,6 +764,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut, boolean waitingSqlSchema) {
         TableManager tableManager = new TableManager(
+                "",
                 revisionUpdater,
                 tblsCfg,
                 rm,

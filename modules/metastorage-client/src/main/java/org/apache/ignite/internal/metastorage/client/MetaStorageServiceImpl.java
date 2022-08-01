@@ -268,6 +268,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         watchRes.thenAccept(
                 watchId -> watchProcessor.addWatch(
+                        localNodeId,
                         watchId,
                         new CursorImpl<>(metaStorageRaftGrpSvc, watchRes, MetaStorageServiceImpl::watchResponse),
                         lsnr
@@ -299,6 +300,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         watchRes.thenAccept(
                 watchId -> watchProcessor.addWatch(
+                        localNodeId,
                         watchId,
                         new CursorImpl<>(metaStorageRaftGrpSvc, watchRes, MetaStorageServiceImpl::watchResponse),
                         lsnr
@@ -469,12 +471,13 @@ public class MetaStorageServiceImpl implements MetaStorageService {
          * Starts exclusive thread per watch that implement watch pulling logic and calls {@link WatchListener#onUpdate(WatchEvent)}} or
          * {@link WatchListener#onError(Throwable)}.
          *
+         * @param nodeId  Node id.
          * @param watchId Watch id.
          * @param cursor  Watch Cursor.
          * @param lsnr    The listener which receives and handles watch updates.
          */
-        private void addWatch(IgniteUuid watchId, CursorImpl<WatchEvent> cursor, WatchListener lsnr) {
-            Watcher watcher = new Watcher(cursor, lsnr);
+        private void addWatch(String nodeId, IgniteUuid watchId, CursorImpl<WatchEvent> cursor, WatchListener lsnr) {
+            Watcher watcher = new Watcher(nodeId, cursor, lsnr);
 
             watchers.put(watchId, watcher);
 
@@ -532,7 +535,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
              * @param cursor Watch event cursor.
              * @param lsnr   The listener which receives and handles watch updates.
              */
-            Watcher(Cursor<WatchEvent> cursor, WatchListener lsnr) {
+            Watcher(String nodeId, Cursor<WatchEvent> cursor, WatchListener lsnr) {
+                setName(nodeId);
                 this.cursor = cursor;
                 this.lsnr = lsnr;
             }
@@ -554,6 +558,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                                 watchEvt = watchEvtsIter.next();
                             } catch (Throwable e) {
                                 lsnr.onError(e);
+
+                                throw e;
                             }
 
                             assert watchEvt != null;

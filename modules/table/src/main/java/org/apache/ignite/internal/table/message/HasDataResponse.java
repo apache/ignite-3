@@ -15,24 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.table.message;
 
-import org.apache.ignite.internal.compute.message.ExecuteRequest;
-import org.apache.ignite.internal.compute.message.ExecuteResponse;
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Message types for the Compute module.
+ * A response to the {@link HasDataRequest}.
  */
-@MessageGroup(groupType = 6, groupName = "ComputeMessages")
-public class ComputeMessageTypes {
-    /**
-     * Type for {@link ExecuteRequest}.
-     */
-    public static final short EXECUTE_REQUEST = 0;
-
-    /**
-     * Type for {@link ExecuteResponse}.
-     */
-    public static final short EXECUTE_RESPONSE = 1;
+@Transferable(TableMessageGroup.HAS_DATA_RESPONSE)
+public interface HasDataResponse extends NetworkMessage {
+    /** {@code true} if a node has data for a partition of a table, {@code false} otherwise. */
+    boolean result();
 }

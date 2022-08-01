@@ -15,24 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.table.message;
 
-import org.apache.ignite.internal.compute.message.ExecuteRequest;
-import org.apache.ignite.internal.compute.message.ExecuteResponse;
-import org.apache.ignite.network.annotations.MessageGroup;
+import java.util.UUID;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Message types for the Compute module.
+ * A message that queries a node whether it has data for the partition of a table.
  */
-@MessageGroup(groupType = 6, groupName = "ComputeMessages")
-public class ComputeMessageTypes {
-    /**
-     * Type for {@link ExecuteRequest}.
-     */
-    public static final short EXECUTE_REQUEST = 0;
+@Transferable(TableMessageGroup.HAS_DATA_REQUEST)
+public interface HasDataRequest extends NetworkMessage {
+    /** ID of the table. */
+    UUID tableId();
 
-    /**
-     * Type for {@link ExecuteResponse}.
-     */
-    public static final short EXECUTE_RESPONSE = 1;
+    /** ID of the partition. */
+    int partitionId();
 }

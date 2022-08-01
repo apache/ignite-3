@@ -20,22 +20,36 @@ package org.apache.ignite.internal.utils;
 import static org.apache.ignite.internal.metastorage.client.CompoundCondition.and;
 import static org.apache.ignite.internal.metastorage.client.CompoundCondition.or;
 import static org.apache.ignite.internal.metastorage.client.Conditions.notExists;
+import static org.apache.ignite.internal.metastorage.client.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.client.Conditions.value;
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.internal.metastorage.client.Operations.put;
 import static org.apache.ignite.internal.metastorage.client.Operations.remove;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.client.Conditions;
+import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.If;
+import org.apache.ignite.internal.metastorage.client.Operations;
+import org.apache.ignite.internal.metastorage.client.WatchEvent;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -157,6 +171,12 @@ public class RebalanceUtil {
     /** Key prefix for stable assignments. */
     public static final String STABLE_ASSIGNMENTS_PREFIX = "assignments.stable.";
 
+    /** Key prefix for switch reduce assignments. */
+    public static final String ASSIGNMENTS_SWITCH_REDUCE_PREFIX = "assignments.switch.reduce.";
+
+    /** Key prefix for switch append assignments. */
+    public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "assignments.switch.append.";
+
     /**
      * Key that is needed for the rebalance algorithm.
      *
@@ -202,13 +222,46 @@ public class RebalanceUtil {
     }
 
     /**
-     * Extract table id from pending key of partition.
+     * Key that is needed for the rebalance algorithm.
+     *
+     * @param partId Unique identifier of a partition.
+     * @return Key for a partition.
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     */
+    public static ByteArray switchReduceKey(String partId) {
+        return new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX + partId);
+    }
+
+    /**
+     * Key that is needed for the rebalance algorithm.
+     *
+     * @param partId Unique identifier of a partition.
+     * @return Key for a partition.
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     */
+    public static ByteArray switchAppendKey(String partId) {
+        return new ByteArray(ASSIGNMENTS_SWITCH_APPEND_PREFIX + partId);
+    }
+
+    /**
+     * Extract table id from a metastorage key of partition.
      *
      * @param key Key.
      * @return Table id.
      */
+    public static UUID extractTableId(ByteArray key) {
+        return extractTableId(key, "");
+    }
+
+    /**
+     * Extract table id from a metastorage key of partition.
+     *
+     * @param key Key.
+     * @param prefix Key prefix.
+     * @return Table id.
+     */
     public static UUID extractTableId(ByteArray key, String prefix) {
-        var strKey = key.toString();
+        String strKey = key.toString();
 
         return UUID.fromString(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
     }
@@ -234,5 +287,210 @@ public class RebalanceUtil {
     public static boolean recoverable(Throwable t) {
         // As long as we don't have a general failure handler, we assume that all errors are recoverable.
         return true;
+    }
+
+    /**
+     * Starts the process of removing peer from raft group if that peer has in-memory storage or if its
+     * storage was cleared.
+     *
+     * @param partId Partition's raft group id.
+     * @param clusterNode Cluster node to be removed from peers.
+     * @param metaStorageMgr MetaStorage manager.
+     * @return Completable future that signifies the completion of this operation.
+     */
+    public static CompletableFuture<Void> startPeerRemoval(String partId, ClusterNode clusterNode, MetaStorageManager metaStorageMgr) {
+        ByteArray key = switchReduceKey(partId);
+
+        return metaStorageMgr.get(key)
+                .thenCompose(retrievedAssignmentsSwitchReduce -> {
+                    byte[] prevValue = retrievedAssignmentsSwitchReduce.value();
+
+                    boolean prevValueEmpty = true;
+                    List<ClusterNode> calculatedAssignmentsSwitchReduce;
+
+                    if (prevValue != null) {
+                        calculatedAssignmentsSwitchReduce = (List<ClusterNode>) ByteUtils.fromBytes(prevValue);
+                        prevValueEmpty = false;
+                    } else {
+                        calculatedAssignmentsSwitchReduce = new ArrayList<>();
+                    }
+
+                    calculatedAssignmentsSwitchReduce.add(clusterNode);
+
+                    byte[] newValue = ByteUtils.toBytes(calculatedAssignmentsSwitchReduce);
+
+                    if (prevValueEmpty) {
+                        return metaStorageMgr.invoke(
+                                Conditions.notExists(key),
+                                Operations.put(key, newValue),
+                                Operations.noop()
+                        );
+                    } else {
+                        return metaStorageMgr.invoke(
+                                revision(key).eq(retrievedAssignmentsSwitchReduce.revision()),
+                                Operations.put(key, newValue),
+                                Operations.noop()
+                        );
+                    }
+                }).thenCompose(res -> {
+                    if (!res) {
+                        return startPeerRemoval(partId, clusterNode, metaStorageMgr);
+                    }
+
+                    return CompletableFuture.completedFuture(null);
+                });
+    }
+
+    /**
+     * Handles assignments switch reduce changed.
+     *
+     * @param metaStorageMgr MetaStorage manager.
+     * @param baselineNodes Baseline nodes.
+     * @param partitions Partitions count.
+     * @param replicas Replicas count.
+     * @param partNum Number of the partition.
+     * @param partId Partition's raft group id..
+     * @param event Assignments switch reduce change event.
+     * @return Completable future that signifies the completion of this operation.
+     */
+    public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<ClusterNode> baselineNodes,
+            int partitions, int replicas, int partNum, String partId, WatchEvent event) {
+        Entry entry = event.entryEvent().newEntry();
+        byte[] eventData = entry.value();
+
+        List<ClusterNode> assignments = AffinityUtils.calculateAssignments(baselineNodes, partitions, replicas).get(partNum);
+        List<ClusterNode> switchReduce = (List<ClusterNode>) ByteUtils.fromBytes(eventData);
+
+        ByteArray pendingKey = pendingPartAssignmentsKey(partId);
+
+        List<ClusterNode> pendingAssignments = subtract(assignments, switchReduce);
+
+        byte[] pendingByteArray = ByteUtils.toBytes(pendingAssignments);
+        byte[] assignmentsByteArray = ByteUtils.toBytes(assignments);
+
+        if (switchReduce.isEmpty()) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        ByteArray changeTriggerKey = partChangeTriggerKey(partId);
+        byte[] rev = ByteUtils.longToBytes(event.entryEvent().newEntry().revision());
+
+        // if ((notExists(changeTriggerKey) || value(changeTriggerKey) < revision) && (notExists(pendingKey) && notExists(stableKey)) {
+        //     put(pendingKey, pending)
+        //     put(stableKey, assignments)
+        //     put(changeTriggerKey, revision)
+        // } else if ((notExists(changeTriggerKey) || value(changeTriggerKey) < revision) && (notExists(pendingKey))) {
+        //     put(pendingKey, pending)
+        //     put(changeTriggerKey, revision)
+        // }
+
+        If iif = If.iif(
+                        and(
+                                or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
+                                and(notExists(pendingKey), (notExists(stablePartAssignmentsKey(partId))))
+                        ),
+                        Operations.ops(
+                                put(pendingKey, pendingByteArray),
+                                put(stablePartAssignmentsKey(partId), assignmentsByteArray),
+                                put(changeTriggerKey, rev)
+                        ).yield(),
+                        If.iif(
+                            and(
+                                    or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
+                                    notExists(pendingKey)
+                            ),
+                            Operations.ops(
+                                    put(pendingKey, pendingByteArray),
+                                    put(changeTriggerKey, rev)
+                            ).yield(),
+                            ops().yield()
+                        )
+        );
+
+        return metaStorageMgr.invoke(iif).thenApply(unused -> null);
+    }
+
+    /**
+     * Builds a list of cluster nodes based on a list of peers, pending and stable assignments.
+     * A peer will be added to the result list iff peer's address is present in pending or stable assignments.
+     *
+     * @param peers List of peers.
+     * @param pendingAssignments Byte array that contains serialized list of pending assignments.
+     * @param stableAssignments Byte array that contains serialized list of stable assignments.
+     * @return Resolved cluster nodes.
+     */
+    public static List<ClusterNode> resolveClusterNodes(List<PeerId> peers, byte[] pendingAssignments, byte[] stableAssignments) {
+        Map<NetworkAddress, ClusterNode> resolveRegistry = new HashMap<>();
+
+        if (pendingAssignments != null) {
+            List<ClusterNode> pending = ByteUtils.fromBytes(pendingAssignments);
+            pending.forEach(n -> resolveRegistry.put(n.address(), n));
+        }
+
+        if (stableAssignments != null) {
+            List<ClusterNode> stable = ByteUtils.fromBytes(stableAssignments);
+            stable.forEach(n -> resolveRegistry.put(n.address(), n));
+        }
+
+        List<ClusterNode> resolvedNodes = new ArrayList<>(peers.size());
+
+        for (PeerId p : peers) {
+            var addr = NetworkAddress.from(p.getEndpoint().getIp() + ":" + p.getEndpoint().getPort());
+
+            if (resolveRegistry.containsKey(addr)) {
+                resolvedNodes.add(resolveRegistry.get(addr));
+            } else {
+                throw new IgniteInternalException("Can't find appropriate cluster node for raft group peer: " + p);
+            }
+        }
+
+        return resolvedNodes;
+    }
+
+    /**
+     * Reads a list of cluster nodes from a MetaStorage entry.
+     *
+     * @param entry MetaStorage entry.
+     * @return List of cluster nodes.
+     */
+    public static List<ClusterNode> readClusterNodes(Entry entry) {
+        if (entry.empty()) {
+            return Collections.emptyList();
+        }
+
+        return ByteUtils.fromBytes(entry.value());
+    }
+
+    /**
+     * Removes nodes from collection of nodes.
+     *
+     * @param minuend Collection to remove nodes from.
+     * @param subtrahend Collection of nodes to be removed.
+     * @return Result of the subtraction.
+     */
+    public static List<ClusterNode> subtract(Collection<ClusterNode> minuend, Collection<ClusterNode> subtrahend) {
+        return minuend.stream().filter(v -> !subtrahend.contains(v)).collect(Collectors.toList());
+    }
+
+    /**
+     * Adds nodes to the collection of nodes.
+     *
+     * @param op1 First operand.
+     * @param op2 Second operand.
+     * @return Result of the addition.
+     */
+    public static List<ClusterNode> union(Collection<ClusterNode> op1, Collection<ClusterNode> op2) {
+        return op2.stream().filter(v -> !op1.contains(v)).collect(Collectors.toCollection(() -> new ArrayList<>(op1)));
+    }
+
+    /**
+     * Returns an intersection of two collections of nodes.
+     *
+     * @param op1 First operand.
+     * @param op2 Second operand.
+     * @return Result of the intersection.
+     */
+    public static List<ClusterNode> intersect(Collection<ClusterNode> op1, Collection<ClusterNode> op2) {
+        return op1.stream().filter(op2::contains).collect(Collectors.toList());
     }
 }
