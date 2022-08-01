@@ -2501,9 +2501,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
         final List<LogEntry> entries = new ArrayList<>();
         entries.add(entry);
-
         this.logManager.appendEntries(entries, new LeaderStableClosure(entries));
-
         checkAndSetConfiguration(false);
     }
 
