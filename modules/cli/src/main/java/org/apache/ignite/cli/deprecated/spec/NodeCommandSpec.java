@@ -17,11 +17,16 @@
 
 package org.apache.ignite.cli.deprecated.spec;
 
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigRenderOptions;
 import jakarta.inject.Inject;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.deprecated.CliPathsConfigLoader;
@@ -133,19 +138,15 @@ public class NodeCommandSpec {
                 return null;
             }
             // port is required
-            StringBuilder sb = new StringBuilder();
-            sb.append("network.port = ").append(configOptions.args.port).append("\n");
+            Map<String, Object> config = new HashMap<>();
+            config.put("network.port", configOptions.args.port);
             if (configOptions.args.seedNodes != null) {
-                sb.append("network.nodeFinder.netClusterNodes = [\n");
-                for (String node : configOptions.args.seedNodes) {
-                    sb.append("  \"").append(node).append("\"\n");
-                }
-                sb.append("]\n");
+                config.put("network.nodeFinder.netClusterNodes", Arrays.asList(configOptions.args.seedNodes));
             }
             if (configOptions.args.restPort != 0) {
-                sb.append("rest.port = ").append(configOptions.args.restPort).append("\n");
+                config.put("rest.port", configOptions.args.restPort);
             }
-            return sb.toString();
+            return ConfigFactory.parseMap(config).root().render(ConfigRenderOptions.concise().setJson(false));
         }
     }
 

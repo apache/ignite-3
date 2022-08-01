@@ -230,7 +230,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             verify(nodeMgr).start(any(), any(), any(), any(), any(), configStrCaptor.capture(), any(), any());
 
             assertEqualsIgnoreLineSeparators(
-                    "network.port = 12345\n",
+                    "network{port=12345}",
                     configStrCaptor.getValue()
             );
         }
@@ -256,8 +256,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             verify(nodeMgr).start(any(), any(), any(), any(), any(), configStrCaptor.capture(), any(), any());
 
             assertEqualsIgnoreLineSeparators(
-                    "network.port = 12345\n"
-                    + "rest.port = 12346",
+                    "network{port=12345},rest{port=12346}",
                     configStrCaptor.getValue()
             );
         }
@@ -283,11 +282,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             verify(nodeMgr).start(any(), any(), any(), any(), any(), configStrCaptor.capture(), any(), any());
 
             assertEqualsIgnoreLineSeparators(
-                    "network.port = 12345\n"
-                    + "network.nodeFinder.netClusterNodes = [\n"
-                    + "  \"localhost:12345\"\n"
-                    + "]\n"
-                    + "rest.port = 12346\n",
+                    "network{nodeFinder{netClusterNodes=[\"localhost:12345\"]},port=12345},rest{port=12346}",
                     configStrCaptor.getValue()
             );
         }
