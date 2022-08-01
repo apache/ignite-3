@@ -78,8 +78,8 @@ public class ThreadPoolMetricSource extends AbstractMetricSource<ThreadPoolMetri
 
         bldr.longGauge(
                 "KeepAliveTime",
-                "Thread keep-alive time, which is the amount of time which threads in excess of " +
-                "the core pool size may remain idle before being terminated.",
+                "Thread keep-alive time, which is the amount of time which threads in excess of "
+                        + "the core pool size may remain idle before being terminated.",
                 () -> exec.getKeepAliveTime(MILLISECONDS)
         );
     }

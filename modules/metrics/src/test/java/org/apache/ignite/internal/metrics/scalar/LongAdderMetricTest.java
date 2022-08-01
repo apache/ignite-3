@@ -20,7 +20,7 @@ package org.apache.ignite.internal.metrics.scalar;
 /**
  * Test for {@link LongAdderMetric}.
  */
-public class LongAdderMetricTest extends AbstractLongMetricTest{
+public class LongAdderMetricTest extends AbstractLongMetricTest {
     /** {@inheritDoc} */
     @Override protected void increment0(LongMetric metric) {
         ((LongAdderMetric) metric).increment();

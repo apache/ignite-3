@@ -25,6 +25,7 @@ public class AtomicLongMetricTest extends AbstractLongMetricTest {
     @Override protected void increment0(LongMetric metric) {
         ((AtomicLongMetric) metric).increment();
     }
+
     /** {@inheritDoc} */
     @Override protected void decrement0(LongMetric metric) {
         ((AtomicLongMetric) metric).decrement();

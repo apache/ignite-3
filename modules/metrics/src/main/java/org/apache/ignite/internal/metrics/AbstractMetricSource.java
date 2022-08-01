@@ -110,7 +110,7 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
      *     <li>Creation of {@link MetricSet} instance using provided {@link MetricSetBuilder}.</li>
      *     <li>Creation of metric instances in given holder.</li>
      *     <li>Other initialization if needed.</li>
-     * </ol>
+     * </ol>.
      *
      * @param bldr Metric registry builder.
      * @param holder Metric instances' holder.

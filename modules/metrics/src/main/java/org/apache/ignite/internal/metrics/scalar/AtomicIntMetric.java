@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metrics.scalar;
 
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-
 import org.apache.ignite.internal.metrics.AbstractMetric;
 import org.jetbrains.annotations.Nullable;
 

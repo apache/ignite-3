@@ -23,7 +23,11 @@ import org.apache.ignite.internal.metrics.Metric;
  * Interface for the metrics that holds int primitive.
  */
 public interface IntMetric extends Metric {
-    /** @return Value of the metric. */
+    /**
+     * Value of the metric.
+     *
+     * @return Value of the metric.
+     */
     int value();
 
     /** {@inheritDoc} */

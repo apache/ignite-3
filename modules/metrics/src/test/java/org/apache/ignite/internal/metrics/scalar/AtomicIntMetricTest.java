@@ -38,11 +38,11 @@ public class AtomicIntMetricTest extends AbstractIntMetricTest {
 
     /** {@inheritDoc} */
     @Override protected void add0(IntMetric metric, int value) {
-        ((AtomicIntMetric )metric).add(value);
+        ((AtomicIntMetric) metric).add(value);
     }
 
     /** {@inheritDoc} */
     @Override protected void setValue0(IntMetric metric, int value) {
-        ((AtomicIntMetric )metric).value(value);
+        ((AtomicIntMetric) metric).value(value);
     }
 }

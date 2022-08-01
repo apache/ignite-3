@@ -126,6 +126,8 @@ public class HitRateMetric extends AbstractMetric implements LongMetric {
     }
 
     /**
+     * Clear specific counter if obsolete.
+     *
      * @param curTs Current timestamp.
      * @param i Index.
      */
@@ -162,7 +164,7 @@ public class HitRateMetric extends AbstractMetric implements LongMetric {
      * @return Index of counter for given timestamp.
      */
     private int position(long time) {
-        return (int)((time % rateTimeInterval * size) / rateTimeInterval);
+        return (int) ((time % rateTimeInterval * size) / rateTimeInterval);
     }
 
     /**
