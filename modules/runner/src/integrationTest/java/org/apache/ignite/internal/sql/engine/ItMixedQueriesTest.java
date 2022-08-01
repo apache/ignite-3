@@ -96,7 +96,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     /** Tests varchar min\max aggregates. */
-    @Test
+    //@Test
     public void testVarCharMinMax() {
         sql("CREATE TABLE TEST(val VARCHAR primary key, val1 integer);");
         sql("INSERT INTO test VALUES ('б', 1), ('бб', 2), ('щ', 3), ('щщ', 4), ('Б', 4), ('ББ', 4), ('Я', 4);");
@@ -108,7 +108,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         sql("DROP TABLE IF EXISTS TEST");
     }
 
-    @Test
+    //@Test
     public void testOrderingByColumnOutsideSelectList() {
         assertQuery("select salary from emp2 order by id desc")
                 .returns(13d)
@@ -125,7 +125,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    @Test
+    //@Test
     public void testEqConditionWithDistinctSubquery() {
         var rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT DISTINCT(salary) FROM emp2 WHERE name='Igor1')");
@@ -133,7 +133,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(3, rows.size());
     }
 
-    @Test
+    //@Test
     public void testEqConditionWithAggregateSubqueryMax() {
         var rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT MAX(salary) FROM emp2 WHERE name='Roman')");
@@ -141,7 +141,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(3, rows.size());
     }
 
-    @Test
+    //@Test
     public void testEqConditionWithAggregateSubqueryMin() {
         var rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT MIN(salary) FROM emp2 WHERE name='Roman')");
@@ -149,7 +149,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(1, rows.size());
     }
 
-    @Test
+    //@Test
     public void testInConditionWithSubquery() {
         var rows = sql(
                 "SELECT name FROM emp1 WHERE name IN (SELECT name FROM emp2)");
@@ -157,7 +157,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(4, rows.size());
     }
 
-    @Test
+    //@Test
     public void testDistinctQueryWithInConditionWithSubquery() {
         var rows = sql("SELECT distinct(name) FROM emp1 o WHERE name IN ("
                 + "   SELECT name"
@@ -166,7 +166,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(2, rows.size());
     }
 
-    @Test
+    //@Test
     public void testNotInConditionWithSubquery() {
         var rows = sql(
                 "SELECT name FROM emp1 WHERE name NOT IN (SELECT name FROM emp2)");
@@ -174,7 +174,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(3, rows.size());
     }
 
-    @Test
+    //@Test
     public void testExistsConditionWithSubquery() {
         var rows = sql("SELECT name FROM emp1 o WHERE EXISTS ("
                 + "   SELECT 1"
@@ -184,7 +184,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(4, rows.size());
     }
 
-    @Test
+    //@Test
     public void testNotExistsConditionWithSubquery() {
         var rows = sql("SELECT name FROM emp1 o WHERE NOT EXISTS ("
                 + "   SELECT 1"
@@ -208,7 +208,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(1, rows.size());
     }
 
-    @Test
+    //@Test
     public void testSequentialInserts() {
         sql("CREATE TABLE t(x INTEGER PRIMARY KEY, y int)");
 
@@ -221,11 +221,511 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         sql("DROP TABLE IF EXISTS t");
     }
 
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand1() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand2() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand3() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand4() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand5() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand6() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand7() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand8() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand9() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand10() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand11() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand12() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand13() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand14() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand15() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand16() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand17() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand18() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand19() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand20() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand21() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand22() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand23() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand24() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand25() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand26() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand27() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand28() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand29() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand30() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand31() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand32() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand33() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand34() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand35() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand36() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand37() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand38() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand39() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand40() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand41() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand42() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand43() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand44() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand45() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand46() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand47() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand48() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand49() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand50() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand51() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand52() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand53() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand54() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand55() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand56() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand57() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand58() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand59() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand60() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand61() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand62() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand63() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand64() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand65() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand66() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand67() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand68() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand69() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand70() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand71() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand72() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand73() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand74() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand75() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand76() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand77() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand78() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand79() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand80() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand81() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand82() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand83() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand84() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand85() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand86() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand87() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand88() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand89() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand90() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand91() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand92() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand93() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand94() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand95() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand96() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand97() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand98() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand99() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
+    @Test
+    public void testIgniteSchemaAwaresAlterTableCommand100() {
+        testIgniteSchemaAwaresAlterTableCommand();
+    }
+
     /**
      * Verifies that table modification events are passed to a calcite schema modification listener.
      */
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
+    //@Test
+    //@Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
     public void testIgniteSchemaAwaresAlterTableCommand() {
         String selectAllQry = "select * from test_tbl";
 
@@ -262,7 +762,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     /** Quantified predicates test. */
-    @Test
+    //@Test
     public void quantifiedCompTest() {
         assertQuery("select salary from emp2 where salary > SOME (10, 11) ORDER BY salary")
                 .returns(11d)
@@ -297,7 +797,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     /**
      * Checks bang equal is allowed and works.
      */
-    @Test
+    //@Test
     public void testBangEqual() {
         assertEquals(4, sql("SELECT * FROM EMP1 WHERE name != ?", "Igor").size());
     }
@@ -307,7 +807,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
      * 1) proper indexes will be chosen for queries with different kinds of ordering, and
      * 2) result set returned will be sorted as expected.
      */
-    @Test
+    //@Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-14925")
     public void testSelectWithOrdering() {
         // sql("drop table if exists test_tbl", true);
