@@ -415,7 +415,7 @@ public class DdlSqlToCommandConverter {
     private DropIndexCommand convertDropIndex(IgniteSqlDropIndex sqlCmd) {
         DropIndexCommand dropCmd = new DropIndexCommand();
 
-        dropCmd.indexName(sqlCmd.idxName().getSimple());
+        dropCmd.indexName(sqlCmd.indexName().getSimple());
         dropCmd.ifExist(sqlCmd.ifExists());
 
         return dropCmd;

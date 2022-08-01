@@ -190,7 +190,7 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     }
 }
 
-SqlNode IndexedColumn() :
+SqlNode ColumnNameWithSortDirection() :
 {
     final Span s;
     SqlNode col;
@@ -203,12 +203,21 @@ SqlNode IndexedColumn() :
             col = SqlStdOperatorTable.DESC.createCall(getPos(), col);
         }
     )?
+    (
+        <NULLS> <FIRST> {
+            col = SqlStdOperatorTable.NULLS_FIRST.createCall(getPos(), col);
+        }
+    |
+        <NULLS> <LAST> {
+            col = SqlStdOperatorTable.NULLS_LAST.createCall(getPos(), col);
+        }
+    )?
     {
         return col;
     }
 }
 
-SqlNodeList IndexedColumnList() :
+SqlNodeList ColumnNameWithSortDirectionList() :
 {
     final Span s;
     final List<SqlNode> list = new ArrayList<SqlNode>();
@@ -216,9 +225,26 @@ SqlNodeList IndexedColumnList() :
 }
 {
     <LPAREN> { s = span(); }
-    col = IndexedColumn() { list.add(col); }
+    col = ColumnNameWithSortDirection() { list.add(col); }
     (
-        <COMMA> col = IndexedColumn() { list.add(col); }
+        <COMMA> col = ColumnNameWithSortDirection() { list.add(col); }
+    )*
+    <RPAREN> {
+        return new SqlNodeList(list, s.end(this));
+    }
+}
+
+SqlNodeList ColumnNameList() :
+{
+    final Span s;
+    final List<SqlNode> list = new ArrayList<SqlNode>();
+    SqlNode col = null;
+}
+{
+    <LPAREN> { s = span(); }
+    col = SimpleIdentifier() { list.add(col); }
+    (
+        <COMMA> col = SimpleIdentifier() { list.add(col); }
     )*
     <RPAREN> {
         return new SqlNodeList(list, s.end(this));
@@ -231,6 +257,7 @@ SqlCreate SqlCreateIndex(Span s, boolean replace) :
     final SqlIdentifier idxId;
     final SqlIdentifier tblId;
     final SqlNodeList columnList;
+    IgniteSqlIndexType type = IgniteSqlIndexType.IMPLICIT_TREE;
 }
 {
     <INDEX>
@@ -238,9 +265,26 @@ SqlCreate SqlCreateIndex(Span s, boolean replace) :
     idxId = SimpleIdentifier()
     <ON>
     tblId = CompoundIdentifier()
-    columnList = IndexedColumnList()
-    {
-        return new IgniteSqlCreateIndex(s.end(this), ifNotExists, idxId, tblId, columnList);
+    (
+        columnList = ColumnNameWithSortDirectionList()
+    |
+        <USING> <TREE> {
+            s.add(this);
+
+            type = IgniteSqlIndexType.TREE;
+        }
+
+        columnList = ColumnNameWithSortDirectionList()
+    |
+        <USING> <HASH> {
+            s.add(this);
+
+            type = IgniteSqlIndexType.HASH;
+        }
+
+        columnList = ColumnNameList()
+    ) {
+        return new IgniteSqlCreateIndex(s.end(this), ifNotExists, idxId, tblId, type, columnList);
     }
 }
 

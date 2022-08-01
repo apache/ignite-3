@@ -41,6 +41,8 @@ public class IgniteSqlCreateIndex extends SqlCreate {
     /** Table name.  */
     private final SqlIdentifier tblName;
 
+    private final IgniteSqlIndexType type;
+
     /** Columns involved. */
     private final SqlNodeList columnList;
 
@@ -50,10 +52,11 @@ public class IgniteSqlCreateIndex extends SqlCreate {
 
     /** Creates a SqlCreateIndex. */
     public IgniteSqlCreateIndex(SqlParserPos pos, boolean ifNotExists, SqlIdentifier idxName, SqlIdentifier tblName,
-            SqlNodeList columnList) {
+            IgniteSqlIndexType type, SqlNodeList columnList) {
         super(OPERATOR, pos, false, ifNotExists);
         this.idxName = Objects.requireNonNull(idxName, "index name");
         this.tblName = Objects.requireNonNull(tblName, "table name");
+        this.type = Objects.requireNonNull(type, "type");
         this.columnList = columnList;
     }
 
@@ -77,6 +80,12 @@ public class IgniteSqlCreateIndex extends SqlCreate {
         writer.keyword("ON");
 
         tblName.unparse(writer, 0, 0);
+
+        if (type != IgniteSqlIndexType.IMPLICIT_TREE) {
+            writer.keyword("USING");
+
+            writer.keyword(type.name());
+        }
 
         SqlWriter.Frame frame = writer.startList("(", ")");
 
@@ -106,6 +115,10 @@ public class IgniteSqlCreateIndex extends SqlCreate {
 
     public SqlIdentifier tableName() {
         return tblName;
+    }
+
+    public IgniteSqlIndexType type() {
+        return type;
     }
 
     public SqlNodeList columnList() {
