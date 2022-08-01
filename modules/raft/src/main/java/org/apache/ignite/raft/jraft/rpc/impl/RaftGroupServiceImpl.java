@@ -176,9 +176,13 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             return CompletableFuture.completedFuture(service);
 
         return service.refreshLeader().handle((unused, throwable) -> {
-            if (throwable != null)
-                LOG.error("Failed to refresh a leader [groupId={}]", throwable, groupId);
-
+            if (throwable != null) {
+                if (throwable.getCause() instanceof TimeoutException) {
+                    LOG.warn("Failed to refresh a leader [groupId={}]", groupId);
+                } else {
+                    LOG.error("Failed to refresh a leader [groupId={}]", throwable, groupId);
+                }
+            }
             return service;
         });
     }
