@@ -39,7 +39,6 @@ import io.micronaut.context.env.Environment;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
@@ -176,7 +175,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var node =
                     new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
 
-            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any()))
+            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any(), any()))
                     .thenReturn(node);
 
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
@@ -194,6 +193,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     ignitePaths.logDir,
                     ignitePaths.cliPidsDir(),
                     Path.of("conf.json"),
+                    null,
                     ignitePaths.serverJavaUtilLoggingPros(),
                     cli.getOut());
 
@@ -211,12 +211,12 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
         @Test
         @DisplayName("start node1 --port 12345")
-        void startCustomPort() throws IOException {
+        void startCustomPort() {
             var nodeName = "node1";
 
             var node = new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
 
-            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any()))
+            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any(), any()))
                     .thenReturn(node);
 
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
@@ -226,24 +226,23 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             assertThatExitCodeMeansSuccess(exitCode);
 
-            ArgumentCaptor<Path> configPathCaptor = ArgumentCaptor.forClass(Path.class);
-            verify(nodeMgr).start(any(), any(), any(), any(), configPathCaptor.capture(), any(), any());
+            ArgumentCaptor<String> configStrCaptor = ArgumentCaptor.forClass(String.class);
+            verify(nodeMgr).start(any(), any(), any(), any(), any(), configStrCaptor.capture(), any(), any());
 
-            String configContents = Files.readString(configPathCaptor.getValue());
             assertEqualsIgnoreLineSeparators(
                     "network.port = 12345\n",
-                    configContents
+                    configStrCaptor.getValue()
             );
         }
 
         @Test
         @DisplayName("start node1 --port 12345 --rest-port 12346")
-        void startCustomPortAndRestPort() throws IOException {
+        void startCustomPortAndRestPort() {
             var nodeName = "node1";
 
             var node = new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
 
-            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any()))
+            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any(), any()))
                     .thenReturn(node);
 
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
@@ -253,25 +252,24 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             assertThatExitCodeMeansSuccess(exitCode);
 
-            ArgumentCaptor<Path> configPathCaptor = ArgumentCaptor.forClass(Path.class);
-            verify(nodeMgr).start(any(), any(), any(), any(), configPathCaptor.capture(), any(), any());
+            ArgumentCaptor<String> configStrCaptor = ArgumentCaptor.forClass(String.class);
+            verify(nodeMgr).start(any(), any(), any(), any(), any(), configStrCaptor.capture(), any(), any());
 
-            String configContents = Files.readString(configPathCaptor.getValue());
             assertEqualsIgnoreLineSeparators(
                     "network.port = 12345\n"
                     + "rest.port = 12346",
-                    configContents
+                    configStrCaptor.getValue()
             );
         }
 
         @Test
         @DisplayName("start node1 --port 12345 --rest-port 12346 --join localhost:12345")
-        void startCustomPortRestPortAndSeedNodes() throws IOException {
+        void startCustomPortRestPortAndSeedNodes() {
             var nodeName = "node1";
 
             var node = new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
 
-            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any()))
+            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any(), any()))
                     .thenReturn(node);
 
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
@@ -281,17 +279,16 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             assertThatExitCodeMeansSuccess(exitCode);
 
-            ArgumentCaptor<Path> configPathCaptor = ArgumentCaptor.forClass(Path.class);
-            verify(nodeMgr).start(any(), any(), any(), any(), configPathCaptor.capture(), any(), any());
+            ArgumentCaptor<String> configStrCaptor = ArgumentCaptor.forClass(String.class);
+            verify(nodeMgr).start(any(), any(), any(), any(), any(), configStrCaptor.capture(), any(), any());
 
-            String configContents = Files.readString(configPathCaptor.getValue());
             assertEqualsIgnoreLineSeparators(
                     "network.port = 12345\n"
                     + "network.nodeFinder.netClusterNodes = [\n"
                     + "  \"localhost:12345\"\n"
                     + "]\n"
                     + "rest.port = 12346\n",
-                    configContents
+                    configStrCaptor.getValue()
             );
         }
 

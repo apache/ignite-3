@@ -37,7 +37,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.cli.deprecated.IgniteCliException;
 import org.apache.ignite.cli.deprecated.builtins.module.ModuleRegistry;
 import org.apache.ignite.cli.deprecated.ui.Spinner;
-import org.jline.terminal.Terminal;
 
 /**
  * Manager of local Ignite nodes.
@@ -60,10 +59,9 @@ public class NodeManager {
      * Creates node manager.
      *
      * @param moduleRegistry Module registry.
-     * @param terminal       System terminal instance.
      */
     @Inject
-    public NodeManager(ModuleRegistry moduleRegistry, Terminal terminal) {
+    public NodeManager(ModuleRegistry moduleRegistry) {
         this.moduleRegistry = moduleRegistry;
     }
 
@@ -75,7 +73,8 @@ public class NodeManager {
      * @param baseWorkDir  Root directory to store nodes data.
      * @param logDir       Path to log directory for receiving node state.
      * @param pidsDir      Path to directory where pid files of running nodes will be stored.
-     * @param srvCfg       Path to configuration file for Ignite node.
+     * @param srvCfg       Path to configuration file for Ignite node - mutually exclusive with {@code srvCfgStr}.
+     * @param srvCfgStr    Configuration for Ignite node - mutually exclusive with {@code srvCfg}.
      * @param javaLogProps Path to logging properties file.
      * @param out          PrintWriter for user messages.
      * @return Information about successfully started node
@@ -86,6 +85,7 @@ public class NodeManager {
             Path logDir,
             Path pidsDir,
             Path srvCfg,
+            String srvCfgStr,
             Path javaLogProps,
             PrintWriter out
     ) {
@@ -136,6 +136,9 @@ public class NodeManager {
             if (srvCfg != null) {
                 cmdArgs.add("--config");
                 cmdArgs.add(srvCfg.toAbsolutePath().toString());
+            } else if (srvCfgStr != null) {
+                cmdArgs.add("--configStr");
+                cmdArgs.add(srvCfgStr);
             }
 
             cmdArgs.add("--work-dir");
@@ -334,7 +337,7 @@ public class NodeManager {
                         }
                     }).reduce((a, b) -> a && b).orElse(false);
                 } else {
-                    throw new IgniteCliException("Can't find node with name" + nodeName);
+                    throw new IgniteCliException("Can't find node with name " + nodeName);
                 }
             } catch (IOException e) {
                 throw new IgniteCliException("Can't open directory with pid files " + pidsDir);

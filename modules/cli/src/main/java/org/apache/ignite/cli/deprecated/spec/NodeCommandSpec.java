@@ -20,7 +20,6 @@ package org.apache.ignite.cli.deprecated.spec;
 import jakarta.inject.Inject;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -106,6 +105,7 @@ public class NodeCommandSpec {
                     ignitePaths.logDir,
                     ignitePaths.cliPidsDir(),
                     getConfigPath(),
+                    getConfigStr(),
                     ignitePaths.serverJavaUtilLoggingPros(),
                     out);
 
@@ -125,33 +125,27 @@ public class NodeCommandSpec {
         }
 
         private Path getConfigPath() {
-            if (configOptions == null) {
+            return configOptions != null ? configOptions.configPath : null;
+        }
+
+        private String getConfigStr() {
+            if (configOptions == null || configOptions.configPath != null) {
                 return null;
             }
-            if (configOptions.configPath != null) {
-                return configOptions.configPath;
-            } else { // port is required
-                try {
-                    Path tempFile = Files.createTempFile("ignite-config", ".hocon");
-                    tempFile.toFile().deleteOnExit();
-                    try (PrintWriter writer = new PrintWriter(tempFile.toFile())) {
-                        writer.println("network.port = " + configOptions.args.port);
-                        if (configOptions.args.seedNodes != null) {
-                            writer.println("network.nodeFinder.netClusterNodes = [");
-                            for (String node : configOptions.args.seedNodes) {
-                                writer.println("  \"" + node + "\"");
-                            }
-                            writer.println("]");
-                        }
-                        if (configOptions.args.restPort != 0) {
-                            writer.println("rest.port = " + configOptions.args.restPort);
-                        }
-                        return tempFile;
-                    }
-                } catch (IOException e) {
-                    throw new IgniteCliException("Can't create temp file for config", e);
+            // port is required
+            StringBuilder sb = new StringBuilder();
+            sb.append("network.port = ").append(configOptions.args.port).append("\n");
+            if (configOptions.args.seedNodes != null) {
+                sb.append("network.nodeFinder.netClusterNodes = [\n");
+                for (String node : configOptions.args.seedNodes) {
+                    sb.append("  \"").append(node).append("\"\n");
                 }
+                sb.append("]\n");
             }
+            if (configOptions.args.restPort != 0) {
+                sb.append("rest.port = ").append(configOptions.args.restPort).append("\n");
+            }
+            return sb.toString();
         }
     }
 
