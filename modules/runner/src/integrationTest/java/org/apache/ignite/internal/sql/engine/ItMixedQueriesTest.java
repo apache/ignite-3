@@ -222,7 +222,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
      * Verifies that table modification events are passed to a calcite schema modification listener.
      */
     @Test
-    public void testIgniteSchemaAwaresAlterTableCommand() {
+    public void testIgniteSchemaAwaresAlterTableCommand() {//
         String selectAllQry = "select * from test_tbl";
 
         sql("drop table if exists test_tbl");
