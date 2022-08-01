@@ -30,6 +30,8 @@ public class LongGauge extends AbstractMetric implements LongMetric {
     private final LongSupplier val;
 
     /**
+     * Constructor.
+     *
      * @param name Name.
      * @param desc Description.
      * @param val Supplier.

@@ -22,11 +22,16 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.function.DoubleSupplier;
 
+/**
+ * Double metric based on {@link DoubleSupplier}.
+ */
 public class DoubleGauge extends AbstractMetric implements DoubleMetric {
     /** Value supplier. */
     private final DoubleSupplier val;
 
     /**
+     * Constructor.
+     *
      * @param name Name.
      * @param desc Description.
      * @param val Supplier.

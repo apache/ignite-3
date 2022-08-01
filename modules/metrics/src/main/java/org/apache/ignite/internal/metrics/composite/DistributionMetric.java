@@ -63,8 +63,9 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
      * @return {@code True} if array sorted, {@code false} otherwise.
      */
     public static boolean isSorted(long[] arr) {
-        if (arr == null || arr.length < 2)
+        if (arr == null || arr.length < 2) {
             return true;
+        }
 
         for (int i = 1; i < arr.length; i++) {
             if (arr[i - 1] > arr[i]) {

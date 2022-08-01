@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.metrics.scalar;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.apache.ignite.internal.metrics.Metric;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Abstract test for scalar metrics.

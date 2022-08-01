@@ -53,8 +53,9 @@ public class MetricRegistry {
         try {
             MetricSource old = sources.putIfAbsent(src.name(), src);
 
-            if (old != null)
+            if (old != null) {
                 throw new IllegalStateException("Metrics source with given name is already exists: " + src.name());
+            }
         } finally {
             lock.unlock();
         }
@@ -89,8 +90,9 @@ public class MetricRegistry {
         try {
             MetricSource src = sources.get(srcName);
 
-            if (src == null)
+            if (src == null) {
                 throw new IllegalStateException("Metrics source with given name doesn't exists: " + srcName);
+            }
 
             MetricSet metricSet = src.enable();
 
@@ -117,8 +119,9 @@ public class MetricRegistry {
         try {
             MetricSource src = sources.get(srcName);
 
-            if (src == null)
+            if (src == null) {
                 throw new IllegalStateException("Metrics source with given name doesn't exists: " + srcName);
+            }
 
             src.disable();
 

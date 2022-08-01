@@ -15,13 +15,13 @@
  */
 package org.apache.ignite.internal.metrics.scalar;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import static org.apache.ignite.internal.util.IgniteUtils.onNodeStart;
 import static org.apache.ignite.internal.util.IgniteUtils.onNodeStop;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Hit rate metric test.
@@ -61,8 +61,7 @@ public class HitRateMetricTest {
     private void doSleep(long time) {
         try {
             Thread.sleep(time);
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
             // No-op.
         }
     }

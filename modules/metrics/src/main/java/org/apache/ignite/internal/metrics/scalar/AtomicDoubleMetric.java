@@ -20,6 +20,9 @@ package org.apache.ignite.internal.metrics.scalar;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.metrics.AbstractMetric;
 
+/**
+ * Double metric based on atomic updater of double value.
+ */
 public class AtomicDoubleMetric extends AbstractMetric implements DoubleMetric {
     /** Field updater. */
     private static final AtomicLongFieldUpdater<AtomicDoubleMetric> updater =
@@ -29,6 +32,8 @@ public class AtomicDoubleMetric extends AbstractMetric implements DoubleMetric {
     private volatile long val;
 
     /**
+     * Constructor.
+     *
      * @param name Name.
      * @param desc Description.
      */

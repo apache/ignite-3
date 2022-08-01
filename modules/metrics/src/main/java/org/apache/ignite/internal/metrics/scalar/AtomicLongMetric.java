@@ -34,6 +34,8 @@ public class AtomicLongMetric extends AbstractMetric implements LongMetric {
     private volatile long val;
 
     /**
+     * Constructor.
+     *
      * @param name Name.
      * @param desc Description.
      */

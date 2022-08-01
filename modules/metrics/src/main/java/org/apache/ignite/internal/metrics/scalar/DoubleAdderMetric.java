@@ -22,13 +22,15 @@ import org.apache.ignite.internal.metrics.AbstractMetric;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Double metric.
+ * Double metric based on {@link DoubleAdder}.
  */
 public class DoubleAdderMetric extends AbstractMetric implements DoubleMetric {
     /** Value. */
     private volatile DoubleAdder val;
 
     /**
+     * Constructor.
+     *
      * @param name Name.
      * @param desc Description.
      */

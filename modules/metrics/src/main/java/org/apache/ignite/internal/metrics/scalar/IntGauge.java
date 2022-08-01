@@ -30,6 +30,8 @@ public class IntGauge extends AbstractMetric implements IntMetric {
     private final IntSupplier val;
 
     /**
+     * Constructor.
+     *
      * @param name Name.
      * @param desc Description.
      * @param val Supplier.

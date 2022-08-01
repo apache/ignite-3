@@ -24,16 +24,22 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface Metric {
     /**
+     * Name of the metric.
+     *
      * @return Name of the metric.
      */
     String name();
 
     /**
+     * Description of the metric.
+     *
      * @return Description of the metric.
      */
     String description();
 
     /**
+     * String representation of metric value.
+     *
      * @return String representation of metric value.
      */
     @Nullable

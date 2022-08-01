@@ -99,8 +99,9 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
     @Override public final void disable() {
         T holder0 = holder;
 
-        if (HOLDER_FIELD_UPD.compareAndSet(this, holder0, null))
+        if (HOLDER_FIELD_UPD.compareAndSet(this, holder0, null)) {
             cleanup(holder0);
+        }
     }
 
     /**
@@ -109,10 +110,10 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
      *     <li>Creation of {@link MetricSet} instance using provided {@link MetricSetBuilder}.</li>
      *     <li>Creation of metric instances in given holder.</li>
      *     <li>Other initialization if needed.</li>
-     * <ol/>
+     * </ol>
      *
      * @param bldr Metric registry builder.
-     * @param holder Metric instances holder.
+     * @param holder Metric instances' holder.
      */
     protected abstract void init(MetricSetBuilder bldr, T holder);
 

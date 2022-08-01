@@ -27,6 +27,9 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Metrics for thread pool.
+ */
 public class ThreadPoolMetricTest {
     @Test
     public void test() throws ExecutionException, InterruptedException {

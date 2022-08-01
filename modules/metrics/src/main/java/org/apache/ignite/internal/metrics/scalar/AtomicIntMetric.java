@@ -34,6 +34,8 @@ public class AtomicIntMetric extends AbstractMetric implements IntMetric {
     private volatile int val;
 
     /**
+     * Constructor.
+     *
      * @param name Name.
      * @param desc Description.
      */

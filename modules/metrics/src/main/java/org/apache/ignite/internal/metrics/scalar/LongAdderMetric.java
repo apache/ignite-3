@@ -21,11 +21,16 @@ import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.internal.metrics.AbstractMetric;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Long metric based on {@link LongAdder}.
+ */
 public class LongAdderMetric extends AbstractMetric implements LongMetric {
     /** Value. */
     private volatile LongAdder val;
 
     /**
+     * Constructor.
+     *
      * @param name Name.
      * @param desc Description.
      */

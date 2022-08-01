@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.metrics.scalar;
 
+/**
+ * Test for {@link AtomicLongMetric}.
+ */
 public class AtomicLongMetricTest extends AbstractLongMetricTest {
     /** {@inheritDoc} */
     @Override protected void increment0(LongMetric metric) {

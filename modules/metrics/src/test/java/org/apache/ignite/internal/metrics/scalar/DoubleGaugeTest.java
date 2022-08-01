@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.metrics.scalar;
 
+/**
+ * Test for {@link DoubleGauge}.
+ */
 public class DoubleGaugeTest extends AbstractDoubleMetricTest {
     /** A value for the supplier. */
     private double value = 0;

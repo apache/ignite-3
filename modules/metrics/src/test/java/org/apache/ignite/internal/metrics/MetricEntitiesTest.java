@@ -17,12 +17,6 @@
 
 package org.apache.ignite.internal.metrics;
 
-import java.util.List;
-import org.apache.ignite.internal.metrics.composite.DistributionMetric;
-import org.apache.ignite.internal.metrics.scalar.AtomicIntMetric;
-import org.apache.ignite.internal.metrics.scalar.IntMetric;
-import org.junit.jupiter.api.Test;
-
 import static java.util.Spliterators.spliteratorUnknownSize;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
@@ -31,6 +25,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import org.apache.ignite.internal.metrics.composite.DistributionMetric;
+import org.apache.ignite.internal.metrics.scalar.AtomicIntMetric;
+import org.apache.ignite.internal.metrics.scalar.IntMetric;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for metric entities, such as {@link MetricRegistry} and {@link MetricSet}.

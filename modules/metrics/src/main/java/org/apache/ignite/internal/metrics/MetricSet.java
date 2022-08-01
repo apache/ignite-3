@@ -74,7 +74,11 @@ public class MetricSet implements Iterable<Metric> {
         return new CompositeAwareIterator(metrics.values());
     }
 
-    /** @return Name of the metrics set. */
+    /**
+     * Name of the metric set.
+     *
+     * @return Name of the metrics set.
+     */
     public String name() {
         return name;
     }
@@ -92,15 +96,14 @@ public class MetricSet implements Iterable<Metric> {
          * @param metrics Collection of metrics that can contain composite metrics.
          */
         public CompositeAwareIterator(Collection<Metric> metrics) {
-             iterator = metrics.iterator();
+            iterator = metrics.iterator();
         }
 
         /** {@inheritDoc} */
         @Override public boolean hasNext() {
             if (compositeMetricIterator == null) {
                 return iterator.hasNext();
-            }
-            else if (compositeMetricIterator.hasNext()) {
+            } else if (compositeMetricIterator.hasNext()) {
                 return true;
             } else {
                 compositeMetricIterator = null;
@@ -113,11 +116,9 @@ public class MetricSet implements Iterable<Metric> {
         @Override public Metric next() {
             if (compositeMetricIterator == null) {
                 return nextCompositeAware();
-            }
-            else if (compositeMetricIterator.hasNext()) {
+            } else if (compositeMetricIterator.hasNext()) {
                 return compositeMetricIterator.next();
-            }
-            else {
+            } else {
                 compositeMetricIterator = null;
 
                 return nextCompositeAware();
@@ -133,11 +134,10 @@ public class MetricSet implements Iterable<Metric> {
             Metric nextValue = iterator.next();
 
             if (nextValue instanceof CompositeMetric) {
-                compositeMetricIterator = ((CompositeMetric)nextValue).asScalarMetrics().iterator();
+                compositeMetricIterator = ((CompositeMetric) nextValue).asScalarMetrics().iterator();
 
                 return compositeMetricIterator.next();
-            }
-            else {
+            } else {
                 return nextValue;
             }
         }

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.metrics.scalar;
 
+/**
+ * Test for {@link DoubleAdderMetric}.
+ */
 public class DoubleAdderMetricTest extends AbstractDoubleMetricTest {
     /** {@inheritDoc} */
     @Override protected void increment0(DoubleMetric metric) {

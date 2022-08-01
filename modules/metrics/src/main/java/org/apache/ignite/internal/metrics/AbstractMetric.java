@@ -30,6 +30,8 @@ public abstract class AbstractMetric implements Metric {
     private final String desc;
 
     /**
+     * Constructor.
+     *
      * @param name Name.
      * @param desc Description.
      */
@@ -47,22 +49,27 @@ public abstract class AbstractMetric implements Metric {
     }
 
     /** {@inheritDoc} */
-    @Override @Nullable public String description() {
+    @Override
+    @Nullable
+    public String description() {
         return desc;
     }
 
     /** {@inheritDoc} */
     @Override public boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
+        }
 
-        if (o == null || getClass() != o.getClass())
+        if (o == null || getClass() != o.getClass()) {
             return false;
+        }
 
-        AbstractMetric metric = (AbstractMetric)o;
+        AbstractMetric metric = (AbstractMetric) o;
 
-        if (!name.equals(metric.name))
+        if (!name.equals(metric.name)) {
             return false;
+        }
 
         return true;
     }

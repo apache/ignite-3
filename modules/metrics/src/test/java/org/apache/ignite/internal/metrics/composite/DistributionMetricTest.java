@@ -13,16 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.metrics.composite;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.scalar.LongMetric;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
+/**
+ * Test for {@link DistributionMetric}.
+ */
 public class DistributionMetricTest {
     @Test
     public void test() {

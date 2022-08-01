@@ -73,7 +73,7 @@ public class IgniteUtils {
     /** Indicates that assertions are enabled. */
     private static final boolean assertionsEnabled = IgniteUtils.class.desiredAssertionStatus();
 
-    /** */
+    /** Holder for current time in milliseconds. */
     static volatile long curTimeMillis = System.currentTimeMillis();
 
     /** Clock timer. */
@@ -811,8 +811,9 @@ public class IgniteUtils {
      * @param desc Description of the condition to be used in error message.
      */
     public static void ensure(boolean cond, String desc) {
-        if (!cond)
+        if (!cond) {
             throw new IllegalArgumentException(INVALID_ARG_MSG_PREFIX + desc);
+        }
     }
 
     /**
@@ -840,8 +841,7 @@ public class IgniteUtils {
 
                             try {
                                 Thread.sleep(10);
-                            }
-                            catch (InterruptedException ignored) {
+                            } catch (InterruptedException ignored) {
                                 break;
                             }
                         }
@@ -865,8 +865,9 @@ public class IgniteUtils {
     public static void onNodeStop() {
         synchronized (mux) {
             // Node start may fail and onNodeStart() does not get called.
-            if (gridCnt == 0)
+            if (gridCnt == 0) {
                 return;
+            }
 
             --gridCnt;
 
@@ -879,8 +880,7 @@ public class IgniteUtils {
 
                 try {
                     timer0.join();
-                }
-                catch (InterruptedException ignored) {
+                } catch (InterruptedException ignored) {
                     // No-op.
                 }
             }

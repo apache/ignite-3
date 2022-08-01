@@ -55,6 +55,11 @@ public class MetricSetBuilder {
         this.name = name;
     }
 
+    /**
+     * Build a metric set.
+     *
+     * @return Metric set.
+     */
     public MetricSet build() {
         if (metrics == null) {
             throw new IllegalStateException("Builder can't be used twice.");
@@ -87,8 +92,8 @@ public class MetricSetBuilder {
         T old = (T) metrics.putIfAbsent(metric.name(), metric);
 
         if (old != null) {
-            throw new IllegalStateException("Metric with given name is already registered [name=" + name +
-                    ", metric=" + metric + ']');
+            throw new IllegalStateException("Metric with given name is already registered [name=" + name
+                    + ", metric=" + metric + ']');
         }
 
         return metric;

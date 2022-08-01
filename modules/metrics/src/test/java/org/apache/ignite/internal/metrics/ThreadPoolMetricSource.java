@@ -84,6 +84,9 @@ public class ThreadPoolMetricSource extends AbstractMetricSource<ThreadPoolMetri
         );
     }
 
+    /**
+     * Holder class.
+     */
     protected static class Holder implements AbstractMetricSource.Holder<Holder> {
         // No-op.
     }

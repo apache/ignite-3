@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.metrics.scalar;
 
+/**
+ * Test for {@link LongGauge}.
+ */
 public class LongGaugeMetricTest extends AbstractLongMetricTest {
     /** A value for the supplier. */
     private long value = 0;

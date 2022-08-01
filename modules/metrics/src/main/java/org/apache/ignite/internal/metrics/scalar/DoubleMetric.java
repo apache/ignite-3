@@ -19,6 +19,9 @@ package org.apache.ignite.internal.metrics.scalar;
 
 import org.apache.ignite.internal.metrics.Metric;
 
+/**
+ * Basic interface for double metric.
+ */
 public interface DoubleMetric extends Metric {
     /** @return Value of the metric. */
     public double value();

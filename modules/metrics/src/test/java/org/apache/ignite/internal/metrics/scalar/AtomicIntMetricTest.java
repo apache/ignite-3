@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.metrics.scalar;
 
+/**
+ * Test for {@link AtomicIntMetric}.
+ */
 public class AtomicIntMetricTest extends AbstractIntMetricTest {
     /** {@inheritDoc} */
     @Override protected AtomicIntMetric createMetric(String name, String description) {
