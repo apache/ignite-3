@@ -182,7 +182,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                         LOG.debug("Failed to refresh a leader [groupId={}]", groupId);
                     }
                 } else {
-                    LOG.error("Failed to refresh a leader [groupId={}]", throwable, groupId);
+                    if (LOG.isWarnEnabled()) {
+                        LOG.warn("Failed to refresh a leader [groupId={}]", throwable, groupId);
+                    }
                 }
             }
             return service;
