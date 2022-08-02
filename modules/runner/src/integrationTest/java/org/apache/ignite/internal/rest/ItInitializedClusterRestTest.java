@@ -69,6 +69,21 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     }
 
     @Test
+    @DisplayName("Node configuration by path is available when the cluster is initialized")
+    void nodeConfigurationByPath() throws IOException, InterruptedException {
+        // When GET /management/v1/configuration/node and path selector is "rest"
+        HttpResponse<String> response = client.send(
+                get("/management/v1/configuration/node/rest"),
+                BodyHandlers.ofString()
+        );
+
+        // Expect node configuration can be parsed to hocon format
+        Config config = ConfigFactory.parseString(response.body());
+        // And has rest.port config value
+        assertThat(config.getInt("port"), is(equalTo(10300)));
+    }
+
+    @Test
     @DisplayName("Node configuration can be changed when the cluster is initialized")
     void nodeConfigurationUpdate() throws IOException, InterruptedException {
         // When PATCH /management/v1/configuration/node rest.port=10333
@@ -122,6 +137,23 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         // And
         Config config = ConfigFactory.parseString(getResponse.body());
         assertThat(config.getInt("rocksDb.defaultRegion.writeBufferSize"), is(1024));
+    }
+
+    @Test
+    @DisplayName("Cluster configuration by path is available when the cluster is initialized")
+    void clusterConfigurationByPath() throws IOException, InterruptedException {
+        // When GET /management/v1/configuration/cluster and path selector is "rocksDb.defaultRegion"
+        HttpResponse<String> response = client.send(
+                get("/management/v1/configuration/cluster/rocksDb.defaultRegion"),
+                BodyHandlers.ofString()
+        );
+
+        // Then cluster configuration is not available
+        assertThat(response.statusCode(), is(200));
+        // And configuration can be parsed to hocon format
+        Config config = ConfigFactory.parseString(response.body());
+        // And rocksDb.defaultRegion.cache can be read
+        assertThat(config.getString("cache"), is(equalTo("lru")));
     }
 
     @Test
