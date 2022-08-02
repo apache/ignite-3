@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -41,12 +40,12 @@ public interface MvPartitionStorage extends AutoCloseable {
      */
     @SuppressWarnings("PublicInnerClass")
     @FunctionalInterface
-    interface DataAccessClosure<E extends Exception, V> {
+    interface WriteClosure<E extends Exception, V> {
         V execute() throws E, StorageException;
     }
 
     /**
-     * Executes {@link DataAccessClosure} atomically, maening that partial result of the incompleted closure will never be written to a
+     * Executes {@link WriteClosure} atomically, meaning that partial result of an incomplete closure will never be written to the
      * physical device, thus guaranteeing data consistency after restart. Simply runs the closure in case of a volatile storage.
      *
      * @param closure Data access closure to be executed.
@@ -56,17 +55,18 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @throws E If closure thrown exception.
      * @throws StorageException If failed to write data to the storage.
      */
-    default <E extends Exception, V> V runConsistently(DataAccessClosure<E, V> closure) throws E, StorageException {
+    default <E extends Exception, V> V runConsistently(WriteClosure<E, V> closure) throws E, StorageException {
         return closure.execute();
     }
 
     /**
      * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be
-     * completed with the data that has not been written yet. This feature allows implementing a batch flush for several partitions at once.
+     * completed when {@link #persistedIndex()} is higher than {@link #lastAppliedIndex()} at the moment of the method's call. This feature
+     * allows implementing a batch flush for several partitions at once.
      *
      * @return Future that's completed when flushing of the data is completed.
      */
-    default CompletionStage<Void> flush() {
+    default CompletableFuture<Void> flush() {
         return CompletableFuture.completedFuture(null);
     }
 

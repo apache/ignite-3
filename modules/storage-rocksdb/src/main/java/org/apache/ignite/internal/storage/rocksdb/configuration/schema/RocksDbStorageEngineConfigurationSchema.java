@@ -36,7 +36,7 @@ public class RocksDbStorageEngineConfigurationSchema {
     public static final String DEFAULT_DATA_REGION_NAME = "default";
 
     @Value(hasDefault = true)
-    public int flushDelay = 100;
+    public int flushDelayMillis = 100;
 
     /** Default data region. */
     @Name(DEFAULT_DATA_REGION_NAME)

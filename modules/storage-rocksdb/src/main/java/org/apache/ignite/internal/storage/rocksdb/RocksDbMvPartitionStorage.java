@@ -30,13 +30,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -92,7 +93,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** Thread-local direct buffer instance to read keys from RocksDB. */
     private static final ThreadLocal<ByteBuffer> MV_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(BIG_ENDIAN));
 
-    /** Thread-local write batch for {@link #runConsistently(DataAccessClosure)}. */
+    /** Thread-local write batch for {@link #runConsistently(WriteClosure)}. */
     private static final ThreadLocal<WriteBatchWithIndex> WRITE_BATCH = new ThreadLocal<>();
 
     /** Thread-local on-heap byte buffer instance to use for key manipulations. */
@@ -141,8 +142,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     private volatile long persistedIndex;
 
     /** Map with flush futures by applied index at the time of the {@link #flush()} call. */
-    private final ConcurrentMap<Long, CompletableFuture<Void>> flushFutures = new ConcurrentHashMap<>();
-
+    private final ConcurrentMap<Long, CompletableFuture<Void>> flushFuturesByAppliedIndex = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -168,7 +168,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public <E extends Exception, V> V runConsistently(DataAccessClosure<E, V> closure) throws E, StorageException {
+    public <E extends Exception, V> V runConsistently(WriteClosure<E, V> closure) throws E, StorageException {
         if (WRITE_BATCH.get() != null) {
             return closure.execute();
         } else {
@@ -192,10 +192,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<Void> flush() {
+    public CompletableFuture<Void> flush() {
         CompletableFuture<Void> flushFuture = new CompletableFuture<>();
 
-        CompletableFuture<Void> oldFuture = flushFutures.put(lastAppliedIndex, flushFuture);
+        CompletableFuture<Void> oldFuture = flushFuturesByAppliedIndex.put(lastAppliedIndex, flushFuture);
 
         assert oldFuture == null;
 
@@ -244,7 +244,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         this.persistedIndex = persistedIndex;
 
-        for (Iterator<Entry<Long, CompletableFuture<Void>>> iterator = flushFutures.entrySet().iterator(); iterator.hasNext(); ) {
+        Set<Entry<Long, CompletableFuture<Void>>> entries = flushFuturesByAppliedIndex.entrySet();
+
+        for (Iterator<Entry<Long, CompletableFuture<Void>>> iterator = entries.iterator(); iterator.hasNext(); ) {
             Entry<Long, CompletableFuture<Void>> entry = iterator.next();
 
             if (persistedIndex >= entry.getKey()) {
@@ -509,7 +511,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return scan(keyFilter, timestamp, null);
     }
 
-    //TODO Integrate write batch? Idk
     private Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp, @Nullable UUID txId)
             throws TxIdMismatchException, StorageException {
         assert timestamp == null ^ txId == null;
@@ -752,23 +753,27 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /**
      * Deletes partition data from the storage.
-     *
-     * @param writeBatch Write batch to add delete requests to.
      */
-    public void destroy(WriteBatch writeBatch) {
-        try {
+    public void destroy() {
+        try (WriteBatch writeBatch = new WriteBatch()) {
             writeBatch.delete(meta, lastAppliedIndexKey);
 
+            writeBatch.delete(meta, RocksDbMetaStorage.partitionIdKey(partitionId));
+
             writeBatch.deleteRange(cf, partitionStartPrefix(), partitionEndPrefix());
+
+            db.write(writeOpts, writeBatch);
         } catch (RocksDBException e) {
-            throw new StorageException("Failed to cleanup partition meta on destruction", e);
+            TableConfiguration tableCfg = tableStorage.configuration();
+
+            throw new StorageException("Failed to destroy partition " + partitionId + " of table " + tableCfg.name(), e);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
-        for (CompletableFuture<Void> future : flushFutures.values()) {
+        for (CompletableFuture<Void> future : flushFuturesByAppliedIndex.values()) {
             future.completeExceptionally(new StorageException("Can't complete flush operation, partition is being stopped."));
         }
 

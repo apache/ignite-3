@@ -70,8 +70,7 @@ public class RocksDbStorageEngine implements StorageEngine {
             new NamedThreadFactory("rocksdb-storage-engine-pool", LOG)
     );
 
-    private final ScheduledExecutorService scheduledPool = Executors.newScheduledThreadPool(
-            1,
+    private final ScheduledExecutorService scheduledPool = Executors.newSingleThreadScheduledExecutor(
             new NamedThreadFactory("rocksdb-storage-engine-scheduled-pool", LOG)
     );
 
@@ -91,7 +90,7 @@ public class RocksDbStorageEngine implements StorageEngine {
     /**
      * Returns a RocksDB storage engine configuration.
      */
-    public RocksDbStorageEngineConfiguration engineConfiguration() {
+    public RocksDbStorageEngineConfiguration configuration() {
         return engineConfig;
     }
 

@@ -132,7 +132,7 @@ public class RocksDbTableStorageTest extends BaseMvStoragesTest {
 
         assertThat(absentStorage, is(nullValue()));
 
-        final MvPartitionStorage partitionStorage = storage.getOrCreateMvPartition(0);
+        MvPartitionStorage partitionStorage = storage.getOrCreateMvPartition(0);
 
         assertThat(partitionStorage, is(notNullValue()));
 

@@ -23,8 +23,6 @@ import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.PARTI
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.columnFamilyType;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexName;
-import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_BEGIN;
-import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_COMPLETED;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -37,7 +35,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -57,17 +54,14 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
-import org.rocksdb.AbstractEventListener;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.DBOptions;
-import org.rocksdb.FlushJobInfo;
 import org.rocksdb.FlushOptions;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
-import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
 /**
@@ -120,7 +114,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
 
     //TODO Use it instead of the "stopped" flag.
     /** Busy lock to stop synchronously. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+    final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
@@ -143,6 +137,13 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         this.tablePath = tablePath;
         this.tableCfg = tableCfg;
         this.dataRegion = dataRegion;
+    }
+
+    /**
+     * Returns a storage engine instance.
+     */
+    public RocksDbStorageEngine engine() {
+        return engine;
     }
 
     /**
@@ -190,7 +191,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
                 .setCreateMissingColumnFamilies(true)
                 // Atomic flush must be enabled to guarantee consistency between different column families when WAL is disabled.
                 .setAtomicFlush(true)
-                .setListeners(List.of(flushListener()))
+                .setListeners(List.of(new RocksDbFlushListener(this)))
                 .setWriteBufferManager(dataRegion.writeBufferManager());
 
         try {
@@ -256,74 +257,11 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
 
         latestFlushClosure = newClosure;
 
-        int delay = engine.engineConfiguration().flushDelay().value();
+        int delay = engine.configuration().flushDelayMillis().value();
 
         engine.scheduledPool().schedule(newClosure, delay, TimeUnit.MILLISECONDS);
     }
 
-    /**
-     * Returns a listener of RocksDB flush events. This listener is responsible for updating persisted index of partitions.
-     *
-     * @see RocksDbMvPartitionStorage#persistedIndex()
-     * @see RocksDbMvPartitionStorage#refreshPersistedIndex()
-     */
-    private AbstractEventListener flushListener() {
-        return new AbstractEventListener(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED) {
-            /**
-             * Type of last processed event. Real amount of events doesn't matter in atomic flush mode. All "completed" events go after all
-             * "begin" events, and vice versa.
-             */
-            private final AtomicReference<EnabledEventCallback> lastEventType = new AtomicReference<>(ON_FLUSH_COMPLETED);
-
-            /**
-             * Future that guarantees that last flush was fully processed and the new flush can safely begin.
-             */
-            private volatile CompletableFuture<?> lastFlushProcessed = CompletableFuture.completedFuture(null);
-
-            /** {@inheritDoc} */
-            @Override
-            public void onFlushBegin(RocksDB db, FlushJobInfo flushJobInfo) {
-                if (lastEventType.compareAndSet(ON_FLUSH_COMPLETED, ON_FLUSH_BEGIN)) {
-                    lastFlushProcessed.join();
-                }
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public void onFlushCompleted(RocksDB db, FlushJobInfo flushJobInfo) {
-                if (lastEventType.compareAndSet(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED)) {
-                    lastFlushProcessed = CompletableFuture.runAsync(this::refreshPersistedIndexes, engine.threadPool());
-                }
-            }
-
-            private void refreshPersistedIndexes() {
-                if (!busyLock.enterBusy()) {
-                    return;
-                }
-
-                try {
-                    for (int partitionId = 0; partitionId < partitions.length(); partitionId++) {
-                        RocksDbMvPartitionStorage partition = partitions.get(partitionId);
-
-                        if (partition != null) {
-                            try {
-                                partition.refreshPersistedIndex();
-                            } catch (StorageException storageException) {
-                                LOG.error(
-                                        "Filed to refresh persisted applied index value for table {} partition {}",
-                                        storageException,
-                                        tableCfg.name().value(),
-                                        partitionId
-                                );
-                            }
-                        }
-                    }
-                } finally {
-                    busyLock.leaveBusy();
-                }
-            }
-        };
-    }
 
     /** {@inheritDoc} */
     @Override
@@ -422,15 +360,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         if (mvPartition != null) {
             partitions.set(partitionId, null);
 
-            try (WriteBatch writeBatch = new WriteBatch()) {
-                mvPartition.destroy(writeBatch);
-
-                meta.removePartitionId(partitionId, writeBatch);
-
-                db.write(writeOptions, writeBatch);
-            } catch (RocksDBException e) {
-                throw new StorageException("Failed to destroy partition " + partitionId + " of table " + tableCfg.name(), e);
-            }
+            mvPartition.destroy();
         }
 
         return CompletableFuture.completedFuture(null);
