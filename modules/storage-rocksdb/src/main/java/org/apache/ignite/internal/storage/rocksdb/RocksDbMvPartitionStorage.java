@@ -168,7 +168,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public <E extends Exception, V> V runConsistently(WriteClosure<E, V> closure) throws E, StorageException {
+    public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
         if (WRITE_BATCH.get() != null) {
             return closure.execute();
         } else {
@@ -774,7 +774,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public void close() throws Exception {
         for (CompletableFuture<Void> future : flushFuturesByAppliedIndex.values()) {
-            future.completeExceptionally(new StorageException("Can't complete flush operation, partition is being stopped."));
+            future.cancel(false);
         }
 
         IgniteUtils.closeAll(persistedTierReadOpts, readOpts, writeOpts, upperBound);

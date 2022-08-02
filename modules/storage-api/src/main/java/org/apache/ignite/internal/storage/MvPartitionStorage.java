@@ -35,13 +35,12 @@ public interface MvPartitionStorage extends AutoCloseable {
     /**
      * Closure for executing write operations on the storage.
      *
-     * @param <E> Type of exception that could be thrown within a closure.
      * @param <V> Type of the result returned from the closure.
      */
     @SuppressWarnings("PublicInnerClass")
     @FunctionalInterface
-    interface WriteClosure<E extends Exception, V> {
-        V execute() throws E, StorageException;
+    interface WriteClosure<V> {
+        V execute() throws StorageException;
     }
 
     /**
@@ -49,13 +48,11 @@ public interface MvPartitionStorage extends AutoCloseable {
      * physical device, thus guaranteeing data consistency after restart. Simply runs the closure in case of a volatile storage.
      *
      * @param closure Data access closure to be executed.
-     * @param <E> Type of exception that could be thrown within a closure.
      * @param <V> Type of the result returned from the closure.
      * @return Closure result.
-     * @throws E If closure thrown exception.
      * @throws StorageException If failed to write data to the storage.
      */
-    default <E extends Exception, V> V runConsistently(WriteClosure<E, V> closure) throws E, StorageException {
+    default <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
         return closure.execute();
     }
 
