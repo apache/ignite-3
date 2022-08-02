@@ -21,7 +21,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -477,7 +476,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @return Key-value pairs of tuples.
      */
     private Map<Tuple, Tuple> unmarshalValue(Collection<BinaryRow> rows) {
-        Map<Tuple, Tuple> pairs = new HashMap<>(rows.size());
+        Map<Tuple, Tuple> pairs = IgniteUtils.newHashMap(rows.size());
 
         for (Row row : schemaReg.resolve(rows)) {
             if (row.hasValue()) {

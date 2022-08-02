@@ -21,7 +21,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -559,7 +558,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
         KvMarshaller<K, V> marsh = marshaller(schemaReg.lastSchemaVersion());
 
-        Map<K, V> pairs = new HashMap<>(rows.size());
+        Map<K, V> pairs = IgniteUtils.newHashMap(rows.size());
 
         try {
             for (Row row : schemaReg.resolve(rows)) {
