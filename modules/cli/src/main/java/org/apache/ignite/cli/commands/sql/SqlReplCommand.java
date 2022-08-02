@@ -48,8 +48,6 @@ import picocli.CommandLine.Parameters;
  */
 @Command(name = "sql", description = "Executes SQL query.")
 public class SqlReplCommand extends BaseCommand implements Runnable {
-    private static final String INTERNAL_COMMAND_PREFIX = "!";
-
     @Option(names = {"-u", "--jdbc-url"}, required = true,
             descriptionKey = "ignite.jdbc-url", description = "JDBC url to ignite cluster")
     private String jdbc;
@@ -100,8 +98,8 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
     }
 
     private CallExecutionPipelineProvider provider(SqlManager sqlManager) {
-        return (call, exceptionHandlers, line) -> line.startsWith(INTERNAL_COMMAND_PREFIX)
-                ? createInternalCommandPipeline(call, exceptionHandlers, line)
+        return (executor, exceptionHandlers, line) -> executor.hasCommand(line)
+                ? createInternalCommandPipeline(executor, exceptionHandlers, line)
                 : createSqlExecPipeline(sqlManager, line);
     }
 
@@ -118,7 +116,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
             ExceptionHandlers exceptionHandlers,
             String line) {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new StringCallInput(line.substring(INTERNAL_COMMAND_PREFIX.length())))
+                .inputProvider(() -> new StringCallInput(line))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .exceptionHandlers(exceptionHandlers)
