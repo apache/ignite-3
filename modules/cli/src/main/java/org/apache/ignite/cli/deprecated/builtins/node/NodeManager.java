@@ -24,6 +24,7 @@ import jakarta.inject.Singleton;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -138,7 +139,7 @@ public class NodeManager {
                 cmdArgs.add(srvCfg.toAbsolutePath().toString());
             } else if (srvCfgStr != null) {
                 cmdArgs.add("--configStr");
-                cmdArgs.add(srvCfgStr);
+                cmdArgs.add(escapeQuotes(srvCfgStr));
             }
 
             cmdArgs.add("--work-dir");
@@ -380,6 +381,24 @@ public class NodeManager {
      */
     private static Path workDir(Path baseWorkDir, String nodeName) {
         return baseWorkDir.resolve(nodeName);
+    }
+
+    /**
+     * Adds backslash character before double quotes to keep them when passing as a command line argument.
+     *
+     * @param str String to escape.
+     * @return Escaped string.
+     */
+    private static String escapeQuotes(String str) {
+        StringWriter out = new StringWriter();
+        for (int i = 0; i < str.length(); i++) {
+            char c = str.charAt(i);
+            if (c == '"') {
+                out.write('\\');
+            }
+            out.write(c);
+        }
+        return out.toString();
     }
 
     /**
