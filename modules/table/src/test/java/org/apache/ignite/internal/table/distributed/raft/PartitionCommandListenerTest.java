@@ -107,13 +107,16 @@ public class PartitionCommandListenerTest {
         NetworkAddress addr = new NetworkAddress("127.0.0.1", 5003);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(addr);
 
+        UUID tblId = UUID.randomUUID();
+
         versionedRowStore = new VersionedRowStore(
+                tblId,
                 new TestMvPartitionStorage(List.of(), 0),
                 new TxManagerImpl(clusterService, new HeapLockManager())
         );
 
         commandListener = new PartitionListener(
-                UUID.randomUUID(),
+                tblId,
                 versionedRowStore
         );
     }

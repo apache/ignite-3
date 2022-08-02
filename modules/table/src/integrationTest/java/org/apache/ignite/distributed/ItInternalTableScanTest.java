@@ -164,7 +164,7 @@ public class ItInternalTableScanTest {
 
         raftSrv.startRaftGroup(
                 grpName,
-                new PartitionListener(tblId, new VersionedRowStore(mockStorage, txManager)),
+                new PartitionListener(tblId, new VersionedRowStore(tblId, mockStorage, txManager)),
                 conf,
                 RaftGroupOptions.defaults()
         );

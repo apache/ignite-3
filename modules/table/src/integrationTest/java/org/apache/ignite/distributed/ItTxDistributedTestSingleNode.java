@@ -281,7 +281,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         grpId,
                         partNodes,
                         () -> new PartitionListener(tblId,
-                                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManagers.get(node))),
+                                new VersionedRowStore(tblId, new TestMvPartitionStorage(List.of(), 0), txManagers.get(node))),
                         RaftGroupOptions.defaults()
                 );
             }

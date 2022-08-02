@@ -35,6 +35,9 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.tx.LockKey;
+import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.Cursor;
@@ -53,6 +56,9 @@ public class VersionedRowStore {
     /** Transaction manager. */
     private TxManager txManager;
 
+    /** Lock context id. */
+    private final UUID lockContextId;
+
     //TODO: https://issues.apache.org/jira/browse/IGNITE-17205 Temporary solution until the implementation of the primary index is done.
     /** Dummy primary index. */
     private ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
@@ -66,10 +72,12 @@ public class VersionedRowStore {
     /**
      * The constructor.
      *
+     * @param lockContextId Lock context id.
      * @param storage The storage.
      * @param txManager The TX manager.
      */
-    public VersionedRowStore(@NotNull MvPartitionStorage storage, @NotNull TxManager txManager) {
+    public VersionedRowStore(UUID lockContextId, @NotNull MvPartitionStorage storage, @NotNull TxManager txManager) {
+        this.lockContextId = lockContextId;
         this.storage = Objects.requireNonNull(storage);
         this.txManager = Objects.requireNonNull(txManager);
 
@@ -147,6 +155,9 @@ public class VersionedRowStore {
 
         ByteBuffer key = row.keySlice();
 
+        // TODO: tmp IGNITE-17258
+        txManager.lockManager().acquire(txId, new LockKey(lockContextId, key), LockMode.EXCLUSIVE);
+
         RowId rowId = primaryIndex.get(key);
 
         if (rowId == null) {
@@ -194,11 +205,14 @@ public class VersionedRowStore {
             return false;
         }
 
-        BinaryRow prevRow = storage.read(primaryIndex.get(row.keySlice()), txId);
+        BinaryRow prevRow = storage.read(rowId, txId);
 
         if (prevRow == null) {
             return false;
         }
+
+        // TODO: tmp IGNITE-17258
+        txManager.lockManager().acquire(txId, new LockKey(lockContextId, row.keySlice()), LockMode.EXCLUSIVE);
 
         storage.addWrite(primaryIndex.get(row.keySlice()), null, txId);
 
@@ -232,6 +246,9 @@ public class VersionedRowStore {
         assert row != null && row.hasValue() : row;
 
         ByteBuffer key = row.keySlice();
+
+        // TODO: tmp IGNITE-17258
+        txManager.lockManager().acquire(txId, new LockKey(lockContextId, key), LockMode.EXCLUSIVE);
 
         RowId rowId = primaryIndex.get(key);
 
@@ -421,37 +438,41 @@ public class VersionedRowStore {
      * @param txId Transaction id.
      */
     public void commitWrite(ByteBuffer key, UUID txId) {
-        RowId rowId = primaryIndex.get(key);
+        try {
+            RowId rowId = primaryIndex.get(key);
 
-        if (rowId == null) {
-            return;
-        }
-
-        List<ByteBuffer> keys = txsRemovedKeys.get(txId);
-
-        if (keys != null) {
-            boolean removed = keys.remove(key);
-
-            if (removed) {
-                primaryIndex.remove(key);
+            if (rowId == null) {
+                return;
             }
 
-            if (keys.size() == 0) {
-                txsRemovedKeys.remove(txId);
+            List<ByteBuffer> keys = txsRemovedKeys.get(txId);
+
+            if (keys != null) {
+                boolean removed = keys.remove(key);
+
+                if (removed) {
+                    primaryIndex.remove(key);
+                }
+
+                if (keys.size() == 0) {
+                    txsRemovedKeys.remove(txId);
+                }
             }
-        }
 
-        keys = txsInsertedKeys.get(txId);
+            keys = txsInsertedKeys.get(txId);
 
-        if (keys != null) {
-            keys.remove(key);
+            if (keys != null) {
+                keys.remove(key);
 
-            if (keys.size() == 0) {
-                txsInsertedKeys.remove(txId);
+                if (keys.size() == 0) {
+                    txsInsertedKeys.remove(txId);
+                }
             }
-        }
 
-        storage.commitWrite(rowId, new Timestamp(txId));
+            storage.commitWrite(rowId, new Timestamp(txId));
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+        }
     }
 
     /**

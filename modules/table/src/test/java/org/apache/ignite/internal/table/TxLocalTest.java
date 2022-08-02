@@ -65,7 +65,6 @@ public class TxLocalTest extends TxAbstractTest {
         AtomicLong accountsRaftIndex = new AtomicLong();
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
                 txManager,
                 accountsRaftIndex
         );
@@ -74,7 +73,6 @@ public class TxLocalTest extends TxAbstractTest {
 
         AtomicLong customersRaftIndex = new AtomicLong();
         DummyInternalTableImpl table2 = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
                 txManager,
                 customersRaftIndex
         );

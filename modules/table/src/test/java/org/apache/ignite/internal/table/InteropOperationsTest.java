@@ -122,7 +122,6 @@ public class InteropOperationsTest {
         AtomicLong raftIndex = new AtomicLong();
 
         INT_TABLE = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
                 txManager,
                 raftIndex
         );

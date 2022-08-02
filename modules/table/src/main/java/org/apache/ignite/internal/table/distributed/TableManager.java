@@ -499,7 +499,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         raftMgr.startRaftGroupNode(
                                 grpId,
                                 newPartAssignment,
-                                new PartitionListener(tblId, new VersionedRowStore(partitionStorage, txManager)),
+                                new PartitionListener(tblId, new VersionedRowStore(tblId, partitionStorage, txManager)),
                                 new RebalanceRaftGroupEventsListener(
                                         metaStorageMgr,
                                         tablesCfg.tables().get(tablesById.get(tblId).name()),
@@ -1342,7 +1342,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
                                     tblId,
-                                    new VersionedRowStore(partitionStorage, txManager)
+                                    new VersionedRowStore(tblId, partitionStorage, txManager)
                             );
 
                             RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(

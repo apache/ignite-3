@@ -699,7 +699,6 @@ public class RecordBinaryViewOperationsTest {
         AtomicLong raftIndex = new AtomicLong();
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
                 txManager,
                 raftIndex
         );

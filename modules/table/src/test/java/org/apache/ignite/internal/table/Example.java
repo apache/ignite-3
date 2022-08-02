@@ -55,8 +55,7 @@ public class Example {
     private static List<Table> tableFactory() {
         TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager());
 
-        return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(new VersionedRowStore(
-                new TestMvPartitionStorage(List.of(), 0), txManager), txManager, new AtomicLong()), null));
+        return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(txManager, new AtomicLong()), null));
     }
 
     /**
