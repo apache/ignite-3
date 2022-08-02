@@ -26,6 +26,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -343,5 +344,45 @@ public class FilePageStore implements PageStore {
      */
     public int deltaFileCount() {
         return deltaFilePageStoreIos.size();
+    }
+
+    /**
+     * Returns the delta file to compaction (oldest).
+     *
+     * <p>Thread safe.
+     */
+    public @Nullable DeltaFilePageStoreIo getDeltaFileToCompaction() {
+        // Snapshot of delta files.
+        Iterator<DeltaFilePageStoreIo> iterator = deltaFilePageStoreIos.iterator();
+
+        // Last one is the oldest.
+        DeltaFilePageStoreIo last = null;
+
+        int count = 0;
+
+        while (iterator.hasNext()) {
+            last = iterator.next();
+
+            count++;
+        }
+
+        // If last is just created, then it cannot be compacted yet.
+        if (count == 1 && newDeltaFilePageStoreIoFuture != null) {
+            last = null;
+        }
+
+        return last;
+    }
+
+    /**
+     * Deletes delta file.
+     *
+     * <p>Thread safe.
+     *
+     * @param deltaFilePageStoreIo Delta file to be deleted.
+     * @return {@code True} if the delta file being removed was present.
+     */
+    public boolean removeDeltaFile(DeltaFilePageStoreIo deltaFilePageStoreIo) {
+        return deltaFilePageStoreIos.remove(deltaFilePageStoreIo);
     }
 }

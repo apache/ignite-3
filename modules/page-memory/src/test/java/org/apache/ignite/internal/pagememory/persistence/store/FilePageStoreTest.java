@@ -29,8 +29,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -38,6 +40,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -408,6 +411,64 @@ public class FilePageStoreTest {
             filePageStore.completeNewDeltaFile();
 
             assertNull(filePageStore.getNewDeltaFile());
+        }
+    }
+
+    @Test
+    void testRemoveDeltaFile() throws Exception {
+        DeltaFilePageStoreIo deltaFile0 = mock(DeltaFilePageStoreIo.class);
+        DeltaFilePageStoreIo deltaFile1 = mock(DeltaFilePageStoreIo.class);
+
+        try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"), deltaFile0, deltaFile1)) {
+            assertEquals(2, filePageStore.deltaFileCount());
+
+            assertTrue(filePageStore.removeDeltaFile(deltaFile0));
+            assertFalse(filePageStore.removeDeltaFile(deltaFile0));
+
+            assertEquals(1, filePageStore.deltaFileCount());
+
+            assertTrue(filePageStore.removeDeltaFile(deltaFile1));
+            assertFalse(filePageStore.removeDeltaFile(deltaFile1));
+
+            assertEquals(0, filePageStore.deltaFileCount());
+        }
+    }
+
+    @Test
+    void testGetDeltaFileToCompaction() throws Exception {
+        DeltaFilePageStoreIo deltaFile0 = mock(DeltaFilePageStoreIo.class);
+        DeltaFilePageStoreIo deltaFile1 = mock(DeltaFilePageStoreIo.class);
+
+        when(deltaFile0.fileIndex()).thenReturn(0);
+        when(deltaFile0.fileIndex()).thenReturn(1);
+
+        try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"), deltaFile0, deltaFile1)) {
+            assertSame(deltaFile1, filePageStore.getDeltaFileToCompaction());
+
+            CompletableFuture<DeltaFilePageStoreIo> createNewDeltaFileFuture = filePageStore.getOrCreateNewDeltaFile(
+                    index -> workDir.resolve("delta" + index),
+                    TestPageStoreUtils::arr
+            );
+
+            createNewDeltaFileFuture.get(1, SECONDS);
+
+            assertSame(deltaFile1, filePageStore.getDeltaFileToCompaction());
+
+            filePageStore.removeDeltaFile(deltaFile1);
+
+            assertSame(deltaFile0, filePageStore.getDeltaFileToCompaction());
+
+            filePageStore.removeDeltaFile(deltaFile0);
+
+            assertNull(filePageStore.getDeltaFileToCompaction());
+
+            filePageStore.completeNewDeltaFile();
+
+            assertSame(createNewDeltaFileFuture.join(), filePageStore.getDeltaFileToCompaction());
+
+            filePageStore.removeDeltaFile(createNewDeltaFileFuture.join());
+
+            assertNull(filePageStore.getDeltaFileToCompaction());
         }
     }
 

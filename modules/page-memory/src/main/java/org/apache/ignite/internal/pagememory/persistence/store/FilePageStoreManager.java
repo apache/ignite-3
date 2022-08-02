@@ -240,6 +240,13 @@ public class FilePageStoreManager implements PageReadWriteManager {
     }
 
     /**
+     * Returns all page stores of all groups.
+     */
+    public Collection<List<FilePageStore>> allPageStores() {
+        return groupPageStores.allPageStores();
+    }
+
+    /**
      * Returns partition file page store for the corresponding parameters.
      *
      * @param grpId Group ID.
