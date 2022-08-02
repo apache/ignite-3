@@ -34,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -137,7 +138,13 @@ public class Compactor extends IgniteWorker {
         try {
             synchronized (mux) {
                 while (deltaFileCount.get() == 0 && !isCancelled()) {
-                    mux.wait();
+                    blockingSectionBegin();
+
+                    try {
+                        mux.wait();
+                    } finally {
+                        blockingSectionEnd();
+                    }
                 }
             }
         } catch (InterruptedException e) {
@@ -164,6 +171,8 @@ public class Compactor extends IgniteWorker {
 
         assert !queue.isEmpty();
 
+        updateHeartbeat();
+
         int threads = threadPoolExecutor == null ? 1 : threadPoolExecutor.getMaximumPoolSize();
 
         CompletableFuture<?>[] futures = new CompletableFuture[threads];
@@ -174,10 +183,14 @@ public class Compactor extends IgniteWorker {
             Runnable merger = () -> {
                 IgniteBiTuple<FilePageStore, DeltaFilePageStoreIo> toMerge;
 
-                while ((toMerge = queue.poll()) != null) {
+                while ((toMerge = queue.poll()) != null && !isCancelled()) {
                     mergeDeltaFileToMainFile(toMerge.get1(), toMerge.get2(), future);
                 }
             };
+
+            if (isCancelled()) {
+                return;
+            }
 
             if (threadPoolExecutor == null) {
                 merger.run();
@@ -190,6 +203,8 @@ public class Compactor extends IgniteWorker {
                 }
             }
         }
+
+        updateHeartbeat();
 
         // Wait and check for errors.
         CompletableFuture.allOf(futures).join();
@@ -268,6 +283,49 @@ public class Compactor extends IgniteWorker {
         try {
             // Copy pages deltaFilePageStore -> filePageStore.
             ByteBuffer buffer = threadBuf.get();
+
+            for (long pageOffset : deltaFilePageStore.pageOffsets()) {
+                updateHeartbeat();
+
+                if (isCancelled()) {
+                    return;
+                }
+
+                // -1 because we don't know the pageId yet.
+                deltaFilePageStore.read(-1, pageOffset, buffer.rewind(), true);
+
+                long pageId = PageIo.getPageId(buffer.rewind());
+
+                assert pageId != 0;
+
+                updateHeartbeat();
+
+                if (isCancelled()) {
+                    return;
+                }
+
+                filePageStore.write(pageId, buffer.rewind(), true);
+            }
+
+            // Fsync the file page store.
+            updateHeartbeat();
+
+            if (isCancelled()) {
+                return;
+            }
+
+            filePageStore.sync();
+
+            // Removing the delta file page store from a file page store.
+            updateHeartbeat();
+
+            if (isCancelled()) {
+                return;
+            }
+
+            boolean removed = filePageStore.removeDeltaFile(deltaFilePageStore);
+
+            assert removed : filePageStore.filePath();
 
             // TODO: IGNITE-16657 вот тут надо писать основную логику
         } catch (Throwable e) {

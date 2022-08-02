@@ -64,7 +64,11 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
     /** Initialized file page store IO. */
     private volatile boolean initialized;
 
-    /** Caches the existence state of file. After it is initialized, it will be not {@code null} during lifecycle. */
+    /**
+     * Caches the existence state of file. After it is initialized, it will be not {@code null} during lifecycle.
+     *
+     * <p>Guarded by {@link #readWriteLock}.
+     */
     private @Nullable Boolean fileExists;
 
     /**
@@ -513,8 +517,6 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
             if (keepCrc) {
                 PageIo.setCrc(pageBuf, savedCrc32);
             }
-
-            return;
         } catch (IOException e) {
             throw new IgniteInternalCheckedException("Failed to read page [file=" + filePath + ", pageId=" + pageId + "]", e);
         }

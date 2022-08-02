@@ -76,6 +76,7 @@ public class CheckpointPagesWriter implements Runnable {
     private final CompletableFuture<?> doneFut;
 
     /** Some action which will be executed every time before page will be written. */
+    // TODO: IGNITE-16657 переименовать в обновление хертбитов
     private final Runnable beforePageWrite;
 
     /** Thread local with buffers for the checkpoint threads. Each buffer represent one page for durable memory. */

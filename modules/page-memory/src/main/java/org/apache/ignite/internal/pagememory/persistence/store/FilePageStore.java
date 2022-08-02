@@ -183,17 +183,7 @@ public class FilePageStore implements PageStore {
     public void read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
         assert pageIndex(pageId) <= pageCount : "pageIdx=" + pageIndex(pageId) + ", pageCount=" + pageCount;
 
-        for (DeltaFilePageStoreIo deltaFilePageStoreIo : deltaFilePageStoreIos) {
-            long pageOff = deltaFilePageStoreIo.pageOffset(pageId);
-
-            if (pageOff >= 0) {
-                deltaFilePageStoreIo.read(pageId, pageOff, pageBuf, keepCrc);
-
-                return;
-            }
-        }
-
-        filePageStoreIo.read(pageId, filePageStoreIo.pageOffset(pageId), pageBuf, keepCrc);
+        readWithoutPageIdCheck(pageId, pageBuf, keepCrc);
     }
 
     /** {@inheritDoc} */

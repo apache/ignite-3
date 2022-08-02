@@ -28,6 +28,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * {@link org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager} implementation.
  */
+// TODO: IGNITE-16657 рассмотреть его удаление
 class PageReadWriteManagerImpl implements org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager {
     @IgniteToStringExclude
     protected final FilePageStoreManager filePageStoreManager;

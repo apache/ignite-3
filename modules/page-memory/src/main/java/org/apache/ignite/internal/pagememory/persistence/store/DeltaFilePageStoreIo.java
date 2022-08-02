@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 
@@ -101,7 +102,7 @@ public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
             return -1;
         }
 
-        return (long) searchResult * pageSize() + headerSize();
+        return pageOffset(searchResult);
     }
 
     /**
@@ -109,5 +110,16 @@ public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
      */
     public int fileIndex() {
         return header.index();
+    }
+
+    /**
+     * Returns page offsets within the store file.
+     */
+    public long[] pageOffsets() {
+        return IntStream.of(header.pageIndexes()).mapToLong(this::pageOffset).toArray();
+    }
+
+    private long pageOffset(int pagePosition) {
+        return (long) pagePosition * pageSize() + headerSize();
     }
 }
