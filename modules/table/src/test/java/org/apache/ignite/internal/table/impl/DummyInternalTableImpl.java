@@ -65,7 +65,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     /**
      * Creates a new local table.
      *
-     * @param store The store.
      * @param txManager Transaction manager.
      */
     public DummyInternalTableImpl(TxManager txManager, AtomicLong raftIndex) {
