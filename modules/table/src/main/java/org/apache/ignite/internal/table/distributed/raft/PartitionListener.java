@@ -62,6 +62,8 @@ import org.apache.ignite.internal.table.distributed.command.scan.ScanCloseComman
 import org.apache.ignite.internal.table.distributed.command.scan.ScanInitCommand;
 import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBatchCommand;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
+import org.apache.ignite.internal.tx.LockException;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -420,14 +422,34 @@ public class PartitionListener implements RaftGroupListener {
 
         boolean stateChanged = txManager.changeState(txId, TxState.PENDING, cmd.finish() ? TxState.COMMITED : TxState.ABORTED);
 
+        LockManager lockManager = txManager.lockManager();
+
         // This code is technically incorrect and assumes that "stateChanged" is always true. This was done because transaction state is not
         // persisted and thus FinishTxCommand couldn't be completed on recovery after node restart ("changeState" uses "replace").
         if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
-            txManager.lockManager().locks(txId)
-                    .forEachRemaining(lock -> storage.commitWrite((ByteBuffer) lock.lockKey().key(), txId));
+            lockManager.locks(txId)
+                    .forEachRemaining(
+                            lock -> {
+                                storage.commitWrite((ByteBuffer) lock.lockKey().key(), txId);
+                                try {
+                                    lockManager.release(lock);
+                                } catch (LockException e) {
+                                    assert false; // This shouldn't happen during tx finish.
+                                }
+                            }
+                    );
         } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
-            txManager.lockManager().locks(txId)
-                    .forEachRemaining(lock -> storage.abortWrite((ByteBuffer) lock.lockKey().key()));
+            lockManager.locks(txId)
+                    .forEachRemaining(
+                            lock -> {
+                                storage.abortWrite((ByteBuffer) lock.lockKey().key());
+                                try {
+                                    lockManager.release(lock);
+                                } catch (LockException e) {
+                                    assert false; // This shouldn't happen during tx finish.
+                                }
+                            }
+                    );
         }
 
         return stateChanged;
