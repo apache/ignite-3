@@ -15,22 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.sql;
+package org.apache.ignite.internal.metastorage.common;
 
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * SQL exception base class.
+ * Base class for meta storage exceptions.
  */
-public class SqlException extends IgniteException {
+public class MetaStorageException extends IgniteInternalException {
     /**
      * Creates a new exception with the given error code.
      *
      * @param code Full error code.
      */
-    public SqlException(int code) {
+    public MetaStorageException(int code) {
         super(code);
+    }
+
+    /**
+     * Creates a new exception with the given trace id and error code.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     */
+    public MetaStorageException(UUID traceId, int code) {
+        super(traceId, code);
     }
 
     /**
@@ -39,7 +49,7 @@ public class SqlException extends IgniteException {
      * @param code Full error code.
      * @param message Detail message.
      */
-    public SqlException(int code, String message) {
+    public MetaStorageException(int code, String message) {
         super(code, message);
     }
 
@@ -50,7 +60,7 @@ public class SqlException extends IgniteException {
      * @param code Full error code.
      * @param message Detail message.
      */
-    public SqlException(UUID traceId, int code, String message) {
+    public MetaStorageException(UUID traceId, int code, String message) {
         super(traceId, code, message);
     }
 
@@ -60,7 +70,7 @@ public class SqlException extends IgniteException {
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public SqlException(int code, Throwable cause) {
+    public MetaStorageException(int code, Throwable cause) {
         super(code, cause);
     }
 
@@ -71,7 +81,7 @@ public class SqlException extends IgniteException {
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public SqlException(UUID traceId, int code, Throwable cause) {
+    public MetaStorageException(UUID traceId, int code, Throwable cause) {
         super(traceId, code, cause);
     }
 
@@ -82,7 +92,7 @@ public class SqlException extends IgniteException {
      * @param message Detail message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public SqlException(int code, String message, Throwable cause) {
+    public MetaStorageException(int code, String message, Throwable cause) {
         super(code, message, cause);
     }
 
@@ -94,7 +104,7 @@ public class SqlException extends IgniteException {
      * @param message Detail message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public SqlException(UUID traceId, int code, String message, Throwable cause) {
+    public MetaStorageException(UUID traceId, int code, String message, Throwable cause) {
         super(traceId, code, message, cause);
     }
 }

@@ -26,7 +26,8 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.MARKER_STORED_TO_DISK;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGE_SNAPSHOT_TAKEN;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SNAPSHOT_TAKEN;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.ArrayList;
@@ -176,12 +177,12 @@ class CheckpointWorkflow {
 
             tracker.onMarkCheckpointBeginEnd();
 
-            // There are allowable to replace pages only after checkpoint marker was stored to disk.
-            dirtyPages = beginCheckpoint(dataRegions, curr.futureFor(MARKER_STORED_TO_DISK));
+            // Page replacement is allowed only after sorting dirty pages.
+            dirtyPages = beginCheckpoint(dataRegions, curr.futureFor(PAGES_SORTED));
 
             curr.currentCheckpointPagesCount(dirtyPages.dirtyPageCount);
 
-            curr.transitTo(PAGE_SNAPSHOT_TAKEN);
+            curr.transitTo(PAGES_SNAPSHOT_TAKEN);
         } finally {
             checkpointReadWriteLock.writeUnlock();
 
@@ -203,7 +204,13 @@ class CheckpointWorkflow {
 
             CheckpointDirtyPages checkpointPages = createAndSortCheckpointDirtyPages(dirtyPages);
 
+            curr.pagesToWrite(checkpointPages);
+
+            curr.initCounters(checkpointPages.dirtyPagesCount());
+
             tracker.onSplitAndSortCheckpointPagesEnd();
+
+            curr.transitTo(PAGES_SORTED);
 
             return new Checkpoint(checkpointPages, curr);
         }
@@ -219,8 +226,6 @@ class CheckpointWorkflow {
      */
     public void markCheckpointEnd(Checkpoint chp) throws IgniteInternalCheckedException {
         synchronized (this) {
-            chp.progress.clearCounters();
-
             for (DataRegion<PersistentPageMemory> dataRegion : dataRegions) {
                 dataRegion.pageMemory().finishCheckpoint();
             }
@@ -228,6 +233,10 @@ class CheckpointWorkflow {
 
         if (chp.hasDelta()) {
             checkpointMarkersStorage.onCheckpointEnd(chp.progress.id());
+
+            chp.progress.pagesToWrite(null);
+
+            chp.progress.clearCounters();
         }
 
         for (CheckpointListener listener : collectCheckpointListeners(dataRegions)) {

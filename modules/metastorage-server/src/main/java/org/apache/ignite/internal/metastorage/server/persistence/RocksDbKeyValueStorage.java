@@ -31,6 +31,10 @@ import static org.apache.ignite.internal.rocksdb.RocksUtils.find;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.forEach;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.STARTING_STORAGE_ERR;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -47,6 +51,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.metastorage.common.MetaStorageException;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.metastorage.server.If;
@@ -63,7 +68,6 @@ import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -164,7 +168,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             // Delete existing data, relying on the raft's snapshot and log playback
             recreateDb();
         } catch (RocksDBException e) {
-            throw new IgniteInternalException("Failed to start the storage", e);
+            throw new MetaStorageException(STARTING_STORAGE_ERR, "Failed to start the storage", e);
         }
     }
 
@@ -251,7 +255,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             updCntr = bytesToLong(data.get(UPDATE_COUNTER_KEY));
         } catch (Exception e) {
-            throw new IgniteInternalException("Failed to restore snapshot", e);
+            throw new MetaStorageException(RESTORING_STORAGE_ERR, "Failed to restore snapshot", e);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -285,7 +289,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             fillAndWriteBatch(batch, curRev, cntr);
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -306,7 +310,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             // Store the new value
             index.put(batch, key, appendLong(array, curRev));
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         }
     }
 
@@ -353,7 +357,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             // Return previous value.
             return doGetValue(key, lastRev);
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -375,7 +379,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             fillAndWriteBatch(batch, curRev, counter);
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -402,7 +406,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             fillAndWriteBatch(batch, curRev, counter);
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -465,7 +469,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 fillAndWriteBatch(batch, curRev, counter);
             }
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -516,7 +520,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             fillAndWriteBatch(batch, curRev, counter);
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -559,7 +563,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             fillAndWriteBatch(batch, curRev, counter);
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -583,7 +587,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             return branch;
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -600,7 +604,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             while (true) {
                 if (maximumNumOfNestedBranch-- <= 0) {
-                    throw new IgniteInternalException(
+                    throw new MetaStorageException(
+                            OP_EXECUTION_ERR,
                             "Too many nested (" + maximumNumOfNestedBranch + ") statements in multi-invoke command.");
                 }
 
@@ -619,7 +624,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 }
             }
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -669,7 +674,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                         break;
 
                     default:
-                        throw new IllegalArgumentException("Unknown operation type: " + op.type());
+                        throw new MetaStorageException(OP_EXECUTION_ERR, "Unknown operation type: " + op.type());
                 }
             }
 
@@ -742,7 +747,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             fillAndWriteBatch(batch, rev, updCntr);
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
+            throw new MetaStorageException(COMPACTION_ERR, e);
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -841,7 +846,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         try {
             revs = getRevisions(key);
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         }
 
         if (revs == null || revs.length == 0) {
@@ -919,7 +924,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         try {
             valueBytes = data.get(keyToRocksKey(revision, key));
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         }
 
         if (valueBytes == null || valueBytes.length == 0) {
@@ -1025,7 +1030,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             return new IgniteBiTuple<>(iterator.key(), getAsLongs(iterator.value()));
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
         }
     }
 

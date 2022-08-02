@@ -15,30 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.checkpoint;
+package org.apache.ignite.internal.lang;
+
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * Possible checkpoint states. Ordinal is important. Every next state follows the previous one.
+ * Ignite exception utils.
  */
-public enum CheckpointState {
-    /** Checkpoint is waiting to execution. **/
-    SCHEDULED,
-
-    /** Checkpoint was awakened and it is preparing to start. **/
-    LOCK_TAKEN,
-
-    /** Dirty pages snapshot has been taken. **/
-    PAGES_SNAPSHOT_TAKEN,
-
-    /** Checkpoint counted the pages and write lock was released. **/
-    LOCK_RELEASED,
-
-    /** Checkpoint marker was stored to disk. **/
-    MARKER_STORED_TO_DISK,
-
-    /** Dirty pages sorted. */
-    PAGES_SORTED,
-
-    /** Checkpoint was finished. **/
-    FINISHED
+public final class IgniteExceptionUtils {
+    /**
+     * Gets the Ignite error code if the specified throwable is an {@link IgniteException}.
+     *
+     * @param t Throwable.
+     * @return Ignite error code or null.
+     */
+    public static Integer getIgniteErrorCode(Throwable t) {
+        return (t instanceof IgniteException) ? ((IgniteException) t).code() : null;
+    }
 }

@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.withCauseAndCode;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_EXECUTION_ERR;
+
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -24,11 +28,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.common.MetaStorageException;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorCloseCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorHasNextCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCommand;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -78,13 +82,13 @@ public class CursorImpl<T> implements Cursor<T> {
 
             ((InnerIterator) it).close();
         } catch (InterruptedException | ExecutionException e) {
-            if (e.getCause() != null && e.getCause().getClass().equals(NodeStoppingException.class)) {
+            if (e.getCause() instanceof NodeStoppingException) {
                 return;
             }
 
             LOG.debug("Unable to evaluate cursor close command", e);
 
-            throw new IgniteInternalException(e);
+            throw withCauseAndCode(MetaStorageException::new, CURSOR_CLOSING_ERR, e);
         }
     }
 
@@ -125,13 +129,13 @@ public class CursorImpl<T> implements Cursor<T> {
                             .get();
                 }
             } catch (InterruptedException | ExecutionException e) {
-                if (e.getCause() != null && e.getCause().getClass().equals(NodeStoppingException.class)) {
+                if (e.getCause() instanceof NodeStoppingException) {
                     return false;
                 }
 
                 LOG.debug("Unable to evaluate cursor hasNext command", e);
 
-                throw new IgniteInternalException(e);
+                throw withCauseAndCode(MetaStorageException::new, CURSOR_EXECUTION_ERR, e);
             }
         }
 
@@ -159,19 +163,17 @@ public class CursorImpl<T> implements Cursor<T> {
             } catch (InterruptedException | ExecutionException e) {
                 Throwable cause = e.getCause();
 
-                if (cause != null) {
-                    if (cause.getClass().equals(NodeStoppingException.class)) {
-                        throw new NoSuchElementException();
-                    } else {
-                        if (cause.getClass().equals(NoSuchElementException.class)) {
-                            throw (NoSuchElementException) cause;
-                        }
-                    }
+                if (cause instanceof NodeStoppingException) {
+                    throw new NoSuchElementException();
+                }
+
+                if (cause instanceof NoSuchElementException) {
+                    throw (NoSuchElementException) cause;
                 }
 
                 LOG.debug("Unable to evaluate cursor hasNext command", e);
 
-                throw new IgniteInternalException(e);
+                throw withCauseAndCode(MetaStorageException::new, CURSOR_EXECUTION_ERR, e);
             }
         }
 

@@ -344,7 +344,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
                 Path partFilePath = groupWorkDir.resolve(String.format(PART_FILE_TEMPLATE, part));
 
-                Path[] partDeltaFiles = findPartitionDeltaFiles(groupWorkDir, partitions);
+                Path[] partDeltaFiles = findPartitionDeltaFiles(groupWorkDir, part);
 
                 FilePageStore filePageStore = filePageStoreFactory.createPageStore(buffer.rewind(), partFilePath, partDeltaFiles);
 
@@ -393,7 +393,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param partitionId Partition ID.
      * @param index Index of the delta file page store.
      */
-    Path tmpDeltaFilePageStorePath(int groupId, int partitionId, int index) {
+    public Path tmpDeltaFilePageStorePath(int groupId, int partitionId, int index) {
         return dbDir.resolve(GROUP_DIR_PREFIX + groupId).resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, partitionId, index));
     }
 
@@ -404,7 +404,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param partitionId Partition ID.
      * @param index Index of the delta file page store.
      */
-    Path deltaFilePageStorePath(int groupId, int partitionId, int index) {
+    public Path deltaFilePageStorePath(int groupId, int partitionId, int index) {
         return dbDir.resolve(GROUP_DIR_PREFIX + groupId).resolve(String.format(PART_DELTA_FILE_TEMPLATE, partitionId, index));
     }
 }

@@ -2,11 +2,11 @@
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
+ * The ASF licenses this file to you under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,12 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
-
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+package org.apache.ignite.internal.sql.engine.sql;
 
 /**
- * The exception is used to complete result stage of {@link AsyncCursor#requestNextAsync(int)} invocation when invoked on a closed cursor.
+ * Enumeration of supported index types.
  */
-public class ClosedCursorException extends IgniteInternalCheckedException {
+public enum IgniteSqlIndexType {
+    /** Sorted index. */
+    TREE,
+
+    /** Hash index. */
+    HASH,
+
+    /** The user have omitted USING clause, hence the type is set to {@link #TREE} implicitly. */
+    IMPLICIT_TREE
 }
