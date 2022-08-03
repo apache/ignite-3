@@ -302,4 +302,13 @@ public class CheckpointManager {
 
         return pageIndexes;
     }
+
+    /**
+     * Adds the number of delta files to compact.
+     *
+     * @param count Number of delta files.
+     */
+    public void addDeltaFileCountForCompaction(int count) {
+        compactor.addDeltaFiles(count);
+    }
 }
