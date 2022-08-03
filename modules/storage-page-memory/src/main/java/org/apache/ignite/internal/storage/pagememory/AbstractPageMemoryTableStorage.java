@@ -152,7 +152,7 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
      * @param partId Partition id.
      * @throws StorageException If there is an error while creating the partition storage.
      */
-    protected abstract VolatilePageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException;
+    protected abstract AbstractPageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException;
 
     /** {@inheritDoc} */
     @Override

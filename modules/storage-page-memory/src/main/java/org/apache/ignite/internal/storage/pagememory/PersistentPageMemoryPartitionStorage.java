@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of {@link PartitionStorage} based on a {@link BplusTree} for persistent case.
  */
-public class PersistentPageMemoryPartitionStorage extends VolatilePageMemoryPartitionStorage {
+public class PersistentPageMemoryPartitionStorage extends AbstractPageMemoryPartitionStorage {
     private final CheckpointTimeoutLock checkpointTimeoutLock;
 
     /**
