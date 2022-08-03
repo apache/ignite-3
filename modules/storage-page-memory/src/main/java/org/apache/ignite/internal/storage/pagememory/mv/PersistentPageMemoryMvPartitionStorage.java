@@ -18,14 +18,16 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 
 /**
- * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for in-memory case.
+ * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for persistent case.
  */
-public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPartitionStorage {
+// TODO: IGNITE-17085 продолжить
+// TODO: IGNITE-17085 ТЕСТЫ
+public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMvPartitionStorage {
     /**
      * Constructor.
      *
@@ -36,10 +38,10 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      * @param rowVersionFreeList Free list for {@link RowVersion}.
      * @param versionChainTree Table tree for {@link VersionChain}.
      */
-    public VolatilePageMemoryMvPartitionStorage(
+    public PersistentPageMemoryMvPartitionStorage(
             int partId,
             TableView tableView,
-            VolatilePageMemory pageMemory,
+            PersistentPageMemory pageMemory,
             VersionChainFreeList versionChainFreeList,
             RowVersionFreeList rowVersionFreeList,
             VersionChainTree versionChainTree

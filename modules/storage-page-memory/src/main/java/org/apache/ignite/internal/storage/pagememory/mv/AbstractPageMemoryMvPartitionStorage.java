@@ -81,7 +81,6 @@ public class AbstractPageMemoryMvPartitionStorage implements MvPartitionStorage 
      * @param versionChainFreeList Free list for {@link VersionChain}.
      * @param rowVersionFreeList Free list for {@link RowVersion}.
      * @param versionChainTree Table tree for {@link VersionChain}.
-     * @throws StorageException If there is an error while creating the mv partition storage.
      */
     public AbstractPageMemoryMvPartitionStorage(
             int partId,

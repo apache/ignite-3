@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -26,7 +25,6 @@ import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.AbstractFreeList;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
-import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainDataIo;
@@ -51,11 +49,9 @@ public class VersionChainFreeList extends AbstractFreeList<VersionChain> {
      * @param grpId Group ID.
      * @param partId Partition ID.
      * @param pageMem Page memory.
-     * @param reuseList Reuse list to use.
      * @param lockLsnr Page lock listener.
      * @param metaPageId Metadata page ID.
      * @param initNew {@code True} if new metadata should be initialized.
-     * @param pageListCacheLimit Page list cache limit.
      * @param evictionTracker Page eviction tracker.
      * @param statHolder Statistics holder to track IO operations.
      * @throws IgniteInternalCheckedException If failed.
@@ -64,11 +60,9 @@ public class VersionChainFreeList extends AbstractFreeList<VersionChain> {
             int grpId,
             int partId,
             PageMemory pageMem,
-            ReuseList reuseList,
             PageLockListener lockLsnr,
             long metaPageId,
             boolean initNew,
-            @Nullable AtomicLong pageListCacheLimit,
             PageEvictionTracker evictionTracker,
             IoStatisticsHolder statHolder
     ) throws IgniteInternalCheckedException {
@@ -77,12 +71,12 @@ public class VersionChainFreeList extends AbstractFreeList<VersionChain> {
                 partId,
                 "VersionChainFreeList_" + grpId,
                 pageMem,
-                reuseList,
+                null,
                 lockLsnr,
                 LOG,
                 metaPageId,
                 initNew,
-                pageListCacheLimit,
+                null,
                 evictionTracker
         );
 
