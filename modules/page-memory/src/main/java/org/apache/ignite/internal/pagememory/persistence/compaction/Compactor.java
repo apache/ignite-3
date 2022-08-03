@@ -48,9 +48,19 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Empty.
+ * Entity to compact delta files.
+ *
+ * <p>To start compacting delta files, you need to notify about the appearance of {@link #addDeltaFiles(int) delta files ready for
+ * compaction}. Then all delta files {@link FilePageStore#getDeltaFileToCompaction() ready for compaction} will be collected and merged with
+ * their {@link FilePageStore file page stores} until all delta files are compacted.
+ *
+ * <p>Delta file compaction process consists of:
+ * <ul>
+ *  <li>Copying pages from a delta file to a partition file.</li>
+ *  <li>Fsync of the partition file.</li>
+ *  <li>Remove delta file from {@link FilePageStore} and file system.</li>
+ * </ul>
  */
-// TODO: IGNITE-16657 добавить описание
 public class Compactor extends IgniteWorker {
     private final Object mux = new Object();
 
