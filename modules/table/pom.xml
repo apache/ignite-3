@@ -68,14 +68,14 @@
             <artifactId>ignite-network-api</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-raft</artifactId>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>org.apache.ignite</groupId>-->
+<!--            <artifactId>ignite-raft</artifactId>-->
+<!--        </dependency>-->
 
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-raft-client</artifactId>
+            <artifactId>ignite-replicator</artifactId>
         </dependency>
 
         <dependency>
