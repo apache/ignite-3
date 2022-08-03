@@ -41,7 +41,6 @@ import static org.mockito.Mockito.when;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -86,12 +85,11 @@ public class CompactorTest {
     }
 
     @Test
-    void testMergeDeltaFileToMainFile() throws Exception {
+    void testMergeDeltaFileToMainFile() throws Throwable {
         Compactor compactor = new Compactor(log, "test", null, threadsConfig(1), mock(FilePageStoreManager.class), PAGE_SIZE);
 
         FilePageStore filePageStore = mock(FilePageStore.class);
         DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
-        CompletableFuture<Object> future = new CompletableFuture<>();
 
         when(filePageStore.removeDeltaFile(eq(deltaFilePageStoreIo))).thenReturn(true);
 
@@ -106,9 +104,7 @@ public class CompactorTest {
                     return true;
                 });
 
-        compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, future);
-
-        future.get(1, TimeUnit.SECONDS);
+        compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo);
 
         verify(deltaFilePageStoreIo, times(1)).readWithMergedToFilePageStoreCheck(eq(0L), eq(0L), any(ByteBuffer.class), anyBoolean());
         verify(filePageStore, times(1)).write(eq(1L), any(ByteBuffer.class), anyBoolean());
@@ -121,7 +117,7 @@ public class CompactorTest {
     }
 
     @Test
-    void testDoCompaction() {
+    void testDoCompaction() throws Throwable {
         FilePageStore filePageStore = mock(FilePageStore.class);
 
         DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
@@ -138,19 +134,16 @@ public class CompactorTest {
             assertSame(filePageStore, answer.getArgument(0));
             assertSame(deltaFilePageStoreIo, answer.getArgument(1));
 
-            ((CompletableFuture<?>) answer.getArgument(2)).complete(null);
-
             return null;
         })
                 .when(compactor)
-                .mergeDeltaFileToMainFile(any(FilePageStore.class), any(DeltaFilePageStoreIo.class), any(CompletableFuture.class));
+                .mergeDeltaFileToMainFile(any(FilePageStore.class), any(DeltaFilePageStoreIo.class));
 
         compactor.doCompaction();
 
         verify(filePageStore, times(1)).getDeltaFileToCompaction();
 
-        verify(compactor, times(1))
-                .mergeDeltaFileToMainFile(any(FilePageStore.class), any(DeltaFilePageStoreIo.class), any(CompletableFuture.class));
+        verify(compactor, times(1)).mergeDeltaFileToMainFile(any(FilePageStore.class), any(DeltaFilePageStoreIo.class));
     }
 
     @Test

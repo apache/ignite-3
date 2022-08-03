@@ -160,12 +160,14 @@ public class Compactor extends IgniteWorker {
      * @param count Number of delta files.
      */
     public void addDeltaFiles(int count) {
-        assert count > 0;
+        assert count >= 0;
 
-        deltaFileCount.addAndGet(count);
+        if (count > 0) {
+            deltaFileCount.addAndGet(count);
 
-        synchronized (mux) {
-            mux.notifyAll();
+            synchronized (mux) {
+                mux.notifyAll();
+            }
         }
     }
 
@@ -198,9 +200,15 @@ public class Compactor extends IgniteWorker {
             Runnable merger = () -> {
                 IgniteBiTuple<FilePageStore, DeltaFilePageStoreIo> toMerge;
 
-                while ((toMerge = queue.poll()) != null && !isCancelled()) {
-                    mergeDeltaFileToMainFile(toMerge.get1(), toMerge.get2(), future);
+                try {
+                    while ((toMerge = queue.poll()) != null) {
+                        mergeDeltaFileToMainFile(toMerge.get1(), toMerge.get2());
+                    }
+                } catch (Throwable ex) {
+                    future.completeExceptionally(ex);
                 }
+
+                future.complete(null);
             };
 
             if (isCancelled()) {
@@ -292,66 +300,63 @@ public class Compactor extends IgniteWorker {
      *
      * @param filePageStore File page store.
      * @param deltaFilePageStore Delta file page store.
-     * @param future Future that should complete when the merge is complete.
+     * @throws Throwable If failed.
      */
-    void mergeDeltaFileToMainFile(FilePageStore filePageStore, DeltaFilePageStoreIo deltaFilePageStore, CompletableFuture<?> future) {
-        try {
-            // Copy pages deltaFilePageStore -> filePageStore.
-            ByteBuffer buffer = threadBuf.get();
+    void mergeDeltaFileToMainFile(
+            FilePageStore filePageStore,
+            DeltaFilePageStoreIo deltaFilePageStore
+    ) throws Throwable {
+        // Copy pages deltaFilePageStore -> filePageStore.
+        ByteBuffer buffer = threadBuf.get();
 
-            for (long pageOffset : deltaFilePageStore.pageOffsets()) {
-                updateHeartbeat();
-
-                if (isCancelled()) {
-                    return;
-                }
-
-                boolean read = deltaFilePageStore.readWithMergedToFilePageStoreCheck(pageOffset, pageOffset, buffer.rewind(), true);
-
-                assert read : deltaFilePageStore.filePath();
-
-                long pageId = PageIo.getPageId(buffer.rewind());
-
-                assert pageId != 0 : deltaFilePageStore.filePath();
-
-                updateHeartbeat();
-
-                if (isCancelled()) {
-                    return;
-                }
-
-                filePageStore.write(pageId, buffer.rewind(), true);
-            }
-
-            // Fsync the file page store.
+        for (long pageOffset : deltaFilePageStore.pageOffsets()) {
             updateHeartbeat();
 
             if (isCancelled()) {
                 return;
             }
 
-            filePageStore.sync();
+            boolean read = deltaFilePageStore.readWithMergedToFilePageStoreCheck(pageOffset, pageOffset, buffer.rewind(), false);
 
-            // Removing the delta file page store from a file page store.
+            assert read : deltaFilePageStore.filePath();
+
+            long pageId = PageIo.getPageId(buffer.rewind());
+
+            assert pageId != 0 : deltaFilePageStore.filePath();
+
             updateHeartbeat();
 
             if (isCancelled()) {
                 return;
             }
 
-            boolean removed = filePageStore.removeDeltaFile(deltaFilePageStore);
-
-            assert removed : filePageStore.filePath();
-
-            deltaFilePageStore.markMergedToFilePageStore();
-
-            deltaFilePageStore.stop(true);
-
-            deltaFileCount.decrementAndGet();
-
-            future.complete(null);
-        } catch (Throwable e) {
-            future.completeExceptionally(e);
+            filePageStore.write(pageId, buffer.rewind(), true);
         }
+
+        // Fsync the file page store.
+        updateHeartbeat();
+
+        if (isCancelled()) {
+            return;
+        }
+
+        filePageStore.sync();
+
+        // Removing the delta file page store from a file page store.
+        updateHeartbeat();
+
+        if (isCancelled()) {
+            return;
+        }
+
+        boolean removed = filePageStore.removeDeltaFile(deltaFilePageStore);
+
+        assert removed : filePageStore.filePath();
+
+        deltaFilePageStore.markMergedToFilePageStore();
+
+        deltaFilePageStore.stop(true);
+
+        deltaFileCount.decrementAndGet();
     }
 }

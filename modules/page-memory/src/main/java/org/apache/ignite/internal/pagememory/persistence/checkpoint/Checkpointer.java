@@ -48,6 +48,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryChec
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -139,6 +140,9 @@ public class Checkpointer extends IgniteWorker {
     /** File page store manager. */
     private final FilePageStoreManager filePageStoreManager;
 
+    /** Delta file compactor. */
+    private final Compactor compactor;
+
     /**
      * Constructor.
      *
@@ -149,6 +153,7 @@ public class Checkpointer extends IgniteWorker {
      * @param checkpointWorkFlow Implementation of checkpoint.
      * @param factory Page writer factory.
      * @param filePageStoreManager File page store manager.
+     * @param compactor Delta file compactor.
      * @param checkpointConfig Checkpoint configuration.
      */
     Checkpointer(
@@ -159,6 +164,7 @@ public class Checkpointer extends IgniteWorker {
             CheckpointWorkflow checkpointWorkFlow,
             CheckpointPagesWriterFactory factory,
             FilePageStoreManager filePageStoreManager,
+            Compactor compactor,
             PageMemoryCheckpointConfiguration checkpointConfig
     ) {
         super(log, igniteInstanceName, "checkpoint-thread", workerListener);
@@ -168,10 +174,11 @@ public class Checkpointer extends IgniteWorker {
         this.checkpointWorkflow = checkpointWorkFlow;
         this.checkpointPagesWriterFactory = factory;
         this.filePageStoreManager = filePageStoreManager;
+        this.compactor = compactor;
 
         scheduledCheckpointProgress = new CheckpointProgressImpl(MILLISECONDS.toNanos(nextCheckpointInterval()));
 
-        int checkpointWritePageThreads = checkpointConfig.threads().value();
+        int checkpointWritePageThreads = checkpointConfig.checkpointThreads().value();
 
         if (checkpointWritePageThreads > 1) {
             checkpointWritePagesPool = new ThreadPoolExecutor(
@@ -430,6 +437,8 @@ public class Checkpointer extends IgniteWorker {
         tracker.onFsyncStart();
 
         syncUpdatedPageStores(updatedPartitions);
+
+        compactor.addDeltaFiles(updatedPartitions.size());
 
         if (shutdownNow.getAsBoolean()) {
             currentCheckpointProgress.fail(new NodeStoppingException("Node is stopping."));

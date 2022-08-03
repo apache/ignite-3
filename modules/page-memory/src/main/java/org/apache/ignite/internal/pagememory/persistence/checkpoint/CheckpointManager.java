@@ -32,6 +32,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
+import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -75,6 +76,9 @@ public class CheckpointManager {
 
     /** File page store manager. */
     private final FilePageStoreManager filePageStoreManager;
+
+    /** Delta file compactor. */
+    private final Compactor compactor;
 
     /**
      * Constructor.
@@ -133,6 +137,15 @@ public class CheckpointManager {
                 pageSize
         );
 
+        compactor = new Compactor(
+                Loggers.forClass(Compactor.class),
+                igniteInstanceName,
+                workerListener,
+                checkpointConfig.compactionThreads(),
+                filePageStoreManager,
+                pageSize
+        );
+
         checkpointer = new Checkpointer(
                 Loggers.forClass(Checkpoint.class),
                 igniteInstanceName,
@@ -141,6 +154,7 @@ public class CheckpointManager {
                 checkpointWorkflow,
                 checkpointPagesWriterFactory,
                 filePageStoreManager,
+                compactor,
                 checkpointConfig
         );
 
@@ -162,6 +176,8 @@ public class CheckpointManager {
         checkpointer.start();
 
         checkpointTimeoutLock.start();
+
+        compactor.start();
     }
 
     /**
@@ -171,7 +187,8 @@ public class CheckpointManager {
         IgniteUtils.closeAll(
                 checkpointTimeoutLock::stop,
                 checkpointer::stop,
-                checkpointWorkflow::stop
+                checkpointWorkflow::stop,
+                compactor::stop
         );
     }
 
