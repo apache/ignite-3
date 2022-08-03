@@ -91,7 +91,7 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
                 })
                 .collect(toList());
 
-        String metaStorageNodeName = testNodeName(testInfo, 0);
+        String metaStorageNodeName = testNodeName(testInfo, nodes() - 1);
 
         IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster");
 

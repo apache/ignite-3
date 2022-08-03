@@ -45,6 +45,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -257,13 +258,32 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             beforeTablesVvComplete.clear();
 
-            return CompletableFuture.allOf(futures.toArray(new CompletableFuture[] {}))
+            return CompletableFuture.allOf(futures.toArray(new CompletableFuture[]{}))
                     .orTimeout(TABLES_COMPLETE_TIMEOUT, TimeUnit.SECONDS)
                     .whenComplete((v, e) -> {
-                        if (e != null) {
-                            tablesByIdVv.completeExceptionally(token, e);
-                        } else {
+                        if (!busyLock.enterBusy()) {
+                            // That means that stopping of the table manager has already been started, so we need to just complete
+                            // tablesByIdVv with the token, so table manager could free all related resources.
                             tablesByIdVv.complete(token);
+
+                            return;
+                        }
+                        try {
+                            if (e != null) {
+                                // Here we hold busy lock and have got exception, that means that tablesByIdVv is not completed, so
+                                // we have to complete tablesByIdVv as far as it is not valid and immediately free all relates resources.
+                                tablesByIdVv.complete(token);
+
+                                cleanUpTablesResources(tablesByIdVv.get(token).get());
+
+                                return;
+                            }
+
+                            tablesByIdVv.complete(token);
+                        } catch (InterruptedException | ExecutionException ignore) {
+                            // ignore as far as tablesByIdVv.complete ensures that tablesByIdVv.get(token) will be completed.
+                        } finally {
+                            busyLock.leaveBusy();
                         }
                     });
         });
@@ -490,74 +510,81 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             // Create new raft nodes according to new assignments.
             tablesByIdVv.update(causalityToken, (tablesById, e) -> {
-                if (e != null) {
-                    return failedFuture(e);
+                if (!busyLock.enterBusy()) {
+                    return failedFuture(new IgniteException(new NodeStoppingException()));
                 }
+                try {
+                    if (e != null) {
+                        return failedFuture(e);
+                    }
 
-                InternalTable internalTbl = tablesById.get(tblId).internalTable();
+                    InternalTable internalTbl = tablesById.get(tblId).internalTable();
 
-                // TODO: IGNITE-17197 Remove assert after the ticket is resolved.
-                assert internalTbl.storage() instanceof MvTableStorage :
-                        "Only multi version storages are supported. Current storage is a " + internalTbl.storage().getClass().getName();
+                    // TODO: IGNITE-17197 Remove assert after the ticket is resolved.
+                    assert internalTbl.storage() instanceof MvTableStorage :
+                            "Only multi version storages are supported. Current storage is a " + internalTbl.storage().getClass().getName();
 
-                // start new nodes, only if it is table creation
-                // other cases will be covered by rebalance logic
-                List<ClusterNode> nodes = (oldPartAssignment.isEmpty()) ? newPartAssignment : Collections.emptyList();
+                    // start new nodes, only if it is table creation
+                    // other cases will be covered by rebalance logic
+                    List<ClusterNode> nodes = (oldPartAssignment.isEmpty()) ? newPartAssignment : Collections.emptyList();
 
-                String grpId = partitionRaftGroupName(tblId, partId);
+                    String grpId = partitionRaftGroupName(tblId, partId);
 
-                CompletableFuture<Void> startGroupFut = CompletableFuture.completedFuture(null);
+                    CompletableFuture<Void> startGroupFut = CompletableFuture.completedFuture(null);
 
-                if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
-                    startGroupFut = CompletableFuture
-                            .supplyAsync(
-                                    () -> internalTbl.storage().getOrCreateMvPartition(partId), ioExecutor)
-                            .thenComposeAsync((partitionStorage) -> {
-                                RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, partitionStorage,
-                                        newPartAssignment);
+                    if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
+                        startGroupFut = CompletableFuture
+                                .supplyAsync(
+                                        () -> internalTbl.storage().getOrCreateMvPartition(partId), ioExecutor)
+                                .thenComposeAsync((partitionStorage) -> {
+                                    RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, partitionStorage,
+                                            newPartAssignment);
 
+                                    try {
+                                        raftMgr.startRaftGroupNode(
+                                                grpId,
+                                                newPartAssignment,
+                                                new PartitionListener(tblId, new VersionedRowStore(partitionStorage, txManager)),
+                                                new RebalanceRaftGroupEventsListener(
+                                                        metaStorageMgr,
+                                                        tablesCfg.tables().get(tablesById.get(tblId).name()),
+                                                        grpId,
+                                                        partId,
+                                                        busyLock,
+                                                        movePartition(() -> internalTbl.partitionRaftGroupService(partId)),
+                                                        rebalanceScheduler
+                                                ),
+                                                groupOptions
+                                        );
+
+                                        return CompletableFuture.completedFuture(null);
+                                    } catch (NodeStoppingException ex) {
+                                        return CompletableFuture.failedFuture(ex);
+                                    }
+                                }, ioExecutor);
+                    }
+
+                    futures[partId] = startGroupFut
+                            .thenComposeAsync((v) -> {
                                 try {
-                                    raftMgr.startRaftGroupNode(
-                                            grpId,
-                                            newPartAssignment,
-                                            new PartitionListener(tblId, new VersionedRowStore(partitionStorage, txManager)),
-                                            new RebalanceRaftGroupEventsListener(
-                                                    metaStorageMgr,
-                                                    tablesCfg.tables().get(tablesById.get(tblId).name()),
-                                                    grpId,
-                                                    partId,
-                                                    busyLock,
-                                                    movePartition(() -> internalTbl.partitionRaftGroupService(partId)),
-                                                    rebalanceScheduler
-                                            ),
-                                            groupOptions
-                                    );
-
-                                    return CompletableFuture.completedFuture(null);
+                                    return raftMgr.startRaftGroupService(grpId, newPartAssignment);
                                 } catch (NodeStoppingException ex) {
                                     return CompletableFuture.failedFuture(ex);
                                 }
-                            }, ioExecutor);
+                            }, ioExecutor)
+                            .thenAccept(
+                                    updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
+                                            .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
+                            ).exceptionally(th -> {
+                                LOG.warn("Unable to update raft groups on the node", th);
+
+                                return null;
+                            });
+
+                    return completedFuture(tablesById);
+                } finally {
+                    busyLock.leaveBusy();
                 }
-
-                futures[partId] = startGroupFut
-                        .thenComposeAsync((v) -> {
-                            try {
-                                return raftMgr.startRaftGroupService(grpId, newPartAssignment);
-                            } catch (NodeStoppingException ex) {
-                                return CompletableFuture.failedFuture(ex);
-                            }
-                        }, ioExecutor)
-                        .thenAccept(
-                                updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
-                                        .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
-                        ).exceptionally(th -> {
-                            LOG.warn("Unable to update raft groups on the node", th);
-
-                            return null;
-                        });
-
-                return completedFuture(tablesById);
             });
         }
 
@@ -598,7 +625,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         busyLock.block();
 
-        Map<UUID, TableImpl> tables = tablesByIdVv.latest();
+        // Waiting for the tablesByIdVv here is ensured to be less or equal to TableManager.TABLES_COMPLETE_TIMEOUT
+        Map<UUID, TableImpl> tables = tablesByIdVv.waitForLatest();
+
+        cleanUpTablesResources(tables);
+
+        shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);
+    }
+
+    private void cleanUpTablesResources(Map<UUID, TableImpl> tables) {
 
         for (TableImpl table : tables.values()) {
             try {
@@ -612,9 +648,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 LOG.info("Unable to stop table [name={}]", e, table.name());
             }
         }
-
-        shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);
     }
 
     /**
@@ -639,15 +672,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         var table = new TableImpl(internalTable);
 
         tablesByIdVv.update(causalityToken, (previous, e) -> {
-            if (e != null) {
-                return failedFuture(e);
+            if (!busyLock.enterBusy()) {
+                return failedFuture(new NodeStoppingException());
             }
+            try {
+                if (e != null) {
+                    return failedFuture(e);
+                }
 
-            var val = new HashMap<>(previous);
+                var val = new HashMap<>(previous);
 
-            val.put(tblId, table);
+                val.put(tblId, table);
 
-            return completedFuture(val);
+                return completedFuture(val);
+            } finally {
+                busyLock.leaveBusy();
+            }
         });
 
         CompletableFuture<?> schemaFut = schemaManager.schemaRegistry(causalityToken, tblId)
@@ -666,12 +706,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param table Table.
      */
     private void completeApiCreateFuture(TableImpl table) {
-        CompletableFuture<Table> tblFut = tableCreateFuts.get(table.tableId());
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            CompletableFuture<Table> tblFut = tableCreateFuts.get(table.tableId());
 
-        if (tblFut != null) {
-            tblFut.complete(table);
+            if (tblFut != null) {
+                tblFut.complete(table);
 
-            tableCreateFuts.values().removeIf(fut -> fut == tblFut);
+                tableCreateFuts.values().removeIf(fut -> fut == tblFut);
+            }
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 

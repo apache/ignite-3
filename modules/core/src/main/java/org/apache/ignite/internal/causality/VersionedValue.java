@@ -225,6 +225,16 @@ public class VersionedValue<T> {
     }
 
     /**
+     * Waits for the latest value of a future.
+     */
+    public T waitForLatest() {
+        CompletableFuture<T> fut = history.lastEntry().getValue();
+
+        return fut.join();
+    }
+
+
+    /**
      * Creates (if needed) and returns a default value.
      *
      * @return The value.
@@ -578,7 +588,7 @@ public class VersionedValue<T> {
 
         try {
             for (Long token : history.keySet()) {
-                if (token != lastToken && causalityToken - token >= historySize) {
+                if (!token.equals(lastToken) && causalityToken - token >= historySize) {
                     history.remove(token);
                 }
             }
