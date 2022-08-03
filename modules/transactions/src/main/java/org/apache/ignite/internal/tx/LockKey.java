@@ -37,6 +37,15 @@ public class LockKey {
     }
 
     /**
+     * Returns context identificator.
+     *
+     * @return Context identificator.
+     */
+    public UUID contextId() {
+        return contextId;
+    }
+
+    /**
      * Returns key.
      *
      * @return Key.
