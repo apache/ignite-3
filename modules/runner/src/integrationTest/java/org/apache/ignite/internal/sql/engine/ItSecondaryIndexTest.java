@@ -38,7 +38,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Basic index tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-14925")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-17304")
 public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     private static final String PK_IDX = "PK_IDX";
 

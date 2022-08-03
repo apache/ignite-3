@@ -130,7 +130,6 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
      * Check colocation by one column for all types.
      * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16760")
     @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
     @MethodSource("twoColumnsParameters")
     public void colocationTwoColumns(NativeTypeSpec t0, NativeTypeSpec t1) throws ExecutionException, InterruptedException {
