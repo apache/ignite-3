@@ -144,7 +144,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code true}.
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
-    public void read(long pageId, long pageOff, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
+    protected void read(long pageId, long pageOff, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
         read0(pageId, pageOff, pageBuf, !skipCrc, keepCrc);
     }
 

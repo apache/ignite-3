@@ -32,12 +32,17 @@ import java.nio.file.Path;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Implementation of the class for working with the delta file page storage IO.
  */
 public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
     private final DeltaFilePageStoreIoHeader header;
+
+    /** Lock to prevent reads after merging with a file page store. */
+    private final IgniteSpinBusyLock mergedBusyLock = new IgniteSpinBusyLock();
 
     /**
      * Constructor.
@@ -105,6 +110,39 @@ public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
         return pageOffset(searchResult);
     }
 
+    private long pageOffset(int pagePosition) {
+        return (long) pagePosition * pageSize() + headerSize();
+    }
+
+    /**
+     * Reads a page.
+     *
+     * @param pageId Page ID.
+     * @param pageBuf Page buffer to read into.
+     * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code true}.
+     * @return {@code True} if the page was successfully read, otherwise the delta file page store is {@link #markMergedToFilePageStore()
+     * merged} with the file page store (must be read from file page store).
+     * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
+     */
+    public boolean readWithMergedToFilePageStoreCheck(
+            long pageId,
+            long pageOff,
+            ByteBuffer pageBuf,
+            boolean keepCrc
+    ) throws IgniteInternalCheckedException {
+        if (!mergedBusyLock.enterBusy()) {
+            return false;
+        }
+
+        try {
+            super.read(pageId, pageOff, pageBuf, keepCrc);
+
+            return true;
+        } finally {
+            mergedBusyLock.leaveBusy();
+        }
+    }
+
     /**
      * Returns the index of the delta file page store.
      */
@@ -119,7 +157,13 @@ public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
         return IntStream.of(header.pageIndexes()).mapToLong(this::pageOffset).toArray();
     }
 
-    private long pageOffset(int pagePosition) {
-        return (long) pagePosition * pageSize() + headerSize();
+    /**
+     * Marks that the delta file page store has been merged with the file page store.
+     *
+     * <p>It waits for all current {@link #readWithMergedToFilePageStoreCheck(long, long, ByteBuffer, boolean) readings} to end, and
+     * subsequent ones will return {@code false} (will need to read from the file page store not from delta file page store).
+     */
+    public void markMergedToFilePageStore() {
+        mergedBusyLock.block();
     }
 }

@@ -291,12 +291,11 @@ public class Compactor extends IgniteWorker {
                     return;
                 }
 
-                // -1 because we don't know the pageId yet.
-                deltaFilePageStore.read(-1, pageOffset, buffer.rewind(), true);
+                deltaFilePageStore.readWithMergedToFilePageStoreCheck(pageOffset, pageOffset, buffer.rewind(), true);
 
                 long pageId = PageIo.getPageId(buffer.rewind());
 
-                assert pageId != 0;
+                assert pageId != 0 : deltaFilePageStore.filePath();
 
                 updateHeartbeat();
 
@@ -327,7 +326,9 @@ public class Compactor extends IgniteWorker {
 
             assert removed : filePageStore.filePath();
 
-            // TODO: IGNITE-16657 вот тут надо писать основную логику
+            deltaFilePageStore.markMergedToFilePageStore();
+
+            deltaFilePageStore.stop(true);
         } catch (Throwable e) {
             future.completeExceptionally(e);
         }

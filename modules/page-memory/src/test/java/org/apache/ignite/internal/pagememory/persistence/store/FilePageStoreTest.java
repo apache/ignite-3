@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import static java.nio.ByteOrder.nativeOrder;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.DELTA_FILE_VERSION_1;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
@@ -469,6 +470,36 @@ public class FilePageStoreTest {
             filePageStore.removeDeltaFile(createNewDeltaFileFuture.join());
 
             assertNull(filePageStore.getDeltaFileToCompaction());
+        }
+    }
+
+    @Test
+    void testReadWithMergedDeltaFiles() throws Exception {
+        RandomAccessFileIoFactory ioFactory = new RandomAccessFileIoFactory();
+
+        FilePageStoreHeader header = new FilePageStoreHeader(VERSION_1, PAGE_SIZE);
+        DeltaFilePageStoreIoHeader deltaHeader = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr(0));
+
+        try (
+                DeltaFilePageStoreIo deltaIo = spy(new DeltaFilePageStoreIo(ioFactory, deltaFilePath(0), deltaHeader));
+                FilePageStoreIo storeIo = spy(new FilePageStoreIo(ioFactory, workDir.resolve("test"), header));
+                FilePageStore filePageStore = new FilePageStore(storeIo, deltaIo);
+        ) {
+            long pageId = createDataPageId(filePageStore::allocatePage);
+
+            ByteBuffer buffer = ByteBuffer.allocateDirect(PAGE_SIZE).order(nativeOrder());
+
+            filePageStore.read(pageId, buffer, true);
+
+            verify(deltaIo, times(1)).readWithMergedToFilePageStoreCheck(eq(pageId), anyLong(), eq(buffer), eq(true));
+            verify(storeIo, times(0)).read(eq(pageId), anyLong(), eq(buffer), eq(true));
+
+            deltaIo.markMergedToFilePageStore();
+
+            filePageStore.read(pageId, buffer.rewind(), true);
+
+            verify(deltaIo, times(2)).readWithMergedToFilePageStoreCheck(eq(pageId), anyLong(), eq(buffer), eq(true));
+            verify(storeIo, times(1)).read(eq(pageId), anyLong(), eq(buffer), eq(true));
         }
     }
 

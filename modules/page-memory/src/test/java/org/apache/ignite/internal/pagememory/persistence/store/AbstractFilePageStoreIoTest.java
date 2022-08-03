@@ -227,7 +227,7 @@ public abstract class AbstractFilePageStoreIoTest {
 
             long expPageId = createDataPageId(() -> 0);
 
-            ByteBuffer pageByteBuffer = createPageByteBuffer(0, PAGE_SIZE);
+            ByteBuffer pageByteBuffer = createPageByteBuffer(expPageId, PAGE_SIZE);
 
             // Puts random bytes after: type (2 byte) + version (2 byte) + crc (4 byte).
             pageByteBuffer.position(8).put(randomBytes(128));

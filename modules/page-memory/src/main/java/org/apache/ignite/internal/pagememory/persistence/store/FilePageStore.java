@@ -169,9 +169,9 @@ public class FilePageStore implements PageStore {
             long pageOff = deltaFilePageStoreIo.pageOffset(pageId);
 
             if (pageOff >= 0) {
-                deltaFilePageStoreIo.read(pageId, pageOff, pageBuf, keepCrc);
-
-                return;
+                if (deltaFilePageStoreIo.readWithMergedToFilePageStoreCheck(pageId, pageOff, pageBuf, keepCrc)) {
+                    return;
+                }
             }
         }
 
