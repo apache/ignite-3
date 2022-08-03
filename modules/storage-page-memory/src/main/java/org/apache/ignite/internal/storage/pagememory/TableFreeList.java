@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -27,7 +26,6 @@ import org.apache.ignite.internal.pagememory.freelist.FreeList;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link FreeList} implementation for storage-page-memory module.
@@ -45,7 +43,6 @@ public class TableFreeList extends AbstractFreeList<TableDataRow> {
      * @param lockLsnr Page lock listener.
      * @param metaPageId Metadata page ID.
      * @param initNew {@code True} if new metadata should be initialized.
-     * @param pageListCacheLimit Page list cache limit.
      * @param evictionTracker Page eviction tracker.
      * @param statHolder Statistics holder to track IO operations.
      * @throws IgniteInternalCheckedException If failed.
@@ -57,7 +54,6 @@ public class TableFreeList extends AbstractFreeList<TableDataRow> {
             PageLockListener lockLsnr,
             long metaPageId,
             boolean initNew,
-            @Nullable AtomicLong pageListCacheLimit,
             PageEvictionTracker evictionTracker,
             IoStatisticsHolder statHolder
     ) throws IgniteInternalCheckedException {
@@ -71,7 +67,7 @@ public class TableFreeList extends AbstractFreeList<TableDataRow> {
                 LOG,
                 metaPageId,
                 initNew,
-                pageListCacheLimit,
+                null,
                 evictionTracker
         );
 

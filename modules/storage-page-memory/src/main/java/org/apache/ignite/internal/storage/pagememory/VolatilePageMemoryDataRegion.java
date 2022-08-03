@@ -111,7 +111,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
                 PageLockListenerNoOp.INSTANCE,
                 pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX),
                 true,
-                null,
                 PageEvictionTrackerNoOp.INSTANCE,
                 IoStatisticsHolderNoOp.INSTANCE
         );

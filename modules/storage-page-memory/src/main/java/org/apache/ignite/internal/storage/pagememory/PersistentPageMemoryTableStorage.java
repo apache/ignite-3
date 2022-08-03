@@ -176,8 +176,6 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
         checkpointTimeoutLock.checkpointReadLock();
 
-        // TODO: IGNITE-17085 вот тут переделать немного
-
         try {
             PersistentPageMemory persistentPageMemory = dataRegion.pageMemory();
 
@@ -204,6 +202,8 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
                 meta.incrementPageCount(last == null ? null : last.id());
             });
+
+            // TODO: IGNITE-17085 вот тут переделать немного
 
             boolean initNewTree = false;
 
@@ -288,7 +288,6 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
                     PageLockListenerNoOp.INSTANCE,
                     partitionMeta.reuseListRootPageId(),
                     initNew,
-                    null,
                     PageEvictionTrackerNoOp.INSTANCE,
                     IoStatisticsHolderNoOp.INSTANCE
             );
