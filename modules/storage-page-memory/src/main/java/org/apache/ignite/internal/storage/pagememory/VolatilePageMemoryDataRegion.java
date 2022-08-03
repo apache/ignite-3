@@ -37,7 +37,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * Implementation of {@link DataRegion} for in-memory case.
  */
-class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemory> {
+public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemory> {
     private static final int FREE_LIST_GROUP_ID = 0;
 
     private static final int FREE_LIST_PARTITION_ID = 0;

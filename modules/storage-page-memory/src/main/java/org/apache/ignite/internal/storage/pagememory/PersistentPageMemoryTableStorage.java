@@ -34,7 +34,7 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTi
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.pagememory.mv.PageMemoryMvPartitionStorage;
+import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
@@ -80,10 +80,10 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    protected PersistentPageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException {
+    protected PersistentPageMemoryPartitionStorage createPartitionStorage(int partitionId) throws StorageException {
         TableView tableView = tableCfg.value();
 
-        FilePageStore filePageStore = ensurePartitionFilePageStore(tableView, partId);
+        FilePageStore filePageStore = ensurePartitionFilePageStore(tableView, partitionId);
 
         CheckpointManager checkpointManager = dataRegion.checkpointManager();
 
@@ -102,11 +102,11 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
             PartitionMeta meta = dataRegion.partitionMetaManager().readOrCreateMeta(
                     checkpointId,
-                    new GroupPartitionId(grpId, partId),
+                    new GroupPartitionId(grpId, partitionId),
                     filePageStore
             );
 
-            dataRegion.partitionMetaManager().addMeta(new GroupPartitionId(grpId, partId), meta);
+            dataRegion.partitionMetaManager().addMeta(new GroupPartitionId(grpId, partitionId), meta);
 
             filePageStore.pages(meta.pageCount());
 
@@ -121,7 +121,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             boolean initNewTree = false;
 
             if (meta.treeRootPageId() == 0) {
-                meta.treeRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partId, FLAG_AUX));
+                meta.treeRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
 
                 initNewTree = true;
             }
@@ -129,21 +129,22 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             boolean initNewReuseList = false;
 
             if (meta.reuseListRootPageId() == 0) {
-                meta.reuseListRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partId, FLAG_AUX));
+                meta.reuseListRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
 
                 initNewReuseList = true;
             }
 
-            TableFreeList tableFreeList = createTableFreeList(tableView, partId, meta, initNewReuseList);
+            TableFreeList tableFreeList = createTableFreeList(tableView, partitionId, meta, initNewReuseList);
 
             autoCloseables.add(tableFreeList::close);
 
-            TableTree tableTree = createTableTree(tableView, partId, tableFreeList, meta, initNewTree);
+            TableTree tableTree = createTableTree(tableView, partitionId, tableFreeList, meta, initNewTree);
 
-            return new PersistentPageMemoryPartitionStorage(partId, tableFreeList, tableTree, checkpointTimeoutLock);
+            return new PersistentPageMemoryPartitionStorage(partitionId, tableFreeList, tableTree, checkpointTimeoutLock);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
-                    String.format("Error getting or creating partition metadata [tableName=%s, partitionId=%s]", tableView.name(), partId),
+                    String.format("Error getting or creating partition metadata [tableName=%s, partitionId=%s]", tableView.name(),
+                            partitionId),
                     e
             );
         } finally {
@@ -159,7 +160,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    public PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
+    public AbstractPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
         throw new UnsupportedOperationException("Not supported yet");
     }
 

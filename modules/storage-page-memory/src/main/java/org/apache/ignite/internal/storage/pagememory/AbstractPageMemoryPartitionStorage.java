@@ -44,7 +44,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Abstract Implementation of {@link PartitionStorage} based on a {@link BplusTree} for in-memory case.
+ * Abstract implementation of {@link PartitionStorage} based on a {@link BplusTree}.
  */
 // TODO: IGNITE-16644 Support snapshots.
 abstract class AbstractPageMemoryPartitionStorage implements PartitionStorage {

@@ -60,7 +60,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
-class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<PageMemoryMvPartitionStorage> {
+class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<AbstractPageMemoryMvPartitionStorage> {
     private final PageIoRegistry ioRegistry = new PageIoRegistry();
 
     private final BinaryRow binaryRow3 = binaryRow(key, new TestValue(22, "bar3"));
