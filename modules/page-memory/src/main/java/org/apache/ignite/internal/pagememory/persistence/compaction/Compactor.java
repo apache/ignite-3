@@ -155,6 +155,21 @@ public class Compactor extends IgniteWorker {
     }
 
     /**
+     * Adds the number of delta files to compact.
+     *
+     * @param count Number of delta files.
+     */
+    public void addDeltaFiles(int count) {
+        assert count > 0;
+
+        deltaFileCount.addAndGet(count);
+
+        synchronized (mux) {
+            mux.notifyAll();
+        }
+    }
+
+    /**
      * Merges delta files with partition files.
      */
     void doCompaction() {

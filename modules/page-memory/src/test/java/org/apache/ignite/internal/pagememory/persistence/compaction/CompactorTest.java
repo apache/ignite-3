@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.pagememory.persistence.compaction;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -39,6 +42,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -166,6 +170,37 @@ public class CompactorTest {
         verify(compactor, times(3)).isCancelled();
         verify(compactor, times(1)).waitDeltaFiles();
         verify(compactor, times(1)).doCompaction();
+    }
+
+    @Test
+    void testWaitDeltaFiles() throws Exception {
+        Compactor compactor = spy(new Compactor(log, "test", null, threadsConfig(1), mock(FilePageStoreManager.class), PAGE_SIZE));
+
+        CompletableFuture<?> waitDeltaFilesFuture = runAsync(compactor::waitDeltaFiles);
+
+        assertThrows(TimeoutException.class, () -> waitDeltaFilesFuture.get(100, MILLISECONDS));
+
+        compactor.addDeltaFiles(1);
+
+        waitDeltaFilesFuture.get(100, MILLISECONDS);
+    }
+
+    @Test
+    void testCancel() throws Exception {
+        Compactor compactor = spy(new Compactor(log, "test", null, threadsConfig(1), mock(FilePageStoreManager.class), PAGE_SIZE));
+
+        assertFalse(compactor.isCancelled());
+
+        CompletableFuture<?> waitDeltaFilesFuture = runAsync(compactor::waitDeltaFiles);
+
+        assertThrows(TimeoutException.class, () -> waitDeltaFilesFuture.get(100, MILLISECONDS));
+
+        compactor.cancel();
+
+        assertTrue(compactor.isCancelled());
+        assertFalse(Thread.currentThread().isInterrupted());
+
+        waitDeltaFilesFuture.get(100, MILLISECONDS);
     }
 
     private static ConfigurationValue<Integer> threadsConfig(int threads) {
