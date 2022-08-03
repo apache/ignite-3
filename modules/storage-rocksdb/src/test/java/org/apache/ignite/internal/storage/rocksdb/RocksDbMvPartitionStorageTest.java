@@ -94,5 +94,4 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
                 engine == null ? null : engine::stop
         );
     }
-
 }

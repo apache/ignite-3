@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -69,6 +70,10 @@ public class RocksDbStorageEngine implements StorageEngine {
             new NamedThreadFactory("rocksdb-storage-engine-pool", LOG)
     );
 
+    private final ScheduledExecutorService scheduledPool = Executors.newSingleThreadScheduledExecutor(
+            new NamedThreadFactory("rocksdb-storage-engine-scheduled-pool", LOG)
+    );
+
     private final Map<String, RocksDbDataRegion> regions = new ConcurrentHashMap<>();
 
     /**
@@ -80,6 +85,27 @@ public class RocksDbStorageEngine implements StorageEngine {
     public RocksDbStorageEngine(RocksDbStorageEngineConfiguration engineConfig, Path storagePath) {
         this.engineConfig = engineConfig;
         this.storagePath = storagePath;
+    }
+
+    /**
+     * Returns a RocksDB storage engine configuration.
+     */
+    public RocksDbStorageEngineConfiguration configuration() {
+        return engineConfig;
+    }
+
+    /**
+     * Returns a common thread pool for async operations.
+     */
+    public ExecutorService threadPool() {
+        return threadPool;
+    }
+
+    /**
+     * Returns a scheduled thread pool for async operations.
+     */
+    public ScheduledExecutorService scheduledPool() {
+        return scheduledPool;
     }
 
     /** {@inheritDoc} */
@@ -139,7 +165,7 @@ public class RocksDbStorageEngine implements StorageEngine {
             throw new StorageException("Failed to create table store directory for " + tableView.name() + ": " + e.getMessage(), e);
         }
 
-        return new RocksDbTableStorage(tablePath, tableCfg, threadPool, dataRegion);
+        return new RocksDbTableStorage(this, tablePath, tableCfg, dataRegion);
     }
 
     @Override
