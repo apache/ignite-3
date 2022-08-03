@@ -53,9 +53,6 @@ public class VersionedRowStore {
     /** Transaction manager. */
     private TxManager txManager;
 
-    /** Lock context id. */
-    private final UUID lockContextId;
-
     //TODO: https://issues.apache.org/jira/browse/IGNITE-17205 Temporary solution until the implementation of the primary index is done.
     /** Dummy primary index. */
     private ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
@@ -73,12 +70,10 @@ public class VersionedRowStore {
     /**
      * The constructor.
      *
-     * @param lockContextId Lock context id.
      * @param storage The storage.
      * @param txManager The TX manager.
      */
-    public VersionedRowStore(UUID lockContextId, @NotNull MvPartitionStorage storage, @NotNull TxManager txManager) {
-        this.lockContextId = lockContextId;
+    public VersionedRowStore(@NotNull MvPartitionStorage storage, @NotNull TxManager txManager) {
         this.storage = Objects.requireNonNull(storage);
         this.txManager = Objects.requireNonNull(txManager);
 

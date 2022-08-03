@@ -68,12 +68,12 @@ public class HeapLockManager implements LockManager {
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
         // TODO: tmp
-        LockState state = lockState(lockKey);
-
         switch (lockMode) {
             case EXCLUSIVE:
 
                 while (true) {
+                    LockState state = lockState(lockKey);
+
                     CompletableFuture<Void> future = state.tryAcquire(txId);
 
                     if (future == null) {
@@ -86,6 +86,8 @@ public class HeapLockManager implements LockManager {
             case SHARED:
 
                 while (true) {
+                    LockState state = lockState(lockKey);
+
                     CompletableFuture<Void> future = state.tryAcquireShared(txId);
 
                     if (future == null) {

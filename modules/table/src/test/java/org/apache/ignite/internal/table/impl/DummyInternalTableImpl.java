@@ -151,7 +151,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         UUID tblId = UUID.randomUUID();
 
-        partitionListener = new PartitionListener(tblId, new VersionedRowStore(tblId, new TestMvPartitionStorage(List.of(), 0), txManager));
+        partitionListener = new PartitionListener(
+                tblId,
+                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager)
+        );
     }
 
     /**

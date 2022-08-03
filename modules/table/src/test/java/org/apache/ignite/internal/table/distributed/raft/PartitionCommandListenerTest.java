@@ -110,7 +110,6 @@ public class PartitionCommandListenerTest {
         UUID tblId = UUID.randomUUID();
 
         versionedRowStore = new VersionedRowStore(
-                tblId,
                 new TestMvPartitionStorage(List.of(), 0),
                 new TxManagerImpl(clusterService, new HeapLockManager())
         );
