@@ -61,12 +61,12 @@ class CliConfigSetSubCommandTest extends CliCommandTestBase {
     @DisplayName("Missing value")
     void singleKey() {
         // When executed with key
-        execute("ignite.cluster-url");
+        execute("ignite.cluster-endpoint-url");
 
         assertAll(
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("should be in KEY=VALUE format but was ignite.cluster-url")
+                () -> assertErrOutputContains("should be in KEY=VALUE format but was ignite.cluster-endpoint-url")
         );
     }
 
@@ -88,7 +88,7 @@ class CliConfigSetSubCommandTest extends CliCommandTestBase {
     @DisplayName("Sets multiple values")
     void multipleKeys() {
         // When executed with multiple keys
-        execute("ignite.cluster-url=test", "ignite.jdbc-url=test2");
+        execute("ignite.cluster-endpoint-url=test", "ignite.jdbc-url=test2");
 
         ConfigManager configManager = configManagerProvider.get();
 
@@ -105,7 +105,7 @@ class CliConfigSetSubCommandTest extends CliCommandTestBase {
     @DisplayName("Set with profile")
     public void testWithProfile() {
         // When executed with multiple keys
-        execute("ignite.cluster-url=test ignite.jdbc-url=test2 --profile owner");
+        execute("ignite.cluster-endpoint-url=test ignite.jdbc-url=test2 --profile owner");
 
         ConfigManager configManager = configManagerProvider.get();
 
@@ -121,7 +121,7 @@ class CliConfigSetSubCommandTest extends CliCommandTestBase {
 
     @Test
     public void testWithNotExistedProfile() {
-        execute("ignite.cluster-url=test ignite.jdbc-url=test2 --profile notExist");
+        execute("ignite.cluster-endpoint-url=test ignite.jdbc-url=test2 --profile notExist");
 
         ConfigManager configManager = configManagerProvider.get();
 
