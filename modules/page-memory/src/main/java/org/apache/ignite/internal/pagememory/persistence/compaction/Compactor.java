@@ -291,7 +291,9 @@ public class Compactor extends IgniteWorker {
                     return;
                 }
 
-                deltaFilePageStore.readWithMergedToFilePageStoreCheck(pageOffset, pageOffset, buffer.rewind(), true);
+                boolean read = deltaFilePageStore.readWithMergedToFilePageStoreCheck(pageOffset, pageOffset, buffer.rewind(), true);
+
+                assert read : deltaFilePageStore.filePath();
 
                 long pageId = PageIo.getPageId(buffer.rewind());
 
@@ -329,6 +331,10 @@ public class Compactor extends IgniteWorker {
             deltaFilePageStore.markMergedToFilePageStore();
 
             deltaFilePageStore.stop(true);
+
+            deltaFileCount.decrementAndGet();
+
+            future.complete(null);
         } catch (Throwable e) {
             future.completeExceptionally(e);
         }
