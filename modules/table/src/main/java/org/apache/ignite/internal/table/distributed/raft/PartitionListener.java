@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -431,11 +432,6 @@ public class PartitionListener implements RaftGroupListener {
                     .forEachRemaining(
                             lock -> {
                                 storage.commitWrite((ByteBuffer) lock.lockKey().key(), txId);
-                                try {
-                                    lockManager.release(lock);
-                                } catch (LockException e) {
-                                    assert false; // This shouldn't happen during tx finish.
-                                }
                             }
                     );
         } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
@@ -443,13 +439,19 @@ public class PartitionListener implements RaftGroupListener {
                     .forEachRemaining(
                             lock -> {
                                 storage.abortWrite((ByteBuffer) lock.lockKey().key());
-                                try {
-                                    lockManager.release(lock);
-                                } catch (LockException e) {
-                                    assert false; // This shouldn't happen during tx finish.
-                                }
                             }
                     );
+        }
+
+        // TODO: tmp
+        try {
+            if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
+                storage.pendingKeys.getOrDefault(txId, Collections.emptyList()).forEach(key -> storage.commitWrite((ByteBuffer) key, txId));
+            } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
+                storage.pendingKeys.getOrDefault(txId, Collections.emptyList()).forEach(key -> storage.abortWrite((ByteBuffer) key));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
         return stateChanged;

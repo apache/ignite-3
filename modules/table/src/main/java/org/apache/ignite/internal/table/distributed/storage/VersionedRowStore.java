@@ -68,6 +68,10 @@ public class VersionedRowStore {
     /** Keys that were removed by the transaction. */
     private ConcurrentHashMap<UUID, List<ByteBuffer>> txsRemovedKeys = new ConcurrentHashMap<>();
 
+    // TODO: tmp
+    /** Pending keys. */
+    public ConcurrentHashMap<UUID, List<Object>> pendingKeys = new ConcurrentHashMap<>();
+
     /**
      * The constructor.
      *
@@ -155,7 +159,13 @@ public class VersionedRowStore {
         ByteBuffer key = row.keySlice();
 
         // TODO: tmp IGNITE-17258
-        txManager.lockManager().acquire(txId, new LockKey(lockContextId, key), LockMode.EXCLUSIVE);
+        // TODO: tmp IGNITE-17258
+        List<Object> txKeys = pendingKeys.computeIfAbsent(txId, k -> new ArrayList<>());
+        synchronized (pendingKeys) {
+            txKeys.add(key);
+        }
+
+//        txManager.lockManager().acquire(txId, new LockKey(lockContextId, key), LockMode.EXCLUSIVE);
 
         RowId rowId = primaryIndex.get(key);
 
@@ -211,7 +221,11 @@ public class VersionedRowStore {
         }
 
         // TODO: tmp IGNITE-17258
-        txManager.lockManager().acquire(txId, new LockKey(lockContextId, row.keySlice()), LockMode.EXCLUSIVE);
+        List<Object> txKeys = pendingKeys.computeIfAbsent(txId, k -> new ArrayList<>());
+        synchronized (pendingKeys) {
+            txKeys.add(row.keySlice());
+        }
+//        txManager.lockManager().acquire(txId, new LockKey(lockContextId, row.keySlice()), LockMode.EXCLUSIVE);
 
         storage.addWrite(primaryIndex.get(row.keySlice()), null, txId);
 
@@ -247,7 +261,11 @@ public class VersionedRowStore {
         ByteBuffer key = row.keySlice();
 
         // TODO: tmp IGNITE-17258
-        txManager.lockManager().acquire(txId, new LockKey(lockContextId, key), LockMode.EXCLUSIVE);
+        List<Object> txKeys = pendingKeys.computeIfAbsent(txId, k -> new ArrayList<>());
+        synchronized (pendingKeys) {
+            txKeys.add(key);
+        }
+//        txManager.lockManager().acquire(txId, new LockKey(lockContextId, key), LockMode.EXCLUSIVE);
 
         RowId rowId = primaryIndex.get(key);
 
