@@ -63,7 +63,6 @@ import org.apache.ignite.internal.table.distributed.command.scan.ScanCloseComman
 import org.apache.ignite.internal.table.distributed.command.scan.ScanInitCommand;
 import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBatchCommand;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
-import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;

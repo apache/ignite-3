@@ -35,8 +35,6 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.tx.LockKey;
-import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.Cursor;
@@ -165,8 +163,6 @@ public class VersionedRowStore {
             txKeys.add(key);
         }
 
-//        txManager.lockManager().acquire(txId, new LockKey(lockContextId, key), LockMode.EXCLUSIVE);
-
         RowId rowId = primaryIndex.get(key);
 
         if (rowId == null) {
@@ -225,7 +221,6 @@ public class VersionedRowStore {
         synchronized (pendingKeys) {
             txKeys.add(row.keySlice());
         }
-//        txManager.lockManager().acquire(txId, new LockKey(lockContextId, row.keySlice()), LockMode.EXCLUSIVE);
 
         storage.addWrite(primaryIndex.get(row.keySlice()), null, txId);
 
@@ -265,7 +260,6 @@ public class VersionedRowStore {
         synchronized (pendingKeys) {
             txKeys.add(key);
         }
-//        txManager.lockManager().acquire(txId, new LockKey(lockContextId, key), LockMode.EXCLUSIVE);
 
         RowId rowId = primaryIndex.get(key);
 
