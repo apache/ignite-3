@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -525,9 +524,8 @@ public class VersionedRowStore {
      * @param path The path.
      * @return Snapshot future.
      */
-    // TODO: IGNITE-16644 Support snapshots.
     public CompletionStage<Void> snapshot(Path path) {
-        return CompletableFuture.completedFuture(null);
+        return storage.flush();
     }
 
     /**
@@ -535,7 +533,6 @@ public class VersionedRowStore {
      *
      * @param path The path.
      */
-    // TODO: IGNITE-16644 Support snapshots.
     public void restoreSnapshot(Path path) {
     }
 

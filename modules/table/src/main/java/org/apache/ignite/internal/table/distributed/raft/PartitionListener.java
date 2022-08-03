@@ -143,40 +143,36 @@ public class PartitionListener implements RaftGroupListener {
                     : "Pending write command has a higher index than already processed commands [commandIndex=" + commandIndex
                     + ", storageAppliedIndex=" + storageAppliedIndex + ']';
 
-            // TODO IGNITE-17081 IGNITE-17077
-            // Applied index is set non-atomically. This is a wrong and non-recoverable behavior. Will be fixed later.
-            storage.lastAppliedIndex(commandIndex);
-
             if (command instanceof InsertCommand) {
-                clo.result(handleInsertCommand((InsertCommand) command));
+                clo.result(handleInsertCommand((InsertCommand) command, commandIndex));
             } else if (command instanceof DeleteCommand) {
-                clo.result(handleDeleteCommand((DeleteCommand) command));
+                clo.result(handleDeleteCommand((DeleteCommand) command, commandIndex));
             } else if (command instanceof ReplaceCommand) {
-                clo.result(handleReplaceCommand((ReplaceCommand) command));
+                clo.result(handleReplaceCommand((ReplaceCommand) command, commandIndex));
             } else if (command instanceof UpsertCommand) {
-                handleUpsertCommand((UpsertCommand) command);
+                handleUpsertCommand((UpsertCommand) command, commandIndex);
 
                 clo.result(null);
             } else if (command instanceof InsertAllCommand) {
-                clo.result(handleInsertAllCommand((InsertAllCommand) command));
+                clo.result(handleInsertAllCommand((InsertAllCommand) command, commandIndex));
             } else if (command instanceof UpsertAllCommand) {
-                handleUpsertAllCommand((UpsertAllCommand) command);
+                handleUpsertAllCommand((UpsertAllCommand) command, commandIndex);
 
                 clo.result(null);
             } else if (command instanceof DeleteAllCommand) {
-                clo.result(handleDeleteAllCommand((DeleteAllCommand) command));
+                clo.result(handleDeleteAllCommand((DeleteAllCommand) command, commandIndex));
             } else if (command instanceof DeleteExactCommand) {
-                clo.result(handleDeleteExactCommand((DeleteExactCommand) command));
+                clo.result(handleDeleteExactCommand((DeleteExactCommand) command, commandIndex));
             } else if (command instanceof DeleteExactAllCommand) {
-                clo.result(handleDeleteExactAllCommand((DeleteExactAllCommand) command));
+                clo.result(handleDeleteExactAllCommand((DeleteExactAllCommand) command, commandIndex));
             } else if (command instanceof ReplaceIfExistCommand) {
-                clo.result(handleReplaceIfExistsCommand((ReplaceIfExistCommand) command));
+                clo.result(handleReplaceIfExistsCommand((ReplaceIfExistCommand) command, commandIndex));
             } else if (command instanceof GetAndDeleteCommand) {
-                clo.result(handleGetAndDeleteCommand((GetAndDeleteCommand) command));
+                clo.result(handleGetAndDeleteCommand((GetAndDeleteCommand) command, commandIndex));
             } else if (command instanceof GetAndReplaceCommand) {
-                clo.result(handleGetAndReplaceCommand((GetAndReplaceCommand) command));
+                clo.result(handleGetAndReplaceCommand((GetAndReplaceCommand) command, commandIndex));
             } else if (command instanceof GetAndUpsertCommand) {
-                clo.result(handleGetAndUpsertCommand((GetAndUpsertCommand) command));
+                clo.result(handleGetAndUpsertCommand((GetAndUpsertCommand) command, commandIndex));
             } else if (command instanceof ScanInitCommand) {
                 handleScanInitCommand((CommandClosure<ScanInitCommand>) clo, (ScanInitCommand) command);
             } else if (command instanceof ScanRetrieveBatchCommand) {
@@ -184,7 +180,7 @@ public class PartitionListener implements RaftGroupListener {
             } else if (command instanceof ScanCloseCommand) {
                 handleScanCloseCommand((CommandClosure<ScanCloseCommand>) clo, (ScanCloseCommand) command);
             } else if (command instanceof FinishTxCommand) {
-                clo.result(handleFinishTxCommand((FinishTxCommand) command));
+                clo.result(handleFinishTxCommand((FinishTxCommand) command, commandIndex));
             } else {
                 assert false : "Command was not found [cmd=" + command + ']';
             }
@@ -243,192 +239,287 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link InsertCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      * @return Result.
      */
-    private boolean handleInsertCommand(InsertCommand cmd) {
-        return storage.insert(cmd.getRow(), cmd.getTxId());
+    private boolean handleInsertCommand(InsertCommand cmd, long commandIndex) {
+        return storage.delegate().runConsistently(() -> {
+            boolean res = storage.insert(cmd.getRow(), cmd.getTxId());
+
+            storage.delegate().lastAppliedIndex(commandIndex);
+
+            return res;
+        });
     }
 
     /**
      * Handler for the {@link DeleteCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      * @return Result.
      */
-    private boolean handleDeleteCommand(DeleteCommand cmd) {
-        return storage.delete(cmd.getRow(), cmd.getTxId());
+    private boolean handleDeleteCommand(DeleteCommand cmd, long commandIndex) {
+        return storage.delegate().runConsistently(() -> {
+            boolean res = storage.delete(cmd.getRow(), cmd.getTxId());
+
+            storage.delegate().lastAppliedIndex(commandIndex);
+
+            return res;
+        });
     }
 
     /**
      * Handler for the {@link ReplaceCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      * @return Result.
      */
-    private boolean handleReplaceCommand(ReplaceCommand cmd) {
-        return storage.replace(cmd.getOldRow(), cmd.getRow(), cmd.getTxId());
+    private boolean handleReplaceCommand(ReplaceCommand cmd, long commandIndex) {
+        return storage.delegate().runConsistently(() -> {
+            boolean res = storage.replace(cmd.getOldRow(), cmd.getRow(), cmd.getTxId());
+
+            storage.delegate().lastAppliedIndex(commandIndex);
+
+            return res;
+        });
     }
 
     /**
      * Handler for the {@link UpsertCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      */
-    private void handleUpsertCommand(UpsertCommand cmd) {
-        storage.upsert(cmd.getRow(), cmd.getTxId());
+    private void handleUpsertCommand(UpsertCommand cmd, long commandIndex) {
+        storage.delegate().runConsistently(() -> {
+            storage.upsert(cmd.getRow(), cmd.getTxId());
+
+            storage.delegate().lastAppliedIndex(commandIndex);
+
+            return null;
+        });
     }
 
     /**
      * Handler for the {@link InsertAllCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      * @return Result.
      */
-    private MultiRowsResponse handleInsertAllCommand(InsertAllCommand cmd) {
-        Collection<BinaryRow> rows = cmd.getRows();
+    private MultiRowsResponse handleInsertAllCommand(InsertAllCommand cmd, long commandIndex) {
+        return storage.delegate().runConsistently(() -> {
+            Collection<BinaryRow> rows = cmd.getRows();
 
-        assert rows != null && !rows.isEmpty();
+            assert rows != null && !rows.isEmpty();
 
-        return new MultiRowsResponse(storage.insertAll(rows, cmd.getTxId()));
+            List<BinaryRow> res = storage.insertAll(rows, cmd.getTxId());
+
+            storage.delegate().lastAppliedIndex(commandIndex);
+
+            return new MultiRowsResponse(res);
+        });
     }
 
     /**
      * Handler for the {@link UpsertAllCommand}.
      *
      * @param cmd Command.
-     * @return Result.
+     * @param commandIndex Index of the RAFT command.
      */
-    private void handleUpsertAllCommand(UpsertAllCommand cmd) {
-        Collection<BinaryRow> rows = cmd.getRows();
+    private void handleUpsertAllCommand(UpsertAllCommand cmd, long commandIndex) {
+        storage.delegate().runConsistently(() -> {
+            Collection<BinaryRow> rows = cmd.getRows();
 
-        assert rows != null && !rows.isEmpty();
+            assert rows != null && !rows.isEmpty();
 
-        storage.upsertAll(rows, cmd.getTxId());
+            storage.upsertAll(rows, cmd.getTxId());
+
+            storage.delegate().lastAppliedIndex(commandIndex);
+
+            return null;
+        });
     }
 
     /**
      * Handler for the {@link DeleteAllCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      * @return Result.
      */
-    private MultiRowsResponse handleDeleteAllCommand(DeleteAllCommand cmd) {
-        Collection<BinaryRow> rows = cmd.getRows();
+    private MultiRowsResponse handleDeleteAllCommand(DeleteAllCommand cmd, long commandIndex) {
+        return storage.delegate().runConsistently(() -> {
+            Collection<BinaryRow> rows = cmd.getRows();
 
-        assert rows != null && !rows.isEmpty();
+            assert rows != null && !rows.isEmpty();
 
-        return new MultiRowsResponse(storage.deleteAll(rows, cmd.getTxId()));
+            List<BinaryRow> res = storage.deleteAll(rows, cmd.getTxId());
+
+            storage.delegate().lastAppliedIndex(commandIndex);
+
+            return new MultiRowsResponse(res);
+        });
     }
 
     /**
      * Handler for the {@link DeleteExactCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      * @return Result.
      */
-    private boolean handleDeleteExactCommand(DeleteExactCommand cmd) {
-        BinaryRow row = cmd.getRow();
+    private boolean handleDeleteExactCommand(DeleteExactCommand cmd, long commandIndex) {
+        return storage.delegate().runConsistently(() -> {
+            BinaryRow row = cmd.getRow();
 
-        assert row != null;
-        assert row.hasValue();
+            assert row != null;
+            assert row.hasValue();
 
-        return storage.deleteExact(row, cmd.getTxId());
+            boolean res = storage.deleteExact(row, cmd.getTxId());
+
+            storage.delegate().lastAppliedIndex(commandIndex);
+
+            return res;
+        });
     }
 
     /**
      * Handler for the {@link DeleteExactAllCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      * @return Result.
      */
-    private MultiRowsResponse handleDeleteExactAllCommand(DeleteExactAllCommand cmd) {
-        Collection<BinaryRow> rows = cmd.getRows();
+    private MultiRowsResponse handleDeleteExactAllCommand(DeleteExactAllCommand cmd, long commandIndex) {
+        return storage.delegate().runConsistently(() -> {
+            Collection<BinaryRow> rows = cmd.getRows();
 
-        assert rows != null && !rows.isEmpty();
+            assert rows != null && !rows.isEmpty();
 
-        return new MultiRowsResponse(storage.deleteAllExact(rows, cmd.getTxId()));
+            List<BinaryRow> res = storage.deleteAllExact(rows, cmd.getTxId());
+
+            storage.delegate().lastAppliedIndex(commandIndex);
+
+            return new MultiRowsResponse(res);
+        });
     }
 
     /**
      * Handler for the {@link ReplaceIfExistCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      * @return Result.
      */
-    private boolean handleReplaceIfExistsCommand(ReplaceIfExistCommand cmd) {
-        BinaryRow row = cmd.getRow();
+    private boolean handleReplaceIfExistsCommand(ReplaceIfExistCommand cmd, long commandIndex) {
+        return storage.delegate().runConsistently(() -> {
+            BinaryRow row = cmd.getRow();
 
-        assert row != null;
+            assert row != null;
 
-        return storage.replace(row, cmd.getTxId());
+            boolean res = storage.replace(row, cmd.getTxId());
+
+            storage.delegate().lastAppliedIndex(commandIndex);
+
+            return res;
+        });
     }
 
     /**
      * Handler for the {@link GetAndDeleteCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      * @return Result.
      */
-    private SingleRowResponse handleGetAndDeleteCommand(GetAndDeleteCommand cmd) {
-        BinaryRow row = cmd.getRow();
+    private SingleRowResponse handleGetAndDeleteCommand(GetAndDeleteCommand cmd, long commandIndex) {
+        return storage.delegate().runConsistently(() -> {
+            BinaryRow row = cmd.getRow();
 
-        assert row != null;
+            assert row != null;
 
-        return new SingleRowResponse(storage.getAndDelete(row, cmd.getTxId()));
+            BinaryRow res = storage.getAndDelete(row, cmd.getTxId());
+
+            storage.delegate().lastAppliedIndex(commandIndex);
+
+            return new SingleRowResponse(res);
+        });
     }
 
     /**
      * Handler for the {@link GetAndReplaceCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      * @return Result.
      */
-    private SingleRowResponse handleGetAndReplaceCommand(GetAndReplaceCommand cmd) {
-        BinaryRow row = cmd.getRow();
+    private SingleRowResponse handleGetAndReplaceCommand(GetAndReplaceCommand cmd, long commandIndex) {
+        return storage.delegate().runConsistently(() -> {
+            BinaryRow row = cmd.getRow();
 
-        assert row != null && row.hasValue();
+            assert row != null && row.hasValue();
 
-        return new SingleRowResponse(storage.getAndReplace(row, cmd.getTxId()));
+            BinaryRow res = storage.getAndReplace(row, cmd.getTxId());
+
+            storage.delegate().lastAppliedIndex(commandIndex);
+
+            return new SingleRowResponse(res);
+        });
     }
 
     /**
      * Handler for the {@link GetAndUpsertCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      * @return Result.
      */
-    private SingleRowResponse handleGetAndUpsertCommand(GetAndUpsertCommand cmd) {
-        BinaryRow row = cmd.getRow();
+    private SingleRowResponse handleGetAndUpsertCommand(GetAndUpsertCommand cmd, long commandIndex) {
+        return storage.delegate().runConsistently(() -> {
+            BinaryRow row = cmd.getRow();
 
-        assert row != null && row.hasValue();
+            assert row != null && row.hasValue();
 
-        return new SingleRowResponse(storage.getAndUpsert(row, cmd.getTxId()));
+            BinaryRow res = storage.getAndUpsert(row, cmd.getTxId());
+
+            storage.delegate().lastAppliedIndex(commandIndex);
+
+            return new SingleRowResponse(res);
+        });
     }
 
     /**
      * Handler for the {@link FinishTxCommand}.
      *
      * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
      * @return Result.
      */
-    private boolean handleFinishTxCommand(FinishTxCommand cmd) {
-        UUID txId = cmd.txId();
+    private boolean handleFinishTxCommand(FinishTxCommand cmd, long commandIndex) {
+        return storage.delegate().runConsistently(() -> {
+            UUID txId = cmd.txId();
 
-        boolean stateChanged = txManager.changeState(txId, TxState.PENDING, cmd.finish() ? TxState.COMMITED : TxState.ABORTED);
+            boolean stateChanged = txManager.changeState(txId, TxState.PENDING, cmd.finish() ? TxState.COMMITED : TxState.ABORTED);
 
-        // This code is technically incorrect and assumes that "stateChanged" is always true. This was done because transaction state is not
-        // persisted and thus FinishTxCommand couldn't be completed on recovery after node restart ("changeState" uses "replace").
-        if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
-            cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(key -> {
-                storage.commitWrite(ByteBuffer.wrap(key), txId);
-            });
-        } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
-            cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(key -> {
-                storage.abortWrite(ByteBuffer.wrap(key));
-            });
-        }
+            // This code is technically incorrect and assumes that "stateChanged" is always true. This was done because transaction state is
+            // not persisted and thus FinishTxCommand couldn't be completed on recovery after node restart ("changeState" uses "replace").
+            if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
+                cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(key -> {
+                    storage.commitWrite(ByteBuffer.wrap(key), txId);
+                });
+            } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
+                cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(key -> {
+                    storage.abortWrite(ByteBuffer.wrap(key));
+                });
+            }
 
-        return stateChanged;
+            storage.delegate().lastAppliedIndex(commandIndex);
+
+            return stateChanged;
+        });
     }
 
     /**
