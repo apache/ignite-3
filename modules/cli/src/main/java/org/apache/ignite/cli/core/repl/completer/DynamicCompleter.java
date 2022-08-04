@@ -26,7 +26,7 @@ import java.util.List;
 public interface DynamicCompleter {
 
     /**
-     * Given typed fords returns list of candidates that can be autocompleted.
+     * Given typed words returns list of candidates that can be autocompleted.
      */
     List<String> complete(String[] words);
 }
