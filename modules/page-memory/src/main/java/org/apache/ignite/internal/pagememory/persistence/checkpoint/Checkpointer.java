@@ -36,7 +36,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.LongAdder;
@@ -412,12 +411,7 @@ public class Checkpointer extends IgniteWorker {
             if (pageWritePool == null) {
                 write.run();
             } else {
-                try {
-                    pageWritePool.execute(write);
-                } catch (RejectedExecutionException ignore) {
-                    // Run the task synchronously.
-                    write.run();
-                }
+                pageWritePool.execute(write);
             }
         }
 

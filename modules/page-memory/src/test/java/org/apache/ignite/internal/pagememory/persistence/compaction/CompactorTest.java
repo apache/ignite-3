@@ -93,7 +93,7 @@ public class CompactorTest {
 
         when(filePageStore.removeDeltaFile(eq(deltaFilePageStoreIo))).thenReturn(true);
 
-        when(deltaFilePageStoreIo.pageOffsets()).thenReturn(new long[]{0});
+        when(deltaFilePageStoreIo.pageIndexes()).thenReturn(new int[]{0});
 
         when(deltaFilePageStoreIo.readWithMergedToFilePageStoreCheck(anyLong(), anyLong(), any(ByteBuffer.class), anyBoolean()))
                 .then(answer -> {

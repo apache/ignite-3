@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -101,17 +100,22 @@ public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
      */
     @Override
     public long pageOffset(long pageId) {
-        int searchResult = binarySearch(header.pageIndexes(), pageIndex(pageId));
+        return pageOffset(pageIndex(pageId));
+    }
+
+    /**
+     * Returns page offset within the store file, {@code -1} if page not found in delta file.
+     *
+     * @param pageIdx Page index.
+     */
+    public long pageOffset(int pageIdx) {
+        int searchResult = binarySearch(header.pageIndexes(), pageIdx);
 
         if (searchResult < 0) {
             return -1;
         }
 
-        return pageOffset(searchResult);
-    }
-
-    private long pageOffset(int pagePosition) {
-        return (long) pagePosition * pageSize() + headerSize();
+        return (long) searchResult * pageSize() + headerSize();
     }
 
     /**
@@ -151,13 +155,6 @@ public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
     }
 
     /**
-     * Returns page offsets within the store file.
-     */
-    public long[] pageOffsets() {
-        return IntStream.of(header.pageIndexes()).mapToLong(this::pageOffset).toArray();
-    }
-
-    /**
      * Marks that the delta file page store has been merged with the file page store.
      *
      * <p>It waits for all current {@link #readWithMergedToFilePageStoreCheck(long, long, ByteBuffer, boolean) readings} to end, and
@@ -165,5 +162,12 @@ public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
      */
     public void markMergedToFilePageStore() {
         mergedBusyLock.block();
+    }
+
+    /**
+     * Returns page indexes of the delta file page store.
+     */
+    public int[] pageIndexes() {
+        return header.pageIndexes();
     }
 }

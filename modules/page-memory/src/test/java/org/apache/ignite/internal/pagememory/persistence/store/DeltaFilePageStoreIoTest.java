@@ -57,11 +57,19 @@ public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
 
         try (DeltaFilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, header)) {
             assertEquals(PAGE_SIZE, filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 0)));
+            assertEquals(PAGE_SIZE, filePageStoreIo.pageOffset(0));
+
             assertEquals(2 * PAGE_SIZE, filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 1)));
+            assertEquals(2 * PAGE_SIZE, filePageStoreIo.pageOffset(1));
+
             assertEquals(3 * PAGE_SIZE, filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 2)));
+            assertEquals(3 * PAGE_SIZE, filePageStoreIo.pageOffset(2));
 
             assertEquals(-1, filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 3)));
+            assertEquals(-1, filePageStoreIo.pageOffset(3));
+
             assertEquals(-1, filePageStoreIo.pageOffset(pageId(0, FLAG_DATA, 4)));
+            assertEquals(-1, filePageStoreIo.pageOffset(4));
         }
     }
 
@@ -142,18 +150,6 @@ public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
     }
 
     @Test
-    void testPageOffsets() throws Exception {
-        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(0, 1, 2));
-
-        try (DeltaFilePageStoreIo filePageStoreIo = createFilePageStoreIo(workDir.resolve("test"), header)) {
-            assertArrayEquals(
-                    IntStream.of(header.pageIndexes()).mapToLong(index -> ((long) index * PAGE_SIZE) + header.headerSize()).toArray(),
-                    filePageStoreIo.pageOffsets()
-            );
-        }
-    }
-
-    @Test
     void testMergedToFilePageStore() throws Exception {
         DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(0, 1, 2));
 
@@ -186,6 +182,15 @@ public class DeltaFilePageStoreIoTest extends AbstractFilePageStoreIoTest {
             assertFalse(filePageStoreIo.readWithMergedToFilePageStoreCheck(pageId, pageOff, buffer.rewind(), false));
 
             assertEquals(ByteBuffer.allocateDirect(PAGE_SIZE).order(pageByteBuffer.order()), buffer.rewind());
+        }
+    }
+
+    @Test
+    void testPageIndexes() throws Exception {
+        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(0, 1, 2));
+
+        try (DeltaFilePageStoreIo filePageStoreIo = createFilePageStoreIo(workDir.resolve("test"), header)) {
+            assertArrayEquals(arr(0, 1, 2), filePageStoreIo.pageIndexes());
         }
     }
 

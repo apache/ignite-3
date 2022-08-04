@@ -28,7 +28,6 @@ import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -228,12 +227,7 @@ public class Compactor extends IgniteWorker {
             if (threadPoolExecutor == null) {
                 merger.run();
             } else {
-                try {
-                    threadPoolExecutor.execute(merger);
-                } catch (RejectedExecutionException ignore) {
-                    // Run the task synchronously.
-                    merger.run();
-                }
+                threadPoolExecutor.execute(merger);
             }
         }
 
@@ -319,14 +313,18 @@ public class Compactor extends IgniteWorker {
         // Copy pages deltaFilePageStore -> filePageStore.
         ByteBuffer buffer = threadBuf.get();
 
-        for (long pageOffset : deltaFilePageStore.pageOffsets()) {
+        for (long pageIndex : deltaFilePageStore.pageIndexes()) {
             updateHeartbeat();
 
             if (isCancelled()) {
                 return;
             }
 
-            boolean read = deltaFilePageStore.readWithMergedToFilePageStoreCheck(pageOffset, pageOffset, buffer.rewind(), false);
+            long pageOffset = deltaFilePageStore.pageOffset(pageIndex);
+
+            // pageIndex instead of pageId, only for debugging in case of errors
+            // since we do not know the pageId until we read it from the pageOffset.
+            boolean read = deltaFilePageStore.readWithMergedToFilePageStoreCheck(pageIndex, pageOffset, buffer.rewind(), false);
 
             assert read : deltaFilePageStore.filePath();
 
