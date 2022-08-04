@@ -20,9 +20,11 @@ package org.apache.ignite.internal.metrics;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLongArray;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import static java.util.Collections.unmodifiableList;
 
 /**
  * Distribution metric calculates counts of measurements that gets into each bounds interval.
@@ -35,6 +37,9 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
 
     /** Bounds of measurements. */
     private final long[] bounds;
+
+    /** List of scalar metrics. */
+    private volatile List<Metric> scalarMetrics = null;
 
     /**
      * The constructor.
@@ -74,11 +79,11 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
     }
 
     /**
-     * Sets value.
+     * Adds a value to the interval which the value belongs to.
      *
      * @param x Value.
      */
-    public void value(long x) {
+    public void add(long x) {
         assert x >= 0;
 
         //Expect arrays of few elements.
@@ -110,10 +115,16 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
 
         List<Metric> scalarMetrics = asScalarMetrics();
 
-        for (Metric m : scalarMetrics) {
+        for (int i = 0; i < scalarMetrics.size(); i++) {
+            LongMetric m = (LongMetric) scalarMetrics.get(i);
+
             sb.append(m.name())
                 .append(':')
-                .append(((LongMetric) m).value());
+                .append(m.value());
+
+            if (i < scalarMetrics.size() - 1) {
+                sb.append(", ");
+            }
         }
 
         sb.append(']');
@@ -132,20 +143,27 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
 
     /** {@inheritDoc} */
     @Override public List<Metric> asScalarMetrics() {
-        List<Metric> res = new ArrayList<>();
+        if (scalarMetrics == null) {
+            List<Metric> metrics = new ArrayList<>();
 
-        for (int i = 0; i < measurements.length(); i++) {
-            String from = i == 0 ? "0" : String.valueOf(bounds[i - 1]);
-            String to = i == measurements.length() - 1 ? "" : String.valueOf(bounds[i]);
+            for (int i = 0; i < measurements.length(); i++) {
+                String from = i == 0 ? "0" : String.valueOf(bounds[i - 1]);
+                String to = i == measurements.length() - 1 ? "" : String.valueOf(bounds[i]);
 
-            String name = new StringBuilder(from).append('_').append(to).toString();
+                String name = new StringBuilder(from).append('_').append(to).toString();
 
-            final int index = i;
-            LongGauge gauge = new LongGauge(name, "Single distribution bucket", () -> measurements.get(index));
+                final int index = i;
+                LongGauge gauge = new LongGauge(name, "Single distribution bucket", () -> measurements.get(index));
 
-            res.add(gauge);
+                metrics.add(gauge);
+            }
+
+            AtomicReferenceFieldUpdater<DistributionMetric, List> updater =
+                AtomicReferenceFieldUpdater.newUpdater(DistributionMetric.class, List.class, "scalarMetrics");
+
+            updater.compareAndSet(this, null, unmodifiableList(metrics));
         }
 
-        return res;
+        return scalarMetrics;
     }
 }

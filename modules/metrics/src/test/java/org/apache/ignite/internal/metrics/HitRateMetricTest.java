@@ -17,31 +17,16 @@
 
 package org.apache.ignite.internal.metrics;
 
-import static org.apache.ignite.internal.util.IgniteUtils.onNodeStart;
-import static org.apache.ignite.internal.util.IgniteUtils.onNodeStop;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.apache.ignite.internal.metrics.HitRateMetric;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Hit rate metric test.
  */
 public class HitRateMetricTest {
-    @BeforeEach
-    public void beforeAll() {
-        onNodeStart();
-    }
-
-    @AfterEach
-    public void afterAll() {
-        onNodeStop();
-    }
-
     @Test
-    public void testHitrateMetric() {
+    public void testHitRateMetric() {
         HitRateMetric hitRateMetric = new HitRateMetric("hitRate", null, 100);
 
         hitRateMetric.increment();

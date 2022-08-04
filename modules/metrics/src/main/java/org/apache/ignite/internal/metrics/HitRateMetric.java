@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.metrics;
 
-import static org.apache.ignite.internal.util.IgniteUtils.ensure;
-
 import java.util.concurrent.atomic.AtomicLongArray;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.Nullable;
@@ -77,8 +75,8 @@ public class HitRateMetric extends AbstractMetric implements LongMetric {
     public HitRateMetric(String name, @Nullable String desc, long rateTimeInterval, int size) {
         super(name, desc);
 
-        ensure(rateTimeInterval > 0, "rateTimeInterval should be positive");
-        ensure(size > 1, "Minimum value for size is 2");
+        assert rateTimeInterval > 0 : "rateTimeInterval should be positive";
+        assert size > 1 : "Minimum value for size is 2";
 
         this.rateTimeInterval = rateTimeInterval;
         this.size = size;
@@ -92,7 +90,7 @@ public class HitRateMetric extends AbstractMetric implements LongMetric {
      * @param hits Count of hits.
      */
     public void add(long hits) {
-        long curTs = FastTimestamps.coarseCurrentTimeMillis();
+        long curTs = System.currentTimeMillis();
 
         int curPos = position(curTs);
 
@@ -111,7 +109,7 @@ public class HitRateMetric extends AbstractMetric implements LongMetric {
 
     /** {@inheritDoc} */
     @Override public long value() {
-        long curTs = FastTimestamps.coarseCurrentTimeMillis();
+        long curTs = System.currentTimeMillis();
 
         long sum = 0;
 

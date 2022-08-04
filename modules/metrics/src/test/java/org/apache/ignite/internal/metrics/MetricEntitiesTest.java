@@ -88,7 +88,8 @@ public class MetricEntitiesTest {
         assertEquals(SCALAR_METRIC_NAME, holder.atomicIntMetric.name());
         assertEquals(COMPOSITE_METRIC_NAME, holder.distributionMetric.name());
 
-        List<Metric> scalarMetrics = stream(spliteratorUnknownSize(metricSet.scalarMetricsIterator(), 0), false).collect(toList());
+        List<Metric> scalarMetrics = stream(spliteratorUnknownSize(new CompositeAwareIterator(metrics.iterator()), 0), false)
+            .collect(toList());
 
         assertEquals(2 + DISTRIBUTION_BOUNDS.length, scalarMetrics.size());
 

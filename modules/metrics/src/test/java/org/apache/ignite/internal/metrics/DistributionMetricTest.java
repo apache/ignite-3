@@ -39,12 +39,12 @@ public class DistributionMetricTest {
 
         assertEquals(bounds.length + 1, distribution.value().length);
 
-        distribution.value(10);
-        distribution.value(51);
-        distribution.value(60);
-        distribution.value(600);
-        distribution.value(600);
-        distribution.value(600);
+        distribution.add(10);
+        distribution.add(51);
+        distribution.add(60);
+        distribution.add(600);
+        distribution.add(600);
+        distribution.add(600);
 
         distribution.value();
 
@@ -63,9 +63,9 @@ public class DistributionMetricTest {
             assertEquals(i + 1, lm.value());
         }
 
-        distribution.value(1);
-        distribution.value(100);
-        distribution.value(1000);
+        distribution.add(1);
+        distribution.add(100);
+        distribution.add(1000);
 
         for (int i = 0; i < scalarMetrics.size(); i++) {
             LongMetric lm = (LongMetric) scalarMetrics.get(i);

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metrics;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
@@ -64,81 +63,11 @@ public class MetricSet implements Iterable<Metric> {
     }
 
     /**
-     * The iterator that considers composite metrics as a group of scalar ones, see {@link CompositeMetric#asScalarMetrics()},
-     * and enumerates composite metrics in order to enumerate every scalar metric.
-     *
-     * @return Iterator.
-     */
-    public Iterator<Metric> scalarMetricsIterator() {
-        return new CompositeAwareIterator(metrics.values());
-    }
-
-    /**
      * Name of the metric set.
      *
      * @return Name of the metrics set.
      */
     public String name() {
         return name;
-    }
-
-    /**
-     * The iterator for metric set, aware of composite metrics, see {@link #scalarMetricsIterator()}.
-     */
-    private static class CompositeAwareIterator implements Iterator<Metric> {
-        private final Iterator<Metric> iterator;
-        private Iterator<Metric> compositeMetricIterator = null;
-
-        /**
-         * The constructor.
-         *
-         * @param metrics Collection of metrics that can contain composite metrics.
-         */
-        public CompositeAwareIterator(Collection<Metric> metrics) {
-            iterator = metrics.iterator();
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean hasNext() {
-            if (compositeMetricIterator == null) {
-                return iterator.hasNext();
-            } else if (compositeMetricIterator.hasNext()) {
-                return true;
-            } else {
-                compositeMetricIterator = null;
-
-                return iterator.hasNext();
-            }
-        }
-
-        /** {@inheritDoc} */
-        @Override public Metric next() {
-            if (compositeMetricIterator == null) {
-                return nextCompositeAware();
-            } else if (compositeMetricIterator.hasNext()) {
-                return compositeMetricIterator.next();
-            } else {
-                compositeMetricIterator = null;
-
-                return nextCompositeAware();
-            }
-        }
-
-        /**
-         * Next method that is aware of composite metrics.
-         *
-         * @return Next value.
-         */
-        private Metric nextCompositeAware() {
-            Metric nextValue = iterator.next();
-
-            if (nextValue instanceof CompositeMetric) {
-                compositeMetricIterator = ((CompositeMetric) nextValue).asScalarMetrics().iterator();
-
-                return compositeMetricIterator.next();
-            } else {
-                return nextValue;
-            }
-        }
     }
 }

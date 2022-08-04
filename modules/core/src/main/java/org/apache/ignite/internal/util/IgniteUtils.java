@@ -790,17 +790,4 @@ public class IgniteUtils {
             }
         }
     }
-
-    /**
-     * Checks if given argument's condition is equal to {@code true}, otherwise
-     * throws {@link IllegalArgumentException} exception.
-     *
-     * @param cond Argument's value condition to check.
-     * @param desc Description of the condition to be used in error message.
-     */
-    public static void ensure(boolean cond, String desc) {
-        if (!cond) {
-            throw new IllegalArgumentException(INVALID_ARG_MSG_PREFIX + desc);
-        }
-    }
 }
