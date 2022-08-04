@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.cli.core.repl.completer.CompleterFilter;
 import org.apache.ignite.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.cli.core.repl.completer.DynamicCompleterRegistry;
-import org.jetbrains.annotations.NotNull;
 import org.jline.builtins.Options.HelpException;
 import org.jline.console.ArgDesc;
 import org.jline.console.CmdDesc;
@@ -222,7 +221,6 @@ public class IgnitePicocliCommands implements CommandRegistry {
             }
         }
 
-        @NotNull
         private Candidate dynamicCandidate(String one) {
             // more dots means deeper level of the config tree, so we don't want to show them in the completion at first positions
             // the absence of dots, on the other hand, means that this completion should have higher sorting priority

@@ -22,7 +22,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 
 import org.apache.ignite.cli.core.repl.Session;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 class DynamicCompleterFilterTest {
@@ -49,7 +48,6 @@ class DynamicCompleterFilterTest {
         return session;
     }
 
-    @NotNull
     private static Session connected() {
         Session session = new Session();
         session.setConnectedToNode(true);
