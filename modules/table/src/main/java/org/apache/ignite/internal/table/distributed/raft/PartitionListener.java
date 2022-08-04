@@ -443,14 +443,10 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         // TODO: tmp
-        try {
-            if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
-                storage.pendingKeys.getOrDefault(txId, Collections.emptyList()).forEach(key -> storage.commitWrite((ByteBuffer) key, txId));
-            } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
-                storage.pendingKeys.getOrDefault(txId, Collections.emptyList()).forEach(key -> storage.abortWrite((ByteBuffer) key));
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+        if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
+            storage.pendingKeys.getOrDefault(txId, Collections.emptyList()).forEach(key -> storage.commitWrite((ByteBuffer) key, txId));
+        } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
+            storage.pendingKeys.getOrDefault(txId, Collections.emptyList()).forEach(key -> storage.abortWrite((ByteBuffer) key));
         }
 
         return stateChanged;
