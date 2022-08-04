@@ -75,8 +75,8 @@ public class CheckpointPagesWriter implements Runnable {
     /** Future which should be finished when all pages would be written. */
     private final CompletableFuture<?> doneFut;
 
-    /** Some action which will be executed every time before page will be written. */
-    private final Runnable beforePageWrite;
+    /** Update heartbeat callback. */
+    private final Runnable updateHeartbeat;
 
     /** Thread local with buffers for the checkpoint threads. Each buffer represent one page for durable memory. */
     private final ThreadLocal<ByteBuffer> threadBuf;
@@ -103,7 +103,7 @@ public class CheckpointPagesWriter implements Runnable {
      * @param writePageIds Queue of dirty page IDs to write.
      * @param updatedPartitions Updated partitions.
      * @param doneFut Done future.
-     * @param beforePageWrite Action to be performed before every page write.
+     * @param updateHeartbeat Update heartbeat callback.
      * @param log Logger.
      * @param threadBuf Thread local byte buffer.
      * @param checkpointProgress Checkpoint progress.
@@ -118,7 +118,7 @@ public class CheckpointPagesWriter implements Runnable {
             IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds,
             ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions,
             CompletableFuture<?> doneFut,
-            Runnable beforePageWrite,
+            Runnable updateHeartbeat,
             ThreadLocal<ByteBuffer> threadBuf,
             CheckpointProgressImpl checkpointProgress,
             WriteDirtyPage pageWriter,
@@ -131,7 +131,7 @@ public class CheckpointPagesWriter implements Runnable {
         this.writePageIds = writePageIds;
         this.updatedPartitions = updatedPartitions;
         this.doneFut = doneFut;
-        this.beforePageWrite = beforePageWrite;
+        this.updateHeartbeat = updateHeartbeat;
         this.threadBuf = threadBuf;
         this.checkpointProgress = checkpointProgress;
         this.pageWriter = pageWriter;
@@ -183,7 +183,7 @@ public class CheckpointPagesWriter implements Runnable {
         AtomicBoolean writeMetaPage = new AtomicBoolean();
 
         while (!shutdownNow.getAsBoolean() && writePageIds.next(queueResult)) {
-            beforePageWrite.run();
+            updateHeartbeat.run();
 
             FullPageId fullId = queueResult.getValue();
 

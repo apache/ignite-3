@@ -77,6 +77,12 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         try {
             dataRegion.filePageStoreManager().initialize(tableView.name(), tableView.tableId(), tableView.partitions());
+
+            int deltaFileCount = dataRegion.filePageStoreManager().getStores(tableView.tableId()).stream()
+                    .mapToInt(FilePageStore::deltaFileCount)
+                    .sum();
+
+            dataRegion.checkpointManager().addDeltaFileCountForCompaction(deltaFileCount);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error initializing file page stores for table: " + tableView.name(), e);
         }
