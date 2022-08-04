@@ -45,9 +45,13 @@ public class PartitionMeta {
         }
     }
 
+    // TODO: IGNITE-17085 вот тут поменять
     private volatile long treeRootPageId;
 
+    // TODO: IGNITE-17085 вот тут поменять
     private volatile long reuseListRootPageId;
+
+    // TODO: IGNITE-17085 вот добавить
 
     private volatile int pageCount;
 

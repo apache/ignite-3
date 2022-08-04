@@ -44,6 +44,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see MvPartitionStorage
  */
+// TODO: IGNITE-17085 сделать абстрактным
 public class AbstractPageMemoryMvPartitionStorage implements MvPartitionStorage {
     private static final byte[] TOMBSTONE_PAYLOAD = new byte[0];
 

@@ -139,11 +139,11 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
                 initNewReuseList = true;
             }
 
-            TableFreeList tableFreeList = createTableFreeList(tableView, partitionId, meta, initNewReuseList);
+            TableFreeList tableFreeList = createTableFreeList(tableView, partitionId, meta.reuseListRootPageId(), initNewReuseList);
 
             autoCloseables.add(tableFreeList::close);
 
-            TableTree tableTree = createTableTree(tableView, partitionId, tableFreeList, meta, initNewTree);
+            TableTree tableTree = createTableTree(tableView, partitionId, tableFreeList, meta.treeRootPageId(), initNewTree);
 
             return new PersistentPageMemoryPartitionStorage(partitionId, tableFreeList, tableTree, checkpointTimeoutLock);
         } catch (IgniteInternalCheckedException e) {
@@ -203,34 +203,67 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
                 meta.incrementPageCount(last == null ? null : last.id());
             });
 
-            // TODO: IGNITE-17085 вот тут переделать немного
-
-            boolean initNewTree = false;
+            boolean initNewVersionChainTree = false;
 
             if (meta.treeRootPageId() == 0) {
                 meta.treeRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
 
-                initNewTree = true;
+                initNewVersionChainTree = true;
             }
 
-            boolean initNewReuseList = false;
+            boolean initVersionChainFreeList = false;
 
             if (meta.reuseListRootPageId() == 0) {
                 meta.reuseListRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
 
-                initNewReuseList = true;
+                initVersionChainFreeList = true;
             }
 
-            TableFreeList tableFreeList = createTableFreeList(tableView, partitionId, meta, initNewReuseList);
+            boolean initRowVersionFreeList = false;
 
-            autoCloseables.add(tableFreeList::close);
+            // TODO: IGNITE-17085 вот тут поменять
+            if (meta.reuseListRootPageId() == 0) {
+                meta.reuseListRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
 
-            TableTree tableTree = createTableTree(tableView, partitionId, tableFreeList, meta, initNewTree);
+                initRowVersionFreeList = true;
+            }
 
-            return null;
+            VersionChainFreeList versionChainFreeList = createVersionChainFreeList(
+                    tableView,
+                    partitionId,
+                    meta.reuseListRootPageId(),
+                    initVersionChainFreeList
+            );
 
-            // TODO: IGNITE-17085 не забудь
-            //return new PersistentPageMemoryMvPartitionStorage(partitionId, tableView, tableFreeList, tableTree, checkpointTimeoutLock);
+            autoCloseables.add(versionChainFreeList::close);
+
+            RowVersionFreeList rowVersionFreeList = createRowVersionFreeList(
+                    tableView,
+                    partitionId,
+                    null,
+                    // TODO: IGNITE-17085 вот тут поменять
+                    meta.reuseListRootPageId(),
+                    initRowVersionFreeList
+            );
+
+            autoCloseables.add(rowVersionFreeList::close);
+
+            VersionChainTree versionChainTree = createVersionChainTree(
+                    tableView,
+                    partitionId,
+                    versionChainFreeList,
+                    meta.treeRootPageId(),
+                    initNewVersionChainTree
+            );
+
+            return new PersistentPageMemoryMvPartitionStorage(
+                    partitionId,
+                    tableView,
+                    dataRegion.pageMemory(),
+                    versionChainFreeList,
+                    rowVersionFreeList,
+                    versionChainTree
+            );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
                     String.format("Error getting or creating partition metadata [tableName=%s, partitionId=%s]", tableView.name(),
@@ -270,14 +303,14 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      *
      * @param tableView Table configuration.
      * @param partId Partition ID.
-     * @param partitionMeta Partition metadata.
+     * @param rootPageId Root page ID.
      * @param initNew {@code True} if new metadata should be initialized.
      * @throws StorageException If failed.
      */
     TableFreeList createTableFreeList(
             TableView tableView,
             int partId,
-            PartitionMeta partitionMeta,
+            long rootPageId,
             boolean initNew
     ) throws StorageException {
         try {
@@ -286,7 +319,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
                     partId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
-                    partitionMeta.reuseListRootPageId(),
+                    rootPageId,
                     initNew,
                     PageEvictionTrackerNoOp.INSTANCE,
                     IoStatisticsHolderNoOp.INSTANCE
@@ -304,14 +337,14 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      *
      * @param tableView Table configuration.
      * @param partId Partition ID.
-     * @param partitionMeta Partition metadata.
+     * @param rootPageId Root page ID.
      * @param initNew {@code True} if new metadata should be initialized.
      * @throws StorageException If failed.
      */
     VersionChainFreeList createVersionChainFreeList(
             TableView tableView,
             int partId,
-            PartitionMeta partitionMeta,
+            long rootPageId,
             boolean initNew
     ) throws StorageException {
         try {
@@ -320,8 +353,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
                     partId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
-                    // TODO: IGNITE-17085 тут поменять
-                    partitionMeta.reuseListRootPageId(),
+                    rootPageId,
                     initNew,
                     PageEvictionTrackerNoOp.INSTANCE,
                     IoStatisticsHolderNoOp.INSTANCE
@@ -339,15 +371,16 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      *
      * @param tableView Table configuration.
      * @param partId Partition ID.
-     * @param partitionMeta Partition metadata.
+     * @param rootPageId Root page ID.
      * @param initNew {@code True} if new metadata should be initialized.
      * @throws StorageException If failed.
      */
     RowVersionFreeList createRowVersionFreeList(
             TableView tableView,
             int partId,
+            // TODO: IGNITE-17085 обсудить удаление
             ReuseList reuseList,
-            PartitionMeta partitionMeta,
+            long rootPageId,
             boolean initNew
     ) throws StorageException {
         try {
@@ -357,8 +390,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
                     dataRegion.pageMemory(),
                     reuseList,
                     PageLockListenerNoOp.INSTANCE,
-                    // TODO: IGNITE-17085 тут поменять
-                    partitionMeta.reuseListRootPageId(),
+                    rootPageId,
                     initNew,
                     PageEvictionTrackerNoOp.INSTANCE,
                     IoStatisticsHolderNoOp.INSTANCE
@@ -377,7 +409,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      * @param tableView Table configuration.
      * @param partId Partition ID.
      * @param freeList Table free list.
-     * @param partitionMeta Partition metadata.
+     * @param rootPageId Root page ID.
      * @param initNewTree {@code True} if new tree should be created.
      * @throws StorageException If failed.
      */
@@ -385,7 +417,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             TableView tableView,
             int partId,
             TableFreeList freeList,
-            PartitionMeta partitionMeta,
+            long rootPageId,
             boolean initNewTree
     ) throws StorageException {
         int grpId = tableView.tableId();
@@ -398,7 +430,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
-                    partitionMeta.treeRootPageId(),
+                    rootPageId,
                     freeList,
                     initNewTree
             );
@@ -416,7 +448,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      * @param tableView Table configuration.
      * @param partId Partition ID.
      * @param freeList {@link VersionChain} free list.
-     * @param partitionMeta Partition metadata.
+     * @param rootPageId Root page ID.
      * @param initNewTree {@code True} if new tree should be created.
      * @throws StorageException If failed.
      */
@@ -424,7 +456,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             TableView tableView,
             int partId,
             VersionChainFreeList freeList,
-            PartitionMeta partitionMeta,
+            long rootPageId,
             boolean initNewTree
     ) throws StorageException {
         int grpId = tableView.tableId();
@@ -437,8 +469,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
-                    // TODO: IGNITE-17085 тут поменять
-                    partitionMeta.treeRootPageId(),
+                    rootPageId,
                     freeList,
                     initNewTree
             );

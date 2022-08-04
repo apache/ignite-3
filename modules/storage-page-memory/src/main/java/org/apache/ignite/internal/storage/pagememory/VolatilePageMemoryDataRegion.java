@@ -95,7 +95,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         }
 
         try {
-            rowVersionFreeList = createRowVersionFreeList(pageMemory, tableFreeList);
+            rowVersionFreeList = createRowVersionFreeList(pageMemory, null);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error creating a RowVersionFreeList", e);
         }
