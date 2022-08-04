@@ -170,34 +170,27 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             String tableName,
             SchemaDescriptor schemaDescriptor
     ) {
-        return registriesVv.update(causalityToken, (registries, e) -> {
-            if (!busyLock.enterBusy()) {
-                return failedFuture(new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException()));
+        return registriesVv.updateInBusyLock(causalityToken, (registries, e) -> {
+            if (e != null) {
+                return failedFuture(new IgniteInternalException(IgniteStringFormatter.format(
+                        "Cannot create a schema for the table [tblId={}, ver={}]", tableId, schemaDescriptor.version()), e)
+                );
             }
-            try {
-                if (e != null) {
-                    return failedFuture(new IgniteInternalException(IgniteStringFormatter.format(
-                            "Cannot create a schema for the table [tblId={}, ver={}]", tableId, schemaDescriptor.version()), e)
-                    );
-                }
 
-                SchemaRegistryImpl reg = registries.get(tableId);
+            SchemaRegistryImpl reg = registries.get(tableId);
 
-                if (reg == null) {
-                    registries = new HashMap<>(registries);
+            if (reg == null) {
+                registries = new HashMap<>(registries);
 
-                    SchemaRegistryImpl registry = createSchemaRegistry(tableId, tableName, schemaDescriptor);
+                SchemaRegistryImpl registry = createSchemaRegistry(tableId, tableName, schemaDescriptor);
 
-                    registries.put(tableId, registry);
-                } else {
-                    reg.onSchemaRegistered(schemaDescriptor);
-                }
-
-                return completedFuture(registries);
-            } finally {
-                busyLock.leaveBusy();
+                registries.put(tableId, registry);
+            } else {
+                reg.onSchemaRegistered(schemaDescriptor);
             }
-        });
+
+            return completedFuture(registries);
+        }, busyLock);
     }
 
     /**
@@ -211,7 +204,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     private SchemaRegistryImpl createSchemaRegistry(UUID tableId, String tableName, SchemaDescriptor initialSchema) {
         return new SchemaRegistryImpl(ver -> {
             if (!busyLock.enterBusy()) {
-                throw new IgniteException(new NodeStoppingException());
+                throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
             }
 
             try {
@@ -221,7 +214,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             }
         }, () -> {
             if (!busyLock.enterBusy()) {
-                throw new IgniteException(new NodeStoppingException());
+                throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
             }
 
             try {
@@ -388,27 +381,20 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param tableId Table id.
      */
     public CompletableFuture<?> dropRegistry(long causalityToken, UUID tableId) {
-        return registriesVv.update(causalityToken, (registries, e) -> {
-            if (!busyLock.enterBusy()) {
-                return failedFuture(new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException()));
+        return registriesVv.updateInBusyLock(causalityToken, (registries, e) -> {
+            if (e != null) {
+                return failedFuture(new IgniteInternalException(
+                                IgniteStringFormatter.format("Cannot remove a schema registry for the table [tblId={}]", tableId), e
+                        )
+                );
             }
-            try {
-                if (e != null) {
-                    return failedFuture(new IgniteInternalException(
-                                    IgniteStringFormatter.format("Cannot remove a schema registry for the table [tblId={}]", tableId), e
-                            )
-                    );
-                }
 
-                registries = new HashMap<>(registries);
+            registries = new HashMap<>(registries);
 
-                registries.remove(tableId);
+            registries.remove(tableId);
 
-                return completedFuture(registries);
-            } finally {
-                busyLock.leaveBusy();
-            }
-        });
+            return completedFuture(registries);
+        }, busyLock);
     }
 
     /** {@inheritDoc} */

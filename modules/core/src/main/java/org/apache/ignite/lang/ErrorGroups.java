@@ -54,6 +54,9 @@ public class ErrorGroups {
 
         /** Column not found. */
         public static final int COLUMN_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode(4);
+
+        /** Table not completed. */
+        public static final int TABLE_NOT_COMPLETED_ERR = TABLE_ERR_GROUP.registerErrorCode(5);
     }
 
     /** Client error group. */

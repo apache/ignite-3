@@ -19,6 +19,7 @@ package org.apache.ignite.internal.causality;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +30,9 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -36,9 +40,11 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteTriConsumer;
+import org.apache.ignite.lang.NodeStoppingException;
 
 /**
  * Parametrized type to store several versions of the value.
@@ -227,10 +233,10 @@ public class VersionedValue<T> {
     /**
      * Waits for the latest value of a future.
      */
-    public T waitForLatest() {
+    public T waitForLatest(long timeout, TimeUnit unit) throws ExecutionException, InterruptedException, TimeoutException {
         CompletableFuture<T> fut = history.lastEntry().getValue();
 
-        return fut.join();
+        return fut.get(timeout, unit);
     }
 
 
@@ -428,6 +434,76 @@ public class VersionedValue<T> {
             return updaterFuture;
         }
     }
+
+    /**
+     * The same as {@link VersionedValue#update(long, BiFunction)}, but update happens in the provided busy lock.
+     *
+     * @param causalityToken Causality token.
+     * @param updater        The binary function that accepts previous value and exception, if present, and update it to compute
+     *                       the new value.
+     * @return               Future for updated value.
+     */
+    public CompletableFuture<T> updateInBusyLock(
+            long causalityToken,
+            BiFunction<T, Throwable, CompletableFuture<T>> updater,
+            IgniteSpinBusyLock busyLock
+    ) {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
+        }
+        try {
+            long actualToken0 = this.actualToken;
+
+            checkToken(actualToken0, causalityToken);
+
+            synchronized (updateMutex) {
+                CompletableFuture<T> updaterFuture = this.updaterFuture;
+
+                CompletableFuture<T> future = updaterFuture == null ? previousOrDefaultValueFuture(actualToken0) : updaterFuture;
+
+                CompletableFuture<CompletableFuture<T>> f0 = future
+                        .handle((fut, e) -> {
+                            if (!busyLock.enterBusy()) {
+                                if (e != null) {
+                                    throw new IgniteInternalException(NODE_STOPPING_ERR,
+                                            new NodeStoppingException("Previous versioned value update failed", e));
+                                } else {
+                                    throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+                                }
+                            }
+                            try {
+                                return updater.apply(fut, e);
+                            } finally {
+                                busyLock.leaveBusy();
+                            }
+                        })
+                        .handle((fut, e) -> {
+                            if (!busyLock.enterBusy()) {
+                                if (e != null) {
+                                    return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR,
+                                            new NodeStoppingException("Versioned value update failed", e)));
+                                } else {
+                                    return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
+                                }
+                            }
+                            try {
+                                return e == null ? fut : failedFuture(e);
+                            } finally {
+                                busyLock.leaveBusy();
+                            }
+                        });
+
+                updaterFuture = f0.thenCompose(Function.identity());
+
+                this.updaterFuture = updaterFuture;
+
+                return updaterFuture;
+            }
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
 
     /**
      * Add listener for completions of this versioned value on every token. It will be called on every {@link #complete(long)},
