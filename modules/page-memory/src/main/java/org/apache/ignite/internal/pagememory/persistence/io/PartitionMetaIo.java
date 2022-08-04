@@ -30,12 +30,19 @@ import org.apache.ignite.lang.IgniteStringBuilder;
 /**
  * Io for partition metadata pages.
  */
+// TODO: IGNITE-17085 обсудить выпиливаем ли существующие поля? я бы оставил с пометкой туду когда будет удалять старый код PartitionStorage
 public class PartitionMetaIo extends PageIo {
     private static final int TREE_ROOT_PAGE_ID_OFF = COMMON_HEADER_END;
 
     private static final int REUSE_LIST_ROOT_PAGE_ID_OFF = TREE_ROOT_PAGE_ID_OFF + Long.BYTES;
 
-    private static final int PAGE_COUNT_OFF = REUSE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
+    private static final int VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF = REUSE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
+
+    private static final int VERSION_CHAIN_FREE_LIST_ROOT_PAGE_ID_OFF = VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF + Long.BYTES;
+
+    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = VERSION_CHAIN_FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
+
+    private static final int PAGE_COUNT_OFF = ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
 
     /** Page IO type. */
     public static final short T_TABLE_PARTITION_META_IO = 7;
@@ -59,6 +66,9 @@ public class PartitionMetaIo extends PageIo {
 
         setTreeRootPageId(pageAddr, 0);
         setReuseListRootPageId(pageAddr, 0);
+        setVersionChainTreeRootPageId(pageAddr, 0);
+        setVersionChainFreeListRootPageId(pageAddr, 0);
+        setRowVersionFreeListRootPageId(pageAddr, 0);
         setPageCount(pageAddr, 0);
     }
 
@@ -105,6 +115,69 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
+     * Sets version chain tree root page ID.
+     *
+     * @param pageAddr Page address.
+     * @param pageId Version chain tree root page ID.
+     */
+    public void setVersionChainTreeRootPageId(long pageAddr, long pageId) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF, pageId);
+    }
+
+    /**
+     * Returns version chain tree root page ID.
+     *
+     * @param pageAddr Page address.
+     */
+    public long getVersionChainTreeRootPageId(long pageAddr) {
+        return getLong(pageAddr, VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF);
+    }
+
+    /**
+     * Sets version chain free list root page ID.
+     *
+     * @param pageAddr Page address.
+     * @param pageId Version chain free list root page ID.
+     */
+    public void setVersionChainFreeListRootPageId(long pageAddr, long pageId) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, VERSION_CHAIN_FREE_LIST_ROOT_PAGE_ID_OFF, pageId);
+    }
+
+    /**
+     * Returns version chain free list root page ID.
+     *
+     * @param pageAddr Page address.
+     */
+    public long getVersionChainFreeListRootPageId(long pageAddr) {
+        return getLong(pageAddr, VERSION_CHAIN_FREE_LIST_ROOT_PAGE_ID_OFF);
+    }
+
+    /**
+     * Sets row version free list root page ID.
+     *
+     * @param pageAddr Page address.
+     * @param pageId Row version free list root page ID.
+     */
+    public void setRowVersionFreeListRootPageId(long pageAddr, long pageId) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF, pageId);
+    }
+
+    /**
+     * Returns row version free list root page ID.
+     *
+     * @param pageAddr Page address.
+     */
+    public long getRowVersionFreeListRootPageId(long pageAddr) {
+        return getLong(pageAddr, ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF);
+    }
+
+    /**
      * Sets the count of pages.
      *
      * @param pageAddr Page address.
@@ -131,6 +204,9 @@ public class PartitionMetaIo extends PageIo {
         sb.app("TablePartitionMeta [").nl()
                 .app("treeRootPageId=").appendHex(getTreeRootPageId(addr)).nl()
                 .app(", reuseListRootPageId=").appendHex(getReuseListRootPageId(addr)).nl()
+                .app(", versionChainTreeRootPageId=").appendHex(getVersionChainTreeRootPageId(addr)).nl()
+                .app(", versionChainFreeListRootPageId=").appendHex(getVersionChainFreeListRootPageId(addr)).nl()
+                .app(", rowVersionFreeListRootPageId=").appendHex(getRowVersionFreeListRootPageId(addr)).nl()
                 .app(", pageCount=").app(getPageCount(addr)).nl()
                 .app(']');
     }

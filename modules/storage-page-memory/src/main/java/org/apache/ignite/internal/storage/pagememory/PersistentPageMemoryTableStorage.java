@@ -205,25 +205,24 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
             boolean initNewVersionChainTree = false;
 
-            if (meta.treeRootPageId() == 0) {
-                meta.treeRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
+            if (meta.versionChainTreeRootPageId() == 0) {
+                meta.versionChainTreeRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
 
                 initNewVersionChainTree = true;
             }
 
             boolean initVersionChainFreeList = false;
 
-            if (meta.reuseListRootPageId() == 0) {
-                meta.reuseListRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
+            if (meta.versionChainFreeListRootPageId() == 0) {
+                meta.versionChainFreeListRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
 
                 initVersionChainFreeList = true;
             }
 
             boolean initRowVersionFreeList = false;
 
-            // TODO: IGNITE-17085 вот тут поменять
-            if (meta.reuseListRootPageId() == 0) {
-                meta.reuseListRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
+            if (meta.rowVersionFreeListRootPageId() == 0) {
+                meta.rowVersionFreeListRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
 
                 initRowVersionFreeList = true;
             }
@@ -231,7 +230,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             VersionChainFreeList versionChainFreeList = createVersionChainFreeList(
                     tableView,
                     partitionId,
-                    meta.reuseListRootPageId(),
+                    meta.versionChainFreeListRootPageId(),
                     initVersionChainFreeList
             );
 
@@ -241,8 +240,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
                     tableView,
                     partitionId,
                     null,
-                    // TODO: IGNITE-17085 вот тут поменять
-                    meta.reuseListRootPageId(),
+                    meta.rowVersionFreeListRootPageId(),
                     initRowVersionFreeList
             );
 
@@ -252,7 +250,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
                     tableView,
                     partitionId,
                     versionChainFreeList,
-                    meta.treeRootPageId(),
+                    meta.versionChainTreeRootPageId(),
                     initNewVersionChainTree
             );
 
