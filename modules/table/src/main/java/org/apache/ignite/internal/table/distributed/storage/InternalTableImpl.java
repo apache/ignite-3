@@ -36,13 +36,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
@@ -63,6 +66,8 @@ import org.apache.ignite.internal.table.distributed.command.response.SingleRowRe
 import org.apache.ignite.internal.table.distributed.command.scan.ScanCloseCommand;
 import org.apache.ignite.internal.table.distributed.command.scan.ScanInitCommand;
 import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBatchCommand;
+import org.apache.ignite.internal.table.distributed.replication.request.ReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -235,6 +240,27 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
+     * Enlists a single row into a transaction.
+     *
+     * @param row The row.
+     * @param tx The transaction.
+     * @param op Replica requests factory.
+     * @param trans Transform closure.
+     * @param <R> Transform input.
+     * @param <T> Transform output.
+     * @return The future.
+     */
+    private <R, T> CompletableFuture<T> enlistInTx(
+            BinaryRowEx row,
+            InternalTransaction tx,
+            Supplier<ReplicaRequest> op,
+            Function<R, T> trans
+    ) {
+        // TODO: implement.
+        return null;
+    }
+
+    /**
      * Performs post enlist operation.
      *
      * @param fut The future.
@@ -265,7 +291,19 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
-        return enlistInTx(keyRow, tx, tx0 -> new GetCommand(keyRow, tx0.id()), SingleRowResponse::getValue);
+        TableMessagesFactory factory = new TableMessagesFactory();
+
+        return enlistInTx(
+                keyRow,
+                tx,
+                () -> factory.readWriteSingleRowReplicaRequest().
+                        /** todo */
+                        groupId("").
+                        binaryRow(keyRow).
+                        transactionId(tx.id()).
+                        requestType(RequestType.RO_GET).
+                        build(),
+        SingleRowResponse::getValue);
     }
 
     /** {@inheritDoc} */
