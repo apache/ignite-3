@@ -81,24 +81,27 @@ abstract class AbstractPageMemoryMvPartitionStorageTest<T extends AbstractPageMe
 
     @Test
     void abortOfInsertMakesRowIdInvalidForAddWrite() {
-        RowId rowId = storage.insert(binaryRow, newTransactionId());
-        storage.abortWrite(rowId);
+        RowId rowId = insert(binaryRow, newTransactionId());
 
-        assertThrows(RowIdIsInvalidForModificationsException.class, () -> storage.addWrite(rowId, binaryRow2, txId));
+        abortWrite(rowId);
+
+        assertThrows(RowIdIsInvalidForModificationsException.class, () -> addWrite(rowId, binaryRow2, txId));
     }
 
     @Test
     void abortOfInsertMakesRowIdInvalidForCommitWrite() {
-        RowId rowId = storage.insert(binaryRow, newTransactionId());
-        storage.abortWrite(rowId);
+        RowId rowId = insert(binaryRow, newTransactionId());
 
-        assertThrows(RowIdIsInvalidForModificationsException.class, () -> storage.commitWrite(rowId, Timestamp.nextVersion()));
+        abortWrite(rowId);
+
+        assertThrows(RowIdIsInvalidForModificationsException.class, () -> commitWrite(rowId, Timestamp.nextVersion()));
     }
 
     @Test
     void abortOfInsertMakesRowIdInvalidForAbortWrite() {
-        RowId rowId = storage.insert(binaryRow, newTransactionId());
-        storage.abortWrite(rowId);
+        RowId rowId = insert(binaryRow, newTransactionId());
+
+        abortWrite(rowId);
 
         assertThrows(RowIdIsInvalidForModificationsException.class, () -> storage.abortWrite(rowId));
     }
@@ -106,9 +109,10 @@ abstract class AbstractPageMemoryMvPartitionStorageTest<T extends AbstractPageMe
     @Test
     void uncommittedMultiPageValuesAreReadSuccessfully() {
         BinaryRow longRow = rowStoredInFragments();
-        LinkRowId rowId = storage.insert(longRow, txId);
 
-        BinaryRow foundRow = storage.read(rowId, txId);
+        LinkRowId rowId = (LinkRowId) insert(longRow, txId);
+
+        BinaryRow foundRow = read(rowId, txId);
 
         assertRowMatches(foundRow, longRow);
     }
@@ -130,10 +134,11 @@ abstract class AbstractPageMemoryMvPartitionStorageTest<T extends AbstractPageMe
     void committedMultiPageValuesAreReadSuccessfully() {
         BinaryRow longRow = rowStoredInFragments();
 
-        LinkRowId rowId = storage.insert(longRow, txId);
-        storage.commitWrite(rowId, Timestamp.nextVersion());
+        LinkRowId rowId = (LinkRowId) insert(longRow, txId);
 
-        BinaryRow foundRow = storage.read(rowId, Timestamp.nextVersion());
+        commitWrite(rowId, Timestamp.nextVersion());
+
+        BinaryRow foundRow = read(rowId, Timestamp.nextVersion());
 
         assertRowMatches(foundRow, longRow);
     }
@@ -141,7 +146,8 @@ abstract class AbstractPageMemoryMvPartitionStorageTest<T extends AbstractPageMe
     @Test
     void uncommittedMultiPageValuesWorkWithScans() throws Exception {
         BinaryRow longRow = rowStoredInFragments();
-        storage.insert(longRow, txId);
+
+        insert(longRow, txId);
 
         try (Cursor<BinaryRow> cursor = storage.scan(row -> true, txId)) {
             BinaryRow foundRow = cursor.next();
@@ -154,8 +160,9 @@ abstract class AbstractPageMemoryMvPartitionStorageTest<T extends AbstractPageMe
     void committedMultiPageValuesWorkWithScans() throws Exception {
         BinaryRow longRow = rowStoredInFragments();
 
-        LinkRowId rowId = storage.insert(longRow, txId);
-        storage.commitWrite(rowId, Timestamp.nextVersion());
+        LinkRowId rowId = (LinkRowId) insert(longRow, txId);
+
+        commitWrite(rowId, Timestamp.nextVersion());
 
         try (Cursor<BinaryRow> cursor = storage.scan(row -> true, txId)) {
             BinaryRow foundRow = cursor.next();
@@ -174,15 +181,18 @@ abstract class AbstractPageMemoryMvPartitionStorageTest<T extends AbstractPageMe
     }
 
     private RowId commitAbortAndAddUncommitted() {
-        RowId rowId = storage.insert(binaryRow, txId);
-        storage.commitWrite(rowId, Timestamp.nextVersion());
+        return storage.runConsistently(() -> {
+            RowId rowId = storage.insert(binaryRow, txId);
 
-        storage.addWrite(rowId, binaryRow2, newTransactionId());
-        storage.abortWrite(rowId);
+            storage.commitWrite(rowId, Timestamp.nextVersion());
 
-        storage.addWrite(rowId, binaryRow3, newTransactionId());
+            storage.addWrite(rowId, binaryRow2, newTransactionId());
+            storage.abortWrite(rowId);
 
-        return rowId;
+            storage.addWrite(rowId, binaryRow3, newTransactionId());
+
+            return rowId;
+        });
     }
 
     @Test
@@ -200,9 +210,9 @@ abstract class AbstractPageMemoryMvPartitionStorageTest<T extends AbstractPageMe
 
     @Test
     void readByTimestampWorksCorrectlyIfNoUncommittedValueExists() {
-        LinkRowId rowId = storage.insert(binaryRow, txId);
+        LinkRowId rowId = (LinkRowId) insert(binaryRow, txId);
 
-        BinaryRow foundRow = storage.read(rowId, Timestamp.nextVersion());
+        BinaryRow foundRow = read(rowId, Timestamp.nextVersion());
 
         assertThat(foundRow, is(nullValue()));
     }

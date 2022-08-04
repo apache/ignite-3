@@ -30,7 +30,6 @@ import org.apache.ignite.lang.IgniteStringBuilder;
 /**
  * Io for partition metadata pages.
  */
-// TODO: IGNITE-17085 обсудить выпиливаем ли существующие поля? я бы оставил с пометкой туду когда будет удалять старый код PartitionStorage
 public class PartitionMetaIo extends PageIo {
     private static final int TREE_ROOT_PAGE_ID_OFF = COMMON_HEADER_END;
 
@@ -78,6 +77,7 @@ public class PartitionMetaIo extends PageIo {
      * @param pageAddr Page address.
      * @param pageId Tree root page ID.
      */
+    // TODO: IGNITE-17466 Delete it
     public void setTreeRootPageId(long pageAddr, long pageId) {
         assertPageType(pageAddr);
 
@@ -89,6 +89,7 @@ public class PartitionMetaIo extends PageIo {
      *
      * @param pageAddr Page address.
      */
+    // TODO: IGNITE-17466 Delete it
     public long getTreeRootPageId(long pageAddr) {
         return getLong(pageAddr, TREE_ROOT_PAGE_ID_OFF);
     }
@@ -99,6 +100,7 @@ public class PartitionMetaIo extends PageIo {
      * @param pageAddr Page address.
      * @param pageId Reuse list root page ID.
      */
+    // TODO: IGNITE-17466 Delete it
     public void setReuseListRootPageId(long pageAddr, long pageId) {
         assertPageType(pageAddr);
 
@@ -110,6 +112,7 @@ public class PartitionMetaIo extends PageIo {
      *
      * @param pageAddr Page address.
      */
+    // TODO: IGNITE-17466 Delete it
     public long getReuseListRootPageId(long pageAddr) {
         return getLong(pageAddr, REUSE_LIST_ROOT_PAGE_ID_OFF);
     }

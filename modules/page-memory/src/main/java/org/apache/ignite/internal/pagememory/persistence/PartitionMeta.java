@@ -30,7 +30,6 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Partition meta information.
  */
-// TODO: IGNITE-17085 обсудить выпиливаем ли существующие поля? я бы оставил с пометкой туду когда будет удалять старый код PartitionStorage
 public class PartitionMeta {
     private static final VarHandle PAGE_COUNT;
 
@@ -46,8 +45,10 @@ public class PartitionMeta {
         }
     }
 
+    // TODO: IGNITE-17466 Delete it
     private volatile long treeRootPageId;
 
+    // TODO: IGNITE-17466 Delete it
     private volatile long reuseListRootPageId;
 
     private volatile long versionChainTreeRootPageId;

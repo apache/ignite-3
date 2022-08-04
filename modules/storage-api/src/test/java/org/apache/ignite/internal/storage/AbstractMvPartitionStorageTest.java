@@ -87,14 +87,14 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
     /**
      * Inserts a row inside of consistency closure.
      */
-    private RowId insert(BinaryRow binaryRow, UUID txId) {
+    protected RowId insert(BinaryRow binaryRow, UUID txId) {
         return storage.runConsistently(() -> storage.insert(binaryRow, txId));
     }
 
     /**
      * Adds/updates a write-intent inside of consistency closure.
      */
-    private BinaryRow addWrite(RowId rowId, BinaryRow binaryRow, UUID txId) {
+    protected BinaryRow addWrite(RowId rowId, BinaryRow binaryRow, UUID txId) {
         return storage.runConsistently(() -> storage.addWrite(rowId, binaryRow, txId));
     }
 

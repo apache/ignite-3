@@ -17,18 +17,12 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import java.util.UUID;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.TxIdMismatchException;
-import org.apache.ignite.internal.tx.Timestamp;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for persistent case.
@@ -63,47 +57,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     /** {@inheritDoc} */
     @Override
-    public LinkRowId insert(BinaryRow row, UUID txId) throws StorageException {
+    public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
         checkpointTimeoutLock.checkpointReadLock();
 
         try {
-            return super.insert(row, txId);
-        } finally {
-            checkpointTimeoutLock.checkpointReadUnlock();
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException, StorageException {
-        checkpointTimeoutLock.checkpointReadLock();
-
-        try {
-            return super.addWrite(rowId, row, txId);
-        } finally {
-            checkpointTimeoutLock.checkpointReadUnlock();
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void commitWrite(RowId rowId, Timestamp timestamp) throws StorageException {
-        checkpointTimeoutLock.checkpointReadLock();
-
-        try {
-            super.commitWrite(rowId, timestamp);
-        } finally {
-            checkpointTimeoutLock.checkpointReadUnlock();
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
-        checkpointTimeoutLock.checkpointReadLock();
-
-        try {
-            return super.abortWrite(rowId);
+            return closure.execute();
         } finally {
             checkpointTimeoutLock.checkpointReadUnlock();
         }
