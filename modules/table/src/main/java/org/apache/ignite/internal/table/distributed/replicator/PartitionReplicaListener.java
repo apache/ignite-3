@@ -36,7 +36,6 @@ import org.apache.ignite.internal.replicator.listener.ListenerFutureResponse;
 import org.apache.ignite.internal.replicator.listener.ListenerInstantResponse;
 import org.apache.ignite.internal.replicator.listener.ListenerResponse;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
-import org.apache.ignite.internal.replicator.message.ActionRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequestLocator;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -110,15 +109,16 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** {@inheritDoc} */
     @Override
     public ListenerResponse invoke(ReplicaRequest request) {
-        if (request instanceof ActionRequest) {
-            var actionRequest = (ActionRequest) request;
-
-            return processAction((PartitionAction) actionRequest.action());
-        } else {
-//            var cleanupRequest = (CleanupRequest)request;
-
-            return null;
-        }
+//        if (request instanceof ActionRequest) {
+//            var actionRequest = (ActionRequest) request;
+//
+//            return processAction((PartitionAction) actionRequest.action());
+//        } else {
+////            var cleanupRequest = (CleanupRequest)request;
+//
+//            return null;
+//        }
+        return null;
     }
 
     /**
