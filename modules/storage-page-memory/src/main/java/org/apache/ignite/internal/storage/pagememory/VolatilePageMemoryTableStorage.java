@@ -31,7 +31,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for in-memory case.
  */
-class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     private VolatilePageMemoryDataRegion dataRegion;
 
     /**

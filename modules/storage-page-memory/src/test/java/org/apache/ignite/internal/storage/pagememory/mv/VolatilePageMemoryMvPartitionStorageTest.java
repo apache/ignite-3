@@ -41,8 +41,8 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageChange;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageView;
@@ -60,7 +60,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
-class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<AbstractPageMemoryMvPartitionStorage> {
+class VolatilePageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<VolatilePageMemoryMvPartitionStorage> {
     private final PageIoRegistry ioRegistry = new PageIoRegistry();
 
     private final BinaryRow binaryRow3 = binaryRow(key, new TestValue(22, "bar3"));
@@ -87,7 +87,7 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Ab
 
     private VolatilePageMemoryStorageEngine engine;
 
-    private AbstractPageMemoryTableStorage table;
+    private VolatilePageMemoryTableStorage table;
 
     @WorkDirectory
     private Path workDir;
