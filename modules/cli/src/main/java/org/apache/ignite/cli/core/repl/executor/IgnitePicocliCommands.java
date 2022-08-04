@@ -129,7 +129,7 @@ public class IgnitePicocliCommands implements CommandRegistry {
         // using JLine help highlight because the statement below does not work well...
         //        main.add(new AttributedString(spec.usageMessage().sectionMap().get("synopsis").render(cmdhelp).toString()));
         for (OptionSpec o : spec.options()) {
-            String key = Arrays.stream(o.names()).collect(Collectors.joining(" "));
+            String key = String.join(" ", o.names());
             List<AttributedString> val = new ArrayList<>();
             for (String d : o.description()) {
                 val.add(new AttributedString(d));
@@ -145,12 +145,10 @@ public class IgnitePicocliCommands implements CommandRegistry {
     /** {@inheritDoc} */
     @Override
     public List<String> commandInfo(String command) {
-        List<String> out = new ArrayList<>();
         CommandSpec spec = cmd.getSubcommands().get(command).getCommandSpec();
         Help cmdhelp = new picocli.CommandLine.Help(spec);
         String description = AttributedString.stripAnsi(spec.usageMessage().sectionMap().get("description").render(cmdhelp));
-        out.addAll(Arrays.asList(description.split("\\r?\\n")));
-        return out;
+        return new ArrayList<>(Arrays.asList(description.split("\\r?\\n")));
     }
 
     @Override
