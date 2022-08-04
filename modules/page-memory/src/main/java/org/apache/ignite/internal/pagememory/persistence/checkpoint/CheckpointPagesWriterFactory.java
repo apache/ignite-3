@@ -91,7 +91,7 @@ public class CheckpointPagesWriterFactory {
      * @param dirtyPageIdQueue Checkpoint dirty page ID queue to write.
      * @param updatedPartitions Updated partitions.
      * @param doneWriteFut Write done future.
-     * @param beforePageWrite Before page write callback.
+     * @param updateHeartbeat Update heartbeat callback.
      * @param checkpointProgress Current checkpoint data.
      * @param shutdownNow Checker of stop operation.
      */
@@ -100,7 +100,7 @@ public class CheckpointPagesWriterFactory {
             IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPageIdQueue,
             ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions,
             CompletableFuture<?> doneWriteFut,
-            Runnable beforePageWrite,
+            Runnable updateHeartbeat,
             CheckpointProgressImpl checkpointProgress,
             // TODO: IGNITE-16993 Consider a lock replacement
             BooleanSupplier shutdownNow
@@ -111,7 +111,7 @@ public class CheckpointPagesWriterFactory {
                 dirtyPageIdQueue,
                 updatedPartitions,
                 doneWriteFut,
-                beforePageWrite,
+                updateHeartbeat,
                 threadBuf,
                 checkpointProgress,
                 dirtyPageWriter,

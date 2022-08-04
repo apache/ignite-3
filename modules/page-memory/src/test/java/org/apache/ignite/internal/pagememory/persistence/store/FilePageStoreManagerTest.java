@@ -45,6 +45,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
@@ -348,6 +349,24 @@ public class FilePageStoreManagerTest {
         assertEquals(
                 tableDir.resolve(String.format(PART_DELTA_FILE_TEMPLATE, 1, 2)),
                 manager.deltaFilePageStorePath(0, 1, 2)
+        );
+    }
+
+    @Test
+    void testAllPageStores() throws Exception {
+        FilePageStoreManager manager = createManager();
+
+        manager.start();
+
+        manager.initialize("test0", 1, 1);
+        manager.initialize("test1", 2, 1);
+
+        assertThat(
+                manager.allPageStores().stream().flatMap(List::stream).map(FilePageStore::filePath).collect(toList()),
+                containsInAnyOrder(
+                        workDir.resolve("db/table-1").resolve("part-0.bin"),
+                        workDir.resolve("db/table-2").resolve("part-0.bin")
+                )
         );
     }
 
