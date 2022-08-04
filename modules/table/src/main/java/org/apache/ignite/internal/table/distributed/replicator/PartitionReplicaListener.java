@@ -20,6 +20,8 @@ package org.apache.ignite.internal.table.distributed.replicator;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -35,7 +37,6 @@ import org.apache.ignite.internal.replicator.listener.ListenerInstantResponse;
 import org.apache.ignite.internal.replicator.listener.ListenerResponse;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ActionRequest;
-import org.apache.ignite.internal.replicator.message.CleanupRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequestLocator;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.replicator.action.PartitionAction;
+import org.apache.ignite.internal.table.distributed.replicator.action.PartitionMultiAction;
 import org.apache.ignite.internal.table.distributed.replicator.action.PartitionSingleAction;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
@@ -113,7 +115,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             return processAction((PartitionAction) actionRequest.action());
         } else {
-            var cleanupRequest = (CleanupRequest)request;
+//            var cleanupRequest = (CleanupRequest)request;
 
             return null;
         }
@@ -141,7 +143,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     //lockManager.acquire(action.txId(), new LockKey(INDEX_PK_ID, keyRow, LockMode.S); // Index S lock
 
-                    rowId = primaryIndex.get(singleEntryAction.entryContainer().getRow().keySlice());
+                    rowId = primaryIndex.get(keyRow.keySlice());
                 } else {
                     //lockManager.acquire(action.txId(), new LockKey(INDEX_SCAN_ID, keyRow, LockMode.S); // Index S lock
 
@@ -167,10 +169,54 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return new ListenerInstantResponse(row);
             }
             case RW_GET_ALL: {
-                // lock management
-                // get from local storage;
+                var multiEntryAction = (PartitionMultiAction) action;
 
-                return null;
+                Collection<BinaryRow> keyRows = multiEntryAction.entryContainer().getRows();
+
+                HashMap<BinaryRow, BinaryRow> result = new HashMap<>(keyRows.size());
+                HashMap<BinaryRow, RowId> rowIdByKey = new HashMap<>(keyRows.size());
+
+                for (BinaryRow keyRow: keyRows) {
+                    result.put(keyRow, null);
+                    rowIdByKey.put(keyRow, null);
+                }
+
+                if (multiEntryAction.indexToUse() != null) {
+                    assert INDEX_PK_ID.equals(multiEntryAction.indexToUse()) : IgniteStringFormatter.format(
+                            "The action can use only primary key index [indexToUse={}]", multiEntryAction.indexToUse());
+
+                    for (BinaryRow keyRow: keyRows) {
+                        //lockManager.acquire(action.txId(), new LockKey(INDEX_PK_ID, keyRow, LockMode.S); // Index S lock
+
+                        rowIdByKey.put(keyRow, primaryIndex.get(keyRow.keySlice()));
+                    }
+                } else {
+                    for (BinaryRow keyRow: keyRows) {
+                        //lockManager.acquire(action.txId(), new LockKey(INDEX_SCAN_ID, keyRow, LockMode.S); // Index S lock
+
+                        //TODO: Implement it through the scan index.
+                        for (Map.Entry<ByteBuffer, RowId> entry : primaryIndex.entrySet()) {
+                            if (keyRow.keySlice().equals(entry.getKey())) {
+                                rowIdByKey.put(keyRow, entry.getValue());
+
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                for (Map.Entry<BinaryRow, RowId> entry : rowIdByKey.entrySet()) {
+                    RowId rowId = entry.getValue();
+
+                    if (rowId != null) {
+                        //lockManager.acquire(action.txId(), new LockKey(tableId), LockMode.IS)); // IS lock on table
+                        //lockManager.acquire(action.txId(), new LockKey(tableId, rowId), LockMode.S)); // S lock on RowId
+
+                        result.put(entry.getKey(), mvDataStorage.read(rowId, action.txId()));
+                    }
+                }
+
+                return new ListenerInstantResponse(result);
             }
             case RW_DELETE: {
                 var singleEntryAction = (PartitionSingleAction) action;
