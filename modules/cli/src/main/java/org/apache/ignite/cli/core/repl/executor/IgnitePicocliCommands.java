@@ -224,8 +224,8 @@ public class IgnitePicocliCommands implements CommandRegistry {
 
         @NotNull
         private Candidate dynamicCandidate(String one) {
-            // more dots means deeper level of the config tree, so we don't want to show them in the completion at firs positions
-            // the epson of dots wise-versa wanted to be placed at the first position
+            // more dots means deeper level of the config tree, so we don't want to show them in the completion at first positions
+            // the absence of dots, on the other hand, means that this completion should have higher sorting priority
             int sortingPriority = one.split("\\.").length;
 
             return new Candidate(one, one, null, null, null, null, false, sortingPriority);
