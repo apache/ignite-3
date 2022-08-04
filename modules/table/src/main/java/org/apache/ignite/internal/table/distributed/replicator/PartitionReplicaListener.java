@@ -34,8 +34,6 @@ import org.apache.ignite.internal.replicator.listener.ListenerFutureResponse;
 import org.apache.ignite.internal.replicator.listener.ListenerInstantResponse;
 import org.apache.ignite.internal.replicator.listener.ListenerResponse;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
-import org.apache.ignite.internal.replicator.message.ActionRequest;
-import org.apache.ignite.internal.replicator.message.CleanupRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequestLocator;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -89,7 +87,13 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param raftClient    Raft client.
      * @param lockManager   Lock manager.
      */
-    public PartitionReplicaListener(MvPartitionStorage mvDataStorage, RaftGroupService raftClient, LockManager lockManager, UUID tableId, String listenerName) {
+    public PartitionReplicaListener(
+            MvPartitionStorage mvDataStorage,
+            RaftGroupService raftClient,
+            LockManager lockManager,
+            UUID tableId,
+            String listenerName
+    ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
         this.lockManager = lockManager;
@@ -108,15 +112,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** {@inheritDoc} */
     @Override
     public ListenerResponse invoke(ReplicaRequest request) {
-        if (request instanceof ActionRequest) {
-            var actionRequest = (ActionRequest) request;
-
-            return processAction((PartitionAction) actionRequest.action());
-        } else {
-            var cleanupRequest = (CleanupRequest)request;
-
-            return null;
-        }
+        return null;
     }
 
     /**
@@ -213,8 +209,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     raftClient.run(new DeleteCommand(keyRow, action.txId())).whenComplete((o, throwable) -> {
                         if (throwable != null) {
                             fut.completeExceptionally(throwable);
-                        }
-                        else {
+                        } else {
                             fut.complete(o);
                         }
                     });
@@ -268,8 +263,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     raftClient.run(new InsertCommand(row, action.txId())).whenComplete((o, throwable) -> {
                         if (throwable != null) {
                             fut.completeExceptionally(throwable);
-                        }
-                        else {
+                        } else {
                             fut.complete(o);
                         }
                     });

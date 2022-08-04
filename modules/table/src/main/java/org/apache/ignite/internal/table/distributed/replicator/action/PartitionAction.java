@@ -28,7 +28,7 @@ public abstract class PartitionAction implements ReplicaAction {
     /**
      * Action type.
      */
-    private final ActionType actionType;
+    private final RequestType actionType;
 
     /**
      * Transaction timestamp.
@@ -53,7 +53,7 @@ public abstract class PartitionAction implements ReplicaAction {
      * @param timestamp  Transaction timestamp.
      * @param indexToUse Index id.
      */
-    protected PartitionAction(ActionType type, UUID txId, HybridTimestamp timestamp, UUID indexToUse) {
+    protected PartitionAction(RequestType type, UUID txId, HybridTimestamp timestamp, UUID indexToUse) {
         this.actionType = type;
         this.txId = txId;
         this.timestamp = timestamp;
@@ -65,7 +65,7 @@ public abstract class PartitionAction implements ReplicaAction {
      *
      * @return Transaction operation type.
      */
-    public ActionType actionType() {
+    public RequestType actionType() {
         return actionType;
     }
 

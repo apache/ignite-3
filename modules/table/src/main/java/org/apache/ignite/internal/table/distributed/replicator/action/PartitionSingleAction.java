@@ -39,7 +39,7 @@ public class PartitionSingleAction extends PartitionAction {
      * @param indexToUse Index id.
      * @param container  Entry container.
      */
-    public PartitionSingleAction(ActionType type, UUID txId, HybridTimestamp timestamp, UUID indexToUse, SingleEntryContainer container) {
+    public PartitionSingleAction(RequestType type, UUID txId, HybridTimestamp timestamp, UUID indexToUse, SingleEntryContainer container) {
         super(type, txId, timestamp, indexToUse);
 
         this.container = container;

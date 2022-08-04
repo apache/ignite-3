@@ -43,9 +43,4 @@ public class ReplicaMessageGroup {
 
     /** Message type for {@link CompoundResponse}. */
     public static final short COMPOUND_RESPONSE = 5;
-
-    /**
-     *  Message type for {@link ActionRequest}.
-     */
-    public static final short ACTION_REQUEST = 6;
 }

@@ -37,7 +37,7 @@ public class PartitionMultiAction extends PartitionAction {
      * @param indexToUse Index id.
      * @param container  Entry container.
      */
-    public PartitionMultiAction(ActionType type, UUID txId, HybridTimestamp timestamp, UUID indexToUse, MultiEntryContainer container) {
+    public PartitionMultiAction(RequestType type, UUID txId, HybridTimestamp timestamp, UUID indexToUse, MultiEntryContainer container) {
         super(type, txId, timestamp, indexToUse);
 
         this.container = container;
