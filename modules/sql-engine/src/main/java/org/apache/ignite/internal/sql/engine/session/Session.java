@@ -38,7 +38,7 @@ import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
  * with all properties set during session's creation.
  */
 public class Session implements AsyncCloseable {
-    /** Marker used to mark a session which has been experid. */
+    /** Marker used to mark a session which has been expired. */
     private static final long EXPIRED = 0L;
 
     private final Set<AsyncCloseable> resources = Collections.synchronizedSet(

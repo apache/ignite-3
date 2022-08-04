@@ -17,7 +17,9 @@
 
 package org.apache.ignite.configuration.schemas.table;
 
+import java.util.UUID;
 import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
@@ -33,12 +35,13 @@ public class TableIndexConfigurationSchema {
     /** Sorted index type. */
     public static final String SORTED_INDEX_TYPE = "SORTED";
 
-    /** Partial index type. */
-    public static final String PARTIAL_INDEX_TYPE = "PARTIAL";
-
     /** Index type name. */
     @PolymorphicId
     public String type;
+
+    /** Index identifier. */
+    @InternalId
+    public UUID id;
 
     /** Index name. */
     @InjectedName
@@ -47,8 +50,4 @@ public class TableIndexConfigurationSchema {
     /** Has default value flag. */
     @Value(hasDefault = true)
     public boolean uniq = false;
-
-    /** Affinity column names for PrimaryKey. */
-    @Value(hasDefault = true)
-    public String[] affinityColumns = new String[0];
 }
