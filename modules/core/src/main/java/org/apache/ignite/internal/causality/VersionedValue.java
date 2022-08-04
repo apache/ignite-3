@@ -239,7 +239,6 @@ public class VersionedValue<T> {
         return fut.get(timeout, unit);
     }
 
-
     /**
      * Creates (if needed) and returns a default value.
      *
@@ -441,6 +440,7 @@ public class VersionedValue<T> {
      * @param causalityToken Causality token.
      * @param updater        The binary function that accepts previous value and exception, if present, and update it to compute
      *                       the new value.
+     * @param busyLock       Busy lock to stop ignite component synchronously.
      * @return               Future for updated value.
      */
     public CompletableFuture<T> updateInBusyLock(
@@ -503,7 +503,6 @@ public class VersionedValue<T> {
             busyLock.leaveBusy();
         }
     }
-
 
     /**
      * Add listener for completions of this versioned value on every token. It will be called on every {@link #complete(long)},
