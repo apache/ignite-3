@@ -15,20 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.basic;
+package org.apache.ignite.internal.storage.index.impl;
 
-import java.util.List;
-import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
+import java.nio.ByteBuffer;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.IndexRow;
 
 /**
- * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
+ * {@link IndexRow} implementation that simply stores the provided parameters.
  */
-public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest<TestMvPartitionStorage> {
-    /**
-     * Creates new instance.
-     */
-    public TestMvPartitionStorageTest() {
-        storage = new TestMvPartitionStorage(List.of(), 0);
+class IndexRowImpl implements IndexRow {
+    private final ByteBuffer bytes;
+
+    private final RowId rowId;
+
+    IndexRowImpl(ByteBuffer bytes, RowId rowId) {
+        this.bytes = bytes;
+        this.rowId = rowId;
     }
 
+    @Override
+    public ByteBuffer indexBytes() {
+        return bytes;
+    }
+
+    @Override
+    public RowId rowId() {
+        return rowId;
+    }
 }

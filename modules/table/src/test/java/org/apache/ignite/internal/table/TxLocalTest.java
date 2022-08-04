@@ -22,7 +22,7 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -65,7 +65,7 @@ public class TxLocalTest extends TxAbstractTest {
         AtomicLong accountsRaftIndex = new AtomicLong();
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
+                new VersionedRowStore(new TestMvPartitionStorage(0), txManager),
                 txManager,
                 accountsRaftIndex
         );
@@ -74,7 +74,7 @@ public class TxLocalTest extends TxAbstractTest {
 
         AtomicLong customersRaftIndex = new AtomicLong();
         DummyInternalTableImpl table2 = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
+                new VersionedRowStore(new TestMvPartitionStorage(0), txManager),
                 txManager,
                 customersRaftIndex
         );

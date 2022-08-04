@@ -23,7 +23,7 @@ package org.apache.ignite.internal.storage.index;
 public interface IndexRowPrefix {
     /**
      * Returns a list of column values that comprise a prefix of an Index row. Values will be sorted in the same order as the
-     * Sorted Index columns, specified by {@link SortedIndexDescriptor#indexRowColumns()}.
+     * Sorted Index columns, specified by {@link SortedIndexDescriptor#indexColumns()}.
      */
     Object[] prefixColumnValues();
 }

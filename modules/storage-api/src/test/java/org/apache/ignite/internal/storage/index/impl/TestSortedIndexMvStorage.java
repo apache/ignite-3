@@ -1,0 +1,164 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.storage.index.impl;
+
+import static org.apache.ignite.internal.util.IgniteUtils.capacity;
+
+import java.nio.ByteBuffer;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.NavigableMap;
+import java.util.Set;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.function.ToIntFunction;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
+import org.apache.ignite.internal.storage.index.IndexRowPrefix;
+import org.apache.ignite.internal.storage.index.IndexRowSerializer;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
+import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
+import org.apache.ignite.internal.util.Cursor;
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Test implementation of MV sorted index storage.
+ */
+public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
+    private final ConcurrentNavigableMap<ByteBuffer, Set<RowId>> index;
+
+    private final SortedIndexDescriptor descriptor;
+
+    private final BinaryTupleSchema schema;
+
+    /**
+     * Constructor.
+     */
+    public TestSortedIndexMvStorage(SortedIndexDescriptor descriptor) {
+        this.descriptor = descriptor;
+        this.schema = createSchema(descriptor);
+        this.index = new ConcurrentSkipListMap<>(new BinaryTupleComparator(descriptor, schema));
+    }
+
+    private static BinaryTupleSchema createSchema(SortedIndexDescriptor descriptor) {
+        Element[] elements = descriptor.indexColumns().stream()
+                .map(columnDescriptor -> new Element(columnDescriptor.type(), columnDescriptor.nullable()))
+                .toArray(Element[]::new);
+
+        return BinaryTupleSchema.create(elements);
+    }
+
+    @Override
+    public SortedIndexDescriptor indexDescriptor() {
+        return descriptor;
+    }
+
+    @Override
+    public IndexRowSerializer indexRowSerializer() {
+        return new BinaryTupleRowSerializer(schema);
+    }
+
+    @Override
+    public IndexRowDeserializer indexRowDeserializer() {
+        return new BinaryTupleRowDeserializer(descriptor, schema);
+    }
+
+    @Override
+    public void put(IndexRow row) {
+        index.compute(row.indexBytes(), (k, v) -> {
+            if (v == null) {
+                return Set.of(row.rowId());
+            } else {
+                var result = new HashSet<RowId>(capacity(v.size() + 1));
+
+                result.addAll(v);
+                result.add(row.rowId());
+
+                return result;
+            }
+        });
+    }
+
+    @Override
+    public void remove(IndexRow row) {
+        index.computeIfPresent(row.indexBytes(), (k, v) -> {
+            if (v.contains(row.rowId())) {
+                if (v.size() == 1) {
+                    return null;
+                } else {
+                    var result = new HashSet<>(v);
+
+                    result.remove(row.rowId());
+
+                    return result;
+                }
+            } else {
+                return v;
+            }
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Cursor<IndexRow> scan(
+            @Nullable IndexRowPrefix lowerBound,
+            @Nullable IndexRowPrefix upperBound,
+            int flags
+    ) {
+        boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
+        boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
+
+        NavigableMap<ByteBuffer, Set<RowId>> index = this.index;
+        int direction = 1;
+
+        // Swap bounds and flip index for backwards scan.
+        if ((flags & BACKWARDS) != 0) {
+            index = index.descendingMap();
+            direction = -1;
+
+            boolean tempBoolean = includeLower;
+            includeLower = includeUpper;
+            includeUpper = tempBoolean;
+
+            IndexRowPrefix tempBound = lowerBound;
+            lowerBound = upperBound;
+            upperBound = tempBound;
+        }
+
+        ToIntFunction<ByteBuffer> lowerCmp = lowerBound == null ? row -> 1 : boundComparator(lowerBound, direction, includeLower ? 0 : -1);
+        ToIntFunction<ByteBuffer> upperCmp = upperBound == null ? row -> -1 : boundComparator(upperBound, direction, includeUpper ? 0 : 1);
+
+        Iterator<? extends IndexRow> iterator = index.entrySet().stream()
+                .dropWhile(e -> lowerCmp.applyAsInt(e.getKey()) < 0)
+                .takeWhile(e -> upperCmp.applyAsInt(e.getKey()) <= 0)
+                .flatMap(e -> e.getValue().stream().map(rowId -> new IndexRowImpl(e.getKey(), rowId)))
+                .iterator();
+
+        return Cursor.fromIterator(iterator);
+    }
+
+    private ToIntFunction<ByteBuffer> boundComparator(IndexRowPrefix bound, int direction, int equals) {
+        var comparator = new PrefixComparator(descriptor, bound);
+
+        return bytes -> comparator.compare(new BinaryTuple(schema, bytes), direction, equals);
+    }
+}

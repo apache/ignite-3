@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.schema.definition.builder;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -34,7 +34,7 @@ import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
  */
 public class SortedIndexDefinitionBuilderImpl extends AbstractIndexBuilder implements SortedIndexDefinitionBuilder {
     /** Index columns. */
-    protected final Map<String, SortedIndexColumnBuilderImpl> cols = new HashMap<>();
+    protected final Map<String, SortedIndexColumnBuilderImpl> cols = new LinkedHashMap<>();
 
     /**
      * Constructor.

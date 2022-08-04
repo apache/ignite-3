@@ -15,35 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.basic;
+package org.apache.ignite.internal.storage.index;
 
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.storage.AbstractSortedIndexMvStorageTest;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
+import org.apache.ignite.internal.storage.index.impl.TestSortedIndexMvStorage;
 
 /**
  * MV sorted index storage test implementation for {@link TestSortedIndexMvStorage} class.
  */
 public class TestSortedIndexMvStorageTest extends AbstractSortedIndexMvStorageTest {
-    private List<TestSortedIndexMvStorage> indexes = new CopyOnWriteArrayList<>();
-
-    private TestMvPartitionStorage partitionStorage = new TestMvPartitionStorage(indexes, 0);
-
-    @Override
-    protected MvPartitionStorage partitionStorage() {
-        return partitionStorage;
-    }
-
     @Override
     protected SortedIndexMvStorage createIndexStorage(String name, TableView tableCfg) {
-        TestSortedIndexMvStorage index = new TestSortedIndexMvStorage(name, tableCfg, schemaDescriptor, Map.of(0, partitionStorage));
-
-        indexes.add(index);
-
-        return index;
+        return new TestSortedIndexMvStorage(new SortedIndexDescriptor(name, tableCfg));
     }
 }

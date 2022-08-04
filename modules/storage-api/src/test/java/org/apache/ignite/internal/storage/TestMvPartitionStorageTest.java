@@ -15,28 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb.index;
+package org.apache.ignite.internal.storage;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.storage.SearchRow;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 
 /**
- * {@link SearchRow} implementation that simply wraps a byte array.
+ * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
  */
-class ByteArraySearchRow implements SearchRow {
-    private final byte[] bytes;
-
-    ByteArraySearchRow(byte[] bytes) {
-        this.bytes = bytes;
-    }
-
-    @Override
-    public byte[] keyBytes() {
-        return bytes;
-    }
-
-    @Override
-    public ByteBuffer key() {
-        return ByteBuffer.wrap(bytes);
+public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest<TestMvPartitionStorage> {
+    /**
+     * Creates new instance.
+     */
+    public TestMvPartitionStorageTest() {
+        storage = new TestMvPartitionStorage(0);
     }
 }

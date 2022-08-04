@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb.index;
+package org.apache.ignite.internal.storage.index.impl;
 
 import java.util.Comparator;
 import java.util.function.Function;

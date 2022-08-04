@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.basic;
+package org.apache.ignite.internal.storage.impl;
 
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.UUID;
@@ -41,14 +40,11 @@ import org.jetbrains.annotations.Nullable;
 public class TestMvPartitionStorage implements MvPartitionStorage {
     private final ConcurrentMap<RowId, VersionChain> map = new ConcurrentHashMap<>();
 
-    private final List<TestSortedIndexMvStorage> indexes;
-
     private long lastAppliedIndex = 0;
 
     private final int partitionId;
 
-    public TestMvPartitionStorage(List<TestSortedIndexMvStorage> indexes, int partitionId) {
-        this.indexes = indexes;
+    public TestMvPartitionStorage(int partitionId) {
         this.partitionId = partitionId;
     }
 
@@ -65,15 +61,15 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             this.next = next;
         }
 
-        public static VersionChain createUncommitted(BinaryRow row, UUID txId, VersionChain next) {
+        static VersionChain createUncommitted(@Nullable BinaryRow row, @Nullable UUID txId, @Nullable VersionChain next) {
             return new VersionChain(row, null, txId, next);
         }
 
-        public static VersionChain createCommitted(Timestamp timestamp, VersionChain uncommittedVersionChain) {
+        static VersionChain createCommitted(@Nullable Timestamp timestamp, VersionChain uncommittedVersionChain) {
             return new VersionChain(uncommittedVersionChain.row, timestamp, null, uncommittedVersionChain.next);
         }
 
-        public boolean notContainsWriteIntent() {
+        boolean notContainsWriteIntent() {
             return begin != null && txId == null;
         }
     }
@@ -119,8 +115,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     throw new TxIdMismatchException();
                 }
 
-                cleanupIndexesForAbortedRow(versionChain, rowId);
-
                 res[0] = versionChain.row;
 
                 return VersionChain.createUncommitted(row, txId, versionChain.next);
@@ -128,12 +122,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
             return VersionChain.createUncommitted(row, txId, versionChain);
         });
-
-        if (row != null) {
-            for (TestSortedIndexMvStorage index : indexes) {
-                index.append(row, rowId);
-            }
-        }
 
         return res[0];
     }
@@ -150,32 +138,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
             assert versionChain.begin == null;
 
-            cleanupIndexesForAbortedRow(versionChain, rowId);
-
             res[0] = versionChain.row;
 
             return versionChain.next;
         });
 
         return res[0];
-    }
-
-    private void abortWrite(RowId rowId, VersionChain head, BinaryRow aborted, TestSortedIndexMvStorage index) {
-        for (VersionChain cur = head; cur != null; cur = cur.next) {
-            if (index.matches(aborted, cur.row)) {
-                return;
-            }
-        }
-
-        index.remove(aborted, rowId);
-    }
-
-    private void cleanupIndexesForAbortedRow(VersionChain versionChain, RowId rowId) {
-        if (versionChain.row != null) {
-            for (TestSortedIndexMvStorage index : indexes) {
-                abortWrite(rowId, versionChain.next, versionChain.row, index);
-            }
-        }
     }
 
     /** {@inheritDoc} */
@@ -209,7 +177,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Nullable
-    private BinaryRow read(VersionChain versionChain, @Nullable Timestamp timestamp, @Nullable UUID txId, Predicate<BinaryRow> filter) {
+    private static BinaryRow read(
+            VersionChain versionChain,
+            @Nullable Timestamp timestamp,
+            @Nullable UUID txId,
+            @Nullable Predicate<BinaryRow> filter
+    ) {
         assert timestamp == null ^ txId == null;
 
         if (versionChain == null) {
@@ -303,20 +276,5 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     @Override
     public void close() throws Exception {
         // No-op.
-    }
-
-    static class TestRowId implements RowId {
-        final int partitionId;
-        final UUID uuid;
-
-        TestRowId(int partitionId) {
-            this.partitionId = partitionId;
-            uuid = UUID.randomUUID();
-        }
-
-        @Override
-        public int partitionId() {
-            return partitionId;
-        }
     }
 }

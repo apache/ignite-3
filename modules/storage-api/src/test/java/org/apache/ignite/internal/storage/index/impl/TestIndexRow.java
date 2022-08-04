@@ -15,33 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb.index;
+package org.apache.ignite.internal.storage.index.impl;
 
 import static java.util.Comparator.comparing;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.generateRandomValue;
-import static org.apache.ignite.internal.storage.rocksdb.index.ComparatorUtils.comparingNull;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
+import static org.apache.ignite.internal.storage.index.impl.ComparatorUtils.comparingNull;
 
 import java.lang.reflect.Array;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Comparator;
-import java.util.Objects;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.impl.TestRowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
 
 /**
  * Convenience wrapper over an Index row.
  */
-class IndexRowWrapper implements Comparable<IndexRowWrapper> {
+public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
     /**
      * Values used to create the Index row.
      */
@@ -51,47 +51,54 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
 
     private final SortedIndexDescriptor descriptor;
 
-    IndexRowWrapper(SortedIndexStorage storage, IndexRow row, Object[] columns) {
+    /** Constructor. */
+    public TestIndexRow(SortedIndexMvStorage storage, IndexRow row, Object[] columns) {
         this.descriptor = storage.indexDescriptor();
         this.row = row;
         this.columns = columns;
     }
 
     /**
-     * Creates an Entry with a random key that satisfies the given schema and a random value.
+     * Creates an row with random column values that satisfies the given schema.
      */
-    static IndexRowWrapper randomRow(SortedIndexStorage indexStorage) {
+    public static TestIndexRow randomRow(SortedIndexMvStorage indexStorage) {
         var random = new Random();
 
-        Object[] columns = indexStorage.indexDescriptor().indexRowColumns().stream()
-                .map(ColumnDescriptor::column)
-                .map(column -> generateRandomValue(random, column.type()))
+        Object[] columns = indexStorage.indexDescriptor().indexColumns().stream()
+                .map(ColumnDescriptor::type)
+                .map(type -> generateRandomValue(random, type))
                 .toArray();
 
-        var primaryKey = new ByteArraySearchRow(randomBytes(random, 25));
+        var rowId = new TestRowId(0);
 
-        IndexRow row = indexStorage.indexRowFactory().createIndexRow(columns, primaryKey);
+        IndexRow row = indexStorage.indexRowSerializer().createIndexRow(columns, rowId);
 
-        return new IndexRowWrapper(indexStorage, row, columns);
+        return new TestIndexRow(indexStorage, row, columns);
     }
 
     /**
      * Creates an Index Key prefix of the given length.
      */
-    IndexRowPrefix prefix(int length) {
+    public IndexRowPrefix prefix(int length) {
         return () -> Arrays.copyOf(columns, length);
     }
 
-    IndexRow row() {
-        return row;
-    }
-
-    Object[] columns() {
+    public Object[] columns() {
         return columns;
     }
 
     @Override
-    public int compareTo(@NotNull IndexRowWrapper o) {
+    public ByteBuffer indexBytes() {
+        return row.indexBytes();
+    }
+
+    @Override
+    public RowId rowId() {
+        return row.rowId();
+    }
+
+    @Override
+    public int compareTo(TestIndexRow o) {
         int sizeCompare = Integer.compare(columns.length, o.columns.length);
 
         if (sizeCompare != 0) {
@@ -104,30 +111,13 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
             int compare = comparator.compare(columns[i], o.columns[i]);
 
             if (compare != 0) {
-                boolean asc = descriptor.indexRowColumns().get(i).asc();
+                boolean asc = descriptor.indexColumns().get(i).asc();
 
                 return asc ? compare : -compare;
             }
         }
 
         return 0;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        IndexRowWrapper that = (IndexRowWrapper) o;
-        return row.equals(that.row);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(row);
     }
 
     /**
@@ -137,7 +127,7 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
         if (Comparable.class.isAssignableFrom(type)) {
             return comparingNull(Comparable.class::cast, Comparator.naturalOrder());
         } else if (type.isArray()) {
-            return comparingNull(Function.identity(), comparing(IndexRowWrapper::toBoxedArray, Arrays::compare));
+            return comparingNull(Function.identity(), comparing(TestIndexRow::toBoxedArray, Arrays::compare));
         } else if (BitSet.class.isAssignableFrom(type)) {
             return comparingNull(BitSet.class::cast, comparing(BitSet::toLongArray, Arrays::compare));
         } else {

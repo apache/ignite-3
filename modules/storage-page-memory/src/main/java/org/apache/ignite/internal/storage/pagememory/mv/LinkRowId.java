@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import java.util.Objects;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.RowId;
 
@@ -41,5 +42,22 @@ public class LinkRowId implements RowId {
 
     long versionChainLink() {
         return rowLink;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        LinkRowId linkRowId = (LinkRowId) o;
+        return rowLink == linkRowId.rowLink;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(rowLink);
     }
 }

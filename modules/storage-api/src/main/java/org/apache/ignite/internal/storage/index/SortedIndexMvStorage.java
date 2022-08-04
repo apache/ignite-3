@@ -17,19 +17,18 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import java.util.UUID;
-import java.util.function.IntPredicate;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.tx.Timestamp;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.util.Cursor;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Storage for a sorted index.
- * POC version, that represents a combination between a replicated TX-aware MV storage and physical MV storage. Real future implementation
- * will be defined later. Things to notice here: TX-aware implementation should have a projection bitset instead of full row reading.
- * Physical storage API will be enriched with append/remove methods, like in reference implementation.
+ * Storage for a Sorted Index.
+ *
+ * <p>This storage serves as a sorted mapping from a subset of a table's columns (a.k.a. index columns) to a {@link RowId}
+ * from a {@link org.apache.ignite.internal.storage.MvPartitionStorage} from the same table.
+ *
+ * @see org.apache.ignite.schema.definition.index.SortedIndexDefinition
  */
 public interface SortedIndexMvStorage {
     /** Exclude lower bound. */
@@ -51,26 +50,31 @@ public interface SortedIndexMvStorage {
     int BACKWARDS = 1 << 2;
 
     /**
-     * The sole purpose of this class is to avoid massive refactoring while changing the original IndexRow.
+     * Returns the Index Descriptor of this storage.
      */
-    interface IndexRowEx {
-        /**
-         * Key-only binary row if index-only scan is supported, full binary row otherwise.
-         */
-        BinaryRow row();
+    SortedIndexDescriptor indexDescriptor();
 
-        /**
-         * Returns indexed column value.
-         *
-         * @param idx PK column index.
-         * @return Indexed column value.
-         */
-        Object value(int idx);
-    }
+    /**
+     * Returns a factory for creating index rows for this storage.
+     */
+    IndexRowSerializer indexRowSerializer();
 
-    boolean supportsBackwardsScan();
+    /**
+     * Returns a class deserializing index columns.
+     */
+    IndexRowDeserializer indexRowDeserializer();
 
-    boolean supportsIndexOnlyScan();
+    /**
+     * Adds the given index row to the index.
+     */
+    void put(IndexRow row);
+
+    /**
+     * Removes the given key from the index.
+     *
+     * <p>Removing a non-existent key is a no-op.
+     */
+    void remove(IndexRow row);
 
     /**
      * Returns a range of index values between the lower bound and the upper bound, consistent with the passed transaction id.
@@ -81,38 +85,12 @@ public interface SortedIndexMvStorage {
      *      {@code null} means unbounded.
      * @param flags Control flags. {@link #GREATER} | {@link #LESS} | {@link #FORWARD} by default. Other available values
      *      are {@link #GREATER_OR_EQUAL}, {@link #LESS_OR_EQUAL} and {@link #BACKWARDS}.
-     * @param txId Transaction id for consistent multi-versioned index scan.
-     * @param partitionFilter Partition filter predicate. {@code null} means returning data from all partitions.
      * @return Cursor with fetched index rows.
      * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.
      */
-    Cursor<IndexRowEx> scan(
+    Cursor<IndexRow> scan(
             @Nullable IndexRowPrefix lowerBound,
             @Nullable IndexRowPrefix upperBound,
-            @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags,
-            UUID txId,
-            @Nullable IntPredicate partitionFilter
-    );
-
-    /**
-     * Returns a range of index values between the lower bound and the upper bound, consistent with the passed timestamp.
-     *
-     * @param lowerBound Lower bound. Exclusivity is controlled by a {@link #GREATER_OR_EQUAL} or {@link #GREATER} flag.
-     *      {@code null} means unbounded.
-     * @param upperBound Upper bound. Exclusivity is controlled by a {@link #LESS} or {@link #LESS_OR_EQUAL} flag.
-     *      {@code null} means unbounded.
-     * @param flags Control flags. {@link #GREATER} | {@link #LESS} | {@link #FORWARD} by default. Other available values
-     *      are {@link #GREATER_OR_EQUAL}, {@link #LESS_OR_EQUAL} and {@link #BACKWARDS}.
-     * @param timestamp Timestamp value for consistent multi-versioned index scan.
-     * @param partitionFilter Partition filter predicate. {@code null} means returning data from all partitions.
-     * @return Cursor with fetched index rows.
-     * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.
-     */
-    Cursor<IndexRowEx> scan(
-            @Nullable IndexRowPrefix lowerBound,
-            @Nullable IndexRowPrefix upperBound,
-            @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags,
-            Timestamp timestamp,
-            @Nullable IntPredicate partitionFilter
+            @MagicConstant(flagsFromClass = SortedIndexMvStorage.class) int flags
     );
 }

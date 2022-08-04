@@ -37,7 +37,7 @@ public interface SortedIndexStorage extends AutoCloseable {
     /**
      * Returns a factory for creating index rows for this storage.
      */
-    IndexRowFactory indexRowFactory();
+    IndexRowSerializer indexRowFactory();
 
     /**
      * Returns a class deserializing index columns.

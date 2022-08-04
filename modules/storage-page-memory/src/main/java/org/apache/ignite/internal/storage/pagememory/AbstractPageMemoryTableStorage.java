@@ -31,7 +31,6 @@ import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.PageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -132,18 +131,6 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
 
             partition.destroy();
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public SortedIndexStorage getOrCreateSortedIndex(String indexName) {
-        throw new UnsupportedOperationException("Indexes are not supported yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void dropIndex(String indexName) {
-        throw new UnsupportedOperationException("Indexes are not supported yet.");
     }
 
     /**

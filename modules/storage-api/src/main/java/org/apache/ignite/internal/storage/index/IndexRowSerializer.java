@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import org.apache.ignite.internal.storage.SearchRow;
+import org.apache.ignite.internal.storage.RowId;
 
 /**
  * Temporary API for creating Index rows from a list of column values. All columns must be sorted according to the index columns order,
- * specified by the {@link SortedIndexDescriptor#indexRowColumns()}.
+ * specified by the {@link SortedIndexDescriptor#indexColumns()}.
  */
-public interface IndexRowFactory {
+public interface IndexRowSerializer {
     /**
      * Creates an Index row from a list of column values.
      */
-    IndexRow createIndexRow(Object[] columnValues, SearchRow primaryKey);
+    IndexRow createIndexRow(Object[] columnValues, RowId rowId);
 
     /**
      * Creates an Prefix row from a list of column values.
