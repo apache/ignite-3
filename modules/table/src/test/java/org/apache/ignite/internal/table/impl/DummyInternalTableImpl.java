@@ -32,6 +32,7 @@ import java.util.function.BiFunction;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.command.GetAllCommand;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
@@ -64,10 +65,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     /**
      * Creates a new local table.
      *
-     * @param store The store.
      * @param txManager Transaction manager.
      */
-    public DummyInternalTableImpl(VersionedRowStore store, TxManager txManager, AtomicLong raftIndex) {
+    public DummyInternalTableImpl(TxManager txManager, AtomicLong raftIndex) {
         super("test", UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                 1, null, null, txManager, mock(MvTableStorage.class));
@@ -149,7 +149,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 }
         ).when(svc).run(any());
 
-        partitionListener = new PartitionListener(UUID.randomUUID(), store);
+        UUID tblId = UUID.randomUUID();
+
+        partitionListener = new PartitionListener(
+                tblId,
+                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager)
+        );
     }
 
     /**

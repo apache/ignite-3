@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.table.distributed.command.scan.ScanCloseComman
 import org.apache.ignite.internal.table.distributed.command.scan.ScanInitCommand;
 import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBatchCommand;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -80,8 +82,12 @@ import org.jetbrains.annotations.TestOnly;
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener {
-    /** Lock id. */
-    private final IgniteUuid lockId;
+    /**
+     * Lock context id.
+     *
+     * @see org.apache.ignite.internal.tx.LockKey#contextId
+     */
+    private final UUID lockContextId;
 
     /** The versioned storage. */
     private final VersionedRowStore storage;
@@ -99,7 +105,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param store  The storage.
      */
     public PartitionListener(UUID tableId, VersionedRowStore store) {
-        this.lockId = new IgniteUuid(tableId, 0);
+        this.lockContextId = tableId;
         this.storage = store;
         this.txManager = store.txManager();
         this.cursors = new ConcurrentHashMap<>();
@@ -416,16 +422,31 @@ public class PartitionListener implements RaftGroupListener {
 
         boolean stateChanged = txManager.changeState(txId, TxState.PENDING, cmd.finish() ? TxState.COMMITED : TxState.ABORTED);
 
+        LockManager lockManager = txManager.lockManager();
+
         // This code is technically incorrect and assumes that "stateChanged" is always true. This was done because transaction state is not
         // persisted and thus FinishTxCommand couldn't be completed on recovery after node restart ("changeState" uses "replace").
         if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
-            cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(key -> {
-                storage.commitWrite(ByteBuffer.wrap(key), txId);
-            });
+            lockManager.locks(txId)
+                    .forEachRemaining(
+                            lock -> {
+                                storage.commitWrite((ByteBuffer) lock.lockKey().key(), txId);
+                            }
+                    );
         } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
-            cmd.lockedKeys().getOrDefault(lockId, new ArrayList<>()).forEach(key -> {
-                storage.abortWrite(ByteBuffer.wrap(key));
-            });
+            lockManager.locks(txId)
+                    .forEachRemaining(
+                            lock -> {
+                                storage.abortWrite((ByteBuffer) lock.lockKey().key());
+                            }
+                    );
+        }
+
+        // TODO: tmp
+        if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
+            storage.pendingKeys.getOrDefault(txId, Collections.emptyList()).forEach(key -> storage.commitWrite((ByteBuffer) key, txId));
+        } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
+            storage.pendingKeys.getOrDefault(txId, Collections.emptyList()).forEach(key -> storage.abortWrite((ByteBuffer) key));
         }
 
         return stateChanged;
@@ -560,8 +581,8 @@ public class PartitionListener implements RaftGroupListener {
             SingleKeyCommand cmd0 = (SingleKeyCommand) command;
 
             return cmd0 instanceof ReadCommand
-                    ? txManager.readLock(lockId, cmd0.getRow().keySlice(), cmd0.getTxId()) :
-                    txManager.writeLock(lockId, cmd0.getRow().keySlice(), cmd0.getTxId());
+                    ? txManager.readLock(lockContextId, cmd0.getRow().keySlice(), cmd0.getTxId()).thenAccept(ignored -> {}) :
+                    txManager.writeLock(lockContextId, cmd0.getRow().keySlice(), cmd0.getTxId()).thenAccept(ignored -> {});
         } else if (command instanceof MultiKeyCommand) {
             MultiKeyCommand cmd0 = (MultiKeyCommand) command;
 
@@ -573,8 +594,8 @@ public class PartitionListener implements RaftGroupListener {
             boolean read = cmd0 instanceof ReadCommand;
 
             for (BinaryRow row : rows) {
-                futs[i++] = read ? txManager.readLock(lockId, row.keySlice(), cmd0.getTxId()) :
-                        txManager.writeLock(lockId, row.keySlice(), cmd0.getTxId());
+                futs[i++] = read ? txManager.readLock(lockContextId, row.keySlice(), cmd0.getTxId()).thenAccept(ignored -> {}) :
+                        txManager.writeLock(lockContextId, row.keySlice(), cmd0.getTxId()).thenAccept(ignored -> {});
             }
 
             return CompletableFuture.allOf(futs);

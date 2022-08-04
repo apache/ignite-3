@@ -71,9 +71,7 @@ public class MessagingServiceTestUtils {
 
                     txManager.changeState(txId, TxState.PENDING, txFinishRequest.commit() ? TxState.COMMITED : TxState.ABORTED);
 
-                    FinishTxCommand finishTxCommand = new FinishTxCommand(
-                            txId, txFinishRequest.commit(), txManager.lockedKeys(txId)
-                    );
+                    FinishTxCommand finishTxCommand = new FinishTxCommand(txId, txFinishRequest.commit());
 
                     partitionListeners.forEach(partitionListener ->
                             partitionListener.onWrite(iterator(finishTxCommand, raftIndexFactory.apply(partitionListener)))

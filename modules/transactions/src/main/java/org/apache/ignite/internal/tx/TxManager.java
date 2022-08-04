@@ -18,13 +18,10 @@
 package org.apache.ignite.internal.tx;
 
 import java.nio.ByteBuffer;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -89,8 +86,11 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
+     *
+     * @deprecated @see LockManager#acquire(java.util.UUID, org.apache.ignite.internal.tx.LockKey, org.apache.ignite.internal.tx.LockMode)
      */
-    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, UUID txId);
+    @Deprecated
+    public CompletableFuture<Lock> writeLock(UUID lockId, ByteBuffer keyData, UUID txId);
 
     /**
      * Acqures a read lock.
@@ -100,8 +100,20 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
+     *
+     * @deprecated @see LockManager#acquire(java.util.UUID, org.apache.ignite.internal.tx.LockKey, org.apache.ignite.internal.tx.LockMode)
      */
-    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, UUID txId);
+    @Deprecated
+    public CompletableFuture<Lock> readLock(UUID lockId, ByteBuffer keyData, UUID txId);
+
+    /**
+     * Returns lock manager.
+     *
+     * @return Lock manager for the given transactions manager.
+     * @deprecated Use lockManager directly.
+     */
+    @Deprecated
+    public LockManager lockManager();
 
     /**
      * Returns a transaction state or starts a new in the PENDING state.
@@ -121,15 +133,6 @@ public interface TxManager extends IgniteComponent {
      * @param txId   Transaction id.
      */
     CompletableFuture<Void> finishRemote(NetworkAddress addr, boolean commit, Set<String> groups, UUID txId);
-
-    /**
-     * Keys that are locked by the transaction.
-     *
-     * @param txId Transaction id.
-     * @return Keys that are locked by the transaction.
-     */
-    @TestOnly
-    Map<IgniteUuid, List<byte[]>> lockedKeys(UUID txId);
 
     /**
      * Checks if a passed address belongs to a local node.
