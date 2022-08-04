@@ -18,29 +18,41 @@
 package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.nio.ByteOrder.nativeOrder;
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
-import static org.apache.ignite.internal.pagememory.io.PageIo.getCrc;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.DELTA_FILE_VERSION_1;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
+import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.arr;
+import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.createDataPageId;
+import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.createPageByteBuffer;
+import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
+import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.IntFunction;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
-import org.apache.ignite.internal.pagememory.TestPageIoModule.TestPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.GridUnsafe;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -53,113 +65,6 @@ public class FilePageStoreTest {
 
     @WorkDirectory
     private Path workDir;
-
-    @Test
-    void testStop() throws Exception {
-        Path testFilePath0 = workDir.resolve("test0");
-        Path testFilePath1 = workDir.resolve("test1");
-
-        // Checks uninitialized store.
-
-        try (
-                FilePageStore filePageStore0 = createFilePageStore(testFilePath0);
-                FilePageStore filePageStore1 = createFilePageStore(testFilePath1);
-        ) {
-            assertDoesNotThrow(() -> filePageStore0.stop(false));
-            assertDoesNotThrow(() -> filePageStore1.stop(true));
-
-            assertFalse(Files.exists(testFilePath0));
-            assertFalse(Files.exists(testFilePath1));
-        }
-
-        // Checks initialized store.
-
-        Path testFilePath2 = workDir.resolve("test2");
-        Path testFilePath3 = workDir.resolve("test3");
-
-        try (
-                FilePageStore filePageStore2 = createFilePageStore(testFilePath2);
-                FilePageStore filePageStore3 = createFilePageStore(testFilePath3);
-        ) {
-            filePageStore2.ensure();
-            filePageStore3.ensure();
-
-            assertDoesNotThrow(() -> filePageStore2.stop(false));
-            assertTrue(Files.exists(testFilePath2));
-
-            assertDoesNotThrow(() -> filePageStore3.stop(true));
-            assertFalse(Files.exists(testFilePath3));
-        }
-    }
-
-    @Test
-    void testClose() throws Exception {
-        Path testFilePath0 = workDir.resolve("test0");
-
-        // Checks uninitialized store.
-
-        try (FilePageStore filePageStore0 = createFilePageStore(testFilePath0)) {
-            assertDoesNotThrow(filePageStore0::close);
-            assertFalse(Files.exists(testFilePath0));
-        }
-
-        // Checks initialized store.
-
-        Path testFilePath1 = workDir.resolve("test0");
-
-        try (FilePageStore filePageStore1 = createFilePageStore(testFilePath1)) {
-            filePageStore1.ensure();
-
-            assertDoesNotThrow(filePageStore1::close);
-            assertTrue(Files.exists(testFilePath1));
-        }
-    }
-
-    @Test
-    void testExist() throws Exception {
-        Path testFilePath = workDir.resolve("test");
-
-        // Checks uninitialized store with not exists file.
-
-        try (FilePageStore filePageStore0 = createFilePageStore(testFilePath)) {
-            assertFalse(filePageStore0.exists());
-        }
-
-        // Checks uninitialized store with existent file.
-
-        try (FilePageStore filePageStore1 = createFilePageStore(Files.createFile(testFilePath))) {
-            assertFalse(filePageStore1.exists());
-        }
-
-        // Checks initialized store.
-
-        try (FilePageStore filePageStore2 = createFilePageStore(testFilePath)) {
-            filePageStore2.ensure();
-
-            assertTrue(filePageStore2.exists());
-        }
-
-        // Checks after closing the initialized store.
-
-        try (FilePageStore filePageStore3 = createFilePageStore(testFilePath)) {
-            assertTrue(filePageStore3.exists());
-        }
-    }
-
-    @Test
-    void testEnsure() throws Exception {
-        Path testFilePath = workDir.resolve("test");
-
-        try (FilePageStore filePageStore0 = createFilePageStore(testFilePath)) {
-            assertDoesNotThrow(filePageStore0::ensure);
-            assertDoesNotThrow(filePageStore0::ensure);
-        }
-
-        try (FilePageStore filePageStore1 = createFilePageStore(testFilePath)) {
-            assertDoesNotThrow(filePageStore1::ensure);
-            assertDoesNotThrow(filePageStore1::ensure);
-        }
-    }
 
     @Test
     void testAllocatePage() throws Exception {
@@ -200,11 +105,15 @@ public class FilePageStoreTest {
 
             assertEquals(0, filePageStore2.pages());
 
-            filePageStore2.write(createPageId(filePageStore2), createPageByteBuffer(), true);
+            long pageId0 = createDataPageId(filePageStore2::allocatePage);
+
+            filePageStore2.write(pageId0, createPageByteBuffer(pageId0, PAGE_SIZE), true);
 
             assertEquals(1, filePageStore2.pages());
 
-            filePageStore2.write(createPageId(filePageStore2), createPageByteBuffer(), true);
+            long pageId1 = createDataPageId(filePageStore2::allocatePage);
+
+            filePageStore2.write(pageId1, createPageByteBuffer(pageId1, PAGE_SIZE), true);
 
             assertEquals(2, filePageStore2.pages());
         }
@@ -233,121 +142,6 @@ public class FilePageStoreTest {
     }
 
     @Test
-    void testSync() throws Exception {
-        Path testFilePath = workDir.resolve("test");
-
-        try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
-            assertDoesNotThrow(filePageStore::sync);
-
-            filePageStore.write(createPageId(filePageStore), createPageByteBuffer(), true);
-
-            assertDoesNotThrow(filePageStore::sync);
-            assertEquals(2 * PAGE_SIZE, testFilePath.toFile().length());
-        }
-    }
-
-    @Test
-    void testSize() throws Exception {
-        Path testFilePath = workDir.resolve("test");
-
-        try (FilePageStore filePageStore0 = createFilePageStore(testFilePath)) {
-            assertEquals(0, filePageStore0.size());
-
-            filePageStore0.ensure();
-
-            assertEquals(PAGE_SIZE, filePageStore0.size());
-
-            filePageStore0.write(createPageId(filePageStore0), createPageByteBuffer(), true);
-
-            assertEquals(2 * PAGE_SIZE, filePageStore0.size());
-        }
-
-        try (FilePageStore filePageStore1 = createFilePageStore(testFilePath)) {
-            assertEquals(0, filePageStore1.size());
-
-            filePageStore1.ensure();
-
-            assertEquals(2 * PAGE_SIZE, filePageStore1.size());
-        }
-    }
-
-    @Test
-    void testPageOffset() throws Exception {
-        try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"))) {
-            assertEquals(PAGE_SIZE, filePageStore.pageOffset(pageId(0, FLAG_DATA, 0)));
-            assertEquals(2 * PAGE_SIZE, filePageStore.pageOffset(pageId(0, FLAG_DATA, 1)));
-            assertEquals(3 * PAGE_SIZE, filePageStore.pageOffset(pageId(0, FLAG_DATA, 2)));
-        }
-    }
-
-    @Test
-    void testWrite() throws Exception {
-        Path testFilePath = workDir.resolve("test");
-
-        try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
-            filePageStore.ensure();
-
-            long expPageId = createPageId(filePageStore);
-
-            ByteBuffer pageByteBuffer = createPageByteBuffer();
-
-            filePageStore.write(expPageId, pageByteBuffer, true);
-
-            assertEquals(2 * PAGE_SIZE, testFilePath.toFile().length());
-
-            assertEquals(0, PageIo.getCrc(pageByteBuffer));
-        }
-    }
-
-    @Test
-    void testRead() throws Exception {
-        Path testFilePath = workDir.resolve("test");
-
-        try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
-            filePageStore.ensure();
-
-            long expPageId = createPageId(filePageStore);
-
-            ByteBuffer pageByteBuffer = createPageByteBuffer();
-
-            // Puts random bytes after: type (2 byte) + version (2 byte) + crc (4 byte).
-            pageByteBuffer.position(8).put(randomBytes(128));
-
-            filePageStore.write(expPageId, pageByteBuffer.rewind(), true);
-
-            ByteBuffer readBuffer = ByteBuffer.allocate(PAGE_SIZE).order(pageByteBuffer.order());
-
-            filePageStore.read(expPageId, readBuffer, false);
-
-            assertEquals(pageByteBuffer.rewind(), readBuffer.rewind());
-            assertEquals(0, getCrc(readBuffer));
-
-            readBuffer = ByteBuffer.allocate(PAGE_SIZE).order(pageByteBuffer.order());
-
-            filePageStore.read(expPageId, readBuffer, true);
-
-            assertNotEquals(0, getCrc(readBuffer));
-        }
-    }
-
-    @Test
-    void testHeaderSize() throws Exception {
-        Path testFilePath = workDir.resolve("test");
-
-        try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
-            assertEquals(PAGE_SIZE, filePageStore.headerSize());
-        }
-
-        try (FilePageStore filePageStore = createFilePageStore(testFilePath, new FilePageStoreHeader(VERSION_1, 2 * PAGE_SIZE))) {
-            assertEquals(2 * PAGE_SIZE, filePageStore.headerSize());
-        }
-
-        try (FilePageStore filePageStore = createFilePageStore(testFilePath, new FilePageStoreHeader(VERSION_1, 3 * PAGE_SIZE))) {
-            assertEquals(3 * PAGE_SIZE, filePageStore.headerSize());
-        }
-    }
-
-    @Test
     void testPageAllocationListener() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
@@ -366,37 +160,366 @@ public class FilePageStoreTest {
         }
     }
 
-    private static byte[] randomBytes(int len) {
-        byte[] res = new byte[len];
+    @Test
+    void testGetOrCreateNewDeltaFile() throws Exception {
+        try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"))) {
+            int[] pageIndexes = arr(0, 1, 2);
 
-        ThreadLocalRandom.current().nextBytes(res);
+            Supplier<int[]> pageIndexesSupplier = spy(new Supplier<int[]>() {
+                /** {@inheritDoc} */
+                @Override
+                public int[] get() {
+                    return pageIndexes;
+                }
+            });
 
-        return res;
+            IntFunction<Path> deltaFilePathFunction = spy(new IntFunction<Path>() {
+                /** {@inheritDoc} */
+                @Override
+                public Path apply(int index) {
+                    return workDir.resolve("testDelta" + index);
+                }
+            });
+
+            CompletableFuture<DeltaFilePageStoreIo> future0 = filePageStore.getOrCreateNewDeltaFile(
+                    deltaFilePathFunction,
+                    pageIndexesSupplier
+            );
+
+            CompletableFuture<DeltaFilePageStoreIo> future1 = filePageStore.getOrCreateNewDeltaFile(
+                    deltaFilePathFunction,
+                    pageIndexesSupplier
+            );
+
+            assertSame(future0, future1);
+
+            assertDoesNotThrow(() -> future0.get(1, SECONDS));
+
+            verify(deltaFilePathFunction, times(1)).apply(0);
+            verify(deltaFilePathFunction, times(1)).apply(anyInt());
+
+            verify(pageIndexesSupplier, times(1)).get();
+
+            DeltaFilePageStoreIo deltaIo = future0.join();
+
+            assertEquals(PAGE_SIZE, deltaIo.pageSize());
+            assertEquals(0, deltaIo.fileIndex());
+        }
     }
 
-    private static ByteBuffer createPageByteBuffer() {
-        ByteBuffer buffer = ByteBuffer.allocateDirect(PAGE_SIZE).order(nativeOrder());
+    @Test
+    void testStop() throws Exception {
+        FilePageStoreIo filePageStoreIo = mock(FilePageStoreIo.class);
 
-        new TestPageIo().initNewPage(GridUnsafe.bufferAddress(buffer), 0, PAGE_SIZE);
+        DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
 
-        return buffer;
+        try (FilePageStore filePageStore = new FilePageStore(filePageStoreIo, deltaFilePageStoreIo)) {
+            filePageStore.stop(true);
+            filePageStore.stop(false);
+
+            verify(filePageStoreIo, times(1)).stop(true);
+            verify(filePageStoreIo, times(1)).stop(false);
+
+            verify(deltaFilePageStoreIo, times(1)).stop(true);
+            verify(deltaFilePageStoreIo, times(1)).stop(false);
+        }
     }
 
-    private static long createPageId(FilePageStore filePageStore) throws Exception {
-        return pageId(pageId(0, FLAG_DATA, filePageStore.allocatePage()));
+    @Test
+    void testClose() throws Exception {
+        FilePageStoreIo filePageStoreIo = mock(FilePageStoreIo.class);
+
+        DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
+
+        try (FilePageStore filePageStore = new FilePageStore(filePageStoreIo, deltaFilePageStoreIo)) {
+            filePageStore.close();
+
+            verify(filePageStoreIo, times(1)).close();
+            verify(filePageStoreIo, times(1)).close();
+        }
+    }
+
+    @Test
+    void testReadWithDeltaFile() throws Exception {
+        RandomAccessFileIoFactory ioFactory = new RandomAccessFileIoFactory();
+
+        FilePageStoreHeader filePageStoreHeader = new FilePageStoreHeader(VERSION_1, PAGE_SIZE);
+
+        DeltaFilePageStoreIoHeader deltaHeader0 = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr(1));
+        DeltaFilePageStoreIoHeader deltaHeader1 = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(2));
+
+        Path filePageStoreFilePath = workDir.resolve("filePageStore");
+
+        try (
+                DeltaFilePageStoreIo deltaIo0 = spy(new DeltaFilePageStoreIo(ioFactory, deltaFilePath(0), deltaHeader0));
+                FilePageStoreIo filePageStoreIo = spy(new FilePageStoreIo(ioFactory, filePageStoreFilePath, filePageStoreHeader));
+                FilePageStore filePageStore = new FilePageStore(filePageStoreIo, deltaIo0);
+        ) {
+            DeltaFilePageStoreIo deltaIo1 = filePageStore
+                    .getOrCreateNewDeltaFile(this::deltaFilePath, deltaHeader1::pageIndexes)
+                    .get(1, SECONDS);
+
+            // Fills with data.
+            long pageId0 = createDataPageId(filePageStore::allocatePage);
+            long pageId1 = createDataPageId(filePageStore::allocatePage);
+            long pageId2 = createDataPageId(filePageStore::allocatePage);
+
+            filePageStoreIo.write(pageId0, createPageByteBuffer(pageId0, PAGE_SIZE), true);
+            deltaIo0.write(pageId1, createPageByteBuffer(pageId1, PAGE_SIZE), true);
+            deltaIo1.write(pageId2, createPageByteBuffer(pageId2, PAGE_SIZE), true);
+
+            filePageStoreIo.sync();
+            deltaIo0.sync();
+            filePageStore.completeNewDeltaFile();
+
+            // Checks page reading.
+            ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
+
+            try {
+                // Check read page from filePageStoreIo.
+                filePageStore.read(pageId0, buffer, true);
+
+                assertEquals(pageId0, PageIo.getPageId(buffer.rewind()));
+
+                verify(filePageStoreIo, times(1)).read(eq(pageId0), anyLong(), eq(buffer), eq(true));
+
+                // Check read page from deltaIo0.
+                filePageStore.read(pageId1, buffer.rewind(), true);
+
+                assertEquals(pageId1, PageIo.getPageId(buffer.rewind()));
+
+                verify(filePageStoreIo, times(0)).read(eq(pageId1), anyLong(), eq(buffer), eq(true));
+
+                // Check read page from deltaIo1.
+                filePageStore.read(pageId2, buffer.rewind(), true);
+
+                assertEquals(pageId2, PageIo.getPageId(buffer.rewind()));
+
+                verify(filePageStoreIo, times(0)).read(eq(pageId2), anyLong(), eq(buffer), eq(true));
+            } finally {
+                freeBuffer(buffer);
+            }
+        }
+    }
+
+    @Test
+    void testReadDirectlyWithoutPageIdCheck() throws Exception {
+        RandomAccessFileIoFactory ioFactory = new RandomAccessFileIoFactory();
+
+        FilePageStoreHeader filePageStoreHeader = new FilePageStoreHeader(VERSION_1, PAGE_SIZE);
+
+        DeltaFilePageStoreIoHeader deltaHeader0 = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr(1));
+        DeltaFilePageStoreIoHeader deltaHeader1 = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 1, PAGE_SIZE, arr(2));
+
+        Path filePageStoreFilePath = workDir.resolve("filePageStore");
+
+        try (
+                DeltaFilePageStoreIo deltaIo0 = spy(new DeltaFilePageStoreIo(ioFactory, deltaFilePath(0), deltaHeader0));
+                FilePageStoreIo filePageStoreIo = spy(new FilePageStoreIo(ioFactory, filePageStoreFilePath, filePageStoreHeader));
+                FilePageStore filePageStore = new FilePageStore(filePageStoreIo, deltaIo0);
+        ) {
+            DeltaFilePageStoreIo deltaIo1 = filePageStore
+                    .getOrCreateNewDeltaFile(this::deltaFilePath, deltaHeader1::pageIndexes)
+                    .get(1, SECONDS);
+
+            // Fills with data.
+            long pageId0 = createDataPageId(filePageStore::allocatePage);
+            long pageId1 = createDataPageId(filePageStore::allocatePage);
+            long pageId2 = createDataPageId(filePageStore::allocatePage);
+
+            filePageStoreIo.write(pageId0, createPageByteBuffer(pageId0, PAGE_SIZE), true);
+            deltaIo0.write(pageId1, createPageByteBuffer(pageId1, PAGE_SIZE), true);
+            deltaIo1.write(pageId2, createPageByteBuffer(pageId2, PAGE_SIZE), true);
+
+            filePageStoreIo.sync();
+            deltaIo0.sync();
+            filePageStore.completeNewDeltaFile();
+
+            // Checks page reading.
+            ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
+
+            try {
+                // Check read page from filePageStoreIo.
+                filePageStore.readWithoutPageIdCheck(pageId0, buffer, true);
+
+                assertEquals(pageId0, PageIo.getPageId(buffer.rewind()));
+
+                verify(filePageStoreIo, times(1)).read(eq(pageId0), anyLong(), eq(buffer), eq(true));
+
+                // Check read page from deltaIo0.
+                filePageStore.readWithoutPageIdCheck(pageId1, buffer.rewind(), true);
+
+                assertEquals(pageId1, PageIo.getPageId(buffer.rewind()));
+
+                verify(filePageStoreIo, times(0)).read(eq(pageId1), anyLong(), eq(buffer), eq(true));
+
+                // Check read page from deltaIo1.
+                filePageStore.readWithoutPageIdCheck(pageId2, buffer.rewind(), true);
+
+                assertEquals(pageId2, PageIo.getPageId(buffer.rewind()));
+
+                verify(filePageStoreIo, times(0)).read(eq(pageId2), anyLong(), eq(buffer), eq(true));
+
+                // Let's check the reading of a non-existent page.
+                long pageId3 = createDataPageId(() -> 3);
+
+                filePageStore.readWithoutPageIdCheck(pageId3, buffer.rewind(), true);
+
+                assertEquals(0, PageIo.getPageId(buffer.rewind()));
+
+                verify(filePageStoreIo, times(1)).read(eq(pageId3), anyLong(), eq(buffer), eq(true));
+            } finally {
+                freeBuffer(buffer);
+            }
+        }
+    }
+
+    @Test
+    void testDeltaFileCount() throws Exception {
+        Path testFilePath = workDir.resolve("test");
+
+        try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
+            assertEquals(0, filePageStore.deltaFileCount());
+
+            filePageStore.getOrCreateNewDeltaFile(this::deltaFilePath, TestPageStoreUtils::arr).get(1, SECONDS);
+
+            assertEquals(1, filePageStore.deltaFileCount());
+        }
+
+        try (FilePageStore filePageStore = createFilePageStore(testFilePath, mock(DeltaFilePageStoreIo.class))) {
+            assertEquals(1, filePageStore.deltaFileCount());
+
+            filePageStore.getOrCreateNewDeltaFile(this::deltaFilePath, TestPageStoreUtils::arr).get(1, SECONDS);
+
+            assertEquals(2, filePageStore.deltaFileCount());
+        }
+    }
+
+    @Test
+    void testGetNewDeltaFile() throws Exception {
+        try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"))) {
+            assertNull(filePageStore.getNewDeltaFile());
+
+            CompletableFuture<DeltaFilePageStoreIo> future = filePageStore.getOrCreateNewDeltaFile(
+                    this::deltaFilePath,
+                    TestPageStoreUtils::arr
+            );
+
+            future.get(1, SECONDS);
+
+            assertSame(future, filePageStore.getNewDeltaFile());
+
+            filePageStore.completeNewDeltaFile();
+
+            assertNull(filePageStore.getNewDeltaFile());
+        }
+    }
+
+    @Test
+    void testRemoveDeltaFile() throws Exception {
+        DeltaFilePageStoreIo deltaFile0 = mock(DeltaFilePageStoreIo.class);
+        DeltaFilePageStoreIo deltaFile1 = mock(DeltaFilePageStoreIo.class);
+
+        try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"), deltaFile0, deltaFile1)) {
+            assertEquals(2, filePageStore.deltaFileCount());
+
+            assertTrue(filePageStore.removeDeltaFile(deltaFile0));
+            assertFalse(filePageStore.removeDeltaFile(deltaFile0));
+
+            assertEquals(1, filePageStore.deltaFileCount());
+
+            assertTrue(filePageStore.removeDeltaFile(deltaFile1));
+            assertFalse(filePageStore.removeDeltaFile(deltaFile1));
+
+            assertEquals(0, filePageStore.deltaFileCount());
+        }
+    }
+
+    @Test
+    void testGetDeltaFileToCompaction() throws Exception {
+        DeltaFilePageStoreIo deltaFile0 = mock(DeltaFilePageStoreIo.class);
+        DeltaFilePageStoreIo deltaFile1 = mock(DeltaFilePageStoreIo.class);
+
+        when(deltaFile0.fileIndex()).thenReturn(0);
+        when(deltaFile0.fileIndex()).thenReturn(1);
+
+        try (FilePageStore filePageStore = createFilePageStore(workDir.resolve("test"), deltaFile0, deltaFile1)) {
+            assertSame(deltaFile1, filePageStore.getDeltaFileToCompaction());
+
+            CompletableFuture<DeltaFilePageStoreIo> createNewDeltaFileFuture = filePageStore.getOrCreateNewDeltaFile(
+                    index -> workDir.resolve("delta" + index),
+                    TestPageStoreUtils::arr
+            );
+
+            createNewDeltaFileFuture.get(1, SECONDS);
+
+            assertSame(deltaFile1, filePageStore.getDeltaFileToCompaction());
+
+            filePageStore.removeDeltaFile(deltaFile1);
+
+            assertSame(deltaFile0, filePageStore.getDeltaFileToCompaction());
+
+            filePageStore.removeDeltaFile(deltaFile0);
+
+            assertNull(filePageStore.getDeltaFileToCompaction());
+
+            filePageStore.completeNewDeltaFile();
+
+            assertSame(createNewDeltaFileFuture.join(), filePageStore.getDeltaFileToCompaction());
+
+            filePageStore.removeDeltaFile(createNewDeltaFileFuture.join());
+
+            assertNull(filePageStore.getDeltaFileToCompaction());
+        }
+    }
+
+    @Test
+    void testReadWithMergedDeltaFiles() throws Exception {
+        RandomAccessFileIoFactory ioFactory = new RandomAccessFileIoFactory();
+
+        FilePageStoreHeader header = new FilePageStoreHeader(VERSION_1, PAGE_SIZE);
+        DeltaFilePageStoreIoHeader deltaHeader = new DeltaFilePageStoreIoHeader(DELTA_FILE_VERSION_1, 0, PAGE_SIZE, arr(0));
+
+        try (
+                DeltaFilePageStoreIo deltaIo = spy(new DeltaFilePageStoreIo(ioFactory, deltaFilePath(0), deltaHeader));
+                FilePageStoreIo storeIo = spy(new FilePageStoreIo(ioFactory, workDir.resolve("test"), header));
+                FilePageStore filePageStore = new FilePageStore(storeIo, deltaIo);
+        ) {
+            long pageId = createDataPageId(filePageStore::allocatePage);
+
+            ByteBuffer buffer = ByteBuffer.allocateDirect(PAGE_SIZE).order(nativeOrder());
+
+            filePageStore.read(pageId, buffer, true);
+
+            verify(deltaIo, times(1)).readWithMergedToFilePageStoreCheck(eq(pageId), anyLong(), eq(buffer), eq(true));
+            verify(storeIo, times(0)).read(eq(pageId), anyLong(), eq(buffer), eq(true));
+
+            deltaIo.markMergedToFilePageStore();
+
+            filePageStore.read(pageId, buffer.rewind(), true);
+
+            verify(deltaIo, times(2)).readWithMergedToFilePageStoreCheck(eq(pageId), anyLong(), eq(buffer), eq(true));
+            verify(storeIo, times(1)).read(eq(pageId), anyLong(), eq(buffer), eq(true));
+        }
     }
 
     private static FilePageStore createFilePageStore(Path filePath) {
         return createFilePageStore(filePath, new FilePageStoreHeader(VERSION_1, PAGE_SIZE));
     }
 
-    private static FilePageStore createFilePageStore(Path filePath, FilePageStoreHeader header) {
-        return new FilePageStore(
-                header.version(),
-                header.pageSize(),
-                header.headerSize(),
-                filePath,
-                new RandomAccessFileIoFactory()
-        );
+    private static FilePageStore createFilePageStore(Path filePath, DeltaFilePageStoreIo... deltaIos) {
+        return createFilePageStore(filePath, new FilePageStoreHeader(VERSION_1, PAGE_SIZE), deltaIos);
+    }
+
+    private static FilePageStore createFilePageStore(
+            Path filePath,
+            FilePageStoreHeader header,
+            DeltaFilePageStoreIo... deltaFilePageStoreIos
+    ) {
+        return new FilePageStore(new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header), deltaFilePageStoreIos);
+    }
+
+    private Path deltaFilePath(int index) {
+        return workDir.resolve("delta" + index);
     }
 }

@@ -34,6 +34,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -197,7 +198,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     public void testMissingKeyColumnThrowsException() {
         RecordView<NamePojo> recordView = defaultTable().recordView(NamePojo.class);
 
-        IgniteClientException e = assertThrows(IgniteClientException.class, () -> recordView.get(null, new NamePojo()));
+        IgniteException e = assertThrows(IgniteException.class, () -> recordView.get(null, new NamePojo()));
 
         assertThat(e.getMessage(), containsString("No field found for column ID"));
     }
@@ -524,7 +525,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         pojo.id = 1;
         pojo.strNonNull = null;
 
-        var ex = assertThrows(IgniteClientException.class, () -> pojoView.upsert(null, pojo));
+        var ex = assertThrows(IgniteException.class, () -> pojoView.upsert(null, pojo));
 
         assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
     }

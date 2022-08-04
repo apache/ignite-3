@@ -17,15 +17,19 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_TIMEOUT_ERR;
+
+import org.apache.ignite.internal.metastorage.common.MetaStorageException;
+
 /**
  * Thrown when an operation is not executed within a specified time period. Usually in such cases the operation should be retried.
  */
-public class OperationTimeoutException extends RuntimeException {
+public class OperationTimeoutException extends MetaStorageException {
     /**
      * Constructs an exception.
      */
     public OperationTimeoutException() {
-        super();
+        super(OP_EXECUTION_TIMEOUT_ERR);
     }
 
     /**
@@ -34,7 +38,7 @@ public class OperationTimeoutException extends RuntimeException {
      * @param message Detail message.
      */
     public OperationTimeoutException(String message) {
-        super(message);
+        super(OP_EXECUTION_TIMEOUT_ERR, message);
     }
 
     /**
@@ -44,7 +48,7 @@ public class OperationTimeoutException extends RuntimeException {
      * @param cause   Cause.
      */
     public OperationTimeoutException(String message, Throwable cause) {
-        super(message, cause);
+        super(OP_EXECUTION_TIMEOUT_ERR, message, cause);
     }
 
     /**
@@ -53,6 +57,6 @@ public class OperationTimeoutException extends RuntimeException {
      * @param cause Cause.
      */
     public OperationTimeoutException(Throwable cause) {
-        super(cause);
+        super(OP_EXECUTION_TIMEOUT_ERR, cause);
     }
 }

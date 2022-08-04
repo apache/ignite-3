@@ -115,7 +115,8 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
                         "fake-test-node",
                         null,
                         ArrayRowHandler.INSTANCE,
-                        Map.of()
+                        Map.of(),
+                        null
                 ),
                 RelCollations.of(ImmutableIntList.copyOf(idxCols)),
                 (o1, o2) -> {

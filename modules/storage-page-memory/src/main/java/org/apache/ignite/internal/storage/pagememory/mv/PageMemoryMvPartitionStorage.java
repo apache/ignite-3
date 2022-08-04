@@ -24,6 +24,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.DataRegion;
@@ -35,7 +36,6 @@ import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.StorageUtils;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
@@ -72,6 +72,11 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     );
 
     /**
+     * Last applied index value.
+     */
+    private volatile long lastAppliedIndex = 0;
+
+    /**
      * Constructor.
      */
     public PageMemoryMvPartitionStorage(
@@ -86,7 +91,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         this.versionChainFreeList = versionChainFreeList;
         this.rowVersionFreeList = rowVersionFreeList;
 
-        groupId = StorageUtils.groupId(tableConfig);
+        groupId = tableConfig.tableId();
 
         try {
             versionChainTree = createVersionChainTree(partId, tableConfig, dataRegion, versionChainFreeList);
@@ -121,6 +126,24 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
                 versionChainFreeList1,
                 initNew
         );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long lastAppliedIndex() {
+        return lastAppliedIndex;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
+        this.lastAppliedIndex = lastAppliedIndex;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long persistedIndex() {
+        return lastAppliedIndex;
     }
 
     /** {@inheritDoc} */
@@ -465,6 +488,22 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         }
 
         return new ScanCursor(treeCursor, keyFilter, transactionId, timestamp);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long rowsCount() {
+        try {
+            return versionChainTree.size();
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error occurred while fetching the size.", e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void forEach(BiConsumer<RowId, BinaryRow> consumer) {
+        // No-op. Nothing to recover for a volatile storage. See usages and a comment about PK index rebuild.
     }
 
     /** {@inheritDoc} */

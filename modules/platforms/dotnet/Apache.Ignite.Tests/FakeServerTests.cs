@@ -42,7 +42,7 @@ namespace Apache.Ignite.Tests
             using var client = await server.ConnectClientAsync();
 
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTableAsync("t"));
-            Assert.AreEqual(FakeServer.Err, ex!.Message);
+            Assert.AreEqual("ErrCls: : Err! (65537, 00000000-0000-0000-0000-000000000000)", ex!.Message);
         }
 
         [Test]

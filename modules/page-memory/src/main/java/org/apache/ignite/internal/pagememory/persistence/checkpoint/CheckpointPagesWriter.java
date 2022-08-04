@@ -31,9 +31,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -44,8 +44,8 @@ import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
-import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -69,17 +69,14 @@ public class CheckpointPagesWriter implements Runnable {
      */
     private final IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds;
 
-    /** Partitions for which the meta has been saved. Shared between parallel writers, if any. */
-    private final Set<GroupPartitionId> savedPartitionMetas;
-
-    /** Page store used to write -> Count of written pages. */
-    private final ConcurrentMap<PageStore, LongAdder> updStores;
+    /** Updated partitions -> count of written pages. */
+    private final ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions;
 
     /** Future which should be finished when all pages would be written. */
     private final CompletableFuture<?> doneFut;
 
-    /** Some action which will be executed every time before page will be written. */
-    private final Runnable beforePageWrite;
+    /** Update heartbeat callback. */
+    private final Runnable updateHeartbeat;
 
     /** Thread local with buffers for the checkpoint threads. Each buffer represent one page for durable memory. */
     private final ThreadLocal<ByteBuffer> threadBuf;
@@ -88,7 +85,7 @@ public class CheckpointPagesWriter implements Runnable {
     private final CheckpointProgressImpl checkpointProgress;
 
     /** Writer which able to write one page. */
-    private final CheckpointPageWriter pageWriter;
+    private final WriteDirtyPage pageWriter;
 
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
@@ -104,10 +101,9 @@ public class CheckpointPagesWriter implements Runnable {
      *
      * @param tracker Checkpoint metrics tracker.
      * @param writePageIds Queue of dirty page IDs to write.
-     * @param savedPartitionMetas Partitions for which meta has been saved.
-     * @param updStores Updating storage.
+     * @param updatedPartitions Updated partitions.
      * @param doneFut Done future.
-     * @param beforePageWrite Action to be performed before every page write.
+     * @param updateHeartbeat Update heartbeat callback.
      * @param log Logger.
      * @param threadBuf Thread local byte buffer.
      * @param checkpointProgress Checkpoint progress.
@@ -120,13 +116,12 @@ public class CheckpointPagesWriter implements Runnable {
             IgniteLogger log,
             CheckpointMetricsTracker tracker,
             IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds,
-            Set<GroupPartitionId> savedPartitionMetas,
-            ConcurrentMap<PageStore, LongAdder> updStores,
+            ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions,
             CompletableFuture<?> doneFut,
-            Runnable beforePageWrite,
+            Runnable updateHeartbeat,
             ThreadLocal<ByteBuffer> threadBuf,
             CheckpointProgressImpl checkpointProgress,
-            CheckpointPageWriter pageWriter,
+            WriteDirtyPage pageWriter,
             PageIoRegistry ioRegistry,
             PartitionMetaManager partitionMetaManager,
             BooleanSupplier shutdownNow
@@ -134,10 +129,9 @@ public class CheckpointPagesWriter implements Runnable {
         this.log = log;
         this.tracker = tracker;
         this.writePageIds = writePageIds;
-        this.savedPartitionMetas = savedPartitionMetas;
-        this.updStores = updStores;
+        this.updatedPartitions = updatedPartitions;
         this.doneFut = doneFut;
-        this.beforePageWrite = beforePageWrite;
+        this.updateHeartbeat = updateHeartbeat;
         this.threadBuf = threadBuf;
         this.checkpointProgress = checkpointProgress;
         this.pageWriter = pageWriter;
@@ -186,16 +180,28 @@ public class CheckpointPagesWriter implements Runnable {
 
         GroupPartitionId partitionId = null;
 
+        AtomicBoolean writeMetaPage = new AtomicBoolean();
+
         while (!shutdownNow.getAsBoolean() && writePageIds.next(queueResult)) {
-            beforePageWrite.run();
+            updateHeartbeat.run();
 
             FullPageId fullId = queueResult.getValue();
 
-            if (hasPartitionChanged(partitionId, fullId) && savedPartitionMetas.add(partitionId = toPartitionId(fullId))) {
-                writePartitionMeta(partitionId, tmpWriteBuf.rewind());
-            }
-
             PersistentPageMemory pageMemory = queueResult.getKey();
+
+            if (hasPartitionChanged(partitionId, fullId)) {
+                updatedPartitions.computeIfAbsent(partitionId = toPartitionId(fullId), partId -> {
+                    writeMetaPage.set(true);
+
+                    return new LongAdder();
+                });
+
+                if (writeMetaPage.get()) {
+                    writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
+
+                    writeMetaPage.set(false);
+                }
+            }
 
             tmpWriteBuf.rewind();
 
@@ -240,25 +246,29 @@ public class CheckpointPagesWriter implements Runnable {
 
                 checkpointProgress.writtenPagesCounter().incrementAndGet();
 
-                PageStore store = pageWriter.write(fullPageId, buf);
+                pageWriter.write(pageMemory, fullPageId, buf);
 
-                updStores.computeIfAbsent(store, k -> new LongAdder()).increment();
+                updatedPartitions.get(toPartitionId(fullPageId)).increment();
             }
         };
     }
 
-    private void writePartitionMeta(GroupPartitionId partitionId, ByteBuffer buffer) throws IgniteInternalCheckedException {
+    private void writePartitionMeta(
+            PersistentPageMemory pageMemory,
+            GroupPartitionId partitionId,
+            ByteBuffer buffer
+    ) throws IgniteInternalCheckedException {
         PartitionMetaSnapshot partitionMetaSnapshot = partitionMetaManager.getMeta(partitionId).metaSnapshot(checkpointProgress.id());
 
         partitionMetaManager.writeMetaToBuffer(partitionId, partitionMetaSnapshot, buffer.rewind());
 
         FullPageId fullPageId = new FullPageId(partitionMetaPageId(partitionId.getPartitionId()), partitionId.getGroupId());
 
-        PageStore store = pageWriter.write(fullPageId, buffer.rewind());
+        pageWriter.write(pageMemory, fullPageId, buffer.rewind());
 
         checkpointProgress.writtenPagesCounter().incrementAndGet();
 
-        updStores.computeIfAbsent(store, k -> new LongAdder()).increment();
+        updatedPartitions.get(partitionId).increment();
     }
 
     private static boolean hasPartitionChanged(@Nullable GroupPartitionId partitionId, FullPageId pageId) {

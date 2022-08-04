@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
@@ -58,13 +60,13 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
-import org.apache.ignite.internal.sql.engine.session.SessionNotFound;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -290,7 +292,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         var session = sessionManager.session(sessionId);
 
         if (session == null) {
-            return CompletableFuture.failedFuture(new SessionNotFound(sessionId));
+            return CompletableFuture.failedFuture(
+                    new SqlException(SESSION_NOT_FOUND_ERR, format("Session not found [{}]", sessionId)));
         }
 
         var schemaName = session.queryProperties().get(QueryProperty.DEFAULT_SCHEMA);
@@ -301,6 +304,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             return CompletableFuture.failedFuture(new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName)));
         }
 
+        InternalTransaction outerTx = context.unwrap(InternalTransaction.class);
+
         final BaseQueryContext ctx = BaseQueryContext.builder()
                 .cancel(new QueryCancel())
                 .frameworkConfig(
@@ -310,6 +315,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 )
                 .logger(LOG)
                 .parameters(params)
+                .transaction(outerTx)
                 .build();
 
         AsyncCloseable closeableResource = () -> CompletableFuture.runAsync(
@@ -328,12 +334,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         CompletableFuture<Void> start = new CompletableFuture<>();
 
-        CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenApply(
-                        (v) -> Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig())
-                )
-                .thenApply(nodes -> {
+        CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
+                .thenApply(v -> {
+                    var nodes = Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig());
+
                     if (nodes.size() > 1) {
-                        throw new SqlException("Multiple statements aren't allowed.");
+                        throw new SqlException(QUERY_INVALID_ERR, "Multiple statements aren't allowed.");
                     }
 
                     return nodes.get(0);

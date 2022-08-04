@@ -57,7 +57,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.MultiKeyCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
@@ -150,7 +150,7 @@ public class ItColocationTest {
                 null,
                 null,
                 txManager,
-                Mockito.mock(TableStorage.class)
+                Mockito.mock(MvTableStorage.class)
         );
     }
 

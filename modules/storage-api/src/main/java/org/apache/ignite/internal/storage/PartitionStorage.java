@@ -28,7 +28,10 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Interface providing methods to read, remove and update keys in storage. Any locking is unnecessary as this storage is used within RAFT
  * groups where all write operations are serialized.
+ *
+ * @deprecated Replaced with {@link MvPartitionStorage}.
  */
+@Deprecated
 public interface PartitionStorage extends AutoCloseable {
     /**
      * Returns the partition id.

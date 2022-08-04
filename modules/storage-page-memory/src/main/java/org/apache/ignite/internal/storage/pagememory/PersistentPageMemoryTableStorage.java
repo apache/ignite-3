@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.storage.StorageUtils.groupId;
 
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
@@ -72,8 +71,13 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         TableView tableView = tableCfg.value();
 
         try {
-            // TODO: IGNITE-16665 Directory name needs to be corrected to support table renaming
-            dataRegion.filePageStoreManager().initialize(tableView.name(), groupId(tableView), tableView.partitions());
+            dataRegion.filePageStoreManager().initialize(tableView.name(), tableView.tableId(), tableView.partitions());
+
+            int deltaFileCount = dataRegion.filePageStoreManager().getStores(tableView.tableId()).stream()
+                    .mapToInt(FilePageStore::deltaFileCount)
+                    .sum();
+
+            dataRegion.checkpointManager().addDeltaFileCountForCompaction(deltaFileCount);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error initializing file page stores for table: " + tableView.name(), e);
         }
@@ -95,11 +99,11 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         try {
             PersistentPageMemory persistentPageMemory = dataRegion.pageMemory();
 
-            int grpId = groupId(tableView);
+            int grpId = tableView.tableId();
 
-            CheckpointProgress currentProgress = checkpointManager.currentProgress();
+            CheckpointProgress lastCheckpointProgress = checkpointManager.lastCheckpointProgress();
 
-            UUID checkpointId = currentProgress == null ? null : currentProgress.id();
+            UUID checkpointId = lastCheckpointProgress == null ? null : lastCheckpointProgress.id();
 
             PartitionMeta meta = dataRegion.partitionMetaManager().readOrCreateMeta(
                     checkpointId,
@@ -114,9 +118,9 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             filePageStore.setPageAllocationListener(pageIdx -> {
                 assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
-                CheckpointProgress curr = checkpointManager.currentProgress();
+                CheckpointProgress last = checkpointManager.lastCheckpointProgress();
 
-                meta.incrementPageCount(curr == null ? null : curr.id());
+                meta.incrementPageCount(last == null ? null : last.id());
             });
 
             boolean initNewTree = false;
@@ -174,7 +178,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      */
     FilePageStore ensurePartitionFilePageStore(TableView tableView, int partId) throws StorageException {
         try {
-            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(groupId(tableView), partId);
+            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(tableView.tableId(), partId);
 
             filePageStore.ensure();
 
@@ -204,7 +208,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     ) throws StorageException {
         try {
             return new TableFreeList(
-                    groupId(tableView),
+                    tableView.tableId(),
                     partId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
@@ -239,7 +243,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             PartitionMeta partitionMeta,
             boolean initNewTree
     ) throws StorageException {
-        int grpId = groupId(tableView);
+        int grpId = tableView.tableId();
 
         try {
             return new TableTree(

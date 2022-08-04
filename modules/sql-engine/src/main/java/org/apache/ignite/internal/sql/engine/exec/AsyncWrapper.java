@@ -26,7 +26,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
-import org.apache.ignite.internal.sql.engine.ClosedCursorException;
+import org.apache.ignite.sql.CursorClosedException;
 
 /**
  * Wrapper that converts a synchronous iterator to an asynchronous one.
@@ -82,7 +82,7 @@ public class AsyncWrapper<T> implements AsyncCursor<T> {
 
         synchronized (lock) {
             if (cancelled) {
-                next.completeExceptionally(new ClosedCursorException());
+                next.completeExceptionally(new CursorClosedException());
 
                 return next;
             }
@@ -124,7 +124,7 @@ public class AsyncWrapper<T> implements AsyncCursor<T> {
         if (!cancelled) {
             synchronized (lock) {
                 if (!cancelled) {
-                    requestChainTail.completeExceptionally(new ClosedCursorException());
+                    requestChainTail.completeExceptionally(new CursorClosedException());
 
                     cursorFut.thenAcceptAsync(cursor -> {
                         if (cursor instanceof AutoCloseable) {

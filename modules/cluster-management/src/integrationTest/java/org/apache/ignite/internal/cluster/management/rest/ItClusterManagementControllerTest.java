@@ -34,49 +34,23 @@ import io.micronaut.http.HttpStatus;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
-import io.micronaut.runtime.server.EmbeddedServer;
-import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.io.IOException;
-import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.MockNode;
-import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
 import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Cluster management REST test.
  */
-@MicronautTest
-@ExtendWith(WorkDirectoryExtension.class)
-public class ItClusterManagementControllerTest {
-
-    private static final int PORT_BASE = 10000;
-
-    private static final List<MockNode> cluster = new ArrayList<>();
-
-    static ClusterService clusterService;
-
-    static ClusterManagementGroupManager clusterManager;
-
-    @WorkDirectory
-    private static Path workDir;
-
-    @Inject
-    private EmbeddedServer server;
+public class ItClusterManagementControllerTest extends RestTestBase {
 
     @Inject
     @Client("/management/v1/cluster")
@@ -193,9 +167,5 @@ public class ItClusterManagementControllerTest {
     @Replaces(ClusterManagementRestFactory.class)
     public ClusterManagementRestFactory clusterManagementRestFactory() {
         return new ClusterManagementRestFactory(clusterService, clusterManager);
-    }
-
-    private Problem getProblem(HttpClientResponseException exception) {
-        return exception.getResponse().getBody(Problem.class).orElseThrow();
     }
 }

@@ -32,7 +32,7 @@ public interface AsyncCursor<T> {
      *
      * <p>Several calls to this method should be chained and resulting stages should be completed in the order of invocation. Any call
      * to this method after call to {@link #closeAsync()} should be completed immediately with
-     * {@link org.apache.ignite.internal.sql.engine.ClosedCursorException} even if the future returned by {@link #closeAsync()}
+     * {@link org.apache.ignite.sql.CursorClosedException} even if the future returned by {@link #closeAsync()}
      * is not completed yet.
      *
      * @param rows Desired amount of rows.

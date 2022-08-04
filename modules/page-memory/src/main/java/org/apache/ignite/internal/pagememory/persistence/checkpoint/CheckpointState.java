@@ -28,13 +28,16 @@ public enum CheckpointState {
     LOCK_TAKEN,
 
     /** Dirty pages snapshot has been taken. **/
-    PAGE_SNAPSHOT_TAKEN,
+    PAGES_SNAPSHOT_TAKEN,
 
     /** Checkpoint counted the pages and write lock was released. **/
     LOCK_RELEASED,
 
     /** Checkpoint marker was stored to disk. **/
     MARKER_STORED_TO_DISK,
+
+    /** Dirty pages sorted. */
+    PAGES_SORTED,
 
     /** Checkpoint was finished. **/
     FINISHED

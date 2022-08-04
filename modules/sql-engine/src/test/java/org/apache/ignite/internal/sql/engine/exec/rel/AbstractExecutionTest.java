@@ -105,7 +105,8 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
                 "fake-test-node",
                 fragmentDesc,
                 ArrayRowHandler.INSTANCE,
-                Map.of()
+                Map.of(),
+                null
         );
     }
 
