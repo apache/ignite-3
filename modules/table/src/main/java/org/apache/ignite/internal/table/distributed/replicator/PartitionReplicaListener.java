@@ -40,15 +40,19 @@ import org.apache.ignite.internal.replicator.message.ActionRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequestLocator;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
+import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.replicator.action.PartitionAction;
 import org.apache.ignite.internal.table.distributed.replicator.action.PartitionMultiAction;
 import org.apache.ignite.internal.table.distributed.replicator.action.PartitionSingleAction;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -79,7 +83,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     //TODO: https://issues.apache.org/jira/browse/IGNITE-17205 Temporary solution until the implementation of the primary index is done.
     /** Dummy primary index. */
-    private ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
 
     /** Executor. */
     private final ExecutorService executor;
@@ -91,11 +95,19 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param raftClient    Raft client.
      * @param lockManager   Lock manager.
      */
-    public PartitionReplicaListener(MvPartitionStorage mvDataStorage, RaftGroupService raftClient, LockManager lockManager, UUID tableId, String listenerName) {
+    public PartitionReplicaListener(
+            MvPartitionStorage mvDataStorage,
+            RaftGroupService raftClient,
+            LockManager lockManager,
+            UUID tableId,
+            String listenerName,
+            ConcurrentHashMap<ByteBuffer, RowId> primaryIndex
+    ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
         this.lockManager = lockManager;
         this.tableId = tableId;
+        this.primaryIndex = primaryIndex;
 
         this.executor = new ThreadPoolExecutor(
                 2 * Runtime.getRuntime().availableProcessors(),
@@ -141,11 +153,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                     assert INDEX_PK_ID.equals(singleEntryAction.indexToUse()) : IgniteStringFormatter.format(
                             "The action can use only primary key index [indexToUse={}]", singleEntryAction.indexToUse());
 
-                    //lockManager.acquire(action.txId(), new LockKey(INDEX_PK_ID, keyRow, LockMode.S); // Index S lock
+                    lockManager.acquire(action.txId(), new LockKey(INDEX_PK_ID, keyRow), LockMode.SHARED); // Index S lock
 
                     rowId = primaryIndex.get(keyRow.keySlice());
                 } else {
-                    //lockManager.acquire(action.txId(), new LockKey(INDEX_SCAN_ID, keyRow, LockMode.S); // Index S lock
+                    lockManager.acquire(action.txId(), new LockKey(INDEX_SCAN_ID, keyRow), LockMode.SHARED); // Index S lock
 
                     //TODO: Implement it through the scan index.
                     for (Map.Entry<ByteBuffer, RowId> entry : primaryIndex.entrySet()) {
@@ -160,8 +172,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 BinaryRow row = null;
 
                 if (rowId != null) {
-                    //lockManager.acquire(action.txId(), new LockKey(tableId), LockMode.IS)); // IS lock on table
-                    //lockManager.acquire(action.txId(), new LockKey(tableId, rowId), LockMode.S)); // S lock on RowId
+                    lockManager.acquire(action.txId(), new LockKey(tableId), LockMode.INTENTION_SHARED); // IS lock on table
+                    lockManager.acquire(action.txId(), new LockKey(tableId, rowId), LockMode.SHARED); // S lock on RowId
 
                     row = mvDataStorage.read(rowId, action.txId());
                 }
@@ -186,13 +198,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                             "The action can use only primary key index [indexToUse={}]", multiEntryAction.indexToUse());
 
                     for (BinaryRow keyRow: keyRows) {
-                        //lockManager.acquire(action.txId(), new LockKey(INDEX_PK_ID, keyRow, LockMode.S); // Index S lock
+                        lockManager.acquire(action.txId(), new LockKey(INDEX_PK_ID, keyRow), LockMode.SHARED); // Index S lock
 
                         rowIdByKey.put(keyRow, primaryIndex.get(keyRow.keySlice()));
                     }
                 } else {
                     for (BinaryRow keyRow: keyRows) {
-                        //lockManager.acquire(action.txId(), new LockKey(INDEX_SCAN_ID, keyRow, LockMode.S); // Index S lock
+                        lockManager.acquire(action.txId(), new LockKey(INDEX_SCAN_ID, keyRow), LockMode.SHARED); // Index S lock
 
                         //TODO: Implement it through the scan index.
                         for (Map.Entry<ByteBuffer, RowId> entry : primaryIndex.entrySet()) {
@@ -209,8 +221,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     RowId rowId = entry.getValue();
 
                     if (rowId != null) {
-                        //lockManager.acquire(action.txId(), new LockKey(tableId), LockMode.IS)); // IS lock on table
-                        //lockManager.acquire(action.txId(), new LockKey(tableId, rowId), LockMode.S)); // S lock on RowId
+                        lockManager.acquire(action.txId(), new LockKey(tableId), LockMode.INTENTION_SHARED); // IS lock on table
+                        lockManager.acquire(action.txId(), new LockKey(tableId, rowId), LockMode.SHARED); // S lock on RowId
 
                         result.put(entry.getKey(), mvDataStorage.read(rowId, action.txId()));
                     }
@@ -229,11 +241,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                     assert INDEX_PK_ID.equals(singleEntryAction.indexToUse()) : IgniteStringFormatter.format(
                             "The action can use only primary key index [indexToUse={}]", singleEntryAction.indexToUse());
 
-                    //lockManager.acquire(action.txId(), new LockKey(INDEX_PK_ID, keyRow, LockMode.X); // Index X lock
-
-                    rowId = primaryIndex.remove(singleEntryAction.entryContainer().getRow().keySlice());
+                    lockManager.acquire(action.txId(), new LockKey(INDEX_PK_ID, keyRow), LockMode.EXCLUSIVE); // Index X lock
                 } else {
-                    //lockManager.acquire(action.txId(), new LockKey(INDEX_SCAN_ID, keyRow, LockMode.X); // Index X lock
+                    lockManager.acquire(action.txId(), new LockKey(INDEX_SCAN_ID, keyRow), LockMode.EXCLUSIVE); // Index X lock
 
                     //TODO: Implement it through the scan index.
                     for (Map.Entry<ByteBuffer, RowId> entry : primaryIndex.entrySet()) {
@@ -245,12 +255,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
                 }
 
-                //lockManager.acquire(action.txId(), new LockKey(tableId), LockMode.IX)); // IX lock on table
-                //lockManager.acquire(action.txId(), new LockKey(tableId, rowId), LockMode.X)); // X lock on RowId
-
-                BinaryRow row = mvDataStorage.read(rowId, action.txId());
-
-                mvDataStorage.addWrite(rowId, row, action.txId());
+                lockManager.acquire(action.txId(), new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE); // IX lock on table
+                lockManager.acquire(action.txId(), new LockKey(tableId, rowId), LockMode.EXCLUSIVE); // X lock on RowId
 
                 CompletableFuture fut = new CompletableFuture();
 
@@ -291,20 +297,17 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 BinaryRow row = singleEntryAction.entryContainer().getRow();
 
-                //lockManager.acquire(action.txId(), new LockKey(tableId), LockMode.IX)); // IX lock on table
-                RowId rowId = mvDataStorage.insert(row, action.txId());
+                lockManager.acquire(action.txId(), new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE); // IX lock on table
+
+                BinaryRow keyRow = new ByteBufferRow(row.keySlice());
 
                 if (singleEntryAction.indexToUse() != null) {
                     assert INDEX_PK_ID.equals(singleEntryAction.indexToUse()) : IgniteStringFormatter.format(
                             "The action can use only primary key index [indexToUse={}]", singleEntryAction.indexToUse());
 
-                    //lockManager.acquire(action.txId(), new LockKey(INDEX_PK_ID, keyRow, LockMode.X); // Index X lock
-
-                    rowId = primaryIndex.put(row.valueSlice(), rowId);
-
-                    assert rowId == null : "Primary index already has row";
+                    lockManager.acquire(action.txId(), new LockKey(INDEX_PK_ID, keyRow), LockMode.EXCLUSIVE); // Index X lock
                 } else {
-                    //lockManager.acquire(action.txId(), new LockKey(INDEX_SCAN_ID, keyRow, LockMode.X); // Index X lock
+                    lockManager.acquire(action.txId(), new LockKey(INDEX_SCAN_ID, keyRow), LockMode.EXCLUSIVE); // Index X lock
                 }
 
                 CompletableFuture fut = new CompletableFuture();
@@ -330,10 +333,58 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return null;
             }
             case RW_UPSERT: {
-                // lock management
-                // call raft client
+                var singleEntryAction = (PartitionSingleAction) action;
 
-                return null;
+                BinaryRow row = singleEntryAction.entryContainer().getRow();
+
+                BinaryRow keyRow = new ByteBufferRow(row.keySlice());
+
+                RowId rowId = null;
+
+                if (singleEntryAction.indexToUse() != null) {
+                    assert INDEX_PK_ID.equals(singleEntryAction.indexToUse()) : IgniteStringFormatter.format(
+                            "The action can use only primary key index [indexToUse={}]", singleEntryAction.indexToUse());
+
+                    lockManager.acquire(action.txId(), new LockKey(INDEX_PK_ID, keyRow), LockMode.EXCLUSIVE); // Index X lock
+
+                    rowId = primaryIndex.get(keyRow.valueSlice());
+                } else {
+                    lockManager.acquire(action.txId(), new LockKey(INDEX_SCAN_ID, keyRow), LockMode.EXCLUSIVE); // Index X lock
+                }
+
+                CompletableFuture fut = new CompletableFuture();
+
+                if (rowId == null) {
+                    lockManager.acquire(action.txId(), new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE); // Index IX lock
+
+                    executor.submit(() -> {
+                        //TODO: RAFT commands have to apply a row id and shouldn't depend of txId.
+                        raftClient.run(new InsertCommand(row, action.txId())).whenComplete((o, throwable) -> {
+                            if (throwable != null) {
+                                fut.completeExceptionally(throwable);
+                            } else {
+                                fut.complete(o);
+                            }
+                        });
+                    });
+                } else {
+                    lockManager.acquire(action.txId(), new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE); // Table IX lock
+
+                    lockManager.acquire(action.txId(), new LockKey(tableId, rowId), LockMode.EXCLUSIVE); // Data X lock
+
+                    executor.submit(() -> {
+                        //Update by
+                        raftClient.run(new UpsertCommand(row, action.txId())).whenComplete((o, throwable) -> {
+                            if (throwable != null) {
+                                fut.completeExceptionally(throwable);
+                            } else {
+                                fut.complete(o);
+                            }
+                        });
+                    });
+                }
+
+                return new ListenerFutureResponse(new ReplicaRequestLocator(action.txId(), UUID.randomUUID()), fut);
             }
             case RW_UPSERT_ALL: {
                 // lock management
