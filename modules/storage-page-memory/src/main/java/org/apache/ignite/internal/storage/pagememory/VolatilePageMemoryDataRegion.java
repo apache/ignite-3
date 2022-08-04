@@ -27,7 +27,6 @@ import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
-import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersionFreeList;
@@ -95,7 +94,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         }
 
         try {
-            rowVersionFreeList = createRowVersionFreeList(pageMemory, null);
+            rowVersionFreeList = createRowVersionFreeList(pageMemory, versionChainFreeList);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error creating a RowVersionFreeList", e);
         }
@@ -131,8 +130,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
 
     private static RowVersionFreeList createRowVersionFreeList(
             PageMemory pageMemory,
-            // TODO: IGNITE-17085 обсудить завтра его необходимость
-            ReuseList reuseList
+            VersionChainFreeList reuseList
     ) throws IgniteInternalCheckedException {
         return new RowVersionFreeList(
                 FREE_LIST_GROUP_ID,

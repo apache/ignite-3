@@ -378,6 +378,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     // as aborts are pretty rare; let's strive for internal consistency for now and write the correct value.
                     latestCommittedVersion.nextLink()
             );
+
             updateVersionChain(currentVersionChain, versionChainReplacement);
         } else {
             // it was the only version, let's remove the chain as well
@@ -436,7 +437,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         try {
             rowVersionFreeList.removeDataRowByLink(currentVersion.link());
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot update row version");
+            throw new StorageException("Cannot update row version", e);
         }
     }
 

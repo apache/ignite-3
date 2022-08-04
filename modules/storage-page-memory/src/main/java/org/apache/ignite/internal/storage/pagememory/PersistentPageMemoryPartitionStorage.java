@@ -43,14 +43,13 @@ public class PersistentPageMemoryPartitionStorage extends AbstractPageMemoryPart
      * @param freeList Table free list.
      * @param tree Table tree.
      * @param checkpointTimeoutLock Checkpoint timeout lock.
-     * @throws StorageException If there is an error while creating the partition storage.
      */
     public PersistentPageMemoryPartitionStorage(
             int partId,
             TableFreeList freeList,
             TableTree tree,
             CheckpointTimeoutLock checkpointTimeoutLock
-    ) throws StorageException {
+    ) {
         super(partId, freeList, tree);
 
         this.checkpointTimeoutLock = checkpointTimeoutLock;

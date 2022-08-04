@@ -17,17 +17,25 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import java.util.UUID;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.tx.Timestamp;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for persistent case.
  */
-// TODO: IGNITE-17085 продолжить
-// TODO: IGNITE-17085 ТЕСТЫ
 public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMvPartitionStorage {
+    private final CheckpointTimeoutLock checkpointTimeoutLock;
+
     /**
      * Constructor.
      *
@@ -37,6 +45,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param versionChainFreeList Free list for {@link VersionChain}.
      * @param rowVersionFreeList Free list for {@link RowVersion}.
      * @param versionChainTree Table tree for {@link VersionChain}.
+     * @param checkpointTimeoutLock Checkpoint timeout lock.
      */
     public PersistentPageMemoryMvPartitionStorage(
             int partId,
@@ -44,8 +53,59 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             PersistentPageMemory pageMemory,
             VersionChainFreeList versionChainFreeList,
             RowVersionFreeList rowVersionFreeList,
-            VersionChainTree versionChainTree
+            VersionChainTree versionChainTree,
+            CheckpointTimeoutLock checkpointTimeoutLock
     ) {
         super(partId, tableView, pageMemory, versionChainFreeList, rowVersionFreeList, versionChainTree);
+
+        this.checkpointTimeoutLock = checkpointTimeoutLock;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public LinkRowId insert(BinaryRow row, UUID txId) throws StorageException {
+        checkpointTimeoutLock.checkpointReadLock();
+
+        try {
+            return super.insert(row, txId);
+        } finally {
+            checkpointTimeoutLock.checkpointReadUnlock();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException, StorageException {
+        checkpointTimeoutLock.checkpointReadLock();
+
+        try {
+            return super.addWrite(rowId, row, txId);
+        } finally {
+            checkpointTimeoutLock.checkpointReadUnlock();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void commitWrite(RowId rowId, Timestamp timestamp) throws StorageException {
+        checkpointTimeoutLock.checkpointReadLock();
+
+        try {
+            super.commitWrite(rowId, timestamp);
+        } finally {
+            checkpointTimeoutLock.checkpointReadUnlock();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
+        checkpointTimeoutLock.checkpointReadLock();
+
+        try {
+            return super.abortWrite(rowId);
+        } finally {
+            checkpointTimeoutLock.checkpointReadUnlock();
+        }
     }
 }

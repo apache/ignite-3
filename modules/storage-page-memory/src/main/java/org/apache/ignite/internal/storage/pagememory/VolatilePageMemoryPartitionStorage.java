@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.pagememory;
 
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.PartitionStorage;
-import org.apache.ignite.internal.storage.StorageException;
 
 /**
  * Implementation of {@link PartitionStorage} based on a {@link BplusTree} for in-memory case.
@@ -31,13 +30,12 @@ class VolatilePageMemoryPartitionStorage extends AbstractPageMemoryPartitionStor
      * @param partId Partition id.
      * @param freeList Table free list.
      * @param tree Table tree.
-     * @throws StorageException If there is an error while creating the partition storage.
      */
     public VolatilePageMemoryPartitionStorage(
             int partId,
             TableFreeList freeList,
             TableTree tree
-    ) throws StorageException {
+    ) {
         super(partId, freeList, tree);
     }
 }

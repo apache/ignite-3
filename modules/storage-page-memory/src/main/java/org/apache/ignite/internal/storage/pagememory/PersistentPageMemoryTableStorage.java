@@ -32,7 +32,6 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMa
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
-import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
@@ -45,7 +44,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for persistent case.
  */
-class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     private final PersistentPageMemoryDataRegion dataRegion;
 
     /**
@@ -239,7 +238,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
             RowVersionFreeList rowVersionFreeList = createRowVersionFreeList(
                     tableView,
                     partitionId,
-                    null,
+                    versionChainFreeList,
                     meta.rowVersionFreeListRootPageId(),
                     initRowVersionFreeList
             );
@@ -260,7 +259,8 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
                     dataRegion.pageMemory(),
                     versionChainFreeList,
                     rowVersionFreeList,
-                    versionChainTree
+                    versionChainTree,
+                    checkpointTimeoutLock
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
@@ -369,6 +369,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      *
      * @param tableView Table configuration.
      * @param partId Partition ID.
+     * @param reuseList Reuse list.
      * @param rootPageId Root page ID.
      * @param initNew {@code True} if new metadata should be initialized.
      * @throws StorageException If failed.
@@ -376,8 +377,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     RowVersionFreeList createRowVersionFreeList(
             TableView tableView,
             int partId,
-            // TODO: IGNITE-17085 обсудить удаление
-            ReuseList reuseList,
+            VersionChainFreeList reuseList,
             long rootPageId,
             boolean initNew
     ) throws StorageException {

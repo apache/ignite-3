@@ -60,13 +60,12 @@ abstract class AbstractPageMemoryPartitionStorage implements PartitionStorage {
      * @param partId Partition id.
      * @param freeList Table free list.
      * @param tree Table tree.
-     * @throws StorageException If there is an error while creating the partition storage.
      */
     public AbstractPageMemoryPartitionStorage(
             int partId,
             TableFreeList freeList,
             TableTree tree
-    ) throws StorageException {
+    ) {
         assert partId >= 0 && partId < MAX_PARTITION_ID : partId;
 
         this.partId = partId;
