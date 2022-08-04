@@ -130,8 +130,8 @@ public class BinaryTupleParser {
         }
 
         if (offset == nextOffset && hasNullMap()) {
-            int nullIndex = BinaryTupleSchema.getNullOffset(index);
-            byte nullMask = BinaryTupleSchema.getNullMask(index);
+            int nullIndex = BinaryTupleSchema.nullOffset(index);
+            byte nullMask = BinaryTupleSchema.nullMask(index);
             if ((buffer.get(nullIndex) & nullMask) != 0) {
                 sink.nextElement(index, 0, 0);
                 return;
@@ -157,8 +157,8 @@ public class BinaryTupleParser {
             }
 
             if (offset == nextOffset && hasNullMap()) {
-                int nullIndex = BinaryTupleSchema.getNullOffset(i);
-                byte nullMask = BinaryTupleSchema.getNullMask(i);
+                int nullIndex = BinaryTupleSchema.nullOffset(i);
+                byte nullMask = BinaryTupleSchema.nullMask(i);
                 if ((buffer.get(nullIndex) & nullMask) != 0) {
                     sink.nextElement(i, 0, 0);
                     entry += entrySize;
