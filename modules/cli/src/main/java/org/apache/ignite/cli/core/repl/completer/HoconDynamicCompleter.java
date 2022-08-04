@@ -19,7 +19,6 @@ package org.apache.ignite.cli.core.repl.completer;
 
 import com.typesafe.config.Config;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -97,7 +96,7 @@ public class HoconDynamicCompleter implements DynamicCompleter {
     private void walkAndAdd(String keyPrefix, Set<String> keySet, List<String> result) {
         keySet.forEach(key -> {
             if (!leafs.contains(keyPrefix + key)) {
-                Set<String> nextKeySet = new HashSet<>(config.getConfig(keyPrefix + key).root().keySet());
+                Set<String> nextKeySet = config.getConfig(keyPrefix + key).root().keySet();
                 walkAndAdd(keyPrefix + key + ".", nextKeySet, result);
             }
             result.add(keyPrefix + key);

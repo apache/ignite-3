@@ -18,6 +18,7 @@
 package org.apache.ignite.cli.core.repl.completer;
 
 import jakarta.inject.Singleton;
+import org.apache.ignite.cli.config.ConfigConstants;
 import org.apache.ignite.cli.config.ConfigManagerProvider;
 import org.apache.ignite.cli.core.repl.Session;
 
@@ -47,7 +48,7 @@ public class NodeUrlProvider {
             return session.nodeUrl();
         }
 
-        return configManagerProvider.get().getCurrentProperty("ignite.cluster-url");
+        return configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
     }
 
     private String findClusterUrlIn(String[] words) {
