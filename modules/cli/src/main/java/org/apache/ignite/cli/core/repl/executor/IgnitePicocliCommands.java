@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.ignite.cli.core.repl.completer.CompleterFilter;
 import org.apache.ignite.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.cli.core.repl.completer.DynamicCompleterRegistry;
@@ -155,7 +154,7 @@ public class IgnitePicocliCommands implements CommandRegistry {
     public Object invoke(CommandRegistry.CommandSession session, String command, Object[] args) throws Exception {
         List<String> arguments = new ArrayList<>();
         arguments.add(command);
-        arguments.addAll(Arrays.stream(args).map(Object::toString).collect(Collectors.toList()));
+        Arrays.stream(args).map(Object::toString).forEach(arguments::add);
         cmd.execute(arguments.toArray(new String[0]));
         return null;
     }
