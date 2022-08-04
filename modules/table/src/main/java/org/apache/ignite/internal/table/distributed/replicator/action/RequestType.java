@@ -57,6 +57,8 @@ public enum RequestType {
 
     RW_GET_AND_UPSERT,
 
+    RW_SCAN,
+
     /** RO get operation. */
     RO_GET,
 
