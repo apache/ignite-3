@@ -15,45 +15,59 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command;
+package org.apache.ignite.internal.tx;
 
 import java.util.UUID;
-import org.apache.ignite.raft.client.WriteCommand;
 
-/** State machine command to finish a transaction. */
-public class FinishTxCommand implements WriteCommand {
-    /** Transaction id. */
+/** Lock. */
+public class Lock {
+
+    /** Lock key. */
+    private final LockKey lockKey;
+
+    /** Lock mode. */
+    private final LockMode lockMode;
+
+    /** Transaction identificator. */
     private final UUID txId;
-
-    /** Commit or rollback state. */
-    private final boolean finish;
 
     /**
      * The constructor.
      *
-     * @param txId          The txId.
-     * @param finish        Commit or rollback state {@code True} to commit.
+     * @param lockKey Lock key.
+     * @param lockMode Lock mode.
+     * @param txId Transaction id.
      */
-    public FinishTxCommand(UUID txId, boolean finish) {
+    public Lock(LockKey lockKey, LockMode lockMode, UUID txId) {
+        this.lockKey = lockKey;
+        this.lockMode = lockMode;
         this.txId = txId;
-        this.finish = finish;
     }
 
     /**
-     * Returns a timestamp.
+     * Returns lock key.
      *
-     * @return The timestamp.
+     * @return Lock key.
+     */
+    public LockKey lockKey() {
+        return lockKey;
+    }
+
+    /**
+     * Returns lock mode.
+     *
+     * @return Lock mode.
+     */
+    public LockMode lockMode() {
+        return lockMode;
+    }
+
+    /**
+     * Returns transcation identificator.
+     *
+     * @return Tx id.
      */
     public UUID txId() {
         return txId;
-    }
-
-    /**
-     * Returns commit or rollback state.
-     *
-     * @return Commit or rollback state.
-     */
-    public boolean finish() {
-        return finish;
     }
 }
