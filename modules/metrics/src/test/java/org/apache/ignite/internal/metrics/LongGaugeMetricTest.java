@@ -15,34 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.scalar;
+package org.apache.ignite.internal.metrics;
 
 /**
- * Test for {@link AtomicLongMetric}.
+ * Test for {@link LongGauge}.
  */
-public class AtomicLongMetricTest extends AbstractLongMetricTest {
+public class LongGaugeMetricTest extends AbstractLongMetricTest {
+    /** A value for the supplier. */
+    private long value = 0;
+
     /** {@inheritDoc} */
     @Override protected void increment0(LongMetric metric) {
-        ((AtomicLongMetric) metric).increment();
+        value++;
     }
 
     /** {@inheritDoc} */
     @Override protected void decrement0(LongMetric metric) {
-        ((AtomicLongMetric) metric).decrement();
+        value--;
     }
 
     /** {@inheritDoc} */
     @Override protected void add0(LongMetric metric, long value) {
-        ((AtomicLongMetric) metric).add(value);
+        this.value += value;
     }
 
     /** {@inheritDoc} */
     @Override protected void setValue0(LongMetric metric, long value) {
-        ((AtomicLongMetric) metric).value(value);
+        this.value = value;
     }
 
     /** {@inheritDoc} */
     @Override protected LongMetric createMetric(String name, String description) {
-        return new AtomicLongMetric(name, description);
+        return new LongGauge(name, description, () -> value);
     }
 }

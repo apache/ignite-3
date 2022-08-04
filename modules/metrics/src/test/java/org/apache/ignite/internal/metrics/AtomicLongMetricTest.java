@@ -15,34 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.scalar;
+package org.apache.ignite.internal.metrics;
 
 /**
- * Test for {@link AtomicIntMetric}.
+ * Test for {@link AtomicLongMetric}.
  */
-public class AtomicIntMetricTest extends AbstractIntMetricTest {
+public class AtomicLongMetricTest extends AbstractLongMetricTest {
     /** {@inheritDoc} */
-    @Override protected AtomicIntMetric createMetric(String name, String description) {
-        return new AtomicIntMetric(name, description);
+    @Override protected void increment0(LongMetric metric) {
+        ((AtomicLongMetric) metric).increment();
     }
 
     /** {@inheritDoc} */
-    @Override protected void increment0(IntMetric metric) {
-        ((AtomicIntMetric) metric).increment();
+    @Override protected void decrement0(LongMetric metric) {
+        ((AtomicLongMetric) metric).decrement();
     }
 
     /** {@inheritDoc} */
-    @Override protected void decrement0(IntMetric metric) {
-        ((AtomicIntMetric) metric).decrement();
+    @Override protected void add0(LongMetric metric, long value) {
+        ((AtomicLongMetric) metric).add(value);
     }
 
     /** {@inheritDoc} */
-    @Override protected void add0(IntMetric metric, int value) {
-        ((AtomicIntMetric) metric).add(value);
+    @Override protected void setValue0(LongMetric metric, long value) {
+        ((AtomicLongMetric) metric).value(value);
     }
 
     /** {@inheritDoc} */
-    @Override protected void setValue0(IntMetric metric, int value) {
-        ((AtomicIntMetric) metric).value(value);
+    @Override protected LongMetric createMetric(String name, String description) {
+        return new AtomicLongMetric(name, description);
     }
 }

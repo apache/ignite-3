@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.composite;
+package org.apache.ignite.internal.metrics;
 
 import java.util.List;
-import org.apache.ignite.internal.metrics.Metric;
 
 /**
  * A composite metric is a group of closely related values. The values themselves are numeric.

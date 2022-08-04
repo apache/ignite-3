@@ -15,30 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.scalar;
+package org.apache.ignite.internal.metrics;
 
 /**
- * Abstract test for long metrics.
+ * Abstract test for integer metrics.
  */
-public abstract class AbstractLongMetricTest extends AbstractScalarMetricsTest<LongMetric, Long> {
+public abstract class AbstractIntMetricTest extends AbstractScalarMetricsTest<IntMetric, Integer> {
     /** Test value. */
-    private static final long TEST_VALUE = 100;
+    private static final int TEST_VALUE = 100;
 
     /** Expected value. */
-    private long expected = 0;
+    private int expected = 0;
 
     /** {@inheritDoc} */
-    @Override protected Long value(LongMetric metric) {
+    @Override protected Integer value(IntMetric metric) {
         return metric.value();
     }
 
     /** {@inheritDoc} */
-    @Override protected Long expected() {
+    @Override protected Integer expected() {
         return expected;
     }
 
     /** {@inheritDoc} */
-    @Override protected void increment(LongMetric metric) {
+    @Override protected void increment(IntMetric metric) {
         expected++;
         increment0(metric);
     }
@@ -48,10 +48,10 @@ public abstract class AbstractLongMetricTest extends AbstractScalarMetricsTest<L
      *
      * @param metric Metric.
      */
-    protected abstract void increment0(LongMetric metric);
+    protected abstract void increment0(IntMetric metric);
 
     /** {@inheritDoc} */
-    @Override protected void decrement(LongMetric metric) {
+    @Override protected void decrement(IntMetric metric) {
         expected--;
         decrement0(metric);
     }
@@ -61,10 +61,10 @@ public abstract class AbstractLongMetricTest extends AbstractScalarMetricsTest<L
      *
      * @param metric Metric.
      */
-    protected abstract void decrement0(LongMetric metric);
+    protected abstract void decrement0(IntMetric metric);
 
     /** {@inheritDoc} */
-    @Override protected void add(LongMetric metric) {
+    @Override protected void add(IntMetric metric) {
         expected += TEST_VALUE;
         add0(metric, TEST_VALUE);
     }
@@ -74,10 +74,10 @@ public abstract class AbstractLongMetricTest extends AbstractScalarMetricsTest<L
      *
      * @param metric Metric.
      */
-    protected abstract void add0(LongMetric metric, long value);
+    protected abstract void add0(IntMetric metric, int value);
 
     /** {@inheritDoc} */
-    @Override protected void setValue(LongMetric metric) {
+    @Override protected void setValue(IntMetric metric) {
         expected = TEST_VALUE;
         setValue0(metric, TEST_VALUE);
     }
@@ -87,5 +87,5 @@ public abstract class AbstractLongMetricTest extends AbstractScalarMetricsTest<L
      *
      * @param metric Metric.
      */
-    protected abstract void setValue0(LongMetric metric, long value);
+    protected abstract void setValue0(IntMetric metric, int value);
 }

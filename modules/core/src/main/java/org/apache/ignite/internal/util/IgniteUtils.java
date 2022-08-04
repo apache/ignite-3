@@ -73,18 +73,6 @@ public class IgniteUtils {
     /** Indicates that assertions are enabled. */
     private static final boolean assertionsEnabled = IgniteUtils.class.desiredAssertionStatus();
 
-    /** Holder for current time in milliseconds. */
-    static volatile long curTimeMillis = System.currentTimeMillis();
-
-    /** Clock timer. */
-    private static Thread timer;
-
-    /** Grid counter. */
-    static int gridCnt;
-
-    /** Mutex. */
-    static final Object mux = new Object();
-
     /**
      * Gets the current monotonic time in milliseconds. This is the amount of milliseconds which passed from an arbitrary moment in the
      * past.
@@ -813,77 +801,6 @@ public class IgniteUtils {
     public static void ensure(boolean cond, String desc) {
         if (!cond) {
             throw new IllegalArgumentException(INVALID_ARG_MSG_PREFIX + desc);
-        }
-    }
-
-    /**
-     * System time approximated by 10 ms.
-     *
-     * @return System time approximated by 10 ms.
-     */
-    public static long currentTimeMillis() {
-        return curTimeMillis;
-    }
-
-    /**
-     * Starts clock timer if node is first.
-     */
-    public static void onNodeStart() {
-        synchronized (mux) {
-            if (gridCnt == 0) {
-                assert timer == null;
-
-                timer = new Thread(new Runnable() {
-                    @SuppressWarnings({"BusyWait"})
-                    @Override public void run() {
-                        while (true) {
-                            curTimeMillis = System.currentTimeMillis();
-
-                            try {
-                                Thread.sleep(10);
-                            } catch (InterruptedException ignored) {
-                                break;
-                            }
-                        }
-                    }
-                }, "ignite-clock");
-
-                timer.setDaemon(true);
-
-                timer.setPriority(10);
-
-                timer.start();
-            }
-
-            ++gridCnt;
-        }
-    }
-
-    /**
-     * Stops clock timer if all nodes into JVM were stopped.
-     */
-    public static void onNodeStop() {
-        synchronized (mux) {
-            // Node start may fail and onNodeStart() does not get called.
-            if (gridCnt == 0) {
-                return;
-            }
-
-            --gridCnt;
-
-            Thread timer0 = timer;
-
-            if (gridCnt == 0 && timer0 != null) {
-                timer = null;
-
-                timer0.interrupt();
-
-                try {
-                    timer0.join();
-                } catch (InterruptedException ignored) {
-                    // No-op.
-                }
-            }
         }
     }
 }

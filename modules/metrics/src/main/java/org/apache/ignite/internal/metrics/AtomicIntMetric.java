@@ -15,22 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.scalar;
+package org.apache.ignite.internal.metrics;
 
-import java.util.concurrent.atomic.AtomicLongFieldUpdater;
-import org.apache.ignite.internal.metrics.AbstractMetric;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Long metric implementation.
+ * Integer metric is implemented as a volatile {@code int} value.
  */
-public class AtomicLongMetric extends AbstractMetric implements LongMetric {
+public class AtomicIntMetric extends AbstractMetric implements IntMetric {
     /** Field updater. */
-    static final AtomicLongFieldUpdater<AtomicLongMetric> updater =
-            AtomicLongFieldUpdater.newUpdater(AtomicLongMetric.class, "val");
+    private static final AtomicIntegerFieldUpdater<AtomicIntMetric> updater =
+            AtomicIntegerFieldUpdater.newUpdater(AtomicIntMetric.class, "val");
 
-    /** Field value. */
-    private volatile long val;
+    /** Value. */
+    private volatile int val;
 
     /**
      * Constructor.
@@ -38,7 +37,7 @@ public class AtomicLongMetric extends AbstractMetric implements LongMetric {
      * @param name Name.
      * @param desc Description.
      */
-    public AtomicLongMetric(String name, @Nullable String desc) {
+    public AtomicIntMetric(String name, @Nullable String desc) {
         super(name, desc);
     }
 
@@ -47,23 +46,18 @@ public class AtomicLongMetric extends AbstractMetric implements LongMetric {
      *
      * @param x Value to be added.
      */
-    public void add(long x) {
-        updater.getAndAdd(this, x);
+    public void add(int x) {
+        updater.addAndGet(this, x);
     }
 
-    /** Adds 1 to the metric. */
+    /** Increment the metric. */
     public void increment() {
-        add(1);
+        updater.incrementAndGet(this);
     }
 
-    /** Adds -1 to the metric. */
+    /** Decrement the metric. */
     public void decrement() {
-        add(-1);
-    }
-
-    /** {@inheritDoc} */
-    @Override public long value() {
-        return val;
+        updater.decrementAndGet(this);
     }
 
     /**
@@ -71,7 +65,12 @@ public class AtomicLongMetric extends AbstractMetric implements LongMetric {
      *
      * @param val Value.
      */
-    public void value(long val) {
+    public void value(int val) {
         this.val = val;
+    }
+
+    /** {@inheritDoc} */
+    @Override public int value() {
+        return val;
     }
 }

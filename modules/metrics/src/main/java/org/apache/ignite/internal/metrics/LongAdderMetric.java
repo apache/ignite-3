@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.scalar;
+package org.apache.ignite.internal.metrics;
 
 import java.util.concurrent.atomic.LongAdder;
-import org.apache.ignite.internal.metrics.AbstractMetric;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -53,14 +52,14 @@ public class LongAdderMetric extends AbstractMetric implements LongMetric {
      * Increment the metric.
      */
     public void increment() {
-        add(1);
+        val.increment();
     }
 
     /**
      * Decrement the metric.
      */
     public void decrement() {
-        add(-1);
+        val.decrement();
     }
 
     /**

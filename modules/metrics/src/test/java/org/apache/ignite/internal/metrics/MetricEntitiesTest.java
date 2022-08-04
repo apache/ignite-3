@@ -27,9 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import org.apache.ignite.internal.metrics.composite.DistributionMetric;
-import org.apache.ignite.internal.metrics.scalar.AtomicIntMetric;
-import org.apache.ignite.internal.metrics.scalar.IntMetric;
 import org.junit.jupiter.api.Test;
 
 /**

@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.scalar;
+package org.apache.ignite.internal.metrics;
 
 import static org.apache.ignite.internal.util.IgniteUtils.onNodeStart;
 import static org.apache.ignite.internal.util.IgniteUtils.onNodeStop;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import org.apache.ignite.internal.metrics.HitRateMetric;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

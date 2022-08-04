@@ -15,34 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.scalar;
+package org.apache.ignite.internal.metrics;
 
 /**
- * Test for {@link AtomicDoubleMetric}.
+ * Test for {@link IntGauge}.
  */
-public class AtomicDoubleMetricTest extends AbstractDoubleMetricTest {
+public class IntGaugeTest extends AbstractIntMetricTest {
+    /** A value for the supplier. */
+    private int value;
+
     /** {@inheritDoc} */
-    @Override protected void increment0(DoubleMetric metric) {
-        ((AtomicDoubleMetric) metric).add(1);
+    @Override protected void increment0(IntMetric metric) {
+        value++;
     }
 
     /** {@inheritDoc} */
-    @Override protected void decrement0(DoubleMetric metric) {
-        ((AtomicDoubleMetric) metric).add(-1);
+    @Override protected void decrement0(IntMetric metric) {
+        value--;
     }
 
     /** {@inheritDoc} */
-    @Override protected void add0(DoubleMetric metric, double value) {
-        ((AtomicDoubleMetric) metric).add(value);
+    @Override protected void add0(IntMetric metric, int value) {
+        this.value += value;
     }
 
     /** {@inheritDoc} */
-    @Override protected void setValue0(DoubleMetric metric, double value) {
-        ((AtomicDoubleMetric) metric).value(value);
+    @Override protected void setValue0(IntMetric metric, int value) {
+        this.value = value;
     }
 
     /** {@inheritDoc} */
-    @Override protected DoubleMetric createMetric(String name, String description) {
-        return new AtomicDoubleMetric(name, description);
+    @Override protected IntMetric createMetric(String name, String description) {
+        return new IntGauge(name, description, () -> value);
     }
 }

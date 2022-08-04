@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.scalar;
+package org.apache.ignite.internal.metrics;
 
 import org.apache.ignite.internal.metrics.Metric;
 
@@ -28,10 +28,10 @@ public interface LongMetric extends Metric {
      *
      * @return Value of the metric.
      */
-    public long value();
+    long value();
 
     /** {@inheritDoc} */
-    @Override public default String getAsString() {
+    @Override default String getValueAsString() {
         return Long.toString(value());
     }
 }

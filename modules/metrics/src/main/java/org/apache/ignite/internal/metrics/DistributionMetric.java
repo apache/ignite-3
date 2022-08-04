@@ -15,16 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.composite;
+package org.apache.ignite.internal.metrics;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.metrics.AbstractMetric;
-import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.scalar.LongGauge;
-import org.apache.ignite.internal.metrics.scalar.LongMetric;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,7 +43,7 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
      * @param desc Description.
      * @param bounds Bounds of the buckets.
      */
-    public DistributionMetric(String name, @Nullable String desc, long[] bounds) {
+    public DistributionMetric(String name, @Nullable String desc, @NotNull long[] bounds) {
         super(name, desc);
 
         assert bounds != null && bounds.length > 0;
@@ -62,8 +59,8 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
      * @param arr Array to check.
      * @return {@code True} if array sorted, {@code false} otherwise.
      */
-    public static boolean isSorted(long[] arr) {
-        if (arr == null || arr.length < 2) {
+    private static boolean isSorted(@NotNull long[] arr) {
+        if (arr.length < 2) {
             return true;
         }
 
@@ -108,10 +105,20 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
     }
 
     /** {@inheritDoc} */
-    @Override public @Nullable String getAsString() {
-        return asScalarMetrics().stream()
-            .map(m -> m.name() + ":" + ((LongMetric) m).value())
-            .collect(Collectors.joining(", ", "[", "]"));
+    @Override public @Nullable String getValueAsString() {
+        StringBuilder sb = new StringBuilder("[");
+
+        List<Metric> scalarMetrics = asScalarMetrics();
+
+        for (Metric m : scalarMetrics) {
+            sb.append(m.name())
+                .append(':')
+                .append(((LongMetric) m).value());
+        }
+
+        sb.append(']');
+
+        return sb.toString();
     }
 
     /**

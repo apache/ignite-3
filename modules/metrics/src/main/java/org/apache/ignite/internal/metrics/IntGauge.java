@@ -15,37 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.scalar;
+package org.apache.ignite.internal.metrics;
+
+import java.util.function.IntSupplier;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Test for {@link LongGauge}.
+ * Implementation based on primitive supplier.
  */
-public class LongGaugeMetricTest extends AbstractLongMetricTest {
-    /** A value for the supplier. */
-    private long value = 0;
+public class IntGauge extends AbstractMetric implements IntMetric {
+    /** Value supplier. */
+    private final IntSupplier val;
 
-    /** {@inheritDoc} */
-    @Override protected void increment0(LongMetric metric) {
-        value++;
+    /**
+     * Constructor.
+     *
+     * @param name Name.
+     * @param desc Description.
+     * @param val Supplier.
+     */
+    public IntGauge(String name, @Nullable String desc, IntSupplier val) {
+        super(name, desc);
+
+        this.val = val;
     }
 
     /** {@inheritDoc} */
-    @Override protected void decrement0(LongMetric metric) {
-        value--;
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void add0(LongMetric metric, long value) {
-        this.value += value;
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void setValue0(LongMetric metric, long value) {
-        this.value = value;
-    }
-
-    /** {@inheritDoc} */
-    @Override protected LongMetric createMetric(String name, String description) {
-        return new LongGauge(name, description, () -> value);
+    @Override public int value() {
+        return val.getAsInt();
     }
 }

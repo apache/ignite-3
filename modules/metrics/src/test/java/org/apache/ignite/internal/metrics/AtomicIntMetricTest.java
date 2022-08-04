@@ -15,34 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.scalar;
-
-import java.util.function.IntSupplier;
-import org.apache.ignite.internal.metrics.AbstractMetric;
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.internal.metrics;
 
 /**
- * Implementation based on primitive supplier.
+ * Test for {@link AtomicIntMetric}.
  */
-public class IntGauge extends AbstractMetric implements IntMetric {
-    /** Value supplier. */
-    private final IntSupplier val;
-
-    /**
-     * Constructor.
-     *
-     * @param name Name.
-     * @param desc Description.
-     * @param val Supplier.
-     */
-    public IntGauge(String name, @Nullable String desc, IntSupplier val) {
-        super(name, desc);
-
-        this.val = val;
+public class AtomicIntMetricTest extends AbstractIntMetricTest {
+    /** {@inheritDoc} */
+    @Override protected AtomicIntMetric createMetric(String name, String description) {
+        return new AtomicIntMetric(name, description);
     }
 
     /** {@inheritDoc} */
-    @Override public int value() {
-        return val.getAsInt();
+    @Override protected void increment0(IntMetric metric) {
+        ((AtomicIntMetric) metric).increment();
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void decrement0(IntMetric metric) {
+        ((AtomicIntMetric) metric).decrement();
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void add0(IntMetric metric, int value) {
+        ((AtomicIntMetric) metric).add(value);
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void setValue0(IntMetric metric, int value) {
+        ((AtomicIntMetric) metric).value(value);
     }
 }

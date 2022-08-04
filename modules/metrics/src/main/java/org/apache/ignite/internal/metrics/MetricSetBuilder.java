@@ -23,16 +23,6 @@ import java.util.Objects;
 import java.util.function.DoubleSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
-import org.apache.ignite.internal.metrics.composite.DistributionMetric;
-import org.apache.ignite.internal.metrics.scalar.AtomicDoubleMetric;
-import org.apache.ignite.internal.metrics.scalar.AtomicIntMetric;
-import org.apache.ignite.internal.metrics.scalar.AtomicLongMetric;
-import org.apache.ignite.internal.metrics.scalar.DoubleAdderMetric;
-import org.apache.ignite.internal.metrics.scalar.DoubleGauge;
-import org.apache.ignite.internal.metrics.scalar.HitRateMetric;
-import org.apache.ignite.internal.metrics.scalar.IntGauge;
-import org.apache.ignite.internal.metrics.scalar.LongAdderMetric;
-import org.apache.ignite.internal.metrics.scalar.LongGauge;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -198,7 +188,7 @@ public class MetricSetBuilder {
      * @param rateTimeInterval Rate time interval in milliseconds.
      * @return Hit rate metric.
      */
-    public HitRateMetric hitRateMetric(String name, @Nullable String description, long rateTimeInterval) {
+    public HitRateMetric hitRate(String name, @Nullable String description, long rateTimeInterval) {
         return register(new HitRateMetric(name, description, rateTimeInterval));
     }
 
@@ -211,7 +201,7 @@ public class MetricSetBuilder {
      * @param size Counters array size.
      * @return Hit rate metric.
      */
-    public HitRateMetric hitRateMetric(String name, @Nullable String description, long rateTimeInterval, int size) {
+    public HitRateMetric hitRate(String name, @Nullable String description, long rateTimeInterval, int size) {
         return register(new HitRateMetric(name, description, rateTimeInterval, size));
     }
 
@@ -223,7 +213,7 @@ public class MetricSetBuilder {
      * @param bounds Bounds of the buckets
      * @return Distribution metrics.
      */
-    public DistributionMetric distributionMetric(String name, @Nullable String description, long[] bounds) {
+    public DistributionMetric distribution(String name, @Nullable String description, long[] bounds) {
         return register(new DistributionMetric(name, description, bounds));
     }
 }

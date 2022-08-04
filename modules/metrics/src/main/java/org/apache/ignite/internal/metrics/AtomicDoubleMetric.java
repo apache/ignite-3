@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.scalar;
+package org.apache.ignite.internal.metrics;
 
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
-import org.apache.ignite.internal.metrics.AbstractMetric;
 
 /**
  * Double metric based on atomic updater of double value.

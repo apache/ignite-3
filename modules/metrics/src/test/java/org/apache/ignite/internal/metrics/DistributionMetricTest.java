@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.composite;
+package org.apache.ignite.internal.metrics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
-import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.scalar.LongMetric;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -74,6 +72,6 @@ public class DistributionMetricTest {
             assertEquals(i + 2, lm.value());
         }
 
-        assertEquals("[0_50:2, 50_500:3, 500_:4]", distribution.getAsString());
+        assertEquals("[0_50:2, 50_500:3, 500_:4]", distribution.getValueAsString());
     }
 }

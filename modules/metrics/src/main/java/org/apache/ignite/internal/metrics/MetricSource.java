@@ -17,8 +17,14 @@
 
 package org.apache.ignite.internal.metrics;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
- * Interface for all metrics source.
+ * Interface for all metrics sources. Metric source provides access to related metrics. Metrics source always corresponds
+ * to some component or entity of the system (e.g. node is a metrics source, storage engine is a metric source). Metrics source
+ * has a unique name and type (e.g. class name). The metrics source exposes an interface for modification of metrics values.
+ * Instead of looking up metrics by a name and modifying metrics value directly, developers must use methods defined in the
+ * metrics source.
  */
 public interface MetricSource {
     /**
@@ -34,7 +40,7 @@ public interface MetricSource {
      *
      * @return Newly created {@link MetricSet} instance or {@code null} if metrics are already enabled.
      */
-    MetricSet enable();
+    @Nullable MetricSet enable();
 
     /**
      * Disables metrics for metric source. Nothing happens if the metrics are already disabled for this source.

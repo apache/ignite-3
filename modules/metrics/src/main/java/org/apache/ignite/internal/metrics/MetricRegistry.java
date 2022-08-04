@@ -44,8 +44,10 @@ public class MetricRegistry {
     /**
      * Register metric source. It must be registered in this metrics registry after initialization of corresponding component
      * and must be unregistered in case of component is destroyed or stopped, see {@link #unregisterSource(MetricSource)}.
+     * By registering, the metric source isn't enabled implicitly.
      *
      * @param src Metric source.
+     * @throws IllegalStateException If metric source with the given name already exists.
      */
     public void registerSource(MetricSource src) {
         lock.lock();
@@ -54,7 +56,7 @@ public class MetricRegistry {
             MetricSource old = sources.putIfAbsent(src.name(), src);
 
             if (old != null) {
-                throw new IllegalStateException("Metrics source with given name is already exists: " + src.name());
+                throw new IllegalStateException("Metrics source with given name already exists: " + src.name());
             }
         } finally {
             lock.unlock();
@@ -62,7 +64,8 @@ public class MetricRegistry {
     }
 
     /**
-     * Unregister metric source. It must be unregistered in case of corrsponding component is destroyed or stopped.
+     * Unregister metric source. It must be unregistered in case of corresponding component is destroyed or stopped.
+     * Metric source is also disabled while unregistered, see {@link #disable(String)}.
      *
      * @param src Metric source.
      */
@@ -83,6 +86,7 @@ public class MetricRegistry {
      *
      * @param srcName Metric source name.
      * @return Metric set, or {@code null} if the metric set is already enabled.
+     * @throws IllegalStateException If metric source with the given name doesn't exist.
      */
     public MetricSet enable(final String srcName) {
         lock.lock();
@@ -91,7 +95,7 @@ public class MetricRegistry {
             MetricSource src = sources.get(srcName);
 
             if (src == null) {
-                throw new IllegalStateException("Metrics source with given name doesn't exists: " + srcName);
+                throw new IllegalStateException("Metrics source with given name doesn't exist: " + srcName);
             }
 
             MetricSet metricSet = src.enable();
@@ -138,7 +142,6 @@ public class MetricRegistry {
      *
      * @return Version.
      */
-    @TestOnly
     public long version() {
         return version;
     }

@@ -15,34 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.scalar;
+package org.apache.ignite.internal.metrics;
 
 /**
- * Test for {@link LongAdderMetric}.
+ * Test for {@link DoubleAdderMetric}.
  */
-public class LongAdderMetricTest extends AbstractLongMetricTest {
+public class DoubleAdderMetricTest extends AbstractDoubleMetricTest {
     /** {@inheritDoc} */
-    @Override protected void increment0(LongMetric metric) {
-        ((LongAdderMetric) metric).increment();
+    @Override protected void increment0(DoubleMetric metric) {
+        ((DoubleAdderMetric) metric).add(1);
     }
 
     /** {@inheritDoc} */
-    @Override protected void decrement0(LongMetric metric) {
-        ((LongAdderMetric) metric).decrement();
+    @Override protected void decrement0(DoubleMetric metric) {
+        ((DoubleAdderMetric) metric).add(-1);
     }
 
     /** {@inheritDoc} */
-    @Override protected void add0(LongMetric metric, long value) {
-        ((LongAdderMetric) metric).add(value);
+    @Override protected void add0(DoubleMetric metric, double value) {
+        ((DoubleAdderMetric) metric).add(value);
     }
 
     /** {@inheritDoc} */
-    @Override protected void setValue0(LongMetric metric, long value) {
-        ((LongAdderMetric) metric).value(value);
+    @Override protected void setValue0(DoubleMetric metric, double value) {
+        ((DoubleAdderMetric) metric).value(value);
     }
 
     /** {@inheritDoc} */
-    @Override protected LongMetric createMetric(String name, String description) {
-        return new LongAdderMetric(name, description);
+    @Override protected DoubleMetric createMetric(String name, String description) {
+        return new DoubleAdderMetric(name, description);
     }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.scalar;
+package org.apache.ignite.internal.metrics;
 
 import org.apache.ignite.internal.metrics.Metric;
 
@@ -31,7 +31,7 @@ public interface IntMetric extends Metric {
     int value();
 
     /** {@inheritDoc} */
-    default String getAsString() {
+    default String getValueAsString() {
         return Integer.toString(value());
     }
 }

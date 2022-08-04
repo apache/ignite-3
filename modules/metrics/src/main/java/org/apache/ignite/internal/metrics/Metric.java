@@ -35,6 +35,7 @@ public interface Metric {
      *
      * @return Description of the metric.
      */
+    @Nullable
     String description();
 
     /**
@@ -43,5 +44,5 @@ public interface Metric {
      * @return String representation of metric value.
      */
     @Nullable
-    String getAsString();
+    String getValueAsString();
 }

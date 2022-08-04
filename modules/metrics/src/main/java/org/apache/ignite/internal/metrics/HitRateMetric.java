@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.scalar;
+package org.apache.ignite.internal.metrics;
 
-import static org.apache.ignite.internal.util.IgniteUtils.currentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.ensure;
 
 import java.util.concurrent.atomic.AtomicLongArray;
-import org.apache.ignite.internal.metrics.AbstractMetric;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -88,12 +87,12 @@ public class HitRateMetric extends AbstractMetric implements LongMetric {
     }
 
     /**
-     * Adds x to the metric.
+     * Adds the given count for hits to the metric.
      *
-     * @param hits Value to be added.
+     * @param hits Count of hits.
      */
     public void add(long hits) {
-        long curTs = currentTimeMillis();
+        long curTs = FastTimestamps.coarseCurrentTimeMillis();
 
         int curPos = position(curTs);
 
@@ -112,7 +111,7 @@ public class HitRateMetric extends AbstractMetric implements LongMetric {
 
     /** {@inheritDoc} */
     @Override public long value() {
-        long curTs = currentTimeMillis();
+        long curTs = FastTimestamps.coarseCurrentTimeMillis();
 
         long sum = 0;
 

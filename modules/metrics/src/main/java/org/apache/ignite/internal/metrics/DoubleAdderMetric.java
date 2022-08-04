@@ -15,22 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.scalar;
+package org.apache.ignite.internal.metrics;
 
-import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-import org.apache.ignite.internal.metrics.AbstractMetric;
+import java.util.concurrent.atomic.DoubleAdder;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Integer metric is implemented as a volatile {@code int} value.
+ * Double metric based on {@link DoubleAdder}.
  */
-public class AtomicIntMetric extends AbstractMetric implements IntMetric {
-    /** Field updater. */
-    private static final AtomicIntegerFieldUpdater<AtomicIntMetric> updater =
-            AtomicIntegerFieldUpdater.newUpdater(AtomicIntMetric.class, "val");
-
+public class DoubleAdderMetric extends AbstractMetric implements DoubleMetric {
     /** Value. */
-    private volatile int val;
+    private volatile DoubleAdder val;
 
     /**
      * Constructor.
@@ -38,8 +33,10 @@ public class AtomicIntMetric extends AbstractMetric implements IntMetric {
      * @param name Name.
      * @param desc Description.
      */
-    public AtomicIntMetric(String name, @Nullable String desc) {
+    public DoubleAdderMetric(String name, @Nullable String desc) {
         super(name, desc);
+
+        this.val = new DoubleAdder();
     }
 
     /**
@@ -47,18 +44,8 @@ public class AtomicIntMetric extends AbstractMetric implements IntMetric {
      *
      * @param x Value to be added.
      */
-    public void add(int x) {
-        updater.addAndGet(this, x);
-    }
-
-    /** Increment the metric. */
-    public void increment() {
-        add(1);
-    }
-
-    /** Decrement the metric. */
-    public void decrement() {
-        add(-1);
+    public void add(double x) {
+        val.add(x);
     }
 
     /**
@@ -66,12 +53,14 @@ public class AtomicIntMetric extends AbstractMetric implements IntMetric {
      *
      * @param val Value.
      */
-    public void value(int val) {
-        this.val = val;
+    public void value(double val) {
+        DoubleAdder adder = new DoubleAdder();
+        adder.add(val);
+        this.val = adder;
     }
 
     /** {@inheritDoc} */
-    @Override public int value() {
-        return val;
+    @Override public double value() {
+        return val.sum();
     }
 }
