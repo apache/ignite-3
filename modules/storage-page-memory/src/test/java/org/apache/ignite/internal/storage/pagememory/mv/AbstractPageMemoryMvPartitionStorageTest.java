@@ -109,7 +109,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
     void uncommittedMultiPageValuesAreReadSuccessfully() {
         BinaryRow longRow = rowStoredInFragments();
 
-        LinkRowId rowId = (LinkRowId) insert(longRow, txId);
+        RowId rowId = insert(longRow, txId);
 
         BinaryRow foundRow = read(rowId, txId);
 
@@ -133,7 +133,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
     void committedMultiPageValuesAreReadSuccessfully() {
         BinaryRow longRow = rowStoredInFragments();
 
-        LinkRowId rowId = (LinkRowId) insert(longRow, txId);
+        RowId rowId = insert(longRow, txId);
 
         commitWrite(rowId, Timestamp.nextVersion());
 
@@ -159,7 +159,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
     void committedMultiPageValuesWorkWithScans() throws Exception {
         BinaryRow longRow = rowStoredInFragments();
 
-        LinkRowId rowId = (LinkRowId) insert(longRow, txId);
+        RowId rowId = insert(longRow, txId);
 
         commitWrite(rowId, Timestamp.nextVersion());
 
@@ -209,7 +209,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
 
     @Test
     void readByTimestampWorksCorrectlyIfNoUncommittedValueExists() {
-        LinkRowId rowId = (LinkRowId) insert(binaryRow, txId);
+        RowId rowId = insert(binaryRow, txId);
 
         BinaryRow foundRow = read(rowId, Timestamp.nextVersion());
 
