@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.HashMap;
@@ -26,9 +24,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -38,7 +33,6 @@ import org.apache.ignite.internal.replicator.listener.ListenerFutureResponse;
 import org.apache.ignite.internal.replicator.listener.ListenerInstantResponse;
 import org.apache.ignite.internal.replicator.listener.ListenerResponse;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
-import org.apache.ignite.internal.replicator.message.ActionRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaRequestLocator;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -48,15 +42,13 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
-import org.apache.ignite.internal.table.distributed.command.DeleteExactCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
-import org.apache.ignite.internal.table.distributed.replicator.action.PartitionAction;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.PartitionMultiAction;
-import org.apache.ignite.internal.table.distributed.replicator.action.PartitionSingleAction;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.table.distributed.replicator.action.PartitionTwoAction;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
@@ -96,9 +88,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Dummy primary index. */
     private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
 
-    /** Executor. */
-    private final ExecutorService executor;
-
     /**
      * The constructor.
      *
@@ -111,7 +100,6 @@ public class PartitionReplicaListener implements ReplicaListener {
             RaftGroupService raftClient,
             LockManager lockManager,
             UUID tableId,
-            String listenerName,
             ConcurrentHashMap<ByteBuffer, RowId> primaryIndex
     ) {
         this.mvDataStorage = mvDataStorage;
@@ -119,27 +107,16 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.lockManager = lockManager;
         this.tableId = tableId;
         this.primaryIndex = primaryIndex;
-
-        this.executor = new ThreadPoolExecutor(
-                2 * Runtime.getRuntime().availableProcessors(),
-                2 * Runtime.getRuntime().availableProcessors(),
-                30_000,
-                MILLISECONDS,
-                new LinkedBlockingQueue<>(),
-                new NamedThreadFactory(listenerName + "-exec", LOG)
-        );
     }
 
     /** {@inheritDoc} */
     @Override
     public ListenerResponse invoke(ReplicaRequest request) {
-        if (request instanceof ActionRequest) {
-            var actionRequest = (ActionRequest) request;
-
-            return processAction((PartitionAction) actionRequest.action());
-        } else {
-//            var cleanupRequest = (CleanupRequest)request;
-
+        if (request instanceof ReadWriteSingleRowReplicaRequest) {
+            return processSingleEntryAction((ReadWriteSingleRowReplicaRequest) request).join();
+        } /*else if (request instanceof ReadWriteMultiRowReplicaRequest) {
+            return processMultiEntryAction((ReadWriteMultiRowReplicaRequest) request);
+        }*/ else {
             return null;
         }
     }
@@ -262,7 +239,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         .map(Map.Entry::getKey)
                         .collect(Collectors.toList());
 
-                //TODO: RAFT commands have to apply a row id and shouldn't depend of txId.
+                //TODO: IGNITE-17477 RAFT commands have to apply a row id.
                 CompletableFuture raftFut = raftClient.run(new DeleteAllCommand(keysToRemove, action.txId()));
 
                 return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, keysToRemove);
@@ -315,7 +292,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         .map(Map.Entry::getValue)
                         .collect(Collectors.toList());
 
-                //TODO: RAFT commands have to apply a row id and shouldn't depend of txId.
+                //TODO: IGNITE-17477 RAFT commands have to apply a row id.
                 CompletableFuture raftFut = raftClient.run(new DeleteExactAllCommand(rowsToRemove, action.txId()));
 
                 return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, keysToRemove);
@@ -353,7 +330,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         .map(entry -> keyToRows.get(entry.getKey()))
                         .collect(Collectors.toList());
 
-                //TODO: RAFT commands have to apply a row id and shouldn't depend of txId.
+                //TODO: IGNITE-17477 RAFT commands have to apply a row id.
                 CompletableFuture raftFut = raftClient.run(new InsertAllCommand(rowsToInsert, action.txId()));
 
                 return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, restRows);
@@ -375,7 +352,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
                 }
 
-                //TODO: RAFT commands have to apply a row id and shouldn't depend of txId.
+                //TODO: IGNITE-17477 RAFT commands have to apply a row id.
                 CompletableFuture raftFut = raftClient.run(new UpsertAllCommand(keyToRows.values(), action.txId()));
 
                 return new ListenerFutureResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut);
@@ -388,200 +365,202 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Precesses single action.
+     * Precesses single request.
      *
-     * @param action Single action operation.
+     * @param request Single request operation.
      * @return Listener response.
      */
-    private ListenerResponse processSingleEntryAction(PartitionSingleAction action) {
-        BinaryRow searchKey = new ByteBufferRow(action.entryContainer().getRow().keySlice());
+    private CompletableFuture<ListenerResponse> processSingleEntryAction(ReadWriteSingleRowReplicaRequest request) {
+        BinaryRow searchKey = new ByteBufferRow(request.binaryRow().keySlice());
 
-        BinaryRow searchRow = action.entryContainer().getRow();
+        BinaryRow searchRow = request.binaryRow();
 
-        BinaryRow result = null;
+        UUID indexId = indexIdOrDefault(null/*request.indexToUse()*/);
 
-        UUID indexId = indexIdOrDefault(action.indexToUse());
+        UUID txId = request.transactionId();
 
-        UUID txId = action.txId();
-
-        RowId rowId = null;
-
-        switch (action.actionType()) {
+        switch (request.requestType()) {
             case RW_GET: {
-                lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.SHARED); // Index S lock
+                return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.SHARED).thenCompose(idxLock -> { // Index S lock
+                    RowId rowId = valueByUniqueIndex(indexId, searchKey);
 
-                rowId = valueByUniqueIndex(indexId, searchKey);
+                    return lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_SHARED).thenCompose(tblLock -> { // IS lock on table
+                        CompletableFuture<Lock> rowLockFut = rowId != null ?
+                                lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.SHARED) : // S lock on RowId
+                                CompletableFuture.completedFuture(null);
 
-                lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_SHARED); // IS lock on table
+                        return rowLockFut.thenApply(rowLock -> {
+                            BinaryRow result = rowId != null ? mvDataStorage.read(rowId, txId) : null;
 
-                if (rowId != null) {
-                    lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.SHARED); // S lock on RowId
-
-                    result = mvDataStorage.read(rowId, action.txId());
-                }
-
-                return new ListenerInstantResponse(result);
+                            return new ListenerInstantResponse(result);
+                        });
+                    });
+                });
             }
             case RW_DELETE:
             case RW_GET_AND_DELETE: {
-                lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE); // Index X lock
+                return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE).thenCompose(idxLock -> { // Index X lock
+                    RowId rowId = valueByUniqueIndex(indexId, searchKey);
 
-                rowId = valueByUniqueIndex(indexId, searchKey);
+                    return lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE).thenCompose(tblLock -> { // IX lock on table
+                        CompletableFuture<Lock> rowLockFut = rowId != null ?
+                                lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.EXCLUSIVE) : // X lock on RowId
+                                CompletableFuture.completedFuture(null);
 
-                lockManager.acquire(action.txId(), new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE); // IX lock on table
+                        return rowLockFut.thenApply(rowLock -> {
+                            BinaryRow result = rowId != null ? mvDataStorage.read(rowId, txId) : null;
 
-                if (rowId != null) {
-                    lockManager.acquire(action.txId(), new LockKey(tableId, rowId), LockMode.EXCLUSIVE); // X lock on RowId
+                            CompletableFuture raftFut = rowId != null ? raftClient.run(new DeleteCommand(searchKey, txId)) :
+                                    CompletableFuture.completedFuture(null);
 
-                    result = mvDataStorage.read(rowId, action.txId());
-                }
-
-                //TODO: RAFT commands have to apply a row id and shouldn't depend of txId.
-                CompletableFuture raftFut = result != null ? raftClient.run(new DeleteCommand(searchKey, action.txId())) :
-                        CompletableFuture.completedFuture(null);
-
-                return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, result);
+                            return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, result);
+                        });
+                    });
+                });
             }
             case RW_DELETE_EXACT: {
-                lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE); // Index X lock
+                return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE).thenCompose(idxLock -> { // Index X lock
+                    RowId rowId = valueByUniqueIndex(indexId, searchKey);
 
-                rowId = valueByUniqueIndex(indexId, searchKey);
+                    return lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE).thenCompose(tblLock -> { // IX lock on table
+                        CompletableFuture<BinaryRow> rowLockFut;
 
-                lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE); // IX lock on table
+                        if (rowId != null) {
+                            rowLockFut = lockManager.acquire(txId, new LockKey(tableId, rowId),
+                                    LockMode.SHARED).thenCompose(tempRowLock -> { // S lock on RowId - temporary
+                                BinaryRow curVal = mvDataStorage.read(rowId, txId);
 
-                if (rowId != null) {
-                    CompletableFuture<Lock> lock = lockManager.acquire(txId, new LockKey(tableId, rowId),
-                            LockMode.SHARED); // S lock on RowId - temporary
+                                if (equalValues(curVal, searchRow)) {
+                                    return lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.EXCLUSIVE)
+                                            .thenApply(rowLock -> curVal); // X lock on RowId
+                                } else {
+                                    try {
+                                        lockManager.release(tempRowLock); // Release S lock on RowId - temporary
+                                    } catch (LockException e) {
+                                        throw new ReplicationException("group", e);
+                                    }
 
-                    BinaryRow curVal = mvDataStorage.read(rowId, txId);
+                                    return CompletableFuture.completedFuture(null);
+                                }
+                            });
+                        } else {
+                            rowLockFut = CompletableFuture.completedFuture(null);
+                        }
 
-                    if (equalValues(curVal, searchRow)) {
-                        lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.EXCLUSIVE); // X lock on RowId
+                        return rowLockFut.thenApply(lockedRow -> {
+                            //TODO: IGNITE-17477 RAFT commands have to apply a row id.
+                            CompletableFuture raftFut = lockedRow != null ? raftClient.run(new DeleteCommand(lockedRow, txId)) :
+                                    CompletableFuture.completedFuture(null);
 
-                        result = curVal;
-                    } else {
-                        //TODO: Lock should to be acquired locally only.
+                            return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, lockedRow);
+                        });
+                    });
+                });
+            }
+            case RW_INSERT: {
+                CompletableFuture<RowId> idxLockFut = lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.SHARED).thenCompose(tempIdxLock -> { // Index S lock - temporary
+                    RowId rowId = valueByUniqueIndex(indexId, searchKey);
+
+                    if (rowId != null) {
                         try {
-                            lockManager.release(lock.join()); // Release S lock on RowId - temporary
+                            lockManager.release(tempIdxLock); // Release S lock on Index - temporary
                         } catch (LockException e) {
                             throw new ReplicationException("group", e);
                         }
+
+                        return CompletableFuture.completedFuture(rowId);
+                    } else {
+                        return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE). thenApply(idxLock -> null); // Index X lock
                     }
-                }
+                });
 
-                //TODO: RAFT commands have to apply a row id and shouldn't depend of txId.
-                CompletableFuture raftFut = result != null ? raftClient.run(new DeleteExactCommand(result, action.txId())) :
-                        CompletableFuture.completedFuture(null);
+                return idxLockFut.thenCompose(lockedRowId -> {
+                    return lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE).thenApply(tblLock -> { // IX lock on table
+                        //TODO: IGNITE-17477 RAFT commands have to apply a row id.
+                        CompletableFuture raftFut = lockedRowId == null ? raftClient.run(new InsertCommand(searchRow, txId)) :
+                                CompletableFuture.completedFuture(null);
 
-                return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, result);
-            }
-            case RW_INSERT: {
-                CompletableFuture<Lock> lock = lockManager.acquire(txId, new LockKey(indexId, searchKey),
-                        LockMode.SHARED); // Index S lock - temporary
-
-                rowId = valueByUniqueIndex(indexId, searchKey);
-
-                if (rowId != null) {
-                    //TODO: Lock should to be acquired locally only.
-                    try {
-                        lockManager.release(lock.join()); // Release S lock on RowId - temporary
-                    } catch (LockException e) {
-                        throw new ReplicationException("group", e);
-                    }
-                } else {
-                    lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE); // Index X lock
-
-                    result = searchRow;
-                }
-
-                lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE); // IX lock on table
-
-                //TODO: RAFT commands have to apply a row id and shouldn't depend of txId.
-                CompletableFuture raftFut = result != null ? raftClient.run(new InsertCommand(searchRow, action.txId())) :
-                        CompletableFuture.completedFuture(null);
-
-                return new ListenerCompoundResponse(new ReplicaRequestLocator(action.txId(), UUID.randomUUID()), raftFut,
-                        result == null ? searchRow : null);
+                        return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut,
+                                lockedRowId != null ? searchRow : null);
+                    });
+                });
             }
             case RW_UPSERT: {
-                lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE); // Index X lock
+                return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE).thenCompose(idxLock -> { // Index X lock
+                    RowId rowId = valueByUniqueIndex(indexId, searchKey);
 
-                rowId = valueByUniqueIndex(indexId, searchKey);
+                    return lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE).thenCompose(tblLock -> { // IX lock on table
+                        CompletableFuture<Lock> rowLockFut = (rowId != null) ?
+                                lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.EXCLUSIVE) : // X lock on RowId
+                                CompletableFuture.completedFuture(null);
 
-                lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE); // IX lock on table
+                        return rowLockFut.thenApply(rowLock -> {
+                            //TODO: IGNITE-17477 RAFT commands have to apply a row id.
+                            CompletableFuture raftFut = rowId != null ? raftClient.run(new UpsertCommand(searchRow, txId)) :
+                                    raftClient.run(new InsertCommand(searchRow, txId));
 
-                if (rowId != null) {
-                    lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.EXCLUSIVE); // X lock on RowId
-                }
-
-                //TODO: RAFT commands have to apply a row id and shouldn't depend of txId.
-                CompletableFuture raftFut = rowId != null ? raftClient.run(new UpsertCommand(searchRow, action.txId())) :
-                        raftClient.run(new InsertCommand(searchRow, action.txId()));
-
-                return new ListenerFutureResponse(new ReplicaRequestLocator(action.txId(), UUID.randomUUID()), raftFut);
+                            return new ListenerFutureResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut);
+                        });
+                    });
+                });
             }
             case RW_GET_AND_UPSERT: {
-                lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE); // Index X lock
+                return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE).thenCompose(idxLock -> { // Index X lock
+                    RowId rowId = valueByUniqueIndex(indexId, searchKey);
 
-                rowId = valueByUniqueIndex(indexId, searchKey);
+                    return lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE).thenCompose(tblLock -> { // IX lock on table
+                        CompletableFuture<Lock> rowLockFut = (rowId != null) ?
+                                lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.EXCLUSIVE) : // X lock on RowId
+                                CompletableFuture.completedFuture(null);
 
-                lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE); // IX lock on table
+                        return rowLockFut.thenApply(rowLock -> {
+                            BinaryRow result = rowId != null ? mvDataStorage.read(rowId, txId) : null;
 
-                if (rowId != null) {
-                    lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.EXCLUSIVE); // X lock on RowId
+                            //TODO: IGNITE-17477 RAFT commands have to apply a row id.
+                            CompletableFuture raftFut = rowId != null ? raftClient.run(new UpsertCommand(searchRow, txId)) :
+                                    raftClient.run(new InsertCommand(searchRow, txId));
 
-                    result = mvDataStorage.read(rowId, action.txId());
-                }
+                            return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, result);
+                        });
+                    });
+                });
+            }
+            case RW_GET_AND_REPLACE: {
+                // lock management
+                // call raft client
 
-                //TODO: RAFT commands have to apply a row id and shouldn't depend of txId.
-                CompletableFuture raftFut = rowId != null ? raftClient.run(new UpsertCommand(searchRow, action.txId())) :
-                        raftClient.run(new InsertCommand(searchRow, action.txId()));
-
-                return new ListenerCompoundResponse(new ReplicaRequestLocator(action.txId(), UUID.randomUUID()), raftFut, result);
+                return null;
             }
             default: {
                 throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
-                        IgniteStringFormatter.format("Unknown single action [actionType={}]", action.actionType()));
+                        IgniteStringFormatter.format("Unknown single request [actionType={}]", request.requestType()));
             }
         }
     }
 
     /**
-     * Handles an action.
+     * Precesses two actions.
      *
-     * @param action Partition action.
+     * @param action Two actions operation.
      * @return Listener response.
      */
-    @Nullable
-    private ListenerResponse processAction(PartitionAction action) {
-        if (action instanceof PartitionSingleAction) {
-            return processSingleEntryAction((PartitionSingleAction) action);
-        } else if (action instanceof PartitionMultiAction) {
-            return processMultiEntryAction((PartitionMultiAction) action);
-        } else {
-            switch (action.actionType()) {
-                case RW_REPLACE: {
-                    // lock management
-                    // call raft client
+    private ListenerResponse processTwoEntriesAction(PartitionTwoAction action) {
+        switch (action.actionType()) {
+            case RW_REPLACE: {
+                // lock management
+                // call raft client
 
-                    return null;
-                }
-                case RW_REPLACE_IF_EXIST: {
-                    // lock management
-                    // call raft client
+                return null;
+            }
+            case RW_REPLACE_IF_EXIST: {
+                // lock management
+                // call raft client
 
-                    return null;
-                }
-
-                case RW_GET_AND_REPLACE: {
-                    // lock management
-                    // call raft client
-
-                    return null;
-                }
-                default:
-                    throw new IgniteInternalException(
-                            IgniteStringFormatter.format("The action type is not expected [opType={}]", action.actionType()));
+                return null;
+            }
+            default: {
+                throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
+                        IgniteStringFormatter.format("Unknown two actions operation [actionType={}]", action.actionType()));
             }
         }
     }
