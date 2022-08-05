@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -52,6 +53,7 @@ public class VersionChainFreeList extends AbstractFreeList<VersionChain> {
      * @param lockLsnr Page lock listener.
      * @param metaPageId Metadata page ID.
      * @param initNew {@code True} if new metadata should be initialized.
+     * @param pageListCacheLimit Page list cache limit.
      * @param evictionTracker Page eviction tracker.
      * @param statHolder Statistics holder to track IO operations.
      * @throws IgniteInternalCheckedException If failed.
@@ -63,6 +65,7 @@ public class VersionChainFreeList extends AbstractFreeList<VersionChain> {
             PageLockListener lockLsnr,
             long metaPageId,
             boolean initNew,
+            @Nullable AtomicLong pageListCacheLimit,
             PageEvictionTracker evictionTracker,
             IoStatisticsHolder statHolder
     ) throws IgniteInternalCheckedException {
@@ -76,7 +79,7 @@ public class VersionChainFreeList extends AbstractFreeList<VersionChain> {
                 LOG,
                 metaPageId,
                 initNew,
-                null,
+                pageListCacheLimit,
                 evictionTracker
         );
 

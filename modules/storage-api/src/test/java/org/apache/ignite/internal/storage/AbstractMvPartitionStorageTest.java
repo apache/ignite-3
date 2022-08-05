@@ -45,8 +45,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Base test for MV partition storages.
  */
-public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorage> extends BaseMvStoragesTest {
-    protected S storage;
+public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest {
+    protected MvPartitionStorage storage;
 
     protected final UUID txId = newTransactionId();
 

@@ -153,8 +153,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             return new PersistentPageMemoryPartitionStorage(partitionId, tableFreeList, tableTree, checkpointTimeoutLock);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
-                    String.format("Error getting or creating partition metadata [tableName=%s, partitionId=%s]", tableView.name(),
-                            partitionId),
+                    String.format("Error getting or creating partition [tableName=%s, partitionId=%s]", tableView.name(), partitionId),
                     e
             );
         } finally {
@@ -270,8 +269,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
-                    String.format("Error getting or creating partition metadata [tableName=%s, partitionId=%s]", tableView.name(),
-                            partitionId),
+                    String.format("Error getting or creating partition [tableName=%s, partitionId=%s]", tableView.name(), partitionId),
                     e
             );
         } finally {
@@ -287,7 +285,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @return Partition file page store.
      * @throws StorageException If failed.
      */
-    FilePageStore ensurePartitionFilePageStore(TableView tableView, int partId) throws StorageException {
+    private FilePageStore ensurePartitionFilePageStore(TableView tableView, int partId) throws StorageException {
         try {
             FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(tableView.tableId(), partId);
 
@@ -311,7 +309,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @param initNew {@code True} if new metadata should be initialized.
      * @throws StorageException If failed.
      */
-    TableFreeList createTableFreeList(
+    private TableFreeList createTableFreeList(
             TableView tableView,
             int partId,
             long rootPageId,
@@ -325,6 +323,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     PageLockListenerNoOp.INSTANCE,
                     rootPageId,
                     initNew,
+                    null,
                     PageEvictionTrackerNoOp.INSTANCE,
                     IoStatisticsHolderNoOp.INSTANCE
             );
@@ -345,7 +344,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @param initNew {@code True} if new metadata should be initialized.
      * @throws StorageException If failed.
      */
-    VersionChainFreeList createVersionChainFreeList(
+    private VersionChainFreeList createVersionChainFreeList(
             TableView tableView,
             int partId,
             long rootPageId,
@@ -359,6 +358,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     PageLockListenerNoOp.INSTANCE,
                     rootPageId,
                     initNew,
+                    null,
                     PageEvictionTrackerNoOp.INSTANCE,
                     IoStatisticsHolderNoOp.INSTANCE
             );
@@ -380,7 +380,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @param initNew {@code True} if new metadata should be initialized.
      * @throws StorageException If failed.
      */
-    RowVersionFreeList createRowVersionFreeList(
+    private RowVersionFreeList createRowVersionFreeList(
             TableView tableView,
             int partId,
             VersionChainFreeList reuseList,
@@ -396,6 +396,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     PageLockListenerNoOp.INSTANCE,
                     rootPageId,
                     initNew,
+                    null,
                     PageEvictionTrackerNoOp.INSTANCE,
                     IoStatisticsHolderNoOp.INSTANCE
             );
@@ -417,7 +418,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @param initNewTree {@code True} if new tree should be created.
      * @throws StorageException If failed.
      */
-    TableTree createTableTree(
+    private TableTree createTableTree(
             TableView tableView,
             int partId,
             TableFreeList freeList,
@@ -456,7 +457,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @param initNewTree {@code True} if new tree should be created.
      * @throws StorageException If failed.
      */
-    VersionChainTree createVersionChainTree(
+    private VersionChainTree createVersionChainTree(
             TableView tableView,
             int partId,
             VersionChainFreeList freeList,

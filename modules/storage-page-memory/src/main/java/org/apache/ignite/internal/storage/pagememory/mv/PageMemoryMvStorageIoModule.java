@@ -28,7 +28,8 @@ import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainLeafIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainMetaIo;
 
 /**
- * {@link PageIoModule} related to {@link AbstractPageMemoryMvPartitionStorage} implementation.
+ * {@link PageIoModule} related to {@link VolatilePageMemoryMvPartitionStorage} and {@link PersistentPageMemoryMvPartitionStorage}
+ * implementations.
  */
 public class PageMemoryMvStorageIoModule implements PageIoModule {
     /** {@inheritDoc} */

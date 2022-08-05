@@ -103,26 +103,32 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
     }
 
     private TableFreeList createTableFreeList(PageMemory pageMemory) throws IgniteInternalCheckedException {
+        long metaPageId = pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
+
         return new TableFreeList(
                 FREE_LIST_GROUP_ID,
                 FREE_LIST_PARTITION_ID,
                 pageMemory,
                 PageLockListenerNoOp.INSTANCE,
-                pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX),
+                metaPageId,
                 true,
+                null,
                 PageEvictionTrackerNoOp.INSTANCE,
                 IoStatisticsHolderNoOp.INSTANCE
         );
     }
 
     private static VersionChainFreeList createVersionChainFreeList(PageMemory pageMemory) throws IgniteInternalCheckedException {
+        long metaPageId = pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
+
         return new VersionChainFreeList(
                 FREE_LIST_GROUP_ID,
                 FREE_LIST_PARTITION_ID,
                 pageMemory,
                 PageLockListenerNoOp.INSTANCE,
-                pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX),
+                metaPageId,
                 true,
+                null,
                 PageEvictionTrackerNoOp.INSTANCE,
                 IoStatisticsHolderNoOp.INSTANCE
         );
@@ -132,14 +138,17 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
             PageMemory pageMemory,
             VersionChainFreeList reuseList
     ) throws IgniteInternalCheckedException {
+        long metaPageId = pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
+
         return new RowVersionFreeList(
                 FREE_LIST_GROUP_ID,
                 FREE_LIST_PARTITION_ID,
                 pageMemory,
                 reuseList,
                 PageLockListenerNoOp.INSTANCE,
-                pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX),
+                metaPageId,
                 true,
+                null,
                 PageEvictionTrackerNoOp.INSTANCE,
                 IoStatisticsHolderNoOp.INSTANCE
         );
