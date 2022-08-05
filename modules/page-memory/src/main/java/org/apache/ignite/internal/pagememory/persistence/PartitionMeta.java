@@ -45,13 +45,28 @@ public class PartitionMeta {
         }
     }
 
+    // TODO: IGNITE-17466 Delete it
     private volatile long treeRootPageId;
 
+    // TODO: IGNITE-17466 Delete it
     private volatile long reuseListRootPageId;
+
+    private volatile long versionChainTreeRootPageId;
+
+    private volatile long versionChainFreeListRootPageId;
+
+    private volatile long rowVersionFreeListRootPageId;
 
     private volatile int pageCount;
 
     private volatile PartitionMetaSnapshot metaSnapshot;
+
+    /**
+     * Default constructor.
+     */
+    public PartitionMeta() {
+        metaSnapshot = new PartitionMetaSnapshot(null, this);
+    }
 
     /**
      * Constructor.
@@ -59,11 +74,25 @@ public class PartitionMeta {
      * @param checkpointId Checkpoint ID.
      * @param treeRootPageId Tree root page ID.
      * @param reuseListRootPageId Reuse list root page ID.
+     * @param versionChainTreeRootPageId Version chain tree root page ID.
+     * @param versionChainFreeListRootPageId Version chain free list root page ID.
+     * @param rowVersionFreeListRootPageId Row version free list root page ID.
      * @param pageCount Count of pages in the partition.
      */
-    public PartitionMeta(@Nullable UUID checkpointId, long treeRootPageId, long reuseListRootPageId, int pageCount) {
+    public PartitionMeta(
+            @Nullable UUID checkpointId,
+            long treeRootPageId,
+            long reuseListRootPageId,
+            long versionChainTreeRootPageId,
+            long versionChainFreeListRootPageId,
+            long rowVersionFreeListRootPageId,
+            int pageCount
+    ) {
         this.treeRootPageId = treeRootPageId;
         this.reuseListRootPageId = reuseListRootPageId;
+        this.versionChainTreeRootPageId = versionChainTreeRootPageId;
+        this.versionChainFreeListRootPageId = versionChainFreeListRootPageId;
+        this.rowVersionFreeListRootPageId = rowVersionFreeListRootPageId;
         this.pageCount = pageCount;
 
         metaSnapshot = new PartitionMetaSnapshot(checkpointId, this);
@@ -81,6 +110,9 @@ public class PartitionMeta {
                 checkpointId,
                 metaIo.getTreeRootPageId(pageAddr),
                 metaIo.getReuseListRootPageId(pageAddr),
+                metaIo.getVersionChainTreeRootPageId(pageAddr),
+                metaIo.getVersionChainFreeListRootPageId(pageAddr),
+                metaIo.getRowVersionFreeListRootPageId(pageAddr),
                 metaIo.getPageCount(pageAddr)
         );
     }
@@ -121,6 +153,63 @@ public class PartitionMeta {
         updateSnapshot(checkpointId);
 
         this.reuseListRootPageId = reuseListRootPageId;
+    }
+
+    /**
+     * Returns version chain tree root page ID.
+     */
+    public long versionChainTreeRootPageId() {
+        return versionChainTreeRootPageId;
+    }
+
+    /**
+     * Sets version chain root page ID.
+     *
+     * @param checkpointId Checkpoint ID.
+     * @param versionChainTreeRootPageId Version chain root page ID.
+     */
+    public void versionChainTreeRootPageId(@Nullable UUID checkpointId, long versionChainTreeRootPageId) {
+        updateSnapshot(checkpointId);
+
+        this.versionChainTreeRootPageId = versionChainTreeRootPageId;
+    }
+
+    /**
+     * Returns version chain free list root page ID.
+     */
+    public long versionChainFreeListRootPageId() {
+        return versionChainFreeListRootPageId;
+    }
+
+    /**
+     * Sets version chain free list root page ID.
+     *
+     * @param checkpointId Checkpoint ID.
+     * @param versionChainFreeListRootPageId Version chain free list root page ID.
+     */
+    public void versionChainFreeListRootPageId(@Nullable UUID checkpointId, long versionChainFreeListRootPageId) {
+        updateSnapshot(checkpointId);
+
+        this.versionChainFreeListRootPageId = versionChainFreeListRootPageId;
+    }
+
+    /**
+     * Returns row version free list root page ID.
+     */
+    public long rowVersionFreeListRootPageId() {
+        return rowVersionFreeListRootPageId;
+    }
+
+    /**
+     * Sets row version free list root page ID.
+     *
+     * @param checkpointId Checkpoint ID.
+     * @param rowVersionFreeListRootPageId Row version free list root page ID.
+     */
+    public void rowVersionFreeListRootPageId(@Nullable UUID checkpointId, long rowVersionFreeListRootPageId) {
+        updateSnapshot(checkpointId);
+
+        this.rowVersionFreeListRootPageId = rowVersionFreeListRootPageId;
     }
 
     /**
@@ -180,6 +269,12 @@ public class PartitionMeta {
 
         private final long reuseListRootPageId;
 
+        private final long versionChainTreeRootPageId;
+
+        private final long versionChainFreeListRootPageId;
+
+        private final long rowVersionFreeListRootPageId;
+
         private final int pageCount;
 
         /**
@@ -192,6 +287,9 @@ public class PartitionMeta {
             this.checkpointId = checkpointId;
             this.treeRootPageId = partitionMeta.treeRootPageId;
             this.reuseListRootPageId = partitionMeta.reuseListRootPageId;
+            this.versionChainTreeRootPageId = partitionMeta.versionChainTreeRootPageId;
+            this.versionChainFreeListRootPageId = partitionMeta.versionChainFreeListRootPageId;
+            this.rowVersionFreeListRootPageId = partitionMeta.rowVersionFreeListRootPageId;
             this.pageCount = partitionMeta.pageCount;
         }
 
@@ -210,6 +308,27 @@ public class PartitionMeta {
         }
 
         /**
+         * Returns version chain tree root page ID.
+         */
+        public long versionChainTreeRootPageId() {
+            return versionChainTreeRootPageId;
+        }
+
+        /**
+         * Returns version chain free list root page ID.
+         */
+        public long versionChainFreeListRootPageId() {
+            return versionChainFreeListRootPageId;
+        }
+
+        /**
+         * Returns row version free list root page ID.
+         */
+        public long rowVersionFreeListRootPageId() {
+            return rowVersionFreeListRootPageId;
+        }
+
+        /**
          * Returns count of pages in the partition.
          */
         public int pageCount() {
@@ -225,6 +344,9 @@ public class PartitionMeta {
         void writeTo(PartitionMetaIo metaIo, long pageAddr) {
             metaIo.setTreeRootPageId(pageAddr, treeRootPageId);
             metaIo.setReuseListRootPageId(pageAddr, reuseListRootPageId);
+            metaIo.setVersionChainTreeRootPageId(pageAddr, versionChainTreeRootPageId);
+            metaIo.setVersionChainFreeListRootPageId(pageAddr, versionChainFreeListRootPageId);
+            metaIo.setRowVersionFreeListRootPageId(pageAddr, rowVersionFreeListRootPageId);
             metaIo.setPageCount(pageAddr, pageCount);
         }
 

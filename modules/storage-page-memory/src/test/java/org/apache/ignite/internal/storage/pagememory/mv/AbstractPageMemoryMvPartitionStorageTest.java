@@ -21,47 +21,30 @@ import static java.util.stream.Collectors.joining;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageChange;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageView;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfigurationSchema;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+/**
+ * Base test for MV partition storages based on PageMemory.
+ */
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
-class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<PageMemoryMvPartitionStorage> {
-    private final PageIoRegistry ioRegistry = new PageIoRegistry();
+abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
+    protected final PageIoRegistry ioRegistry = new PageIoRegistry();
 
     private final BinaryRow binaryRow3 = binaryRow(key, new TestValue(22, "bar3"));
 
@@ -69,59 +52,15 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
         ioRegistry.loadFromServiceLoader();
     }
 
-    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
-    private VolatilePageMemoryStorageEngineConfiguration engineConfig;
-
-    @InjectConfiguration(
-            name = "table",
-            polymorphicExtensions = {
-                    HashIndexConfigurationSchema.class,
-                    UnknownDataStorageConfigurationSchema.class,
-                    VolatilePageMemoryDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-            }
-    )
-    private TableConfiguration tableCfg;
-
-    private VolatilePageMemoryStorageEngine engine;
-
-    private AbstractPageMemoryTableStorage table;
-
     @WorkDirectory
-    private Path workDir;
+    protected Path workDir;
 
-    @BeforeEach
-    void setUp() throws Exception {
-        engine = new VolatilePageMemoryStorageEngine(engineConfig, ioRegistry);
+    /**
+     * Returns page size in bytes.
+     */
+    abstract int pageSize();
 
-        engine.start();
-
-        tableCfg
-                .change(c -> c.changeDataStorage(dsc -> dsc.convert(VolatilePageMemoryDataStorageChange.class)))
-                .get(1, TimeUnit.SECONDS);
-
-        assertEquals(
-                VolatilePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME,
-                ((VolatilePageMemoryDataStorageView) tableCfg.dataStorage().value()).dataRegion()
-        );
-
-        table = engine.createTable(tableCfg);
-        table.start();
-
-        storage = table.createMvPartitionStorage(partitionId());
-    }
-
-    @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                storage,
-                table == null ? null : table::stop,
-                engine == null ? null : engine::stop
-        );
-    }
-
+    /** {@inheritDoc} */
     @Override
     protected int partitionId() {
         // 1 instead of the default 0 to make sure that we note cases when we forget to pass the partition ID (in which
@@ -129,6 +68,7 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
         return 1;
     }
 
+    /** {@inheritDoc} */
     @SuppressWarnings("JUnit3StyleTestMethodInJUnit4Class")
     @Override
     public void testReadsFromEmpty() {
@@ -140,24 +80,27 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
 
     @Test
     void abortOfInsertMakesRowIdInvalidForAddWrite() {
-        RowId rowId = storage.insert(binaryRow, newTransactionId());
-        storage.abortWrite(rowId);
+        RowId rowId = insert(binaryRow, newTransactionId());
 
-        assertThrows(RowIdIsInvalidForModificationsException.class, () -> storage.addWrite(rowId, binaryRow2, txId));
+        abortWrite(rowId);
+
+        assertThrows(RowIdIsInvalidForModificationsException.class, () -> addWrite(rowId, binaryRow2, txId));
     }
 
     @Test
     void abortOfInsertMakesRowIdInvalidForCommitWrite() {
-        RowId rowId = storage.insert(binaryRow, newTransactionId());
-        storage.abortWrite(rowId);
+        RowId rowId = insert(binaryRow, newTransactionId());
 
-        assertThrows(RowIdIsInvalidForModificationsException.class, () -> storage.commitWrite(rowId, Timestamp.nextVersion()));
+        abortWrite(rowId);
+
+        assertThrows(RowIdIsInvalidForModificationsException.class, () -> commitWrite(rowId, Timestamp.nextVersion()));
     }
 
     @Test
     void abortOfInsertMakesRowIdInvalidForAbortWrite() {
-        RowId rowId = storage.insert(binaryRow, newTransactionId());
-        storage.abortWrite(rowId);
+        RowId rowId = insert(binaryRow, newTransactionId());
+
+        abortWrite(rowId);
 
         assertThrows(RowIdIsInvalidForModificationsException.class, () -> storage.abortWrite(rowId));
     }
@@ -165,15 +108,16 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
     @Test
     void uncommittedMultiPageValuesAreReadSuccessfully() {
         BinaryRow longRow = rowStoredInFragments();
-        LinkRowId rowId = storage.insert(longRow, txId);
 
-        BinaryRow foundRow = storage.read(rowId, txId);
+        RowId rowId = insert(longRow, txId);
+
+        BinaryRow foundRow = read(rowId, txId);
 
         assertRowMatches(foundRow, longRow);
     }
 
     private BinaryRow rowStoredInFragments() {
-        int pageSize = engineConfig.pageSize().value();
+        int pageSize = pageSize();
 
         // A repetitive pattern of 19 different characters (19 is chosen as a prime number) to reduce probability of 'lucky' matches
         // hiding bugs.
@@ -189,10 +133,11 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
     void committedMultiPageValuesAreReadSuccessfully() {
         BinaryRow longRow = rowStoredInFragments();
 
-        LinkRowId rowId = storage.insert(longRow, txId);
-        storage.commitWrite(rowId, Timestamp.nextVersion());
+        RowId rowId = insert(longRow, txId);
 
-        BinaryRow foundRow = storage.read(rowId, Timestamp.nextVersion());
+        commitWrite(rowId, Timestamp.nextVersion());
+
+        BinaryRow foundRow = read(rowId, Timestamp.nextVersion());
 
         assertRowMatches(foundRow, longRow);
     }
@@ -200,7 +145,8 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
     @Test
     void uncommittedMultiPageValuesWorkWithScans() throws Exception {
         BinaryRow longRow = rowStoredInFragments();
-        storage.insert(longRow, txId);
+
+        insert(longRow, txId);
 
         try (Cursor<BinaryRow> cursor = storage.scan(row -> true, txId)) {
             BinaryRow foundRow = cursor.next();
@@ -213,8 +159,9 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
     void committedMultiPageValuesWorkWithScans() throws Exception {
         BinaryRow longRow = rowStoredInFragments();
 
-        LinkRowId rowId = storage.insert(longRow, txId);
-        storage.commitWrite(rowId, Timestamp.nextVersion());
+        RowId rowId = insert(longRow, txId);
+
+        commitWrite(rowId, Timestamp.nextVersion());
 
         try (Cursor<BinaryRow> cursor = storage.scan(row -> true, txId)) {
             BinaryRow foundRow = cursor.next();
@@ -233,15 +180,18 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
     }
 
     private RowId commitAbortAndAddUncommitted() {
-        RowId rowId = storage.insert(binaryRow, txId);
-        storage.commitWrite(rowId, Timestamp.nextVersion());
+        return storage.runConsistently(() -> {
+            RowId rowId = storage.insert(binaryRow, txId);
 
-        storage.addWrite(rowId, binaryRow2, newTransactionId());
-        storage.abortWrite(rowId);
+            storage.commitWrite(rowId, Timestamp.nextVersion());
 
-        storage.addWrite(rowId, binaryRow3, newTransactionId());
+            storage.addWrite(rowId, binaryRow2, newTransactionId());
+            storage.abortWrite(rowId);
 
-        return rowId;
+            storage.addWrite(rowId, binaryRow3, newTransactionId());
+
+            return rowId;
+        });
     }
 
     @Test
@@ -259,9 +209,9 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
 
     @Test
     void readByTimestampWorksCorrectlyIfNoUncommittedValueExists() {
-        LinkRowId rowId = storage.insert(binaryRow, txId);
+        RowId rowId = insert(binaryRow, txId);
 
-        BinaryRow foundRow = storage.read(rowId, Timestamp.nextVersion());
+        BinaryRow foundRow = read(rowId, Timestamp.nextVersion());
 
         assertThat(foundRow, is(nullValue()));
     }
