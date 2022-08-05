@@ -87,7 +87,7 @@ class DynamicCompleterFilterTest {
     }
 
     @Test
-    void doesNotFiltersHelpIfOptionIsTypedAndConnected() {
+    void doesNotFilterHelpIfOptionIsTypedAndConnected() {
         // Given typed words that end with "-"
         String[] words = new String[]{"cluster", "config", "show", "-"};
         // And completion candidates
