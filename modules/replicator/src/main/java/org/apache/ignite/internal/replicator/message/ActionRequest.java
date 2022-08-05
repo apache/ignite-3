@@ -15,56 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replicator.action;
+package org.apache.ignite.internal.replicator.message;
+
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Transaction operation type.
+ * The request represents some action to execute on replication layer.
  */
-public enum RequestType {
-    /** RW get operation. */
-    RW_GET,
+@Transferable(ReplicaMessageGroup.ACTION_REQUEST)
+public interface ActionRequest extends ReplicaRequest {
 
-    /** RW get all operation. */
-    RW_GET_ALL,
-
-    /** RW delete operation. */
-    RW_DELETE,
-
-    /** RW delete all operation. */
-    RW_DELETE_ALL,
-
-    RW_DELETE_EXACT,
-
-    RW_DELETE_EXACT_ALL,
-
-    RW_INSERT,
-
-    RW_INSERT_ALL,
-
-    /** RW upsert operation. */
-    RW_UPSERT,
-
-    /** RW upsert all operation. */
-    RW_UPSERT_ALL,
-
-    RW_REPLACE,
-
-    RW_REPLACE_IF_EXIST,
-
-    RW_GET_AND_DELETE,
-
-    RW_GET_AND_REPLACE,
-
-    RW_GET_AND_UPSERT,
-
-    RW_SCAN,
-
-    /** RO get operation. */
-    RO_GET,
-
-    /** RO get all operation. */
-    RO_GET_ALL,
-
-    /** RO scan operation. */
-    RO_SCAN
+    /**
+     * Gets an action to execute.
+     *
+     * @return Replication action.
+     */
+    @Marshallable
+    ReplicaAction action();
 }

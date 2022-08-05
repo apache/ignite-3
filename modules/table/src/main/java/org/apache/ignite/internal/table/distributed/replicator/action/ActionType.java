@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.table.distributed.replicator.action;
 
+import java.io.Serializable;
+
 /**
  * Transaction operation type.
  */
-public enum RequestType {
+public enum ActionType implements Serializable {
     /** RW get operation. */
     RW_GET,
 
@@ -56,8 +58,6 @@ public enum RequestType {
     RW_GET_AND_REPLACE,
 
     RW_GET_AND_UPSERT,
-
-    RW_SCAN,
 
     /** RO get operation. */
     RO_GET,
