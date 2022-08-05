@@ -237,7 +237,7 @@ public abstract class AbstractSortedIndexMvStorageTest {
      */
     @ParameterizedTest
     @VariableSource("ALL_TYPES_COLUMN_DEFINITIONS")
-    void testCreateIndex(ColumnDefinition columnDefinition) throws Exception {
+    void testSingleColumnIndex(ColumnDefinition columnDefinition) throws Exception {
         testPutGetRemove(List.of(columnDefinition));
     }
 

@@ -51,8 +51,6 @@ class VariableArgumentsProvider implements ArgumentsProvider, AnnotationConsumer
             throw new IllegalArgumentException("Variable marked with @VariableSource must be static: " + variableName);
         }
 
-        source.setAccessible(true);
-
         Object sourceValue = source.get(null);
 
         return toStream(sourceValue).map(VariableArgumentsProvider::toArguments);
