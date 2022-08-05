@@ -40,7 +40,7 @@ public class HoconDynamicCompleter implements DynamicCompleter {
     /** Words, after those the completer should have been activated. */
     private final Set<String> activationPostfixes;
 
-    /** Default constructor that created an instance from given set of postfixes after those the completion is expected. */
+    /** Default constructor that creates an instance from a given set of postfixes that trigger the completion. */
     public HoconDynamicCompleter(Set<String> activationPostfixes, Config config) {
         this.activationPostfixes = activationPostfixes;
         this.config = config;
