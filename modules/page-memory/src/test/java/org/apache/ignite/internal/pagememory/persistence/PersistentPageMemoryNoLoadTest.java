@@ -329,7 +329,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
     @Test
     void testPageReplacement(
-            @InjectConfiguration PageMemoryCheckpointConfiguration checkpointConfig,
+            @InjectConfiguration("mock.checkpointThreads=1") PageMemoryCheckpointConfiguration checkpointConfig,
             @WorkDirectory Path workDir
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
@@ -367,10 +367,11 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         CompletableFuture<?> startWriteMetaToBufferFuture = new CompletableFuture<>();
         CompletableFuture<?> finishWaitWriteMetaToBufferFuture = new CompletableFuture<>();
 
+        // Mock to pause writing to the disk (complete the checkpoint) and the replacement could happen.
         doAnswer(answer -> {
             startWriteMetaToBufferFuture.complete(null);
 
-            await(finishWaitWriteMetaToBufferFuture, 10000, SECONDS);
+            await(finishWaitWriteMetaToBufferFuture, 1, SECONDS);
 
             return answer.callRealMethod();
         })
@@ -383,7 +384,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
             try {
-                for (int i = 0; i < 10; i++) {
+                for (int i = 0; i < 1_000; i++) {
                     createDirtyPage(pageMemory);
                 }
             } finally {
@@ -392,17 +393,21 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
             CheckpointProgress checkpointProgress = checkpointManager.forceCheckpoint("for_test_page_replacement");
 
+            // Replacement will not happen until the pages are sorted.
             checkpointProgress.futureFor(PAGES_SORTED).get(1, SECONDS);
 
             checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
             try {
+                // We are waiting for the start of writing dirty pages to disk.
                 startWriteMetaToBufferFuture.get(1, SECONDS);
 
                 do {
+                    // We create new dirty pages so that we get to the end of the data region and start page replacing.
                     createDirtyPage(pageMemory);
                 } while (!flushDirtyPageForReplacementFuture.isDone());
 
+                // Let's write the dirty pages to disk and complete the checkpoint.
                 finishWaitWriteMetaToBufferFuture.complete(null);
             } finally {
                 checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
