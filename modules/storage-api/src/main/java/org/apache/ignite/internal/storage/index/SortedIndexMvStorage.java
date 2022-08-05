@@ -78,7 +78,7 @@ public interface SortedIndexMvStorage {
     void remove(IndexRow row);
 
     /**
-     * Returns a range of index values between the lower bound and the upper bound, consistent with the passed transaction id.
+     * Returns a range of index values between the lower bound and the upper bound.
      *
      * @param lowerBound Lower bound. Exclusivity is controlled by a {@link #GREATER_OR_EQUAL} or {@link #GREATER} flag.
      *      {@code null} means unbounded.
