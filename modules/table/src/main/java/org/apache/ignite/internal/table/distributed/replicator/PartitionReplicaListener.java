@@ -46,9 +46,9 @@ import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteDualRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replicator.action.PartitionMultiAction;
-import org.apache.ignite.internal.table.distributed.replicator.action.PartitionTwoAction;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
@@ -114,9 +114,11 @@ public class PartitionReplicaListener implements ReplicaListener {
     public ListenerResponse invoke(ReplicaRequest request) {
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
             return processSingleEntryAction((ReadWriteSingleRowReplicaRequest) request).join();
-        } /*else if (request instanceof ReadWriteMultiRowReplicaRequest) {
+        } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
             return processMultiEntryAction((ReadWriteMultiRowReplicaRequest) request);
-        }*/ else {
+        } if (request instanceof ReadWriteDualRowReplicaRequest) {
+            return processTwoEntriesAction((ReadWriteDualRowReplicaRequest) request);
+        } else {
             return null;
         }
     }
@@ -175,25 +177,25 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Precesses multi action.
+     * Precesses multi request.
      *
-     * @param action Multi action operation.
+     * @param request Multi request operation.
      * @return Listener response.
      */
-    private ListenerResponse processMultiEntryAction(PartitionMultiAction action) {
-        Collection<BinaryRow> keyRows = action.entryContainer().getRows().stream().map(br -> new ByteBufferRow(br.keySlice())).collect(
+    private ListenerResponse processMultiEntryAction(ReadWriteMultiRowReplicaRequest request) {
+        Collection<BinaryRow> keyRows = request.binaryRows().stream().map(br -> new ByteBufferRow(br.keySlice())).collect(
                 Collectors.toList());
-        Map<BinaryRow, BinaryRow> keyToRows = action.entryContainer().getRows().stream().collect(
+        Map<BinaryRow, BinaryRow> keyToRows = request.binaryRows().stream().collect(
                 Collectors.toMap(br -> new ByteBufferRow(br.keySlice()), br -> br));
 
         HashMap<BinaryRow, BinaryRow> result = new HashMap<>(keyRows.size());
         HashMap<BinaryRow, RowId> rowIdByKey = new HashMap<>(keyRows.size());
 
-        UUID indexId = indexIdOrDefault(action.indexToUse());
+        UUID indexId = indexIdOrDefault(null/*request.indexToUse()*/);
 
-        UUID txId = action.txId();
+        UUID txId = request.transactionId();
 
-        switch (action.actionType()) {
+        switch (request.requestType()) {
             case RW_GET_ALL: {
                 for (BinaryRow keyRow : keyRows) {
                     lockManager.acquire(txId, new LockKey(indexId, keyRow), LockMode.SHARED); // Index S lock
@@ -240,7 +242,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         .collect(Collectors.toList());
 
                 //TODO: IGNITE-17477 RAFT commands have to apply a row id.
-                CompletableFuture raftFut = raftClient.run(new DeleteAllCommand(keysToRemove, action.txId()));
+                CompletableFuture raftFut = raftClient.run(new DeleteAllCommand(keysToRemove, txId));
 
                 return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, keysToRemove);
             }
@@ -293,7 +295,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         .collect(Collectors.toList());
 
                 //TODO: IGNITE-17477 RAFT commands have to apply a row id.
-                CompletableFuture raftFut = raftClient.run(new DeleteExactAllCommand(rowsToRemove, action.txId()));
+                CompletableFuture raftFut = raftClient.run(new DeleteExactAllCommand(rowsToRemove, txId));
 
                 return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, keysToRemove);
             }
@@ -331,7 +333,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         .collect(Collectors.toList());
 
                 //TODO: IGNITE-17477 RAFT commands have to apply a row id.
-                CompletableFuture raftFut = raftClient.run(new InsertAllCommand(rowsToInsert, action.txId()));
+                CompletableFuture raftFut = raftClient.run(new InsertAllCommand(rowsToInsert, txId));
 
                 return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, restRows);
             }
@@ -353,13 +355,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 //TODO: IGNITE-17477 RAFT commands have to apply a row id.
-                CompletableFuture raftFut = raftClient.run(new UpsertAllCommand(keyToRows.values(), action.txId()));
+                CompletableFuture raftFut = raftClient.run(new UpsertAllCommand(keyToRows.values(), txId));
 
                 return new ListenerFutureResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut);
             }
             default: {
                 throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
-                        IgniteStringFormatter.format("Unknown multi action [actionType={}]", action.actionType()));
+                        IgniteStringFormatter.format("Unknown multi request [actionType={}]", request.requestType()));
             }
         }
     }
@@ -544,8 +546,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param action Two actions operation.
      * @return Listener response.
      */
-    private ListenerResponse processTwoEntriesAction(PartitionTwoAction action) {
-        switch (action.actionType()) {
+    private ListenerResponse processTwoEntriesAction(ReadWriteDualRowReplicaRequest request) {
+        switch (request.requestType()) {
             case RW_REPLACE: {
                 // lock management
                 // call raft client
@@ -560,7 +562,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
             default: {
                 throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
-                        IgniteStringFormatter.format("Unknown two actions operation [actionType={}]", action.actionType()));
+                        IgniteStringFormatter.format("Unknown two actions operation [actionType={}]", request.requestType()));
             }
         }
     }

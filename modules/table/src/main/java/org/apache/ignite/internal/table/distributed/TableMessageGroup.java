@@ -8,7 +8,17 @@ import org.apache.ignite.network.annotations.MessageGroup;
 @MessageGroup(groupType = 9, groupName = "TableMessages")
 public class TableMessageGroup {
     /**
-     * Message type for {@link RWSingleRowReplicaRequest}.
+     * Message type for {@link org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest}.
      */
     public static final short RW_SINGLE_ROW_REPLICA_REQUEST = 0;
+
+    /**
+     * Message type for {@link org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest}.
+     */
+    public static final short RW_MULTI_ROW_REPLICA_REQUEST = 1;
+
+    /**
+     * Message type for {@link org.apache.ignite.internal.table.distributed.replication.request.ReadWriteDualRowReplicaRequest}.
+     */
+    public static final short RW_DUAL_ROW_REPLICA_REQUEST = 2;
 }

@@ -17,14 +17,12 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
-import java.util.UUID;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * RW replica request.
+ * Read write multi row replica request.
  */
-// TODO: extends ReplicaRequest issue.
-public interface ReadWriteReplicaRequest extends NetworkMessage { //extends ReplicaRequest {
-
-    UUID transactionId();
+@Transferable(TableMessageGroup.RW_MULTI_ROW_REPLICA_REQUEST)
+public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest {
 }

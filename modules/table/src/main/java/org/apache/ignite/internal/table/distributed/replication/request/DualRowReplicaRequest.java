@@ -17,14 +17,21 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
-import java.util.UUID;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.network.annotations.Marshallable;
 
 /**
- * RW replica request.
+ * Dual row replica request.
  */
-// TODO: extends ReplicaRequest issue.
-public interface ReadWriteReplicaRequest extends NetworkMessage { //extends ReplicaRequest {
+public interface DualRowReplicaRequest extends ReplicaRequest {
+    @Marshallable
+    BinaryRow binaryRow();
 
-    UUID transactionId();
+    @Marshallable
+    BinaryRow oldBinaryRow();
+
+    @Marshallable
+    RequestType requestType();
 }
