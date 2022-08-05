@@ -543,10 +543,11 @@ public class PersistentPageMemory implements PageMemory {
 
             long absPtr = seg.absolute(relPtr);
 
-            setMemory(absPtr + PAGE_OVERHEAD, pageSize(), (byte) 0);
+            zeroMemory(absPtr + PAGE_OVERHEAD, pageSize());
 
             fullPageId(absPtr, fullId);
             writeTimestamp(absPtr, coarseCurrentTimeMillis());
+
             rwLock.init(absPtr + PAGE_LOCK_OFFSET, tag(pageId));
 
             assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO IGNITE-16612
@@ -576,6 +577,9 @@ public class PersistentPageMemory implements PageMemory {
         } finally {
             seg.writeLock().unlock();
         }
+
+        // Finish replacement only when an exception wasn't thrown otherwise it possible to corrupt B+Tree.
+        delayedPageReplacementTracker.delayedPageWrite().finishReplacement();
 
         return pageId;
     }
@@ -727,9 +731,11 @@ public class PersistentPageMemory implements PageMemory {
                 long pageAddr = absPtr + PAGE_OVERHEAD;
 
                 if (!restore) {
+                    delayedPageReplacementTracker.waitUnlock(fullId);
+
                     readPageFromStore = true;
                 } else {
-                    setMemory(absPtr + PAGE_OVERHEAD, pageSize(), (byte) 0);
+                    zeroMemory(absPtr + PAGE_OVERHEAD, pageSize());
 
                     // Must init page ID in order to ensure RWLock tag consistency.
                     setPageId(pageAddr, pageId);
@@ -753,7 +759,7 @@ public class PersistentPageMemory implements PageMemory {
 
                 long pageAddr = absPtr + PAGE_OVERHEAD;
 
-                setMemory(pageAddr, pageSize(), (byte) 0);
+                zeroMemory(pageAddr, pageSize());
 
                 fullPageId(absPtr, fullId);
                 writeTimestamp(absPtr, coarseCurrentTimeMillis());
@@ -781,6 +787,8 @@ public class PersistentPageMemory implements PageMemory {
             return absPtr;
         } finally {
             seg.writeLock().unlock();
+
+            delayedPageReplacementTracker.delayedPageWrite().finishReplacement();
 
             if (readPageFromStore) {
                 assert lockedPageAbsPtr != -1 : "Page is expected to have a valid address [pageId=" + fullId
