@@ -22,7 +22,7 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 /**
  * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
  */
-public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest<TestMvPartitionStorage> {
+public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
     /**
      * Creates new instance.
      */
