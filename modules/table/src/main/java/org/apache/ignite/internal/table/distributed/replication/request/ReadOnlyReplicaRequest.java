@@ -1,6 +1,7 @@
 package org.apache.ignite.internal.table.distributed.replication.request;
 
 import java.util.UUID;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.network.NetworkMessage;
 
 /**
@@ -10,4 +11,6 @@ import org.apache.ignite.network.NetworkMessage;
 public interface ReadOnlyReplicaRequest extends NetworkMessage { //extends ReplicaRequest {
 
     UUID transactionId();
+
+    HybridTimestamp timestamp;
 }

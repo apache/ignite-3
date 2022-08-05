@@ -40,7 +40,10 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.message.InstantResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -66,7 +69,6 @@ import org.apache.ignite.internal.table.distributed.command.response.SingleRowRe
 import org.apache.ignite.internal.table.distributed.command.scan.ScanCloseCommand;
 import org.apache.ignite.internal.table.distributed.command.scan.ScanInitCommand;
 import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBatchCommand;
-import org.apache.ignite.internal.table.distributed.replication.request.ReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -116,8 +118,14 @@ public class InternalTableImpl implements InternalTable {
     /** Storage for table data. */
     private final MvTableStorage tableStorage;
 
+    /** Replica service. */
+    protected final ReplicaService replicaSvc;
+
     /** Mutex for the partition map update. */
     public Object updatePartMapMux = new Object();
+
+    /** Table messages factory. */
+    private final TableMessagesFactory tableMessagesFactory;
 
     /**
      * Constructor.
@@ -128,6 +136,7 @@ public class InternalTableImpl implements InternalTable {
      * @param partitions Partitions.
      * @param txManager Transaction manager.
      * @param tableStorage Table storage.
+     * @param replicaSvc Replica service.
      */
     public InternalTableImpl(
             String tableName,
@@ -137,7 +146,8 @@ public class InternalTableImpl implements InternalTable {
             Function<NetworkAddress, String> netAddrResolver,
             Function<NetworkAddress, ClusterNode> clusterNodeResolver,
             TxManager txManager,
-            MvTableStorage tableStorage
+            MvTableStorage tableStorage,
+            ReplicaService replicaSvc
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -147,6 +157,8 @@ public class InternalTableImpl implements InternalTable {
         this.clusterNodeResolver = clusterNodeResolver;
         this.txManager = txManager;
         this.tableStorage = tableStorage;
+        this.replicaSvc = replicaSvc;
+        this.tableMessagesFactory = new TableMessagesFactory();
     }
 
     /** {@inheritDoc} */
@@ -253,11 +265,20 @@ public class InternalTableImpl implements InternalTable {
     private <R, T> CompletableFuture<T> enlistInTx(
             BinaryRowEx row,
             InternalTransaction tx,
-            Supplier<ReplicaRequest> op,
+            BiFunction<InternalTransaction, String, ReplicaRequest> op,
             Function<R, T> trans
     ) {
-        // TODO: implement.
-        return null;
+        final boolean implicit = tx == null;
+
+        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
+
+        int partId = partId(row);
+
+        String partGroupId = partitionMap.get(partId).groupId();
+
+        CompletableFuture<T> fut = enlistNew(partId, tx0).thenCompose(primaryReplicaNode -> replicaSvc.<R>invoke(primaryReplicaNode, op.apply(tx0, partGroupId)));
+
+        return postEnlist(fut, implicit, tx0);
     }
 
     /**
@@ -291,19 +312,16 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
-        TableMessagesFactory factory = new TableMessagesFactory();
-
         return enlistInTx(
                 keyRow,
                 tx,
-                () -> factory.readWriteSingleRowReplicaRequest().
-                        /** todo */
-                        groupId("").
+                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
+                        groupId(groupId).
                         binaryRow(keyRow).
                         transactionId(tx.id()).
-                        requestType(RequestType.RO_GET).
+                        requestType(RequestType.RW_GET).
                         build(),
-        SingleRowResponse::getValue);
+                (r) -> (BinaryRow) ((InstantResponse) r).result());
     }
 
     /** {@inheritDoc} */
@@ -559,6 +577,7 @@ public class InternalTableImpl implements InternalTable {
      * @param tx     The transaction.
      * @return The enlist future (then will a leader become known).
      */
+    @Deprecated
     protected CompletableFuture<RaftGroupService> enlist(int partId, InternalTransaction tx) {
         RaftGroupService svc = partitionMap.get(partId);
 
@@ -567,6 +586,28 @@ public class InternalTableImpl implements InternalTable {
         // TODO asch IGNITE-15091 fixme need to map to the same leaseholder.
         // TODO asch a leader race is possible when enlisting different keys from the same partition.
         return fut0.thenAccept(ignored -> tx.enlist(svc)).thenApply(ignored -> svc); // Enlist the leaseholder.
+    }
+
+    /**
+     * Enlists a partition.
+     *
+     * @param partId Partition id.
+     * @param tx     The transaction.
+     * @return The enlist future (then will a leader become known).
+     */
+    // TODO: rename
+    protected CompletableFuture<ClusterNode> enlistNew(int partId, InternalTransaction tx) {
+        RaftGroupService svc = partitionMap.get(partId);
+
+        // TODO: ticket for placement driver
+        CompletableFuture<Void> fut0 = svc.leader() == null ? svc.refreshLeader() : completedFuture(null);
+
+        // TODO asch IGNITE-15091 fixme need to map to the same leaseholder.
+        // TODO asch a leader race is possible when enlisting different keys from the same partition.
+        // TODO: not sure whether we should use clusterNode or peer as replicaService.ingoke parameter.
+        return fut0.thenAccept(ignored -> tx.enlist(svc.groupId())).
+                thenApply(ignored -> svc.leader()).
+                thenApply(peer -> clusterNodeResolver.apply(peer.address()));
     }
 
     /**
