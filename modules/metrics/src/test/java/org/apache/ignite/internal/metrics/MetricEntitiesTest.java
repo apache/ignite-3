@@ -51,14 +51,14 @@ public class MetricEntitiesTest {
         MetricSet metricSet = registry.enable(SOURCE_NAME);
         assertThrows(IllegalStateException.class, () -> registry.enable("unexisting"));
 
-        assertEquals(1L, registry.version());
+        assertEquals(2L, registry.version());
         assertNotNull(metricSet);
 
         assertNull(registry.enable(SOURCE_NAME));
-        assertEquals(1L, registry.version());
+        assertEquals(2L, registry.version());
 
         registry.disable(SOURCE_NAME);
-        assertEquals(2L, registry.version());
+        assertEquals(3L, registry.version());
 
         assertThrows(IllegalStateException.class, () -> registry.disable("unexisting"));
     }

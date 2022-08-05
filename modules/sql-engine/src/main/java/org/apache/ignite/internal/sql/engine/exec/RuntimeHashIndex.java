@@ -28,7 +28,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
-import org.apache.ignite.internal.sql.engine.util.FilteringIterator;
+import org.apache.ignite.internal.util.FilteringIterator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

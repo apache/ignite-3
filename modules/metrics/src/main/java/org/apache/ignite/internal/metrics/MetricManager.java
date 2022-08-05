@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.metrics;
 
+import java.util.Iterator;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Metric manager.
  */
-public class MetricManager implements IgniteComponent {
+public class MetricManager implements IgniteComponent, Iterable<MetricSet> {
     /**
      * Metric registry.
      */
@@ -64,7 +66,26 @@ public class MetricManager implements IgniteComponent {
     }
 
     /**
-     * Enable metric source. See {@link MetricRegistry#enable(String)}.
+     * Unregister metric source by name. See {@link MetricRegistry#unregisterSource(String)}.
+     *
+     * @param srcName Metric source name.
+     */
+    public void unregisterSource(String srcName) {
+        registry.unregisterSource(srcName);
+    }
+
+    /**
+     * Enable metric source. See {@link MetricRegistry#enable(MetricSource)}.
+     *
+     * @param src Metric source.
+     * @return Metric set, or {@code null} if already enabled.
+     */
+    public MetricSet enable(MetricSource src) {
+        return registry.enable(src);
+    }
+
+    /**
+     * Enable metric source by name. See {@link MetricRegistry#enable(String)}.
      *
      * @param srcName Source name.
      * @return Metric set, or {@code null} if already enabled.
@@ -74,11 +95,27 @@ public class MetricManager implements IgniteComponent {
     }
 
     /**
-     * Disable metric source. See {@link MetricRegistry#disable(String)}.
+     * Disable metric source. See {@link MetricRegistry#disable(MetricSource)}.
+     *
+     * @param src Metric source.
+     */
+    public void disable(MetricSource src) {
+        registry.disable(src);
+    }
+
+    /**
+     * Disable metric source by name. See {@link MetricRegistry#disable(String)}.
      *
      * @param srcName Source name.
      */
     public void disable(final String srcName) {
         registry.disable(srcName);
+    }
+
+    /** {@inheritDoc} */
+    @NotNull
+    @Override
+    public Iterator<MetricSet> iterator() {
+        return registry.iterator();
     }
 }

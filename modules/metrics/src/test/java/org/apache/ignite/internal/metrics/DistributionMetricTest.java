@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 public class DistributionMetricTest {
     @Test
     public void test() {
-        assertThrows(AssertionError.class, () -> new DistributionMetric("test", null, null));
+        assertThrows(Throwable.class, () -> new DistributionMetric("test", null, null));
         assertThrows(AssertionError.class, () -> new DistributionMetric("test", null, new long[0]));
         assertThrows(AssertionError.class, () -> new DistributionMetric("test", null, new long[] { 10, 1}));
 
