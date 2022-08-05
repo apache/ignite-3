@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.index.impl;
 
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
-import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.NavigableMap;
@@ -33,7 +32,6 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
-import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.IndexRowSerializer;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
@@ -44,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of MV sorted index storage.
  */
 public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
-    private final ConcurrentNavigableMap<ByteBuffer, Set<RowId>> index;
+    private final ConcurrentNavigableMap<BinaryTuple, Set<RowId>> index;
 
     private final SortedIndexDescriptor descriptor;
 
@@ -56,7 +54,7 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
     public TestSortedIndexMvStorage(SortedIndexDescriptor descriptor) {
         this.descriptor = descriptor;
         this.schema = createSchema(descriptor);
-        this.index = new ConcurrentSkipListMap<>(new BinaryTupleComparator(descriptor, schema));
+        this.index = new ConcurrentSkipListMap<>(BinaryTupleComparator.newComparator(descriptor));
     }
 
     private static BinaryTupleSchema createSchema(SortedIndexDescriptor descriptor) {
@@ -79,12 +77,12 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
 
     @Override
     public IndexRowDeserializer indexRowDeserializer() {
-        return new BinaryTupleRowDeserializer(descriptor, schema);
+        return new BinaryTupleRowDeserializer(descriptor);
     }
 
     @Override
     public void put(IndexRow row) {
-        index.compute(row.indexBytes(), (k, v) -> {
+        index.compute(row.indexColumns(), (k, v) -> {
             if (v == null) {
                 return Set.of(row.rowId());
             } else {
@@ -100,7 +98,7 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
 
     @Override
     public void remove(IndexRow row) {
-        index.computeIfPresent(row.indexBytes(), (k, v) -> {
+        index.computeIfPresent(row.indexColumns(), (k, v) -> {
             if (v.contains(row.rowId())) {
                 if (v.size() == 1) {
                     return null;
@@ -120,14 +118,14 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
     /** {@inheritDoc} */
     @Override
     public Cursor<IndexRow> scan(
-            @Nullable IndexRowPrefix lowerBound,
-            @Nullable IndexRowPrefix upperBound,
+            @Nullable BinaryTuple lowerBound,
+            @Nullable BinaryTuple upperBound,
             int flags
     ) {
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
-        NavigableMap<ByteBuffer, Set<RowId>> index = this.index;
+        NavigableMap<BinaryTuple, Set<RowId>> index = this.index;
         int direction = 1;
 
         // Swap bounds and flip index for backwards scan.
@@ -139,13 +137,13 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
             includeLower = includeUpper;
             includeUpper = tempBoolean;
 
-            IndexRowPrefix tempBound = lowerBound;
+            BinaryTuple tempBound = lowerBound;
             lowerBound = upperBound;
             upperBound = tempBound;
         }
 
-        ToIntFunction<ByteBuffer> lowerCmp = lowerBound == null ? row -> 1 : boundComparator(lowerBound, direction, includeLower ? 0 : -1);
-        ToIntFunction<ByteBuffer> upperCmp = upperBound == null ? row -> -1 : boundComparator(upperBound, direction, includeUpper ? 0 : 1);
+        ToIntFunction<BinaryTuple> lowerCmp = lowerBound == null ? row -> 1 : boundComparator(lowerBound, direction, includeLower ? 0 : -1);
+        ToIntFunction<BinaryTuple> upperCmp = upperBound == null ? row -> -1 : boundComparator(upperBound, direction, includeUpper ? 0 : 1);
 
         Iterator<? extends IndexRow> iterator = index.entrySet().stream()
                 .dropWhile(e -> lowerCmp.applyAsInt(e.getKey()) < 0)
@@ -156,9 +154,9 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
         return Cursor.fromIterator(iterator);
     }
 
-    private ToIntFunction<ByteBuffer> boundComparator(IndexRowPrefix bound, int direction, int equals) {
-        var comparator = new PrefixComparator(descriptor, bound);
+    private ToIntFunction<BinaryTuple> boundComparator(BinaryTuple bound, int direction, int equals) {
+        BinaryTupleComparator comparator = BinaryTupleComparator.newPrefixComparator(descriptor, bound.count());
 
-        return bytes -> comparator.compare(new BinaryTuple(schema, bytes), direction, equals);
+        return tuple -> comparator.compare(tuple, bound, direction, equals);
     }
 }

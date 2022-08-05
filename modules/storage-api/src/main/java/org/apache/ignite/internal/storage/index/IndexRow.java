@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import java.nio.ByteBuffer;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 
@@ -26,12 +26,12 @@ import org.apache.ignite.internal.storage.RowId;
  */
 public interface IndexRow {
     /**
-     * Returns the serialized presentation of indexed columns as a byte array in
+     * Returns the serialized presentation of indexed columns as a {@link BinaryTuple} in
      * <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-92%3A+Binary+Tuple+Format">IEP-92</a> format.
      *
-     * @return Serialized byte array value.
+     * @return Binary tuple representation of indexed columns.
      */
-    ByteBuffer indexBytes();
+    BinaryTuple indexColumns();
 
     /**
      * Returns a Row ID.

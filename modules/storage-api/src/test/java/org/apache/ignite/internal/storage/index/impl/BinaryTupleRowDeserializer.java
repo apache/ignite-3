@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.index.impl;
 
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
@@ -30,18 +29,15 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 class BinaryTupleRowDeserializer implements IndexRowDeserializer {
     private final SortedIndexDescriptor descriptor;
 
-    private final BinaryTupleSchema schema;
-
-    BinaryTupleRowDeserializer(SortedIndexDescriptor descriptor, BinaryTupleSchema schema) {
-        assert descriptor.indexColumns().size() == schema.elementCount();
-
+    BinaryTupleRowDeserializer(SortedIndexDescriptor descriptor) {
         this.descriptor = descriptor;
-        this.schema = schema;
     }
 
     @Override
     public Object[] deserializeColumns(IndexRow indexRow) {
-        var tuple = new BinaryTuple(schema, indexRow.indexBytes());
+        BinaryTuple tuple = indexRow.indexColumns();
+
+        assert tuple.count() == descriptor.indexColumns().size();
 
         var result = new Object[descriptor.indexColumns().size()];
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.util.Cursor;
 
@@ -62,7 +63,7 @@ public interface SortedIndexStorage extends AutoCloseable {
      * Returns a range of index values between the lower bound (inclusive) and the upper bound (inclusive).
      */
     // TODO: add options https://issues.apache.org/jira/browse/IGNITE-16059
-    Cursor<IndexRow> range(IndexRowPrefix lowerBound, IndexRowPrefix upperBound);
+    Cursor<IndexRow> range(BinaryTuple lowerBound, BinaryTuple upperBound);
 
     /**
      * Removes all data in this index and frees the associated resources.

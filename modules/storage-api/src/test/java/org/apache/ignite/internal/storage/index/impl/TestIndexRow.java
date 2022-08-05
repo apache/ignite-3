@@ -19,10 +19,8 @@ package org.apache.ignite.internal.storage.index.impl;
 
 import static java.util.Comparator.comparing;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.generateRandomValue;
-import static org.apache.ignite.internal.storage.index.impl.ComparatorUtils.comparingNull;
 
 import java.lang.reflect.Array;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Comparator;
@@ -30,12 +28,11 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestRowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.storage.index.IndexRowPrefix;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
 
@@ -50,11 +47,11 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
 
     private final IndexRow row;
 
-    private final SortedIndexDescriptor descriptor;
+    private final SortedIndexMvStorage indexStorage;
 
     /** Constructor. */
     public TestIndexRow(SortedIndexMvStorage storage, IndexRow row, Object[] columns) {
-        this.descriptor = storage.indexDescriptor();
+        this.indexStorage = storage;
         this.row = row;
         this.columns = columns;
     }
@@ -80,17 +77,13 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
     /**
      * Creates an Index Key prefix of the given length.
      */
-    public IndexRowPrefix prefix(int length) {
-        return () -> Arrays.copyOf(columns, length);
-    }
-
-    public Object[] columns() {
-        return columns;
+    public BinaryTuple prefix(int length) {
+        return indexStorage.indexRowSerializer().createIndexRowPrefix(Arrays.copyOf(columns, length));
     }
 
     @Override
-    public ByteBuffer indexBytes() {
-        return row.indexBytes();
+    public BinaryTuple indexColumns() {
+        return row.indexColumns();
     }
 
     @Override
@@ -112,7 +105,7 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
             int compare = comparator.compare(columns[i], o.columns[i]);
 
             if (compare != 0) {
-                boolean asc = descriptor.indexColumns().get(i).asc();
+                boolean asc = indexStorage.indexDescriptor().indexColumns().get(i).asc();
 
                 return asc ? compare : -compare;
             }
@@ -134,6 +127,29 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
         } else {
             throw new IllegalArgumentException("Non comparable class: " + type);
         }
+    }
+
+    /**
+     * Creates a comparator similar to {@link Comparator#comparing(Function, Comparator)}, but allows the key extractor functions
+     * to return {@code null}.
+     *
+     * <p>Null values are always treated as smaller than the non-null values.
+     */
+    private static <T, U> Comparator<T> comparingNull(Function<? super T, ? extends U> keyExtractor, Comparator<? super U> keyComparator) {
+        return (o1, o2) -> {
+            U key1 = keyExtractor.apply(o1);
+            U key2 = keyExtractor.apply(o2);
+
+            if (key1 == key2) {
+                return 0;
+            } else if (key1 == null) {
+                return -1;
+            } else if (key2 == null) {
+                return 1;
+            } else {
+                return keyComparator.compare(key1, key2);
+            }
+        };
     }
 
     /**

@@ -40,7 +40,6 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -60,6 +59,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
 import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
@@ -266,9 +266,8 @@ public abstract class AbstractSortedIndexMvStorageTest {
         index.put(row);
         index.put(row);
 
-        IndexRow actualRow = getSingle(index, () -> columnValues);
+        IndexRow actualRow = getSingle(index, row.indexColumns());
 
-        assertThat(actualRow.indexBytes(), is(equalTo(row.indexBytes())));
         assertThat(actualRow.rowId(), is(equalTo(row.rowId())));
     }
 
@@ -394,24 +393,21 @@ public abstract class AbstractSortedIndexMvStorageTest {
         int firstIndex = 3;
         int lastIndex = 8;
 
-        List<ByteBuffer> expected = entries.stream()
+        List<IndexRow> expected = entries.stream()
                 .skip(firstIndex)
                 .limit(lastIndex - firstIndex + 1)
-                .map(TestIndexRow::indexBytes)
                 .collect(toList());
 
-        IndexRowPrefix first = entries.get(firstIndex).prefix(3);
-        IndexRowPrefix last = entries.get(lastIndex).prefix(5);
+        BinaryTuple first = entries.get(firstIndex).prefix(3);
+        BinaryTuple last = entries.get(lastIndex).prefix(5);
 
         try (Cursor<IndexRow> cursor = indexStorage.scan(first, last, GREATER_OR_EQUAL | LESS_OR_EQUAL)) {
-            List<ByteBuffer> actual = cursor.stream()
-                    .map(IndexRow::indexBytes)
-                    .collect(toList());
+            List<IndexRow> actual = cursor.stream().collect(toList());
 
             assertThat(actual, hasSize(lastIndex - firstIndex + 1));
 
             for (int i = firstIndex; i < actual.size(); ++i) {
-                assertThat(actual.get(i), is(equalTo(expected.get(i))));
+                assertThat(actual.get(i).rowId(), is(equalTo(expected.get(i).rowId())));
             }
         }
     }
@@ -577,7 +573,7 @@ public abstract class AbstractSortedIndexMvStorageTest {
         indexStorage.put(entry1);
         indexStorage.put(entry2);
 
-        try (Cursor<IndexRow> cursor = indexStorage.scan(entry2::columns, entry1::columns, 0)) {
+        try (Cursor<IndexRow> cursor = indexStorage.scan(entry2.indexColumns(), entry1.indexColumns(), 0)) {
             assertThat(cursor.stream().collect(toList()), is(empty()));
         }
     }
@@ -604,10 +600,10 @@ public abstract class AbstractSortedIndexMvStorageTest {
             entry1 = t;
         }
 
-        try (Cursor<IndexRow> cursor = storage.scan(entry1::columns, entry2::columns, GREATER_OR_EQUAL | LESS_OR_EQUAL)) {
+        try (Cursor<IndexRow> cursor = storage.scan(entry1.indexColumns(), entry2.indexColumns(), GREATER_OR_EQUAL | LESS_OR_EQUAL)) {
             assertThat(
-                    cursor.stream().map(IndexRow::indexBytes).collect(toList()),
-                    contains(entry1.indexBytes(), entry2.indexBytes())
+                    cursor.stream().map(IndexRow::indexColumns).collect(toList()),
+                    contains(entry1.indexColumns(), entry2.indexColumns())
             );
         }
     }
@@ -659,25 +655,25 @@ public abstract class AbstractSortedIndexMvStorageTest {
         indexStorage.put(entry2);
 
         assertThat(
-                getSingle(indexStorage, entry1::columns).indexBytes(),
-                is(equalTo(entry1.indexBytes()))
+                getSingle(indexStorage, entry1.indexColumns()).rowId(),
+                is(equalTo(entry1.rowId()))
         );
 
         assertThat(
-                getSingle(indexStorage, entry2::columns).indexBytes(),
-                is(equalTo(entry2.indexBytes()))
+                getSingle(indexStorage, entry2.indexColumns()).rowId(),
+                is(equalTo(entry2.rowId()))
         );
 
         indexStorage.remove(entry1);
 
-        assertThat(getSingle(indexStorage, entry1::columns), is(nullValue()));
+        assertThat(getSingle(indexStorage, entry1.indexColumns()), is(nullValue()));
     }
 
     /**
      * Extracts a single value by a given key or {@code null} if it does not exist.
      */
     @Nullable
-    private static IndexRow getSingle(SortedIndexMvStorage indexStorage, IndexRowPrefix fullPrefix) throws Exception {
+    private static IndexRow getSingle(SortedIndexMvStorage indexStorage, BinaryTuple fullPrefix) throws Exception {
         try (Cursor<IndexRow> cursor = indexStorage.scan(fullPrefix, fullPrefix, GREATER_OR_EQUAL | LESS_OR_EQUAL)) {
             List<IndexRow> values = cursor.stream().collect(toList());
 
@@ -687,14 +683,14 @@ public abstract class AbstractSortedIndexMvStorageTest {
         }
     }
 
-    private static IndexRowPrefix prefix(SortedIndexMvStorage index, Object... vals) {
+    private static BinaryTuple prefix(SortedIndexMvStorage index, Object... vals) {
         return index.indexRowSerializer().createIndexRowPrefix(vals);
     }
 
     private static List<Object[]> scan(
             SortedIndexMvStorage index,
-            @Nullable IndexRowPrefix lowerBound,
-            @Nullable IndexRowPrefix upperBound,
+            @Nullable BinaryTuple lowerBound,
+            @Nullable BinaryTuple upperBound,
             @MagicConstant(flagsFromClass = SortedIndexMvStorage.class) int flags
     ) throws Exception {
         IndexRowDeserializer deserializer = index.indexRowDeserializer();

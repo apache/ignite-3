@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 
 /**
@@ -32,5 +33,5 @@ public interface IndexRowSerializer {
     /**
      * Creates an Prefix row from a list of column values.
      */
-    IndexRowPrefix createIndexRowPrefix(Object[] prefixColumnValues);
+    BinaryTuple createIndexRowPrefix(Object[] prefixColumnValues);
 }

@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.storage.index.impl;
 
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.IndexRowSerializer;
 
 /**
@@ -45,17 +46,11 @@ class BinaryTupleRowSerializer implements IndexRowSerializer {
             ));
         }
 
-        BinaryTupleBuilder builder = BinaryTupleBuilder.create(schema);
-
-        for (Object value : columnValues) {
-            builder.appendValue(schema, value);
-        }
-
-        return new IndexRowImpl(builder.build(), rowId);
+        return new IndexRowImpl(createIndexRowPrefix(columnValues), rowId);
     }
 
     @Override
-    public IndexRowPrefix createIndexRowPrefix(Object[] prefixColumnValues) {
+    public BinaryTuple createIndexRowPrefix(Object[] prefixColumnValues) {
         if (prefixColumnValues.length > schema.elementCount()) {
             throw new IllegalArgumentException(String.format(
                     "Incorrect number of column values passed. Expected not more than %d, got %d",
@@ -64,6 +59,18 @@ class BinaryTupleRowSerializer implements IndexRowSerializer {
             ));
         }
 
-        return () -> prefixColumnValues;
+        Element[] prefixElements = IntStream.range(0, prefixColumnValues.length)
+                .mapToObj(schema::element)
+                .toArray(Element[]::new);
+
+        BinaryTupleSchema prefixSchema = BinaryTupleSchema.create(prefixElements);
+
+        BinaryTupleBuilder builder = BinaryTupleBuilder.create(prefixSchema);
+
+        for (Object value : prefixColumnValues) {
+            builder.appendValue(prefixSchema, value);
+        }
+
+        return new BinaryTuple(prefixSchema, builder.build());
     }
 }

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.index.impl;
 
-import java.nio.ByteBuffer;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
 
@@ -25,18 +25,18 @@ import org.apache.ignite.internal.storage.index.IndexRow;
  * {@link IndexRow} implementation that simply stores the provided parameters.
  */
 class IndexRowImpl implements IndexRow {
-    private final ByteBuffer bytes;
+    private final BinaryTuple indexColumns;
 
     private final RowId rowId;
 
-    IndexRowImpl(ByteBuffer bytes, RowId rowId) {
-        this.bytes = bytes;
+    IndexRowImpl(BinaryTuple indexColumns, RowId rowId) {
+        this.indexColumns = indexColumns;
         this.rowId = rowId;
     }
 
     @Override
-    public ByteBuffer indexBytes() {
-        return bytes;
+    public BinaryTuple indexColumns() {
+        return indexColumns;
     }
 
     @Override
