@@ -20,9 +20,9 @@ package org.apache.ignite.internal.pagememory.persistence;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.util.Constants.KiB;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -32,11 +32,14 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -54,7 +57,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryChec
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointListener;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
@@ -104,8 +107,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 defaultCheckpointBufferSize(),
                 null,
                 null,
-                shouldNotHappenFlushDirtyPageForReplacement(),
-                PAGE_SIZE
+                shouldNotHappenFlushDirtyPageForReplacement()
         );
     }
 
@@ -121,7 +123,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             @InjectConfiguration PageMemoryCheckpointConfiguration checkpointConfig,
             @WorkDirectory Path workDir
     ) throws Exception {
-        FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir, PAGE_SIZE);
+        FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
         PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
 
@@ -132,8 +134,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 workDir,
                 filePageStoreManager,
                 partitionMetaManager,
-                dataRegions,
-                PAGE_SIZE
+                dataRegions
         );
 
         PersistentPageMemory pageMemory = createPageMemory(
@@ -141,8 +142,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 defaultCheckpointBufferSize(),
                 filePageStoreManager,
                 checkpointManager,
-                shouldNotHappenFlushDirtyPageForReplacement(),
-                PAGE_SIZE
+                shouldNotHappenFlushDirtyPageForReplacement()
         );
 
         dataRegions.add(() -> pageMemory);
@@ -186,7 +186,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             @InjectConfiguration PageMemoryCheckpointConfiguration checkpointConfig,
             @WorkDirectory Path workDir
     ) throws Exception {
-        FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir, PAGE_SIZE);
+        FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
         PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
 
@@ -197,8 +197,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 workDir,
                 filePageStoreManager,
                 partitionMetaManager,
-                dataRegions,
-                PAGE_SIZE
+                dataRegions
         );
 
         long systemPageSize = PAGE_SIZE + PAGE_OVERHEAD;
@@ -210,8 +209,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 28 * systemPageSize,
                 filePageStoreManager,
                 checkpointManager,
-                shouldNotHappenFlushDirtyPageForReplacement(),
-                PAGE_SIZE
+                shouldNotHappenFlushDirtyPageForReplacement()
         );
 
         dataRegions.add(() -> pageMemory);
@@ -269,7 +267,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             @InjectConfiguration PageMemoryCheckpointConfiguration checkpointConfig,
             @WorkDirectory Path workDir
     ) throws Exception {
-        FilePageStoreManager filePageStoreManager = spy(createFilePageStoreManager(workDir, PAGE_SIZE));
+        FilePageStoreManager filePageStoreManager = spy(createFilePageStoreManager(workDir));
 
         PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
 
@@ -280,8 +278,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 workDir,
                 filePageStoreManager,
                 partitionMetaManager,
-                dataRegions,
-                PAGE_SIZE
+                dataRegions
         );
 
         PersistentPageMemory pageMemory = createPageMemory(
@@ -289,8 +286,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 defaultCheckpointBufferSize(),
                 filePageStoreManager,
                 checkpointManager,
-                shouldNotHappenFlushDirtyPageForReplacement(),
-                PAGE_SIZE
+                shouldNotHappenFlushDirtyPageForReplacement()
         );
 
         dataRegions.add(() -> pageMemory);
@@ -336,15 +332,9 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             @InjectConfiguration PageMemoryCheckpointConfiguration checkpointConfig,
             @WorkDirectory Path workDir
     ) throws Exception {
-        int pageSize = KiB;
+        FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
-        long systemPageSize = pageSize + PAGE_OVERHEAD;
-
-        dataRegionCfg.change(c -> c.changeSize(125 * systemPageSize)).get(1, SECONDS);
-
-        FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir, pageSize);
-
-        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, pageSize);
+        PartitionMetaManager partitionMetaManager = spy(new PartitionMetaManager(ioRegistry, PAGE_SIZE));
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
@@ -353,25 +343,17 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 workDir,
                 filePageStoreManager,
                 partitionMetaManager,
-                dataRegions,
-                pageSize
+                dataRegions
         );
 
         CompletableFuture<?> flushDirtyPageForReplacementFuture = new CompletableFuture<>();
 
         PersistentPageMemory pageMemory = createPageMemory(
-                new long[]{100 * systemPageSize},
-                25 * systemPageSize,
+                defaultSegmentSizes(),
+                defaultCheckpointBufferSize(),
                 filePageStoreManager,
                 checkpointManager,
-                (pageMemory0, fullPageId, buffer) -> {
-                    // TODO: IGNITE-17225 иправить
-
-                    System.out.println("ASS");
-
-                    flushDirtyPageForReplacementFuture.complete(null);
-                },
-                pageSize
+                (pageMemory0, fullPageId, buffer) -> flushDirtyPageForReplacementFuture.complete(null)
         );
 
         dataRegions.add(() -> pageMemory);
@@ -382,57 +364,54 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         pageMemory.start();
 
+        CompletableFuture<?> startWriteMetaToBufferFuture = new CompletableFuture<>();
+        CompletableFuture<?> finishWaitWriteMetaToBufferFuture = new CompletableFuture<>();
+
+        doAnswer(answer -> {
+            startWriteMetaToBufferFuture.complete(null);
+
+            await(finishWaitWriteMetaToBufferFuture, 10000, SECONDS);
+
+            return answer.callRealMethod();
+        })
+                .when(partitionMetaManager)
+                .writeMetaToBuffer(any(GroupPartitionId.class), any(PartitionMetaSnapshot.class), any(ByteBuffer.class));
+
         try {
             initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager);
 
             checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
-            CompletableFuture<?> onCheckpointBeginFuture = new CompletableFuture<>();
-            CompletableFuture<?> waitOnCheckpointBeginFuture = new CompletableFuture<>();
+            try {
+                for (int i = 0; i < 10; i++) {
+                    createDirtyPage(pageMemory);
+                }
+            } finally {
+                checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
+            }
+
+            CheckpointProgress checkpointProgress = checkpointManager.forceCheckpoint("for_test_page_replacement");
+
+            checkpointProgress.futureFor(PAGES_SORTED).get(1, SECONDS);
+
+            checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
             try {
-                try {
-                    checkpointManager.addCheckpointListener(
-                            new CheckpointListener() {
-                                /** {@inheritDoc} */
-                                @Override
-                                public void onCheckpointBegin(CheckpointProgress progress) {
-                                    onCheckpointBeginFuture.complete(null);
+                startWriteMetaToBufferFuture.get(1, SECONDS);
 
-                                    await(waitOnCheckpointBeginFuture, 1, SECONDS);
-                                }
-                            },
-                            null
-                    );
+                do {
+                    createDirtyPage(pageMemory);
+                } while (!flushDirtyPageForReplacementFuture.isDone());
 
-                    for (int i = 0; i < 10; i++) {
-                        createDirtyPage(pageMemory);
-                    }
-                } finally {
-                    checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
-                }
-
-                CheckpointProgress checkpointProgress = checkpointManager.forceCheckpoint("for_test_page_replacement");
-
-                onCheckpointBeginFuture.get(1, SECONDS);
-
-                checkpointManager.checkpointTimeoutLock().checkpointReadLock();
-
-                try {
-                    do {
-                        createDirtyPage(pageMemory);
-                    } while (!flushDirtyPageForReplacementFuture.isDone());
-
-                    waitOnCheckpointBeginFuture.complete(null);
-                } finally {
-                    checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
-                }
-
-                checkpointProgress.futureFor(FINISHED).get(1, SECONDS);
+                finishWaitWriteMetaToBufferFuture.complete(null);
             } finally {
-                waitOnCheckpointBeginFuture.complete(null);
+                checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
             }
+
+            checkpointProgress.futureFor(FINISHED).get(1, SECONDS);
         } finally {
+            finishWaitWriteMetaToBufferFuture.complete(null);
+
             closeAll(
                     () -> pageMemory.stop(true),
                     checkpointManager::stop,
@@ -446,8 +425,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             long checkpointBufferSize,
             @Nullable FilePageStoreManager filePageStoreManager,
             @Nullable CheckpointManager checkpointManager,
-            WriteDirtyPage flushDirtyPageForReplacement,
-            int pageSize
+            WriteDirtyPage flushDirtyPageForReplacement
     ) {
         return new PersistentPageMemory(
                 dataRegionCfg,
@@ -458,7 +436,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 null,
                 flushDirtyPageForReplacement,
                 checkpointManager == null ? mockCheckpointTimeoutLock(log, true) : checkpointManager.checkpointTimeoutLock(),
-                pageSize
+                PAGE_SIZE
         );
     }
 
@@ -493,8 +471,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             Path storagePath,
             FilePageStoreManager filePageStoreManager,
             PartitionMetaManager partitionMetaManager,
-            Collection<DataRegion<PersistentPageMemory>> dataRegions,
-            int pageSize
+            Collection<DataRegion<PersistentPageMemory>> dataRegions
     ) throws Exception {
         return new CheckpointManager(
                 "test",
@@ -506,12 +483,12 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 dataRegions,
                 storagePath,
                 ioRegistry,
-                pageSize
+                PAGE_SIZE
         );
     }
 
-    private static FilePageStoreManager createFilePageStoreManager(Path storagePath, int pageSize) throws Exception {
-        return new FilePageStoreManager(log, "test", storagePath, new RandomAccessFileIoFactory(), pageSize);
+    private static FilePageStoreManager createFilePageStoreManager(Path storagePath) throws Exception {
+        return new FilePageStoreManager(log, "test", storagePath, new RandomAccessFileIoFactory(), PAGE_SIZE);
     }
 
     private static void initGroupFilePageStores(
