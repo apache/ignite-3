@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
+import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
+import static org.apache.ignite.internal.util.GridUnsafe.copyMemory;
+
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
-import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,13 +46,10 @@ public class DelayedDirtyPageWrite implements WriteDirtyPage {
     /** Replacing pages tracker, used to register & unregister pages being written. */
     private final DelayedPageReplacementTracker tracker;
 
-    /** Full page id to be written on {@link #finishReplacement} or null if nothing to write. */
+    /** Full page id to be written on {@link #finishReplacement} or {@code null} if nothing to write. */
     private @Nullable FullPageId fullPageId;
 
-    /** Byte buffer with page data to be written on {@link #finishReplacement} or null if nothing to write. */
-    private @Nullable ByteBuffer byteBuf;
-
-    /** Partition update tag to be used in{@link #finishReplacement} or null if nothing to write. */
+    /** Partition update tag to be used in{@link #finishReplacement} or {@code null} if nothing to write. */
     private @Nullable PersistentPageMemory pageMemory;
 
     /**
@@ -79,17 +78,16 @@ public class DelayedDirtyPageWrite implements WriteDirtyPage {
     public void write(PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer byteBuf) {
         tracker.lock(fullPageId);
 
-        ByteBuffer tlb = byteBufThreadLoc.get();
+        ByteBuffer threadLocalBuf = byteBufThreadLoc.get();
 
-        tlb.rewind();
+        threadLocalBuf.rewind();
 
-        long writeAddr = GridUnsafe.bufferAddress(tlb);
-        long origBufAddr = GridUnsafe.bufferAddress(byteBuf);
+        long writeAddr = bufferAddress(threadLocalBuf);
+        long origBufAddr = bufferAddress(byteBuf);
 
-        GridUnsafe.copyMemory(origBufAddr, writeAddr, pageSize);
+        copyMemory(origBufAddr, writeAddr, pageSize);
 
         this.fullPageId = fullPageId;
-        this.byteBuf = tlb;
         this.pageMemory = pageMemory;
     }
 
@@ -99,17 +97,16 @@ public class DelayedDirtyPageWrite implements WriteDirtyPage {
      * @throws IgniteInternalCheckedException if write failed.
      */
     public void finishReplacement() throws IgniteInternalCheckedException {
-        if (byteBuf == null && fullPageId == null && pageMemory == null) {
+        if (fullPageId == null && pageMemory == null) {
             return;
         }
 
         try {
-            flushDirtyPage.write(pageMemory, fullPageId, byteBuf);
+            flushDirtyPage.write(pageMemory, fullPageId, byteBufThreadLoc.get());
         } finally {
             tracker.unlock(fullPageId);
 
             fullPageId = null;
-            byteBuf = null;
             pageMemory = null;
         }
     }

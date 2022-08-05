@@ -1474,8 +1474,6 @@ public class PersistentPageMemory implements PageMemory {
                 // Can evict a dirty page only if should be written by a checkpoint.
                 // These pages does not have tmp buffer.
                 if (checkpointPages != null && checkpointPages.allowToSave(fullPageId)) {
-                    assert pageStoreManager != null;
-
                     WriteDirtyPage writeDirtyPage = delayedPageReplacementTracker.delayedPageWrite();
 
                     writeDirtyPage.write(PersistentPageMemory.this, fullPageId, wrapPointer(absPtr + PAGE_OVERHEAD, pageSize()));
@@ -1924,7 +1922,7 @@ public class PersistentPageMemory implements PageMemory {
             PageStoreWriter pageStoreWriter,
             CheckpointMetricsTracker tracker
     ) throws IgniteInternalCheckedException {
-        assert buf.remaining() == pageSize();
+        assert buf.remaining() == pageSize() : buf.remaining();
 
         Segment seg = segment(fullId.groupId(), fullId.pageId());
 
