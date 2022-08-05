@@ -37,7 +37,7 @@ import org.junit.jupiter.api.Test;
 public class PartitionMetaTest {
     @Test
     void testTreeRootPageId() {
-        PartitionMeta meta = new PartitionMeta(null, 0, 0, 0, 0, 0, 0);
+        PartitionMeta meta = new PartitionMeta();
 
         assertEquals(0, meta.treeRootPageId());
 
@@ -52,7 +52,7 @@ public class PartitionMetaTest {
 
     @Test
     void testReuseListRootPageId() {
-        PartitionMeta meta = new PartitionMeta(null, 0, 0, 0, 0, 0, 0);
+        PartitionMeta meta = new PartitionMeta();
 
         assertEquals(0, meta.reuseListRootPageId());
 
@@ -67,7 +67,7 @@ public class PartitionMetaTest {
 
     @Test
     void testPageCount() {
-        PartitionMeta meta = new PartitionMeta(null, 0, 0, 0, 0, 0, 0);
+        PartitionMeta meta = new PartitionMeta();
 
         assertEquals(0, meta.pageCount());
 
@@ -82,7 +82,7 @@ public class PartitionMetaTest {
 
     @Test
     void testVersionChainTreeRootPageId() {
-        PartitionMeta meta = new PartitionMeta(null, 0, 0, 0, 0, 0, 0);
+        PartitionMeta meta = new PartitionMeta();
 
         assertEquals(0, meta.versionChainTreeRootPageId());
 
@@ -97,7 +97,7 @@ public class PartitionMetaTest {
 
     @Test
     void testVersionChainFreeListRootPageId() {
-        PartitionMeta meta = new PartitionMeta(null, 0, 0, 0, 0, 0, 0);
+        PartitionMeta meta = new PartitionMeta();
 
         assertEquals(0, meta.versionChainFreeListRootPageId());
 
@@ -112,7 +112,7 @@ public class PartitionMetaTest {
 
     @Test
     void testRowVersionFreeListRootPageId() {
-        PartitionMeta meta = new PartitionMeta(null, 0, 0, 0, 0, 0, 0);
+        PartitionMeta meta = new PartitionMeta();
 
         assertEquals(0, meta.rowVersionFreeListRootPageId());
 

@@ -62,6 +62,13 @@ public class PartitionMeta {
     private volatile PartitionMetaSnapshot metaSnapshot;
 
     /**
+     * Default constructor.
+     */
+    public PartitionMeta() {
+        metaSnapshot = new PartitionMetaSnapshot(null, this);
+    }
+
+    /**
      * Constructor.
      *
      * @param checkpointId Checkpoint ID.
