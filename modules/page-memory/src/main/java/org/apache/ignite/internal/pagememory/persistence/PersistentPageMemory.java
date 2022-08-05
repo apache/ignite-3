@@ -48,7 +48,6 @@ import static org.apache.ignite.internal.util.GridUnsafe.copyMemory;
 import static org.apache.ignite.internal.util.GridUnsafe.getInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getLong;
 import static org.apache.ignite.internal.util.GridUnsafe.putIntVolatile;
-import static org.apache.ignite.internal.util.GridUnsafe.setMemory;
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
 import static org.apache.ignite.internal.util.IgniteUtils.hash;
@@ -1515,7 +1514,7 @@ public class PersistentPageMemory implements PageMemory {
 
             long absPtr = absolute(relPtr);
 
-            setMemory(absPtr + PAGE_OVERHEAD, pageSize(), (byte) 0);
+            zeroMemory(absPtr + PAGE_OVERHEAD, pageSize());
 
             dirty(absPtr, false);
 
