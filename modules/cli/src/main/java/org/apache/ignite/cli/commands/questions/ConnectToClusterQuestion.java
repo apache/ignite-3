@@ -70,5 +70,3 @@ public class ConnectToClusterQuestion {
         return clusterUrl != null ? clusterUrl : session.nodeUrl();
     }
 }
-
-
