@@ -19,15 +19,13 @@ package org.apache.ignite.configuration.schemas.table;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
 
 /**
  * Configuration for Raft group corresponding to tables.
  */
 @Config
 public class RaftConfigurationSchema {
-    /** Class of log storage budget. */
+    /** Name of log storage budget. */
     @Value(hasDefault = true)
-    @Immutable
-    public String logStorageBudgetClass = "org.apache.ignite.raft.jraft.storage.impl.UnlimitedBudget";
+    public String logStorageBudgetName = "unlimited";
 }

@@ -16,6 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.ServiceLoader;
+import java.util.Set;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
@@ -37,8 +43,34 @@ import org.apache.ignite.raft.jraft.util.StringUtils;
 public class VolatileJRaftServiceFactory implements JRaftServiceFactory {
     private final RaftGroupOptions groupOptions;
 
+    private final Map<String, Supplier<LogStorageBudget>> budgetFactories;
+
     public VolatileJRaftServiceFactory(RaftGroupOptions groupOptions) {
         this.groupOptions = groupOptions;
+
+        Map<String, Supplier<LogStorageBudget>> factories = new HashMap<>();
+
+        ClassLoader serviceClassLoader = Thread.currentThread().getContextClassLoader();
+        for (LogStorageBudgetsModule module : ServiceLoader.load(LogStorageBudgetsModule.class, serviceClassLoader)) {
+            Map<String, Supplier<LogStorageBudget>> factoriesFromModule = module.budgetFactories();
+
+            checkForBudgetNameClashes(factories.keySet(), factoriesFromModule.keySet());
+
+            factories.putAll(factoriesFromModule);
+        }
+
+        budgetFactories = Map.copyOf(factories);
+    }
+
+    private void checkForBudgetNameClashes(Set<String> names1, Set<String> names2) {
+        Set<String> intersection = new HashSet<>(names1);
+        intersection.retainAll(names2);
+
+        if (!intersection.isEmpty()) {
+            throw new IgniteInternalException(
+                    String.format("Storage budget '%s' is provided by more than one module", intersection.iterator().next())
+            );
+        }
     }
 
     @Override
@@ -49,21 +81,21 @@ public class VolatileJRaftServiceFactory implements JRaftServiceFactory {
     }
 
     private LogStorageBudget createLogStorageBudget() {
-        if (groupOptions.volatileLogStoreBudgetClassName() != null) {
-            String className = groupOptions.volatileLogStoreBudgetClassName();
-            return instantiate(className);
+        if (groupOptions.volatileLogStoreBudgetName() != null) {
+            return newBudget(groupOptions.volatileLogStoreBudgetName());
         } else {
             return new UnlimitedBudget();
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private <T> T instantiate(String className) {
-        try {
-            return (T) Class.forName(className).getConstructor().newInstance();
-        } catch (ReflectiveOperationException e) {
-            throw new IgniteInternalException("Cannot instantiate '" + className + "'", e);
+    private LogStorageBudget newBudget(String budgetName) {
+        Supplier<LogStorageBudget> factory = budgetFactories.get(budgetName);
+
+        if (factory == null) {
+            throw new IgniteInternalException("Cannot find a log storage budget by name '" + budgetName + "'");
         }
+
+        return factory.get();
     }
 
     @Override

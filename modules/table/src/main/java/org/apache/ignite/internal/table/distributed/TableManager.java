@@ -521,7 +521,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private RaftGroupOptions groupOptionsForInternalTable(InternalTable internalTbl, ExtendedTableConfiguration tableConfig) {
-        return RaftGroupOptions.forTable(internalTbl.storage().isVolatile(), tableConfig.raft().logStorageBudgetClass().value());
+        return RaftGroupOptions.forTable(internalTbl.storage().isVolatile(), tableConfig.raft().logStorageBudgetName().value());
     }
 
     /** {@inheritDoc} */

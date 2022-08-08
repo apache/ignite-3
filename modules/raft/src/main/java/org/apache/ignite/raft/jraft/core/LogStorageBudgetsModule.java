@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.raft.jraft.core;
 
-import org.apache.ignite.raft.jraft.entity.LogEntry;
+import java.util.Map;
+import java.util.function.Supplier;
+import org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget;
 
 /**
- * {@link LogStorageBudget} that always allows everything.
+ * Used to add {@link LogStorageBudget} factories using {@link java.util.ServiceLoader}.
  */
-public class UnlimitedBudget implements LogStorageBudget {
-
+public interface LogStorageBudgetsModule {
     /**
-     * This budget name (can be put to {@link org.apache.ignite.configuration.schemas.table.RaftConfigurationSchema#logStorageBudgetName}.
+     * Returns mapping from budget names to budget factories for the budgets supported by this module.
+     *
+     * @return Mapping from budget names to budget factories for the budgets supported by this module.
      */
-    public static final String NAME = "unlimited";
-
-    @Override
-    public boolean hasRoomFor(LogEntry entry) {
-        return true;
-    }
+    Map<String, Supplier<LogStorageBudget>> budgetFactories();
 }
