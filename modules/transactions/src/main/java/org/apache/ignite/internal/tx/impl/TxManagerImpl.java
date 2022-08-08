@@ -70,18 +70,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Lock manager. */
     private final LockManager lockManager;
 
-    /**
-     * The storage for tx states.
-     *
-     * <p>TODO <MUTED> IGNITE-15931 use Storage for states, implement max size, implement replication.
-     */
+    // TODO <MUTED> IGNITE-15931 use Storage for states, implement max size, implement replication.
+    /** The storage for tx states. */
     private final ConcurrentHashMap<UUID, TxState> states = new ConcurrentHashMap<>();
 
-    /**
-     * The storage for locks acquired by transactions. Each key is mapped to lock type where true is for read.
-     *
-     * <p>TODO <MUTED> IGNITE-15932 use Storage for locks. Introduce limits, deny lock operation if the limit is exceeded.
-     */
+    // TODO <MUTED> IGNITE-15932 use Storage for locks. Introduce limits, deny lock operation if the limit is exceeded.
+    /** The storage for locks acquired by transactions. Each key is mapped to lock type where true is for read. */
     private final ConcurrentHashMap<UUID, Map<LockKey, Boolean>> locks = new ConcurrentHashMap<>();
 
     /**
