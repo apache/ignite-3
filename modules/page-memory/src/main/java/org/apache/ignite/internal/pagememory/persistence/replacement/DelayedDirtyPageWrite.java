@@ -49,7 +49,7 @@ public class DelayedDirtyPageWrite implements WriteDirtyPage {
     /** Full page id to be written on {@link #finishReplacement} or {@code null} if nothing to write. */
     private @Nullable FullPageId fullPageId;
 
-    /** Partition update tag to be used in{@link #finishReplacement} or {@code null} if nothing to write. */
+    /** Page memory to be used in {@link #finishReplacement}. */
     private @Nullable PersistentPageMemory pageMemory;
 
     /**
