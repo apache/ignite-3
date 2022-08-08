@@ -20,12 +20,12 @@ package org.apache.ignite.internal.storage.index;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
-import static org.apache.ignite.internal.storage.index.SortedIndexMvStorage.BACKWARDS;
-import static org.apache.ignite.internal.storage.index.SortedIndexMvStorage.FORWARD;
-import static org.apache.ignite.internal.storage.index.SortedIndexMvStorage.GREATER;
-import static org.apache.ignite.internal.storage.index.SortedIndexMvStorage.GREATER_OR_EQUAL;
-import static org.apache.ignite.internal.storage.index.SortedIndexMvStorage.LESS;
-import static org.apache.ignite.internal.storage.index.SortedIndexMvStorage.LESS_OR_EQUAL;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.BACKWARDS;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.FORWARD;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomString;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -90,8 +90,8 @@ import org.junit.jupiter.params.ParameterizedTest;
  * Base test for MV index storages.
  */
 @ExtendWith(ConfigurationExtension.class)
-public abstract class AbstractSortedIndexMvStorageTest {
-    private static final IgniteLogger log = Loggers.forClass(AbstractSortedIndexMvStorageTest.class);
+public abstract class AbstractSortedIndexStorageTest {
+    private static final IgniteLogger log = Loggers.forClass(AbstractSortedIndexStorageTest.class);
 
     /** Definitions of all supported column types. */
     public static final List<ColumnDefinition> ALL_TYPES_COLUMN_DEFINITIONS = allTypesColumnDefinitions();
@@ -172,12 +172,12 @@ public abstract class AbstractSortedIndexMvStorageTest {
     /**
      * Creates a storage instanc efor testing.
      */
-    protected abstract SortedIndexMvStorage createIndexStorage(String name, TableView tableCfg);
+    protected abstract SortedIndexStorage createIndexStorage(String name, TableView tableCfg);
 
     /**
      * Creates a Sorted Index using the given columns.
      */
-    private SortedIndexMvStorage createIndexStorage(List<ColumnDefinition> indexSchema) {
+    private SortedIndexStorage createIndexStorage(List<ColumnDefinition> indexSchema) {
         SortedIndexDefinitionBuilder indexDefinitionBuilder = SchemaBuilders.sortedIndex(randomString(random, 10));
 
         indexSchema.forEach(column -> {
@@ -200,7 +200,7 @@ public abstract class AbstractSortedIndexMvStorageTest {
     /**
      * Creates a Sorted Index using the given index definition.
      */
-    private SortedIndexMvStorage createIndexStorage(ColumnarIndexDefinition indexDefinition) {
+    private SortedIndexStorage createIndexStorage(ColumnarIndexDefinition indexDefinition) {
         CompletableFuture<Void> createIndexFuture = tableCfg.change(cfg ->
                 cfg.changeIndices(idxList ->
                         idxList.create(indexDefinition.name(), idx -> convert(indexDefinition, idx))));
@@ -215,7 +215,7 @@ public abstract class AbstractSortedIndexMvStorageTest {
      */
     @Test
     void testRowSerialization() {
-        SortedIndexMvStorage indexStorage = createIndexStorage(ALL_TYPES_COLUMN_DEFINITIONS);
+        SortedIndexStorage indexStorage = createIndexStorage(ALL_TYPES_COLUMN_DEFINITIONS);
 
         Object[] columns = indexStorage.indexDescriptor().indexColumns().stream()
                 .map(ColumnDescriptor::type)
@@ -231,7 +231,7 @@ public abstract class AbstractSortedIndexMvStorageTest {
 
     @Test
     public void testEmpty() throws Exception {
-        SortedIndexMvStorage index = createIndexStorage(shuffledRandomDefinitions());
+        SortedIndexStorage index = createIndexStorage(shuffledRandomDefinitions());
 
         assertThat(scan(index, null, null, 0), is(empty()));
     }
@@ -260,7 +260,7 @@ public abstract class AbstractSortedIndexMvStorageTest {
                 .addIndexColumn(columns.get(1).name()).asc().done()
                 .build();
 
-        SortedIndexMvStorage index = createIndexStorage(indexDefinition);
+        SortedIndexStorage index = createIndexStorage(indexDefinition);
 
         var columnValues = new Object[] { "foo", 1 };
         var rowId = new TestRowId(0);
@@ -290,7 +290,7 @@ public abstract class AbstractSortedIndexMvStorageTest {
                 .addIndexColumn(columns.get(1).name()).asc().done()
                 .build();
 
-        SortedIndexMvStorage index = createIndexStorage(indexDefinition);
+        SortedIndexStorage index = createIndexStorage(indexDefinition);
 
         var columnValues1 = new Object[] { "foo", 1 };
         var columnValues2 = new Object[] { "bar", 3 };
@@ -312,7 +312,7 @@ public abstract class AbstractSortedIndexMvStorageTest {
     }
 
     /**
-     * Tests the {@link SortedIndexMvStorage#remove} method.
+     * Tests the {@link SortedIndexStorage#remove} method.
      */
     @Test
     void testRemove() throws Exception {
@@ -326,7 +326,7 @@ public abstract class AbstractSortedIndexMvStorageTest {
                 .addIndexColumn(columns.get(1).name()).asc().done()
                 .build();
 
-        SortedIndexMvStorage index = createIndexStorage(indexDefinition);
+        SortedIndexStorage index = createIndexStorage(indexDefinition);
 
         var columnValues1 = new Object[] { "foo", 1 };
         var columnValues2 = new Object[] { "bar", 3 };
@@ -377,11 +377,11 @@ public abstract class AbstractSortedIndexMvStorageTest {
     }
 
     /**
-     * Tests the happy case of the {@link SortedIndexMvStorage#scan} method.
+     * Tests the happy case of the {@link SortedIndexStorage#scan} method.
      */
     @RepeatedTest(5)
     void testScan() throws Exception {
-        SortedIndexMvStorage indexStorage = createIndexStorage(shuffledDefinitions());
+        SortedIndexStorage indexStorage = createIndexStorage(shuffledDefinitions());
 
         List<TestIndexRow> entries = IntStream.range(0, 10)
                 .mapToObj(i -> {
@@ -433,15 +433,15 @@ public abstract class AbstractSortedIndexMvStorageTest {
                 .addIndexColumn(columns.get(1).name()).desc().done()
                 .build();
 
-        SortedIndexMvStorage index1 = createIndexStorage(index1Definition);
-        SortedIndexMvStorage index2 = createIndexStorage(index2Definition);
+        SortedIndexStorage index1 = createIndexStorage(index1Definition);
+        SortedIndexStorage index2 = createIndexStorage(index2Definition);
 
         Object[] val9010 = { "10", 90 };
         Object[] val8010 = { "10", 80 };
         Object[] val9020 = { "20", 90 };
         Object[] val8020 = { "20", 80 };
 
-        for (SortedIndexMvStorage index : Arrays.asList(index1, index2)) {
+        for (SortedIndexStorage index : Arrays.asList(index1, index2)) {
             IndexRowSerializer serializer = index.indexRowSerializer();
 
             index.put(serializer.createIndexRow(val9010, new TestRowId(0)));
@@ -563,7 +563,7 @@ public abstract class AbstractSortedIndexMvStorageTest {
     void testEmptyRange() throws Exception {
         List<ColumnDefinition> indexSchema = shuffledRandomDefinitions();
 
-        SortedIndexMvStorage indexStorage = createIndexStorage(indexSchema);
+        SortedIndexStorage indexStorage = createIndexStorage(indexSchema);
 
         TestIndexRow entry1 = TestIndexRow.randomRow(indexStorage);
         TestIndexRow entry2 = TestIndexRow.randomRow(indexStorage);
@@ -585,7 +585,7 @@ public abstract class AbstractSortedIndexMvStorageTest {
     @ParameterizedTest
     @VariableSource("ALL_TYPES_COLUMN_DEFINITIONS")
     void testNullValues(ColumnDefinition columnDefinition) throws Exception {
-        SortedIndexMvStorage storage = createIndexStorage(List.of(columnDefinition));
+        SortedIndexStorage storage = createIndexStorage(List.of(columnDefinition));
 
         TestIndexRow entry1 = TestIndexRow.randomRow(storage);
 
@@ -645,7 +645,7 @@ public abstract class AbstractSortedIndexMvStorageTest {
      * be removed.
      */
     private void testPutGetRemove(List<ColumnDefinition> indexSchema) throws Exception {
-        SortedIndexMvStorage indexStorage = createIndexStorage(indexSchema);
+        SortedIndexStorage indexStorage = createIndexStorage(indexSchema);
 
         TestIndexRow entry1 = TestIndexRow.randomRow(indexStorage);
         TestIndexRow entry2;
@@ -677,7 +677,7 @@ public abstract class AbstractSortedIndexMvStorageTest {
      * Extracts a single value by a given key or {@code null} if it does not exist.
      */
     @Nullable
-    private static IndexRow getSingle(SortedIndexMvStorage indexStorage, BinaryTuple fullPrefix) throws Exception {
+    private static IndexRow getSingle(SortedIndexStorage indexStorage, BinaryTuple fullPrefix) throws Exception {
         try (Cursor<IndexRow> cursor = indexStorage.scan(fullPrefix, fullPrefix, GREATER_OR_EQUAL | LESS_OR_EQUAL)) {
             List<IndexRow> values = cursor.stream().collect(toList());
 
@@ -687,15 +687,15 @@ public abstract class AbstractSortedIndexMvStorageTest {
         }
     }
 
-    private static BinaryTuple prefix(SortedIndexMvStorage index, Object... vals) {
+    private static BinaryTuple prefix(SortedIndexStorage index, Object... vals) {
         return index.indexRowSerializer().createIndexRowPrefix(vals);
     }
 
     private static List<Object[]> scan(
-            SortedIndexMvStorage index,
+            SortedIndexStorage index,
             @Nullable BinaryTuple lowerBound,
             @Nullable BinaryTuple upperBound,
-            @MagicConstant(flagsFromClass = SortedIndexMvStorage.class) int flags
+            @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
     ) throws Exception {
         IndexRowDeserializer deserializer = index.indexRowDeserializer();
 

@@ -18,14 +18,14 @@
 package org.apache.ignite.internal.storage.index;
 
 import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.storage.index.impl.TestSortedIndexMvStorage;
+import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 
 /**
- * MV sorted index storage test implementation for {@link TestSortedIndexMvStorage} class.
+ * MV sorted index storage test implementation for {@link TestSortedIndexStorage} class.
  */
-public class TestSortedIndexMvStorageTest extends AbstractSortedIndexMvStorageTest {
+public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
     @Override
-    protected SortedIndexMvStorage createIndexStorage(String name, TableView tableCfg) {
-        return new TestSortedIndexMvStorage(new SortedIndexDescriptor(name, tableCfg));
+    protected SortedIndexStorage createIndexStorage(String name, TableView tableCfg) {
+        return new TestSortedIndexStorage(new SortedIndexDescriptor(name, tableCfg));
     }
 }
