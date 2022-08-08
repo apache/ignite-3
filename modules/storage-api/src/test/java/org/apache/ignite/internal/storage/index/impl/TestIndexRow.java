@@ -34,7 +34,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestRowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 
 /**
  * Convenience wrapper over an Index row.
@@ -47,10 +47,10 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
 
     private final IndexRow row;
 
-    private final SortedIndexMvStorage indexStorage;
+    private final SortedIndexStorage indexStorage;
 
     /** Constructor. */
-    public TestIndexRow(SortedIndexMvStorage storage, IndexRow row, Object[] columns) {
+    public TestIndexRow(SortedIndexStorage storage, IndexRow row, Object[] columns) {
         this.indexStorage = storage;
         this.row = row;
         this.columns = columns;
@@ -59,7 +59,7 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
     /**
      * Creates an row with random column values that satisfies the given schema.
      */
-    public static TestIndexRow randomRow(SortedIndexMvStorage indexStorage) {
+    public static TestIndexRow randomRow(SortedIndexStorage indexStorage) {
         var random = new Random();
 
         Object[] columns = indexStorage.indexDescriptor().indexColumns().stream()
