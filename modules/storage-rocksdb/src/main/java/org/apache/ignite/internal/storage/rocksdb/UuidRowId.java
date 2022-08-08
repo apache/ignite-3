@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.storage.RowId;
 
@@ -105,6 +106,23 @@ final class UuidRowId implements RowId {
         assert buf.order() == ByteOrder.BIG_ENDIAN;
 
         return mostSigBits == buf.getLong() && leastSigBits == buf.getLong();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        UuidRowId uuidRowId = (UuidRowId) o;
+        return mostSigBits == uuidRowId.mostSigBits && leastSigBits == uuidRowId.leastSigBits;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mostSigBits, leastSigBits);
     }
 
     /** {@inheritDoc} */

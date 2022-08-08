@@ -45,13 +45,11 @@ class VariableArgumentsProvider implements ArgumentsProvider, AnnotationConsumer
     public Stream<? extends Arguments> provideArguments(ExtensionContext context) throws Exception {
         Class<?> testClass = context.getRequiredTestClass();
 
-        Field source = testClass.getDeclaredField(variableName);
+        Field source = testClass.getField(variableName);
 
         if (!isStatic(source)) {
             throw new IllegalArgumentException("Variable marked with @VariableSource must be static: " + variableName);
         }
-
-        source.setAccessible(true);
 
         Object sourceValue = source.get(null);
 

@@ -15,34 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb.index;
+package org.apache.ignite.internal.storage.index.impl;
 
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 
 /**
- * {@link IndexRowDeserializer} implementation that uses {@link BinaryRow} infrastructure for deserialization purposes.
+ * {@link IndexRowDeserializer} implementation that uses {@link BinaryTuple} infrastructure for deserialization purposes.
  */
-class BinaryIndexRowDeserializer implements IndexRowDeserializer {
+class BinaryTupleRowDeserializer implements IndexRowDeserializer {
     private final SortedIndexDescriptor descriptor;
 
-    BinaryIndexRowDeserializer(SortedIndexDescriptor descriptor) {
+    BinaryTupleRowDeserializer(SortedIndexDescriptor descriptor) {
         this.descriptor = descriptor;
     }
 
     @Override
-    public Object[] indexedColumnValues(IndexRow indexRow) {
-        var row = new Row(descriptor.asSchemaDescriptor(), new ByteBufferRow(indexRow.rowBytes()));
+    public Object[] deserializeColumns(IndexRow indexRow) {
+        BinaryTuple tuple = indexRow.indexColumns();
 
-        return descriptor.indexRowColumns().stream()
-                .filter(ColumnDescriptor::indexedColumn)
-                .map(ColumnDescriptor::column)
-                .map(column -> column.type().spec().objectValue(row, column.schemaIndex()))
-                .toArray();
+        assert tuple.count() == descriptor.indexColumns().size();
+
+        var result = new Object[descriptor.indexColumns().size()];
+
+        for (int i = 0; i < result.length; i++) {
+            NativeTypeSpec typeSpec = descriptor.indexColumns().get(i).type().spec();
+
+            result[i] = typeSpec.objectValue(tuple, i);
+        }
+
+        return result;
     }
 }

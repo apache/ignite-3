@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.storage.index.impl.TestSortedIndexMvStorage;
+
 /**
- * Represents an Index row prefix, used to perform prefix scans over the Sorted Index storage.
+ * MV sorted index storage test implementation for {@link TestSortedIndexMvStorage} class.
  */
-public interface IndexRowPrefix {
-    /**
-     * Returns a list of column values that comprise a prefix of an Index row. Values will be sorted in the same order as the
-     * Sorted Index columns, specified by {@link SortedIndexDescriptor#indexRowColumns()}.
-     */
-    Object[] prefixColumnValues();
+public class TestSortedIndexMvStorageTest extends AbstractSortedIndexMvStorageTest {
+    @Override
+    protected SortedIndexMvStorage createIndexStorage(String name, TableView tableCfg) {
+        return new TestSortedIndexMvStorage(new SortedIndexDescriptor(name, tableCfg));
+    }
 }

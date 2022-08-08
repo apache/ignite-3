@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.basic;
+package org.apache.ignite.internal.storage;
 
-import java.util.List;
-import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 
 /**
  * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
@@ -28,6 +27,6 @@ public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
      * Creates new instance.
      */
     public TestMvPartitionStorageTest() {
-        storage = new TestMvPartitionStorage(List.of(), 0);
+        storage = new TestMvPartitionStorage(0);
     }
 }

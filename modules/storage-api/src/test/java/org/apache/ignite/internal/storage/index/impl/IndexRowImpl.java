@@ -15,28 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb.index;
+package org.apache.ignite.internal.storage.index.impl;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.storage.SearchRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.IndexRow;
 
 /**
- * {@link SearchRow} implementation that simply wraps a byte array.
+ * {@link IndexRow} implementation that simply stores the provided parameters.
  */
-class ByteArraySearchRow implements SearchRow {
-    private final byte[] bytes;
+class IndexRowImpl implements IndexRow {
+    private final BinaryTuple indexColumns;
 
-    ByteArraySearchRow(byte[] bytes) {
-        this.bytes = bytes;
+    private final RowId rowId;
+
+    IndexRowImpl(BinaryTuple indexColumns, RowId rowId) {
+        this.indexColumns = indexColumns;
+        this.rowId = rowId;
     }
 
     @Override
-    public byte[] keyBytes() {
-        return bytes;
+    public BinaryTuple indexColumns() {
+        return indexColumns;
     }
 
     @Override
-    public ByteBuffer key() {
-        return ByteBuffer.wrap(bytes);
+    public RowId rowId() {
+        return rowId;
     }
 }
