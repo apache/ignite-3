@@ -26,8 +26,7 @@ public class RaftGroupOptions {
     /** Whether volatile stores should be used for the corresponding Raft Group. Classic Raft uses persistent ones. */
     private final boolean volatileStores;
 
-    @Nullable
-    private final String volatileLogStoreBudgetClassName;
+    private final @Nullable String volatileLogStoreBudgetClassName;
 
     /**
      * Returns default options as defined by classic Raft (so stores are persistent).
@@ -88,8 +87,7 @@ public class RaftGroupOptions {
      *
      * @return Name of a budget class.
      */
-    @Nullable
-    public String volatileLogStoreBudgetClassName() {
+    public @Nullable String volatileLogStoreBudgetClassName() {
         return volatileLogStoreBudgetClassName;
     }
 }
