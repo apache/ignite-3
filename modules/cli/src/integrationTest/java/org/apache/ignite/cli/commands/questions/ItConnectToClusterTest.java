@@ -26,7 +26,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.apache.ignite.cli.commands.CliCommandTestNotInitializedIntegrationBase;
+import org.apache.ignite.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.apache.ignite.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.cli.config.ConfigConstants;
 import org.apache.ignite.cli.config.TestStateConfigHelper;
@@ -45,7 +45,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import picocli.CommandLine.Help.Ansi;
 
-class ItConnectToClusterTest extends CliCommandTestNotInitializedIntegrationBase {
+class ItConnectToClusterTest extends CliCommandTestInitializedIntegrationBase {
     @Inject
     private PromptProvider promptProvider;
 
