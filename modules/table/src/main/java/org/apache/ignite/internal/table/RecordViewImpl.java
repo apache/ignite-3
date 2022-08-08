@@ -337,8 +337,8 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param rec Record object.
      * @return Binary row.
      */
-    private BinaryRowEx marshal(@NotNull R rec) {
-        final RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+    private BinaryRowEx marshal(R rec) {
+        RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
 
         try {
             return marsh.marshal(rec);
@@ -353,14 +353,14 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param recs Records collection.
      * @return Binary rows collection.
      */
-    private Collection<BinaryRowEx> marshal(@NotNull Collection<R> recs) {
-        final RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+    private Collection<BinaryRowEx> marshal(Collection<R> recs) {
+        RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
 
         List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
         try {
             for (R rec : recs) {
-                final Row row = marsh.marshal(Objects.requireNonNull(rec));
+                Row row = marsh.marshal(Objects.requireNonNull(rec));
 
                 rows.add(row);
             }
@@ -378,7 +378,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @return Binary row.
      */
     private BinaryRowEx marshalKey(@NotNull R rec) {
-        final RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+        RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
 
         try {
             return marsh.marshalKey(rec);
@@ -393,14 +393,14 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param recs Records collection.
      * @return Binary rows collection.
      */
-    private Collection<BinaryRowEx> marshalKeys(@NotNull Collection<R> recs) {
-        final RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+    private Collection<BinaryRowEx> marshalKeys(Collection<R> recs) {
+        RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
 
         List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
         try {
             for (R rec : recs) {
-                final Row row = marsh.marshalKey(Objects.requireNonNull(rec));
+                Row row = marsh.marshalKey(Objects.requireNonNull(rec));
 
                 rows.add(row);
             }
@@ -439,13 +439,12 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param rows Row collection.
      * @return Records collection.
      */
-    @NotNull
-    public Collection<R> unmarshal(Collection<BinaryRow> rows) {
+    private Collection<R> unmarshal(Collection<BinaryRow> rows) {
         if (rows.isEmpty()) {
             return Collections.emptyList();
         }
 
-        final RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
+        RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
 
         List<R> recs = new ArrayList<>(rows.size());
 

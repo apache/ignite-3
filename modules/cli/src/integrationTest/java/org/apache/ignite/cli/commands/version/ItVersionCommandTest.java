@@ -19,11 +19,11 @@ package org.apache.ignite.cli.commands.version;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.apache.ignite.cli.commands.CliCommandTestIntegrationBase;
+import org.apache.ignite.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class ItVersionCommandTest extends CliCommandTestIntegrationBase {
+class ItVersionCommandTest extends CliCommandTestInitializedIntegrationBase {
 
     @Test
     @DisplayName("Should print cli version that is got from pom.xml")

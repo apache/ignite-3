@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_NO_MORE_PAGES_ERR;
+
 import java.time.Duration;
 import java.time.Period;
 import java.util.ArrayList;
@@ -24,13 +26,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
@@ -134,11 +137,12 @@ class ClientAsyncResultSet implements AsyncResultSet {
         requireResultSet();
 
         if (closed) {
-            return CompletableFuture.failedFuture(new IgniteClientException("Cursor is closed."));
+            return CompletableFuture.failedFuture(new CursorClosedException());
         }
 
         if (!hasMorePages()) {
-            return CompletableFuture.failedFuture(new IgniteClientException("No more pages."));
+            return CompletableFuture.failedFuture(
+                    new SqlException(CURSOR_NO_MORE_PAGES_ERR, "There are no more pages."));
         }
 
         return ch.serviceAsync(
@@ -177,7 +181,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
 
     private void requireResultSet() {
         if (!hasRowSet()) {
-            throw new NoRowSetExpectedException("Query has no result set");
+            throw new NoRowSetExpectedException();
         }
     }
 

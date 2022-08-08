@@ -24,8 +24,13 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesQueue;
-import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
+import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
+import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 
 /**
  * Factory class for checkpoint pages writer.
@@ -40,23 +45,35 @@ public class CheckpointPagesWriterFactory {
     private final ThreadLocal<ByteBuffer> threadBuf;
 
     /** Writer which writes pages to page store during the checkpoint. */
-    private final CheckpointPageWriter checkpointPageWriter;
+    private final WriteDirtyPage dirtyPageWriter;
+
+    /** Page IO registry. */
+    private final PageIoRegistry ioRegistry;
+
+    /** Partition meta information manager. */
+    private final PartitionMetaManager partitionMetaManager;
 
     /**
      * Constructor.
      *
      * @param log Logger.
-     * @param checkpointPageWriter Checkpoint page writer.
+     * @param dirtyPageWriter Checkpoint page writer.
+     * @param ioRegistry Page IO registry.
+     * @param partitionMetaManager Partition meta information manager.
      * @param pageSize Page size in bytes.
      */
     CheckpointPagesWriterFactory(
             IgniteLogger log,
-            CheckpointPageWriter checkpointPageWriter,
+            WriteDirtyPage dirtyPageWriter,
+            PageIoRegistry ioRegistry,
+            PartitionMetaManager partitionMetaManager,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
         this.log = log;
-        this.checkpointPageWriter = checkpointPageWriter;
+        this.dirtyPageWriter = dirtyPageWriter;
+        this.ioRegistry = ioRegistry;
+        this.partitionMetaManager = partitionMetaManager;
 
         threadBuf = ThreadLocal.withInitial(() -> {
             ByteBuffer tmpWriteBuf = ByteBuffer.allocateDirect(pageSize);
@@ -71,19 +88,19 @@ public class CheckpointPagesWriterFactory {
      * Returns instance of page checkpoint writer.
      *
      * @param tracker Checkpoint metrics tracker.
-     * @param checkpointDirtyPagesQueue Checkpoint dirty pages queue to write.
-     * @param updStores Updated page store storage.
+     * @param dirtyPageIdQueue Checkpoint dirty page ID queue to write.
+     * @param updatedPartitions Updated partitions.
      * @param doneWriteFut Write done future.
-     * @param beforePageWrite Before page write callback.
+     * @param updateHeartbeat Update heartbeat callback.
      * @param checkpointProgress Current checkpoint data.
      * @param shutdownNow Checker of stop operation.
      */
     CheckpointPagesWriter build(
             CheckpointMetricsTracker tracker,
-            CheckpointDirtyPagesQueue checkpointDirtyPagesQueue,
-            ConcurrentMap<PageStore, LongAdder> updStores,
+            IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> dirtyPageIdQueue,
+            ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions,
             CompletableFuture<?> doneWriteFut,
-            Runnable beforePageWrite,
+            Runnable updateHeartbeat,
             CheckpointProgressImpl checkpointProgress,
             // TODO: IGNITE-16993 Consider a lock replacement
             BooleanSupplier shutdownNow
@@ -91,13 +108,15 @@ public class CheckpointPagesWriterFactory {
         return new CheckpointPagesWriter(
                 log,
                 tracker,
-                checkpointDirtyPagesQueue,
-                updStores,
+                dirtyPageIdQueue,
+                updatedPartitions,
                 doneWriteFut,
-                beforePageWrite,
+                updateHeartbeat,
                 threadBuf,
                 checkpointProgress,
-                checkpointPageWriter,
+                dirtyPageWriter,
+                ioRegistry,
+                partitionMetaManager,
                 shutdownNow
         );
     }

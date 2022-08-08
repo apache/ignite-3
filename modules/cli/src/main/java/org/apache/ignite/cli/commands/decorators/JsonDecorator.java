@@ -37,8 +37,9 @@ public class JsonDecorator implements Decorator<JsonString, TerminalOutput> {
             try {
                 return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(mapper.readValue(json.getValue(), JsonNode.class));
             } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
+                return jsonString; // no-op
             }
+
         };
     }
 }

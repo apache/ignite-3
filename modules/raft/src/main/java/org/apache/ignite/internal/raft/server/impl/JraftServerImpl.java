@@ -25,6 +25,8 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,6 +37,9 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -53,26 +58,23 @@ import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
-import org.apache.ignite.raft.jraft.core.DefaultJRaftServiceFactory;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
-import org.apache.ignite.raft.jraft.core.VolatileJRaftServiceFactory;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
-import org.apache.ignite.raft.jraft.storage.LogStorageFactory;
-import org.apache.ignite.raft.jraft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
+import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -95,6 +97,10 @@ public class JraftServerImpl implements RaftServer {
     /** Started groups. */
     private ConcurrentMap<String, RaftGroupService> groups = new ConcurrentHashMap<>();
 
+    /** Lock storage with predefined monitor objects,
+     * needed to prevent concurrent start of the same raft group. */
+    private final List<Object> startGroupInProgressMonitors;
+
     /** Node manager. */
     private final NodeManager nodeManager;
 
@@ -103,6 +109,9 @@ public class JraftServerImpl implements RaftServer {
 
     /** Request executor. */
     private ExecutorService requestExecutor;
+
+    /** The number of parallel raft groups starts. */
+    private static final int SIMULTANEOUS_GROUP_START_PARALLELISM = Math.min(Utils.cpus() * 3, 25);
 
     /**
      * The constructor.
@@ -132,7 +141,6 @@ public class JraftServerImpl implements RaftServer {
         this.opts.setRpcConnectTimeoutMs(this.opts.getElectionTimeoutMs() / 3);
         this.opts.setRpcDefaultTimeout(this.opts.getElectionTimeoutMs() / 2);
         this.opts.setSharedPools(true);
-        this.opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageFactory));
 
         if (opts.getServerName() == null) {
             this.opts.setServerName(service.localConfiguration().getName());
@@ -149,6 +157,14 @@ public class JraftServerImpl implements RaftServer {
          than suspicion timeout for the 1000 nodes cluster with ping interval equals 500ms.
          */
         this.opts.setElectionTimeoutStrategy(new ExponentialBackoffTimeoutStrategy(11_000, 3));
+
+        var monitors = new ArrayList<>(SIMULTANEOUS_GROUP_START_PARALLELISM);
+
+        for (int i = 0; i < SIMULTANEOUS_GROUP_START_PARALLELISM; i++) {
+            monitors.add(new Object());
+        }
+
+        startGroupInProgressMonitors = Collections.unmodifiableList(monitors);
     }
 
     /** {@inheritDoc} */
@@ -317,7 +333,7 @@ public class JraftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized boolean startRaftGroup(
+    public boolean startRaftGroup(
             String groupId,
             RaftGroupListener lsnr,
             @Nullable List<Peer> initialConf,
@@ -328,69 +344,89 @@ public class JraftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized boolean startRaftGroup(
-            String groupId,
+    public boolean startRaftGroup(
+            String grpId,
             RaftGroupEventsListener evLsnr,
             RaftGroupListener lsnr,
             @Nullable List<Peer> initialConf,
             RaftGroupOptions groupOptions
     ) {
-        if (groups.containsKey(groupId)) {
+        // fast track to check if group with the same name is already created.
+        if (groups.containsKey(grpId)) {
             return false;
         }
 
-        // Thread pools are shared by all raft groups.
-        NodeOptions nodeOptions = opts.copy();
+        synchronized (groupMonitor(grpId)) {
+            // double check if group wasn't created before receiving the lock.
+            if (groups.containsKey(grpId)) {
+                return false;
+            }
 
-        // TODO: IGNITE-17083 - Do not create paths for volatile stores at all when we get rid of snapshot storage on FS.
-        Path serverDataPath = getServerDataPath(groupId);
+            // Thread pools are shared by all raft groups.
+            NodeOptions nodeOptions = opts.copy();
 
-        try {
-            Files.createDirectories(serverDataPath);
-        } catch (IOException e) {
-            throw new IgniteInternalException(e);
-        }
+            // TODO: IGNITE-17083 - Do not create paths for volatile stores at all when we get rid of snapshot storage on FS.
+            Path serverDataPath = getServerDataPath(grpId);
 
-        if (!groupOptions.volatileStores()) {
+            try {
+                Files.createDirectories(serverDataPath);
+            } catch (IOException e) {
+                throw new IgniteInternalException(e);
+            }
+
+            nodeOptions.setLogUri(grpId);
+
             nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
+
+            nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
+
+            nodeOptions.setFsm(new DelegatingStateMachine(lsnr));
+
+            nodeOptions.setRaftGrpEvtsLsnr(evLsnr);
+
+            LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory() == null
+                    ? this.logStorageFactory : groupOptions.getLogStorageFactory();
+
+            IgniteJraftServiceFactory serviceFactory = new IgniteJraftServiceFactory(logStorageFactory);
+
+            if (groupOptions.snapshotStorageFactory() != null) {
+                serviceFactory.setSnapshotStorageFactory(groupOptions.snapshotStorageFactory());
+            }
+
+            if (groupOptions.raftMetaStorageFactory() != null) {
+                serviceFactory.setRaftMetaStorageFactory(groupOptions.raftMetaStorageFactory());
+            }
+
+            nodeOptions.setServiceFactory(serviceFactory);
+
+            if (initialConf != null) {
+                List<PeerId> mapped = initialConf.stream().map(PeerId::fromPeer).collect(Collectors.toList());
+
+                nodeOptions.setInitialConf(new Configuration(mapped, null));
+            }
+
+            IgniteRpcClient client = new IgniteRpcClient(service);
+
+            nodeOptions.setRpcClient(client);
+
+            NetworkAddress addr = service.topologyService().localMember().address();
+
+            var peerId = new PeerId(addr.host(), addr.port(), 0, ElectionPriority.DISABLED);
+
+            var server = new RaftGroupService(grpId, peerId, nodeOptions, rpcServer, nodeManager);
+
+            server.start();
+
+            groups.put(grpId, server);
+
+            return true;
         }
-        nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
-
-        nodeOptions.setFsm(new DelegatingStateMachine(lsnr));
-
-        nodeOptions.setRaftGrpEvtsLsnr(evLsnr);
-
-        if (groupOptions.volatileStores()) {
-            nodeOptions.setServiceFactory(new VolatileJRaftServiceFactory());
-        }
-
-        if (initialConf != null) {
-            List<PeerId> mapped = initialConf.stream().map(PeerId::fromPeer).collect(Collectors.toList());
-
-            nodeOptions.setInitialConf(new Configuration(mapped, null));
-        }
-
-        IgniteRpcClient client = new IgniteRpcClient(service);
-
-        nodeOptions.setRpcClient(client);
-
-        NetworkAddress addr = service.topologyService().localMember().address();
-
-        var peerId = new PeerId(addr.host(), addr.port(), 0, ElectionPriority.DISABLED);
-
-        var server = new RaftGroupService(groupId, peerId, nodeOptions, rpcServer, nodeManager);
-
-        server.start();
-
-        groups.put(groupId, server);
-
-        return true;
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean stopRaftGroup(String groupId) {
-        RaftGroupService svc = groups.remove(groupId);
+    public boolean stopRaftGroup(String grpId) {
+        RaftGroupService svc = groups.remove(grpId);
 
         boolean stopped = svc != null;
 
@@ -457,6 +493,16 @@ public class JraftServerImpl implements RaftServer {
     }
 
     /**
+     * Returns the monitor object, which can be used to synchronize start operation by group id.
+     *
+     * @param grpId Group id.
+     * @return Monitor object.
+     */
+    private Object groupMonitor(String grpId) {
+        return startGroupInProgressMonitors.get(Math.abs(grpId.hashCode() % SIMULTANEOUS_GROUP_START_PARALLELISM));
+    }
+
+    /**
      * Wrapper of {@link StateMachineAdapter}.
      */
     public static class DelegatingStateMachine extends StateMachineAdapter {
@@ -489,14 +535,25 @@ public class JraftServerImpl implements RaftServer {
                     public CommandClosure<WriteCommand> next() {
                         @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) iter.done();
                         ByteBuffer data = iter.getData();
-                        WriteCommand command = JDKMarshaller.DEFAULT.unmarshall(data.array());
+
+                        WriteCommand command = done == null ? JDKMarshaller.DEFAULT.unmarshall(data.array()) : done.command();
+
+                        long commandIndex = iter.getIndex();
 
                         return new CommandClosure<>() {
+                            /** {@inheritDoc} */
+                            @Override
+                            public long index() {
+                                return commandIndex;
+                            }
+
+                            /** {@inheritDoc} */
                             @Override
                             public WriteCommand command() {
                                 return command;
                             }
 
+                            /** {@inheritDoc} */
                             @Override
                             public void result(Serializable res) {
                                 if (done != null) {
@@ -533,9 +590,14 @@ public class JraftServerImpl implements RaftServer {
                     if (res == null) {
                         File file = new File(writer.getPath());
 
-                        for (File file0 : file.listFiles()) {
-                            if (file0.isFile()) {
-                                writer.addFile(file0.getName(), null);
+                        File[] snapshotFiles = file.listFiles();
+
+                        // Files array can be null if shanpshot folder doesn't exist.
+                        if (snapshotFiles != null) {
+                            for (File file0 : snapshotFiles) {
+                                if (file0.isFile()) {
+                                    writer.addFile(file0.getName(), null);
+                                }
                             }
                         }
 

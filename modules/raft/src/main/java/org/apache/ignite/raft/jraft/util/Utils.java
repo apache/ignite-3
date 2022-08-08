@@ -206,7 +206,7 @@ public final class Utils {
             return 0;
         }
         catch (final IOException e) {
-            LOG.error("Fail to close", e);
+            LOG.error("Fail to close {}.", closeable, e);
             return RaftError.EIO.getNumber();
         }
     }

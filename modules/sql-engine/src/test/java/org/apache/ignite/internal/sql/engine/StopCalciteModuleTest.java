@@ -46,7 +46,10 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -64,7 +67,7 @@ import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -123,7 +126,13 @@ public class StopCalciteModuleTest {
 
     TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
 
-    @InjectConfiguration(polymorphicExtensions = {HashIndexConfigurationSchema.class, UnknownDataStorageConfigurationSchema.class})
+    @InjectConfiguration(polymorphicExtensions = {
+            HashIndexConfigurationSchema.class,
+            UnknownDataStorageConfigurationSchema.class,
+            ConstantValueDefaultConfigurationSchema.class,
+            FunctionCallDefaultConfigurationSchema.class,
+            NullValueDefaultConfigurationSchema.class
+    })
     TablesConfiguration tablesConfig;
 
     /**
@@ -211,7 +220,7 @@ public class StopCalciteModuleTest {
 
         when(tbl.tableId()).thenReturn(UUID.randomUUID());
 
-        when(tbl.storage()).thenReturn(mock(TableStorage.class));
+        when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
         when(tbl.storage().configuration()).thenReturn(mock(TableConfiguration.class));
         when(tbl.storage().configuration().partitions()).thenReturn(mock(ConfigurationValue.class));
         when(tbl.storage().configuration().partitions().value()).thenReturn(1);

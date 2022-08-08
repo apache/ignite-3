@@ -18,27 +18,33 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.storage.StorageUtils.groupId;
 
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.pagememory.io.PartitionMetaIo;
-import org.apache.ignite.internal.storage.pagememory.mv.PageMemoryMvPartitionStorage;
+import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
+import org.apache.ignite.internal.storage.pagememory.mv.RowVersionFreeList;
+import org.apache.ignite.internal.storage.pagememory.mv.VersionChain;
+import org.apache.ignite.internal.storage.pagememory.mv.VersionChainFreeList;
+import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for persistent case.
  */
-class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     private final PersistentPageMemoryDataRegion dataRegion;
 
     /**
@@ -56,6 +62,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         this.dataRegion = dataRegion;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean isVolatile() {
         return false;
@@ -69,8 +76,13 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         TableView tableView = tableCfg.value();
 
         try {
-            // TODO: IGNITE-16665 Directory name needs to be corrected to support table renaming
-            dataRegion.filePageStoreManager().initialize(tableView.name(), groupId(tableView), tableView.partitions());
+            dataRegion.filePageStoreManager().initialize(tableView.name(), tableView.tableId(), tableView.partitions());
+
+            int deltaFileCount = dataRegion.filePageStoreManager().getStores(tableView.tableId()).stream()
+                    .mapToInt(FilePageStore::deltaFileCount)
+                    .sum();
+
+            dataRegion.checkpointManager().addDeltaFileCountForCompaction(deltaFileCount);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error initializing file page stores for table: " + tableView.name(), e);
         }
@@ -78,25 +90,72 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    protected PersistentPageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException {
+    protected PersistentPageMemoryPartitionStorage createPartitionStorage(int partitionId) throws StorageException {
         TableView tableView = tableCfg.value();
 
-        FilePageStore partitionFilePageStore = ensurePartitionFilePageStore(tableView, partId);
+        FilePageStore filePageStore = ensurePartitionFilePageStore(tableView, partitionId);
 
-        CheckpointTimeoutLock checkpointTimeoutLock = dataRegion.checkpointManager().checkpointTimeoutLock();
+        CheckpointManager checkpointManager = dataRegion.checkpointManager();
+
+        CheckpointTimeoutLock checkpointTimeoutLock = checkpointManager.checkpointTimeoutLock();
 
         checkpointTimeoutLock.checkpointReadLock();
 
         try {
-            PartitionMeta partitionMeta = getOrCreatePartitionMeta(tableView, partId, partitionFilePageStore);
+            PersistentPageMemory persistentPageMemory = dataRegion.pageMemory();
 
-            TableFreeList tableFreeList = createTableFreeList(tableView, partId, partitionMeta);
+            int grpId = tableView.tableId();
+
+            CheckpointProgress lastCheckpointProgress = checkpointManager.lastCheckpointProgress();
+
+            UUID checkpointId = lastCheckpointProgress == null ? null : lastCheckpointProgress.id();
+
+            PartitionMeta meta = dataRegion.partitionMetaManager().readOrCreateMeta(
+                    checkpointId,
+                    new GroupPartitionId(grpId, partitionId),
+                    filePageStore
+            );
+
+            dataRegion.partitionMetaManager().addMeta(new GroupPartitionId(grpId, partitionId), meta);
+
+            filePageStore.pages(meta.pageCount());
+
+            filePageStore.setPageAllocationListener(pageIdx -> {
+                assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
+
+                CheckpointProgress last = checkpointManager.lastCheckpointProgress();
+
+                meta.incrementPageCount(last == null ? null : last.id());
+            });
+
+            boolean initNewTree = false;
+
+            if (meta.treeRootPageId() == 0) {
+                meta.treeRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
+
+                initNewTree = true;
+            }
+
+            boolean initNewReuseList = false;
+
+            if (meta.reuseListRootPageId() == 0) {
+                meta.reuseListRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
+
+                initNewReuseList = true;
+            }
+
+            TableFreeList tableFreeList = createTableFreeList(tableView, partitionId, meta.reuseListRootPageId(), initNewReuseList);
 
             autoCloseables.add(tableFreeList::close);
 
-            TableTree tableTree = createTableTree(tableView, partId, tableFreeList, partitionMeta);
+            TableTree tableTree = createTableTree(tableView, partitionId, tableFreeList, meta.treeRootPageId(), initNewTree);
 
-            return new PersistentPageMemoryPartitionStorage(partId, tableFreeList, tableTree, checkpointTimeoutLock);
+            return new PersistentPageMemoryPartitionStorage(partitionId, tableFreeList, tableTree, checkpointTimeoutLock);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(
+                    String.format("Error getting or creating partition [tableName=%s, partitionId=%s]", tableView.name(), partitionId),
+                    e
+            );
         } finally {
             checkpointTimeoutLock.checkpointReadUnlock();
         }
@@ -110,8 +169,112 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    public PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        throw new UnsupportedOperationException("Not supported yet");
+    public PersistentPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
+        TableView tableView = tableCfg.value();
+
+        FilePageStore filePageStore = ensurePartitionFilePageStore(tableView, partitionId);
+
+        CheckpointManager checkpointManager = dataRegion.checkpointManager();
+
+        CheckpointTimeoutLock checkpointTimeoutLock = checkpointManager.checkpointTimeoutLock();
+
+        checkpointTimeoutLock.checkpointReadLock();
+
+        try {
+            PersistentPageMemory persistentPageMemory = dataRegion.pageMemory();
+
+            int grpId = tableView.tableId();
+
+            CheckpointProgress lastCheckpointProgress = checkpointManager.lastCheckpointProgress();
+
+            UUID checkpointId = lastCheckpointProgress == null ? null : lastCheckpointProgress.id();
+
+            PartitionMeta meta = dataRegion.partitionMetaManager().readOrCreateMeta(
+                    checkpointId,
+                    new GroupPartitionId(grpId, partitionId),
+                    filePageStore
+            );
+
+            dataRegion.partitionMetaManager().addMeta(new GroupPartitionId(grpId, partitionId), meta);
+
+            filePageStore.pages(meta.pageCount());
+
+            filePageStore.setPageAllocationListener(pageIdx -> {
+                assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
+
+                CheckpointProgress last = checkpointManager.lastCheckpointProgress();
+
+                meta.incrementPageCount(last == null ? null : last.id());
+            });
+
+            boolean initNewVersionChainTree = false;
+
+            if (meta.versionChainTreeRootPageId() == 0) {
+                meta.versionChainTreeRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
+
+                initNewVersionChainTree = true;
+            }
+
+            boolean initVersionChainFreeList = false;
+
+            if (meta.versionChainFreeListRootPageId() == 0) {
+                meta.versionChainFreeListRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
+
+                initVersionChainFreeList = true;
+            }
+
+            boolean initRowVersionFreeList = false;
+
+            if (meta.rowVersionFreeListRootPageId() == 0) {
+                meta.rowVersionFreeListRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
+
+                initRowVersionFreeList = true;
+            }
+
+            VersionChainFreeList versionChainFreeList = createVersionChainFreeList(
+                    tableView,
+                    partitionId,
+                    meta.versionChainFreeListRootPageId(),
+                    initVersionChainFreeList
+            );
+
+            autoCloseables.add(versionChainFreeList::close);
+
+            RowVersionFreeList rowVersionFreeList = createRowVersionFreeList(
+                    tableView,
+                    partitionId,
+                    versionChainFreeList,
+                    meta.rowVersionFreeListRootPageId(),
+                    initRowVersionFreeList
+            );
+
+            autoCloseables.add(rowVersionFreeList::close);
+
+            VersionChainTree versionChainTree = createVersionChainTree(
+                    tableView,
+                    partitionId,
+                    versionChainFreeList,
+                    meta.versionChainTreeRootPageId(),
+                    initNewVersionChainTree
+            );
+
+            return new PersistentPageMemoryMvPartitionStorage(
+                    partitionId,
+                    tableView,
+                    dataRegion.pageMemory(),
+                    versionChainFreeList,
+                    rowVersionFreeList,
+                    versionChainTree,
+                    checkpointTimeoutLock
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(
+                    String.format("Error getting or creating partition [tableName=%s, partitionId=%s]", tableView.name(), partitionId),
+                    e
+            );
+        } finally {
+            checkpointTimeoutLock.checkpointReadUnlock();
+        }
     }
 
     /**
@@ -122,9 +285,9 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
      * @return Partition file page store.
      * @throws StorageException If failed.
      */
-    FilePageStore ensurePartitionFilePageStore(TableView tableView, int partId) throws StorageException {
+    private FilePageStore ensurePartitionFilePageStore(TableView tableView, int partId) throws StorageException {
         try {
-            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(groupId(tableView), partId);
+            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(tableView.tableId(), partId);
 
             filePageStore.ensure();
 
@@ -138,96 +301,28 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     }
 
     /**
-     * Creates new or reads existing partition meta.
-     *
-     * @param tableView Table configuration.
-     * @param partId Partition ID.
-     * @param filePageStore Partition file page store.
-     * @return Partition meta.
-     * @throws StorageException If failed.
-     */
-    PartitionMeta getOrCreatePartitionMeta(
-            TableView tableView,
-            int partId,
-            FilePageStore filePageStore
-    ) throws StorageException {
-        PersistentPageMemory pageMemoryImpl = dataRegion.pageMemory();
-
-        int grpId = groupId(tableView);
-
-        boolean allocatePartMetaPage = filePageStore.pages() == 0;
-
-        try {
-            long partMetaPageId = allocatePartMetaPage
-                    ? pageMemoryImpl.allocatePage(grpId, partId, FLAG_AUX)
-                    : pageMemoryImpl.partitionMetaPageId(grpId, partId);
-
-            long partMetaPage = pageMemoryImpl.acquirePage(grpId, partMetaPageId);
-
-            try {
-                long partMetaPageAddr = pageMemoryImpl.writeLock(grpId, partMetaPageId, partMetaPage);
-
-                try {
-                    long treeRootPageId;
-                    long reuseListRootPageId;
-
-                    if (allocatePartMetaPage) {
-                        PartitionMetaIo partMetaIo = PartitionMetaIo.VERSIONS.latest();
-
-                        partMetaIo.initNewPage(partMetaPageAddr, partMetaPageId, pageMemoryImpl.realPageSize(grpId));
-
-                        treeRootPageId = pageMemoryImpl.allocatePage(grpId, partId, FLAG_AUX);
-                        reuseListRootPageId = pageMemoryImpl.allocatePage(grpId, partId, FLAG_AUX);
-
-                        partMetaIo.setTreeRootPageId(partMetaPageAddr, treeRootPageId);
-                        partMetaIo.setReuseListRootPageId(partMetaPageAddr, reuseListRootPageId);
-                    } else {
-                        PartitionMetaIo partMetaIo = pageMemoryImpl.ioRegistry().resolve(partMetaPageAddr);
-
-                        treeRootPageId = partMetaIo.getTreeRootPageId(partMetaPageAddr);
-                        reuseListRootPageId = partMetaIo.getReuseListRootPageId(partMetaPageAddr);
-                    }
-
-                    return new PartitionMeta(
-                            new FullPageId(treeRootPageId, grpId),
-                            new FullPageId(reuseListRootPageId, grpId),
-                            allocatePartMetaPage
-                    );
-                } finally {
-                    pageMemoryImpl.writeUnlock(grpId, partMetaPageId, partMetaPage, allocatePartMetaPage);
-                }
-            } finally {
-                pageMemoryImpl.releasePage(grpId, partMetaPageId, partMetaPage);
-            }
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(
-                    String.format("Error getting or creating partition metadata [tableName=%s, partitionId=%s]", tableView.name(), partId),
-                    e
-            );
-        }
-    }
-
-    /**
      * Returns new {@link TableFreeList} instance for partition.
      *
      * @param tableView Table configuration.
      * @param partId Partition ID.
-     * @param partitionMeta Table partition metadata.
+     * @param rootPageId Root page ID.
+     * @param initNew {@code True} if new metadata should be initialized.
      * @throws StorageException If failed.
      */
-    TableFreeList createTableFreeList(
+    private TableFreeList createTableFreeList(
             TableView tableView,
             int partId,
-            PartitionMeta partitionMeta
+            long rootPageId,
+            boolean initNew
     ) throws StorageException {
         try {
             return new TableFreeList(
-                    groupId(tableView),
+                    tableView.tableId(),
                     partId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
-                    partitionMeta.reuseListRoot.pageId(),
-                    partitionMeta.allocated,
+                    rootPageId,
+                    initNew,
                     null,
                     PageEvictionTrackerNoOp.INSTANCE,
                     IoStatisticsHolderNoOp.INSTANCE
@@ -241,36 +336,151 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     }
 
     /**
+     * Returns new {@link VersionChainFreeList} instance for partition.
+     *
+     * @param tableView Table configuration.
+     * @param partId Partition ID.
+     * @param rootPageId Root page ID.
+     * @param initNew {@code True} if new metadata should be initialized.
+     * @throws StorageException If failed.
+     */
+    private VersionChainFreeList createVersionChainFreeList(
+            TableView tableView,
+            int partId,
+            long rootPageId,
+            boolean initNew
+    ) throws StorageException {
+        try {
+            return new VersionChainFreeList(
+                    tableView.tableId(),
+                    partId,
+                    dataRegion.pageMemory(),
+                    PageLockListenerNoOp.INSTANCE,
+                    rootPageId,
+                    initNew,
+                    null,
+                    PageEvictionTrackerNoOp.INSTANCE,
+                    IoStatisticsHolderNoOp.INSTANCE
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(
+                    String.format("Error creating VersionChainFreeList [tableName=%s, partitionId=%s]", tableView.name(), partId),
+                    e
+            );
+        }
+    }
+
+    /**
+     * Returns new {@link RowVersionFreeList} instance for partition.
+     *
+     * @param tableView Table configuration.
+     * @param partId Partition ID.
+     * @param reuseList Reuse list.
+     * @param rootPageId Root page ID.
+     * @param initNew {@code True} if new metadata should be initialized.
+     * @throws StorageException If failed.
+     */
+    private RowVersionFreeList createRowVersionFreeList(
+            TableView tableView,
+            int partId,
+            VersionChainFreeList reuseList,
+            long rootPageId,
+            boolean initNew
+    ) throws StorageException {
+        try {
+            return new RowVersionFreeList(
+                    tableView.tableId(),
+                    partId,
+                    dataRegion.pageMemory(),
+                    reuseList,
+                    PageLockListenerNoOp.INSTANCE,
+                    rootPageId,
+                    initNew,
+                    null,
+                    PageEvictionTrackerNoOp.INSTANCE,
+                    IoStatisticsHolderNoOp.INSTANCE
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(
+                    String.format("Error creating RowVersionFreeList [tableName=%s, partitionId=%s]", tableView.name(), partId),
+                    e
+            );
+        }
+    }
+
+    /**
      * Returns new {@link TableTree} instance for partition.
      *
      * @param tableView Table configuration.
      * @param partId Partition ID.
      * @param freeList Table free list.
-     * @param partitionMeta Table partition metadata.
+     * @param rootPageId Root page ID.
+     * @param initNewTree {@code True} if new tree should be created.
      * @throws StorageException If failed.
      */
-    TableTree createTableTree(
+    private TableTree createTableTree(
             TableView tableView,
             int partId,
             TableFreeList freeList,
-            PartitionMeta partitionMeta
+            long rootPageId,
+            boolean initNewTree
     ) throws StorageException {
-        int grpId = groupId(tableView);
+        int grpId = tableView.tableId();
 
         try {
             return new TableTree(
                     grpId,
                     tableView.name(),
-                    partId, dataRegion.pageMemory(),
+                    partId,
+                    dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
-                    partitionMeta.treeRoot.pageId(),
+                    rootPageId,
                     freeList,
-                    partitionMeta.allocated
+                    initNewTree
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
                     String.format("Error creating TableTree [tableName=%s, partitionId=%s]", tableView.name(), partId),
+                    e
+            );
+        }
+    }
+
+    /**
+     * Returns new {@link TableTree} instance for partition.
+     *
+     * @param tableView Table configuration.
+     * @param partId Partition ID.
+     * @param freeList {@link VersionChain} free list.
+     * @param rootPageId Root page ID.
+     * @param initNewTree {@code True} if new tree should be created.
+     * @throws StorageException If failed.
+     */
+    private VersionChainTree createVersionChainTree(
+            TableView tableView,
+            int partId,
+            VersionChainFreeList freeList,
+            long rootPageId,
+            boolean initNewTree
+    ) throws StorageException {
+        int grpId = tableView.tableId();
+
+        try {
+            return new VersionChainTree(
+                    grpId,
+                    tableView.name(),
+                    partId,
+                    dataRegion.pageMemory(),
+                    PageLockListenerNoOp.INSTANCE,
+                    new AtomicLong(),
+                    rootPageId,
+                    freeList,
+                    initNewTree
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(
+                    String.format("Error creating VersionChainTree [tableName=%s, partitionId=%s]", tableView.name(), partId),
                     e
             );
         }

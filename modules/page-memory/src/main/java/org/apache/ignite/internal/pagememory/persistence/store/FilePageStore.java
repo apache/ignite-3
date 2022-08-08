@@ -17,741 +17,362 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
-import static java.nio.ByteOrder.nativeOrder;
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.READ;
-import static java.nio.file.StandardOpenOption.WRITE;
-import static org.apache.ignite.internal.util.IgniteUtils.hexInt;
-import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
-import static org.apache.ignite.internal.util.IgniteUtils.toHexString;
-import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 
 import java.io.IOException;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
-import java.nio.channels.ClosedByInterruptException;
-import java.nio.channels.ClosedChannelException;
-import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.apache.ignite.internal.fileio.FileIo;
-import org.apache.ignite.internal.fileio.FileIoFactory;
-import org.apache.ignite.internal.pagememory.io.PageIo;
-import org.apache.ignite.internal.pagememory.persistence.FastCrc;
-import org.apache.ignite.internal.pagememory.persistence.IgniteInternalDataIntegrityViolationException;
-import org.apache.ignite.internal.pagememory.util.PageIdUtils;
+import java.util.function.IntFunction;
+import java.util.function.Supplier;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * FilePageStore is a {@link PageStore} implementation that uses regular files to store pages.
  *
- * <p>Actual read and write operations are performed with {@link FileIo} abstract interface, list of its implementations is a good source
- * of information about functionality in Ignite Native Persistence.
+ * <p>It consists of the main file page store and delta file page stores, when reading the page at the beginning, the page is searched in
+ * the delta files and only then in the main file.
  *
- * <p>On a physical level each instance of FilePageStore corresponds to a partition file assigned to the local node or to index file.
+ * <p>On a physical level each instance of {@code FilePageStore} corresponds to a partition file assigned to the local node.
  *
- * <p>Consists of:
- * <ul>
- *     <li>Header - {@link #SIGNATURE signature} (8 byte) + {@link #version version} (4 byte) +
- *     {@link #pageSize pageSize} (4 bytes) + version-specific information, total length {@link #headerSize}. </li>
- *     <li>Body - data pages are multiples of {@link #pageSize pageSize}.</li>
- * </ul>
+ * <p>Actual read and write operations are performed with {@link FilePageStoreIo} and {@link DeltaFilePageStoreIo}.
+ *
+ * <p>To create a delta file first invoke {@link #getOrCreateNewDeltaFile(IntFunction, Supplier)} then fill it and then invoke {@link
+ * #completeNewDeltaFile()}.
  */
 public class FilePageStore implements PageStore {
-    /** Page store file signature. */
-    private static final long SIGNATURE = 0xF19AC4FE60C530B8L;
+    private static final VarHandle PAGE_COUNT;
 
-    /** File version. */
-    static final int VERSION_1 = 1;
+    private static final VarHandle NEW_DELTA_FILE_PAGE_STORE_IO_FUTURE;
 
-    /** Size of the common file page store header for all versions, in bytes. */
-    static final int COMMON_HEADER_SIZE = 8/*SIGNATURE*/ + 4/*VERSION*/ + 4/*page size*/;
+    static {
+        try {
+            PAGE_COUNT = MethodHandles.lookup().findVarHandle(FilePageStore.class, "pageCount", int.class);
 
-    /** Skip CRC calculation flag. */
-    // TODO: IGNITE-17011 Move to config
-    private final boolean skipCrc = getBoolean("IGNITE_PDS_SKIP_CRC");
+            NEW_DELTA_FILE_PAGE_STORE_IO_FUTURE = MethodHandles.lookup().findVarHandle(
+                    FilePageStore.class,
+                    "newDeltaFilePageStoreIoFuture",
+                    CompletableFuture.class
+            );
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
-    /** File page store path. */
-    private final Path filePath;
+    /** File page store version. */
+    public static final int VERSION_1 = 1;
 
-    /** {@link FileIo} factory. */
-    private final FileIoFactory ioFactory;
+    /** Delta file page store IO version. */
+    public static final int DELTA_FILE_VERSION_1 = 1;
 
-    /** Page size in bytes. */
-    private final int pageSize;
+    /** Latest file page store version. */
+    public static final int LATEST_FILE_PAGE_STORE_VERSION = VERSION_1;
 
-    /** Number of allocated bytes. */
-    private final AtomicLong allocatedBytes = new AtomicLong();
+    /** Latest delta file page store IO version. */
+    public static final int LATEST_DELTA_FILE_PAGE_STORE_VERSION = DELTA_FILE_VERSION_1;
 
-    /** List of listeners for current page store to handle. */
-    private final List<PageWriteListener> listeners = new CopyOnWriteArrayList<>();
+    /** File page store IO. */
+    private final FilePageStoreIo filePageStoreIo;
 
-    private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+    /** Page count. */
+    private volatile int pageCount;
 
-    /** Caches the existence state of storage file. After it is initialized, it will be not {@code null} during lifecycle. */
-    private volatile Boolean fileExists;
+    /** New page allocation listener. */
+    private volatile @Nullable PageAllocationListener pageAllocationListener;
 
-    /** {@link FileIo} for read/write operations with file. */
-    private volatile FileIo fileIo;
+    /** Delta file page store IOs. */
+    private final List<DeltaFilePageStoreIo> deltaFilePageStoreIos;
 
-    /** Initialized file page store. */
-    private volatile boolean initialized;
+    /** Future with a new delta file page store. */
+    private volatile @Nullable CompletableFuture<DeltaFilePageStoreIo> newDeltaFilePageStoreIoFuture;
 
     /**
      * Constructor.
      *
-     * @param filePath File page store path.
-     * @param ioFactory {@link FileIo} factory.
-     * @param pageSize Page size in bytes.
+     * @param filePageStoreIo File page store IO.
+     * @param deltaFilePageStoreIos Delta file page store IOs.
      */
     public FilePageStore(
-            Path filePath,
-            FileIoFactory ioFactory,
-            int pageSize
+            FilePageStoreIo filePageStoreIo,
+            DeltaFilePageStoreIo... deltaFilePageStoreIos
     ) {
-        this.filePath = filePath;
-        this.ioFactory = ioFactory;
-        this.pageSize = pageSize;
-    }
+        if (deltaFilePageStoreIos.length > 0) {
+            Arrays.sort(deltaFilePageStoreIos, Comparator.comparingInt(DeltaFilePageStoreIo::fileIndex).reversed());
+        }
 
-    /** {@inheritDoc} */
-    @Override
-    public void addWriteListener(PageWriteListener listener) {
-        listeners.add(listener);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void removeWriteListener(PageWriteListener listener) {
-        listeners.remove(listener);
+        this.filePageStoreIo = filePageStoreIo;
+        this.deltaFilePageStoreIos = new CopyOnWriteArrayList<>(Arrays.asList(deltaFilePageStoreIos));
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop(boolean clean) throws IgniteInternalCheckedException {
-        try {
-            stop0(clean);
-        } catch (IOException e) {
-            throw new IgniteInternalCheckedException(
-                    "Failed to stop serving partition file [file=" + filePath + ", delete=" + clean + "]",
-                    e
-            );
+        filePageStoreIo.stop(clean);
+
+        for (DeltaFilePageStoreIo deltaFilePageStoreIo : deltaFilePageStoreIos) {
+            deltaFilePageStoreIo.stop(clean);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public long allocatePage() throws IgniteInternalCheckedException {
-        init();
+    public int allocatePage() throws IgniteInternalCheckedException {
+        ensure();
 
-        return allocatedBytes.getAndAdd(pageSize) / pageSize;
-    }
+        int pageIdx = (int) PAGE_COUNT.getAndAdd(this, 1);
 
-    /** {@inheritDoc} */
-    @Override
-    public long pages() {
-        if (!initialized) {
-            return 0;
+        PageAllocationListener listener = this.pageAllocationListener;
+
+        if (listener != null) {
+            listener.onPageAllocated(pageIdx);
         }
 
-        return allocatedBytes.get() / pageSize;
+        return pageIdx;
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
-        return read(pageId, pageBuf, !skipCrc, keepCrc);
+    public int pages() {
+        return pageCount;
     }
 
     /**
-     * Reads a page from the page store.
+     * Sets the page count.
+     *
+     * @param pageCount New page count.
+     */
+    public void pages(int pageCount) {
+        assert pageCount >= 0 : pageCount;
+
+        this.pageCount = pageCount;
+    }
+
+    /**
+     * Reads a page, unlike {@link #read(long, ByteBuffer, boolean)}, does not check the {@code pageId} so that its {@code pageIdx} is not
+     * greater than the {@link #pages() number of allocated pages}.
      *
      * @param pageId Page ID.
      * @param pageBuf Page buffer to read into.
-     * @param checkCrc Check CRC on page.
-     * @param keepCrc By default reading zeroes CRC which was on file, but you can keep it in pageBuf if set keepCrc.
-     * @return {@code true} if page has been read successfully, {@code false} if page hasn't been written yet.
+     * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code true}.
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
-    private boolean read(long pageId, ByteBuffer pageBuf, boolean checkCrc, boolean keepCrc) throws IgniteInternalCheckedException {
-        init();
+    public void readWithoutPageIdCheck(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
+        for (DeltaFilePageStoreIo deltaFilePageStoreIo : deltaFilePageStoreIos) {
+            long pageOff = deltaFilePageStoreIo.pageOffset(pageId);
 
-        try {
-            long off = pageOffset(pageId);
-
-            assert pageBuf.capacity() == pageSize;
-            assert pageBuf.remaining() == pageSize;
-            assert pageBuf.position() == 0;
-            assert pageBuf.order() == nativeOrder();
-            assert off <= allocatedBytes.get() : "calculatedOffset=" + off
-                    + ", allocated=" + allocatedBytes.get() + ", headerSize=" + headerSize() + ", filePath=" + filePath;
-
-            int n = readWithFailover(pageBuf, off);
-
-            // If page was not written yet, nothing to read.
-            if (n < 0) {
-                pageBuf.put(new byte[pageBuf.remaining()]);
-
-                return false;
-            }
-
-            int savedCrc32 = PageIo.getCrc(pageBuf);
-
-            PageIo.setCrc(pageBuf, 0);
-
-            pageBuf.position(0);
-
-            if (checkCrc) {
-                int curCrc32 = FastCrc.calcCrc(pageBuf, pageSize);
-
-                if ((savedCrc32 ^ curCrc32) != 0) {
-                    throw new IgniteInternalDataIntegrityViolationException("Failed to read page (CRC validation failed) "
-                            + "[id=" + hexLong(pageId) + ", off=" + (off - pageSize)
-                            + ", filePath=" + filePath + ", fileSize=" + fileIo.size()
-                            + ", savedCrc=" + hexInt(savedCrc32) + ", curCrc=" + hexInt(curCrc32)
-                            + ", page=" + toHexString(pageBuf) + "]");
+            if (pageOff >= 0) {
+                if (deltaFilePageStoreIo.readWithMergedToFilePageStoreCheck(pageId, pageOff, pageBuf, keepCrc)) {
+                    return;
                 }
             }
-
-            assert PageIo.getCrc(pageBuf) == 0;
-
-            if (keepCrc) {
-                PageIo.setCrc(pageBuf, savedCrc32);
-            }
-
-            return true;
-        } catch (IOException e) {
-            throw new IgniteInternalCheckedException("Failed to read page [file=" + filePath + ", pageId=" + pageId + "]", e);
         }
+
+        filePageStoreIo.read(pageId, filePageStoreIo.pageOffset(pageId), pageBuf, keepCrc);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void write(long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc) throws IgniteInternalCheckedException {
-        init();
+    public void read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
+        assert pageIndex(pageId) <= pageCount : "pageIdx=" + pageIndex(pageId) + ", pageCount=" + pageCount;
 
-        boolean interrupted = false;
+        readWithoutPageIdCheck(pageId, pageBuf, keepCrc);
+    }
 
-        while (true) {
-            FileIo fileIo = this.fileIo;
+    /** {@inheritDoc} */
+    @Override
+    public void write(long pageId, ByteBuffer pageBuf, boolean calculateCrc) throws IgniteInternalCheckedException {
+        assert pageIndex(pageId) <= pageCount : "pageIdx=" + pageIndex(pageId) + ", pageCount=" + pageCount;
 
-            try {
-                readWriteLock.readLock().lock();
-
-                try {
-                    long off = pageOffset(pageId);
-
-                    assert (off >= 0 && off <= allocatedBytes.get()) : "off=" + hexLong(off) + ", allocated="
-                            + hexLong(allocatedBytes.get()) + ", pageId=" + hexLong(pageId) + ", filePath=" + filePath;
-
-                    assert pageBuf.position() == 0;
-                    assert pageBuf.order() == nativeOrder() : "Page buffer order " + pageBuf.order()
-                            + " should be same with " + nativeOrder();
-                    assert PageIo.getType(pageBuf) != 0 : "Invalid state. Type is 0! pageId = " + hexLong(pageId);
-                    assert PageIo.getVersion(pageBuf) != 0 : "Invalid state. Version is 0! pageId = " + hexLong(pageId);
-
-                    if (calculateCrc && !skipCrc) {
-                        assert PageIo.getCrc(pageBuf) == 0 : hexLong(pageId);
-
-                        PageIo.setCrc(pageBuf, calcCrc32(pageBuf, pageSize));
-                    }
-
-                    // Check whether crc was calculated somewhere above the stack if it is forcibly skipped.
-                    assert skipCrc || PageIo.getCrc(pageBuf) != 0
-                            || calcCrc32(pageBuf, pageSize) == 0 : "CRC hasn't been calculated, crc=0";
-
-                    assert pageBuf.position() == 0 : pageBuf.position();
-
-                    for (PageWriteListener listener : listeners) {
-                        listener.accept(pageId, pageBuf);
-
-                        pageBuf.rewind();
-                    }
-
-                    fileIo.writeFully(pageBuf, off);
-
-                    PageIo.setCrc(pageBuf, 0);
-
-                    if (interrupted) {
-                        Thread.currentThread().interrupt();
-                    }
-
-                    return;
-                } finally {
-                    readWriteLock.readLock().unlock();
-                }
-            } catch (IOException e) {
-                if (e instanceof ClosedChannelException) {
-                    try {
-                        if (e instanceof ClosedByInterruptException) {
-                            interrupted = true;
-
-                            Thread.interrupted();
-                        }
-
-                        reinit(fileIo);
-
-                        pageBuf.position(0);
-
-                        PageIo.setCrc(pageBuf, 0);
-
-                        continue;
-                    } catch (IOException e0) {
-                        e0.addSuppressed(e);
-
-                        e = e0;
-                    }
-                }
-
-                throw new IgniteInternalCheckedException(
-                        "Failed to write page [filePath=" + filePath + ", pageId=" + pageId + ", tag=" + tag + "]",
-                        e
-                );
-            }
-        }
+        filePageStoreIo.write(pageId, pageBuf, calculateCrc);
     }
 
     /** {@inheritDoc} */
     @Override
     public void sync() throws IgniteInternalCheckedException {
-        readWriteLock.writeLock().lock();
-
-        try {
-            init();
-
-            FileIo fileIo = this.fileIo;
-
-            if (fileIo != null) {
-                fileIo.force();
-            }
-        } catch (IOException e) {
-            throw new IgniteInternalCheckedException("Failed to fsync partition file [filePath=" + filePath + ']', e);
-        } finally {
-            readWriteLock.writeLock().unlock();
-        }
+        filePageStoreIo.sync();
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean exists() {
-        if (fileExists == null) {
-            readWriteLock.writeLock().lock();
-
-            try {
-                if (fileExists == null) {
-                    fileExists = Files.exists(filePath) && filePath.toFile().length() >= headerSize();
-                }
-            } finally {
-                readWriteLock.writeLock().unlock();
-            }
-        }
-
-        return fileExists;
+        return filePageStoreIo.exists();
     }
 
     /** {@inheritDoc} */
     @Override
     public void ensure() throws IgniteInternalCheckedException {
-        init();
+        filePageStoreIo.ensure();
     }
 
     /** {@inheritDoc} */
     @Override
     public void close() throws IOException {
-        stop0(false);
+        filePageStoreIo.close();
+
+        for (DeltaFilePageStoreIo deltaFilePageStoreIo : deltaFilePageStoreIos) {
+            deltaFilePageStoreIo.close();
+        }
     }
 
     /**
      * Returns size of the page store in bytes.
      *
-     * <p>May differ from {@link #pages} * {@link #pageSize} due to delayed writes or due to other implementation specific details.
+     * <p>May differ from {@link #pages} * {@link FilePageStoreIo#pageSize()} due to delayed writes or due to other implementation specific
+     * details.
      *
      * @throws IgniteInternalCheckedException If an I/O error occurs.
      */
     public long size() throws IgniteInternalCheckedException {
-        try {
-            FileIo io = fileIo;
-
-            return io == null ? 0 : io.size();
-        } catch (IOException e) {
-            throw new IgniteInternalCheckedException(e);
-        }
-    }
-
-    /**
-     * Size of file page store header in bytes.
-     */
-    public int headerSize() {
-        return pageSize;
-    }
-
-    /**
-     * File page store version.
-     */
-    public int version() {
-        return VERSION_1;
-    }
-
-    /**
-     * Reads a page store header with its creation if missing (on store initialization).
-     *
-     * <p>Structure: signature (8 byte) + version (4 byte) + pageSize (4 byte).
-     *
-     * @param bufferToWrite Buffer to write to.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    void readHeader(ByteBuffer bufferToWrite) throws IgniteInternalCheckedException {
-        init();
-
-        try {
-            assert bufferToWrite.remaining() == headerSize();
-
-            readWithFailover(bufferToWrite, 0);
-
-            checkHeader(bufferToWrite);
-        } catch (IOException e) {
-            throw new IgniteInternalCheckedException("Failed to read header [filePath=" + filePath + "]", e);
-        }
-    }
-
-    /**
-     * Stops file page store.
-     *
-     * @param delete {@code True} to delete file.
-     * @throws IOException If fails.
-     */
-    private void stop0(boolean delete) throws IOException {
-        readWriteLock.writeLock().lock();
-
-        try {
-            if (!initialized) {
-                // Ensure the file is closed even if not initialized yet.
-                if (fileIo != null) {
-                    fileIo.close();
-                }
-
-                if (delete && exists()) {
-                    Files.delete(filePath);
-                }
-
-                return;
-            }
-
-            fileIo.force();
-
-            fileIo.close();
-
-            fileIo = null;
-
-            if (delete) {
-                Files.delete(filePath);
-
-                fileExists = false;
-            }
-        } finally {
-            initialized = false;
-
-            readWriteLock.writeLock().unlock();
-        }
-    }
-
-    /**
-     * Initializes the page store file.
-     *
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    private void init() throws IgniteInternalCheckedException {
-        if (!initialized) {
-            readWriteLock.writeLock().lock();
-
-            try {
-                if (!initialized) {
-                    FileIo fileIo = null;
-
-                    IgniteInternalCheckedException err = null;
-
-                    long newSize;
-
-                    try {
-                        boolean interrupted = false;
-
-                        while (true) {
-                            try {
-                                this.fileIo = fileIo = ioFactory.create(filePath, CREATE, READ, WRITE);
-
-                                fileExists = true;
-
-                                newSize = (filePath.toFile().length() == 0 ? initFile(fileIo) : checkFile(fileIo, filePath));
-
-                                if (interrupted) {
-                                    Thread.currentThread().interrupt();
-                                }
-
-                                break;
-                            } catch (ClosedByInterruptException e) {
-                                interrupted = true;
-
-                                Thread.interrupted();
-                            }
-                        }
-
-                        assert allocatedBytes.get() == 0;
-
-                        allocatedBytes.set(newSize);
-
-                        initialized = true;
-                    } catch (IOException e) {
-                        err = new IgniteInternalCheckedException("Failed to initialize partition file: " + filePath, e);
-
-                        throw err;
-                    } finally {
-                        if (err != null && fileIo != null) {
-                            try {
-                                fileIo.close();
-                            } catch (IOException e) {
-                                err.addSuppressed(e);
-                            }
-                        }
-                    }
-                }
-            } finally {
-                readWriteLock.writeLock().unlock();
-            }
-        }
-    }
-
-    /**
-     * Initializes header and writes it into the file store.
-     *
-     * @return Next available position in the file to store a data.
-     * @throws IOException If initialization is failed.
-     */
-    private long initFile(FileIo fileIo) throws IOException {
-        try {
-            ByteBuffer hdr = header(pageSize);
-
-            fileIo.writeFully(hdr);
-
-            // There is 'super' page in every file.
-            return 0;
-        } catch (ClosedByInterruptException e) {
-            // If thread was interrupted written header can be inconsistent.
-            readWriteLock.writeLock().lock();
-
-            try {
-                Files.delete(filePath);
-
-                fileExists = false;
-            } finally {
-                readWriteLock.writeLock().unlock();
-            }
-
-            throw e;
-        }
-    }
-
-    /**
-     * Creates header for current version file store.
-     *
-     * <p>Doesn't init the store.
-     *
-     * @param pageSize Page size in bytes.
-     * @return Byte buffer instance.
-     */
-    private ByteBuffer header(int pageSize) {
-        ByteBuffer hdr = ByteBuffer.allocate(headerSize()).order(nativeOrder());
-
-        hdr.putLong(SIGNATURE);
-
-        hdr.putInt(version());
-
-        hdr.putInt(pageSize);
-
-        hdr.rewind();
-
-        return hdr;
-    }
-
-    /**
-     * Checks that file store has correct header and size.
-     *
-     * @return Next available position in the file to store a data.
-     * @throws IOException If check has failed.
-     */
-    private long checkFile(FileIo fileIo, Path filePath) throws IOException {
-        ByteBuffer headerBuffer = ByteBuffer.allocate(headerSize()).order(nativeOrder());
-
-        fileIo.readFully(headerBuffer);
-
-        checkHeader(headerBuffer);
-
-        // Every file has a special meta page.
-        return filePath.toFile().length() - headerSize();
-    }
-
-    /**
-     * Gets page offset within the store file.
-     *
-     * @param pageId Page ID.
-     * @return Page offset.
-     */
-    long pageOffset(long pageId) {
-        return (long) PageIdUtils.pageIndex(pageId) * pageSize + headerSize();
-    }
-
-    /**
-     * Reads from page storage with failover.
-     *
-     * @param destBuf Destination buffer.
-     * @param position Position.
-     * @return Number of read bytes, or {@code -1} if the given position is greater than or equal to the file's current size.
-     */
-    private int readWithFailover(ByteBuffer destBuf, long position) throws IOException {
-        boolean interrupted = false;
-
-        int bufPos = destBuf.position();
-
-        while (true) {
-            FileIo fileIo = this.fileIo;
-
-            if (fileIo == null) {
-                throw new IOException("FileIo has stopped");
-            }
-
-            try {
-                assert destBuf.remaining() > 0;
-
-                int bytesRead = fileIo.readFully(destBuf, position);
-
-                if (interrupted) {
-                    Thread.currentThread().interrupt();
-                }
-
-                return bytesRead;
-            } catch (ClosedChannelException e) {
-                destBuf.position(bufPos);
-
-                if (e instanceof ClosedByInterruptException) {
-                    interrupted = true;
-
-                    Thread.interrupted();
-                }
-
-                reinit(fileIo);
-            }
-        }
-    }
-
-    /**
-     * Reinit page store after file channel was closed by thread interruption.
-     *
-     * @param fileIo Old fileIo.
-     */
-    private void reinit(FileIo fileIo) throws IOException {
-        if (!initialized) {
-            return;
-        }
-
-        if (fileIo != this.fileIo) {
-            return;
-        }
-
-        readWriteLock.writeLock().lock();
-
-        try {
-            if (fileIo != this.fileIo) {
-                return;
-            }
-
-            try {
-                boolean interrupted = false;
-
-                while (true) {
-                    try {
-                        fileIo = null;
-
-                        fileIo = ioFactory.create(filePath, CREATE, READ, WRITE);
-
-                        fileExists = true;
-
-                        checkFile(fileIo, filePath);
-
-                        this.fileIo = fileIo;
-
-                        if (interrupted) {
-                            Thread.currentThread().interrupt();
-                        }
-
-                        break;
-                    } catch (ClosedByInterruptException e) {
-                        interrupted = true;
-
-                        Thread.interrupted();
-                    }
-                }
-            } catch (IOException e) {
-                try {
-                    if (fileIo != null) {
-                        fileIo.close();
-                    }
-                } catch (IOException e0) {
-                    e.addSuppressed(e0);
-                }
-
-                throw e;
-            }
-        } finally {
-            readWriteLock.writeLock().unlock();
-        }
-    }
-
-    private static int calcCrc32(ByteBuffer pageBuf, int pageSize) {
-        try {
-            pageBuf.position(0);
-
-            return FastCrc.calcCrc(pageBuf, pageSize);
-        } finally {
-            pageBuf.position(0);
-        }
-    }
-
-    private void checkHeader(ByteBuffer headerBuffer) throws IOException {
-        headerBuffer.rewind();
-
-        long signature = headerBuffer.getLong();
-
-        String prefix = "Failed to verify, file='" + filePath + "' ";
-
-        if (SIGNATURE != signature) {
-            throw new IOException(prefix + "(invalid file signature)"
-                    + " [expectedSignature=" + hexLong(SIGNATURE)
-                    + ", actualSignature=" + hexLong(signature) + ']');
-        }
-
-        int ver = headerBuffer.getInt();
-
-        if (version() != ver) {
-            throw new IOException(prefix + "(invalid file version)"
-                    + " [expectedVersion=" + version()
-                    + ", fileVersion=" + ver + "]");
-        }
-
-        int pageSize = headerBuffer.getInt();
-
-        if (this.pageSize != pageSize) {
-            throw new IOException(prefix + "(invalid file pageSize)"
-                    + " [expectedPageSize=" + this.pageSize
-                    + ", filePageSize=" + pageSize + "]");
-        }
+        return filePageStoreIo.size();
     }
 
     /**
      * Returns file page store path.
      */
-    Path filePath() {
-        return filePath;
+    public Path filePath() {
+        return filePageStoreIo.filePath();
+    }
+
+    /**
+     * Returns file page store header size.
+     */
+    public int headerSize() {
+        return filePageStoreIo.headerSize();
+    }
+
+    /**
+     * Sets the new page allocation listener.
+     *
+     * @param listener New page allocation listener.
+     */
+    public void setPageAllocationListener(PageAllocationListener listener) {
+        pageAllocationListener = listener;
+    }
+
+    /**
+     * Gets or creates a new delta file, a new delta file will be created when the previous one is {@link #completeNewDeltaFile()
+     * completed}.
+     *
+     * <p>Thread safe.
+     *
+     * @param deltaFilPathFunction Function to get the path to the delta file page store, the argument is the index of the delta file.
+     * @param pageIndexesSupplier Page indexes supplier that will only be called if the current thread creates a delta file page store.
+     * @return Future that will be completed when the new delta file page store is created.
+     */
+    public CompletableFuture<DeltaFilePageStoreIo> getOrCreateNewDeltaFile(
+            IntFunction<Path> deltaFilPathFunction,
+            Supplier<int[]> pageIndexesSupplier
+    ) {
+        CompletableFuture<DeltaFilePageStoreIo> future = this.newDeltaFilePageStoreIoFuture;
+
+        if (future != null) {
+            return future;
+        }
+
+        if (!NEW_DELTA_FILE_PAGE_STORE_IO_FUTURE.compareAndSet(this, null, future = new CompletableFuture<>())) {
+            // Another thread started creating a delta file.
+            return newDeltaFilePageStoreIoFuture;
+        }
+
+        int nextIndex = deltaFilePageStoreIos.isEmpty() ? 0 : deltaFilePageStoreIos.get(0).fileIndex() + 1;
+
+        DeltaFilePageStoreIoHeader header = new DeltaFilePageStoreIoHeader(
+                LATEST_DELTA_FILE_PAGE_STORE_VERSION,
+                nextIndex,
+                filePageStoreIo.pageSize(),
+                pageIndexesSupplier.get()
+        );
+
+        DeltaFilePageStoreIo deltaFilePageStoreIo = new DeltaFilePageStoreIo(
+                filePageStoreIo.ioFactory,
+                deltaFilPathFunction.apply(nextIndex),
+                header
+        );
+
+        // Should add to the head, since read operations should always start from the most recent.
+        deltaFilePageStoreIos.add(0, deltaFilePageStoreIo);
+
+        future.complete(deltaFilePageStoreIo);
+
+        return future;
+    }
+
+    /**
+     * Returns the new delta file store that was created in {@link #getOrCreateNewDeltaFile(IntFunction, Supplier)} and not yet completed by
+     * {@link #completeNewDeltaFile()}.
+     */
+    public @Nullable CompletableFuture<DeltaFilePageStoreIo> getNewDeltaFile() {
+        return newDeltaFilePageStoreIoFuture;
+    }
+
+    /**
+     * Completes the {@link #getOrCreateNewDeltaFile(IntFunction, Supplier) creation} of a new delta file.
+     *
+     * <p>Thread safe.
+     */
+    public void completeNewDeltaFile() {
+        CompletableFuture<DeltaFilePageStoreIo> future = this.newDeltaFilePageStoreIoFuture;
+
+        if (future == null) {
+            // Already completed in another thread.
+            return;
+        }
+
+        NEW_DELTA_FILE_PAGE_STORE_IO_FUTURE.compareAndSet(this, future, null);
+    }
+
+    /**
+     * Returns the number of delta files.
+     */
+    public int deltaFileCount() {
+        return deltaFilePageStoreIos.size();
+    }
+
+    /**
+     * Returns the delta file to compaction (oldest).
+     *
+     * <p>Thread safe.
+     */
+    public @Nullable DeltaFilePageStoreIo getDeltaFileToCompaction() {
+        // Snapshot of delta files.
+        Iterator<DeltaFilePageStoreIo> iterator = deltaFilePageStoreIos.iterator();
+
+        // Last one is the oldest.
+        DeltaFilePageStoreIo last = null;
+
+        int count = 0;
+
+        while (iterator.hasNext()) {
+            last = iterator.next();
+
+            count++;
+        }
+
+        // If last is just created, then it cannot be compacted yet.
+        if (count == 1 && newDeltaFilePageStoreIoFuture != null) {
+            last = null;
+        }
+
+        return last;
+    }
+
+    /**
+     * Deletes delta file.
+     *
+     * <p>Thread safe.
+     *
+     * @param deltaFilePageStoreIo Delta file to be deleted.
+     * @return {@code True} if the delta file being removed was present.
+     */
+    public boolean removeDeltaFile(DeltaFilePageStoreIo deltaFilePageStoreIo) {
+        return deltaFilePageStoreIos.remove(deltaFilePageStoreIo);
     }
 }

@@ -56,6 +56,11 @@ public interface MvTableStorage {
     CompletableFuture<?> destroyPartition(int partitionId) throws StorageException;
 
     /**
+     * Returns {@code true} if this storage is volatile (i.e. stores its data in memory), or {@code false} if it's persistent.
+     */
+    boolean isVolatile();
+
+    /**
      * Returns the table configuration.
      */
     TableConfiguration configuration();

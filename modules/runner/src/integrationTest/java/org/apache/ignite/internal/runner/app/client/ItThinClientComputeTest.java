@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,13 +46,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -56,6 +60,9 @@ import org.junit.jupiter.params.provider.CsvSource;
  * Thin client compute integration test.
  */
 public class ItThinClientComputeTest extends ItAbstractThinClientTest {
+    /** Test trace id. */
+    private static final UUID TRACE_ID = UUID.randomUUID();
+
     @Test
     void testClusterNodes() {
         List<ClusterNode> nodes = sortedNodes();
@@ -128,14 +135,49 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testJobErrorPropagatesToClientWithClassAndMessage() {
+    void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceId() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () ->  client().compute().execute(Set.of(node(0)), ErrorJob.class).join());
+                () ->  client().compute().execute(Set.of(node(0)), IgniteExceptionJob.class).join());
 
-        IgniteClientException cause = (IgniteClientException) ex.getCause();
+        var cause = (IgniteException) ex.getCause();
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
+        assertEquals(TRACE_ID, cause.traceId());
+        assertEquals(COLUMN_ALREADY_EXISTS_ERR, cause.code());
+        assertInstanceOf(CustomException.class, cause);
+        assertNull(cause.getCause()); // No stack trace by default.
+    }
+
+    @Test
+    void testExceptionInJobPropagatesToClientWithClassAndMessage() {
+        CompletionException ex = assertThrows(
+                CompletionException.class,
+                () ->  client().compute().execute(Set.of(node(0)), ExceptionJob.class).join());
+
+        var cause = (IgniteException) ex.getCause();
+
+        assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
+        assertEquals(UNKNOWN_ERR, cause.code());
+        assertNull(cause.getCause()); // No stack trace by default.
+    }
+
+    @Test
+    void testExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace() {
+        // Second node has sendServerExceptionStackTraceToClient enabled.
+        CompletionException ex = assertThrows(
+                CompletionException.class,
+                () ->  client().compute().execute(Set.of(node(1)), ExceptionJob.class).join());
+
+        var cause = (IgniteException) ex.getCause();
+
+        assertThat(cause.getMessage(), containsString("NullPointerException: null ref"));
+        assertEquals(UNKNOWN_ERR, cause.code());
+
+        assertNotNull(cause.getCause());
+        assertThat(cause.getCause().getMessage(), containsString(
+                "at org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$"
+                        + "ExceptionJob.execute(ItThinClientComputeTest.java:"));
     }
 
     @ParameterizedTest
@@ -208,10 +250,17 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class ErrorJob implements ComputeJob<String> {
+    private static class IgniteExceptionJob implements ComputeJob<String> {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
-            throw new TransactionException("Custom job error");
+            throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
+        }
+    }
+
+    private static class ExceptionJob implements ComputeJob<String> {
+        @Override
+        public String execute(JobExecutionContext context, Object... args) {
+            throw new NullPointerException("null ref");
         }
     }
 
@@ -219,6 +268,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         @Override
         public Object execute(JobExecutionContext context, Object... args) {
             return args[0];
+        }
+    }
+
+    /**
+     * Custom public exception class.
+     */
+    public static class CustomException extends IgniteException {
+        public CustomException(UUID traceId, int code, String message, Throwable cause) {
+            super(traceId, code, message, cause);
         }
     }
 }

@@ -17,16 +17,20 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTION_ERR;
+
+import org.apache.ignite.internal.metastorage.common.MetaStorageException;
+
 /**
  * Thrown when a requested operation on meta storage could not be performed because target revisions were removed from storage due to a
  * compaction procedure. In such case the operation should be retried with actual revision.
  */
-public class CompactedException extends RuntimeException {
+public class CompactedException extends MetaStorageException {
     /**
      * Constructs an exception.
      */
     public CompactedException() {
-        super();
+        super(COMPACTION_ERR);
     }
 
     /**
@@ -35,7 +39,7 @@ public class CompactedException extends RuntimeException {
      * @param message Detail message.
      */
     public CompactedException(String message) {
-        super(message);
+        super(COMPACTION_ERR, message);
     }
 
     /**
@@ -45,7 +49,7 @@ public class CompactedException extends RuntimeException {
      * @param cause   Cause.
      */
     public CompactedException(String message, Throwable cause) {
-        super(message, cause);
+        super(COMPACTION_ERR, message, cause);
     }
 
     /**
@@ -54,6 +58,6 @@ public class CompactedException extends RuntimeException {
      * @param cause Cause.
      */
     public CompactedException(Throwable cause) {
-        super(cause);
+        super(COMPACTION_ERR, cause);
     }
 }

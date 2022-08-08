@@ -20,7 +20,7 @@ package org.apache.ignite.cli.call.configuration;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.cli.call.CallIntegrationTestBase;
+import org.apache.ignite.cli.call.CallInitializedIntegrationTestBase;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link NodeConfigShowCall}.
  */
-class ItShowConfigurationCallTest extends CallIntegrationTestBase {
+class ItShowConfigurationCallTest extends CallInitializedIntegrationTestBase {
 
     @Inject
     NodeConfigShowCall nodeConfigShowCall;

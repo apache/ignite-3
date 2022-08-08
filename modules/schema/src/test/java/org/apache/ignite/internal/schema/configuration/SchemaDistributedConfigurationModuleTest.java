@@ -29,6 +29,9 @@ import static org.hamcrest.Matchers.is;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.junit.jupiter.api.Test;
@@ -67,7 +70,9 @@ class SchemaDistributedConfigurationModuleTest {
 
     @Test
     void providesNoPolymorphicSchemaExtensions() {
-        assertThat(module.polymorphicSchemaExtensions(), is(empty()));
+        assertThat(module.polymorphicSchemaExtensions(), hasItem(ConstantValueDefaultConfigurationSchema.class));
+        assertThat(module.polymorphicSchemaExtensions(), hasItem(FunctionCallDefaultConfigurationSchema.class));
+        assertThat(module.polymorphicSchemaExtensions(), hasItem(NullValueDefaultConfigurationSchema.class));
     }
 
     @Test

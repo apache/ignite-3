@@ -206,7 +206,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case INTERVAL_YEAR:
             case INTERVAL_YEAR_MONTH:
             case INTERVAL_MONTH:
-                //TODO: https://issues.apache.org/jira/browse/IGNITE-17219
+                //TODO: https://issues.apache.org/jira/browse/IGNITE-17373
                 throw new IllegalArgumentException("Type is not supported yet.");
             case INTERVAL_DAY:
             case INTERVAL_DAY_HOUR:
@@ -218,7 +218,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case INTERVAL_MINUTE:
             case INTERVAL_MINUTE_SECOND:
             case INTERVAL_SECOND:
-                //TODO: https://issues.apache.org/jira/browse/IGNITE-17219
+                //TODO: https://issues.apache.org/jira/browse/IGNITE-17373
                 throw new IllegalArgumentException("Type is not supported yet.");
             case VARCHAR:
             case CHAR:

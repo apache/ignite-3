@@ -38,9 +38,11 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
@@ -69,6 +71,9 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     @Nullable
     private volatile FilePageStoreManager filePageStoreManager;
+
+    @Nullable
+    private volatile PartitionMetaManager partitionMetaManager;
 
     @Nullable
     private volatile CheckpointManager checkpointManager;
@@ -119,6 +124,8 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             throw new StorageException("Error starting file page store manager", e);
         }
 
+        partitionMetaManager = new PartitionMetaManager(ioRegistry, pageSize);
+
         try {
             checkpointManager = new CheckpointManager(
                     igniteInstanceName,
@@ -126,8 +133,10 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     longJvmPauseDetector,
                     engineConfig.checkpoint(),
                     filePageStoreManager,
+                    partitionMetaManager,
                     regions.values(),
                     storagePath,
+                    ioRegistry,
                     pageSize
             );
 
@@ -182,6 +191,12 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
         return new PersistentPageMemoryTableStorage(tableCfg, regions.get(dataStorageView.dataRegion()));
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public MvTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
+        return createTable(tableCfg);
+    }
+
     /**
      * Returns checkpoint manager, {@code null} if engine not started.
      */
@@ -203,6 +218,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                 dataRegionConfig,
                 ioRegistry,
                 filePageStoreManager,
+                partitionMetaManager,
                 checkpointManager,
                 pageSize
         );

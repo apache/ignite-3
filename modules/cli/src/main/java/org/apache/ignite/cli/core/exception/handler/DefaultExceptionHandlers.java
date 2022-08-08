@@ -31,7 +31,6 @@ public class DefaultExceptionHandlers extends ExceptionHandlers {
         addExceptionHandler(new FlowInterruptExceptionHandler());
         addExceptionHandler(new SqlExceptionHandler());
         addExceptionHandler(new TimeoutExceptionHandler());
-        addExceptionHandler(new IgniteClientExceptionHandler());
         addExceptionHandler(new IgniteCliExceptionHandler());
         addExceptionHandler(new IgniteCliApiExceptionHandler());
         addExceptionHandler(new UnknownCommandExceptionHandler());

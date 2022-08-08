@@ -32,11 +32,10 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
-import org.apache.ignite.internal.storage.pagememory.mv.PageMemoryMvPartitionStorage;
+import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Abstract table storage implementation based on {@link PageMemory}.
@@ -147,12 +146,20 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
     }
 
     /**
-     * Returns a new instance of {@link VolatilePageMemoryPartitionStorage}.
+     * Returns a new instance of {@link AbstractPageMemoryPartitionStorage}.
      *
-     * @param partId Partition id.
+     * @param partitionId Partition id.
      * @throws StorageException If there is an error while creating the partition storage.
      */
-    protected abstract VolatilePageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException;
+    protected abstract AbstractPageMemoryPartitionStorage createPartitionStorage(int partitionId) throws StorageException;
+
+    /**
+     * Returns a new instance of {@link AbstractPageMemoryMvPartitionStorage}.
+     *
+     * @param partitionId Partition id.
+     * @throws StorageException If there is an error while creating the mv partition storage.
+     */
+    public abstract AbstractPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException;
 
     /** {@inheritDoc} */
     @Override
@@ -204,12 +211,6 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
         // TODO: IGNITE-17197 Convert this to true async code.
         return CompletableFuture.completedFuture(null);
     }
-
-    /**
-     * This API is not yet ready. But we need to test mv storages anyways.
-     */
-    @TestOnly
-    public abstract PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId);
 
     /**
      * Closes all {@link #partitions} and {@link #autoCloseables}.

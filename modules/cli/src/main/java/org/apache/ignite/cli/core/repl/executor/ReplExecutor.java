@@ -20,6 +20,7 @@ package org.apache.ignite.cli.core.repl.executor;
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.apache.ignite.cli.config.StateFolderProvider;
@@ -29,6 +30,9 @@ import org.apache.ignite.cli.core.exception.handler.ReplExceptionHandlers;
 import org.apache.ignite.cli.core.flow.question.JlineQuestionWriterReader;
 import org.apache.ignite.cli.core.flow.question.QuestionAskerFactory;
 import org.apache.ignite.cli.core.repl.Repl;
+import org.apache.ignite.cli.core.repl.completer.DynamicCompleterActivationPoint;
+import org.apache.ignite.cli.core.repl.completer.DynamicCompleterFilter;
+import org.apache.ignite.cli.core.repl.completer.DynamicCompleterRegistry;
 import org.apache.ignite.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.cli.core.repl.expander.NoopExpander;
 import org.jline.console.impl.SystemRegistryImpl;
@@ -43,7 +47,6 @@ import org.jline.terminal.Terminal;
 import org.jline.widget.TailTipWidgets;
 import picocli.CommandLine;
 import picocli.CommandLine.IDefaultValueProvider;
-import picocli.shell.jline3.PicocliCommands;
 import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
 
 /**
@@ -83,7 +86,7 @@ public class ReplExecutor {
         try {
             repl.customizeTerminal(terminal);
 
-            PicocliCommands picocliCommands = createPicocliCommands(repl);
+            IgnitePicocliCommands picocliCommands = createPicocliCommands(repl);
             SystemRegistryImpl registry = new SystemRegistryImpl(parser, terminal, workDirProvider, null);
             registry.setCommandRegistries(picocliCommands);
             registry.register("help", picocliCommands);
@@ -138,7 +141,7 @@ public class ReplExecutor {
         return result;
     }
 
-    private PicocliCommands createPicocliCommands(Repl repl) {
+    private IgnitePicocliCommands createPicocliCommands(Repl repl) throws Exception {
         CommandLine cmd = new CommandLine(repl.commandClass(), factory);
         IDefaultValueProvider defaultValueProvider = repl.defaultValueProvider();
         if (defaultValueProvider != null) {
@@ -146,6 +149,13 @@ public class ReplExecutor {
         }
         CommandLineContextProvider.setCmd(cmd);
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
-        return new PicocliCommands(cmd);
+
+        DynamicCompleterRegistry completerRegistry = factory.create(DynamicCompleterRegistry.class);
+        DynamicCompleterActivationPoint activationPoint = factory.create(DynamicCompleterActivationPoint.class);
+        activationPoint.activateDynamicCompleter(completerRegistry);
+
+        DynamicCompleterFilter dynamicCompleterFilter = factory.create(DynamicCompleterFilter.class);
+
+        return new IgnitePicocliCommands(cmd, completerRegistry, List.of(dynamicCompleterFilter));
     }
 }

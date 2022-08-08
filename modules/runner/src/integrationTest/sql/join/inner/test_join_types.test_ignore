@@ -1,7 +1,7 @@
 # name: test/sql/join/inner/test_join_types.test
 # description: Test joins with different types
 # group: [inner]
-# Ignore https://issues.apache.org/jira/browse/IGNITE-14555
+# Ignore https://issues.apache.org/jira/browse/IGNITE-17268
 
 statement ok
 PRAGMA enable_verification

@@ -308,7 +308,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
      * 2) result set returned will be sorted as expected.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-14925")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17304")
     public void testSelectWithOrdering() {
         // sql("drop table if exists test_tbl", true);
         // sql("create table test_tbl (c1 int)", true);

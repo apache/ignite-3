@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_NO_MORE_PAGES_ERR;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -46,7 +48,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class AsyncResultSetImpl implements AsyncResultSet {
     private static final CompletableFuture<? extends AsyncResultSet> HAS_NO_MORE_PAGE_FUTURE =
-            CompletableFuture.failedFuture(new SqlException("There are no more pages."));
+            CompletableFuture.failedFuture(new SqlException(CURSOR_NO_MORE_PAGES_ERR, "There are no more pages."));
 
     private final AsyncSqlCursor<List<Object>> cur;
 
@@ -132,6 +134,8 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public CompletionStage<? extends AsyncResultSet> fetchNextPage() {
+        requireResultSet();
+
         if (!hasMorePages()) {
             return HAS_NO_MORE_PAGE_FUTURE;
         } else {
@@ -158,7 +162,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     private void requireResultSet() {
         if (!hasRowSet()) {
-            throw new NoRowSetExpectedException("Query has no result set: [type=" + cur.queryType() + ']');
+            throw new NoRowSetExpectedException();
         }
     }
 
