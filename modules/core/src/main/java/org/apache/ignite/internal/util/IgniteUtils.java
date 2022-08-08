@@ -61,9 +61,6 @@ public class IgniteUtils {
     /** The moment will be used as a start monotonic time. */
     private static final long BEGINNING_OF_TIME = System.nanoTime();
 
-    /** Invalid argument error message prefix. */
-    private static final String INVALID_ARG_MSG_PREFIX = "Ouch! Argument is invalid: ";
-
     /** Version of the JDK. */
     private static final String jdkVer = System.getProperty("java.specification.version");
 

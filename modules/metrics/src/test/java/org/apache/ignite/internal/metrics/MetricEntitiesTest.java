@@ -89,7 +89,7 @@ public class MetricEntitiesTest {
         assertEquals(COMPOSITE_METRIC_NAME, holder.distributionMetric.name());
 
         List<Metric> scalarMetrics = stream(spliteratorUnknownSize(new CompositeAwareIterator(metrics.iterator()), 0), false)
-            .collect(toList());
+                .collect(toList());
 
         assertEquals(2 + DISTRIBUTION_BOUNDS.length, scalarMetrics.size());
 

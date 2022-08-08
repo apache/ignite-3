@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.metrics;
 
+import static java.util.Collections.unmodifiableList;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import static java.util.Collections.unmodifiableList;
 
 /**
  * Distribution metric calculates counts of measurements that gets into each bounds interval.
@@ -119,8 +119,8 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
             LongMetric m = (LongMetric) scalarMetrics.get(i);
 
             sb.append(m.name())
-                .append(':')
-                .append(m.value());
+                    .append(':')
+                    .append(m.value());
 
             if (i < scalarMetrics.size() - 1) {
                 sb.append(", ");
@@ -159,7 +159,7 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
             }
 
             AtomicReferenceFieldUpdater<DistributionMetric, List> updater =
-                AtomicReferenceFieldUpdater.newUpdater(DistributionMetric.class, List.class, "scalarMetrics");
+                    AtomicReferenceFieldUpdater.newUpdater(DistributionMetric.class, List.class, "scalarMetrics");
 
             updater.compareAndSet(this, null, unmodifiableList(metrics));
         }

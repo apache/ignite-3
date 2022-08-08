@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metrics;
 
 import static java.util.Objects.requireNonNull;
 
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeMap;
@@ -241,8 +240,8 @@ public class MetricRegistry implements Iterable<MetricSet> {
      */
     @NotNull
     private IgniteBiTuple<MetricSource, MetricSet> checkRegistered(
-        Map<String, IgniteBiTuple<MetricSource, MetricSet>> sources,
-        @NotNull MetricSource src
+            Map<String, IgniteBiTuple<MetricSource, MetricSet>> sources,
+            @NotNull MetricSource src
     ) {
         requireNonNull(src);
 
@@ -296,8 +295,8 @@ public class MetricRegistry implements Iterable<MetricSet> {
     @Override
     public Iterator<MetricSet> iterator() {
         return new TransformingIterator<>(
-            new FilteringIterator<>(sources.values().iterator(), v -> v.get2() != null),
-            IgniteBiTuple::get2
+                new FilteringIterator<>(sources.values().iterator(), v -> v.get2() != null),
+                IgniteBiTuple::get2
         );
     }
 }

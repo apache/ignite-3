@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metrics;
 
 import java.util.concurrent.atomic.AtomicLongArray;
-import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.Nullable;
 
 /**
