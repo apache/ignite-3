@@ -30,7 +30,7 @@ public interface SortedIndex extends Index {
     /** A flag denotes that left bound should be included into result. */
     byte INCLUDE_LEFT = 0b01;
 
-    /** A flag denotes that left bound should be included into result. */
+    /** A flag denotes that right bound should be included into result. */
     byte INCLUDE_RIGHT = 0b10;
 
     /**

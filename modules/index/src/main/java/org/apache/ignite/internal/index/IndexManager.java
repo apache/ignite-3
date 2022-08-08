@@ -121,15 +121,11 @@ public class IndexManager implements IgniteComponent {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
 
-        LOG.debug("Going to create index [schemaName={}, tableName={}, indexName={}]", schemaName, tableName, indexName);
+        LOG.debug("Going to create index [schema={}, schema={}, index={}]", schemaName, tableName, indexName);
 
         try {
             validateName(indexName);
-        } catch (Exception ex) {
-            return CompletableFuture.failedFuture(ex);
-        }
 
-        try {
             CompletableFuture<Index> future = new CompletableFuture<>();
 
             var canonicalName = canonicalName(schemaName, tableName);
@@ -138,7 +134,7 @@ public class IndexManager implements IgniteComponent {
                 if (table == null) {
                     var exception = new TableNotFoundException(canonicalName);
 
-                    LOG.info("Unable to create index [schemaName={}, tableName={}, indexName={}]",
+                    LOG.info("Unable to create index [schema={}, schema={}, index={}]",
                             exception, schemaName, tableName, indexName);
 
                     future.completeExceptionally(exception);
@@ -150,7 +146,7 @@ public class IndexManager implements IgniteComponent {
                     if (indexListChange.get(indexName) != null) {
                         var exception = new IndexAlreadyExistsException(indexName);
 
-                        LOG.info("Unable to create index [schemaName={}, tableName={}, indexName={}]",
+                        LOG.info("Unable to create index [schema={}, schema={}, index={}]",
                                 exception, schemaName, tableName, indexName);
 
                         future.completeExceptionally(exception);
@@ -167,7 +163,7 @@ public class IndexManager implements IgniteComponent {
                     validateColumns(indexView, columnNames);
                 })).whenComplete((index, th) -> {
                     if (th != null) {
-                        LOG.info("Unable to create index [schemaName={}, tableName={}, indexName={}]",
+                        LOG.info("Unable to create index [schema={}, schema={}, index={}]",
                                 th, schemaName, tableName, indexName);
 
                         future.completeExceptionally(th);
@@ -183,7 +179,7 @@ public class IndexManager implements IgniteComponent {
                                 .orElse(null);
 
                         if (createdIndex != null) {
-                            LOG.info("Index created [schemaName={}, tableName={}, indexName={}, indexId={}]",
+                            LOG.info("Index created [schema={}, schema={}, index={}, indexId={}]",
                                     schemaName, tableName, indexName, createdIndex.id());
 
                             future.complete(createdIndex);
@@ -191,7 +187,7 @@ public class IndexManager implements IgniteComponent {
                             var exception = new IgniteInternalException(
                                     Common.UNEXPECTED_ERR, "Looks like the index was concurrently deleted");
 
-                            LOG.info("Unable to create index [schemaName={}, tableName={}, indexName={}]",
+                            LOG.info("Unable to create index [schema={}, schema={}, index={}]",
                                     exception, schemaName, tableName, indexName);
 
                             future.completeExceptionally(exception);
@@ -201,6 +197,8 @@ public class IndexManager implements IgniteComponent {
             });
 
             return future;
+        } catch (Exception ex) {
+            return CompletableFuture.failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
         }
