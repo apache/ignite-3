@@ -21,11 +21,13 @@ import static java.util.Spliterators.spliteratorUnknownSize;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Iterator;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -57,10 +59,20 @@ public class MetricEntitiesTest {
         assertNull(registry.enable(SOURCE_NAME));
         assertEquals(2L, registry.version());
 
+        Iterator<MetricSet> metricSetIterator = registry.iterator();
+        assertTrue(metricSetIterator.hasNext());
+        MetricSet ms = metricSetIterator.next();
+        assertEquals(metricSet, ms);
+
         registry.disable(SOURCE_NAME);
         assertEquals(3L, registry.version());
 
         assertThrows(IllegalStateException.class, () -> registry.disable("unexisting"));
+
+        assertFalse(registry.iterator().hasNext());
+
+        registry.unregisterSource(metricSource);
+        assertFalse(registry.iterator().hasNext());
     }
 
     @Test

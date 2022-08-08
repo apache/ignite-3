@@ -129,8 +129,6 @@ public class MetricRegistry implements Iterable<MetricSet> {
 
             assert metricSet != null;
 
-            metricSetRef.set(metricSet);
-
             IgniteBiTuple<MetricSource, MetricSet> updated = new IgniteBiTuple<>(src, metricSet);
 
             sources.put(src.name(), updated);
