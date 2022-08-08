@@ -1,7 +1,7 @@
 # name: test/sql/function/string/test_replace.test
 # description: REPLACE test
 # group: [string]
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-15031
+# Ignored: https://issues.apache.org/jira/browse/IGNITE-17271
 
 # test replace on NULLs
 query T

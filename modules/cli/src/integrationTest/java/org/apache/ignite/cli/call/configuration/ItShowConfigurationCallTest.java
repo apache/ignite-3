@@ -45,12 +45,12 @@ class ItShowConfigurationCallTest extends CallInitializedIntegrationTestBase {
                 .build();
 
         // When
-        DefaultCallOutput<String> output = clusterConfigShowCall.execute(input);
+        DefaultCallOutput<JsonString> output = clusterConfigShowCall.execute(input);
 
         // Then
         assertThat(output.hasError()).isFalse();
         // And
-        assertThat(output.body()).isNotEmpty();
+        assertThat(output.body().getValue()).isNotEmpty();
     }
 
     @Test
@@ -63,12 +63,12 @@ class ItShowConfigurationCallTest extends CallInitializedIntegrationTestBase {
                 .build();
 
         // When
-        DefaultCallOutput<String> output = clusterConfigShowCall.execute(input);
+        DefaultCallOutput<JsonString> output = clusterConfigShowCall.execute(input);
 
         // Then
         assertThat(output.hasError()).isFalse();
         // And
-        assertThat(output.body()).isEqualTo("lru");
+        assertThat(output.body().getValue()).isEqualTo("lru");
     }
 
     @Test
@@ -80,12 +80,12 @@ class ItShowConfigurationCallTest extends CallInitializedIntegrationTestBase {
                 .build();
 
         // When
-        DefaultCallOutput<String> output = nodeConfigShowCall.execute(input);
+        DefaultCallOutput<JsonString> output = nodeConfigShowCall.execute(input);
 
         // Then
         assertThat(output.hasError()).isFalse();
         // And
-        assertThat(output.body()).isNotEmpty();
+        assertThat(output.body().getValue()).isNotEmpty();
     }
 
     @Test
@@ -98,11 +98,11 @@ class ItShowConfigurationCallTest extends CallInitializedIntegrationTestBase {
                 .build();
 
         // When
-        DefaultCallOutput<String> output = nodeConfigShowCall.execute(input);
+        DefaultCallOutput<JsonString> output = nodeConfigShowCall.execute(input);
 
         // Then
         assertThat(output.hasError()).isFalse();
         // And
-        assertThat(output.body()).isEqualTo("5000");
+        assertThat(output.body().getValue()).isEqualTo("5000");
     }
 }

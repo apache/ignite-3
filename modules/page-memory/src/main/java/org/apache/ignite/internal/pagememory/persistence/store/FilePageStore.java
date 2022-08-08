@@ -26,6 +26,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -168,9 +169,9 @@ public class FilePageStore implements PageStore {
             long pageOff = deltaFilePageStoreIo.pageOffset(pageId);
 
             if (pageOff >= 0) {
-                deltaFilePageStoreIo.read(pageId, pageOff, pageBuf, keepCrc);
-
-                return;
+                if (deltaFilePageStoreIo.readWithMergedToFilePageStoreCheck(pageId, pageOff, pageBuf, keepCrc)) {
+                    return;
+                }
             }
         }
 
@@ -182,17 +183,7 @@ public class FilePageStore implements PageStore {
     public void read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
         assert pageIndex(pageId) <= pageCount : "pageIdx=" + pageIndex(pageId) + ", pageCount=" + pageCount;
 
-        for (DeltaFilePageStoreIo deltaFilePageStoreIo : deltaFilePageStoreIos) {
-            long pageOff = deltaFilePageStoreIo.pageOffset(pageId);
-
-            if (pageOff >= 0) {
-                deltaFilePageStoreIo.read(pageId, pageOff, pageBuf, keepCrc);
-
-                return;
-            }
-        }
-
-        filePageStoreIo.read(pageId, filePageStoreIo.pageOffset(pageId), pageBuf, keepCrc);
+        readWithoutPageIdCheck(pageId, pageBuf, keepCrc);
     }
 
     /** {@inheritDoc} */
@@ -315,6 +306,14 @@ public class FilePageStore implements PageStore {
     }
 
     /**
+     * Returns the new delta file store that was created in {@link #getOrCreateNewDeltaFile(IntFunction, Supplier)} and not yet completed by
+     * {@link #completeNewDeltaFile()}.
+     */
+    public @Nullable CompletableFuture<DeltaFilePageStoreIo> getNewDeltaFile() {
+        return newDeltaFilePageStoreIoFuture;
+    }
+
+    /**
      * Completes the {@link #getOrCreateNewDeltaFile(IntFunction, Supplier) creation} of a new delta file.
      *
      * <p>Thread safe.
@@ -335,5 +334,45 @@ public class FilePageStore implements PageStore {
      */
     public int deltaFileCount() {
         return deltaFilePageStoreIos.size();
+    }
+
+    /**
+     * Returns the delta file to compaction (oldest).
+     *
+     * <p>Thread safe.
+     */
+    public @Nullable DeltaFilePageStoreIo getDeltaFileToCompaction() {
+        // Snapshot of delta files.
+        Iterator<DeltaFilePageStoreIo> iterator = deltaFilePageStoreIos.iterator();
+
+        // Last one is the oldest.
+        DeltaFilePageStoreIo last = null;
+
+        int count = 0;
+
+        while (iterator.hasNext()) {
+            last = iterator.next();
+
+            count++;
+        }
+
+        // If last is just created, then it cannot be compacted yet.
+        if (count == 1 && newDeltaFilePageStoreIoFuture != null) {
+            last = null;
+        }
+
+        return last;
+    }
+
+    /**
+     * Deletes delta file.
+     *
+     * <p>Thread safe.
+     *
+     * @param deltaFilePageStoreIo Delta file to be deleted.
+     * @return {@code True} if the delta file being removed was present.
+     */
+    public boolean removeDeltaFile(DeltaFilePageStoreIo deltaFilePageStoreIo) {
+        return deltaFilePageStoreIos.remove(deltaFilePageStoreIo);
     }
 }

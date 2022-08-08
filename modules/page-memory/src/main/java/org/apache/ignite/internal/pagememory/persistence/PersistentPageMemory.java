@@ -234,7 +234,7 @@ public class PersistentPageMemory implements PageMemory {
             long checkpointBufferSize,
             PageReadWriteManager pageStoreManager,
             @Nullable PageChangeTracker changeTracker,
-            PageStoreWriter flushDirtyPageForReplacement,
+            WriteDirtyPage flushDirtyPageForReplacement,
             CheckpointTimeoutLock checkpointTimeoutLock,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
@@ -1469,16 +1469,9 @@ public class PersistentPageMemory implements PageMemory {
                 if (checkpointPages != null && checkpointPages.allowToSave(fullPageId)) {
                     assert pageStoreManager != null;
 
-                    PageStoreWriter saveDirtyPage = delayedPageReplacementTracker.delayedPageWrite();
+                    WriteDirtyPage writeDirtyPage = delayedPageReplacementTracker.delayedPageWrite();
 
-                    saveDirtyPage.writePage(
-                            fullPageId,
-                            wrapPointer(absPtr + PAGE_OVERHEAD, pageSize()),
-                            partGeneration(
-                                    fullPageId.groupId(),
-                                    partitionId(fullPageId.pageId())
-                            )
-                    );
+                    writeDirtyPage.write(PersistentPageMemory.this, fullPageId, wrapPointer(absPtr + PAGE_OVERHEAD, pageSize()));
 
                     setDirty(fullPageId, absPtr, false, true);
 

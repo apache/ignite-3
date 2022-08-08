@@ -15,12 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.cli.commands.flow;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.cli.core.call.Call;
+import org.apache.ignite.cli.core.call.CallOutput;
+import org.apache.ignite.cli.core.call.DefaultCallOutput;
 
-/**
- * The exception is used to complete result stage of {@link AsyncCursor#requestNextAsync(int)} invocation when invoked on a closed cursor.
- */
-public class ClosedCursorException extends IgniteInternalCheckedException {
+class IntCall implements Call<IntCallInput, String> {
+
+    @Override
+    public CallOutput<String> execute(IntCallInput input) {
+        return DefaultCallOutput.success("|" + input.value + "|");
+    }
 }

@@ -55,7 +55,7 @@ public interface ClusterConfigurationApi {
     @ApiResponse(responseCode = "400", description = "Incorrect configuration",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces({
-            MediaType.TEXT_PLAIN, // todo: IGNITE-17082
+            MediaType.TEXT_PLAIN,
             MediaType.PROBLEM_JSON
     })
     @Get
@@ -72,7 +72,7 @@ public interface ClusterConfigurationApi {
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Incorrect configuration",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Consumes(MediaType.TEXT_PLAIN) // todo: IGNITE-17082
+    @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.PROBLEM_JSON)
     @Patch
     CompletableFuture<Void> updateConfiguration(@Body String updatedConfiguration);
@@ -92,7 +92,7 @@ public interface ClusterConfigurationApi {
     @ApiResponse(responseCode = "400", description = "Incorrect configuration",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces({
-            MediaType.TEXT_PLAIN, // todo: IGNITE-17082
+            MediaType.TEXT_PLAIN,
             MediaType.PROBLEM_JSON
     })
     @Get("/{path}")

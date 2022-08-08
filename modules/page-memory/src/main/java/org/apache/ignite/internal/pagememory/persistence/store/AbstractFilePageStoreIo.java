@@ -64,7 +64,11 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
     /** Initialized file page store IO. */
     private volatile boolean initialized;
 
-    /** Caches the existence state of file. After it is initialized, it will be not {@code null} during lifecycle. */
+    /**
+     * Caches the existence state of file. After it is initialized, it will be not {@code null} during lifecycle.
+     *
+     * <p>Guarded by {@link #readWriteLock}.
+     */
     private @Nullable Boolean fileExists;
 
     /**
@@ -140,7 +144,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
      * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code true}.
      * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
      */
-    public void read(long pageId, long pageOff, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
+    protected void read(long pageId, long pageOff, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
         read0(pageId, pageOff, pageBuf, !skipCrc, keepCrc);
     }
 
@@ -482,7 +486,7 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
 
             int n = readWithFailover(pageBuf, pageOff);
 
-            // TODO: IGNITE-17397 Investigate the ability to read a empty page
+            // TODO: IGNITE-17397 Investigate the ability to read an empty page
             // If page was not written yet, nothing to read.
             if (n < 0) {
                 pageBuf.put(new byte[pageBuf.remaining()]);
@@ -513,8 +517,6 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
             if (keepCrc) {
                 PageIo.setCrc(pageBuf, savedCrc32);
             }
-
-            return;
         } catch (IOException e) {
             throw new IgniteInternalCheckedException("Failed to read page [file=" + filePath + ", pageId=" + pageId + "]", e);
         }

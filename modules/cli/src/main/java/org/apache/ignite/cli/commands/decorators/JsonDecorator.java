@@ -20,24 +20,26 @@ package org.apache.ignite.cli.commands.decorators;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.ignite.cli.call.configuration.JsonString;
 import org.apache.ignite.cli.core.decorator.Decorator;
 import org.apache.ignite.cli.core.decorator.TerminalOutput;
 
 /**
  * Pretty json decorator.
  */
-public class JsonDecorator implements Decorator<String, TerminalOutput> {
+public class JsonDecorator implements Decorator<JsonString, TerminalOutput> {
 
     /** {@inheritDoc} */
     @Override
-    public TerminalOutput decorate(String jsonString) {
+    public TerminalOutput decorate(JsonString json) {
         ObjectMapper mapper = new ObjectMapper();
         return () -> {
             try {
-                return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(mapper.readValue(jsonString, JsonNode.class));
+                return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(mapper.readValue(json.getValue(), JsonNode.class));
             } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
+                return json.getValue(); // no-op
             }
+
         };
     }
 }

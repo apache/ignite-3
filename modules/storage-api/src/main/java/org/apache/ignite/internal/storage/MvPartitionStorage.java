@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -31,6 +32,41 @@ import org.jetbrains.annotations.Nullable;
  * <p>Each MvPartitionStorage instance represents exactly one partition.
  */
 public interface MvPartitionStorage extends AutoCloseable {
+    /**
+     * Closure for executing write operations on the storage.
+     *
+     * @param <V> Type of the result returned from the closure.
+     */
+    @SuppressWarnings("PublicInnerClass")
+    @FunctionalInterface
+    interface WriteClosure<V> {
+        V execute() throws StorageException;
+    }
+
+    /**
+     * Executes {@link WriteClosure} atomically, meaning that partial result of an incomplete closure will never be written to the
+     * physical device, thus guaranteeing data consistency after restart. Simply runs the closure in case of a volatile storage.
+     *
+     * @param closure Data access closure to be executed.
+     * @param <V> Type of the result returned from the closure.
+     * @return Closure result.
+     * @throws StorageException If failed to write data to the storage.
+     */
+    default <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
+        return closure.execute();
+    }
+
+    /**
+     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be
+     * completed when {@link #persistedIndex()} is higher than {@link #lastAppliedIndex()} at the moment of the method's call. This feature
+     * allows implementing a batch flush for several partitions at once.
+     *
+     * @return Future that's completed when flushing of the data is completed.
+     */
+    default CompletableFuture<Void> flush() {
+        return CompletableFuture.completedFuture(null);
+    }
+
     /**
      * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
      */

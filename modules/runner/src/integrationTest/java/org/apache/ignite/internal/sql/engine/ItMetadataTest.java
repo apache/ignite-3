@@ -144,7 +144,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                 + "TIMESTAMP_C TIMESTAMP WITH LOCAL TIME ZONE, " + "TIMESTAMP_C2 TIMESTAMP(9) WITH LOCAL TIME ZONE, "
 
                 // Interval types
-                // TODO: IGNITE-17219: Ignite doesn't support interval types yet.
+                // TODO: IGNITE-17373: Ignite doesn't support interval types yet.
                 // + "INTERVAL_YEAR_C INTERVAL YEAR, "
                 // + "INTERVAL_MONTH_C INTERVAL MONTH, "
                 // + "INTERVAL_DAY_C INTERVAL DAY, "

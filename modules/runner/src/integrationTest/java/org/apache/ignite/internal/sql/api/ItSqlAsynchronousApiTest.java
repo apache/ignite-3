@@ -49,7 +49,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
-import org.apache.ignite.internal.sql.engine.ClosedCursorException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -64,7 +63,9 @@ import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlBatchException;
@@ -461,6 +462,11 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void errors() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
 
@@ -478,14 +484,28 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         // Planning error.
         {
-            CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "CREATE TABLE TEST (VAL INT)");
-            assertThrowsWithCause(f::get, IgniteException.class, "Table without PRIMARY KEY is not supported");
+            CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "CREATE TABLE TEST2 (VAL INT)");
+            assertThrowsWithCause(f::get, SqlException.class, "Table without PRIMARY KEY is not supported");
         }
 
         // Execute error.
         {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1 / ?", 0);
             assertThrowsWithCause(f::get, IgniteException.class, "/ by zero");
+        }
+
+        // No result set error.
+        {
+            AsyncResultSet ars = ses.executeAsync(null, "CREATE TABLE TEST3 (ID INT PRIMARY KEY)").join();
+            assertThrowsWithCause(() -> ars.fetchNextPage().toCompletableFuture().get(), NoRowSetExpectedException.class,
+                    "Query has no result set");
+        }
+
+        // Cursor closed error.
+        {
+            AsyncResultSet ars = ses.executeAsync(null, "SELECT * FROM TEST").join();
+            ars.closeAsync().toCompletableFuture().join();
+            assertThrowsWithCause(() -> ars.fetchNextPage().toCompletableFuture().get(), CursorClosedException.class);
         }
     }
 
@@ -503,12 +523,12 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         ses.closeAsync().get();
 
-        // Fetched page  is available after cancel.
+        // Fetched page is available after cancel.
         ars0.currentPage();
 
         assertThrowsWithCause(
                 () -> ars0.fetchNextPage().toCompletableFuture().get(),
-                ClosedCursorException.class
+                SqlException.class
         );
 
         assertThrowsWithCause(

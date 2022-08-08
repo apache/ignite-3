@@ -15,21 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.core.repl.completer;
 
-import java.util.stream.Collectors;
-import org.apache.ignite.cli.config.Profile;
-import org.apache.ignite.cli.core.decorator.Decorator;
-import org.apache.ignite.cli.core.decorator.TerminalOutput;
+import java.util.List;
 
 /**
- * Decorator for printing {@link Profile}.
+ * Dynamic completer returns completions that can be fetched in real time
+ * from Ignite 3 node, file, or cached.
  */
-public class ConfigDecorator implements Decorator<Profile, TerminalOutput> {
-    @Override
-    public TerminalOutput decorate(Profile data) {
-        return () -> data.getAll().entrySet().stream()
-                .map(entry -> entry.getKey() + "=" + entry.getValue())
-                .collect(Collectors.joining(System.lineSeparator()));
-    }
+public interface DynamicCompleter {
+
+    /**
+     * Given typed words returns list of candidates that can be autocompleted.
+     */
+    List<String> complete(String[] words);
 }

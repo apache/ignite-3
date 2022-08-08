@@ -17,17 +17,24 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
+import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
+import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
+import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
@@ -67,6 +74,12 @@ public class CheckpointManager {
     /** Checkpoint page writer factory. */
     private final CheckpointPagesWriterFactory checkpointPagesWriterFactory;
 
+    /** File page store manager. */
+    private final FilePageStoreManager filePageStoreManager;
+
+    /** Delta file compactor. */
+    private final Compactor compactor;
+
     /**
      * Constructor.
      *
@@ -95,6 +108,8 @@ public class CheckpointManager {
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) throws IgniteInternalCheckedException {
+        this.filePageStoreManager = filePageStoreManager;
+
         PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
 
         long logReadLockThresholdTimeout = checkpointConfigView.logReadLockThresholdTimeout();
@@ -116,9 +131,18 @@ public class CheckpointManager {
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
                 Loggers.forClass(CheckpointPagesWriterFactory.class),
-                (fullPage, buf) -> filePageStoreManager.write(fullPage.groupId(), fullPage.pageId(), buf, true),
+                (pageMemory, fullPageId, pageBuf) -> writePageToDeltaFilePageStore(pageMemory, fullPageId, pageBuf, true),
                 ioRegistry,
                 partitionMetaManager,
+                pageSize
+        );
+
+        compactor = new Compactor(
+                Loggers.forClass(Compactor.class),
+                igniteInstanceName,
+                workerListener,
+                checkpointConfig.compactionThreads(),
+                filePageStoreManager,
                 pageSize
         );
 
@@ -129,6 +153,8 @@ public class CheckpointManager {
                 longJvmPauseDetector,
                 checkpointWorkflow,
                 checkpointPagesWriterFactory,
+                filePageStoreManager,
+                compactor,
                 checkpointConfig
         );
 
@@ -150,6 +176,8 @@ public class CheckpointManager {
         checkpointer.start();
 
         checkpointTimeoutLock.start();
+
+        compactor.start();
     }
 
     /**
@@ -159,7 +187,8 @@ public class CheckpointManager {
         IgniteUtils.closeAll(
                 checkpointTimeoutLock::stop,
                 checkpointer::stop,
-                checkpointWorkflow::stop
+                checkpointWorkflow::stop,
+                compactor::stop
         );
     }
 
@@ -220,5 +249,66 @@ public class CheckpointManager {
         }
 
         return true;
+    }
+
+    /**
+     * Writes a page to delta file page store.
+     *
+     * <p>Must be used at breakpoint and page replacement.
+     *
+     * @param pageMemory Page memory.
+     * @param pageId Page ID.
+     * @param pageBuf Page buffer to write from.
+     * @param calculateCrc If {@code false} crc calculation will be forcibly skipped.
+     * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
+     */
+    public void writePageToDeltaFilePageStore(
+            PersistentPageMemory pageMemory,
+            FullPageId pageId,
+            ByteBuffer pageBuf,
+            boolean calculateCrc
+    ) throws IgniteInternalCheckedException {
+        FilePageStore filePageStore = filePageStoreManager.getStore(pageId.groupId(), pageId.partitionId());
+
+        CheckpointProgress lastCheckpointProgress = lastCheckpointProgress();
+
+        assert lastCheckpointProgress != null : "Checkpoint has not happened yet";
+        assert lastCheckpointProgress.inProgress() : "Checkpoint must be in progress";
+
+        CheckpointDirtyPages pagesToWrite = lastCheckpointProgress.pagesToWrite();
+
+        assert pagesToWrite != null : "Dirty pages must be sorted out";
+
+        CompletableFuture<DeltaFilePageStoreIo> deltaFilePageStoreFuture = filePageStore.getOrCreateNewDeltaFile(
+                index -> filePageStoreManager.tmpDeltaFilePageStorePath(pageId.groupId(), pageId.partitionId(), index),
+                () -> pageIndexesForDeltaFilePageStore(pagesToWrite.getPartitionView(pageMemory, pageId.groupId(), pageId.partitionId()))
+        );
+
+        deltaFilePageStoreFuture.join().write(pageId.pageId(), pageBuf, calculateCrc);
+    }
+
+    /**
+     * Returns the indexes of the dirty pages to be written to the delta file page store.
+     *
+     * @param partitionDirtyPages Dirty pages of the partition.
+     */
+    static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages) {
+        // +1 since the first page (pageIdx == 0) will always be PartitionMetaIo.
+        int[] pageIndexes = new int[partitionDirtyPages.size() + 1];
+
+        for (int i = 0; i < partitionDirtyPages.size(); i++) {
+            pageIndexes[i + 1] = partitionDirtyPages.get(i).pageIdx();
+        }
+
+        return pageIndexes;
+    }
+
+    /**
+     * Adds the number of delta files to compact.
+     *
+     * @param count Number of delta files.
+     */
+    public void addDeltaFileCountForCompaction(int count) {
+        compactor.addDeltaFiles(count);
     }
 }

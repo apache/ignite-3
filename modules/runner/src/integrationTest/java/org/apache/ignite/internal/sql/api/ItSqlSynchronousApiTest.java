@@ -48,7 +48,9 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlBatchException;
@@ -211,9 +213,14 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void errors() {
+    public void errors() throws InterruptedException {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
         IgniteSql sql = igniteSql();
-        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
+        Session ses = sql.sessionBuilder().defaultPageSize(2).build();
 
         // Parse error.
         assertThrowsWithCause(
@@ -231,7 +238,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
 
         // Planning error.
         assertThrowsWithCause(
-                () -> ses.execute(null, "CREATE TABLE TEST (VAL INT)"),
+                () -> ses.execute(null, "CREATE TABLE TEST2 (VAL INT)"),
                 SqlException.class,
                 "Table without PRIMARY KEY is not supported"
         );
@@ -242,6 +249,20 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
                 IgniteException.class,
                 "/ by zero"
         );
+
+        // No result set error.
+        {
+            ResultSet rs = ses.execute(null, "CREATE TABLE TEST3 (ID INT PRIMARY KEY)");
+            assertThrowsWithCause(rs::next, NoRowSetExpectedException.class, "Query has no result set");
+        }
+
+        // Cursor closed error.
+        {
+            ResultSet rs = ses.execute(null, "SELECT * FROM TEST");
+            Thread.sleep(300); // ResultSetImpl fetches next page in background, wait to it to complete to avoid flakiness.
+            rs.close();
+            assertThrowsWithCause(() -> rs.forEachRemaining(Object::hashCode), CursorClosedException.class);
+        }
     }
 
     @Test

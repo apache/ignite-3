@@ -31,12 +31,17 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Implementation of the class for working with the delta file page storage IO.
  */
 public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
     private final DeltaFilePageStoreIoHeader header;
+
+    /** Lock to prevent reads after merging with a file page store. */
+    private final IgniteSpinBusyLock mergedBusyLock = new IgniteSpinBusyLock();
 
     /**
      * Constructor.
@@ -95,7 +100,16 @@ public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
      */
     @Override
     public long pageOffset(long pageId) {
-        int searchResult = binarySearch(header.pageIndexes(), pageIndex(pageId));
+        return pageOffset(pageIndex(pageId));
+    }
+
+    /**
+     * Returns page offset within the store file, {@code -1} if page not found in delta file.
+     *
+     * @param pageIdx Page index.
+     */
+    public long pageOffset(int pageIdx) {
+        int searchResult = binarySearch(header.pageIndexes(), pageIdx);
 
         if (searchResult < 0) {
             return -1;
@@ -105,9 +119,55 @@ public class DeltaFilePageStoreIo extends AbstractFilePageStoreIo {
     }
 
     /**
+     * Reads a page.
+     *
+     * @param pageId Page ID.
+     * @param pageBuf Page buffer to read into.
+     * @param keepCrc By default, reading zeroes CRC which was on page store, but you can keep it in {@code pageBuf} if set {@code true}.
+     * @return {@code True} if the page was successfully read, otherwise the delta file page store is {@link #markMergedToFilePageStore()
+     * merged} with the file page store (must be read from file page store).
+     * @throws IgniteInternalCheckedException If reading failed (IO error occurred).
+     */
+    public boolean readWithMergedToFilePageStoreCheck(
+            long pageId,
+            long pageOff,
+            ByteBuffer pageBuf,
+            boolean keepCrc
+    ) throws IgniteInternalCheckedException {
+        if (!mergedBusyLock.enterBusy()) {
+            return false;
+        }
+
+        try {
+            super.read(pageId, pageOff, pageBuf, keepCrc);
+
+            return true;
+        } finally {
+            mergedBusyLock.leaveBusy();
+        }
+    }
+
+    /**
      * Returns the index of the delta file page store.
      */
     public int fileIndex() {
         return header.index();
+    }
+
+    /**
+     * Marks that the delta file page store has been merged with the file page store.
+     *
+     * <p>It waits for all current {@link #readWithMergedToFilePageStoreCheck(long, long, ByteBuffer, boolean) readings} to end, and
+     * subsequent ones will return {@code false} (will need to read from the file page store not from delta file page store).
+     */
+    public void markMergedToFilePageStore() {
+        mergedBusyLock.block();
+    }
+
+    /**
+     * Returns page indexes of the delta file page store.
+     */
+    public int[] pageIndexes() {
+        return header.pageIndexes();
     }
 }

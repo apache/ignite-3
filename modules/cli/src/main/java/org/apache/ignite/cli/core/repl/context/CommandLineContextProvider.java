@@ -15,24 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.checkpoint;
+package org.apache.ignite.cli.core.repl.context;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import java.io.PrintWriter;
+import picocli.CommandLine;
 
 /**
- * Interface which allows writing one page to page store.
+ * Provider of {@link CommandLineContext}.
  */
-public interface CheckpointPageWriter {
+//Tech Debt: IGNITE-17484
+public class CommandLineContextProvider {
+
+    private static volatile CommandLine cmd;
+
     /**
-     * Writes the page to the page store.
+     * Getter for {@link CommandLineContext}.
      *
-     * @param fullPageId Full page id.
-     * @param buf Byte buffer to write from.
-     * @return {@link PageStore} which was used to write.
-     * @throws IgniteInternalCheckedException If failed.
+     * @return context instance.
      */
-    PageStore write(FullPageId fullPageId, ByteBuffer buf) throws IgniteInternalCheckedException;
+    public static CommandLineContext getContext() {
+        return new CommandLineContext() {
+            @Override
+            public PrintWriter out() {
+                return cmd.getOut();
+            }
+
+            @Override
+            public PrintWriter err() {
+                return cmd.getErr();
+            }
+        };
+    }
+
+    public static void setCmd(CommandLine cmd) {
+        CommandLineContextProvider.cmd = cmd;
+    }
 }

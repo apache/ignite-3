@@ -28,6 +28,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Implementation of the class for working with the file page file storage IO.
@@ -81,6 +82,12 @@ public class FilePageStoreIo extends AbstractFilePageStoreIo {
 
         checkFileVersion(this.header.version(), header.version());
         checkFilePageSize(this.header.pageSize(), header.pageSize());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void read(long pageId, long pageOff, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
+        super.read(pageId, pageOff, pageBuf, keepCrc);
     }
 
     /** {@inheritDoc} */

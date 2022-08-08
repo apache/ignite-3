@@ -48,7 +48,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTest<RocksDbMvPartitionStorage> {
+public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
     private RocksDbStorageEngine engine;
 
     private RocksDbTableStorage table;
@@ -94,5 +94,4 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
                 engine == null ? null : engine::stop
         );
     }
-
 }

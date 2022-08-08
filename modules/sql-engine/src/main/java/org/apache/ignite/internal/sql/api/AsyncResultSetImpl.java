@@ -134,6 +134,8 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public CompletionStage<? extends AsyncResultSet> fetchNextPage() {
+        requireResultSet();
+
         if (!hasMorePages()) {
             return HAS_NO_MORE_PAGE_FUTURE;
         } else {
@@ -160,7 +162,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     private void requireResultSet() {
         if (!hasRowSet()) {
-            throw new NoRowSetExpectedException("Query has no result set: [type=" + cur.queryType() + ']');
+            throw new NoRowSetExpectedException();
         }
     }
 

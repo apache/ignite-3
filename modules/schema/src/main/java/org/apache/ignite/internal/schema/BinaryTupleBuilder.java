@@ -179,8 +179,8 @@ public class BinaryTupleBuilder {
 
         hasNullValues = true;
 
-        int nullIndex = BinaryTupleSchema.HEADER_SIZE + elementIndex / 8;
-        byte nullMask = (byte) (1 << (elementIndex % 8));
+        int nullIndex = BinaryTupleSchema.nullOffset(elementIndex);
+        byte nullMask = BinaryTupleSchema.nullMask(elementIndex);
         buffer.put(nullIndex, (byte) (buffer.get(nullIndex) | nullMask));
 
         return proceed();
