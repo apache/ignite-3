@@ -30,6 +30,7 @@ import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchem
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.schema.configuration.KnownDataStorageValidator;
 
@@ -56,7 +57,8 @@ public class CoreDistributedConfigurationModule implements ConfigurationModule {
                 HashIndexConfigurationSchema.class,
                 SortedIndexConfigurationSchema.class,
                 PartialIndexConfigurationSchema.class,
-                UnknownDataStorageConfigurationSchema.class
+                UnknownDataStorageConfigurationSchema.class,
+                UnlimitedBudgetConfigurationSchema.class
         );
     }
 

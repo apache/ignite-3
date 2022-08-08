@@ -17,15 +17,13 @@
 
 package org.apache.ignite.configuration.schemas.table;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
 /**
- * Configuration for Raft group corresponding to tables.
+ * Configuration for 'unlimited' log storage budget.
  */
-@Config
-public class RaftConfigurationSchema {
-    /** Config of log storage budget. */
-    @ConfigValue
-    public LogStorageBudgetConfigurationSchema logStorage;
+@PolymorphicConfigInstance(UnlimitedBudgetConfigurationSchema.NAME)
+public class UnlimitedBudgetConfigurationSchema extends LogStorageBudgetConfigurationSchema {
+    /** The budget name. */
+    public static final String NAME = "unlimited";
 }
