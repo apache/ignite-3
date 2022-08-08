@@ -20,7 +20,9 @@ package org.apache.ignite.internal.table;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.List;
-import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -60,23 +62,31 @@ public class TxLocalTest extends TxAbstractTest {
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 
+        AtomicLong accountsRaftIndex = new AtomicLong();
+
         DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
-                txManager
+                new VersionedRowStore(new TestMvPartitionStorage(0), txManager),
+                txManager,
+                accountsRaftIndex
         );
 
         accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
 
+        AtomicLong customersRaftIndex = new AtomicLong();
         DummyInternalTableImpl table2 = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
-                txManager
+                new VersionedRowStore(new TestMvPartitionStorage(0), txManager),
+                txManager,
+                customersRaftIndex
         );
 
         customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
 
         List<PartitionListener> partitionListeners = List.of(table.getPartitionListener(), table2.getPartitionListener());
 
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners);
+        Function<PartitionListener, AtomicLong> raftIndexfactory = pl ->
+                pl == table.getPartitionListener() ? accountsRaftIndex : customersRaftIndex;
+
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners, raftIndexfactory);
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
     }
 

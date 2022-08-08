@@ -34,6 +34,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.schemas.table.ColumnChange;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultChange;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteObjectName;
@@ -138,7 +139,7 @@ abstract class AbstractSchemaChangeTest {
         assertColumnChangeFailed(grid, "valStr", c -> c.changeType(t -> t.changeType("UNKNOWN_TYPE")));
 
         assertColumnChangeFailed(grid, "valInt",
-                colChanger -> colChanger.changeType(t -> t.changeType(ColumnType.blobOf().typeSpec().name())));
+                colChanger -> colChanger.changeType(t -> t.changeType(ColumnType.blob().typeSpec().name())));
 
         assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeType(t -> t.changePrecision(10)));
         assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeType(t -> t.changeScale(10)));
@@ -197,10 +198,10 @@ abstract class AbstractSchemaChangeTest {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build(),
-                SchemaBuilders.column("valBlob", ColumnType.blobOf()).asNullable(true).build(),
-                SchemaBuilders.column("valDecimal", ColumnType.decimalOf()).asNullable(true).build(),
-                SchemaBuilders.column("valBigInt", ColumnType.numberOf()).asNullable(true).build(),
-                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValueExpression("default").build()
+                SchemaBuilders.column("valBlob", ColumnType.blob()).asNullable(true).build(),
+                SchemaBuilders.column("valDecimal", ColumnType.decimal()).asNullable(true).build(),
+                SchemaBuilders.column("valBigInt", ColumnType.number()).asNullable(true).build(),
+                SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build()
         ).withPrimaryKey("key").build();
 
         nodes.get(0).tables().createTable(
@@ -261,7 +262,8 @@ abstract class AbstractSchemaChangeTest {
                         colListChanger -> colListChanger
                                 .update(
                                         IgniteObjectName.parse(colName),
-                                        colChanger -> colChanger.changeDefaultValue(defSup.get().toString())
+                                        colChanger -> colChanger.changeDefaultValueProvider(colDefChange -> colDefChange.convert(
+                                                ConstantValueDefaultChange.class).changeDefaultValue(defSup.get().toString()))
                                 )
                 )
         );

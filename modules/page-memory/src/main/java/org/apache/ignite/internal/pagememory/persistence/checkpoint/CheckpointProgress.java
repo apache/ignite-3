@@ -49,4 +49,10 @@ public interface CheckpointProgress {
      * Returns number of dirty pages in current checkpoint. If checkpoint is not running, returns {@code 0}.
      */
     int currentCheckpointPagesCount();
+
+    /**
+     * Returns the sorted dirty pages to be written on the checkpoint, {@code null} if there were no dirty pages, or they have already been
+     * written.
+     */
+    @Nullable CheckpointDirtyPages pagesToWrite();
 }

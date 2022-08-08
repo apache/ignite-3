@@ -24,7 +24,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.file.Path;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -45,7 +48,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTest<RocksDbMvPartitionStorage> {
+public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
     private RocksDbStorageEngine engine;
 
     private RocksDbTableStorage table;
@@ -59,7 +62,10 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
                     polymorphicExtensions = {
                             HashIndexConfigurationSchema.class,
                             UnknownDataStorageConfigurationSchema.class,
-                            RocksDbDataStorageConfigurationSchema.class
+                            RocksDbDataStorageConfigurationSchema.class,
+                            ConstantValueDefaultConfigurationSchema.class,
+                            FunctionCallDefaultConfigurationSchema.class,
+                            NullValueDefaultConfigurationSchema.class,
                     }
             ) TableConfiguration tableCfg
     ) throws Exception {
@@ -88,5 +94,4 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
                 engine == null ? null : engine::stop
         );
     }
-
 }

@@ -29,7 +29,7 @@ import org.apache.ignite.lang.IgniteInternalException;
  */
 public class BinaryTupleSchema {
     /** Size of a tuple header, in bytes. */
-    public static int HEADER_SIZE = 1;
+    public static final int HEADER_SIZE = 1;
 
     /** Mask for size of entries in variable-length offset table. */
     public static final int VARSIZE_MASK = 0b011;
@@ -69,7 +69,7 @@ public class BinaryTupleSchema {
         final boolean nullable;
 
         /**
-         * Constructor.
+         * Constructs a tuple element description.
          *
          * @param type Element data type.
          * @param nullable True for nullable elements, false for non-nullable.
@@ -95,7 +95,7 @@ public class BinaryTupleSchema {
         boolean fullSize;
 
         /**
-         * Constructor.
+         * Constructs a tuple schema for a contiguous range of columns.
          *
          * @param elements Tuple elements.
          * @param hasNullables True if there are any nullable tuple elements, false otherwise.
@@ -126,7 +126,7 @@ public class BinaryTupleSchema {
         int[] columns;
 
         /**
-         * Constructor.
+         * Constructs a tuple schema for an arbitrary set of columns.
          *
          * @param elements Tuple elements.
          * @param columns Row column indexes.
@@ -151,7 +151,7 @@ public class BinaryTupleSchema {
     private final boolean hasNullables;
 
     /**
-     * Constructor.
+     * Constructs a tuple schema object.
      *
      * @param elements Tuple elements.
      * @param hasNullables True if there are any nullable tuple elements, false otherwise.
@@ -162,7 +162,7 @@ public class BinaryTupleSchema {
     }
 
     /**
-     * Create a tuple schema with specified elements.
+     * Creates a tuple schema with specified elements.
      *
      * @param elements Tuple elements.
      * @return Tuple schema.
@@ -172,7 +172,7 @@ public class BinaryTupleSchema {
     }
 
     /**
-     * Create a schema for binary tuples with all columns of a row.
+     * Creates a schema for binary tuples with all columns of a row.
      *
      * @param descriptor Row schema.
      * @return Tuple schema.
@@ -182,7 +182,7 @@ public class BinaryTupleSchema {
     }
 
     /**
-     * Create a schema for binary tuples with key-only columns of a row.
+     * Creates a schema for binary tuples with key-only columns of a row.
      *
      * @param descriptor Row schema.
      * @return Tuple schema.
@@ -192,7 +192,7 @@ public class BinaryTupleSchema {
     }
 
     /**
-     * Create a schema for binary tuples with value-only columns of a row.
+     * Creates a schema for binary tuples with value-only columns of a row.
      *
      * @param descriptor Row schema.
      * @return Tuple schema.
@@ -202,7 +202,7 @@ public class BinaryTupleSchema {
     }
 
     /**
-     * Create a tuple schema based on a range of row columns.
+     * Creates a tuple schema based on a range of row columns.
      *
      * @param descriptor Row schema.
      * @param colBegin First columns in the range.
@@ -229,7 +229,7 @@ public class BinaryTupleSchema {
     }
 
     /**
-     * Create a schema for binary tuples with selected row columns.
+     * Creates a schema for binary tuples with selected row columns.
      *
      * @param descriptor Row schema.
      * @param columns Row column indexes.
@@ -250,7 +250,7 @@ public class BinaryTupleSchema {
     }
 
     /**
-     * Calculate flags for a given size of variable-length area.
+     * Calculates flags for a given size of variable-length area.
      *
      * @param size Variable-length area size.
      * @return Flags value.
@@ -269,7 +269,7 @@ public class BinaryTupleSchema {
     }
 
     /**
-     * Calculate the size of entry in variable-length offset table for given flags.
+     * Calculates the size of entry in variable-length offset table for given flags.
      *
      * @param flags Flags value.
      * @return Size of entry in variable-length offset table.
@@ -279,7 +279,7 @@ public class BinaryTupleSchema {
     }
 
     /**
-     * Calculate the null map size.
+     * Calculates the null map size.
      *
      * @param numElements Number of tuple elements.
      * @return Null map size in bytes.
@@ -289,10 +289,23 @@ public class BinaryTupleSchema {
     }
 
     /**
-     * Returns the null map size in bytes if there are nullable elements, zero otherwise.
+     * Returns offset of the byte that contains null-bit of a given tuple element.
+     *
+     * @param index Tuple element index.
+     * @return Offset of the required byte relative to the tuple start.
      */
-    public int nullMapSize() {
-        return hasNullableElements() ? nullMapSize(elementCount()) : 0;
+    public static int nullOffset(int index) {
+        return HEADER_SIZE + index / 8;
+    }
+
+    /**
+     * Returns a null-bit mask corresponding to a given tuple element.
+     *
+     * @param index Tuple element index.
+     * @return Mask to extract the required null-bit.
+     */
+    public static byte nullMask(int index) {
+        return (byte) (1 << (index % 8));
     }
 
     /**
@@ -317,7 +330,7 @@ public class BinaryTupleSchema {
     }
 
     /**
-     * Map a tuple element index to a column index in a row.
+     * Maps a tuple element index to a column index in a row.
      *
      * @return Column index if the schema is based on a SchemaDescriptor, -1 otherwise.
      */
@@ -326,7 +339,7 @@ public class BinaryTupleSchema {
     }
 
     /**
-     * Check to see if the tuple can be converted to a row.
+     * Tests if the tuple can be converted to a row.
      *
      * @return True if the tuple can be converted to a row, false otherwise.
      */
@@ -334,7 +347,7 @@ public class BinaryTupleSchema {
         return false;
     }
 
-    /** Check to see if there are any nullable elements in the array. */
+    /** Tests if there are any nullable elements in the array. */
     private static boolean checkNullables(Element[] elements) {
         for (Element element : elements) {
             if (element.nullable) {

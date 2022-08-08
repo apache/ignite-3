@@ -18,6 +18,7 @@
 package org.apache.ignite.cli.deprecated.spec;
 
 import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Path;
@@ -51,6 +52,7 @@ public class NodeCommandSpec {
      * Starts Ignite node command.
      */
     @CommandLine.Command(name = "start", description = "Starts an Ignite node locally.")
+    @Singleton
     public static class StartNodeCommandSpec extends BaseCommand implements Callable<Integer> {
 
         /** Loader for Ignite distributive paths. */

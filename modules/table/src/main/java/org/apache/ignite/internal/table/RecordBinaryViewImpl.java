@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.table;
 
-import static java.util.stream.Collectors.toList;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -356,14 +355,8 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
      *
      * @param row Binary row.
      */
-    private Tuple wrap(BinaryRow row) {
-        if (row == null) {
-            return null;
-        }
-
-        final Row wrapped = schemaReg.resolve(row);
-
-        return TableRow.tuple(wrapped);
+    private @Nullable Tuple wrap(@Nullable BinaryRow row) {
+        return row == null ? null : TableRow.tuple(schemaReg.resolve(row));
     }
 
     /**
@@ -372,7 +365,19 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
      * @param rows Binary rows.
      */
     private Collection<Tuple> wrap(Collection<BinaryRow> rows) {
-        return rows.stream().filter(Objects::nonNull).map(schemaReg::resolve).map(TableRow::tuple).collect(toList());
+        if (rows.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Collection<Tuple> wrapped = new ArrayList<>(rows.size());
+
+        for (Row row : schemaReg.resolve(rows)) {
+            if (row != null) {
+                wrapped.add(TableRow.tuple(row));
+            }
+        }
+
+        return wrapped;
     }
 
     /**

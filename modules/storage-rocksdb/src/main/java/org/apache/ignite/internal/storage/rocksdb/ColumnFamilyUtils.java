@@ -35,39 +35,10 @@ class ColumnFamilyUtils {
     static final String PARTITION_CF_NAME = "cf-part";
 
     /**
-     * Prefix for SQL indexes column family names.
-     */
-    private static final String CF_SORTED_INDEX_PREFIX = "cf-sorted-idx-";
-
-    /**
-     * Utility enum to describe a type of the column family - meta, partition or index.
+     * Utility enum to describe a type of the column family - meta or partition.
      */
     enum ColumnFamilyType {
-        META, PARTITION, SORTED_INDEX, UNKNOWN
-    }
-
-    /**
-     * Creates column family name by index name.
-     *
-     * @param indexName Index name.
-     * @return Column family name.
-     * 
-     * @see #sortedIndexName
-     */
-    static String sortedIndexCfName(String indexName) {
-        return CF_SORTED_INDEX_PREFIX + indexName;
-    }
-
-    /**
-     * Creates a Sorted Index name from the given Column Family name.
-     *
-     * @param cfName Column Family name.
-     * @return Sorted Index name.
-     *
-     * @see #sortedIndexCfName
-     */
-    static String sortedIndexName(String cfName) {
-        return cfName.substring(CF_SORTED_INDEX_PREFIX.length());
+        META, PARTITION, UNKNOWN
     }
 
     /**
@@ -83,10 +54,6 @@ class ColumnFamilyUtils {
 
         if (PARTITION_CF_NAME.equals(cfName)) {
             return ColumnFamilyType.PARTITION;
-        }
-
-        if (cfName.startsWith(CF_SORTED_INDEX_PREFIX)) {
-            return ColumnFamilyType.SORTED_INDEX;
         }
 
         return ColumnFamilyType.UNKNOWN;

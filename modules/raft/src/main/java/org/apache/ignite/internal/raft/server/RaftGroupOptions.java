@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.raft.server;
 
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.RaftMetaStorageFactory;
+import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 
 /**
  * Options specific to a Raft group that is being started.
@@ -26,7 +28,14 @@ public class RaftGroupOptions {
     /** Whether volatile stores should be used for the corresponding Raft Group. Classic Raft uses persistent ones. */
     private final boolean volatileStores;
 
-    private final @Nullable String volatileLogStoreBudgetName;
+    /** Log storage factory. */
+    private LogStorageFactory logStorageFactory;
+
+    /** Snapshot storage factory. */
+    private SnapshotStorageFactory snapshotStorageFactory;
+
+    /** Raft meta storage factory. */
+    private RaftMetaStorageFactory raftMetaStorageFactory;
 
     /**
      * Returns default options as defined by classic Raft (so stores are persistent).
@@ -43,7 +52,7 @@ public class RaftGroupOptions {
      * @return Options with persistent Raft stores.
      */
     public static RaftGroupOptions forPersistentStores() {
-        return new RaftGroupOptions(false, null);
+        return new RaftGroupOptions(false);
     }
 
     /**
@@ -51,8 +60,8 @@ public class RaftGroupOptions {
      *
      * @return Options with volatile Raft stores.
      */
-    public static RaftGroupOptions forVolatileStores(@Nullable String volatileLogStoreBudgetName) {
-        return new RaftGroupOptions(true, volatileLogStoreBudgetName);
+    public static RaftGroupOptions forVolatileStores() {
+        return new RaftGroupOptions(true);
     }
 
     /**
@@ -61,13 +70,12 @@ public class RaftGroupOptions {
      * @param isVolatile Whether the table is configured as volatile (in-memory) or not.
      * @return Options derived from table configuration.
      */
-    public static RaftGroupOptions forTable(boolean isVolatile, @Nullable String volatileLogStoreBudgetName) {
-        return isVolatile ? forVolatileStores(volatileLogStoreBudgetName) : forPersistentStores();
+    public static RaftGroupOptions forTable(boolean isVolatile) {
+        return isVolatile ? forVolatileStores() : forPersistentStores();
     }
 
-    private RaftGroupOptions(boolean volatileStores, @Nullable String volatileLogStoreBudgetName) {
+    private RaftGroupOptions(boolean volatileStores) {
         this.volatileStores = volatileStores;
-        this.volatileLogStoreBudgetName = volatileLogStoreBudgetName;
     }
 
     /**
@@ -82,12 +90,50 @@ public class RaftGroupOptions {
     }
 
     /**
-     * Returns name of a budget implementing {@link org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget} that
-     * will be used by volatile Raft log storage (if it's used).
-     *
-     * @return Name of a budget.
+     * Returns a log storage factory that's used to create log storage for a raft group.
      */
-    public @Nullable String volatileLogStoreBudgetName() {
-        return volatileLogStoreBudgetName;
+    public LogStorageFactory getLogStorageFactory() {
+        return logStorageFactory;
+    }
+
+    /**
+     * Adds log storage factory to options.
+     */
+    public RaftGroupOptions setLogStorageFactory(LogStorageFactory logStorageFactory) {
+        this.logStorageFactory = logStorageFactory;
+
+        return this;
+    }
+
+    /**
+     * Returns a snapshot storage factory that's used to create snapshot storage for a raft group.
+     */
+    public SnapshotStorageFactory snapshotStorageFactory() {
+        return snapshotStorageFactory;
+    }
+
+    /**
+     * Adds snapshot storage factory to options.
+     */
+    public RaftGroupOptions snapshotStorageFactory(SnapshotStorageFactory snapshotStorageFactory) {
+        this.snapshotStorageFactory = snapshotStorageFactory;
+
+        return this;
+    }
+
+    /**
+     * Returns a raft meta storage factory that's used to create raft meta storage for a raft group.
+     */
+    public RaftMetaStorageFactory raftMetaStorageFactory() {
+        return raftMetaStorageFactory;
+    }
+
+    /**
+     * Adds raft meta storage factory to options.
+     */
+    public RaftGroupOptions raftMetaStorageFactory(RaftMetaStorageFactory raftMetaStorageFactory) {
+        this.raftMetaStorageFactory = raftMetaStorageFactory;
+
+        return this;
     }
 }

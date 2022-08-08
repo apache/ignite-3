@@ -20,7 +20,7 @@ package org.apache.ignite.cli.call.configuration;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.cli.call.CallIntegrationTestBase;
+import org.apache.ignite.cli.call.CallInitializedIntegrationTestBase;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link NodeConfigShowCall}.
  */
-class ItShowConfigurationCallTest extends CallIntegrationTestBase {
+class ItShowConfigurationCallTest extends CallInitializedIntegrationTestBase {
 
     @Inject
     NodeConfigShowCall nodeConfigShowCall;
@@ -45,12 +45,12 @@ class ItShowConfigurationCallTest extends CallIntegrationTestBase {
                 .build();
 
         // When
-        DefaultCallOutput<String> output = clusterConfigShowCall.execute(input);
+        DefaultCallOutput<JsonString> output = clusterConfigShowCall.execute(input);
 
         // Then
         assertThat(output.hasError()).isFalse();
         // And
-        assertThat(output.body()).isNotEmpty();
+        assertThat(output.body().getValue()).isNotEmpty();
     }
 
     @Test
@@ -63,12 +63,12 @@ class ItShowConfigurationCallTest extends CallIntegrationTestBase {
                 .build();
 
         // When
-        DefaultCallOutput<String> output = clusterConfigShowCall.execute(input);
+        DefaultCallOutput<JsonString> output = clusterConfigShowCall.execute(input);
 
         // Then
         assertThat(output.hasError()).isFalse();
         // And
-        assertThat(output.body()).isEqualTo("lru");
+        assertThat(output.body().getValue()).isEqualTo("lru");
     }
 
     @Test
@@ -80,12 +80,12 @@ class ItShowConfigurationCallTest extends CallIntegrationTestBase {
                 .build();
 
         // When
-        DefaultCallOutput<String> output = nodeConfigShowCall.execute(input);
+        DefaultCallOutput<JsonString> output = nodeConfigShowCall.execute(input);
 
         // Then
         assertThat(output.hasError()).isFalse();
         // And
-        assertThat(output.body()).isNotEmpty();
+        assertThat(output.body().getValue()).isNotEmpty();
     }
 
     @Test
@@ -98,11 +98,11 @@ class ItShowConfigurationCallTest extends CallIntegrationTestBase {
                 .build();
 
         // When
-        DefaultCallOutput<String> output = nodeConfigShowCall.execute(input);
+        DefaultCallOutput<JsonString> output = nodeConfigShowCall.execute(input);
 
         // Then
         assertThat(output.hasError()).isFalse();
         // And
-        assertThat(output.body()).isEqualTo("5000");
+        assertThat(output.body().getValue()).isEqualTo("5000");
     }
 }

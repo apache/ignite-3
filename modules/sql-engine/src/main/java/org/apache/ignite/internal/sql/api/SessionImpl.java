@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
+
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,6 +32,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.lang.IgniteExceptionUtils;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -36,8 +41,8 @@ import org.apache.ignite.internal.sql.engine.QueryValidator;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
-import org.apache.ignite.internal.sql.engine.session.SessionNotFound;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.BatchedArguments;
@@ -139,7 +144,7 @@ public class SessionImpl implements Session {
     @Override
     public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new SqlException("Session is closed."));
+            return CompletableFuture.failedFuture(new SqlException(SESSION_NOT_FOUND_ERR, "Session is closed."));
         }
 
         try {
@@ -158,7 +163,7 @@ public class SessionImpl implements Session {
             );
 
             result.whenComplete((rs, th) -> {
-                if (th instanceof SessionNotFound) {
+                if (IgniteExceptionUtils.getIgniteErrorCode(th) == SESSION_NOT_FOUND_ERR) {
                     closeInternal();
                 }
             });
@@ -178,7 +183,7 @@ public class SessionImpl implements Session {
             Statement statement,
             @Nullable Object... arguments
     ) {
-        // TODO: IGNITE-16967 use all statement properties.
+        // TODO: IGNITE-17440 use all statement properties.
         return executeAsync(transaction, statement.query(), arguments);
     }
 
@@ -186,7 +191,7 @@ public class SessionImpl implements Session {
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new SqlException("Session is closed."));
+            return CompletableFuture.failedFuture(new SqlException(SESSION_NOT_FOUND_ERR, "Session is closed."));
         }
 
         try {
@@ -194,7 +199,7 @@ public class SessionImpl implements Session {
                     transaction,
                     (QueryValidator) plan -> {
                         if (plan.type() != Type.DML) {
-                            throw new SqlException("Invalid SQL statement type in the batch [plan=" + plan + ']');
+                            throw new SqlException(QUERY_INVALID_ERR, "Invalid SQL statement type in the batch [plan=" + plan + ']');
                         }
                     }
             );
@@ -226,7 +231,12 @@ public class SessionImpl implements Session {
 
             CompletableFuture<long[]> resFut = tail
                     .exceptionally((ex) -> {
-                        throw new SqlBatchException(counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY), ex);
+                        Throwable cause = ExceptionUtils.unwrapCause(ex);
+
+                        throw new SqlBatchException(
+                                cause instanceof IgniteException ? ((IgniteException) cause).code() : UNKNOWN_ERR,
+                                counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY),
+                                ex);
                     })
                     .thenApply(v -> counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY));
 
@@ -330,7 +340,7 @@ public class SessionImpl implements Session {
                 || page.items().size() != 1
                 || page.items().get(0).size() != 1
                 || page.hasMore()) {
-            throw new SqlException("Invalid DML results: " + page);
+            throw new SqlException(UNKNOWN_ERR, "Invalid DML results: " + page);
         }
     }
 }

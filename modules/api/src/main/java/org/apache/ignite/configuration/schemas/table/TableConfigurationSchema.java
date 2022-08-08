@@ -24,6 +24,7 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.KnownDataStorage;
+import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
@@ -34,6 +35,12 @@ public class TableConfigurationSchema {
     /** Table name. */
     @InjectedName
     public String name;
+
+    /** Integer table id. */
+    @Immutable
+    @Range(min = 1)
+    @Value(hasDefault = true)
+    public int tableId = 1;
 
     /** Table partitions. */
     @Range(min = 0, max = 65_000)

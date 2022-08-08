@@ -82,7 +82,7 @@ public class LocalSnapshotReader extends SnapshotReader {
             return this.metaTable.loadFromFile(metaPath);
         }
         catch (final IOException e) {
-            LOG.error("Fail to load snapshot meta {}.", metaPath);
+            LOG.error("Fail to load snapshot meta {}.", metaPath, e);
             setError(RaftError.EIO, "Fail to load snapshot meta from path %s", metaPath);
             return false;
         }
@@ -130,7 +130,7 @@ public class LocalSnapshotReader extends SnapshotReader {
             }
         }
 
-        return String.format(REMOTE_SNAPSHOT_URI_SCHEME + "%s/%d", this.addr.toString(), this.readerId);
+        return String.format(REMOTE_SNAPSHOT_URI_SCHEME + "%s/%d", this.addr, this.readerId);
     }
 
     private void destroyReaderInFileService() {

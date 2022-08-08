@@ -19,12 +19,15 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.storage.RowId;
 
 /**
  * UUID-based ignite row id implementation.
  */
+@Deprecated
+//TODO Implement generic row id. IGNITE-17076
 final class UuidRowId implements RowId {
     /*
      * The most significant 64 bits.
@@ -37,7 +40,7 @@ final class UuidRowId implements RowId {
     private final long leastSigBits;
 
     /** Private constructor. */
-    private UuidRowId(long mostSigBits, long leastSigBits) {
+    public UuidRowId(long mostSigBits, long leastSigBits) {
         this.mostSigBits = mostSigBits;
         this.leastSigBits = leastSigBits;
     }
@@ -103,6 +106,23 @@ final class UuidRowId implements RowId {
         assert buf.order() == ByteOrder.BIG_ENDIAN;
 
         return mostSigBits == buf.getLong() && leastSigBits == buf.getLong();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        UuidRowId uuidRowId = (UuidRowId) o;
+        return mostSigBits == uuidRowId.mostSigBits && leastSigBits == uuidRowId.leastSigBits;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mostSigBits, leastSigBits);
     }
 
     /** {@inheritDoc} */

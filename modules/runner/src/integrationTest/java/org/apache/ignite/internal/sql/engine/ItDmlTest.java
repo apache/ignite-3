@@ -22,6 +22,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -306,5 +311,132 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
         var pkVals = sql("select \"__p_key\" from t").stream().map(row -> row.get(0)).collect(Collectors.toSet());
 
         assertEquals(3, pkVals.size());
+    }
+
+    @Test
+    public void testInsertDefaultValue() {
+        var args = List.of(
+                // TODO: IGNITE-17298
+                // new DefaultValueArg("BOOLEAN", "TRUE", Boolean.TRUE),
+                // new DefaultValueArg("BOOLEAN NOT NULL", "TRUE", Boolean.TRUE),
+
+                new DefaultValueArg("BIGINT", "10", 10L),
+                new DefaultValueArg("INTEGER", "10", 10),
+                new DefaultValueArg("SMALLINT", "10", (short) 10),
+                new DefaultValueArg("TINYINT", "10", (byte) 10),
+                new DefaultValueArg("DOUBLE", "10.01", 10.01d),
+                new DefaultValueArg("FLOAT", "10.01", 10.01f),
+                new DefaultValueArg("DECIMAL(4, 2)", "10.01", new BigDecimal("10.01")),
+                new DefaultValueArg("CHAR(2)", "'10'", "10"),
+                new DefaultValueArg("VARCHAR", "'10'", "10"),
+                new DefaultValueArg("VARCHAR NOT NULL", "'10'", "10"),
+                new DefaultValueArg("VARCHAR(2)", "'10'", "10"),
+
+                // TODO: IGNITE-17373
+                // new DefaultValueArg("INTERVAL DAYS TO SECONDS", "INTERVAL '10' DAYS", Duration.ofDays(10)),
+                // new DefaultValueArg("INTERVAL YEARS TO MONTHS", "INTERVAL '10' MONTHS", Period.ofMonths(10)),
+                // new DefaultValueArg("INTERVAL MONTHS", "INTERVAL '10' YEARS", Period.ofYears(10)),
+
+                new DefaultValueArg("DATE", "DATE '2021-01-01'", LocalDate.parse("2021-01-01")),
+                new DefaultValueArg("TIME", "TIME '01:01:01'", LocalTime.parse("01:01:01")),
+                new DefaultValueArg("TIMESTAMP", "TIMESTAMP '2021-01-01 01:01:01'", LocalDateTime.parse("2021-01-01T01:01:01")),
+
+                // TODO: IGNITE-17376
+                // new DefaultValueArg("TIMESTAMP WITH LOCAL TIME ZONE", "TIMESTAMP '2021-01-01 01:01:01'"
+                //         , LocalDateTime.parse("2021-01-01T01:01:01")),
+
+                new DefaultValueArg("BINARY(3)", "x'010203'", new byte[]{1, 2, 3})
+
+                // TODO: IGNITE-17374
+                // new DefaultValueArg("VARBINARY", "x'010203'", new byte[]{1, 2, 3})
+        );
+
+        checkDefaultValue(args);
+
+        checkWrongDefault("VARCHAR", "10");
+        checkWrongDefault("INT", "'10'");
+        checkWrongDefault("INT", "TRUE");
+        checkWrongDefault("DATE", "10");
+        checkWrongDefault("DATE", "TIME '01:01:01'");
+        checkWrongDefault("TIME", "TIMESTAMP '2021-01-01 01:01:01'");
+
+        // TODO: IGNITE-17298
+        // checkWrongDefault("BOOLEAN", "1");
+
+        // TODO: IGNITE-17373
+        // checkWrongDefault("INTERVAL DAYS", "INTERVAL '10' MONTHS");
+        // checkWrongDefault("INTERVAL MONTHS", "INTERVAL '10' DAYS");
+
+        checkWrongDefault("VARBINARY", "'10'");
+        checkWrongDefault("VARBINARY", "10");
+    }
+
+    private void checkDefaultValue(List<DefaultValueArg> args) {
+        assert args.size() > 0;
+
+        try {
+            StringBuilder createStatementBuilder = new StringBuilder("CREATE TABLE test (id INT PRIMARY KEY");
+
+            var idx = 0;
+            for (var arg : args) {
+                createStatementBuilder.append(", col_").append(idx++).append(" ").append(arg.sqlType)
+                        .append(" DEFAULT ").append(arg.sqlVal);
+            }
+
+            var createStatement = createStatementBuilder.append(")").toString();
+
+            sql(createStatement);
+            sql("INSERT INTO test (id) VALUES (0)");
+
+            var expectedVals = args.stream()
+                    .map(a -> a.expectedVal)
+                    .collect(Collectors.toList());
+
+            var columnEnumerationBuilder = new StringBuilder("col_0");
+
+            for (int i = 1; i < args.size(); i++) {
+                columnEnumerationBuilder.append(", col_").append(i);
+            }
+
+            var columnEnumeration = columnEnumerationBuilder.toString();
+
+            checkQueryResult("SELECT " + columnEnumeration + " FROM test", expectedVals);
+
+            sql("DELETE FROM test");
+            sql("INSERT INTO test (id, " + columnEnumeration + ") VALUES (0, "
+                    + ", DEFAULT".repeat(args.size()).substring(2) + ")");
+
+            checkQueryResult("SELECT " + columnEnumeration + " FROM test", expectedVals);
+        } finally {
+            sql("DROP TABLE IF EXISTS test");
+        }
+    }
+
+    private void checkQueryResult(String sql, List<Object> expectedVals) {
+        assertQuery(sql).returns(expectedVals.toArray()).check();
+    }
+
+    private void checkWrongDefault(String sqlType, String sqlVal) {
+        try {
+            assertThrows(
+                    IgniteException.class,
+                    () -> sql("CREATE TABLE test (val " + sqlType + " DEFAULT " + sqlVal + ")"),
+                    "Cannot convert literal"
+            );
+        } finally {
+            sql("DROP TABLE IF EXISTS test");
+        }
+    }
+
+    private static class DefaultValueArg {
+        final String sqlType;
+        final String sqlVal;
+        final Object expectedVal;
+
+        private DefaultValueArg(String sqlType, String sqlVal, Object expectedVal) {
+            this.sqlType = sqlType;
+            this.sqlVal = sqlVal;
+            this.expectedVal = expectedVal;
+        }
     }
 }

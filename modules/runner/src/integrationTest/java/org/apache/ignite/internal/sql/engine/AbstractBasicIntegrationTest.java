@@ -97,7 +97,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
      * @param testInfo Test information object.
      */
     @BeforeAll
-    void startNodes(TestInfo testInfo) throws Exception {
+    void startNodes(TestInfo testInfo) {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
         List<CompletableFuture<Ignite>> futures = new ArrayList<>();

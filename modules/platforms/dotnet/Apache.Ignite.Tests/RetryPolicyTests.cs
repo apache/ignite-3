@@ -55,7 +55,7 @@ namespace Apache.Ignite.Tests
             using var client = await server.ConnectClientAsync(cfg);
 
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTableAsync("bad-table"));
-            Assert.AreEqual(FakeServer.Err, ex!.Message);
+            StringAssert.Contains(FakeServer.Err, ex!.Message);
         }
 
         [Test]

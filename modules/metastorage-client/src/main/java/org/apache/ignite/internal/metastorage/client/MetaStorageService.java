@@ -199,7 +199,6 @@ public interface MetaStorageService {
      * @see Condition
      * @see Operation
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-14269: will be replaced by conditional multi update.
     @NotNull
     CompletableFuture<Boolean> invoke(@NotNull Condition condition,
             @NotNull Operation success, @NotNull Operation failure);

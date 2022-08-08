@@ -57,7 +57,7 @@ import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -190,7 +190,7 @@ public class ItInternalTableScanTest {
                 NetworkAddress::toString,
                 addressToNode,
                 txManager,
-                mock(TableStorage.class)
+                mock(MvTableStorage.class)
         );
     }
 

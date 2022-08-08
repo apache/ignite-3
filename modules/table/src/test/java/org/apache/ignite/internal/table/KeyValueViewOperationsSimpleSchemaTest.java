@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
@@ -39,7 +40,7 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
-import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -718,13 +719,17 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
         TxManager txManager = new TxManagerImpl(clusterService, lockManager);
 
+        AtomicLong raftIndex = new AtomicLong();
+
         DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
-                txManager);
+                new VersionedRowStore(new TestMvPartitionStorage(0), txManager),
+                txManager,
+                raftIndex
+        );
 
         List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
 
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners);
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners, pl -> raftIndex);
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
         return new TableImpl(table, new DummySchemaManagerImpl(schema));

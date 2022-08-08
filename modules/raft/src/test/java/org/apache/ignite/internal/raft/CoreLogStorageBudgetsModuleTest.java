@@ -21,14 +21,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.function.Supplier;
 import org.apache.ignite.raft.jraft.storage.impl.EntryCountBudget;
 import org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget;
 import org.apache.ignite.raft.jraft.storage.impl.UnlimitedBudget;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 class CoreLogStorageBudgetsModuleTest {

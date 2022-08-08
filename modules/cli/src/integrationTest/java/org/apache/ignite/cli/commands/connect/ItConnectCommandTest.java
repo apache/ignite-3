@@ -21,14 +21,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.cli.commands.CliCommandTestIntegrationBase;
+import org.apache.ignite.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.apache.ignite.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.cli.core.repl.prompt.PromptProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine.Help.Ansi;
 
-class ItConnectCommandTest extends CliCommandTestIntegrationBase {
+class ItConnectCommandTest extends CliCommandTestInitializedIntegrationBase {
     @Inject
     PromptProvider promptProvider;
 
@@ -54,7 +54,7 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
         );
         // And prompt is changed to connect
         String promptAfter = Ansi.OFF.string(promptProvider.getPrompt());
-        assertThat(promptAfter).isEqualTo("[http://localhost:10300]> ");
+        assertThat(promptAfter).isEqualTo("[" + nodeName() + "]> ");
     }
 
     @Test
@@ -92,7 +92,7 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
         execute("connect");
         // And prompt is
         String promptBefore = Ansi.OFF.string(promptProvider.getPrompt());
-        assertThat(promptBefore).isEqualTo("[http://localhost:10300]> ");
+        assertThat(promptBefore).isEqualTo("[" + nodeName() + "]> ");
 
         // When disconnect
         execute("disconnect");
@@ -104,5 +104,9 @@ class ItConnectCommandTest extends CliCommandTestIntegrationBase {
         // And prompt is changed
         String promptAfter = Ansi.OFF.string(promptProvider.getPrompt());
         assertThat(promptAfter).isEqualTo("[disconnected]> ");
+    }
+
+    private String nodeName() {
+        return CLUSTER_NODES.get(0).name();
     }
 }

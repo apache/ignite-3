@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration;
 import static java.util.function.Function.identity;
 import static java.util.regex.Pattern.quote;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.configuration.direct.KeyPathNode.INTERNAL_IDS;
 import static org.apache.ignite.internal.configuration.tree.InnerNode.INJECTED_NAME;
 import static org.apache.ignite.internal.configuration.tree.InnerNode.INTERNAL_ID;
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
@@ -53,6 +54,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -300,7 +302,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             if (!keyPathNode.unresolvedName) {
                 // Fake name and 0 index go to extras in case of resolved named list elements.
                 if (keyPathNode.namedListEntry) {
-                    prefixJoiner.add(escape(keyPathNode.key));
+                    prefixJoiner.add(keyPathNode.key);
 
                     String prefix = prefixJoiner + KEY_SEPARATOR;
 
@@ -376,6 +378,15 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         }
 
         String prefix = prefixJoiner.toString();
+
+        // Reading all ids is also a special case.
+        if (lastPathNode.key.equals(INTERNAL_IDS) && !lastPathNode.unresolvedName && path.get(pathSize - 1).namedListEntry) {
+            prefix = prefix.replaceAll(quote(INTERNAL_IDS) + "$", NamedListNode.IDS + KEY_SEPARATOR);
+
+            Map<String, ? extends Serializable> storageData = get(storage.readAllLatest(prefix));
+
+            return (T) storageData.values().stream().map(String.class::cast).map(UUID::fromString).collect(Collectors.toList());
+        }
 
         if (lastPathNode.key.equals(INTERNAL_ID) && !path.get(pathSize - 2).namedListEntry) {
             // This is not particularly efficient, but there's no way someone will actually use this case for real outside of tests.

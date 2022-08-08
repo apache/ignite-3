@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of {@link PartitionStorage} based on a {@link BplusTree} for persistent case.
  */
-public class PersistentPageMemoryPartitionStorage extends VolatilePageMemoryPartitionStorage {
+public class PersistentPageMemoryPartitionStorage extends AbstractPageMemoryPartitionStorage {
     private final CheckpointTimeoutLock checkpointTimeoutLock;
 
     /**
@@ -43,14 +43,13 @@ public class PersistentPageMemoryPartitionStorage extends VolatilePageMemoryPart
      * @param freeList Table free list.
      * @param tree Table tree.
      * @param checkpointTimeoutLock Checkpoint timeout lock.
-     * @throws StorageException If there is an error while creating the partition storage.
      */
     public PersistentPageMemoryPartitionStorage(
             int partId,
             TableFreeList freeList,
             TableTree tree,
             CheckpointTimeoutLock checkpointTimeoutLock
-    ) throws StorageException {
+    ) {
         super(partId, freeList, tree);
 
         this.checkpointTimeoutLock = checkpointTimeoutLock;

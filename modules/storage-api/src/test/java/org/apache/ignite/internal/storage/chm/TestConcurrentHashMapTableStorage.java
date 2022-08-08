@@ -23,7 +23,6 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.TableStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -71,18 +70,6 @@ public class TestConcurrentHashMapTableStorage implements TableStorage {
         if (partitionStorage != null) {
             partitionStorage.destroy();
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public SortedIndexStorage getOrCreateSortedIndex(String indexName) {
-        throw new UnsupportedOperationException("Not supported yet");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void dropIndex(String indexName) {
-        throw new UnsupportedOperationException("Not supported yet");
     }
 
     @Override

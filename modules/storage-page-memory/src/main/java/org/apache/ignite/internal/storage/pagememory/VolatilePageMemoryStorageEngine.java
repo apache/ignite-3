@@ -102,6 +102,12 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
         return new VolatilePageMemoryTableStorage(tableCfg, regions.get(dataStorageView.dataRegion()));
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public VolatilePageMemoryTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
+        return createTable(tableCfg);
+    }
+
     /**
      * Creates, starts and adds a new data region to the engine.
      *

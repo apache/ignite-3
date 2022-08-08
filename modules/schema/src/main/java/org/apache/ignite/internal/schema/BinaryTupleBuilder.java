@@ -111,7 +111,7 @@ public class BinaryTupleBuilder {
      * @return Tuple builder.
      */
     public static BinaryTupleBuilder create(BinaryTupleSchema schema, boolean allowNulls) {
-        return create(schema.elementCount(), schema.hasNullableElements() & allowNulls);
+        return create(schema.elementCount(), schema.hasNullableElements() && allowNulls);
     }
 
     /**
@@ -145,7 +145,7 @@ public class BinaryTupleBuilder {
      * @return Tuple builder.
      */
     public static BinaryTupleBuilder create(BinaryTupleSchema schema, boolean allowNulls, int totalValueSize) {
-        return create(schema.elementCount(), schema.hasNullableElements() & allowNulls, totalValueSize);
+        return create(schema.elementCount(), schema.hasNullableElements() && allowNulls, totalValueSize);
     }
 
     /**
@@ -179,8 +179,8 @@ public class BinaryTupleBuilder {
 
         hasNullValues = true;
 
-        int nullIndex = BinaryTupleSchema.HEADER_SIZE + elementIndex / 8;
-        byte nullMask = (byte) (1 << (elementIndex % 8));
+        int nullIndex = BinaryTupleSchema.nullOffset(elementIndex);
+        byte nullMask = BinaryTupleSchema.nullMask(elementIndex);
         buffer.put(nullIndex, (byte) (buffer.get(nullIndex) | nullMask));
 
         return proceed();

@@ -24,7 +24,8 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.MARKER_STORED_TO_DISK;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGE_SNAPSHOT_TAKEN;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SNAPSHOT_TAKEN;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.newReadWriteLock;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.toListDirtyPageIds;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.AFTER_CHECKPOINT_END;
@@ -41,14 +42,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -62,7 +65,6 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -172,13 +174,18 @@ public class CheckpointWorkflowTest {
 
         CheckpointReadWriteLock readWriteLock = newReadWriteLock(log);
 
-        List<FullPageId> dirtyPages = List.of(of(0, 0, 0), of(0, 0, 1), of(0, 0, 2));
+        List<FullPageId> dirtyPages = List.of(of(0, 0, 1), of(0, 0, 2), of(0, 0, 3));
 
         PersistentPageMemory pageMemory = newPageMemory(dirtyPages);
 
         DataRegion<PersistentPageMemory> dataRegion = () -> pageMemory;
 
-        workflow = new CheckpointWorkflow("test", markersStorage, readWriteLock, List.of(dataRegion));
+        workflow = new CheckpointWorkflow(
+                "test",
+                markersStorage,
+                readWriteLock,
+                List.of(dataRegion)
+        );
 
         workflow.start();
 
@@ -192,7 +199,7 @@ public class CheckpointWorkflowTest {
 
         doNothing().when(progressImpl).currentCheckpointPagesCount(pagesCountArgumentCaptor.capture());
 
-        when(progressImpl.futureFor(MARKER_STORED_TO_DISK)).thenReturn(completedFuture(null));
+        when(progressImpl.futureFor(PAGES_SORTED)).thenReturn(completedFuture(null));
 
         UUID checkpointId = UUID.randomUUID();
 
@@ -214,14 +221,17 @@ public class CheckpointWorkflowTest {
 
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), empty());
 
-                verify(markersStorage, times(0)).onCheckpointBegin(checkpointId);
+                verify(markersStorage, never()).onCheckpointBegin(checkpointId);
 
-                verify(tracker, times(0)).onWriteLockWaitStart();
-                verify(tracker, times(0)).onMarkCheckpointBeginStart();
-                verify(tracker, times(0)).onMarkCheckpointBeginEnd();
-                verify(tracker, times(0)).onWriteLockRelease();
-                verify(tracker, times(0)).onSplitAndSortCheckpointPagesStart();
-                verify(tracker, times(0)).onSplitAndSortCheckpointPagesEnd();
+                verify(tracker, never()).onWriteLockWaitStart();
+                verify(tracker, never()).onMarkCheckpointBeginStart();
+                verify(tracker, never()).onMarkCheckpointBeginEnd();
+                verify(tracker, never()).onWriteLockRelease();
+                verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
+                verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
+
+                verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
+                verify(progressImpl, never()).initCounters(anyInt());
             }
 
             /** {@inheritDoc} */
@@ -235,14 +245,17 @@ public class CheckpointWorkflowTest {
 
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), equalTo(List.of(LOCK_TAKEN)));
 
-                verify(markersStorage, times(0)).onCheckpointBegin(checkpointId);
+                verify(markersStorage, never()).onCheckpointBegin(checkpointId);
 
                 verify(tracker, times(1)).onWriteLockWaitStart();
                 verify(tracker, times(1)).onMarkCheckpointBeginStart();
-                verify(tracker, times(0)).onMarkCheckpointBeginEnd();
-                verify(tracker, times(0)).onWriteLockRelease();
-                verify(tracker, times(0)).onSplitAndSortCheckpointPagesStart();
-                verify(tracker, times(0)).onSplitAndSortCheckpointPagesEnd();
+                verify(tracker, never()).onMarkCheckpointBeginEnd();
+                verify(tracker, never()).onWriteLockRelease();
+                verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
+                verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
+
+                verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
+                verify(progressImpl, never()).initCounters(anyInt());
             }
 
             /** {@inheritDoc} */
@@ -256,18 +269,21 @@ public class CheckpointWorkflowTest {
 
                 assertFalse(readWriteLock.isWriteLockHeldByCurrentThread());
 
-                assertThat(checkpointStateArgumentCaptor.getAllValues(), equalTo(List.of(LOCK_TAKEN, PAGE_SNAPSHOT_TAKEN, LOCK_RELEASED)));
+                assertThat(checkpointStateArgumentCaptor.getAllValues(), equalTo(List.of(LOCK_TAKEN, PAGES_SNAPSHOT_TAKEN, LOCK_RELEASED)));
 
                 assertThat(pagesCountArgumentCaptor.getAllValues(), equalTo(List.of(3)));
 
-                verify(markersStorage, times(0)).onCheckpointBegin(checkpointId);
+                verify(markersStorage, never()).onCheckpointBegin(checkpointId);
 
                 verify(tracker, times(1)).onWriteLockWaitStart();
                 verify(tracker, times(1)).onMarkCheckpointBeginStart();
                 verify(tracker, times(1)).onMarkCheckpointBeginEnd();
                 verify(tracker, times(1)).onWriteLockRelease();
-                verify(tracker, times(0)).onSplitAndSortCheckpointPagesStart();
-                verify(tracker, times(0)).onSplitAndSortCheckpointPagesEnd();
+                verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
+                verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
+
+                verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
+                verify(progressImpl, never()).initCounters(anyInt());
             }
         }, dataRegion);
 
@@ -280,7 +296,10 @@ public class CheckpointWorkflowTest {
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesStart();
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesEnd();
 
-        CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.nextView(null);
+        verify(progressImpl, times(1)).pagesToWrite(any(CheckpointDirtyPages.class));
+        verify(progressImpl, times(1)).initCounters(anyInt());
+
+        CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.nextPartitionView(null);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(dirtyPages));
         assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegion.pageMemory()));
@@ -292,7 +311,7 @@ public class CheckpointWorkflowTest {
 
         assertThat(
                 checkpointStateArgumentCaptor.getAllValues(),
-                equalTo(List.of(LOCK_TAKEN, PAGE_SNAPSHOT_TAKEN, LOCK_RELEASED, MARKER_STORED_TO_DISK))
+                equalTo(List.of(LOCK_TAKEN, PAGES_SNAPSHOT_TAKEN, LOCK_RELEASED, MARKER_STORED_TO_DISK, PAGES_SORTED))
         );
 
         verify(markersStorage, times(1)).onCheckpointBegin(checkpointId);
@@ -308,7 +327,12 @@ public class CheckpointWorkflowTest {
 
         DataRegion<PersistentPageMemory> dataRegion = () -> pageMemory;
 
-        workflow = new CheckpointWorkflow("test", markersStorage, readWriteLock, List.of(dataRegion));
+        workflow = new CheckpointWorkflow(
+                "test",
+                markersStorage,
+                readWriteLock,
+                List.of(dataRegion)
+        );
 
         workflow.start();
 
@@ -319,6 +343,8 @@ public class CheckpointWorkflowTest {
         CheckpointProgressImpl progressImpl = mock(CheckpointProgressImpl.class);
 
         doNothing().when(progressImpl).transitTo(checkpointStateArgumentCaptor.capture());
+
+        CheckpointDirtyPages checkpointDirtyPages = mock(CheckpointDirtyPages.class);
 
         UUID checkpointId = UUID.randomUUID();
 
@@ -339,6 +365,9 @@ public class CheckpointWorkflowTest {
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), empty());
 
                 verify(markersStorage, times(1)).onCheckpointEnd(checkpointId);
+
+                verify(progressImpl, times(1)).pagesToWrite(isNull());
+                verify(progressImpl, times(1)).clearCounters();
             }
         };
 
@@ -357,6 +386,10 @@ public class CheckpointWorkflowTest {
 
         verify(pageMemory, times(1)).finishCheckpoint();
 
+        verify(progressImpl, times(1)).pagesToWrite(isNull());
+
+        verify(progressImpl, times(1)).clearCounters();
+
         // Checks with empty dirty pages.
 
         workflow.removeCheckpointListener(checkpointListener);
@@ -368,21 +401,26 @@ public class CheckpointWorkflowTest {
 
     @Test
     void testCreateAndSortCheckpointDirtyPages() throws Exception {
-        IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>> dataRegionDirtyPages0 = createDataRegionDirtyPages(
+        DataRegionDirtyPages<Collection<FullPageId>> dataRegionDirtyPages0 = createDataRegionDirtyPages(
                 mock(PersistentPageMemory.class),
                 of(10, 10, 2), of(10, 10, 1), of(10, 10, 0),
                 of(10, 5, 100), of(10, 5, 99),
                 of(10, 1, 50), of(10, 1, 51), of(10, 1, 99)
         );
 
-        IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>> dataRegionDirtyPages1 = createDataRegionDirtyPages(
+        DataRegionDirtyPages<Collection<FullPageId>> dataRegionDirtyPages1 = createDataRegionDirtyPages(
                 mock(PersistentPageMemory.class),
                 of(77, 5, 100), of(77, 5, 99),
                 of(88, 1, 51), of(88, 1, 50), of(88, 1, 99),
                 of(66, 33, 0), of(66, 33, 1), of(66, 33, 2)
         );
 
-        workflow = new CheckpointWorkflow("test", mock(CheckpointMarkersStorage.class), newReadWriteLock(log), List.of());
+        workflow = new CheckpointWorkflow(
+                "test",
+                mock(CheckpointMarkersStorage.class),
+                newReadWriteLock(log),
+                List.of()
+        );
 
         workflow.start();
 
@@ -390,35 +428,35 @@ public class CheckpointWorkflowTest {
                 new DataRegionsDirtyPages(List.of(dataRegionDirtyPages0, dataRegionDirtyPages1))
         );
 
-        CheckpointDirtyPagesView dirtyPagesView = sortCheckpointDirtyPages.nextView(null);
+        CheckpointDirtyPagesView dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(null);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(10, 1, 50), of(10, 1, 51), of(10, 1, 99))));
-        assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages0.getKey()));
+        assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages0.pageMemory));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(10, 5, 99), of(10, 5, 100))));
-        assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages0.getKey()));
+        assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages0.pageMemory));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(10, 10, 0), of(10, 10, 1), of(10, 10, 2))));
-        assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages0.getKey()));
+        assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages0.pageMemory));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(66, 33, 0), of(66, 33, 1), of(66, 33, 2))));
-        assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages1.getKey()));
+        assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages1.pageMemory));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(77, 5, 99), of(77, 5, 100))));
-        assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages1.getKey()));
+        assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages1.pageMemory));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(of(88, 1, 50), of(88, 1, 51), of(88, 1, 99))));
-        assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages1.getKey()));
+        assertThat(dirtyPagesView.pageMemory(), equalTo(dataRegionDirtyPages1.pageMemory));
     }
 
     @Test
@@ -428,7 +466,12 @@ public class CheckpointWorkflowTest {
         FullPageId[] dirtyPages0 = IntStream.range(0, count).mapToObj(i -> of(0, 0, count - i)).toArray(FullPageId[]::new);
         FullPageId[] dirtyPages1 = IntStream.range(0, count).mapToObj(i -> of(1, 1, i)).toArray(FullPageId[]::new);
 
-        workflow = new CheckpointWorkflow("test", mock(CheckpointMarkersStorage.class), newReadWriteLock(log), List.of());
+        workflow = new CheckpointWorkflow(
+                "test",
+                mock(CheckpointMarkersStorage.class),
+                newReadWriteLock(log),
+                List.of()
+        );
 
         workflow.start();
 
@@ -437,11 +480,11 @@ public class CheckpointWorkflowTest {
                 createDataRegionDirtyPages(mock(PersistentPageMemory.class), dirtyPages0)
         )));
 
-        CheckpointDirtyPagesView dirtyPagesView = sortCheckpointDirtyPages.nextView(null);
+        CheckpointDirtyPagesView dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(null);
 
         assertThat(toListDirtyPageIds(dirtyPagesView), equalTo(List.of(dirtyPages1)));
 
-        dirtyPagesView = sortCheckpointDirtyPages.nextView(dirtyPagesView);
+        dirtyPagesView = sortCheckpointDirtyPages.nextPartitionView(dirtyPagesView);
 
         assertThat(
                 toListDirtyPageIds(dirtyPagesView),
@@ -449,26 +492,26 @@ public class CheckpointWorkflowTest {
         );
     }
 
-    private static PersistentPageMemory newPageMemory(Collection<FullPageId> dirtyPages) {
+    private static PersistentPageMemory newPageMemory(Collection<FullPageId> pageIds) {
         PersistentPageMemory mock = mock(PersistentPageMemory.class);
 
-        when(mock.beginCheckpoint(any(CompletableFuture.class))).thenReturn(dirtyPages);
+        when(mock.beginCheckpoint(any(CompletableFuture.class))).thenReturn(pageIds);
 
         return mock;
     }
 
-    private static IgniteBiTuple<PersistentPageMemory, List<FullPageId>> createCheckpointDirtyPages(
+    private static DataRegionDirtyPages<FullPageId[]> createCheckpointDirtyPages(
             PersistentPageMemory pageMemory,
-            FullPageId... dirtyPages
+            FullPageId... pageIds
     ) {
-        return new IgniteBiTuple<>(pageMemory, Arrays.asList(dirtyPages));
+        return new DataRegionDirtyPages<>(pageMemory, pageIds);
     }
 
-    private static IgniteBiTuple<PersistentPageMemory, Collection<FullPageId>> createDataRegionDirtyPages(
+    private static DataRegionDirtyPages<Collection<FullPageId>> createDataRegionDirtyPages(
             PersistentPageMemory pageMemory,
-            FullPageId... dirtyPages
+            FullPageId... pageIds
     ) {
-        return new IgniteBiTuple<>(pageMemory, Set.of(dirtyPages));
+        return new DataRegionDirtyPages<>(pageMemory, List.of(pageIds));
     }
 
     private static FullPageId of(int grpId, int partId, int pageIdx) {
