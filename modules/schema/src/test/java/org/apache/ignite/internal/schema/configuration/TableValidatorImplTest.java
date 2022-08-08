@@ -50,7 +50,7 @@ public class TableValidatorImplTest {
                     + "    name = schema.table,\n"
                     + "    columns.id {type.type = STRING, nullable = true},\n"
                     + "    primaryKey {columns = [id], colocationColumns = [id]},\n"
-                    + "    indices.foo {type = HASH, colNames = [id]}\n"
+                    + "    indices.foo {type = HASH, columnNames = [id]}\n"
                     + "}]",
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
