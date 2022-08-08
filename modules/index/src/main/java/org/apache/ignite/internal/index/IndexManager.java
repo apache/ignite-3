@@ -237,7 +237,7 @@ public class IndexManager implements IgniteComponent {
         } else if (indexView instanceof HashIndexView) {
             validateColumns(Arrays.asList(((HashIndexView) indexView).columnNames()), tableColumns);
         } else {
-            throw new IllegalStateException("Unknown index type [type=" + (indexView != null ? indexView.getClass() : null) + ']');
+            throw new AssertionError("Unknown index type [type=" + (indexView != null ? indexView.getClass() : null) + ']');
         }
     }
 
