@@ -32,6 +32,7 @@ import org.jline.reader.Parser.ParseContext;
  */
 public class RegistryCommandExecutor implements Call<StringCallInput, Object> {
     private final SystemRegistry systemRegistry;
+
     private final Parser parser;
 
     /**
