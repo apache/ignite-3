@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignme
 import static org.apache.ignite.internal.utils.RebalanceUtil.recoverable;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_COMPLETED_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -281,6 +282,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 return;
                             }
 
+                            //Normal scenario, when all related futures for tablesByIdVv are completed and we can complete tablesByIdVv
                             tablesByIdVv.complete(token);
                         } catch (InterruptedException | ExecutionException ignore) {
                             // ignore as far as tablesByIdVv.complete ensures that tablesByIdVv.get(token) will be completed.
@@ -511,7 +513,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             List<ClusterNode> newPartAssignment = newAssignments.get(partId);
 
             // Create new raft nodes according to new assignments.
-            tablesByIdVv.updateInBusyLock(causalityToken, (tablesById, e) -> {
+            tablesByIdVv.update(causalityToken, (tablesById, e) -> {
                 if (e != null) {
                     return failedFuture(e);
                 }
@@ -580,7 +582,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         });
 
                 return completedFuture(tablesById);
-            }, busyLock);
+            });
         }
 
         CompletableFuture.allOf(futures).join();
@@ -623,7 +625,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         Map<UUID, TableImpl> tables;
 
         try {
-            // Waiting for tablesByIdVv generally can be unbounded, because we don;t have time limits fo receiving storage revision update,
+            // Waiting for tablesByIdVv generally can be unbounded, because we don't have time limits for receiving storage revision update,
             // where tablesByIdVv is completed, so we add timeout here.
             tables = tablesByIdVv.waitForLatest(TABLES_COMPLETE_TIMEOUT, TimeUnit.SECONDS);
         } catch (ExecutionException | InterruptedException | TimeoutException e) {
@@ -673,7 +675,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         var table = new TableImpl(internalTable);
 
-        tablesByIdVv.updateInBusyLock(causalityToken, (previous, e) -> {
+        tablesByIdVv.update(causalityToken, (previous, e) -> {
             if (e != null) {
                 return failedFuture(e);
             }
@@ -683,7 +685,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             val.put(tblId, table);
 
             return completedFuture(val);
-        }, busyLock);
+        });
 
         CompletableFuture<?> schemaFut = schemaManager.schemaRegistry(causalityToken, tblId)
                 .thenAccept(table::schemaView)
@@ -733,7 +735,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 raftMgr.stopRaftGroup(partitionRaftGroupName(tblId, p));
             }
 
-            tablesByIdVv.updateInBusyLock(causalityToken, (previousVal, e) -> {
+            tablesByIdVv.update(causalityToken, (previousVal, e) -> {
                 if (e != null) {
                     return failedFuture(e);
                 }
@@ -743,7 +745,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 map.remove(tblId);
 
                 return completedFuture(map);
-            }, busyLock);
+            });
 
             TableImpl table = tablesByIdVv.latest().get(tblId);
 
@@ -1105,17 +1107,33 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private CompletableFuture<List<Table>> tablesAsyncInternal() {
         // TODO: IGNITE-16288 directTableIds should use async configuration API
-        return CompletableFuture.supplyAsync(this::directTableIds)
-                .thenCompose(tableIds -> {
-                    var tableFuts = new CompletableFuture[tableIds.size()];
+        return CompletableFuture.supplyAsync(() -> {
+            if (!busyLock.enterBusy()) {
+                throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+            }
+            try {
+                return directTableIds();
+            } finally {
+                busyLock.leaveBusy();
+            }
+        }).thenCompose(tableIds -> {
+            if (!busyLock.enterBusy()) {
+                throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+            }
+            try {
+                var tableFuts = new CompletableFuture[tableIds.size()];
 
-                    var i = 0;
+                var i = 0;
 
-                    for (UUID tblId : tableIds) {
-                        tableFuts[i++] = tableAsyncInternal(tblId, false);
+                for (UUID tblId : tableIds) {
+                    tableFuts[i++] = tableAsyncInternal(tblId, false);
+                }
+
+                return allOf(tableFuts).thenApply(unused -> {
+                    if (!busyLock.enterBusy()) {
+                        throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
                     }
-
-                    return allOf(tableFuts).thenApply(unused -> {
+                    try {
                         var tables = new ArrayList<Table>(tableIds.size());
 
                         try {
@@ -1131,8 +1149,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }
 
                         return tables;
-                    });
+                    } finally {
+                        busyLock.leaveBusy();
+                    }
                 });
+            } finally {
+                busyLock.leaveBusy();
+            }
+        });
     }
 
     /**

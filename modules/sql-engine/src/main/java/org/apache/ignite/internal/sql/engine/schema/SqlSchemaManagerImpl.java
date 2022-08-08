@@ -199,7 +199,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
         try {
-            schemasVv.updateInBusyLock(
+            schemasVv.update(
                     causalityToken,
                     (schemas, e) -> {
                         if (e != null) {
@@ -213,7 +213,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                         CompletableFuture<IgniteTableImpl> igniteTableFuture = convert(causalityToken, table);
 
                         return tablesVv
-                                .updateInBusyLock(
+                                .update(
                                         causalityToken,
                                         (tables, ex) -> {
                                             if (ex != null) {
@@ -224,48 +224,23 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                                             return igniteTableFuture
                                                     .thenApply(igniteTable -> {
-                                                        if (!busyLock.enterBusy()) {
-                                                            throw new IgniteInternalException(NODE_STOPPING_ERR,
-                                                                    new NodeStoppingException());
-                                                        }
-                                                        try {
-                                                            resTbls.put(igniteTable.id(), igniteTable);
+                                                        resTbls.put(igniteTable.id(), igniteTable);
 
-                                                            return resTbls;
-                                                        } finally {
-                                                            busyLock.leaveBusy();
-                                                        }
+                                                        return resTbls;
                                                     });
-                                        }, busyLock
+                                        }
                                 )
                                 .thenCombine(
                                         igniteTableFuture,
                                         (v, igniteTable) -> {
-                                            if (!busyLock.enterBusy()) {
-                                                return failedFuture(
-                                                        new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
-                                            }
-                                            try {
                                                 schema.addTable(removeSchema(schemaName, table.name()), igniteTable);
 
                                                 return null;
-                                            } finally {
-                                                busyLock.leaveBusy();
-                                            }
                                         }
                                 )
-                                .thenCompose(v -> {
-                                    if (!busyLock.enterBusy()) {
-                                        return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
-                                    }
-                                    try {
-                                        return completedFuture(res);
-                                    } finally {
-                                        busyLock.leaveBusy();
-                                    }
-                                });
+                                .thenCompose(v -> completedFuture(res));
 
-                    }, busyLock
+                    }
             );
 
             return calciteSchemaVv.get(causalityToken);
@@ -299,7 +274,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
         try {
-            schemasVv.updateInBusyLock(causalityToken,
+            schemasVv.update(causalityToken,
                     (schemas, e) -> {
                         if (e != null) {
                             return failedFuture(e);
@@ -317,7 +292,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                             schema.removeTable(calciteTableName);
 
                             return tablesVv
-                                    .updateInBusyLock(causalityToken,
+                                    .update(causalityToken,
                                             (tables, ex) -> {
                                                 if (ex != null) {
                                                     return failedFuture(ex);
@@ -328,23 +303,13 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                                                 resTbls.remove(table.id());
 
                                                 return completedFuture(resTbls);
-                                            }, busyLock
+                                            }
                                     )
-                                    .thenCompose(tables -> {
-                                        if (!busyLock.enterBusy()) {
-                                            return failedFuture(
-                                                    new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
-                                        }
-                                        try {
-                                            return completedFuture(res);
-                                        } finally {
-                                            busyLock.leaveBusy();
-                                        }
-                                    });
+                                    .thenCompose(tables -> completedFuture(res));
                         }
 
                         return completedFuture(res);
-                    }, busyLock
+                    }
             );
 
             return calciteSchemaVv.get(causalityToken);

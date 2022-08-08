@@ -170,7 +170,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             String tableName,
             SchemaDescriptor schemaDescriptor
     ) {
-        return registriesVv.updateInBusyLock(causalityToken, (registries, e) -> {
+        return registriesVv.update(causalityToken, (registries, e) -> {
             if (e != null) {
                 return failedFuture(new IgniteInternalException(IgniteStringFormatter.format(
                         "Cannot create a schema for the table [tblId={}, ver={}]", tableId, schemaDescriptor.version()), e)
@@ -190,7 +190,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             }
 
             return completedFuture(registries);
-        }, busyLock);
+        });
     }
 
     /**
@@ -381,7 +381,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param tableId Table id.
      */
     public CompletableFuture<?> dropRegistry(long causalityToken, UUID tableId) {
-        return registriesVv.updateInBusyLock(causalityToken, (registries, e) -> {
+        return registriesVv.update(causalityToken, (registries, e) -> {
             if (e != null) {
                 return failedFuture(new IgniteInternalException(
                                 IgniteStringFormatter.format("Cannot remove a schema registry for the table [tblId={}]", tableId), e
@@ -394,7 +394,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             registries.remove(tableId);
 
             return completedFuture(registries);
-        }, busyLock);
+        });
     }
 
     /** {@inheritDoc} */
