@@ -20,10 +20,12 @@ package org.apache.ignite.internal.storage;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
@@ -56,6 +58,8 @@ public class ConcurrentHashMapStorageTest extends AbstractPartitionStorageTest {
                             ConstantValueDefaultConfigurationSchema.class,
                             FunctionCallDefaultConfigurationSchema.class,
                             NullValueDefaultConfigurationSchema.class,
+                            UnlimitedBudgetConfigurationSchema.class,
+                            EntryCountBudgetConfigurationSchema.class
                     }
             ) TableConfiguration tableCfg
     ) throws Exception {
