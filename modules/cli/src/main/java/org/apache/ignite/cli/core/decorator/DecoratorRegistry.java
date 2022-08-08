@@ -15,30 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.repl.executor;
+package org.apache.ignite.cli.core.decorator;
 
-import io.micronaut.configuration.picocli.MicronautFactory;
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
-import org.jline.terminal.Terminal;
-import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.ignite.cli.commands.decorators.DefaultDecorator;
 
 /**
- * Provider of {@link ReplExecutor}.
+ * Registry for {@link Decorator}.
  */
-@Singleton
-public class ReplExecutorProvider {
-    private PicocliCommandsFactory factory;
+public class DecoratorRegistry {
+    private final Map<Class<?>, Decorator<?, TerminalOutput>> store = new HashMap<>();
 
-    @Inject
-    private Terminal terminal;
-
-    public ReplExecutor get() {
-        return new ReplExecutor(factory, terminal);
+    public <T> void add(Class<T> clazz, Decorator<T, TerminalOutput> decorator) {
+        store.put(clazz, decorator);
     }
 
-    public void injectFactory(MicronautFactory micronautFactory) {
-        factory = new PicocliCommandsFactory(micronautFactory);
-        factory.setTerminal(terminal);
+    public void addAll(DecoratorRegistry decoratorRegistry) {
+        store.putAll(decoratorRegistry.store);
+    }
+
+    public <T> Decorator<T, TerminalOutput> getDecorator(Class<T> clazz) {
+        return (Decorator<T, TerminalOutput>) store.getOrDefault(clazz, new DefaultDecorator<T>());
     }
 }

@@ -30,11 +30,11 @@ import org.apache.ignite.rest.client.invoker.Configuration;
  * Shows cluster configuration.
  */
 @Singleton
-public class ClusterConfigShowCall implements Call<ClusterConfigShowCallInput, String> {
+public class ClusterConfigShowCall implements Call<ClusterConfigShowCallInput, JsonString> {
 
     /** {@inheritDoc} */
     @Override
-    public DefaultCallOutput<String> execute(ClusterConfigShowCallInput input) {
+    public DefaultCallOutput<JsonString> execute(ClusterConfigShowCallInput input) {
         ClusterConfigurationApi client = createApiClient(input);
 
         try {
@@ -44,8 +44,10 @@ public class ClusterConfigShowCall implements Call<ClusterConfigShowCallInput, S
         }
     }
 
-    private String readClusterConfig(ClusterConfigurationApi api, ClusterConfigShowCallInput input) throws ApiException {
-        return input.getSelector() != null ? api.getClusterConfigurationByPath(input.getSelector()) : api.getClusterConfiguration();
+    private JsonString readClusterConfig(ClusterConfigurationApi api, ClusterConfigShowCallInput input) throws ApiException {
+        return JsonString.fromString(input.getSelector() != null
+                ? api.getClusterConfigurationByPath(input.getSelector())
+                : api.getClusterConfiguration());
     }
 
     private ClusterConfigurationApi createApiClient(ClusterConfigShowCallInput input) {

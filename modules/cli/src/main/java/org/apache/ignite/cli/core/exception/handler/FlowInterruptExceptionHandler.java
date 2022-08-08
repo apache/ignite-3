@@ -15,30 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.repl.executor;
+package org.apache.ignite.cli.core.exception.handler;
 
-import io.micronaut.configuration.picocli.MicronautFactory;
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
-import org.jline.terminal.Terminal;
-import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
+import org.apache.ignite.cli.core.exception.ExceptionHandler;
+import org.apache.ignite.cli.core.exception.ExceptionWriter;
+import org.apache.ignite.cli.core.flow.FlowInterruptException;
 
 /**
- * Provider of {@link ReplExecutor}.
+ * Exception handler for {@link FlowInterruptException}.
  */
-@Singleton
-public class ReplExecutorProvider {
-    private PicocliCommandsFactory factory;
-
-    @Inject
-    private Terminal terminal;
-
-    public ReplExecutor get() {
-        return new ReplExecutor(factory, terminal);
+public class FlowInterruptExceptionHandler implements ExceptionHandler<FlowInterruptException> {
+    @Override
+    public int handle(ExceptionWriter err, FlowInterruptException e) {
+        return 0;
     }
 
-    public void injectFactory(MicronautFactory micronautFactory) {
-        factory = new PicocliCommandsFactory(micronautFactory);
-        factory.setTerminal(terminal);
+    @Override
+    public Class<FlowInterruptException> applicableException() {
+        return FlowInterruptException.class;
     }
 }

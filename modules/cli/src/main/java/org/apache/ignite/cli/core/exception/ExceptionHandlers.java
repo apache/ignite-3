@@ -67,6 +67,17 @@ public class ExceptionHandlers {
         return processException(errOutput, e instanceof WrappedException ? e.getCause() : e);
     }
 
+    /**
+     * Handles an exception.
+     *
+     * @param e exception instance.
+     * @param <T> exception type.
+     * @return exit code.
+     */
+    public <T extends Throwable> int handleException(T e) {
+        return processException(ExceptionWriter.nullWriter(), e instanceof WrappedException ? e.getCause() : e);
+    }
+
     @SuppressWarnings("unchecked")
     private <T extends Throwable> int processException(ExceptionWriter errOutput, T e) {
         ExceptionHandler<T> exceptionHandler = (ExceptionHandler<T>) map.get(e.getClass());

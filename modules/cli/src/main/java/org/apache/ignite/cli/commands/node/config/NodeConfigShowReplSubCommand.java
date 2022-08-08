@@ -21,9 +21,9 @@ import jakarta.inject.Inject;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.JsonDecorator;
-import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.repl.Session;
+import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.cli.core.flow.Flowable;
+import org.apache.ignite.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -52,27 +52,20 @@ public class NodeConfigShowReplSubCommand extends BaseCommand implements Runnabl
     private NodeConfigShowCall call;
 
     @Inject
-    private Session session;
+    private ConnectToClusterQuestion question;
 
     /** {@inheritDoc} */
     @Override
     public void run() {
-        var input = NodeConfigShowCallInput.builder().selector(selector);
-        if (session.isConnectedToNode()) {
-            input.nodeUrl(session.nodeUrl());
-        } else if (nodeUrl != null) {
-            input.nodeUrl(nodeUrl);
-        } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--node-url' option.");
-            return;
-        }
-
-        CallExecutionPipeline.builder(call)
-                .inputProvider(input::build)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .decorator(new JsonDecorator())
+        question.askQuestionIfNotConnected(nodeUrl)
+                .map(this::nodeConfigShowCallInput)
+                .then(Flows.fromCall(call))
+                .toOutput(spec.commandLine().getOut(), spec.commandLine().getErr())
                 .build()
-                .runPipeline();
+                .start(Flowable.empty());
+    }
+
+    private NodeConfigShowCallInput nodeConfigShowCallInput(String nodeUrl) {
+        return NodeConfigShowCallInput.builder().selector(selector).nodeUrl(nodeUrl).build();
     }
 }

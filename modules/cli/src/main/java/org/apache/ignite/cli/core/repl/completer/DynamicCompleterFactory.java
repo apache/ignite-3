@@ -59,7 +59,7 @@ public class DynamicCompleterFactory {
                         nodeConfigShowCall.execute(
                                 // todo https://issues.apache.org/jira/browse/IGNITE-17416
                                 NodeConfigShowCallInput.builder().nodeUrl(urlProvider.resolveUrl(new String[]{""})).build()
-                        ).body()
+                        ).body().getValue()
                 );
                 return new HoconDynamicCompleter(activationPrefixes, config);
             } catch (Exception e) {
@@ -81,7 +81,7 @@ public class DynamicCompleterFactory {
                         clusterConfigShowCall.execute(
                                 // todo https://issues.apache.org/jira/browse/IGNITE-17416
                                 ClusterConfigShowCallInput.builder().clusterUrl(urlProvider.resolveUrl(new String[]{""})).build()
-                        ).body()
+                        ).body().getValue()
                 );
                 return new HoconDynamicCompleter(activationPrefixes, config);
             } catch (Exception e) {
