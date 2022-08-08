@@ -22,7 +22,11 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
-import java.util.function.Supplier;
+import java.util.function.Function;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetView;
+import org.apache.ignite.configuration.schemas.table.LogStorageBudgetView;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.raft.jraft.storage.impl.EntryCountBudget;
 import org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget;
 import org.apache.ignite.raft.jraft.storage.impl.UnlimitedBudget;
@@ -33,19 +37,33 @@ class CoreLogStorageBudgetsModuleTest {
 
     @Test
     void providesUnlimitedBudget() {
-        Supplier<LogStorageBudget> factory = module.budgetFactories().get(UnlimitedBudget.NAME);
+        Function<? super LogStorageBudgetView, LogStorageBudget> factory = module.budgetFactories().get(
+                UnlimitedBudgetConfigurationSchema.NAME
+        );
 
         assertThat(factory, is(notNullValue()));
 
-        assertThat(factory.get(), is(instanceOf(UnlimitedBudget.class)));
+        assertThat(factory.apply(null), is(instanceOf(UnlimitedBudget.class)));
     }
 
     @Test
     void providesEntryCountBudget() {
-        Supplier<LogStorageBudget> factory = module.budgetFactories().get(EntryCountBudget.NAME);
+        Function<? super LogStorageBudgetView, LogStorageBudget> factory = module.budgetFactories().get(
+                EntryCountBudgetConfigurationSchema.NAME
+        );
 
         assertThat(factory, is(notNullValue()));
 
-        assertThat(factory.get(), is(instanceOf(EntryCountBudget.class)));
+        assertThat(factory.apply(new EntryCountBudgetView() {
+            @Override
+            public long entriesCountLimit() {
+                return 0;
+            }
+
+            @Override
+            public String name() {
+                return EntryCountBudgetConfigurationSchema.NAME;
+            }
+        }), is(instanceOf(EntryCountBudget.class)));
     }
 }

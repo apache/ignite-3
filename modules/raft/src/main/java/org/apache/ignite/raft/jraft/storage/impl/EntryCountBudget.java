@@ -25,11 +25,6 @@ import org.apache.ignite.raft.jraft.entity.LogEntry;
  */
 public class EntryCountBudget implements LogStorageBudget {
 
-    /**
-     * This budget name (can be put to {@link org.apache.ignite.configuration.schemas.table.RaftConfigurationSchema#logStorageBudgetName}.
-     */
-    public static final String NAME = "entry-count";
-
     private static final long NO_INDEX = -1;
 
     private final long entriesCountLimit;

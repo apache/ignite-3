@@ -18,7 +18,8 @@
 package org.apache.ignite.raft.jraft.core;
 
 import java.util.Map;
-import java.util.function.Supplier;
+import java.util.function.Function;
+import org.apache.ignite.configuration.schemas.table.LogStorageBudgetView;
 import org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget;
 
 /**
@@ -30,5 +31,5 @@ public interface LogStorageBudgetsModule {
      *
      * @return Mapping from budget names to budget factories for the budgets supported by this module.
      */
-    Map<String, Supplier<LogStorageBudget>> budgetFactories();
+    Map<String, Function<? super LogStorageBudgetView, LogStorageBudget>> budgetFactories();
 }

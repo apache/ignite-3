@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,17 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.configuration.schemas.table;
 
-import org.apache.ignite.raft.jraft.entity.LogEntry;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * {@link LogStorageBudget} that always allows everything.
+ * Configuration for 'unlimited' log storage budget.
  */
-public class UnlimitedBudget implements LogStorageBudget {
+@PolymorphicConfigInstance(EntryCountBudgetConfigurationSchema.NAME)
+public class EntryCountBudgetConfigurationSchema extends LogStorageBudgetConfigurationSchema {
+    /** The budget name. */
+    public static final String NAME = "entry-count";
 
-    @Override
-    public boolean hasRoomFor(LogEntry entry) {
-        return true;
-    }
+    @Value
+    public long entriesCountLimit;
 }
