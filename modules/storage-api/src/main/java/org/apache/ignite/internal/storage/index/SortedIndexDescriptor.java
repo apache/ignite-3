@@ -35,7 +35,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Descriptor for creating a Sorted Index Storage.
  *
- * @see SortedIndexMvStorage
+ * @see SortedIndexStorage
  */
 public class SortedIndexDescriptor {
     /**

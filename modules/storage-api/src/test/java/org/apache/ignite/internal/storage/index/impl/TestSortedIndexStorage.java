@@ -34,14 +34,14 @@ import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
 import org.apache.ignite.internal.storage.index.IndexRowSerializer;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Test implementation of MV sorted index storage.
  */
-public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
+public class TestSortedIndexStorage implements SortedIndexStorage {
     private final ConcurrentNavigableMap<BinaryTuple, Set<RowId>> index;
 
     private final SortedIndexDescriptor descriptor;
@@ -51,7 +51,7 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
     /**
      * Constructor.
      */
-    public TestSortedIndexMvStorage(SortedIndexDescriptor descriptor) {
+    public TestSortedIndexStorage(SortedIndexDescriptor descriptor) {
         this.descriptor = descriptor;
         this.schema = createSchema(descriptor);
         this.index = new ConcurrentSkipListMap<>(BinaryTupleComparator.newComparator(descriptor));
