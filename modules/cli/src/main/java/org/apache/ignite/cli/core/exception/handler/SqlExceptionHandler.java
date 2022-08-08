@@ -20,7 +20,7 @@ package org.apache.ignite.cli.core.exception.handler;
 import java.sql.SQLException;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
-import org.apache.ignite.cli.core.style.component.ErrorComponent;
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -41,7 +41,7 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
 
     @Override
     public int handle(ExceptionWriter err, SQLException e) {
-        var errorComponentBuilder = ErrorComponent.builder();
+        var errorComponentBuilder = ErrorUiComponent.builder();
 
         switch (e.getSQLState()) {
             case SqlStateCode.CONNECTION_FAILURE:

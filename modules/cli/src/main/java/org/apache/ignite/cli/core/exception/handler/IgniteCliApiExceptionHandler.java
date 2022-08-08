@@ -25,7 +25,8 @@ import java.util.stream.Collectors;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.exception.IgniteCliApiException;
-import org.apache.ignite.cli.core.style.component.ErrorComponent;
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
+import org.apache.ignite.cli.core.style.element.UiElements;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -41,18 +42,18 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
 
     @Override
     public int handle(ExceptionWriter err, IgniteCliApiException e) {
-        ErrorComponent.ErrorComponentBuilder errorComponentBuilder = ErrorComponent.builder();
+        ErrorUiComponent.ErrorComponentBuilder errorComponentBuilder = ErrorUiComponent.builder();
 
         if (e.getCause() instanceof ApiException) {
             ApiException cause = (ApiException) e.getCause();
             Throwable apiCause = cause.getCause();
             if (apiCause instanceof UnknownHostException) {
                 errorComponentBuilder
-                        .header("Unknown host: " + e.getUrl());
+                        .header("Unknown host: %s", UiElements.url(e.getUrl()));
             } else if (apiCause instanceof ConnectException) {
                 errorComponentBuilder
                         .header("Node unavailable")
-                        .details("Could not connect to node with URL " + e.getUrl());
+                        .details("Could not connect to node with URL %s", UiElements.url(e.getUrl()));
             } else if (apiCause != null) {
                 errorComponentBuilder
                         .header(apiCause.getMessage());
@@ -76,7 +77,7 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
             errorComponentBuilder.header(e.getCause() != e ? e.getCause().getMessage() : e.getMessage());
         }
 
-        ErrorComponent errorComponent = errorComponentBuilder.build();
+        ErrorUiComponent errorComponent = errorComponentBuilder.build();
 
         LOG.error(errorComponent.header(), e);
 

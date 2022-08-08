@@ -15,26 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.style;
+package org.apache.ignite.cli.core.style.element;
 
-import static org.apache.ignite.cli.core.style.AnsiStringSupport.Color;
-import static org.apache.ignite.cli.core.style.AnsiStringSupport.ansi;
 import static org.apache.ignite.cli.core.style.AnsiStringSupport.fg;
 
+import org.apache.ignite.cli.core.style.AnsiStringSupport.Color;
 import org.apache.ignite.cli.core.style.AnsiStringSupport.Style;
 
-/**
- * UI element that represents a successful message.
- */
-public class SuccessElement {
-
-    /** Done message. */
-    public static SuccessElement done() {
-        return new SuccessElement();
+/** Defines all UI Elements that are used in the CLI. */
+public class UiElements {
+    public static UiElement url(String content) {
+        return new MarkedUiElement(content, Style.UNDERLINE);
     }
 
-    /** Render message to string representation. */
-    public String render() {
-        return ansi(fg(Color.GREEN).with(Style.BOLD).mark("Done"));
+    public static UiElement command(String content) {
+        return new MarkedUiElement(content, Style.BOLD);
+    }
+
+    public static UiElement option(String content) {
+        return new MarkedUiElement(content, fg(Color.YELLOW));
+    }
+
+    public static UiElement done() {
+        return new MarkedUiElement("Done", fg(Color.GREEN).with(Style.BOLD));
+    }
+
+    public static UiElement yesNo() {
+        return new MarkedUiElement("[Y/n]", fg(Color.GRAY));
     }
 }

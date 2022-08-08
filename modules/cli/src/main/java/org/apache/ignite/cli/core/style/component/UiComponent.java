@@ -15,28 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.exception.handler;
-
-import org.apache.ignite.cli.core.exception.ExceptionHandler;
-import org.apache.ignite.cli.core.exception.ExceptionWriter;
-import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
-import org.apache.ignite.cli.deprecated.IgniteCliException;
+package org.apache.ignite.cli.core.style.component;
 
 /**
- * Exception handler for {@link IgniteCliException}.
+ * UI component that can render to ANSI String.
  */
-public class IgniteCliExceptionHandler implements ExceptionHandler<IgniteCliException> {
-    @Override
-    public int handle(ExceptionWriter err, IgniteCliException e) {
-        err.write(
-                ErrorUiComponent.fromHeader(e.getMessage()).render()
-        );
-
-        return 1;
-    }
-
-    @Override
-    public Class<IgniteCliException> applicableException() {
-        return IgniteCliException.class;
-    }
+public interface UiComponent {
+    String render();
 }

@@ -15,28 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.exception.handler;
+package org.apache.ignite.cli.core.style.element;
 
-import org.apache.ignite.cli.core.exception.ExceptionHandler;
-import org.apache.ignite.cli.core.exception.ExceptionWriter;
-import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
-import org.apache.ignite.cli.deprecated.IgniteCliException;
+import java.util.Arrays;
 
-/**
- * Exception handler for {@link IgniteCliException}.
- */
-public class IgniteCliExceptionHandler implements ExceptionHandler<IgniteCliException> {
-    @Override
-    public int handle(ExceptionWriter err, IgniteCliException e) {
-        err.write(
-                ErrorUiComponent.fromHeader(e.getMessage()).render()
-        );
+/** Can format the string with UI Elements. */
+public class UiString {
+    /** Accepts the String template with UI Elements. */
+    public static String format(String template, UiElement... elements) {
+        if (elements == null || elements.length == 0) {
+            return template;
+        }
 
-        return 1;
-    }
+        Object[] elementsAsObjects = Arrays.stream(elements).map(Object.class::cast).toArray();
 
-    @Override
-    public Class<IgniteCliException> applicableException() {
-        return IgniteCliException.class;
+        return String.format(template, elementsAsObjects);
     }
 }

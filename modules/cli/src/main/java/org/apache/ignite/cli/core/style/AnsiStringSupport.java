@@ -33,10 +33,15 @@ public final class AnsiStringSupport {
         return new Fg(color);
     }
 
+    /** Can mark the string as a ANSI string. */
+    public interface Marker {
+        String mark(String content);
+    }
+
     /**
      * Dsl for ansi fg: takes color and marks string like: mytext -> @|fg(10) mytext|@ where 10 is the ansi color.
      */
-    public static class Fg {
+    public static class Fg implements Marker {
         private final Color color;
         private Style style;
 
@@ -59,11 +64,18 @@ public final class AnsiStringSupport {
     }
 
     /** Represents the text style. */
-    public enum Style {
-        BOLD;
+    public enum Style implements Marker {
+        BOLD("bold"),
+        UNDERLINE("underline");
+
+        private final String value;
+
+        Style(String value) {
+            this.value = value;
+        }
 
         public String mark(String textToMark) {
-            return String.format("@|bold %s|@", textToMark);
+            return String.format("@|%s %s|@", value, textToMark);
         }
     }
 

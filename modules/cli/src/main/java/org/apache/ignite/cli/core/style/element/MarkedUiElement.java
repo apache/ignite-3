@@ -15,11 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.style.component;
+package org.apache.ignite.cli.core.style.element;
 
-/**
- * UI component that can render to String.
- */
-public interface Component {
-    String render();
+import org.apache.ignite.cli.core.style.AnsiStringSupport.Marker;
+
+/** IU element that is marked with provided ANSI marker. */
+public class MarkedUiElement implements UiElement {
+    private final String content;
+
+    private final Marker marker;
+
+    MarkedUiElement(String content, Marker marker) {
+        this.content = content;
+        this.marker = marker;
+    }
+
+    @Override
+    public String represent() {
+        return marker.mark(content);
+    }
+
+    @Override
+    public String toString() {
+        return represent();
+    }
 }

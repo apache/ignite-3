@@ -27,8 +27,8 @@ import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.cli.core.exception.handler.IgniteCliApiExceptionHandler;
 import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.flow.builder.Flows;
-import org.apache.ignite.cli.core.style.AnsiStringSupport.Style;
-import org.apache.ignite.cli.core.style.component.ErrorComponent;
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
+import org.apache.ignite.cli.core.style.element.UiElements;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -80,10 +80,10 @@ public class ClusterConfigShowReplSubCommand extends BaseCommand implements Runn
                 ApiException apiException = (ApiException) e.getCause();
                 if (apiException.getCode() == 500) { //TODO: should be 404
                     err.write(
-                            ErrorComponent.builder()
+                            ErrorUiComponent.builder()
                                     .header("Cannot show cluster config")
-                                    .details("Probably you have not initialized the cluster, try to run " + Style.BOLD.mark("cluster init")
-                                            + "command")
+                                    .details("Probably you have not initialized the cluster, try to run %s command",
+                                            UiElements.command("cluster init"))
                                     .build()
                                     .render()
                     );

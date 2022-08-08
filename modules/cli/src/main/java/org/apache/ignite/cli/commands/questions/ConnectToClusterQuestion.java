@@ -28,6 +28,8 @@ import org.apache.ignite.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.cli.core.flow.builder.Flows;
 import org.apache.ignite.cli.core.repl.Session;
 import org.apache.ignite.cli.core.repl.context.CommandLineContextProvider;
+import org.apache.ignite.cli.core.style.component.QuestionUiComponent;
+import org.apache.ignite.cli.core.style.element.UiElements;
 
 
 /**
@@ -54,11 +56,13 @@ public class ConnectToClusterQuestion {
      */
     public FlowBuilder<Void, String> askQuestionIfNotConnected(String clusterUrl) {
         String clusterProperty = provider.get().getCurrentProperty("ignite.cluster-url");
-        String question = "You are not connected to node. Do you want to connect to the default node "
-                + clusterProperty + " ? [Y/n] ";
+        QuestionUiComponent questionUiComponent = QuestionUiComponent.fromQuestion(
+                "You are not connected to node. Do you want to connect to the default node %s? %s",
+                UiElements.url(clusterProperty), UiElements.yesNo()
+        );
 
         return Flows.from(clusterUrlOrSessionNode(clusterUrl))
-                .ifThen(Objects::isNull, Flows.<String, ConnectCallInput>acceptQuestion(question,
+                .ifThen(Objects::isNull, Flows.<String, ConnectCallInput>acceptQuestion(questionUiComponent,
                                 () -> new ConnectCallInput(clusterProperty))
                         .then(Flows.fromCall(connectCall))
                         .toOutput(CommandLineContextProvider.getContext())

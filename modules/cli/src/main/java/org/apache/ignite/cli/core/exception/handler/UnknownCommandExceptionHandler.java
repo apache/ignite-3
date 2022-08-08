@@ -19,7 +19,7 @@ package org.apache.ignite.cli.core.exception.handler;
 
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
-import org.apache.ignite.cli.core.style.component.ErrorComponent;
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
 import org.jline.console.impl.SystemRegistryImpl.UnknownCommandException;
 
 /**
@@ -31,7 +31,7 @@ public class UnknownCommandExceptionHandler implements ExceptionHandler<UnknownC
     @Override
     public int handle(ExceptionWriter err, UnknownCommandException e) {
         err.write(
-                ErrorComponent.fromHeader(e.getMessage()).render()
+                ErrorUiComponent.fromHeader(e.getMessage()).render()
         );
         // This exception is only thrown in the REPL mode so the return value is irrelevant, but we use 2 to keep it consistent
         return 2;

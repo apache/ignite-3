@@ -19,30 +19,44 @@ package org.apache.ignite.cli.core.style.component;
 
 import static org.apache.ignite.cli.core.style.AnsiStringSupport.ansi;
 
+import org.apache.ignite.cli.core.style.element.UiElement;
+import org.apache.ignite.cli.core.style.element.UiString;
+
 /**
  * UI component that represent a message.
  */
-public class MessageComponent implements Component {
+public class MessageUiComponent implements UiComponent {
 
     private final String message;
 
+    private final UiElement[] messageUiElements;
+
     private final String hint;
 
-    private MessageComponent(String message, String hint) {
+    private final UiElement[] hintUiElements;
+
+    private MessageUiComponent(
+            String message,
+            UiElement[] messageUiElements,
+            String hint,
+            UiElement[] hintUiElements) {
         this.message = message;
+        this.messageUiElements = messageUiElements;
         this.hint = hint;
+        this.hintUiElements = hintUiElements;
     }
 
     @Override
     public String render() {
         return ansi(
-                message
-                + (hint == null ? "" : System.lineSeparator() + hint)
+                UiString.format(message, messageUiElements)
+                        + (UiString.format(hint, hintUiElements) == null ? ""
+                        : System.lineSeparator() + UiString.format(hint, hintUiElements))
         );
     }
 
-    public static MessageComponent formMessage(String message) {
-        return builder().message(message).build();
+    public static MessageUiComponent fromMessage(String message, UiElement... messageUiElements) {
+        return builder().message(message, messageUiElements).build();
     }
 
     /** Builder. */
@@ -56,18 +70,26 @@ public class MessageComponent implements Component {
 
         private String hint;
 
-        public MessageComponentBuilder message(String message) {
+        private UiElement[] messageUiElements;
+
+        private UiElement[] hintUiElements;
+
+        /** Sets message. */
+        public MessageComponentBuilder message(String message, UiElement... uiElements) {
             this.message = message;
+            this.messageUiElements = uiElements;
             return this;
         }
 
-        public MessageComponentBuilder hint(String hint) {
+        /** Sets hint. */
+        public MessageComponentBuilder hint(String hint, UiElement... uiElements) {
             this.hint = hint;
+            this.hintUiElements = uiElements;
             return this;
         }
 
-        public MessageComponent build() {
-            return new MessageComponent(message, hint);
+        public MessageUiComponent build() {
+            return new MessageUiComponent(message, messageUiElements, hint, hintUiElements);
         }
     }
 }

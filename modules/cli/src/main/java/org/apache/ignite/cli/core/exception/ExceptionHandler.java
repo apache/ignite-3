@@ -17,7 +17,7 @@
 
 package org.apache.ignite.cli.core.exception;
 
-import org.apache.ignite.cli.core.style.component.ErrorComponent;
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
@@ -34,7 +34,7 @@ public interface ExceptionHandler<T extends Throwable> {
         public int handle(ExceptionWriter err, Throwable e) {
             LOG.error("Unhandled exception", e);
             err.write(
-                    ErrorComponent.builder()
+                    ErrorUiComponent.builder()
                             .header("Unknown error")
                             .details("Please, take a look at node log")
                             .build()

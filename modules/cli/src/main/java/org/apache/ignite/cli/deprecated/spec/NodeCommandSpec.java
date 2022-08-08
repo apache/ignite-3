@@ -17,6 +17,8 @@
 
 package org.apache.ignite.cli.deprecated.spec;
 
+import static org.apache.ignite.cli.core.style.AnsiStringSupport.ansi;
+
 import com.jakewharton.fliptables.FlipTable;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -26,7 +28,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.core.style.SuccessElement;
+import org.apache.ignite.cli.core.style.element.UiElements;
 import org.apache.ignite.cli.deprecated.CliPathsConfigLoader;
 import org.apache.ignite.cli.deprecated.IgniteCliException;
 import org.apache.ignite.cli.deprecated.IgnitePaths;
@@ -89,7 +91,7 @@ public class NodeCommandSpec {
                     ignitePaths.serverJavaUtilLoggingPros(),
                     out);
 
-            out.println(SuccessElement.done().render());
+            out.println(ansi(UiElements.done().represent()));
 
             out.println(String.format("[name: %s, pid: %d]", node.name, node.pid));
 

@@ -30,6 +30,7 @@ import org.apache.ignite.cli.core.flow.question.AcceptedQuestionAnswer;
 import org.apache.ignite.cli.core.flow.question.InterruptQuestionAnswer;
 import org.apache.ignite.cli.core.flow.question.QuestionAnswer;
 import org.apache.ignite.cli.core.flow.question.QuestionAskerFactory;
+import org.apache.ignite.cli.core.style.component.QuestionUiComponent;
 
 /**
  * Helper class for operating and creating {@link Flow} and {@link FlowBuilder}.
@@ -139,5 +140,19 @@ public final class Flows {
                                 new InterruptQuestionAnswer<>())
                 )
                 .then(Flows.mono(unused -> onAccept.get()));
+    }
+
+    /**
+     * Create new {@link FlowBuilder} which starts from yes/no question and pass the result of the @{code onAccept}
+     * call on positive answer or interrupts the flow on negative answer.
+     *
+     * @param question question UI component.
+     * @param onAccept callback to call on positive answer
+     * @param <I> input type.
+     * @param <O> output type.
+     * @return new {@link FlowBuilder}.
+     */
+    public static <I, O> FlowBuilder<I, O> acceptQuestion(QuestionUiComponent question, Supplier<O> onAccept) {
+        return acceptQuestion(question.render(), onAccept);
     }
 }

@@ -20,7 +20,7 @@ package org.apache.ignite.cli.core.exception.handler;
 import org.apache.ignite.cli.config.ini.SectionAlreadyExistsException;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
-import org.apache.ignite.cli.core.style.component.ErrorComponent;
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
 
 /**
  * Handler for {@link SectionAlreadyExistsException}.
@@ -29,7 +29,7 @@ public class SectionAlreadyExistsExceptionHandler implements ExceptionHandler<Se
     @Override
     public int handle(ExceptionWriter err, SectionAlreadyExistsException e) {
         err.write(
-                ErrorComponent.fromHeader(e.getMessage()).render()
+                ErrorUiComponent.fromHeader(e.getMessage()).render()
         );
 
         return 1;

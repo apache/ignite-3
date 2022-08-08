@@ -15,28 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.exception.handler;
+package org.apache.ignite.cli.core.style.element;
 
-import org.apache.ignite.cli.core.exception.ExceptionHandler;
-import org.apache.ignite.cli.core.exception.ExceptionWriter;
-import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
-import org.apache.ignite.cli.deprecated.IgniteCliException;
+/** Can represent UI Element as an ANSI string. */
+public interface UiElement {
 
-/**
- * Exception handler for {@link IgniteCliException}.
- */
-public class IgniteCliExceptionHandler implements ExceptionHandler<IgniteCliException> {
-    @Override
-    public int handle(ExceptionWriter err, IgniteCliException e) {
-        err.write(
-                ErrorUiComponent.fromHeader(e.getMessage()).render()
-        );
-
-        return 1;
-    }
-
-    @Override
-    public Class<IgniteCliException> applicableException() {
-        return IgniteCliException.class;
-    }
+    /** Represents the UI Element as ansi String. For example '@|fg(1) text |@'. */
+    String represent();
 }

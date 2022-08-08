@@ -17,22 +17,19 @@
 
 package org.apache.ignite.cli.core.style.component;
 
-import static org.apache.ignite.cli.core.style.AnsiStringSupport.fg;
-
-import org.apache.ignite.cli.core.style.AnsiStringSupport.Color;
-import org.apache.ignite.cli.core.style.AnsiStringSupport.Style;
+import org.apache.ignite.cli.core.style.element.UiElements;
 
 /** Common UI messages. */
 public class CommonMessages {
-    public static MessageComponent CONNECT_OR_USE_CLUSTER_URL_MESSAGE = MessageComponent.builder()
+    public static MessageUiComponent CONNECT_OR_USE_CLUSTER_URL_MESSAGE = MessageUiComponent.builder()
             .message("You are not connected to node")
-            .hint("Run " + Style.BOLD.mark("connect") + " command or use "
-                    + fg(Color.YELLOW).mark("--cluster-url") + " option")
+            .hint("Run %s command or use %s option",
+                    UiElements.command("connect"), UiElements.option("--cluster-url"))
             .build();
 
-    public static MessageComponent CONNECT_OR_USE_NODE_URL_MESSAGE = MessageComponent.builder()
+    public static MessageUiComponent CONNECT_OR_USE_NODE_URL_MESSAGE = MessageUiComponent.builder()
             .message("You are not connected to node")
-            .hint("Run " + Style.BOLD.mark("connect") + " command or use "
-                    + fg(Color.YELLOW).mark("--node-url") + " option")
+            .hint("Run %s command or use %s  option",
+                    UiElements.command("connect"), UiElements.option("--node-url"))
             .build();
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.cli.deprecated.builtins.init;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.cli.core.style.AnsiStringSupport.ansi;
 
 import jakarta.inject.Inject;
 import java.io.File;
@@ -31,8 +32,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Properties;
-import org.apache.ignite.cli.core.style.SuccessElement;
-import org.apache.ignite.cli.core.style.component.MessageComponent;
+import org.apache.ignite.cli.core.style.component.MessageUiComponent;
+import org.apache.ignite.cli.core.style.element.UiElements;
 import org.apache.ignite.cli.deprecated.CliPathsConfigLoader;
 import org.apache.ignite.cli.deprecated.IgniteCliException;
 import org.apache.ignite.cli.deprecated.IgnitePaths;
@@ -101,7 +102,7 @@ public class InitIgniteCommand {
         out.println(cfg.workDir);
         out.println(cfg.cfgDir);
         out.println(cfg.logDir);
-        out.println(SuccessElement.done().render());
+        out.println(ansi(UiElements.done().represent()));
 
         installIgnite(cfg, urls);
 
@@ -111,7 +112,7 @@ public class InitIgniteCommand {
 
         out.println();
         out.println(
-                MessageComponent.builder()
+                MessageUiComponent.builder()
                         .message("Apache Ignite is successfully initialized")
                         .hint("Run the " + cs.commandText("ignite node start") + " command to start a new local node")
                         .build()
