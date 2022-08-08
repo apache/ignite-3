@@ -24,12 +24,16 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.apache.ignite.cli.config.StateFolderProvider;
+import org.apache.ignite.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.cli.core.exception.handler.PicocliExecutionExceptionHandler;
 import org.apache.ignite.cli.core.exception.handler.ReplExceptionHandlers;
+import org.apache.ignite.cli.core.flow.question.JlineQuestionWriterReader;
+import org.apache.ignite.cli.core.flow.question.QuestionAskerFactory;
 import org.apache.ignite.cli.core.repl.Repl;
 import org.apache.ignite.cli.core.repl.completer.DynamicCompleterActivationPoint;
 import org.apache.ignite.cli.core.repl.completer.DynamicCompleterFilter;
 import org.apache.ignite.cli.core.repl.completer.DynamicCompleterRegistry;
+import org.apache.ignite.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.cli.core.repl.expander.NoopExpander;
 import org.jline.console.impl.SystemRegistryImpl;
 import org.jline.reader.Completer;
@@ -56,7 +60,7 @@ public class ReplExecutor {
 
     private final AtomicBoolean interrupted = new AtomicBoolean();
 
-    private final ReplExceptionHandlers exceptionHandlers = new ReplExceptionHandlers(interrupted::set);
+    private final ExceptionHandlers exceptionHandlers = new ReplExceptionHandlers(interrupted::set);
 
     private final PicocliCommandsFactory factory;
 
@@ -66,7 +70,7 @@ public class ReplExecutor {
      * Constructor.
      *
      * @param commandsFactory picocli commands factory.
-     * @param terminal terminal instance.
+     * @param terminal        terminal instance.
      */
     public ReplExecutor(PicocliCommandsFactory commandsFactory, Terminal terminal) {
         this.factory = commandsFactory;
@@ -102,6 +106,8 @@ public class ReplExecutor {
                 // Workaround for jline issue where TailTipWidgets will produce NPE when passed a bracket
                 registry.setScriptDescription(cmdLine -> null);
             }
+
+            QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader));
 
             while (!interrupted.get()) {
                 try {
@@ -141,6 +147,7 @@ public class ReplExecutor {
         if (defaultValueProvider != null) {
             cmd.setDefaultValueProvider(defaultValueProvider);
         }
+        CommandLineContextProvider.setCmd(cmd);
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
 
         DynamicCompleterRegistry completerRegistry = factory.create(DynamicCompleterRegistry.class);

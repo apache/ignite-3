@@ -50,16 +50,11 @@ public class ConnectCommand extends BaseCommand implements Runnable {
     @Override
     public void run() {
         CallExecutionPipeline.builder(connectCall)
-                .inputProvider(this::buildCallInput)
+                .inputProvider(() -> new ConnectCallInput(nodeUrl))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .build()
                 .runPipeline();
     }
 
-    private ConnectCallInput buildCallInput() {
-        return ConnectCallInput.builder()
-                .nodeUrl(nodeUrl)
-                .build();
-    }
 }

@@ -17,24 +17,29 @@
 
 package org.apache.ignite.cli.commands.decorators;
 
-import com.jakewharton.fliptables.FlipTableConverters;
-import org.apache.ignite.cli.core.decorator.Decorator;
-import org.apache.ignite.cli.core.decorator.TerminalOutput;
+import org.apache.ignite.cli.call.cluster.status.ClusterStatus;
+import org.apache.ignite.cli.call.configuration.JsonString;
+import org.apache.ignite.cli.call.node.status.NodeStatus;
+import org.apache.ignite.cli.config.Profile;
+import org.apache.ignite.cli.core.decorator.DecoratorRegistry;
+import org.apache.ignite.cli.sql.SqlQueryResult;
 import org.apache.ignite.cli.sql.table.Table;
 
 /**
- * Implementation of {@link Decorator} for {@link Table}.
+ * Default set of {@link org.apache.ignite.cli.core.decorator.Decorator}.
  */
-public class TableDecorator implements Decorator<Table, TerminalOutput> {
+public class DefaultDecoratorRegistry extends DecoratorRegistry {
 
     /**
-     * Transform {@link Table} to {@link TerminalOutput}.
-     *
-     * @param table incoming {@link Table}.
-     * @return User friendly interpretation of {@link Table} in {@link TerminalOutput}.
+     * Constructor.
      */
-    @Override
-    public TerminalOutput decorate(Table table) {
-        return () -> FlipTableConverters.fromObjects(table.header(), table.content());
+    public DefaultDecoratorRegistry() {
+        add(JsonString.class, new JsonDecorator());
+        add(Profile.class, new ProfileDecorator());
+        add(Table.class, new TableDecorator());
+        add(SqlQueryResult.class, new SqlQueryResultDecorator());
+        add(ClusterStatus.class, new ClusterStatusDecorator());
+        add(NodeStatus.class, new NodeStatusDecorator());
+
     }
 }

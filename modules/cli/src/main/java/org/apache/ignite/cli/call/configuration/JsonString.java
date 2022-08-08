@@ -15,30 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.repl.executor;
-
-import io.micronaut.configuration.picocli.MicronautFactory;
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
-import org.jline.terminal.Terminal;
-import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
+package org.apache.ignite.cli.call.configuration;
 
 /**
- * Provider of {@link ReplExecutor}.
+ * Wrapper class for String instance with Json content.
  */
-@Singleton
-public class ReplExecutorProvider {
-    private PicocliCommandsFactory factory;
+public class JsonString {
+    private final String value;
 
-    @Inject
-    private Terminal terminal;
-
-    public ReplExecutor get() {
-        return new ReplExecutor(factory, terminal);
+    private JsonString(String value) {
+        this.value = value;
     }
 
-    public void injectFactory(MicronautFactory micronautFactory) {
-        factory = new PicocliCommandsFactory(micronautFactory);
-        factory.setTerminal(terminal);
+    public static JsonString fromString(String jsonString) {
+        return new JsonString(jsonString);
+    }
+
+    public String getValue() {
+        return value;
     }
 }
