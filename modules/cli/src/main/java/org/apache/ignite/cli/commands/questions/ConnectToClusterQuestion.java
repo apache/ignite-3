@@ -58,13 +58,13 @@ public class ConnectToClusterQuestion {
      * @return {@link FlowBuilder} instance with question in case when cluster url.
      */
     public FlowBuilder<Void, String> askQuestionIfNotConnected(String clusterUrl) {
-        String clusterProperty = configManagerProvider.get().getCurrentProperty("ignite.cluster-url");
+        String defaultUrl = configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
         String question = "You are not connected to node. Do you want to connect to the default node "
-                + clusterProperty + " ? [Y/n] ";
+                + defaultUrl + " ? [Y/n] ";
 
         return Flows.from(clusterUrlOrSessionNode(clusterUrl))
                 .ifThen(Objects::isNull, Flows.<String, ConnectCallInput>acceptQuestion(question,
-                                () -> new ConnectCallInput(clusterProperty))
+                                () -> new ConnectCallInput(defaultUrl))
                         .then(Flows.fromCall(connectCall))
                         .toOutput(CommandLineContextProvider.getContext())
                         .build())
