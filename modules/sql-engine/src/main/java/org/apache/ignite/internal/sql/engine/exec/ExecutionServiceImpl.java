@@ -583,20 +583,20 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                             if (!batch.hasMore()) {
                                 DistributedQueryManager.this.close(false);
                             }
-                        }).whenComplete((v, e) -> {
-                            if (e == null) {
-                                if (implicitTx) {
-                                    transaction.commitAsync();
-                                }
-                            }
-                            else {
-                                if (implicitTx) {
-                                    transaction.rollbackAsync();
-                                }
-                            }
                         });
 
                         return fut;
+                    }).whenComplete((v, e) -> {
+                        if (e == null) {
+                            if (implicitTx) {
+                                transaction.commitAsync();
+                            }
+                        }
+                        else {
+                            if (implicitTx) {
+                                transaction.rollbackAsync();
+                            }
+                        }
                     });
                 }
 
