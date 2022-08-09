@@ -57,7 +57,7 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
      *
      * @param tableCfg Table configuration.
      */
-    public AbstractPageMemoryTableStorage(TableConfiguration tableCfg) {
+    protected AbstractPageMemoryTableStorage(TableConfiguration tableCfg) {
         this.tableCfg = tableCfg;
     }
 

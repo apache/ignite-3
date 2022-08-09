@@ -21,6 +21,7 @@ import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
@@ -72,6 +73,18 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         boolean notContainsWriteIntent() {
             return begin != null && txId == null;
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
+        return closure.execute();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> flush() {
+        return CompletableFuture.completedFuture(null);
     }
 
     /** {@inheritDoc} */

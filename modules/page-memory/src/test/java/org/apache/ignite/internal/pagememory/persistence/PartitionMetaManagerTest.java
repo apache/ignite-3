@@ -139,7 +139,7 @@ public class PartitionMetaManagerTest {
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
                 manager.writeMetaToBuffer(
                         partId,
-                        new PartitionMeta(UUID.randomUUID(), 200, 1000, 300, 600, 900, 4).metaSnapshot(null),
+                        new PartitionMeta(UUID.randomUUID(), 0, 200, 1000, 300, 600, 900, 4).metaSnapshot(null),
                         buffer.rewind()
                 );
 

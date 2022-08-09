@@ -73,6 +73,8 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         longJvmPauseDetector.start();
 
+        engineConfig.checkpoint().cpDelayMillis().update(0).get(1, TimeUnit.SECONDS);
+
         engine = new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, longJvmPauseDetector);
 
         engine.start();

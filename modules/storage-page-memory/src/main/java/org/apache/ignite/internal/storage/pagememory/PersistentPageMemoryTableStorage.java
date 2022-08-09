@@ -45,21 +45,35 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * Implementation of {@link AbstractPageMemoryTableStorage} for persistent case.
  */
 public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+    /** Storage engine instance. */
+    private final PersistentPageMemoryStorageEngine engine;
+
+    /** Data region instance. */
     private final PersistentPageMemoryDataRegion dataRegion;
 
     /**
      * Constructor.
      *
+     * @param engine Storage engine instance.
      * @param tableCfg Table configuration.
      * @param dataRegion Data region for the table.
      */
     public PersistentPageMemoryTableStorage(
+            PersistentPageMemoryStorageEngine engine,
             TableConfiguration tableCfg,
             PersistentPageMemoryDataRegion dataRegion
     ) {
         super(tableCfg);
 
+        this.engine = engine;
         this.dataRegion = dataRegion;
+    }
+
+    /**
+     * Returns a storage engine instance.
+     */
+    public PersistentPageMemoryStorageEngine engine() {
+        return engine;
     }
 
     /** {@inheritDoc} */
@@ -259,13 +273,15 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             );
 
             return new PersistentPageMemoryMvPartitionStorage(
+                    this,
                     partitionId,
                     tableView,
-                    dataRegion.pageMemory(),
+                    dataRegion,
+                    checkpointManager,
+                    meta,
                     versionChainFreeList,
                     rowVersionFreeList,
-                    versionChainTree,
-                    checkpointTimeoutLock
+                    versionChainTree
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(

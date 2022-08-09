@@ -36,6 +36,11 @@ public class PageMemoryCheckpointConfigurationSchema {
     @Value(hasDefault = true)
     public int frequencyDeviation = 40;
 
+    /** Delay before executing a checkpoint triggered by RAFT. */
+    @Range(min = 0)
+    @Value(hasDefault = true)
+    public int cpDelayMillis = 200;
+
     /** Number of checkpoint threads. */
     @Range(min = 1)
     @Value(hasDefault = true)

@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.storage;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,6 +37,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -678,5 +681,26 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         Cursor<BinaryRow> cursor = scan(row -> true, newTransactionId());
 
         assertThrows(TxIdMismatchException.class, cursor::next);
+    }
+
+    @Test
+    void testAppliedIndex() {
+        storage.runConsistently(() -> {
+            assertEquals(0, storage.lastAppliedIndex());
+            assertEquals(0, storage.persistedIndex());
+
+            storage.lastAppliedIndex(1);
+
+            assertEquals(1, storage.lastAppliedIndex());
+            assertThat(storage.persistedIndex(), is(lessThanOrEqualTo(1L)));
+
+            return null;
+        });
+
+        CompletableFuture<Void> flushFuture = storage.flush();
+
+        assertThat(flushFuture, willBe(equalTo(null)));
+
+        assertEquals(1, storage.persistedIndex());
     }
 }
