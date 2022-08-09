@@ -68,10 +68,10 @@
             <artifactId>ignite-network-api</artifactId>
         </dependency>
 
-<!--        <dependency>-->
-<!--            <groupId>org.apache.ignite</groupId>-->
-<!--            <artifactId>ignite-raft</artifactId>-->
-<!--        </dependency>-->
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-network</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.apache.ignite</groupId>
@@ -160,12 +160,6 @@
         <dependency>
             <groupId>com.github.npathai</groupId>
             <artifactId>hamcrest-optional</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-network</artifactId>
             <scope>test</scope>
         </dependency>
 

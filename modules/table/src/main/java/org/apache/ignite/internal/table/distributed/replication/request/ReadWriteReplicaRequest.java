@@ -21,9 +21,9 @@ import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
 
 /**
- * RW replica request.
+ * Read Write replica request.
  */
-// TODO: extends ReplicaRequest issue.
+// TODO: https://issues.apache.org/jira/browse/IGNITE-17464
 public interface ReadWriteReplicaRequest extends NetworkMessage { //extends ReplicaRequest {
 
     UUID transactionId();
