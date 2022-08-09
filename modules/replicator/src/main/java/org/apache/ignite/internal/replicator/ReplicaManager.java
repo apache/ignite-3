@@ -121,7 +121,7 @@ public class ReplicaManager implements IgniteComponent {
      * @return Replica.
      */
     private Replica startReplicaInternal(String replicaGrpId, ReplicaListener listener) {
-        var replica = new Replica(replicaGrpId, listener, clusterNetSvc.messagingService());
+        var replica = new Replica(replicaGrpId, listener);
 
         Replica previous = replicas.putIfAbsent(replicaGrpId, replica);
 
