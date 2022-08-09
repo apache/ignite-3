@@ -461,7 +461,13 @@ public class SchemaConfigurationConverter {
         var indices = new HashMap<String, IndexDefinition>(capacity(idxsView.size()));
 
         for (String key : idxsView.namedListKeys()) {
-            IndexDefinition definition = convert(idxsView.get(key));
+            TableIndexView indexView = idxsView.get(key);
+
+            if (indexView == null) { // skip just deleted indices
+                continue;
+            }
+
+            IndexDefinition definition = convert(indexView);
 
             indices.put(definition.name(), definition);
         }

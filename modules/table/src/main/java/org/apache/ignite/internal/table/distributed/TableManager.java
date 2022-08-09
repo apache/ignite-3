@@ -1207,7 +1207,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param checkConfiguration {@code True} when the method checks a configuration before trying to get a table, {@code false} otherwise.
      * @return Future representing pending completion of the operation.
      */
-    private CompletableFuture<TableImpl> tableAsyncInternal(UUID id, boolean checkConfiguration) {
+    public CompletableFuture<TableImpl> tableAsyncInternal(UUID id, boolean checkConfiguration) {
         if (checkConfiguration && !isTableConfigured(id)) {
             return CompletableFuture.completedFuture(null);
         }

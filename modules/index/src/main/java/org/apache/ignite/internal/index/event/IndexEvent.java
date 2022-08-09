@@ -15,29 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.index;
+package org.apache.ignite.internal.index.event;
 
-import java.util.BitSet;
-import java.util.UUID;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.manager.Event;
 
 /**
- * An object describing an abstract index.
- *
- * <p>Provides access to the indexed data as well as all information about index itself.
+ * Index management events.
  */
-public interface Index<DescriptorT extends IndexDescriptor> {
-    /** Returns identifier of the index. */
-    UUID id();
+public enum IndexEvent implements Event {
+    /** This event is fired when an index was created. */
+    CREATE,
 
-    /** Returns name of the index. */
-    String name();
-
-    UUID tableId();
-
-    DescriptorT descriptor();
-
-    /** Returns cursor for the values corresponding to the given key. */
-    Cursor<BinaryTuple> scan(BinaryTuple key, BitSet columns);
+    /** This event is fired when an index was dropped. */
+    DROP
 }

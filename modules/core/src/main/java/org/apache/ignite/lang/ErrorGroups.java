@@ -162,5 +162,8 @@ public class ErrorGroups {
 
         /** Invalid index definition. */
         public static final int INVALID_INDEX_DEFINITION_ERR = INDEX_ERR_GROUP.registerErrorCode(1);
+
+        /** Index not found. */
+        public static final int INDEX_NOT_FOUND_ERR = INDEX_ERR_GROUP.registerErrorCode(2);
     }
 }
