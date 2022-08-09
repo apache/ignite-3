@@ -111,9 +111,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /** {@inheritDoc} */
     @Override
-    public ListenerResponse invoke(ReplicaRequest request) {
+    public CompletableFuture<Object> invoke(ReplicaRequest request) {
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
-            return processSingleEntryAction((ReadWriteSingleRowReplicaRequest) request).join();
+            return processSingleEntryAction((ReadWriteSingleRowReplicaRequest) request);
         } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
             return processMultiEntryAction((ReadWriteMultiRowReplicaRequest) request);
         } if (request instanceof ReadWriteDualRowReplicaRequest) {
@@ -372,7 +372,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Single request operation.
      * @return Listener response.
      */
-    private CompletableFuture<ListenerResponse> processSingleEntryAction(ReadWriteSingleRowReplicaRequest request) {
+    private CompletableFuture<Object> processSingleEntryAction(ReadWriteSingleRowReplicaRequest request) {
         BinaryRow searchKey = new ByteBufferRow(request.binaryRow().keySlice());
 
         BinaryRow searchRow = request.binaryRow();
@@ -413,10 +413,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return rowLockFut.thenApply(rowLock -> {
                             BinaryRow result = rowId != null ? mvDataStorage.read(rowId, txId) : null;
 
-                            CompletableFuture raftFut = rowId != null ? raftClient.run(new DeleteCommand(searchKey, txId)) :
+                            CompletableFuture<Object> raftFut = rowId != null ? raftClient.run(new DeleteCommand(searchKey, txId)) :
                                     CompletableFuture.completedFuture(null);
 
-                            return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, result);
+                            // TODO: add exception handling, including analyzing whether raftFut result.
+                            return raftFut.thenApply(ignored -> result);
                         });
                     });
                 });

@@ -76,6 +76,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
@@ -272,6 +273,14 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
+        ReplicaService replicaService = new ReplicaService(null, null, null);
+
+        try {
+            return replicaService.invoke(null, null).thenApply(resp -> (BinaryRow) resp);
+        } catch (NodeStoppingException e) {
+            e.printStackTrace();
+        }
+
         return enlistInTx(keyRow, tx, tx0 -> new GetCommand(keyRow, tx0.id()), SingleRowResponse::getValue);
     }
 

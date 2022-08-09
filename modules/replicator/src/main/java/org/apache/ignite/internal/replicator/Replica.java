@@ -38,6 +38,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.WaiteOperationsResultRequest;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.network.MessagingService;
 
 /**
  * Replica server.
@@ -56,6 +57,8 @@ public class Replica {
     /** Replica listener. */
     private final ReplicaListener listener;
 
+    private final MessagingService messagingSvc;
+
     /**
      * The map matches an operation id to the future of operation result.
      * The first id is a business transaction id within which the operation is handled.
@@ -72,10 +75,12 @@ public class Replica {
      */
     public Replica(
             String replicaGrpId,
-            ReplicaListener listener
+            ReplicaListener listener,
+            MessagingService messagingSvc
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
+        this.messagingSvc = messagingSvc;
     }
 
     /**
@@ -84,7 +89,7 @@ public class Replica {
      * @param request Request to replication.
      * @return Response.
      */
-    public ReplicaResponse processRequest(ReplicaRequest request) { // define proper set of exceptions that might be thrown.
+    public CompletableFuture<Object> processRequest(ReplicaRequest request) { // define proper set of exceptions that might be thrown.
         assert replicaGrpId.equals(request.groupId()) : IgniteStringFormatter.format(
                 "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]", request.groupId(),
                 replicaGrpId);
@@ -100,7 +105,11 @@ public class Replica {
                 return handleCleanupRequest((CleanupRequest) request);
             }
 
-            ListenerResponse listResp = listener.invoke(request);
+            return listener.invoke(request);
+
+
+
+
 
             if (listResp instanceof ListenerCompoundResponse) {
                 var listCompResp = (ListenerCompoundResponse) listResp;

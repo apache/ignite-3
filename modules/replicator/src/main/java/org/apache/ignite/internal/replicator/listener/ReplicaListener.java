@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.replicator.listener;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
 /**
@@ -31,5 +32,5 @@ public interface ReplicaListener {
      * @param request Replica request.
      * @return Listener response.
      */
-    public ListenerResponse invoke(ReplicaRequest request);
+    public CompletableFuture<Object> invoke(ReplicaRequest request);
 }

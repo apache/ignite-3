@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.replicator;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.exception.ReplicaAlreadyIsStartedException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -41,6 +43,9 @@ import org.jetbrains.annotations.Nullable;
  * This class allow to start/stop/get a replica.
  */
 public class ReplicaManager implements IgniteComponent {
+    /** Replicator network message factory. */
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -177,9 +182,15 @@ public class ReplicaManager implements IgniteComponent {
                         //TODO:IGNITE-17255 Send an exceptional response to the client side when the replica is absent.
                     }
 
-                    ReplicaResponse resp = replica.processRequest(request);
+                    CompletableFuture<Object> result = replica.processRequest(request);
 
-                    clusterNetSvc.messagingService().respond(senderAddr, resp, correlationId);
+                    result.thenAccept(res -> clusterNetSvc.messagingService().respond(
+                            senderAddr,
+                            REPLICA_MESSAGES_FACTORY.replicaResponse().result(res).build(),
+                            correlationId);
+                    );
+
+
                 } finally {
                     busyLock.leaveBusy();
                 }
