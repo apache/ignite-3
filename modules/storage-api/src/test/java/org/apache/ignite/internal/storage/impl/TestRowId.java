@@ -15,39 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb.index;
+package org.apache.ignite.internal.storage.impl;
 
-import java.util.Arrays;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.SearchRow;
-import org.apache.ignite.internal.storage.index.IndexRow;
+import java.util.Objects;
+import java.util.UUID;
+import org.apache.ignite.internal.storage.RowId;
 
 /**
- * {@link IndexRow} implementation that uses {@link BinaryRow} serialization.
+ * Test-only {@link RowId} implementation.
  */
-class BinaryIndexRow implements IndexRow {
-    private final byte[] bytes;
+public class TestRowId implements RowId {
+    public final int partitionId;
+    public final UUID uuid;
 
-    private final SearchRow pk;
-
-    BinaryIndexRow(byte[] bytes, byte[] pkBytes) {
-        this.bytes = bytes;
-        this.pk = new ByteArraySearchRow(pkBytes);
-    }
-
-    BinaryIndexRow(BinaryRow row, SearchRow primaryKey) {
-        this.bytes = row.bytes();
-        this.pk = primaryKey;
+    public TestRowId(int partitionId) {
+        this.partitionId = partitionId;
+        uuid = UUID.randomUUID();
     }
 
     @Override
-    public byte[] rowBytes() {
-        return bytes;
-    }
-
-    @Override
-    public SearchRow primaryKey() {
-        return pk;
+    public int partitionId() {
+        return partitionId;
     }
 
     @Override
@@ -58,12 +46,12 @@ class BinaryIndexRow implements IndexRow {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        BinaryIndexRow that = (BinaryIndexRow) o;
-        return Arrays.equals(bytes, that.bytes);
+        TestRowId testRowId = (TestRowId) o;
+        return partitionId == testRowId.partitionId && uuid.equals(testRowId.uuid);
     }
 
     @Override
     public int hashCode() {
-        return Arrays.hashCode(bytes);
+        return Objects.hash(partitionId, uuid);
     }
 }

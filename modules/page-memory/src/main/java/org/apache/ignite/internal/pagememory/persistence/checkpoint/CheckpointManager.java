@@ -205,7 +205,7 @@ public class CheckpointManager {
      * @param listener Listener.
      * @param dataRegion Persistent data region for which listener is corresponded to, {@code null} for all regions.
      */
-    public void addCheckpointListener(CheckpointListener listener, DataRegion<PersistentPageMemory> dataRegion) {
+    public void addCheckpointListener(CheckpointListener listener, @Nullable DataRegion<PersistentPageMemory> dataRegion) {
         checkpointWorkflow.addCheckpointListener(listener, dataRegion);
     }
 

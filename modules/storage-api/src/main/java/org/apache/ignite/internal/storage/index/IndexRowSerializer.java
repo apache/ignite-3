@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.index;
+package org.apache.ignite.internal.storage.index;
+
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.storage.RowId;
 
 /**
- * Partial index descriptor.
+ * Temporary API for creating Index rows from a list of column values. All columns must be sorted according to the index columns order,
+ * specified by the {@link SortedIndexDescriptor#indexColumns()}.
  */
-public interface PartialIndexDefinition extends SortedIndexDefinition {
+public interface IndexRowSerializer {
     /**
-     * Partial index expression.
-     *
-     * @return Expression.
+     * Creates an Index row from a list of column values.
      */
-    String expr();
+    IndexRow createIndexRow(Object[] columnValues, RowId rowId);
 
-    /** {@inheritDoc} */
-    @Override
-    default String type() {
-        return "PARTIAL";
-    }
+    /**
+     * Creates an Prefix row from a list of column values.
+     */
+    BinaryTuple createIndexRowPrefix(Object[] prefixColumnValues);
 }

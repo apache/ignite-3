@@ -71,15 +71,6 @@ public class SchemaConfigurationTest {
                 )
 
                 .withIndex(
-                        SchemaBuilders.partialIndex("idx_2_partial")
-                                .addIndexColumn("id").desc().done()
-                                .addIndexColumn("name").asc().done()
-                                .withExpression("id > 0")
-                                .withHints(Map.of("INLINE_COLUMNS", "id"))
-                                .build()
-                )
-
-                .withIndex(
                         SchemaBuilders.hashIndex("idx_3_hash")
                                 .withColumns("id", "affId")
                                 .build()

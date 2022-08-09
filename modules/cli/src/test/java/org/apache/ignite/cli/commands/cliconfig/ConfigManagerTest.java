@@ -29,10 +29,10 @@ class ConfigManagerTest {
         File tempFile = TestConfigManagerHelper.createSectionWithInternalPart();
         IniConfigManager configManager = new IniConfigManager(tempFile);
 
-        configManager.setProperty("ignite.cluster-url", "test");
+        configManager.setProperty("ignite.cluster-endpoint-url", "test");
 
         IniConfigManager configAfterSave = new IniConfigManager(tempFile);
-        assertThat(configAfterSave.getCurrentProperty("ignite.cluster-url")).isEqualTo("test");
+        assertThat(configAfterSave.getCurrentProperty("ignite.cluster-endpoint-url")).isEqualTo("test");
     }
 
     @Test

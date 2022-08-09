@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.pagememory;
 
+import static org.apache.ignite.internal.util.Constants.KiB;
+import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -40,9 +42,9 @@ import org.junit.jupiter.api.Test;
  * Abstract class for non-load testing of {@link PageMemory} implementations.
  */
 public abstract class AbstractPageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
-    protected static final int PAGE_SIZE = 8 * 1024;
+    protected static final int PAGE_SIZE = 8 * KiB;
 
-    protected static final int MAX_MEMORY_SIZE = 10 * 1024 * 1024;
+    protected static final int MAX_MEMORY_SIZE = 10 * MiB;
 
     private static final PageIo PAGE_IO = new TestPageIo();
 

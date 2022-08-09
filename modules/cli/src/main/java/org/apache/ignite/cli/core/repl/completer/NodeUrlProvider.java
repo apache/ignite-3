@@ -18,6 +18,7 @@
 package org.apache.ignite.cli.core.repl.completer;
 
 import jakarta.inject.Singleton;
+import org.apache.ignite.cli.commands.OptionsConstants;
 import org.apache.ignite.cli.config.ConfigConstants;
 import org.apache.ignite.cli.config.ConfigManagerProvider;
 import org.apache.ignite.cli.core.repl.Session;
@@ -53,8 +54,9 @@ public class NodeUrlProvider {
 
     private String findClusterUrlIn(String[] words) {
         for (String word : words) {
-            if (word.startsWith("--cluster-url=")) {
-                return word.substring("--cluster-url=".length());
+            String prefix = OptionsConstants.CLUSTER_URL_OPTION + "=";
+            if (word.startsWith(prefix)) {
+                return word.substring(prefix.length());
             }
         }
         return null;

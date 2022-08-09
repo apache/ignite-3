@@ -15,15 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index;
+package org.apache.ignite.internal.storage;
+
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 
 /**
- * Represents an Index row prefix, used to perform prefix scans over the Sorted Index storage.
+ * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
  */
-public interface IndexRowPrefix {
+public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
     /**
-     * Returns a list of column values that comprise a prefix of an Index row. Values will be sorted in the same order as the
-     * Sorted Index columns, specified by {@link SortedIndexDescriptor#indexRowColumns()}.
+     * Creates new instance.
      */
-    Object[] prefixColumnValues();
+    public TestMvPartitionStorageTest() {
+        storage = new TestMvPartitionStorage(0);
+    }
 }

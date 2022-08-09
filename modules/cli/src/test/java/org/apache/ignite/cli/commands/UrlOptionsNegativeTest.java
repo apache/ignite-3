@@ -91,16 +91,16 @@ public class UrlOptionsNegativeTest {
         return List.of(
                 Arguments.arguments(NodeConfigShowSubCommand.class, "--node-url=", List.of()),
                 Arguments.arguments(NodeConfigUpdateSubCommand.class, "--node-url=", List.of("{key: value}")),
-                Arguments.arguments(ClusterConfigShowSubCommand.class, "--cluster-url=", List.of()),
-                Arguments.arguments(ClusterConfigUpdateSubCommand.class, "--cluster-url=", List.of("{key: value}"))
+                Arguments.arguments(ClusterConfigShowSubCommand.class, "--cluster-endpoint-url=", List.of()),
+                Arguments.arguments(ClusterConfigUpdateSubCommand.class, "--cluster-endpoint-url=", List.of("{key: value}"))
         // TODO https://issues.apache.org/jira/browse/IGNITE-17091
-        //                Arguments.arguments(StatusCommand.class, "--cluster-url=", List.of()),
+        //                Arguments.arguments(StatusCommand.class, "--cluster-endpoint-url=", List.of()),
         // TODO https://issues.apache.org/jira/browse/IGNITE-17102
-        //                Arguments.arguments(ClusterShowCommand.class, "--cluster-url=", List.of()),
+        //                Arguments.arguments(ClusterShowCommand.class, "--cluster-endpoint-url=", List.of()),
         // TODO https://issues.apache.org/jira/browse/IGNITE-17092
-        //                Arguments.arguments(TopologyCommand.class, "--cluster-url", List.of()),
+        //                Arguments.arguments(TopologyCommand.class, "--cluster-endpoint-url", List.of()),
         // TODO https://issues.apache.org/jira/browse/IGNITE-17162
-        //                Arguments.arguments(ClusterCommandSpec.InitClusterCommandSpec.class, "---cluster-url=",
+        //                Arguments.arguments(ClusterCommandSpec.InitClusterCommandSpec.class, "---cluster-endpoint-url=",
         //                        List.of("--cluster-name=cluster", "--meta-storage-node=test"))
         );
     }
@@ -109,17 +109,17 @@ public class UrlOptionsNegativeTest {
         return List.of(
                 Arguments.arguments(NodeConfigShowReplSubCommand.class, "--node-url=", List.of()),
                 Arguments.arguments(NodeConfigUpdateReplSubCommand.class, "--node-url=", List.of("{key: value}")),
-                Arguments.arguments(ClusterConfigShowReplSubCommand.class, "--cluster-url=", List.of()),
-                Arguments.arguments(ClusterConfigUpdateReplSubCommand.class, "--cluster-url=", List.of("{key: value}")),
+                Arguments.arguments(ClusterConfigShowReplSubCommand.class, "--cluster-endpoint-url=", List.of()),
+                Arguments.arguments(ClusterConfigUpdateReplSubCommand.class, "--cluster-endpoint-url=", List.of("{key: value}")),
                 Arguments.arguments(ConnectCommand.class, "", List.of())
         // TODO https://issues.apache.org/jira/browse/IGNITE-17091
-        //                Arguments.arguments(StatusReplCommand.class, "--cluster-url=", List.of()),
+        //                Arguments.arguments(StatusReplCommand.class, "--cluster-endpoint-url=", List.of()),
         // TODO https://issues.apache.org/jira/browse/IGNITE-17102
-        //                Arguments.arguments(ClusterShowReplCommand.class, "--cluster-url=", List.of()),
+        //                Arguments.arguments(ClusterShowReplCommand.class, "--cluster-endpoint-url=", List.of()),
         // TODO https://issues.apache.org/jira/browse/IGNITE-17092
-        //                Arguments.arguments(TopologyReplCommand.class, "--cluster-url", List.of()),
+        //                Arguments.arguments(TopologyReplCommand.class, "--cluster-endpoint-url", List.of()),
         // TODO https://issues.apache.org/jira/browse/IGNITE-17162
-        //                Arguments.arguments(ClusterReplCommandSpec.InitClusterCommandSpec.class, "---cluster-url=",
+        //                Arguments.arguments(ClusterReplCommandSpec.InitClusterCommandSpec.class, "---cluster-endpoint-url=",
         //                        List.of("--cluster-name=cluster", "--meta-storage-node=test"))
         );
     }

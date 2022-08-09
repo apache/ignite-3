@@ -19,7 +19,6 @@ package org.apache.ignite.schema;
 
 import org.apache.ignite.internal.schema.definition.builder.ColumnDefinitionBuilderImpl;
 import org.apache.ignite.internal.schema.definition.builder.HashIndexDefinitionBuilderImpl;
-import org.apache.ignite.internal.schema.definition.builder.PartialIndexDefinitionBuilderImpl;
 import org.apache.ignite.internal.schema.definition.builder.PrimaryKeyDefinitionBuilderImpl;
 import org.apache.ignite.internal.schema.definition.builder.SortedIndexDefinitionBuilderImpl;
 import org.apache.ignite.internal.schema.definition.builder.TableDefinitionBuilderImpl;
@@ -27,7 +26,6 @@ import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.HashIndexDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.PartialIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.PrimaryKeyDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.TableDefinitionBuilder;
@@ -90,16 +88,6 @@ public final class SchemaBuilders {
      */
     public static SortedIndexDefinitionBuilder sortedIndex(String name) {
         return new SortedIndexDefinitionBuilderImpl(name);
-    }
-
-    /**
-     * Creates partial index builder.
-     *
-     * @param name Index name.
-     * @return Partial index builder.
-     */
-    public static PartialIndexDefinitionBuilder partialIndex(String name) {
-        return new PartialIndexDefinitionBuilderImpl(name);
     }
 
     /**

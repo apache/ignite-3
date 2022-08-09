@@ -111,7 +111,7 @@ public class BinaryTupleBuilder {
      * @return Tuple builder.
      */
     public static BinaryTupleBuilder create(BinaryTupleSchema schema, boolean allowNulls) {
-        return create(schema.elementCount(), schema.hasNullableElements() & allowNulls);
+        return create(schema.elementCount(), schema.hasNullableElements() && allowNulls);
     }
 
     /**
@@ -145,7 +145,7 @@ public class BinaryTupleBuilder {
      * @return Tuple builder.
      */
     public static BinaryTupleBuilder create(BinaryTupleSchema schema, boolean allowNulls, int totalValueSize) {
-        return create(schema.elementCount(), schema.hasNullableElements() & allowNulls, totalValueSize);
+        return create(schema.elementCount(), schema.hasNullableElements() && allowNulls, totalValueSize);
     }
 
     /**

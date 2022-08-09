@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,28 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb.index;
+package org.apache.ignite.internal.index;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.storage.SearchRow;
+import java.util.BitSet;
+import java.util.UUID;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.util.Cursor;
 
 /**
- * {@link SearchRow} implementation that simply wraps a byte array.
+ * An object describing an abstract index.
+ *
+ * <p>Provides access to the indexed data as well as all information about index itself.
  */
-class ByteArraySearchRow implements SearchRow {
-    private final byte[] bytes;
+public interface Index {
+    /** Returns identifier of the index. */
+    UUID id();
 
-    ByteArraySearchRow(byte[] bytes) {
-        this.bytes = bytes;
-    }
+    /** Returns name of the index. */
+    String name();
 
-    @Override
-    public byte[] keyBytes() {
-        return bytes;
-    }
-
-    @Override
-    public ByteBuffer key() {
-        return ByteBuffer.wrap(bytes);
-    }
+    /** Returns cursor for the values corresponding to the given key. */
+    Cursor<BinaryTuple> scan(BinaryTuple key, BitSet columns);
 }

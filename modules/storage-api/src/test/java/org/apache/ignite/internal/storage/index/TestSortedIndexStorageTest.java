@@ -15,24 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.table;
+package org.apache.ignite.internal.storage.index;
 
-import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.PARTIAL_INDEX_TYPE;
-
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 
 /**
- * Schema for the Partial Index configuration.
+ * MV sorted index storage test implementation for {@link TestSortedIndexStorage} class.
  */
-@PolymorphicConfigInstance(PARTIAL_INDEX_TYPE)
-public class PartialIndexConfigurationSchema extends TableIndexConfigurationSchema {
-    /** Expression for PartialIndex: PARTIAL indexes. */
-    @Value
-    public String expr;
-
-    /** Columns configuration for sorted indexes. */
-    @NamedConfigValue
-    public IndexColumnConfigurationSchema columns;
+public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
+    @Override
+    protected SortedIndexStorage createIndexStorage(String name, TableView tableCfg) {
+        return new TestSortedIndexStorage(new SortedIndexDescriptor(name, tableCfg));
+    }
 }

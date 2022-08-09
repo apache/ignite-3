@@ -124,7 +124,9 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
         service.topologyService().addEventHandler(new TopologyEventHandler() {
             @Override public void onAppeared(ClusterNode member) {
-                // TODO asch optimize start replicator https://issues.apache.org/jira/browse/IGNITE-14843
+                // TODO https://issues.apache.org/jira/browse/IGNITE-14837
+                // Perhaps, We can remove checking for dead nodes and replace it with SWIM node alive event
+                // and start replicator when the event is received.
             }
 
             @Override public void onDisappeared(ClusterNode member) {

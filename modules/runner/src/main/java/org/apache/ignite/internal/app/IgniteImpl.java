@@ -54,6 +54,7 @@ import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -171,6 +172,8 @@ public class IgniteImpl implements Ignite {
 
     /** Distributed table manager. */
     private final TableManager distributedTblMgr;
+
+    private final IndexManager indexManager;
 
     /** Rest module. */
     private final RestComponent restComponent;
@@ -326,6 +329,10 @@ public class IgniteImpl implements Ignite {
                 schemaManager
         );
 
+        indexManager = new IndexManager(
+                distributedTblMgr
+        );
+
         qryEngine = new SqlQueryProcessor(
                 registry,
                 clusterSvc,
@@ -440,6 +447,7 @@ public class IgniteImpl implements Ignite {
                                     dataStorageMgr,
                                     schemaManager,
                                     distributedTblMgr,
+                                    indexManager,
                                     qryEngine,
                                     clientHandlerModule
                             );
@@ -519,6 +527,11 @@ public class IgniteImpl implements Ignite {
 
     public QueryProcessor queryEngine() {
         return qryEngine;
+    }
+
+    @TestOnly
+    public IndexManager indexManager() {
+        return indexManager;
     }
 
     /** {@inheritDoc} */

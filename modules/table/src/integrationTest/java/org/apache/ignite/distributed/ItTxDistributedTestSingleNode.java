@@ -40,8 +40,8 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
@@ -280,7 +280,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         grpId,
                         partNodes,
                         () -> new PartitionListener(tblId,
-                                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManagers.get(node))),
+                                new VersionedRowStore(new TestMvPartitionStorage(0), txManagers.get(node))),
                         RaftGroupOptions.defaults()
                 );
             }
