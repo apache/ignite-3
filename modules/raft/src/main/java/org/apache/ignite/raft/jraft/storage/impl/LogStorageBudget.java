@@ -30,7 +30,6 @@ public interface LogStorageBudget {
      * Returns {@code true} if there is room for the given entry, {@code false} otherwise.
      *
      * @param entry Entry that is tried to be appended.
-     * @return {@code true} if there is room for the given entry, {@code false} otherwise.
      */
     boolean hasRoomFor(LogEntry entry);
 
