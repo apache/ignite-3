@@ -22,6 +22,9 @@ import org.apache.ignite.raft.jraft.entity.LogEntry;
 
 /**
  * {@link LogStorageBudget} that makes sure that no more entries than the provided limit is stored.
+ *
+ * <p>This is not thread safe as {@link LogStorageBudget} implementations do not need to be thread safe (because all budget methods
+ * are called under locks).
  */
 public class EntryCountBudget implements LogStorageBudget {
 

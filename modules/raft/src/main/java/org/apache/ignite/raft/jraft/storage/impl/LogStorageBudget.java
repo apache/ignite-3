@@ -22,6 +22,8 @@ import org.apache.ignite.raft.jraft.entity.LogEntry;
 
 /**
  * Knows how to determine whether there is still room for more log entries.
+ *
+ * <p>All methods are called under locks, so implementations do not need to be thread-safe.
  */
 public interface LogStorageBudget {
     /**
