@@ -26,7 +26,6 @@ import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.network.MessagingService;
 
 /**
  * Replica server.
