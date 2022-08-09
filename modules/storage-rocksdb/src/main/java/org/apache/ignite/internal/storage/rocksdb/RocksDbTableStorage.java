@@ -81,6 +81,12 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
     /** Write options for write operations. */
     private final WriteOptions writeOptions = new WriteOptions().setDisableWAL(true);
 
+    /**
+     * Flush options to be used to asynchronously flush the Rocks DB memtable. It needs to be cached, because
+     * {@link RocksDB#flush(FlushOptions)} contract requires this object to not be GC-ed.
+     */
+    private final FlushOptions flushOptions = new FlushOptions().setWaitForFlush(false);
+
     /** Meta information. */
     private volatile RocksDbMetaStorage meta;
 
@@ -227,7 +233,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
                     return;
                 }
 
-                try (FlushOptions flushOptions = new FlushOptions().setWaitForFlush(false)) {
+                try {
                     db.flush(flushOptions);
                 } catch (RocksDBException e) {
                     LOG.error("Error occurred during the explicit flush for table '{}'", e, tableCfg.name());
@@ -259,6 +265,8 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         resources.add(db);
 
         resources.add(writeOptions);
+
+        resources.add(flushOptions);
 
         for (int i = 0; i < partitions.length(); i++) {
             MvPartitionStorage partition = partitions.get(i);
@@ -335,13 +343,23 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
     public CompletableFuture<?> destroyPartition(int partitionId) throws StorageException {
         RocksDbMvPartitionStorage mvPartition = getMvPartition(partitionId);
 
-        if (mvPartition != null) {
-            partitions.set(partitionId, null);
-
-            mvPartition.destroy();
+        if (mvPartition == null) {
+            return CompletableFuture.completedFuture(null);
         }
 
-        return CompletableFuture.completedFuture(null);
+        partitions.set(partitionId, null);
+
+        mvPartition.destroy();
+
+        // Wait for the data to actually be removed from the disk and close the storage.
+        return mvPartition.flush()
+                .whenComplete((v, e) -> {
+                    try {
+                        mvPartition.close();
+                    } catch (Exception ex) {
+                        LOG.error("Error when closing partition storage for partId = {}", ex, partitionId);
+                    }
+                });
     }
 
     /** {@inheritDoc} */
