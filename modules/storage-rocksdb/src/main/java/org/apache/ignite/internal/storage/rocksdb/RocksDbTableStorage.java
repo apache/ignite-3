@@ -42,6 +42,7 @@ import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -332,7 +333,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> destroyPartition(int partitionId) throws StorageException {
+    public CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException {
         RocksDbMvPartitionStorage mvPartition = getMvPartition(partitionId);
 
         if (mvPartition != null) {
@@ -342,6 +343,22 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         }
 
         return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public void createIndex(String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    @Nullable
+    public SortedIndexStorage getSortedIndex(int partitionId, String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    public CompletableFuture<Void> destroyIndex(String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */

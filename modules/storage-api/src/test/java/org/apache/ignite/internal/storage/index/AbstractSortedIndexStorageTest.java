@@ -63,7 +63,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
 import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.impl.TestRowId;
+import org.apache.ignite.internal.storage.chm.TestRowId;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestIndexRow;
 import org.apache.ignite.internal.testframework.VariableSource;
