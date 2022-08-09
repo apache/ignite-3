@@ -21,13 +21,14 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Configuration for 'unlimited' log storage budget.
+ * Configuration for 'entry-count' log storage budget.
  */
 @PolymorphicConfigInstance(EntryCountBudgetConfigurationSchema.NAME)
 public class EntryCountBudgetConfigurationSchema extends LogStorageBudgetConfigurationSchema {
     /** The budget name. */
     public static final String NAME = "entry-count";
 
+    /** Returns maximum number of entries allowed by the budget. */
     @Value
     public long entriesCountLimit;
 }
