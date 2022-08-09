@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.replicator;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -34,14 +32,6 @@ public class Replica {
 
     /** Replica listener. */
     private final ReplicaListener listener;
-
-    /**
-     * The map matches an operation id to the future of operation result.
-     * The first id is a business transaction id within which the operation is handled.
-     * The second one is an id of operation (the id is locally generated when the replication request is received).
-     * Operation future is a leaf element for waiting the operation completion and receiving a result.
-     */
-    private final ConcurrentHashMap<UUID, ConcurrentHashMap<UUID, CompletableFuture>> ops = new ConcurrentHashMap<>();
 
     /**
      * The constructor of replica server.
@@ -65,7 +55,8 @@ public class Replica {
      */
     public CompletableFuture<Object> processRequest(ReplicaRequest request) { // define proper set of exceptions that might be thrown.
         assert replicaGrpId.equals(request.groupId()) : IgniteStringFormatter.format(
-                "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]", request.groupId(),
+                "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]",
+                request.groupId(),
                 replicaGrpId);
 
         //TODO:IGNITE-17378 Check replica is alive.
