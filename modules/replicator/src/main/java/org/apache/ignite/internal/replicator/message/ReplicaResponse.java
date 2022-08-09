@@ -18,10 +18,15 @@
 package org.apache.ignite.internal.replicator.message;
 
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Replica response interface.
  * TODO:IGNITE-17258 Add a specific response type for a replica listener. (@Transferable(ReplicaMessageGroup.TYPE_RESPONSE))
  */
+@Transferable()
 public interface ReplicaResponse extends NetworkMessage {
+    @Marshallable
+    Object result();
 }

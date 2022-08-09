@@ -21,7 +21,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -30,13 +29,8 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
-import org.apache.ignite.internal.replicator.listener.ListenerCompoundResponse;
-import org.apache.ignite.internal.replicator.listener.ListenerFutureResponse;
-import org.apache.ignite.internal.replicator.listener.ListenerInstantResponse;
-import org.apache.ignite.internal.replicator.listener.ListenerResponse;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.ReplicaRequestLocator;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -113,13 +107,13 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /** {@inheritDoc} */
     @Override
-    public ListenerResponse invoke(ReplicaRequest request) {
+    public CompletableFuture<Object> invoke(ReplicaRequest request) {
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
-            return processSingleEntryAction((ReadWriteSingleRowReplicaRequest) request).join();
+            return processSingleEntryAction((ReadWriteSingleRowReplicaRequest) request);
         } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
-            return processMultiEntryAction((ReadWriteMultiRowReplicaRequest) request).join();
+            return processMultiEntryAction((ReadWriteMultiRowReplicaRequest) request);
         } if (request instanceof ReadWriteDualRowReplicaRequest) {
-            return processTwoEntriesAction((ReadWriteDualRowReplicaRequest) request).join();
+            return processTwoEntriesAction((ReadWriteDualRowReplicaRequest) request);
         } else {
             return null;
         }
@@ -184,8 +178,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Multi request operation.
      * @return Listener response.
      */
-    private CompletableFuture<ListenerResponse> processMultiEntryAction(ReadWriteMultiRowReplicaRequest request) {
-        List<BinaryRow> keyRows = request.binaryRows().stream().map(br -> new ByteBufferRow(br.keySlice())).collect(
+    private CompletableFuture<Object> processMultiEntryAction(ReadWriteMultiRowReplicaRequest request) {
+        Collection<BinaryRow> keyRows = request.binaryRows().stream().map(br -> new ByteBufferRow(br.keySlice())).collect(
                 Collectors.toList());
         Map<BinaryRow, BinaryRow> keyToRows = request.binaryRows().stream().collect(
                 Collectors.toMap(br -> new ByteBufferRow(br.keySlice()), br -> br));
@@ -215,7 +209,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         result.put(keyToRows.get(searchKey), lockedRowId != null ? mvDataStorage.read(lockedRowId, txId) : null);
                     }
 
-                    return new ListenerInstantResponse(result);
+                    return result;
                 });
             }
             case RW_DELETE_ALL: {
@@ -247,7 +241,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = rowsToDelete.isEmpty() ? CompletableFuture.completedFuture(null)
                             : raftClient.run(new DeleteAllCommand(rowsToDelete, txId));
 
-                    return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, result);
+                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    return raftFut.thenApply(ignored -> result);
                 });
             }
             case RW_DELETE_EXACT_ALL: {
@@ -276,7 +271,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = result.isEmpty() ? CompletableFuture.completedFuture(null)
                             : raftClient.run(new DeleteAllCommand(result, txId));
 
-                    return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, result);
+                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    return raftFut.thenApply(ignored -> result);
                 });
             }
             case RW_INSERT_ALL: {
@@ -308,7 +304,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = rowsToInsert.isEmpty() ? CompletableFuture.completedFuture(null)
                             : raftClient.run(new InsertAllCommand(rowsToInsert, txId));
 
-                    return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, result);
+                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    return raftFut.thenApply(ignored -> result);
                 });
             }
             case RW_UPSERT_ALL: {
@@ -344,7 +341,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = rowsToInsert.isEmpty() ? CompletableFuture.completedFuture(null)
                             : raftClient.run(new UpsertAllCommand(rowsToUpsert, txId));
 
-                    return new ListenerFutureResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut);
+                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    return raftFut.thenApply(ignored -> null);
                 });
             }
             default: {
@@ -360,7 +358,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Single request operation.
      * @return Listener response.
      */
-    private CompletableFuture<ListenerResponse> processSingleEntryAction(ReadWriteSingleRowReplicaRequest request) {
+    private CompletableFuture<Object> processSingleEntryAction(ReadWriteSingleRowReplicaRequest request) {
         BinaryRow searchKey = new ByteBufferRow(request.binaryRow().keySlice());
 
         BinaryRow searchRow = request.binaryRow();
@@ -376,43 +374,48 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return lockFut.thenApply(lockedRowId -> {
                     BinaryRow result = lockedRowId != null ? mvDataStorage.read(lockedRowId, txId) : null;
 
-                    return new ListenerInstantResponse(result);
+                    return result;
                 });
             }
             case RW_DELETE:
             case RW_GET_AND_DELETE: {
                 CompletableFuture<RowId> lockFut = takeLocksForDelete(searchKey, indexId, txId);
 
-                return lockFut.thenApply(lockedRowId -> {
+                return lockFut.thenCompose(lockedRowId -> {
                     BinaryRow result = lockedRowId != null ? mvDataStorage.read(lockedRowId, txId) : null;
 
                     CompletableFuture raftFut = lockedRowId != null ? raftClient.run(new DeleteCommand(searchKey, txId)) :
                             CompletableFuture.completedFuture(null);
 
-                    return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, result);
+                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    return raftFut.thenApply(ignored -> result);
                 });
             }
             case RW_DELETE_EXACT: {
                 CompletableFuture<BinaryRow> lockFut = takeLocksForDeleteExact(searchKey, searchRow, indexId, txId);
 
-                return lockFut.thenApply(lockedRow -> {
+                return lockFut.thenCompose(lockedRow -> {
                     //TODO: IGNITE-17477 RAFT commands have to apply a row id.
                     CompletableFuture raftFut = lockedRow != null ? raftClient.run(new DeleteCommand(lockedRow, txId)) :
                             CompletableFuture.completedFuture(null);
 
-                    return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, lockedRow);
+
+                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    return raftFut.thenApply(ignored -> lockedRow);
                 });
             }
             case RW_INSERT: {
                 CompletableFuture<RowId> lockFut = takeLocksForInsert(searchKey, indexId, txId);
 
                 return lockFut.thenApply(lockedRowId -> {
+                    boolean inserted = lockedRowId == null;
+
                     //TODO: IGNITE-17477 RAFT commands have to apply a row id.
                     CompletableFuture raftFut = lockedRowId == null ? raftClient.run(new InsertCommand(searchRow, txId)) :
                             CompletableFuture.completedFuture(null);
 
-                    return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut,
-                            lockedRowId != null ? searchRow : null);
+                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    return raftFut.thenApply(ignored -> inserted);
                 });
             }
             case RW_UPSERT: {
@@ -425,7 +428,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = lockedRowId != null ? raftClient.run(new UpsertCommand(searchRow, txId)) :
                             raftClient.run(new InsertCommand(searchRow, txId));
 
-                    return new ListenerFutureResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut);
+                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    return raftFut.thenApply(ignored -> null);
                 });
             }
             case RW_GET_AND_UPSERT: {
@@ -446,7 +450,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                             CompletableFuture raftFut = rowId != null ? raftClient.run(new UpsertCommand(searchRow, txId)) :
                                     raftClient.run(new InsertCommand(searchRow, txId));
 
-                            return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, result);
+                            // TODO: add exception handling, including analyzing whether raftFut result.
+                            return raftFut.thenApply(ignored -> result);
                         });
                     });
                 });
@@ -487,7 +492,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                             CompletableFuture raftFut = lockedRow == null ? CompletableFuture.completedFuture(null) :
                                     raftClient.run(new UpsertCommand(lockedRow, txId));
 
-                            return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, lockedRow);
+                            // TODO: add exception handling, including analyzing whether raftFut result.
+                            return raftFut.thenApply(ignored -> lockedRow);
                         });
                     });
                 });
@@ -504,7 +510,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = replaced ? raftClient.run(new UpsertCommand(searchRow, txId)) :
                             CompletableFuture.completedFuture(null);
 
-                    return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, replaced);
+                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    return raftFut.thenApply(ignored -> replaced);
                 });
             }
             default: {
@@ -686,7 +693,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param action Two actions operation.
      * @return Listener response.
      */
-    private CompletableFuture<ListenerResponse> processTwoEntriesAction(ReadWriteDualRowReplicaRequest request) {
+    private CompletableFuture<Object> processTwoEntriesAction(ReadWriteDualRowReplicaRequest request) {
         BinaryRow searchKey = new ByteBufferRow(request.binaryRow().keySlice());
 
         BinaryRow searchRow = request.binaryRow();
@@ -709,7 +716,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = replaced ? raftClient.run(new UpsertCommand(searchRow, txId)) :
                             CompletableFuture.completedFuture(null);
 
-                    return new ListenerCompoundResponse(new ReplicaRequestLocator(txId, UUID.randomUUID()), raftFut, replaced);
+                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    return raftFut.thenApply(ignored -> replaced);
                 });
             }
             default: {
