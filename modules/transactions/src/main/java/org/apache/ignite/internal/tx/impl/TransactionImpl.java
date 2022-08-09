@@ -100,6 +100,12 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override
+    public boolean enlist(String repicationGroupId) {
+        return false;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void commit() throws TransactionException {
         try {
             commitAsync().get();

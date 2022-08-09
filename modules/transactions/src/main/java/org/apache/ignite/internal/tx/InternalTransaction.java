@@ -57,4 +57,12 @@ public interface InternalTransaction extends Transaction {
      * @return {@code True} if a partition is enlisted into the transaction.
      */
     boolean enlist(RaftGroupService svc);
+
+    /**
+     * Enlists a partition group into a transaction.
+     *
+     * @param svc Partition service.
+     * @return {@code True} if a partition is enlisted into the transaction.
+     */
+    boolean enlist(String repicationGroupId);
 }
