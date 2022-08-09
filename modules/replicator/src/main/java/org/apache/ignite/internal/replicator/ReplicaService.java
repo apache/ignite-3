@@ -64,8 +64,6 @@ public class ReplicaService {
         this.messagingService = messagingService;
 
         this.localNode = topologyService.localMember();
-
-        assert this.localNode != null;
     }
 
     /**

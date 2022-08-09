@@ -19,12 +19,13 @@ package org.apache.ignite.internal.table.distributed.replication.request;
 
 import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * RW replica request.
  */
 // TODO: extends ReplicaRequest issue.
 public interface ReadWriteReplicaRequest extends NetworkMessage { //extends ReplicaRequest {
-
+    @Marshallable
     UUID transactionId();
 }

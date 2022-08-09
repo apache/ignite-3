@@ -383,6 +383,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         switch (request.requestType()) {
             case RW_GET: {
+                CompletableFuture<Lock> primaryIndexLock = lockManager.acquire(txId, new LockKey(indexId, searchRow), LockMode.SHARED);
                 return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.SHARED).thenCompose(idxLock -> { // Index S lock
                     RowId rowId = valueByUniqueIndex(indexId, searchKey);
 
