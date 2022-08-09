@@ -17,17 +17,18 @@
 
 package org.apache.ignite.raft.jraft.core;
 
-import java.util.Map;
+import org.apache.ignite.configuration.schemas.table.LogStorageBudgetView;
 import org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget;
 
 /**
- * Used to add {@link LogStorageBudget} factories using {@link java.util.ServiceLoader}.
+ * Factory for {@link org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget} instances.
  */
-public interface LogStorageBudgetsModule {
+public interface LogStorageBudgetFactory {
     /**
-     * Returns mapping from budget names to budget factories for the budgets supported by this module.
+     * Creates a new budget using the given config.
      *
-     * @return Mapping from budget names to budget factories for the budgets supported by this module.
+     * @param config Budget config.
+     * @return The created budget.
      */
-    Map<String, LogStorageBudgetFactory> budgetFactories();
+    LogStorageBudget create(LogStorageBudgetView config);
 }

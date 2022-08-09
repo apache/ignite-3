@@ -22,10 +22,10 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
-import java.util.function.Function;
 import org.apache.ignite.configuration.schemas.table.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.raft.jraft.core.LogStorageBudgetFactory;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetsModule;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
@@ -39,7 +39,7 @@ import org.apache.ignite.raft.jraft.storage.impl.VolatileLogStorage;
 public class VolatileLogStorageFactory implements LogStorageFactory {
     private final LogStorageBudgetView logStorageBudgetConfig;
 
-    private final Map<String, Function<? super LogStorageBudgetView, LogStorageBudget>> budgetFactories;
+    private final Map<String, LogStorageBudgetFactory> budgetFactories;
 
     /**
      * Creates a new instance.
@@ -49,11 +49,11 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
     public VolatileLogStorageFactory(LogStorageBudgetView logStorageBudgetConfig) {
         this.logStorageBudgetConfig = logStorageBudgetConfig;
 
-        Map<String, Function<? super LogStorageBudgetView, LogStorageBudget>> factories = new HashMap<>();
+        Map<String, LogStorageBudgetFactory> factories = new HashMap<>();
 
         ClassLoader serviceClassLoader = Thread.currentThread().getContextClassLoader();
         for (LogStorageBudgetsModule module : ServiceLoader.load(LogStorageBudgetsModule.class, serviceClassLoader)) {
-            Map<String, Function<? super LogStorageBudgetView, LogStorageBudget>> factoriesFromModule = module.budgetFactories();
+            Map<String, LogStorageBudgetFactory> factoriesFromModule = module.budgetFactories();
 
             checkForBudgetNameClashes(factories.keySet(), factoriesFromModule.keySet());
 
@@ -90,13 +90,13 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
     }
 
     private LogStorageBudget newBudget(LogStorageBudgetView logStorageBudgetConfig) {
-        Function<? super LogStorageBudgetView, LogStorageBudget> factory = budgetFactories.get(logStorageBudgetConfig.name());
+        LogStorageBudgetFactory factory = budgetFactories.get(logStorageBudgetConfig.name());
 
         if (factory == null) {
             throw new IgniteInternalException("Cannot find a log storage budget by name '" + logStorageBudgetConfig.name() + "'");
         }
 
-        return factory.apply(logStorageBudgetConfig);
+        return factory.create(logStorageBudgetConfig);
     }
 
     /** {@inheritDoc} */

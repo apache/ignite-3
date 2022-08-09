@@ -22,13 +22,11 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
-import java.util.function.Function;
 import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.EntryCountBudgetView;
-import org.apache.ignite.configuration.schemas.table.LogStorageBudgetView;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
+import org.apache.ignite.raft.jraft.core.LogStorageBudgetFactory;
 import org.apache.ignite.raft.jraft.storage.impl.EntryCountBudget;
-import org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget;
 import org.apache.ignite.raft.jraft.storage.impl.UnlimitedBudget;
 import org.junit.jupiter.api.Test;
 
@@ -37,24 +35,20 @@ class CoreLogStorageBudgetsModuleTest {
 
     @Test
     void providesUnlimitedBudget() {
-        Function<? super LogStorageBudgetView, LogStorageBudget> factory = module.budgetFactories().get(
-                UnlimitedBudgetConfigurationSchema.NAME
-        );
+        LogStorageBudgetFactory factory = module.budgetFactories().get(UnlimitedBudgetConfigurationSchema.NAME);
 
         assertThat(factory, is(notNullValue()));
 
-        assertThat(factory.apply(null), is(instanceOf(UnlimitedBudget.class)));
+        assertThat(factory.create(null), is(instanceOf(UnlimitedBudget.class)));
     }
 
     @Test
     void providesEntryCountBudget() {
-        Function<? super LogStorageBudgetView, LogStorageBudget> factory = module.budgetFactories().get(
-                EntryCountBudgetConfigurationSchema.NAME
-        );
+        LogStorageBudgetFactory factory = module.budgetFactories().get(EntryCountBudgetConfigurationSchema.NAME);
 
         assertThat(factory, is(notNullValue()));
 
-        assertThat(factory.apply(new EntryCountBudgetView() {
+        assertThat(factory.create(new EntryCountBudgetView() {
             @Override
             public long entriesCountLimit() {
                 return 0;
