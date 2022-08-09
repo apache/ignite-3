@@ -260,6 +260,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 tblManager,
                 schemaManager,
                 dataStorageManager,
+                tm,
                 () -> dataStorageModules.collectSchemasFields(List.of(
                         RocksDbDataStorageConfigurationSchema.class,
                         TestConcurrentHashMapDataStorageConfigurationSchema.class

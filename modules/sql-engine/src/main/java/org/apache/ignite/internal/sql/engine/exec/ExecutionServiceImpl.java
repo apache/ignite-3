@@ -68,6 +68,7 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -101,6 +102,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final ImplementorFactory<RowT> implementorFactory;
 
+    private final TxManager txManager;
+
     private final Map<UUID, DistributedQueryManager> queryManagerMap = new ConcurrentHashMap<>();
 
     /**
@@ -126,8 +129,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             RowHandler<RowT> handler,
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSrvc,
-            DataStorageManager dataStorageManager
-
+            DataStorageManager dataStorageManager,
+            TxManager txManager
     ) {
         return new ExecutionServiceImpl<>(
                 topSrvc.localMember().id(),
@@ -138,14 +141,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 taskExecutor,
                 handler,
                 exchangeSrvc,
-                ctx -> new LogicalRelImplementor<>(ctx, cacheId -> Objects::hashCode, mailboxRegistry, exchangeSrvc)
+                ctx -> new LogicalRelImplementor<>(ctx, cacheId -> Objects::hashCode, mailboxRegistry, exchangeSrvc),
+                txManager
         );
     }
 
     /**
      * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public ExecutionServiceImpl(
+    ExecutionServiceImpl(
             String localNodeId,
             MessageService msgSrvc,
             MappingService mappingSrvc,
@@ -154,7 +158,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
             ExchangeService exchangeSrvc,
-            ImplementorFactory<RowT> implementorFactory
+            ImplementorFactory<RowT> implementorFactory,
+            TxManager txManager
     ) {
         this.locNodeId = localNodeId;
         this.handler = handler;
@@ -165,6 +170,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         this.exchangeSrvc = exchangeSrvc;
         this.ddlCmdHnd = ddlCmdHnd;
         this.implementorFactory = implementorFactory;
+        this.txManager = txManager;
     }
 
     /** {@inheritDoc} */
@@ -356,12 +362,16 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private volatile Long rootFragmentId = null;
 
-        private InternalTransaction transaction;
+        private @Nullable InternalTransaction transaction;
+
+        private boolean implicitTx;
 
         private DistributedQueryManager(BaseQueryContext ctx, InternalTransaction transaction) {
             this(ctx);
 
-            this.transaction = transaction;
+            implicitTx = transaction == null;
+
+            this.transaction = implicitTx ? txManager.begin() : transaction;
         }
 
         private DistributedQueryManager(BaseQueryContext ctx) {
@@ -486,6 +496,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private ExecutionContext<RowT> createContext(String initiatorNodeId, FragmentDescription desc) {
+            assert !initiatorNodeId.equals(locNodeId) || transaction != null : "Neither implicit nor explicit tx are found.";
+
             return new ExecutionContext<>(
                     ctx,
                     taskExecutor,
@@ -571,6 +583,17 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                             if (!batch.hasMore()) {
                                 DistributedQueryManager.this.close(false);
                             }
+                        }).whenComplete((v, e) -> {
+                            if (e == null) {
+                                if (implicitTx) {
+                                    transaction.commitAsync();
+                                }
+                            }
+                            else {
+                                if (implicitTx) {
+                                    transaction.rollbackAsync();
+                                }
+                            }
                         });
 
                         return fut;
@@ -579,7 +602,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 @Override
                 public CompletableFuture<Void> closeAsync() {
-                    return root.thenCompose(none -> DistributedQueryManager.this.close(false));
+                    return root.thenCompose(none -> DistributedQueryManager.this.close(false))
+                            .thenAccept(res -> {
+                                if (implicitTx) {
+                                    transaction.commitAsync();
+                                }
+                            });
                 }
             };
         }

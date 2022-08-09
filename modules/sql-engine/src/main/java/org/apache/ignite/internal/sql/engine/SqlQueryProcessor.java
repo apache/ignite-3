@@ -67,6 +67,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -116,6 +117,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile SqlSchemaManager sqlSchemaManager;
 
+    /** Transaction manager. */
+    private final TxManager txManager;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<Function<Long, CompletableFuture<?>>> registry,
@@ -123,6 +127,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             TableManager tableManager,
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
+            TxManager txManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier
     ) {
         this.registry = registry;
@@ -130,6 +135,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.tableManager = tableManager;
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
+        this.txManager = txManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
     }
 
@@ -177,7 +183,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 ArrayRowHandler.INSTANCE,
                 mailboxRegistry,
                 exchangeService,
-                dataStorageManager
+                dataStorageManager,
+                txManager
         ));
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);

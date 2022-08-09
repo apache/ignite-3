@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.api;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.cause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -31,11 +32,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -186,6 +189,93 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         checkDml(ROW_COUNT, ses, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
         checkDml(ROW_COUNT, ses, "DELETE FROM TEST WHERE VAL0 >= 0");
+    }
+
+    /**
+     * Execute concurrent insertion batch of equal pk`s and different val`s.
+     * Check sum of arithmetic progression as a confirmation that only one batch has been commited.
+     */
+    @Test
+    public void concurrentInsertOfHugeDataWithEqPkeys() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, NUMERIC INT)");
+
+        IgniteSql sql = igniteSql();
+
+        IntStream range1 = IntStream.range(0, 10 * AbstractNode.MODIFY_BATCH_SIZE);
+
+        IntStream range2 = IntStream.range(10 * AbstractNode.MODIFY_BATCH_SIZE, 20 * AbstractNode.MODIFY_BATCH_SIZE);
+
+        // arithmetic progression sum.
+        int s1 = ((0 + 10 * AbstractNode.MODIFY_BATCH_SIZE - 1) * 10 * AbstractNode.MODIFY_BATCH_SIZE) / 2;
+
+        // arithmetic progression sum.
+        int s2 = ((10 * AbstractNode.MODIFY_BATCH_SIZE + 20 * AbstractNode.MODIFY_BATCH_SIZE - 1) * 10 * AbstractNode.MODIFY_BATCH_SIZE) / 2;
+
+        int[] arr1 = range1.toArray();
+
+        CompletableFuture<?> fut1 = runAsync(() -> {
+            Session ses = sql.createSession();
+
+            StringBuilder insert = new StringBuilder("INSERT INTO TEST VALUES");
+
+            boolean first = true;
+
+            for (int j : arr1) {
+                insert.append(String.format(first ? " (%d, %d)" : ", (%d, %d)", j, j));
+
+                first = false;
+            }
+
+            ses.execute(null, insert.toString()).close();
+
+            ses.close();
+        });
+
+        CompletableFuture<?> fut2 = runAsync(() -> {
+            Session ses = sql.createSession();
+
+            StringBuilder insert = new StringBuilder("INSERT INTO TEST VALUES");
+
+            int[] arr2 = range2.toArray();
+
+            boolean first = true;
+
+            for (int i = arr1.length - 1; i == 0; --i) {
+                insert.append(String.format(first ? " (%d, %d)" : ", (%d, %d)", arr1[i], arr2[i]));
+
+                first = false;
+            }
+
+            ses.execute(null, insert.toString()).close();
+
+            ses.close();
+        });
+
+        try {
+            fut1.get();
+        } catch (Throwable ignore) {
+            // No op.
+        }
+
+        try {
+            fut2.get();
+        } catch (Throwable ignore) {
+            // No op.
+        }
+
+        String select = "SELECT SUM(NUMERIC) from TEST";
+
+        Session ses = sql.createSession();
+
+        ResultSet res = ses.execute(null, select);
+
+        long sum = res.next().longValue(0);
+
+        assertTrue(sum == s1 || sum == s2, () -> "Obtained sum: " + sum);
+
+        res.close();
+
+        ses.close();
     }
 
     @SuppressWarnings("UnstableApiUsage")

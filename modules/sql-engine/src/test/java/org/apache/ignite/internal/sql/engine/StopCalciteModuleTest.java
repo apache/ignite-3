@@ -74,6 +74,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -115,6 +116,9 @@ public class StopCalciteModuleTest {
 
     @Mock
     MessagingService msgSrvc;
+
+    @Mock
+    TxManager txManager;
 
     @Mock
     TopologyService topologySrvc;
@@ -215,6 +219,7 @@ public class StopCalciteModuleTest {
                 tableManager,
                 schemaManager,
                 dataStorageManager,
+                txManager,
                 Map::of
         );
 
