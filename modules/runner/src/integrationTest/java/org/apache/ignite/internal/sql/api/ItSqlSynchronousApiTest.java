@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.cause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -166,7 +167,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void dml() {
+    public void dml() throws Exception {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         IgniteSql sql = igniteSql();
@@ -184,7 +185,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
 
         var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
 
-        states.forEach((k, v) -> assertNotSame(v, TxState.PENDING));
+        assertTrue(waitForCondition(() -> states.values().stream().noneMatch(e -> e.equals(TxState.PENDING)), 5_000));
 
         checkDml(ROW_COUNT, ses, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
