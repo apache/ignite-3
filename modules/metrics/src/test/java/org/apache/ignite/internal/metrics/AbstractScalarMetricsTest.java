@@ -28,18 +28,6 @@ import org.junit.jupiter.api.Test;
  * @param <V> Type of metric value.
  */
 public abstract class AbstractScalarMetricsTest<M extends Metric, V> {
-    /**
-     * Create a metric.
-     *
-     * @return Metric.
-     */
-    private M createMetric() {
-        String name = "testName";
-        String description = "testDescription";
-
-        return createMetric(name, description);
-    }
-
     @Test
     public void testCreateMetric() {
         String name = "testName";
@@ -88,6 +76,18 @@ public abstract class AbstractScalarMetricsTest<M extends Metric, V> {
         setValue(m);
         assertEquals(expected(), value(m));
         assertEquals(expected().toString(), value(m).toString());
+    }
+
+    /**
+     * Create a metric.
+     *
+     * @return Metric.
+     */
+    private M createMetric() {
+        String name = "testName";
+        String description = "testDescription";
+
+        return createMetric(name, description);
     }
 
     /**
