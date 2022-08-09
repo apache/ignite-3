@@ -347,13 +347,13 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
             return CompletableFuture.completedFuture(null);
         }
 
-        partitions.set(partitionId, null);
-
         mvPartition.destroy();
 
         // Wait for the data to actually be removed from the disk and close the storage.
         return mvPartition.flush()
                 .whenComplete((v, e) -> {
+                    partitions.set(partitionId, null);
+
                     try {
                         mvPartition.close();
                     } catch (Exception ex) {
