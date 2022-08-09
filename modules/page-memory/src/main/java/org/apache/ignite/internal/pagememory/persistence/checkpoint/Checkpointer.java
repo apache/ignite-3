@@ -107,8 +107,7 @@ public class Checkpointer extends IgniteWorker {
     static final String CHECKPOINT_RUNNER_THREAD_PREFIX = "checkpoint-runner";
 
     /** Pause detector. */
-    @Nullable
-    private final LongJvmPauseDetector pauseDetector;
+    private final @Nullable LongJvmPauseDetector pauseDetector;
 
     /** Checkpoint config. */
     private final PageMemoryCheckpointConfiguration checkpointConfig;
@@ -120,15 +119,13 @@ public class Checkpointer extends IgniteWorker {
     private final CheckpointPagesWriterFactory checkpointPagesWriterFactory;
 
     /** Checkpoint runner thread pool. If {@code null} tasks are to be run in single thread. */
-    @Nullable
-    private final ThreadPoolExecutor checkpointWritePagesPool;
+    private final @Nullable ThreadPoolExecutor checkpointWritePagesPool;
 
     /** Next scheduled checkpoint progress. */
     private volatile CheckpointProgressImpl scheduledCheckpointProgress;
 
     /** Current checkpoint progress. This field is updated only by checkpoint thread. */
-    @Nullable
-    private volatile CheckpointProgressImpl currentCheckpointProgress;
+    private volatile @Nullable CheckpointProgressImpl currentCheckpointProgress;
 
     /** Shutdown now. */
     private volatile boolean shutdownNow;
