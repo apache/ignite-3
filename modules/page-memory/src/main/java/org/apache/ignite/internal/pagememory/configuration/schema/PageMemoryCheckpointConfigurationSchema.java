@@ -39,7 +39,7 @@ public class PageMemoryCheckpointConfigurationSchema {
     /** Delay before executing a checkpoint triggered by RAFT. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public int cpDelayMillis = 200;
+    public int checkpointDelayMillis = 200;
 
     /** Number of checkpoint threads. */
     @Range(min = 1)

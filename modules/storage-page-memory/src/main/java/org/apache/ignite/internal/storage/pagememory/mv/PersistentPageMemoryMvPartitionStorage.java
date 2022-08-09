@@ -117,13 +117,13 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         CheckpointProgress scheduledCheckpoint;
 
-        if (lastCheckpoint != null && meta.metaSnapshot(lastCheckpoint.id()).lastAppliedIndex() >= meta.lastAppliedIndex()) {
+        if (lastCheckpoint != null && meta.metaSnapshot(lastCheckpoint.id()).lastAppliedIndex() == meta.lastAppliedIndex()) {
             scheduledCheckpoint = lastCheckpoint;
         } else {
             PersistentPageMemoryStorageEngineView engineCfg = tableStorage.engine().configuration().value();
 
-            int cpDelayMillis = engineCfg.checkpoint().cpDelayMillis();
-            scheduledCheckpoint = checkpointManager.scheduleCheckpoint(cpDelayMillis, "Triggered by replicator.");
+            int checkpointDelayMillis = engineCfg.checkpoint().checkpointDelayMillis();
+            scheduledCheckpoint = checkpointManager.scheduleCheckpoint(checkpointDelayMillis, "Triggered by replicator");
         }
 
         return scheduledCheckpoint.futureFor(CheckpointState.FINISHED).thenApply(res -> null);

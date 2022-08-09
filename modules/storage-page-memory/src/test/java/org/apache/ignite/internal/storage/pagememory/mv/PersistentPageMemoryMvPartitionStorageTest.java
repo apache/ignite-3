@@ -45,7 +45,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPartitionStorageTest {
-    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    @InjectConfiguration(
+            value = "mock.checkpoint.checkpointDelayMillis = 0",
+            polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class
+    )
     private PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration(
@@ -72,8 +75,6 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         longJvmPauseDetector = new LongJvmPauseDetector("test", Loggers.forClass(LongJvmPauseDetector.class));
 
         longJvmPauseDetector.start();
-
-        engineConfig.checkpoint().cpDelayMillis().update(0).get(1, TimeUnit.SECONDS);
 
         engine = new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, longJvmPauseDetector);
 

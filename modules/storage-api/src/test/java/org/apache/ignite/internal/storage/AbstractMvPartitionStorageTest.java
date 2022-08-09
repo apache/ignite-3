@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItems;
@@ -683,6 +683,10 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         assertThrows(TxIdMismatchException.class, cursor::next);
     }
 
+    /**
+     * Tests that changed {@link MvPartitionStorage#lastAppliedIndex()} can be successfully read and that it's returned from
+     * {@link MvPartitionStorage#persistedIndex()} after the {@link MvPartitionStorage#flush()}.
+     */
     @Test
     void testAppliedIndex() {
         storage.runConsistently(() -> {
@@ -699,7 +703,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         CompletableFuture<Void> flushFuture = storage.flush();
 
-        assertThat(flushFuture, willBe(equalTo(null)));
+        assertThat(flushFuture, willCompleteSuccessfully());
 
         assertEquals(1, storage.persistedIndex());
     }
