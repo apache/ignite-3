@@ -154,4 +154,13 @@ public class ErrorGroups {
         /** Failed to close a cursor. */
         public static final int CURSOR_CLOSING_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(11);
     }
+
+    /** Index error group. */
+    public static class Index {
+        /** Index error group. */
+        public static final ErrorGroup INDEX_ERR_GROUP = ErrorGroup.newGroup("IDX", 6);
+
+        /** Invalid index definition. */
+        public static final int INVALID_INDEX_DEFINITION_ERR = INDEX_ERR_GROUP.registerErrorCode(1);
+    }
 }

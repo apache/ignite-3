@@ -68,7 +68,6 @@ import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurati
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
@@ -214,7 +213,6 @@ public class TableManagerTest extends IgniteAbstractTest {
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
                     SortedIndexConfigurationSchema.class,
-                    PartialIndexConfigurationSchema.class,
                     UnknownDataStorageConfigurationSchema.class,
                     RocksDbDataStorageConfigurationSchema.class,
                     ConstantValueDefaultConfigurationSchema.class,

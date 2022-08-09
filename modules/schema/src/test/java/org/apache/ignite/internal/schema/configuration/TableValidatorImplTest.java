@@ -28,7 +28,6 @@ import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurati
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TableView;
@@ -53,12 +52,11 @@ public class TableValidatorImplTest {
                     + "    name = schema.table,\n"
                     + "    columns.id {type.type = STRING, nullable = true},\n"
                     + "    primaryKey {columns = [id], colocationColumns = [id]},\n"
-                    + "    indices.foo {type = HASH, colNames = [id]}\n"
+                    + "    indices.foo {type = HASH, columnNames = [id]}\n"
                     + "}]",
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
                     SortedIndexConfigurationSchema.class,
-                    PartialIndexConfigurationSchema.class,
                     UnknownDataStorageConfigurationSchema.class,
                     TestDataStorageConfigurationSchema.class,
                     ConstantValueDefaultConfigurationSchema.class,

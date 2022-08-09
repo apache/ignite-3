@@ -15,22 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.index;
+package org.apache.ignite.internal.index;
+
+import java.util.BitSet;
+import java.util.UUID;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.util.Cursor;
 
 /**
- * Partial index descriptor.
+ * An object describing an abstract index.
+ *
+ * <p>Provides access to the indexed data as well as all information about index itself.
  */
-public interface PartialIndexDefinition extends SortedIndexDefinition {
-    /**
-     * Partial index expression.
-     *
-     * @return Expression.
-     */
-    String expr();
+public interface Index {
+    /** Returns identifier of the index. */
+    UUID id();
 
-    /** {@inheritDoc} */
-    @Override
-    default String type() {
-        return "PARTIAL";
-    }
+    /** Returns name of the index. */
+    String name();
+
+    /** Returns cursor for the values corresponding to the given key. */
+    Cursor<BinaryTuple> scan(BinaryTuple key, BitSet columns);
 }
