@@ -24,28 +24,31 @@ import java.util.Iterator;
  * and enumerates composite metrics in order to enumerate every scalar metric.
  */
 public class CompositeAwareIterator implements Iterator<Metric> {
-    private final Iterator<Metric> iterator;
+    /** Delegate iterator of metrics, some of them may be composite. */
+    private final Iterator<Metric> delegate;
+
+    /** Iterator for single composite metric, iterating over the group of scalar ones. */
     private Iterator<Metric> compositeMetricIterator = null;
 
     /**
      * The constructor.
      *
-     * @param iterator Collection of metrics that can contain composite metrics.
+     * @param delegate Collection of metrics that can contain composite metrics.
      */
-    public CompositeAwareIterator(Iterator<Metric> iterator) {
-        this.iterator = iterator;
+    public CompositeAwareIterator(Iterator<Metric> delegate) {
+        this.delegate = delegate;
     }
 
     /** {@inheritDoc} */
     @Override public boolean hasNext() {
         if (compositeMetricIterator == null) {
-            return iterator.hasNext();
+            return delegate.hasNext();
         } else if (compositeMetricIterator.hasNext()) {
             return true;
         } else {
             compositeMetricIterator = null;
 
-            return iterator.hasNext();
+            return delegate.hasNext();
         }
     }
 
@@ -68,7 +71,7 @@ public class CompositeAwareIterator implements Iterator<Metric> {
      * @return Next value.
      */
     private Metric nextCompositeAware() {
-        Metric nextValue = iterator.next();
+        Metric nextValue = delegate.next();
 
         if (nextValue instanceof CompositeMetric) {
             compositeMetricIterator = ((CompositeMetric) nextValue).asScalarMetrics().iterator();

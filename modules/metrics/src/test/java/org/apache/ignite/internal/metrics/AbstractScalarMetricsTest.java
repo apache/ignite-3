@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metrics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.apache.ignite.internal.metrics.Metric;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -29,8 +28,20 @@ import org.junit.jupiter.api.Test;
  * @param <V> Type of metric value.
  */
 public abstract class AbstractScalarMetricsTest<M extends Metric, V> {
+    /**
+     * Create a metric.
+     *
+     * @return Metric.
+     */
+    private M createMetric() {
+        String name = "testName";
+        String description = "testDescription";
+
+        return createMetric(name, description);
+    }
+
     @Test
-    public void metricTest() {
+    public void testCreateMetric() {
         String name = "testName";
         String description = "testDescription";
 
@@ -41,18 +52,38 @@ public abstract class AbstractScalarMetricsTest<M extends Metric, V> {
 
         assertEquals(expected(), value(m));
         assertEquals(expected().toString(), value(m).toString());
+    }
+
+    @Test
+    public void testIncrement() {
+        M m = createMetric();
 
         increment(m);
         assertEquals(expected(), value(m));
         assertEquals(expected().toString(), value(m).toString());
+    }
 
-        add(m);
-        assertEquals(expected(), value(m));
-        assertEquals(expected().toString(), value(m).toString());
+    @Test
+    public void testDecrement() {
+        M m = createMetric();
 
         decrement(m);
         assertEquals(expected(), value(m));
         assertEquals(expected().toString(), value(m).toString());
+    }
+
+    @Test
+    public void testAdd() {
+        M m = createMetric();
+
+        add(m);
+        assertEquals(expected(), value(m));
+        assertEquals(expected().toString(), value(m).toString());
+    }
+
+    @Test
+    public void testSetValue() {
+        M m = createMetric();
 
         setValue(m);
         assertEquals(expected(), value(m));
@@ -60,7 +91,7 @@ public abstract class AbstractScalarMetricsTest<M extends Metric, V> {
     }
 
     /**
-     * Create a metric.
+     * Create a metric with given name and description.
      *
      * @param name Name.
      * @param description Description.

@@ -27,12 +27,22 @@ import org.junit.jupiter.api.Test;
  * Test for {@link DistributionMetric}.
  */
 public class DistributionMetricTest {
+    /**
+     * Check that calling constructor with invalid parameters causes errors.
+     */
     @Test
-    public void test() {
+    public void creationTest() {
         assertThrows(Throwable.class, () -> new DistributionMetric("test", null, null));
         assertThrows(AssertionError.class, () -> new DistributionMetric("test", null, new long[0]));
         assertThrows(AssertionError.class, () -> new DistributionMetric("test", null, new long[] { 10, 1}));
+    }
 
+    /**
+     * Create a distribution metric and fill it with some values.
+     *
+     * @return Metric.
+     */
+    private DistributionMetric createAndPrepareMetric() {
         long[] bounds = new long[] {50, 500};
 
         DistributionMetric distribution = new DistributionMetric("distribution", null, bounds);
@@ -46,11 +56,29 @@ public class DistributionMetricTest {
         distribution.add(600);
         distribution.add(600);
 
+        return distribution;
+    }
+
+    /**
+     * Check that the values in distribution buckets are correct.
+     */
+    @Test
+    public void testBucketValues() {
+        DistributionMetric distribution = createAndPrepareMetric();
+
         distribution.value();
 
         assertEquals(1, distribution.value()[0]);
         assertEquals(2, distribution.value()[1]);
         assertEquals(3, distribution.value()[2]);
+    }
+
+    /**
+     * Test scalar metrics that are returned by {@link DistributionMetric#asScalarMetrics()}.
+     */
+    @Test
+    public void testScalarMetrics() {
+        DistributionMetric distribution = createAndPrepareMetric();
 
         List<Metric> scalarMetrics = distribution.asScalarMetrics();
 
@@ -71,7 +99,15 @@ public class DistributionMetricTest {
             LongMetric lm = (LongMetric) scalarMetrics.get(i);
             assertEquals(i + 2, lm.value());
         }
+    }
 
-        assertEquals("[0_50:2, 50_500:3, 500_:4]", distribution.getValueAsString());
+    /**
+     * Test the correctness of {@link DistributionMetric#getValueAsString()}.
+     */
+    @Test
+    public void testGetValueAsString() {
+        DistributionMetric distribution = createAndPrepareMetric();
+
+        assertEquals("[0_50:1, 50_500:2, 500_:3]", distribution.getValueAsString());
     }
 }
