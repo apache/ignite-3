@@ -22,6 +22,7 @@ import jakarta.inject.Singleton;
 import java.util.Objects;
 import org.apache.ignite.cli.call.connect.ConnectCall;
 import org.apache.ignite.cli.call.connect.ConnectCallInput;
+import org.apache.ignite.cli.config.ConfigConstants;
 import org.apache.ignite.cli.config.ConfigManagerProvider;
 import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.flow.builder.FlowBuilder;
@@ -53,7 +54,7 @@ public class ConnectToClusterQuestion {
      * @return {@link FlowBuilder} instance with question in case when cluster url.
      */
     public FlowBuilder<Void, String> askQuestionIfNotConnected(String clusterUrl) {
-        String clusterProperty = provider.get().getCurrentProperty("ignite.cluster-url");
+        String clusterProperty = provider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
         String question = "You are not connected to node. Do you want to connect to the default node "
                 + clusterProperty + " ? [Y/n] ";
 

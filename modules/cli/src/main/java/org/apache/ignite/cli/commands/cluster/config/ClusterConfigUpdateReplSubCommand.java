@@ -17,6 +17,10 @@
 
 package org.apache.ignite.cli.commands.cluster.config;
 
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_DESC;
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_OPTION;
+
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.apache.ignite.cli.call.configuration.ClusterConfigUpdateCall;
@@ -37,9 +41,9 @@ import picocli.CommandLine.Parameters;
 @Singleton
 public class ClusterConfigUpdateReplSubCommand extends BaseCommand implements Runnable {
     /**
-     * Cluster url option.
+     * Cluster endpoint URL option.
      */
-    @Option(names = {"--cluster-url"}, description = "Url to Ignite node.", descriptionKey = "ignite.cluster-url")
+    @Option(names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String clusterUrl;
 
     /**
