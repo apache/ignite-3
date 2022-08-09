@@ -36,7 +36,7 @@ class BinaryTupleParser {
 
     bool hasNullmap; /**< Flag that indicates if the tuple contains a nullmap. */
 
-    unsigned int entrySize; /**< Size of an offset table entry. */
+    SizeT entrySize; /**< Size of an offset table entry. */
 
     const std::byte *nextEntry; /**< Position of the next offset table entry. */
 
