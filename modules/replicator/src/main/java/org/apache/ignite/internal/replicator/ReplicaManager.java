@@ -17,17 +17,20 @@
 
 package org.apache.ignite.internal.replicator;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.exception.ReplicaAlreadyIsStartedException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -43,6 +46,9 @@ import org.jetbrains.annotations.Nullable;
  * This class allow to start/stop/get a replica.
  */
 public class ReplicaManager implements IgniteComponent {
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
+
     /** Replicator network message factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
@@ -115,7 +121,7 @@ public class ReplicaManager implements IgniteComponent {
      * @return Replica.
      */
     private Replica startReplicaInternal(String replicaGrpId, ReplicaListener listener) {
-        var replica = new Replica(replicaGrpId, listener);
+        var replica = new Replica(replicaGrpId, listener, clusterNetSvc.messagingService());
 
         Replica previous = replicas.putIfAbsent(replicaGrpId, replica);
 
@@ -184,13 +190,35 @@ public class ReplicaManager implements IgniteComponent {
 
                     CompletableFuture<Object> result = replica.processRequest(request);
 
-                    result.thenAccept(res -> clusterNetSvc.messagingService().respond(
-                            senderAddr,
-                            REPLICA_MESSAGES_FACTORY.replicaResponse().result(res).build(),
-                            correlationId);
-                    );
+                    result.handle((res, ex) -> {
+                        if (ex != null) {
+                            clusterNetSvc.messagingService().respond(
+                                    senderAddr,
+                                    REPLICA_MESSAGES_FACTORY.replicaResponse().result(res).build(),
+                                    correlationId);
+                        } else {
+                            var traceId = UUID.randomUUID();
+
+                            LOG.warn("Exception was thrown [traceId={}]", ex, traceId);
+
+                            clusterNetSvc.messagingService().respond(
+                                    senderAddr,
+                                    REPLICA_MESSAGES_FACTORY
+                                            .errorReplicaResponse()
+                                            .errorMessage(
+                                                    IgniteStringFormatter.format("Process replication response finished with exception "
+                                                            + "[replicaGrpId={}, msg={}]", request.groupId(), ex.getMessage()))
+                                            .errorCode(Replicator.REPLICA_COMMON_ERR)
+                                            .errorClassName(ex.getClass().getName())
+                                            .errorTraceId(traceId)
+                                            .build(),
+                                    correlationId);
 
 
+                        }
+
+                        return null;
+                    });
                 } finally {
                     busyLock.leaveBusy();
                 }

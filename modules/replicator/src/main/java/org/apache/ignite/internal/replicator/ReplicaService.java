@@ -82,33 +82,32 @@ public class ReplicaService {
                 //TODO:IGNITE-17255 Provide an exceptional response when the replica is absent.
             }
 
-            return CompletableFuture.completedFuture(replica.processRequest(req));
+            return (CompletableFuture<R>) replica.processRequest(req);
         }
 
-        return messagingService.invoke(node.address(), req, RPC_TIMEOUT).
-                handle((response, throwable) -> {
-                    if (throwable != null) {
-                        if (throwable instanceof TimeoutException) {
-                            throw new ReplicationTimeoutException(req.groupId());
-                        }
+        return messagingService.invoke(node.address(), req, RPC_TIMEOUT).handle((response, throwable) -> {
+            if (throwable != null) {
+                if (throwable instanceof TimeoutException) {
+                    throw new ReplicationTimeoutException(req.groupId());
+                }
 
-                        throw new ReplicationException(req.groupId(), throwable);
-                    } else {
-                        assert response instanceof ReplicaResponse : IgniteStringFormatter.
-                                format("Unexpected message response [resp={}]", response);
+                throw new ReplicationException(req.groupId(), throwable);
+            } else {
+                assert response instanceof ReplicaResponse : IgniteStringFormatter.format("Unexpected message response [resp={}]",
+                        response);
 
-                        if (response instanceof ErrorReplicaResponse) {
-                            var errResp = (ErrorReplicaResponse) response;
+                if (response instanceof ErrorReplicaResponse) {
+                    var errResp = (ErrorReplicaResponse) response;
 
-                            throw ExceptionUtils
-                                    .error(errResp.errorTraceId(), errResp.errorCode(), errResp.errorClassName(), errResp.errorMessage(),
-                                            errResp.errorStackTrace());
-                        } else {
-                            return (R) ((ReplicaResponse) response).result();
-                        }
+                    throw ExceptionUtils
+                            .error(errResp.errorTraceId(), errResp.errorCode(), errResp.errorClassName(), errResp.errorMessage(),
+                                    errResp.errorStackTrace());
+                } else {
+                    return (R) ((ReplicaResponse) response).result();
+                }
 
-                    }
-                });
+            }
+        });
     }
 
     /**

@@ -17,26 +17,14 @@
 
 package org.apache.ignite.internal.replicator;
 
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.replicator.listener.ListenerCompoundResponse;
-import org.apache.ignite.internal.replicator.listener.ListenerFutureResponse;
-import org.apache.ignite.internal.replicator.listener.ListenerInstantResponse;
-import org.apache.ignite.internal.replicator.listener.ListenerResponse;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
-import org.apache.ignite.internal.replicator.message.CleanupRequest;
-import org.apache.ignite.internal.replicator.message.InstantResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.ReplicaRequestLocator;
-import org.apache.ignite.internal.replicator.message.ReplicaResponse;
-import org.apache.ignite.internal.replicator.message.WaiteOperationsResultRequest;
-import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.MessagingService;
 
@@ -96,120 +84,6 @@ public class Replica {
 
         //TODO:IGNITE-17378 Check replica is alive.
 
-        try {
-            if (request instanceof WaiteOperationsResultRequest) {
-                return handleWaitOperationsResultRequest((WaiteOperationsResultRequest) request);
-            }
-
-            if (request instanceof CleanupRequest) {
-                return handleCleanupRequest((CleanupRequest) request);
-            }
-
-            return listener.invoke(request);
-
-
-
-
-
-            if (listResp instanceof ListenerCompoundResponse) {
-                var listCompResp = (ListenerCompoundResponse) listResp;
-
-                ops.computeIfAbsent(listCompResp.operationLocator().operationId(), uuid -> new ConcurrentHashMap<>())
-                        .put(listCompResp.operationLocator().operationId(), listCompResp.resultFuture());
-
-                return REPLICA_MESSAGES_FACTORY.compoundResponse()
-                        .operationId(listCompResp.operationLocator().operationId())
-                        .result(listCompResp.result())
-                        .build();
-            }
-
-            if (listResp instanceof ListenerFutureResponse) {
-                var listFutResp = (ListenerFutureResponse) listResp;
-
-                ops.computeIfAbsent(listFutResp.operationLocator().operationContextId(), uuid -> new ConcurrentHashMap<>())
-                        .put(listFutResp.operationLocator().operationId(), listFutResp.resultFuture());
-
-                return REPLICA_MESSAGES_FACTORY.futureResponse()
-                        .operationId(listFutResp.operationLocator().operationId())
-                        .build();
-            }
-
-            assert listResp instanceof ListenerInstantResponse : IgniteStringFormatter.format(
-                    "Unexpected listener response type [type={}]", listResp.getClass().getSimpleName());
-
-            var listInstResp = (ListenerInstantResponse) listResp;
-
-            return REPLICA_MESSAGES_FACTORY.instantResponse()
-                    .result(listInstResp.result())
-                    .build();
-
-        } catch (Exception ex) {
-            var traceId = UUID.randomUUID();
-
-            LOG.warn("Exception was thrown [traceId={}]", ex, traceId);
-
-            return REPLICA_MESSAGES_FACTORY
-                    .errorReplicaResponse()
-                    .errorMessage(IgniteStringFormatter.format("Process replication response finished with exception "
-                            + "[replicaGrpId={}, msg={}]", replicaGrpId, ex.getMessage()))
-                    .errorCode(Replicator.REPLICA_COMMON_ERR)
-                    .errorClassName(ex.getClass().getName())
-                    .errorTraceId(traceId)
-                    .build();
-        }
-    }
-
-    /**
-     * Handles a cleanup request.
-     *
-     * @param cleanRequest Cleanup request.
-     * @return Cleanup response.
-     */
-    private InstantResponse handleCleanupRequest(CleanupRequest cleanRequest) {
-        ops.remove(cleanRequest.operationContextId());
-
-        ListenerResponse listResp = listener.invoke(cleanRequest);
-
-        assert listResp instanceof ListenerInstantResponse : IgniteStringFormatter.format(
-                "Unexpected listener response type [type={}]", listResp.getClass().getSimpleName());
-
-        var listInstResp = (ListenerInstantResponse) listResp;
-
-        return REPLICA_MESSAGES_FACTORY.instantResponse()
-                .result(listInstResp.result())
-                .build();
-    }
-
-    /**
-     * Handles a wait operation request.
-     *
-     * @param opsRequest Wait operation request.
-     * @return Wait operations result.
-     */
-    private InstantResponse handleWaitOperationsResultRequest(WaiteOperationsResultRequest opsRequest) {
-        Collection<ReplicaRequestLocator> opIds = opsRequest.operationLocators();
-
-        HashMap<UUID, Object> opRes = null;
-
-        if (opIds != null && !opIds.isEmpty()) {
-            opRes = new HashMap<>(opIds.size());
-
-            for (ReplicaRequestLocator locator : opIds) {
-                ConcurrentHashMap<UUID, CompletableFuture> prefixOps = ops.get(locator.operationContextId());
-
-                if (prefixOps != null) {
-                    CompletableFuture opFut = prefixOps.get(locator.operationId());
-
-                    if (opFut != null) {
-                        opRes.put(locator.operationId(), opFut.join());
-                    }
-                }
-            }
-        }
-
-        return REPLICA_MESSAGES_FACTORY
-                .instantResponse()
-                .result(opRes)
-                .build();
+        return listener.invoke(request);
     }
 }
