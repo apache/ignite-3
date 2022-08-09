@@ -217,6 +217,23 @@ public:
 
 private:
     /**
+     * @brief checks if a value of a given integer type can be compressed to a smaller integer type
+     *
+     * @tparam T Source integer type.
+     * @tparam U Target integer type.
+     * @param value Source value.
+     * @return true If the source value can be compressed.
+     * @return false If the source value cannot be compressed.
+     */
+    template<typename T, typename U>
+    static bool fits(T value) noexcept {
+        static_assert(std::is_signed_v<T>);
+        static_assert(std::is_signed_v<U>);
+        using V = std::make_unsigned_t<U>;
+        return (std::make_unsigned_t<T>(value) + std::numeric_limits<U>::max() + 1) <= std::numeric_limits<V>::max();
+    }
+
+    /**
      * @brief computes required binary size for a given value
      *
      * @param value Actual element value.
@@ -233,7 +250,7 @@ private:
      * @return Required size.
      */
     static SizeT sizeOfInt16(std::int16_t value) noexcept {
-        if (std::uint16_t(value) <= UINT8_MAX) {
+        if (fits<std::int16_t, std::int8_t>(value)) {
             return sizeOfInt8(std::int8_t(value));
         }
         return sizeof(std::int16_t);
@@ -246,10 +263,10 @@ private:
      * @return Required size.
      */
     static SizeT sizeOfInt32(std::int32_t value) noexcept {
-        if (std::uint32_t(value) <= UINT8_MAX) {
+        if (fits<std::int32_t, std::int8_t>(value)) {
             return sizeOfInt8(std::int8_t(value));
         }
-        if (std::uint32_t(value) <= UINT16_MAX) {
+        if (fits<std::int32_t, std::int16_t>(value)) {
             return sizeof(std::int16_t);
         }
         return sizeof(std::int32_t);
@@ -262,10 +279,10 @@ private:
      * @return Required size.
      */
     static SizeT sizeOfInt64(std::int64_t value) noexcept {
-        if (std::uint64_t(value) <= UINT16_MAX) {
+        if (fits<std::int64_t, std::int16_t>(value)) {
             return sizeOfInt16(std::int16_t(value));
         }
-        if (std::uint64_t(value) <= UINT32_MAX) {
+        if (fits<std::int64_t, std::int32_t>(value)) {
             return sizeof(std::int32_t);
         }
         return sizeof(std::int64_t);
