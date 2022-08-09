@@ -591,8 +591,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                             if (implicitTx) {
                                 transaction.commitAsync();
                             }
-                        }
-                        else {
+                        } else {
                             if (implicitTx) {
                                 transaction.rollbackAsync();
                             }

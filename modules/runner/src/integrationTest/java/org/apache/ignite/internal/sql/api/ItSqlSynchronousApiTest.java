@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode.MODIFY_BATCH_SIZE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.cause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
@@ -201,15 +202,15 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
 
         IgniteSql sql = igniteSql();
 
-        IntStream range1 = IntStream.range(0, 10 * AbstractNode.MODIFY_BATCH_SIZE);
+        IntStream range1 = IntStream.range(0, 10 * MODIFY_BATCH_SIZE);
 
-        IntStream range2 = IntStream.range(10 * AbstractNode.MODIFY_BATCH_SIZE, 20 * AbstractNode.MODIFY_BATCH_SIZE);
-
-        // arithmetic progression sum.
-        int s1 = ((0 + 10 * AbstractNode.MODIFY_BATCH_SIZE - 1) * 10 * AbstractNode.MODIFY_BATCH_SIZE) / 2;
+        IntStream range2 = IntStream.range(10 * MODIFY_BATCH_SIZE, 20 * MODIFY_BATCH_SIZE);
 
         // arithmetic progression sum.
-        int s2 = ((10 * AbstractNode.MODIFY_BATCH_SIZE + 20 * AbstractNode.MODIFY_BATCH_SIZE - 1) * 10 * AbstractNode.MODIFY_BATCH_SIZE) / 2;
+        int s1 = ((0 + 10 * MODIFY_BATCH_SIZE - 1) * 10 * MODIFY_BATCH_SIZE) / 2;
+
+        // arithmetic progression sum.
+        int s2 = ((10 * MODIFY_BATCH_SIZE + 20 * MODIFY_BATCH_SIZE - 1) * 10 * MODIFY_BATCH_SIZE) / 2;
 
         int[] arr1 = range1.toArray();
 
