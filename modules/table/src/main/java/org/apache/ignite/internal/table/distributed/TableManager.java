@@ -160,6 +160,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Raft manager. */
     private final Loza raftMgr;
 
+    /** Replica manager. */
+    private final ReplicaManager replicaMgr;
+
+    /** Replica service. */
+    private final ReplicaService replicaSvc;
+
     /** Baseline manager. */
     private final BaselineManager baselineMgr;
 
@@ -208,6 +214,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param registry Registry for versioned values.
      * @param tablesCfg Tables configuration.
      * @param raftMgr Raft manager.
+     * @param replicaMgr Replica manager.
+     * @param replicaSvc Replica service.
      * @param baselineMgr Baseline manager.
      * @param txManager Transaction manager.
      * @param dataStorageMgr Data storage manager.
@@ -217,6 +225,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             Consumer<Function<Long, CompletableFuture<?>>> registry,
             TablesConfiguration tablesCfg,
             Loza raftMgr,
+            ReplicaManager replicaMgr,
+            ReplicaService replicaSvc,
             BaselineManager baselineMgr,
             TopologyService topologyService,
             TxManager txManager,
@@ -227,6 +237,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.tablesCfg = tablesCfg;
         this.raftMgr = raftMgr;
         this.baselineMgr = baselineMgr;
+        this.replicaMgr = replicaMgr;
+        this.replicaSvc = replicaSvc;
         this.txManager = txManager;
         this.dataStorageMgr = dataStorageMgr;
         this.metaStorageMgr = metaStorageMgr;
@@ -264,6 +276,44 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                 new NamedThreadFactory("rebalance-scheduler", LOG));
+    }
+
+    // TODO: remove
+    /**
+     * Creates a new table manager.
+     *
+     * @param registry Registry for versioned values.
+     * @param tablesCfg Tables configuration.
+     * @param raftMgr Raft manager.
+     * @param baselineMgr Baseline manager.
+     * @param txManager Transaction manager.
+     * @param dataStorageMgr Data storage manager.
+     * @param schemaManager Schema manager.
+     */
+    public TableManager(
+            Consumer<Function<Long, CompletableFuture<?>>> registry,
+            TablesConfiguration tablesCfg,
+            Loza raftMgr,
+            BaselineManager baselineMgr,
+            TopologyService topologyService,
+            TxManager txManager,
+            DataStorageManager dataStorageMgr,
+            MetaStorageManager metaStorageMgr,
+            SchemaManager schemaManager
+    ) {
+        this(
+                registry,
+                tablesCfg,
+                raftMgr,
+                null,
+                null,
+                baselineMgr,
+                topologyService,
+                txManager,
+                dataStorageMgr,
+                metaStorageMgr,
+                schemaManager
+        );
     }
 
     /** {@inheritDoc} */
@@ -606,7 +656,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tableStorage.start();
 
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
-                partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage);
+                partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, replicaSvc);
 
         var table = new TableImpl(internalTable);
 

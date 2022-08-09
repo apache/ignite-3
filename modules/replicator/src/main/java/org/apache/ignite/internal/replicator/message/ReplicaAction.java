@@ -15,16 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
-
-import java.util.UUID;
-import org.apache.ignite.network.NetworkMessage;
+package org.apache.ignite.internal.replicator.message;
 
 /**
- * RW replica request.
+ * Replication action.
  */
-// TODO: extends ReplicaRequest issue.
-public interface ReadWriteReplicaRequest extends NetworkMessage { //extends ReplicaRequest {
-
-    UUID transactionId();
+public interface ReplicaAction {
 }

@@ -23,9 +23,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.network.annotations.Marshallable;
 
-/**
- * Multiple row replica request.
- */
 public interface MultipleRowReplicaRequest extends ReplicaRequest {
     @Marshallable
     Collection<BinaryRow> binaryRows();

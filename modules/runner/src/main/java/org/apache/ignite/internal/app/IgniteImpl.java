@@ -169,6 +169,9 @@ public class IgniteImpl implements Ignite {
     /** Baseline manager. */
     private final BaselineManager baselineMgr;
 
+    /** Replica manager. */
+    private final ReplicaManager replicaMgr;
+
     /** Transactions manager. */
     private final TxManager txManager;
 
@@ -260,6 +263,9 @@ public class IgniteImpl implements Ignite {
 
         raftMgr = new Loza(clusterSvc, workDir, clock);
 
+
+        replicaMgr = new ReplicaManager(clusterSvc);
+
         txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
 
         cmgMgr = new ClusterManagementGroupManager(
@@ -324,10 +330,14 @@ public class IgniteImpl implements Ignite {
             clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
         );
 
+        ReplicaService replicaSvc = new ReplicaService(replicaMgr, clusterSvc.messagingService(), clusterSvc.topologyService());
+
         distributedTblMgr = new TableManager(
                 registry,
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 raftMgr,
+                replicaMgr,
+                replicaSvc,
                 baselineMgr,
                 clusterSvc.topologyService(),
                 txManager,
@@ -445,6 +455,7 @@ public class IgniteImpl implements Ignite {
                                     metaStorageMgr,
                                     clusterCfgMgr,
                                     computeComponent,
+                                    replicaMgr,
                                     txManager,
                                     baselineMgr,
                                     dataStorageMgr,
