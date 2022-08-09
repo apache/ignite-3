@@ -26,8 +26,6 @@ import org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget;
 public interface LogStorageBudgetsModule {
     /**
      * Returns mapping from budget names to budget factories for the budgets supported by this module.
-     *
-     * @return Mapping from budget names to budget factories for the budgets supported by this module.
      */
     Map<String, LogStorageBudgetFactory> budgetFactories();
 }
