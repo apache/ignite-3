@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -36,12 +37,14 @@ public interface InternalTransaction extends Transaction {
     @NotNull UUID id();
 
     /**
-     * Returns a set of enlisted partition groups.
+     * Returns a map of enlisted partition groups. groupId -> clusterNode
      *
-     * @return A set of enlisted partition groups.
+     * @return A map of enlisted partition groups.
      */
     @TestOnly
-    Set<RaftGroupService> enlisted();
+    Set<RaftGroupService> enlistedRafts();
+
+    ClusterNode enlistedNode(String partGroupId);
 
     /**
      * Returns a transaction state.
@@ -64,5 +67,5 @@ public interface InternalTransaction extends Transaction {
      * @param svc Partition service.
      * @return {@code True} if a partition is enlisted into the transaction.
      */
-    boolean enlist(String repicationGroupId);
+    ClusterNode enlist(String repicationGroupId, ClusterNode node);
 }

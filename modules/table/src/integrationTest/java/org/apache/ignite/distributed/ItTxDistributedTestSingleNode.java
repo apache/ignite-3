@@ -41,6 +41,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.TableImpl;
@@ -230,7 +231,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 NetworkAddress::toString,
                 addressToNode,
                 txMgr,
-                Mockito.mock(MvTableStorage.class)
+                Mockito.mock(MvTableStorage.class),
+                Mockito.mock(ReplicaService.class)
         ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
 
         this.customers = new TableImpl(new InternalTableImpl(
@@ -241,7 +243,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 NetworkAddress::toString,
                 addressToNode,
                 txMgr,
-                Mockito.mock(MvTableStorage.class)
+                Mockito.mock(MvTableStorage.class),
+                Mockito.mock(ReplicaService.class)
         ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
 
         log.info("Tables have been started");

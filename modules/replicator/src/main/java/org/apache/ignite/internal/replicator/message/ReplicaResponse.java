@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.replicator.message;
 
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Replica response interface.
@@ -25,4 +27,6 @@ import org.apache.ignite.network.NetworkMessage;
  */
 @Transferable(ReplicaMessageGroup.REPLICA_RESPONSE)
 public interface ReplicaResponse extends NetworkMessage {
+    @Marshallable
+    Object result();
 }

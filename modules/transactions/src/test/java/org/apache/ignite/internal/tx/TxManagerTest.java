@@ -121,8 +121,8 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         tx.enlist(svc);
 
-        assertEquals(1, tx.enlisted().size());
-        assertTrue(tx.enlisted().contains(svc));
+        assertEquals(1, tx.enlistedRafts().size());
+        assertTrue(tx.enlistedRafts().contains(svc));
     }
 
     @Test

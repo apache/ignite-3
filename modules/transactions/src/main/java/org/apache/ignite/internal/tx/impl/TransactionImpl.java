@@ -31,6 +31,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -57,7 +58,9 @@ public class TransactionImpl implements InternalTransaction {
     private final NetworkAddress address;
 
     /** Enlisted groups. */
-    private Set<RaftGroupService> enlisted = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private Set<RaftGroupService> enlistedRafts = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
+    private Map<String, ClusterNode> enlisted = new ConcurrentHashMap<>();
 
     /**
      * The constructor.
@@ -81,8 +84,12 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override
-    public Set<RaftGroupService> enlisted() {
-        return enlisted;
+    public Set<RaftGroupService> enlistedRafts() {
+        return enlistedRafts;
+    }
+
+    public ClusterNode enlistedNode(String partGroupId) {
+        return enlisted.get(partGroupId);
     }
 
     /** {@inheritDoc} */
@@ -95,13 +102,15 @@ public class TransactionImpl implements InternalTransaction {
     /** {@inheritDoc} */
     @Override
     public boolean enlist(RaftGroupService svc) {
-        return enlisted.add(svc);
+        return enlistedRafts.add(svc);
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean enlist(String repicationGroupId) {
-        return false;
+    public ClusterNode enlist(String repicationGroupId, ClusterNode node) {
+        enlisted.put(repicationGroupId, node);
+
+        return node;
     }
 
     /** {@inheritDoc} */
@@ -158,7 +167,7 @@ public class TransactionImpl implements InternalTransaction {
         Map<NetworkAddress, Set<String>> tmp = new HashMap<>();
 
         // Group by common leader addresses.
-        for (RaftGroupService svc : enlisted) {
+        for (RaftGroupService svc : enlistedRafts) {
             NetworkAddress addr = svc.leader().address();
 
             tmp.computeIfAbsent(addr, k -> new HashSet<>()).add(svc.groupId());
@@ -179,7 +188,7 @@ public class TransactionImpl implements InternalTransaction {
 
         Set<NetworkAddress> allEnlistedNodes = new HashSet<>();
 
-        for (RaftGroupService svc : enlisted) {
+        for (RaftGroupService svc : enlistedRafts) {
             for (Peer peer : svc.peers()) {
                 allEnlistedNodes.add(peer.address());
             }
