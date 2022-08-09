@@ -23,7 +23,6 @@ import org.apache.ignite.raft.jraft.entity.LogEntry;
  * {@link LogStorageBudget} that always allows everything.
  */
 public class UnlimitedBudget implements LogStorageBudget {
-
     @Override
     public boolean hasRoomFor(LogEntry entry) {
         return true;
