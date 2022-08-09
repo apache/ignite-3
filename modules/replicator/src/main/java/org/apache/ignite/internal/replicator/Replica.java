@@ -20,10 +20,7 @@ package org.apache.ignite.internal.replicator;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
-import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
@@ -32,12 +29,6 @@ import org.apache.ignite.lang.IgniteStringFormatter;
  * TODO:IGNITE-17257 Implement Replica server-side logic.
  */
 public class Replica {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(Replica.class);
-
-    /** Replicator network message factory. */
-    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
-
     /** Replica group identity, this id is the same as the considered partition's id. */
     private final String replicaGrpId;
 
