@@ -45,8 +45,6 @@ public class Replica {
     /** Replica listener. */
     private final ReplicaListener listener;
 
-    private final MessagingService messagingSvc;
-
     /**
      * The map matches an operation id to the future of operation result.
      * The first id is a business transaction id within which the operation is handled.
@@ -63,12 +61,10 @@ public class Replica {
      */
     public Replica(
             String replicaGrpId,
-            ReplicaListener listener,
-            MessagingService messagingSvc
+            ReplicaListener listener
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
-        this.messagingSvc = messagingSvc;
     }
 
     /**
