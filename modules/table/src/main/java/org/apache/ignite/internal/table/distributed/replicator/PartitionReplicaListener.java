@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.replicator;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -203,14 +202,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return CompletableFuture.allOf(getLockFuts).thenApply(ignore -> {
-                    HashMap<BinaryRow, BinaryRow> result = new HashMap<>(keyRows.size());
+                    ArrayList<BinaryRow> result = new ArrayList<>(keyRows.size());
 
                     int futNum = 0;
 
                     for (BinaryRow searchKey : keyRows) {
                         RowId lockedRowId = getLockFuts[futNum++].join();
 
-                        result.put(keyToRows.get(searchKey), lockedRowId != null ? mvDataStorage.read(lockedRowId, txId) : null);
+                        result.add(lockedRowId != null ? mvDataStorage.read(lockedRowId, txId) : null);
                     }
 
                     return result;
