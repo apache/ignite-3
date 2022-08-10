@@ -17,6 +17,9 @@
 
 package org.apache.ignite.cli.core.repl.completer;
 
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_OPTION;
+import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_OPTION;
+
 import jakarta.inject.Singleton;
 import java.util.Arrays;
 import org.apache.ignite.cli.core.repl.Session;
@@ -59,6 +62,6 @@ public class DynamicCompleterFilter implements CompleterFilter {
             return true;
         }
 
-        return !session.isConnectedToNode() || (!candidate.equals("--cluster-url") && !candidate.equals("--node-url"));
+        return !session.isConnectedToNode() || (!candidate.equals(CLUSTER_URL_OPTION) && !candidate.equals(NODE_URL_OPTION));
     }
 }

@@ -83,7 +83,7 @@ class CliConfigGetSubCommandTest extends CliCommandTestBase {
     @DisplayName("Only one key is allowed")
     void multipleKeys() {
         // When executed with multiple keys
-        execute("ignite.cluster-url", "ignite.jdbc-url");
+        execute("ignite.cluster-endpoint-url", "ignite.jdbc-url");
 
         assertAll(
                 () -> assertExitCodeIs(2),

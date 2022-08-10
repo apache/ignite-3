@@ -62,11 +62,11 @@ import org.rocksdb.WriteOptions;
 
 /**
  * Multi-versioned partition storage implementation based on RocksDB. Stored data has the following format:
- * <pre><code>
- * | rowId (16 bytes, BE) |</code></pre>
+ * <pre>{@code
+ * | rowId (16 bytes, BE) |}</pre>
  * or
- * <pre><code>
- * | rowId (16 bytes, BE) | timestamp (16 bytes, DESC) |</code></pre>
+ * <pre>{@code
+ * | rowId (16 bytes, BE) | timestamp (16 bytes, DESC) |}</pre>
  * depending on transaction status. Pending transactions' data doesn't have a timestamp assigned.
  *
  * <p/>BE means Big Endian, meaning that lexicographical bytes order matches a natural order of partitions.
@@ -193,11 +193,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> flush() {
-        CompletableFuture<Void> flushFuture = new CompletableFuture<>();
-
-        CompletableFuture<Void> oldFuture = flushFuturesByAppliedIndex.put(lastAppliedIndex, flushFuture);
-
-        assert oldFuture == null;
+        CompletableFuture<Void> flushFuture = flushFuturesByAppliedIndex.computeIfAbsent(
+                lastAppliedIndex, index -> new CompletableFuture<>()
+        );
 
         tableStorage.scheduleFlush();
 
@@ -780,7 +778,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         IgniteUtils.closeAll(persistedTierReadOpts, readOpts, writeOpts, upperBound);
     }
 
-    private WriteBatchWithIndex requireWriteBatch() {
+    private static WriteBatchWithIndex requireWriteBatch() {
         WriteBatchWithIndex writeBatch = WRITE_BATCH.get();
 
         if (writeBatch == null) {
@@ -808,7 +806,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /**
      * Writes a timestamp into a byte buffer, in descending lexicographical bytes order.
      */
-    private void putTimestamp(ByteBuffer buf, Timestamp ts) {
+    private static void putTimestamp(ByteBuffer buf, Timestamp ts) {
         assert buf.order() == BIG_ENDIAN;
 
         // Two things to note here:
@@ -818,12 +816,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         buf.putLong(~ts.getNodeId() ^ (1L << 63));
     }
 
-    private void putTransactionId(byte[] array, int off, UUID txId) {
+    private static void putTransactionId(byte[] array, int off, UUID txId) {
         GridUnsafe.putLong(array, GridUnsafe.BYTE_ARR_OFF + off, txId.getMostSignificantBits());
         GridUnsafe.putLong(array, GridUnsafe.BYTE_ARR_OFF + off + Long.BYTES, txId.getLeastSignificantBits());
     }
 
-    private void validateTxId(byte[] valueBytes, UUID txId) {
+    private static void validateTxId(byte[] valueBytes, UUID txId) {
         if (txId.getMostSignificantBits() != GridUnsafe.getLong(valueBytes, GridUnsafe.BYTE_ARR_OFF)
                 || txId.getLeastSignificantBits() != GridUnsafe.getLong(valueBytes, GridUnsafe.BYTE_ARR_OFF + Long.BYTES)) {
             throw new TxIdMismatchException();
@@ -833,7 +831,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /**
      * Checks iterator validity, including both finished iteration and occurred exception.
      */
-    private boolean invalid(RocksIterator it) {
+    private static boolean invalid(RocksIterator it) {
         boolean invalid = !it.isValid();
 
         if (invalid) {
@@ -856,7 +854,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * @param valueHasTxId Whether the value has a transaction id prefix in it.
      * @return Binary row instance or {@code null} if value is a tombstone.
      */
-    private @Nullable BinaryRow wrapValueIntoBinaryRow(byte[] valueBytes, boolean valueHasTxId) {
+    private static @Nullable BinaryRow wrapValueIntoBinaryRow(byte[] valueBytes, boolean valueHasTxId) {
         if (isTombstone(valueBytes, valueHasTxId)) {
             return null;
         }
@@ -887,7 +885,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /**
      * Returns {@code true} if value payload represents a tombstone.
      */
-    private boolean isTombstone(byte[] valueBytes, boolean hasTxId) {
+    private static boolean isTombstone(byte[] valueBytes, boolean hasTxId) {
         return valueBytes.length == (hasTxId ? TX_ID_SIZE : 0);
     }
 }

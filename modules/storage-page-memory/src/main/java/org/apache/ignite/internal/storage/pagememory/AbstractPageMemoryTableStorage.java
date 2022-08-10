@@ -31,6 +31,7 @@ import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -183,7 +184,7 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> destroyPartition(int partitionId) throws StorageException {
+    public CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException {
         assert started : "Storage has not started yet";
 
         MvPartitionStorage partition = getMvPartition(partitionId);
@@ -197,6 +198,22 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
 
         // TODO: IGNITE-17197 Convert this to true async code.
         return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public void createIndex(String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    @Nullable
+    public SortedIndexStorage getSortedIndex(int partitionId, String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    public CompletableFuture<Void> destroyIndex(String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /**

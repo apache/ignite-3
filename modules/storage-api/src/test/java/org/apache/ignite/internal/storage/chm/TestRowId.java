@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.impl;
+package org.apache.ignite.internal.storage.chm;
 
 import java.util.Objects;
 import java.util.UUID;

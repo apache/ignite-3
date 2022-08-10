@@ -27,8 +27,6 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.ToIntFunction;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
@@ -46,23 +44,12 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     private final SortedIndexDescriptor descriptor;
 
-    private final BinaryTupleSchema schema;
-
     /**
      * Constructor.
      */
     public TestSortedIndexStorage(SortedIndexDescriptor descriptor) {
         this.descriptor = descriptor;
-        this.schema = createSchema(descriptor);
         this.index = new ConcurrentSkipListMap<>(BinaryTupleComparator.newComparator(descriptor));
-    }
-
-    private static BinaryTupleSchema createSchema(SortedIndexDescriptor descriptor) {
-        Element[] elements = descriptor.indexColumns().stream()
-                .map(columnDescriptor -> new Element(columnDescriptor.type(), columnDescriptor.nullable()))
-                .toArray(Element[]::new);
-
-        return BinaryTupleSchema.create(elements);
     }
 
     @Override
@@ -72,7 +59,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public IndexRowSerializer indexRowSerializer() {
-        return new BinaryTupleRowSerializer(schema);
+        return new BinaryTupleRowSerializer(descriptor);
     }
 
     @Override

@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
 
 /**
- * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
+ * MV partition storage test implementation for {@link TestConcurrentHashMapMvPartitionStorage} class.
  */
 public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
     /**
      * Creates new instance.
      */
     public TestMvPartitionStorageTest() {
-        storage = new TestMvPartitionStorage(0);
+        storage = new TestConcurrentHashMapMvPartitionStorage(0);
     }
 }
