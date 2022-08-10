@@ -134,5 +134,8 @@ public class ErrorGroups {
 
         /** Timeout has happened during the replication procedure. */
         public static int REPLICA_TIMEOUT_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(3);
+
+        /** The error happens when the replication level try to handle an unsupported request.  */
+        public static int REPLICA_UNSUPPORTED_REQUEST_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(4);
     }
 }

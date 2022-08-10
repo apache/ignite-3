@@ -25,7 +25,7 @@ import org.apache.ignite.network.annotations.Marshallable;
 /**
  * Dual row replica request.
  */
-public interface DualRowReplicaRequest extends ReplicaRequest {
+public interface SwapRowReplicaRequest extends ReplicaRequest {
     @Marshallable
     BinaryRow binaryRow();
 

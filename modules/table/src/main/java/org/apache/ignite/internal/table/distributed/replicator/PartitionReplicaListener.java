@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.replicator.exception.ReplicationException;
+import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -41,11 +41,10 @@ import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteDualRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.tx.Lock;
-import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
@@ -63,10 +62,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaListener.class);
 
     /** Primary key id. */
-    public static final UUID INDEX_PK_ID = new UUID(0L, 2L);
+    public final UUID indexPkId;
 
     /** Scan index id. */
-    public static final UUID INDEX_SCAN_ID = new UUID(0L, 1L);
+    public final UUID indexScanId;
 
     /** Table id. */
     private final UUID tableId;
@@ -103,6 +102,10 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.lockManager = lockManager;
         this.tableId = tableId;
         this.primaryIndex = primaryIndex;
+
+        //TODO: IGNITE-17479 Integrate indexes into replicaListener command handlers
+        this.indexScanId = new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 1);
+        this.indexPkId = new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 2);
     }
 
     /** {@inheritDoc} */
@@ -112,10 +115,10 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processSingleEntryAction((ReadWriteSingleRowReplicaRequest) request);
         } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
             return processMultiEntryAction((ReadWriteMultiRowReplicaRequest) request);
-        } else if (request instanceof ReadWriteDualRowReplicaRequest) {
-            return processTwoEntriesAction((ReadWriteDualRowReplicaRequest) request);
+        } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
+            return processTwoEntriesAction((ReadWriteSwapRowReplicaRequest) request);
         } else {
-            return null;
+            throw  new UnsupportedReplicaRequestException(request.getClass());
         }
     }
 
@@ -126,22 +129,23 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Index id.
      */
     private @NotNull UUID indexIdOrDefault(@Nullable UUID indexId) {
-        return indexId != null ? indexId : INDEX_SCAN_ID;
+        return indexId != null ? indexId : indexScanId;
     }
 
     /**
      * Find out a row id by an index.
+     * TODO: IGNITE-17479 Integrate indexes into replicaListener command handlers
      *
      * @param indexId Index id.
      * @param key     Key to find.
      * @return Value or {@code null} if the key does not determine a value.
      */
-    private RowId valueByUniqueIndex(@NotNull UUID indexId, BinaryRow key) {
-        if (INDEX_PK_ID.equals(indexId)) {
+    private RowId rowIdByKey(@NotNull UUID indexId, BinaryRow key) {
+        if (indexPkId.equals(indexId)) {
             return primaryIndex.get(key.keySlice());
         }
 
-        if (INDEX_SCAN_ID.equals(indexId)) {
+        if (indexScanId.equals(indexId)) {
             RowId[] rowIdHolder = new RowId[1];
 
             mvDataStorage.forEach((rowId, binaryRow) -> {
@@ -184,7 +188,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         Map<BinaryRow, BinaryRow> keyToRows = request.binaryRows().stream().collect(
                 Collectors.toMap(br -> new ByteBufferRow(br.keySlice()), br -> br));
 
-        UUID indexId = indexIdOrDefault(null/*request.indexToUse()*/);
+        UUID indexId = indexIdOrDefault(indexPkId/*request.indexToUse()*/);
 
         UUID txId = request.transactionId();
 
@@ -241,7 +245,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = rowsToDelete.isEmpty() ? CompletableFuture.completedFuture(null)
                             : raftClient.run(new DeleteAllCommand(rowsToDelete, txId));
 
-                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
                     return raftFut.thenApply(ignored -> result);
                 });
             }
@@ -271,7 +275,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = result.isEmpty() ? CompletableFuture.completedFuture(null)
                             : raftClient.run(new DeleteAllCommand(result, txId));
 
-                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
                     return raftFut.thenApply(ignored -> result);
                 });
             }
@@ -304,7 +308,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = rowsToInsert.isEmpty() ? CompletableFuture.completedFuture(null)
                             : raftClient.run(new InsertAllCommand(rowsToInsert, txId));
 
-                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
                     return raftFut.thenApply(ignored -> result);
                 });
             }
@@ -341,7 +345,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = rowsToInsert.isEmpty() ? CompletableFuture.completedFuture(null)
                             : raftClient.run(new UpsertAllCommand(rowsToUpsert, txId));
 
-                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
                     return raftFut.thenApply(ignored -> null);
                 });
             }
@@ -363,7 +367,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         BinaryRow searchRow = request.binaryRow();
 
-        UUID indexId = indexIdOrDefault(null/*request.indexToUse()*/);
+        UUID indexId = indexIdOrDefault(indexPkId/*request.indexToUse()*/);
 
         UUID txId = request.transactionId();
 
@@ -387,7 +391,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = lockedRowId != null ? raftClient.run(new DeleteCommand(searchKey, txId)) :
                             CompletableFuture.completedFuture(null);
 
-                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
                     return raftFut.thenApply(ignored -> result);
                 });
             }
@@ -399,7 +403,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = lockedRow != null ? raftClient.run(new DeleteCommand(lockedRow, txId)) :
                             CompletableFuture.completedFuture(null);
 
-                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
                     return raftFut.thenApply(ignored -> lockedRow);
                 });
             }
@@ -413,7 +417,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = lockedRowId == null ? raftClient.run(new InsertCommand(searchRow, txId)) :
                             CompletableFuture.completedFuture(null);
 
-                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
                     return raftFut.thenApply(ignored -> inserted);
                 });
             }
@@ -427,14 +431,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = lockedRowId != null ? raftClient.run(new UpsertCommand(searchRow, txId)) :
                             raftClient.run(new InsertCommand(searchRow, txId));
 
-                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
                     return raftFut.thenApply(ignored -> null);
                 });
             }
             case RW_GET_AND_UPSERT: {
                 return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE)
                         .thenCompose(idxLock -> { // Index X lock
-                            RowId rowId = valueByUniqueIndex(indexId, searchKey);
+                            RowId rowId = rowIdByKey(indexId, searchKey);
 
                             return lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE)
                                     .thenCompose(tblLock -> { // IX lock on table
@@ -452,7 +456,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                             CompletableFuture raftFut = rowId != null ? raftClient.run(new UpsertCommand(searchRow, txId)) :
                                                     raftClient.run(new InsertCommand(searchRow, txId));
 
-                                            // TODO: add exception handling, including analyzing whether raftFut result.
+                                            //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
                                             return raftFut.thenApply(ignored -> result);
                                         });
                                     });
@@ -460,21 +464,15 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
             case RW_GET_AND_REPLACE: {
                 CompletableFuture<RowId> idxLockFut = lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.SHARED)
-                        .thenCompose(tempIdxLock -> { // Index S lock - temporary
-                            RowId rowId = valueByUniqueIndex(indexId, searchKey);
+                        .thenCompose(sharedIdxLock -> { // Index S lock
+                            RowId rowId = rowIdByKey(indexId, searchKey);
 
-                            if (rowId == null) {
-                                try {
-                                    lockManager.release(tempIdxLock); // Release S lock on Index - temporary
-                                } catch (LockException e) {
-                                    throw new ReplicationException("group", e);
-                                }
-
-                                return CompletableFuture.completedFuture(null);
-                            } else {
+                            if (rowId != null) {
                                 return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE)
-                                        .thenApply(idxLock -> rowId); // Index X lock
+                                        .thenApply(exclusiveIdxLock -> rowId); // Index X lock
                             }
+
+                            return CompletableFuture.completedFuture(null);
                         });
 
                 return idxLockFut.thenCompose(lockedRowId -> {
@@ -498,7 +496,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     CompletableFuture raftFut = lockedRow == null ? CompletableFuture.completedFuture(null) :
                                             raftClient.run(new UpsertCommand(lockedRow, txId));
 
-                                    // TODO: add exception handling, including analyzing whether raftFut result.
+                                    //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
                                     return raftFut.thenApply(ignored -> lockedRow);
                                 });
                             });
@@ -516,7 +514,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = replaced ? raftClient.run(new UpsertCommand(searchRow, txId)) :
                             CompletableFuture.completedFuture(null);
 
-                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
                     return raftFut.thenApply(ignored -> replaced);
                 });
             }
@@ -537,7 +535,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<RowId> takeLocksForReplaceIfExist(BinaryRow searchKey, UUID indexId, UUID txId) {
         return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.SHARED).thenCompose(shareIdxLock -> { // Index R lock
-            RowId rowId = valueByUniqueIndex(indexId, searchKey);
+            RowId rowId = rowIdByKey(indexId, searchKey);
 
             CompletableFuture<Lock> idxLockFut = rowId != null
                     ? lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE) // Index X lock
@@ -567,7 +565,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<RowId> takeLocksForUpsert(BinaryRow searchKey, UUID indexId, UUID txId) {
         return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE).thenCompose(idxLock -> { // Index X lock
-            RowId rowId = valueByUniqueIndex(indexId, searchKey);
+            RowId rowId = rowIdByKey(indexId, searchKey);
 
             return lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE)
                     .thenCompose(tblLock -> { // IX lock on table
@@ -590,24 +588,18 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future completes with {@link RowId} or {@code null} if there is no value.
      */
     private CompletableFuture<RowId> takeLocksForInsert(BinaryRow searchKey, UUID indexId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.SHARED) // Index S lock - temporary
-                .thenCompose(tempIdxLock -> {
-                    RowId rowId = valueByUniqueIndex(indexId, searchKey);
+        return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.SHARED) // Index S lock
+                .thenCompose(sharedIdxLock -> {
+                    RowId rowId = rowIdByKey(indexId, searchKey);
 
-                    if (rowId != null) {
-                        try {
-                            lockManager.release(tempIdxLock); // Release S lock on Index - temporary
-                        } catch (LockException e) {
-                            throw new ReplicationException("group", e);
-                        }
-
-                        return CompletableFuture.completedFuture(rowId);
-                    } else {
+                    if (rowId == null) {
                         return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE) // Index X lock
-                                .thenCompose(idxLock ->
+                                .thenCompose(exclusiveIdxLock ->
                                         lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE) // IX lock on table
                                                 .thenApply(tblLock -> null));
                     }
+
+                    return CompletableFuture.completedFuture(rowId);
                 });
     }
 
@@ -622,31 +614,24 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<BinaryRow> takeLocksForDeleteExact(BinaryRow searchKey, BinaryRow searchRow, UUID indexId, UUID txId) {
         return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE).thenCompose(idxLock -> { // Index X lock
-            RowId rowId = valueByUniqueIndex(indexId, searchKey);
+            RowId rowId = rowIdByKey(indexId, searchKey);
 
             return lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE) // IX lock on table
                     .thenCompose(tblLock -> {
                         CompletableFuture<BinaryRow> rowLockFut;
 
                         if (rowId != null) {
-                            rowLockFut = lockManager.acquire(txId, new LockKey(tableId, rowId),
-                                            LockMode.SHARED) // S lock on RowId - temporary
-                                    .thenCompose(tempRowLock -> {
+                            rowLockFut = lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.SHARED) // S lock on RowId
+                                    .thenCompose(sharedRowLock -> {
                                         BinaryRow curVal = mvDataStorage.read(rowId, txId);
 
                                         if (equalValues(curVal, searchRow)) {
                                             return lockManager.acquire(txId, new LockKey(tableId, rowId),
                                                             LockMode.EXCLUSIVE) // X lock on RowId
-                                                    .thenApply(rowLock -> curVal);
-                                        } else {
-                                            try {
-                                                lockManager.release(tempRowLock); // Release S lock on RowId - temporary
-                                            } catch (LockException e) {
-                                                throw new ReplicationException("group", e);
-                                            }
-
-                                            return CompletableFuture.completedFuture(null);
+                                                    .thenApply(exclusiveRowLock -> curVal);
                                         }
+
+                                        return CompletableFuture.completedFuture(null);
                                     });
                         } else {
                             rowLockFut = CompletableFuture.completedFuture(null);
@@ -667,7 +652,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<RowId> takeLocksForDelete(BinaryRow searchKey, UUID indexId, UUID txId) {
         return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE).thenCompose(idxLock -> { // Index X lock
-            RowId rowId = valueByUniqueIndex(indexId, searchKey);
+            RowId rowId = rowIdByKey(indexId, searchKey);
 
             return lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE) // IX lock on table
                     .thenCompose(tblLock -> {
@@ -691,7 +676,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<RowId> takeLocsForGet(BinaryRow searchKey, UUID indexId, UUID txId) {
         return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.SHARED).thenCompose(idxLock -> { // Index S lock
-            RowId rowId = valueByUniqueIndex(indexId, searchKey);
+            RowId rowId = rowIdByKey(indexId, searchKey);
 
             return lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_SHARED).thenCompose(tblLock -> { // IS lock on table
                 if (rowId != null) {
@@ -710,13 +695,13 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param action Two actions operation.
      * @return Listener response.
      */
-    private CompletableFuture<Object> processTwoEntriesAction(ReadWriteDualRowReplicaRequest request) {
+    private CompletableFuture<Object> processTwoEntriesAction(ReadWriteSwapRowReplicaRequest request) {
         BinaryRow searchKey = new ByteBufferRow(request.binaryRow().keySlice());
 
         BinaryRow searchRow = request.binaryRow();
         BinaryRow oldRow = request.oldBinaryRow();
 
-        UUID indexId = indexIdOrDefault(null/*request.indexToUse()*/);
+        UUID indexId = indexIdOrDefault(indexPkId/*request.indexToUse()*/);
 
         UUID txId = request.transactionId();
 
@@ -733,7 +718,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     CompletableFuture raftFut = replaced ? raftClient.run(new UpsertCommand(searchRow, txId)) :
                             CompletableFuture.completedFuture(null);
 
-                    // TODO: add exception handling, including analyzing whether raftFut result.
+                    //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
                     return raftFut.thenApply(ignored -> replaced);
                 });
             }
@@ -755,7 +740,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<BinaryRow> takeLocsForReplace(BinaryRow searchKey, BinaryRow oldRow, UUID indexId, UUID txId) {
         return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.SHARED).thenCompose(shareIdxLock -> { // Index R lock
-            RowId rowId = valueByUniqueIndex(indexId, searchKey);
+            RowId rowId = rowIdByKey(indexId, searchKey);
 
             CompletableFuture<Lock> idxLockFut = rowId != null
                     ? lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE) // Index X lock
