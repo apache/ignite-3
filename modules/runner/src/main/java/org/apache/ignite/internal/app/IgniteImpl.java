@@ -263,7 +263,6 @@ public class IgniteImpl implements Ignite {
 
         raftMgr = new Loza(clusterSvc, workDir, clock);
 
-
         replicaMgr = new ReplicaManager(clusterSvc);
 
         txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());

@@ -60,6 +60,7 @@ public class TransactionImpl implements InternalTransaction {
     /** Enlisted groups. */
     private Set<RaftGroupService> enlistedRafts = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
+    /** Enlisted replication groups: replication group id -> primary replica node. */
     private Map<String, ClusterNode> enlisted = new ConcurrentHashMap<>();
 
     /**
@@ -84,10 +85,6 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override
-    public Set<RaftGroupService> enlistedRafts() {
-        return enlistedRafts;
-    }
-
     public ClusterNode enlistedNode(String partGroupId) {
         return enlisted.get(partGroupId);
     }
@@ -97,12 +94,6 @@ public class TransactionImpl implements InternalTransaction {
     @Override
     public TxState state() {
         return txManager.state(id);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean enlist(RaftGroupService svc) {
-        return enlistedRafts.add(svc);
     }
 
     /** {@inheritDoc} */

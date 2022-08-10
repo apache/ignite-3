@@ -278,44 +278,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 new NamedThreadFactory("rebalance-scheduler", LOG));
     }
 
-    // TODO: remove
-    /**
-     * Creates a new table manager.
-     *
-     * @param registry Registry for versioned values.
-     * @param tablesCfg Tables configuration.
-     * @param raftMgr Raft manager.
-     * @param baselineMgr Baseline manager.
-     * @param txManager Transaction manager.
-     * @param dataStorageMgr Data storage manager.
-     * @param schemaManager Schema manager.
-     */
-    public TableManager(
-            Consumer<Function<Long, CompletableFuture<?>>> registry,
-            TablesConfiguration tablesCfg,
-            Loza raftMgr,
-            BaselineManager baselineMgr,
-            TopologyService topologyService,
-            TxManager txManager,
-            DataStorageManager dataStorageMgr,
-            MetaStorageManager metaStorageMgr,
-            SchemaManager schemaManager
-    ) {
-        this(
-                registry,
-                tablesCfg,
-                raftMgr,
-                null,
-                null,
-                baselineMgr,
-                topologyService,
-                txManager,
-                dataStorageMgr,
-                metaStorageMgr,
-                schemaManager
-        );
-    }
-
     /** {@inheritDoc} */
     @Override
     public void start() {

@@ -37,34 +37,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
-import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
-import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
-import org.apache.ignite.internal.table.distributed.command.DeleteExactCommand;
-import org.apache.ignite.internal.table.distributed.command.GetAllCommand;
-import org.apache.ignite.internal.table.distributed.command.GetAndDeleteCommand;
-import org.apache.ignite.internal.table.distributed.command.GetAndReplaceCommand;
-import org.apache.ignite.internal.table.distributed.command.GetAndUpsertCommand;
-import org.apache.ignite.internal.table.distributed.command.InsertAllCommand;
-import org.apache.ignite.internal.table.distributed.command.InsertCommand;
-import org.apache.ignite.internal.table.distributed.command.ReplaceCommand;
-import org.apache.ignite.internal.table.distributed.command.ReplaceIfExistCommand;
-import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
-import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
-import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.internal.table.distributed.command.scan.ScanCloseCommand;
 import org.apache.ignite.internal.table.distributed.command.scan.ScanInitCommand;
 import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBatchCommand;
@@ -79,7 +62,6 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TriFunction;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.TransactionException;
@@ -188,83 +170,15 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Enlists multiple rows into a transaction.
-     *
-     * @param keyRows Rows.
-     * @param tx The transaction.
-     * @param op Command factory.
-     * @param reducer The reducer.
-     * @param <R> Reducer's input.
-     * @param <T> Reducer's output.
-     * @return The future.
-     */
-    private <R, T> CompletableFuture<T> enlistInTx(
-            Collection<BinaryRowEx> keyRows,
-            InternalTransaction tx,
-            BiFunction<Collection<BinaryRow>, InternalTransaction, Command> op,
-            Function<CompletableFuture<R>[], CompletableFuture<T>> reducer
-    ) {
-        final boolean implicit = tx == null;
-
-        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
-
-        Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(keyRows);
-
-        CompletableFuture<R>[] futures = new CompletableFuture[keyRowsByPartition.size()];
-
-        int batchNum = 0;
-
-        for (Int2ObjectOpenHashMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
-            CompletableFuture<RaftGroupService> fut = enlist(partToRows.getIntKey(), tx0);
-
-            futures[batchNum++] = fut.thenCompose(svc -> svc.run(op.apply(partToRows.getValue(), tx0)));
-        }
-
-        CompletableFuture<T> fut = reducer.apply(futures);
-
-        return postEnlist(fut, implicit, tx0);
-    }
-
-    /**
-     * Enlists a single row into a transaction.
-     *
-     * @param row The row.
-     * @param tx The transaction.
-     * @param op Command factory.
-     * @param trans Transform closure.
-     * @param <R> Transform input.
-     * @param <T> Transform output.
-     * @return The future.
-     */
-    private <R, T> CompletableFuture<T> enlistInTx(
-            BinaryRowEx row,
-            InternalTransaction tx,
-            Function<InternalTransaction, Command> op,
-            Function<R, T> trans
-    ) {
-        final boolean implicit = tx == null;
-
-        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
-
-        int partId = partId(row);
-
-        CompletableFuture<T> fut = enlist(partId, tx0).thenCompose(svc -> svc.<R>run(op.apply(tx0)).thenApply(trans::apply));
-
-        return postEnlist(fut, implicit, tx0);
-    }
-
-    /**
      * Enlists a single row into a transaction.
      *
      * @param row The row.
      * @param tx The transaction.
      * @param op Replica requests factory.
-     * @param trans Transform closure.
-     * @param <R> Transform input.
-     * @param <T> Transform output.
+     * @param <R> Transform output.
      * @return The future.
      */
-    private <R, T> CompletableFuture<T> enlistInTx(
+    private <R> CompletableFuture<R> enlistInTx(
             BinaryRowEx row,
             InternalTransaction tx,
             BiFunction<InternalTransaction, String, ReplicaRequest> op
@@ -279,7 +193,7 @@ public class InternalTableImpl implements InternalTable {
 
         ClusterNode clusterNode = tx.enlistedNode(partGroupId);
 
-        CompletableFuture<T> fut;
+        CompletableFuture<R> fut;
 
         if (clusterNode != null) {
             try {
@@ -304,12 +218,10 @@ public class InternalTableImpl implements InternalTable {
     /**
      * Enlists a single row into a transaction.
      *
-     * @param row The row.
+     * @param keyRows Rows.
      * @param tx The transaction.
      * @param op Replica requests factory.
-     * @param trans Transform closure.
-     * @param <R> Transform input.
-     * @param <T> Transform output.
+     * @param reducer Transform reducer.
      * @return The future.
      */
     private <R, T> CompletableFuture<T> enlistInTx(
@@ -351,9 +263,6 @@ public class InternalTableImpl implements InternalTable {
                     }
                 });
             }
-
-
-
 
             futures[batchNum++] = fut;
         }
@@ -726,16 +635,6 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Returns a transaction manager.
-     *
-     * @return Transaction manager.
-     */
-    @TestOnly
-    public TxManager transactionManager() {
-        return txManager;
-    }
-
-    /**
      * TODO asch keep the same order as for keys Collects multirow responses from multiple futures into a single collection IGNITE-16004.
      *
      * @param futs Futures.
@@ -776,23 +675,6 @@ public class InternalTableImpl implements InternalTable {
         if (oldSrvc != null) {
             oldSrvc.shutdown();
         }
-    }
-
-    /**
-     * Enlists a partition.
-     *
-     * @param partId Partition id.
-     * @param tx     The transaction.
-     * @return The enlist future (then will a leader become known).
-     */
-    protected CompletableFuture<RaftGroupService> enlist(int partId, InternalTransaction tx) {
-        RaftGroupService svc = partitionMap.get(partId);
-
-        CompletableFuture<Void> fut0 = svc.leader() == null ? svc.refreshLeader() : completedFuture(null);
-
-        // TODO asch IGNITE-15091 fixme need to map to the same leaseholder.
-        // TODO asch a leader race is possible when enlisting different keys from the same partition.
-        return fut0.thenAccept(ignored -> tx.enlist(svc)).thenApply(ignored -> svc); // Enlist the leaseholder.
     }
 
     /**

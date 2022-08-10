@@ -20,14 +20,16 @@ package org.apache.ignite.internal.table.distributed.replication.request;
 import java.util.UUID;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
 
 /**
- * RW replica request.
+ * Read only replica request.
  */
-// TODO: extends ReplicaRequest issue.
+// TODO: https://issues.apache.org/jira/browse/IGNITE-17464
 public interface ReadOnlyReplicaRequest extends NetworkMessage { //extends ReplicaRequest {
-
+    @Marshallable
     UUID transactionId();
 
+    @Marshallable
     HybridTimestamp timestamp();
 }

@@ -62,6 +62,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -131,6 +133,14 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Raft manager. */
     @Mock
     private Loza rm;
+
+    /** Replica manager. */
+    @Mock
+    private ReplicaManager repm;
+
+    /** Replica manager. */
+    @Mock
+    private ReplicaService reps;
 
     /** TX manager. */
     @Mock(lenient = true)
@@ -703,6 +713,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 revisionUpdater,
                 tblsCfg,
                 rm,
+                repm,
+                reps,
                 bm,
                 ts,
                 tm,
