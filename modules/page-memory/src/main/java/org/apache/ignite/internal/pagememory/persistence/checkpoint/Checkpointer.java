@@ -22,6 +22,7 @@ import static java.lang.System.nanoTime;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointReadWriteLock.CHECKPOINT_RUNNER_THREAD_PREFIX;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
@@ -98,13 +99,6 @@ public class Checkpointer extends IgniteWorker {
             + "%s"
             + "pages=%d, "
             + "reason='%s']";
-
-    /**
-     * Any thread with a such prefix is managed by the checkpoint.
-     *
-     * <p>So some conditions can rely on it(ex. we don't need a checkpoint lock there because checkpoint is already held write lock).
-     */
-    static final String CHECKPOINT_RUNNER_THREAD_PREFIX = "checkpoint-runner";
 
     /** Pause detector. */
     private final @Nullable LongJvmPauseDetector pauseDetector;
@@ -278,7 +272,12 @@ public class Checkpointer extends IgniteWorker {
             startCheckpointProgress();
 
             try {
-                chp = checkpointWorkflow.markCheckpointBegin(lastCheckpointTimestamp, currentCheckpointProgress, tracker);
+                chp = checkpointWorkflow.markCheckpointBegin(
+                        lastCheckpointTimestamp,
+                        currentCheckpointProgress,
+                        tracker,
+                        this::updateHeartbeat
+                );
             } catch (Exception e) {
                 if (currentCheckpointProgress != null) {
                     currentCheckpointProgress.fail(e);

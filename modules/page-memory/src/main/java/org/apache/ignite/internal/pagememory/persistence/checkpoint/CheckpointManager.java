@@ -123,10 +123,12 @@ public class CheckpointManager {
         checkpointMarkersStorage = new CheckpointMarkersStorage(storagePath);
 
         checkpointWorkflow = new CheckpointWorkflow(
+                Loggers.forClass(CheckpointWorkflow.class),
                 igniteInstanceName,
                 checkpointMarkersStorage,
                 checkpointReadWriteLock,
-                dataRegions
+                dataRegions,
+                checkpointConfigView.checkpointThreads()
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(

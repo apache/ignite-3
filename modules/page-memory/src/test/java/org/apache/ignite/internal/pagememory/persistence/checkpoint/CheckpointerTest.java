@@ -431,16 +431,20 @@ public class CheckpointerTest {
     private CheckpointWorkflow createCheckpointWorkflow(CheckpointDirtyPages dirtyPages) throws Exception {
         CheckpointWorkflow mock = mock(CheckpointWorkflow.class);
 
-        when(mock.markCheckpointBegin(anyLong(), any(CheckpointProgressImpl.class), any(CheckpointMetricsTracker.class)))
-                .then(answer -> {
-                    CheckpointProgressImpl progress = answer.getArgument(1);
+        when(mock.markCheckpointBegin(
+                anyLong(),
+                any(CheckpointProgressImpl.class),
+                any(CheckpointMetricsTracker.class),
+                any(Runnable.class)
+        )).then(answer -> {
+            CheckpointProgressImpl progress = answer.getArgument(1);
 
-                    progress.pagesToWrite(dirtyPages);
+            progress.pagesToWrite(dirtyPages);
 
-                    progress.initCounters(dirtyPages.dirtyPagesCount());
+            progress.initCounters(dirtyPages.dirtyPagesCount());
 
-                    return new Checkpoint(dirtyPages, progress);
-                });
+            return new Checkpoint(dirtyPages, progress);
+        });
 
         doAnswer(answer -> {
             ((Checkpoint) answer.getArgument(0)).progress.transitTo(FINISHED);
