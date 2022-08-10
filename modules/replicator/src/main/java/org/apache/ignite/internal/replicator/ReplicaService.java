@@ -33,7 +33,6 @@ import org.apache.ignite.network.TopologyService;
 
 /**
  * The service is intended to execute requests on replicas.
- * TODO:IGNITE-17255 Implement ReplicaService.
  */
 public class ReplicaService {
     /** Network timeout. */

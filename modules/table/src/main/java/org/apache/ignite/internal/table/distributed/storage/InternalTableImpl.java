@@ -642,12 +642,10 @@ public class InternalTableImpl implements InternalTable {
     private CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponses(CompletableFuture<Object>[] futs) {
         return CompletableFuture.allOf(futs)
                 .thenApply(response -> {
-                    List<BinaryRow> list = new ArrayList<>(futs.length);
+                    Collection<BinaryRow> list = new ArrayList<>(futs.length);
 
                     for (CompletableFuture<Object> future : futs) {
-                        MultiRowsResponse ret = (MultiRowsResponse) future.join();
-
-                        List<BinaryRow> values = ret.getValues();
+                        Collection<BinaryRow> values = (Collection<BinaryRow>) future.join();
 
                         if (values != null) {
                             list.addAll(values);

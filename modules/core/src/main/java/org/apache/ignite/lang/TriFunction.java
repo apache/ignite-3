@@ -30,7 +30,6 @@ import java.util.function.Function;
  */
 @FunctionalInterface
 public interface TriFunction<A, B, C, R> {
-
     /**
      * Applies this function to the given arguments.
      *
