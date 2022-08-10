@@ -128,6 +128,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
                 PageLockListenerNoOp.INSTANCE,
                 metaPageId,
                 true,
+                // Because in memory.
                 null,
                 PageEvictionTrackerNoOp.INSTANCE,
                 IoStatisticsHolderNoOp.INSTANCE
@@ -148,6 +149,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
                 PageLockListenerNoOp.INSTANCE,
                 metaPageId,
                 true,
+                // Because in memory.
                 null,
                 PageEvictionTrackerNoOp.INSTANCE,
                 IoStatisticsHolderNoOp.INSTANCE
