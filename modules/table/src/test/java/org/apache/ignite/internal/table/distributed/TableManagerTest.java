@@ -175,14 +175,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Mock
     private Loza rm;
 
-    /** Replica manager. */
-    @Mock
-    private ReplicaManager repm;
-
-    /** Replica manager. */
-    @Mock
-    private ReplicaService reps;
-
     /** TX manager. */
     @Mock(lenient = true)
     private TxManager tm;
@@ -771,8 +763,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 revisionUpdater,
                 tblsCfg,
                 rm,
-                repm,
-                reps,
+                null,
+                null,
                 bm,
                 ts,
                 tm,

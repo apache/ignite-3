@@ -191,7 +191,7 @@ public class InternalTableImpl implements InternalTable {
 
         String partGroupId = partitionMap.get(partId).groupId();
 
-        ClusterNode clusterNode = tx.enlistedNode(partGroupId);
+        ClusterNode clusterNode = tx0.enlistedNode(partGroupId);
 
         CompletableFuture<R> fut;
 
@@ -224,19 +224,19 @@ public class InternalTableImpl implements InternalTable {
      * @param reducer Transform reducer.
      * @return The future.
      */
-    private <R, T> CompletableFuture<T> enlistInTx(
+    private <T> CompletableFuture<T> enlistInTx(
             Collection<BinaryRowEx> keyRows,
             InternalTransaction tx,
             TriFunction<Collection<BinaryRow>, InternalTransaction, String, ReplicaRequest> op,
-            Function<CompletableFuture<R>[], CompletableFuture<T>> reducer
+            Function<CompletableFuture<Object>[], CompletableFuture<T>> reducer
     ) {
-        final boolean implicit = tx == null; //String part id - clusterNode
+        final boolean implicit = tx == null;
 
         final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
 
         Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(keyRows);
 
-        CompletableFuture<R>[] futures = new CompletableFuture[keyRowsByPartition.size()];
+        CompletableFuture<Object>[] futures = new CompletableFuture[keyRowsByPartition.size()];
 
         int batchNum = 0;
 
@@ -245,18 +245,18 @@ public class InternalTableImpl implements InternalTable {
 
             ClusterNode clusterNode = tx.enlistedNode(partGroupId);
 
-            CompletableFuture<R> fut;
+            CompletableFuture<Object> fut;
 
             if (clusterNode != null) {
                 try {
-                    fut = replicaSvc.<R>invoke(clusterNode, op.apply(partToRows.getValue(), tx0, partGroupId));
+                    fut = replicaSvc.invoke(clusterNode, op.apply(partToRows.getValue(), tx0, partGroupId));
                 } catch (NodeStoppingException e) {
                     throw new TransactionException(format("Failed to enlist a key into a transaction"));
                 }
             } else {
                 fut = enlistNew(partToRows.getIntKey(), tx0).thenCompose(primaryReplicaNode -> {
                     try {
-                        return replicaSvc.<R>invoke(primaryReplicaNode,
+                        return replicaSvc.invoke(primaryReplicaNode,
                                 op.apply(partToRows.getValue(), tx0, partGroupId));
                     } catch (NodeStoppingException e) {
                         throw new TransactionException(format("Failed to enlist a key into a transaction"));
@@ -309,7 +309,7 @@ public class InternalTableImpl implements InternalTable {
                 (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
                         groupId(groupId).
                         binaryRow(keyRow).
-                        transactionId(tx.id()).
+                        transactionId(txo.id()).
                         requestType(RequestType.RW_GET).
                         build()
         );
@@ -339,7 +339,7 @@ public class InternalTableImpl implements InternalTable {
                 (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
                         groupId(groupId).
                         binaryRow(row).
-                        transactionId(tx.id()).
+                        transactionId(txo.id()).
                         requestType(RequestType.RW_UPSERT).
                         build());
     }
@@ -368,7 +368,7 @@ public class InternalTableImpl implements InternalTable {
                 (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
                         groupId(groupId).
                         binaryRow(row).
-                        transactionId(tx.id()).
+                        transactionId(txo.id()).
                         requestType(RequestType.RW_GET_AND_UPSERT).
                         build()
         );
@@ -383,7 +383,7 @@ public class InternalTableImpl implements InternalTable {
                 (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
                         groupId(groupId).
                         binaryRow(row).
-                        transactionId(tx.id()).
+                        transactionId(txo.id()).
                         requestType(RequestType.RW_INSERT).
                         build()
         );
@@ -413,7 +413,7 @@ public class InternalTableImpl implements InternalTable {
                 (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
                         groupId(groupId).
                         binaryRow(row).
-                        transactionId(tx.id()).
+                        transactionId(txo.id()).
                         requestType(RequestType.RW_REPLACE).
                         build()
         );
@@ -429,7 +429,7 @@ public class InternalTableImpl implements InternalTable {
                         groupId(groupId).
                         oldBinaryRow(oldRow).
                         binaryRow(newRow).
-                        transactionId(tx.id()).
+                        transactionId(txo.id()).
                         requestType(RequestType.RW_REPLACE_IF_EXIST).
                         build()
         );
@@ -444,7 +444,7 @@ public class InternalTableImpl implements InternalTable {
                 (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
                         groupId(groupId).
                         binaryRow(row).
-                        transactionId(tx.id()).
+                        transactionId(txo.id()).
                         requestType(RequestType.RW_GET_AND_REPLACE).
                         build()
         );
@@ -459,7 +459,7 @@ public class InternalTableImpl implements InternalTable {
                 (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
                         groupId(groupId).
                         binaryRow(keyRow).
-                        transactionId(tx.id()).
+                        transactionId(txo.id()).
                         requestType(RequestType.RW_DELETE).
                         build()
         );
@@ -474,7 +474,7 @@ public class InternalTableImpl implements InternalTable {
                 (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
                         groupId(groupId).
                         binaryRow(oldRow).
-                        transactionId(tx.id()).
+                        transactionId(txo.id()).
                         requestType(RequestType.RW_DELETE_EXACT).
                         build()
         );
@@ -489,7 +489,7 @@ public class InternalTableImpl implements InternalTable {
                 (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
                         groupId(groupId).
                         binaryRow(row).
-                        transactionId(tx.id()).
+                        transactionId(txo.id()).
                         requestType(RequestType.RW_GET_AND_DELETE).
                         build()
         );
@@ -640,12 +640,12 @@ public class InternalTableImpl implements InternalTable {
      * @param futs Futures.
      * @return Row collection.
      */
-    private CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponses(CompletableFuture<?>[] futs) {
+    private CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponses(CompletableFuture<Object>[] futs) {
         return CompletableFuture.allOf(futs)
                 .thenApply(response -> {
                     List<BinaryRow> list = new ArrayList<>(futs.length);
 
-                    for (CompletableFuture<?> future : futs) {
+                    for (CompletableFuture<Object> future : futs) {
                         MultiRowsResponse ret = (MultiRowsResponse) future.join();
 
                         List<BinaryRow> values = ret.getValues();
