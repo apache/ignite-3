@@ -15,13 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.message;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.UUID;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
 
 /**
- * The response returns when the replication process has some intermediate result, and also it will continue in the future.
+ * Read Write replica request.
  */
-@Transferable(ReplicaMessageGroup.COMPOUND_RESPONSE)
-public interface CompoundResponse extends InstantResponse, FutureResponse {
+// TODO: https://issues.apache.org/jira/browse/IGNITE-17464
+public interface ReadWriteReplicaRequest extends NetworkMessage { //extends ReplicaRequest {
+    @Marshallable
+    UUID transactionId();
 }

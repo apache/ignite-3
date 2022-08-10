@@ -74,7 +74,7 @@ public class ReplicaService {
      * @return Response future.
      * @throws NodeStoppingException Is thrown when the node is stopping.
      */
-    private CompletableFuture<ReplicaResponse> sendToReplica(ClusterNode node, ReplicaRequest req) throws NodeStoppingException {
+    private <R> CompletableFuture<R> sendToReplica(ClusterNode node, ReplicaRequest req) throws NodeStoppingException {
         if (localNode.equals(node)) {
             Replica replica = replicaManager.replica(req.groupId());
 
@@ -82,27 +82,30 @@ public class ReplicaService {
                 //TODO:IGNITE-17255 Provide an exceptional response when the replica is absent.
             }
 
-            return CompletableFuture.completedFuture(replica.processRequest(req));
+            return (CompletableFuture<R>) replica.processRequest(req);
         }
 
-        return messagingService.invoke(node.address(), req, RPC_TIMEOUT).thenApply(msg -> {
-            assert msg instanceof ReplicaResponse : IgniteStringFormatter.format("Unexpected message response [resp={}]", msg);
-
-            return (ReplicaResponse) msg;
-        }).whenComplete((response, throwable) -> {
+        return messagingService.invoke(node.address(), req, RPC_TIMEOUT).handle((response, throwable) -> {
             if (throwable != null) {
                 if (throwable instanceof TimeoutException) {
                     throw new ReplicationTimeoutException(req.groupId());
                 }
 
                 throw new ReplicationException(req.groupId(), throwable);
-            }
+            } else {
+                assert response instanceof ReplicaResponse : IgniteStringFormatter.format("Unexpected message response [resp={}]",
+                        response);
 
-            if (response instanceof ErrorReplicaResponse) {
-                var errResp = (ErrorReplicaResponse) response;
+                if (response instanceof ErrorReplicaResponse) {
+                    var errResp = (ErrorReplicaResponse) response;
 
-                throw ExceptionUtils.error(errResp.errorTraceId(), errResp.errorCode(), errResp.errorClassName(), errResp.errorMessage(),
-                        errResp.errorStackTrace());
+                    throw ExceptionUtils
+                            .error(errResp.errorTraceId(), errResp.errorCode(), errResp.errorClassName(), errResp.errorMessage(),
+                                    errResp.errorStackTrace());
+                } else {
+                    return (R) ((ReplicaResponse) response).result();
+                }
+
             }
         });
     }
@@ -116,7 +119,7 @@ public class ReplicaService {
      * @return A future holding the response.
      * @throws NodeStoppingException Is thrown when the node is stopping.
      */
-    public CompletableFuture<ReplicaResponse> invoke(ClusterNode node, ReplicaRequest request) throws NodeStoppingException {
+    public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request) throws NodeStoppingException {
         return sendToReplica(node, request);
     }
 
@@ -130,7 +133,7 @@ public class ReplicaService {
      * @return A future holding the response.
      * @throws NodeStoppingException Is thrown when the node is stopping.
      */
-    public CompletableFuture<ReplicaResponse> invoke(ClusterNode node, ReplicaRequest request, String storageId)
+    public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request, String storageId)
             throws NodeStoppingException {
         return sendToReplica(node, request);
 

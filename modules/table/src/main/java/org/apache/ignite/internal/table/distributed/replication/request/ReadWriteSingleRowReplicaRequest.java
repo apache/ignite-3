@@ -15,32 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.listener;
+package org.apache.ignite.internal.table.distributed.replication.request;
+
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * The listener response returns when the replication process completes.
+ * Read write single row replica request.
  */
-public class ListenerInstantResponse implements ListenerResponse {
-    /**
-     * Result.
-     */
-    private Object result;
-
-    /**
-     * The constructor.
-     *
-     * @param result Result.
-     */
-    public ListenerInstantResponse(Object result) {
-        this.result = result;
-    }
-
-    /**
-     * Gets a result.
-     *
-     * @return Some result of the replication process.
-     */
-    public Object result() {
-        return result;
-    }
+@Transferable(TableMessageGroup.RW_SINGLE_ROW_REPLICA_REQUEST)
+public interface ReadWriteSingleRowReplicaRequest extends SingleRowReplicaRequest, ReadWriteReplicaRequest {
 }

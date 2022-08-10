@@ -15,21 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.message;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-import java.util.UUID;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Cleanup request. The message is sent for removing an open resources on the replica side.
+ * Read write dual row replica request.
  */
-@Transferable(ReplicaMessageGroup.CLEANUP_REQUEST)
-public interface CleanupRequest extends ReplicaRequest {
-
-    /**
-     * Gets a context id that identifies an operation group to clean.
-     *
-     * @return Operation context.
-     */
-    UUID operationContextId();
+@Transferable(TableMessageGroup.RW_DUAL_ROW_REPLICA_REQUEST)
+public interface ReadWriteSwapRowReplicaRequest extends SwapRowReplicaRequest, ReadWriteReplicaRequest {
 }

@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.message;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-import java.util.Collection;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * The request is sent from a coordinator to wait  operations complete.
+ * Single row replica request.
  */
-@Transferable(ReplicaMessageGroup.COMPLETE_OP_REQUEST)
-public interface WaiteOperationsResultRequest extends ReplicaRequest {
-    /**
-     * Locators of the several operations.
-     *
-     * @return List of operation locators.
-     */
+public interface SingleRowReplicaRequest extends ReplicaRequest {
     @Marshallable
-    Collection<ReplicaRequestLocator> operationLocators();
+    BinaryRow binaryRow();
+
+    @Marshallable
+    RequestType requestType();
 }

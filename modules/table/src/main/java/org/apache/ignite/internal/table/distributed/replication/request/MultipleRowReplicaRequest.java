@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.message;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
+import java.util.Collection;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * The response returns when the replication process completes.
+ * Multiple row replica request.
  */
-@Transferable(ReplicaMessageGroup.INSTANT_RESPONSE)
-public interface InstantResponse extends ReplicaResponse {
-    /**
-     * Gets a result.
-     *
-     * @return Some result of the replication process.
-     */
+public interface MultipleRowReplicaRequest extends ReplicaRequest {
     @Marshallable
-    Object result();
+    Collection<BinaryRow> binaryRows();
+
+    @Marshallable
+    RequestType requestType();
 }

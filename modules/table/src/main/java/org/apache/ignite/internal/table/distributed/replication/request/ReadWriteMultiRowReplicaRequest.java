@@ -15,20 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.message;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-import java.util.UUID;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * The response returns when the replication process continues to the future.
+ * Read write multi row replica request.
  */
-@Transferable(ReplicaMessageGroup.FUTURE_RESPONSE)
-public interface FutureResponse extends ReplicaResponse {
-    /**
-     * Operation id in the replica with which the response is sent.
-     *
-     * @return Operation id.
-     */
-    UUID operationId();
+@Transferable(TableMessageGroup.RW_MULTI_ROW_REPLICA_REQUEST)
+public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest {
 }

@@ -15,18 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.message;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
+import java.util.UUID;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Replica response interface.
- * TODO:IGNITE-17258 Add a specific response type for a replica listener. (@Transferable(ReplicaMessageGroup.TYPE_RESPONSE))
+ * Read only replica request.
  */
-@Transferable(ReplicaMessageGroup.REPLICA_RESPONSE)
-public interface ReplicaResponse extends NetworkMessage {
+// TODO: https://issues.apache.org/jira/browse/IGNITE-17464
+public interface ReadOnlyReplicaRequest extends NetworkMessage { //extends ReplicaRequest {
     @Marshallable
-    Object result();
+    UUID transactionId();
+
+    @Marshallable
+    HybridTimestamp timestamp();
 }
