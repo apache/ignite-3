@@ -300,11 +300,9 @@ public class IndexManagerTest {
         var indexId = UUID.randomUUID();
         var tableId = UUID.randomUUID();
         var indexName = "idxName";
-        var schemaName = "sName";
-        var canonicalName = schemaName + "." + indexName;
 
         Consumer<ConfigurationNamedListListener<TableIndexView>> listenerConsumer = listener -> {
-            listener.onCreate(createConfigurationEventIndexAddedMock(indexId, tableId, canonicalName));
+            listener.onCreate(createConfigurationEventIndexAddedMock(indexId, tableId, indexName));
         };
 
         var indexManager = new IndexManager(tableManagerMock, listenerConsumer);
@@ -322,7 +320,7 @@ public class IndexManagerTest {
         assertThat(holder.get(), notNullValue());
         assertThat(holder.get().index().id(), equalTo(indexId));
         assertThat(holder.get().index().tableId(), equalTo(tableId));
-        assertThat(holder.get().index().name(), equalTo(canonicalName));
+        assertThat(holder.get().index().name(), equalTo("PUBLIC." + indexName));
     }
 
     @SuppressWarnings("unchecked")
