@@ -52,9 +52,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @return Closure result.
      * @throws StorageException If failed to write data to the storage.
      */
-    default <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        return closure.execute();
-    }
+    <V> V runConsistently(WriteClosure<V> closure) throws StorageException;
 
     /**
      * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be
@@ -63,9 +61,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      *
      * @return Future that's completed when flushing of the data is completed.
      */
-    default CompletableFuture<Void> flush() {
-        return CompletableFuture.completedFuture(null);
-    }
+    CompletableFuture<Void> flush();
 
     /**
      * Index of the highest write command applied to the storage. {@code 0} if index is unknown.

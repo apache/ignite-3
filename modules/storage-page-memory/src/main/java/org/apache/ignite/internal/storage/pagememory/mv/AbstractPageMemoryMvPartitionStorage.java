@@ -68,11 +68,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     );
 
     /**
-     * Last applied index value.
-     */
-    private volatile long lastAppliedIndex = 0;
-
-    /**
      * Constructor.
      *
      * @param partId Partition id.
@@ -82,7 +77,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param rowVersionFreeList Free list for {@link RowVersion}.
      * @param versionChainTree Table tree for {@link VersionChain}.
      */
-    public AbstractPageMemoryMvPartitionStorage(
+    protected AbstractPageMemoryMvPartitionStorage(
             int partId,
             TableView tableView,
             PageMemory pageMemory,
@@ -100,24 +95,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         versionChainDataPageReader = new VersionChainDataPageReader(pageMemory, groupId, IoStatisticsHolderNoOp.INSTANCE);
         rowVersionDataPageReader = new DataPageReader(pageMemory, groupId, IoStatisticsHolderNoOp.INSTANCE);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long lastAppliedIndex() {
-        return lastAppliedIndex;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
-        this.lastAppliedIndex = lastAppliedIndex;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long persistedIndex() {
-        return lastAppliedIndex;
     }
 
     /** {@inheritDoc} */
