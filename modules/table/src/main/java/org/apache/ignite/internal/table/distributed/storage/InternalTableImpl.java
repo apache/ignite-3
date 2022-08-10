@@ -175,7 +175,6 @@ public class InternalTableImpl implements InternalTable {
      * @param row The row.
      * @param tx The transaction.
      * @param op Replica requests factory.
-     * @param <R> Transform output.
      * @return The future.
      */
     private <R> CompletableFuture<R> enlistInTx(
@@ -306,12 +305,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 keyRow,
                 tx,
-                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
-                        groupId(groupId).
-                        binaryRow(keyRow).
-                        transactionId(txo.id()).
-                        requestType(RequestType.RW_GET).
-                        build()
+                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRow(keyRow)
+                        .transactionId(txo.id())
+                        .requestType(RequestType.RW_GET)
+                        .build()
         );
     }
 
@@ -321,12 +320,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 keyRows,
                 tx,
-                (keyRows0, txo, groupId) -> tableMessagesFactory.readWriteMultiRowReplicaRequest().
-                        groupId(groupId).
-                        binaryRows(keyRows0).
-                        transactionId(txo.id()).
-                        requestType(RequestType.RW_GET_ALL).
-                        build(),
+                (keyRows0, txo, groupId) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRows(keyRows0)
+                        .transactionId(txo.id())
+                        .requestType(RequestType.RW_GET_ALL)
+                        .build(),
                 this::collectMultiRowsResponses);
     }
 
@@ -336,12 +335,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
-                        groupId(groupId).
-                        binaryRow(row).
-                        transactionId(txo.id()).
-                        requestType(RequestType.RW_UPSERT).
-                        build());
+                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRow(row)
+                        .transactionId(txo.id())
+                        .requestType(RequestType.RW_UPSERT)
+                        .build());
     }
 
     /** {@inheritDoc} */
@@ -350,12 +349,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (keyRows0, txo, groupId) -> tableMessagesFactory.readWriteMultiRowReplicaRequest().
-                        groupId(groupId).
-                        binaryRows(keyRows0).
-                        transactionId(txo.id()).
-                        requestType(RequestType.RW_UPSERT_ALL).
-                        build(),
+                (keyRows0, txo, groupId) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRows(keyRows0)
+                        .transactionId(txo.id())
+                        .requestType(RequestType.RW_UPSERT_ALL)
+                        .build(),
                 CompletableFuture::allOf);
     }
 
@@ -365,12 +364,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
-                        groupId(groupId).
-                        binaryRow(row).
-                        transactionId(txo.id()).
-                        requestType(RequestType.RW_GET_AND_UPSERT).
-                        build()
+                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRow(row)
+                        .transactionId(txo.id())
+                        .requestType(RequestType.RW_GET_AND_UPSERT)
+                        .build()
         );
     }
 
@@ -380,12 +379,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
-                        groupId(groupId).
-                        binaryRow(row).
-                        transactionId(txo.id()).
-                        requestType(RequestType.RW_INSERT).
-                        build()
+                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRow(row)
+                        .transactionId(txo.id())
+                        .requestType(RequestType.RW_INSERT)
+                        .build()
         );
     }
 
@@ -395,12 +394,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (keyRows0, txo, groupId) -> tableMessagesFactory.readWriteMultiRowReplicaRequest().
-                        groupId(groupId).
-                        binaryRows(keyRows0).
-                        transactionId(txo.id()).
-                        requestType(RequestType.RW_INSERT_ALL).
-                        build(),
+                (keyRows0, txo, groupId) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRows(keyRows0)
+                        .transactionId(txo.id())
+                        .requestType(RequestType.RW_INSERT_ALL)
+                        .build(),
                 this::collectMultiRowsResponses);
     }
 
@@ -410,12 +409,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
-                        groupId(groupId).
-                        binaryRow(row).
-                        transactionId(txo.id()).
-                        requestType(RequestType.RW_REPLACE).
-                        build()
+                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRow(row)
+                        .transactionId(txo.id())
+                        .requestType(RequestType.RW_REPLACE)
+                        .build()
         );
     }
 
@@ -425,13 +424,13 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 newRow,
                 tx,
-                (txo, groupId) -> tableMessagesFactory.readWriteDualRowReplicaRequest().
-                        groupId(groupId).
-                        oldBinaryRow(oldRow).
-                        binaryRow(newRow).
-                        transactionId(txo.id()).
-                        requestType(RequestType.RW_REPLACE_IF_EXIST).
-                        build()
+                (txo, groupId) -> tableMessagesFactory.readWriteDualRowReplicaRequest()
+                        .groupId(groupId)
+                        .oldBinaryRow(oldRow)
+                        .binaryRow(newRow)
+                        .transactionId(txo.id())
+                        .requestType(RequestType.RW_REPLACE_IF_EXIST)
+                        .build()
         );
     }
 
@@ -441,12 +440,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
-                        groupId(groupId).
-                        binaryRow(row).
-                        transactionId(txo.id()).
-                        requestType(RequestType.RW_GET_AND_REPLACE).
-                        build()
+                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRow(row)
+                        .transactionId(txo.id())
+                        .requestType(RequestType.RW_GET_AND_REPLACE)
+                        .build()
         );
     }
 
@@ -456,12 +455,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 keyRow,
                 tx,
-                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
-                        groupId(groupId).
-                        binaryRow(keyRow).
-                        transactionId(txo.id()).
-                        requestType(RequestType.RW_DELETE).
-                        build()
+                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRow(keyRow)
+                        .transactionId(txo.id())
+                        .requestType(RequestType.RW_DELETE)
+                        .build()
         );
     }
 
@@ -471,12 +470,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 oldRow,
                 tx,
-                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
-                        groupId(groupId).
-                        binaryRow(oldRow).
-                        transactionId(txo.id()).
-                        requestType(RequestType.RW_DELETE_EXACT).
-                        build()
+                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRow(oldRow)
+                        .transactionId(txo.id())
+                        .requestType(RequestType.RW_DELETE_EXACT)
+                        .build()
         );
     }
 
@@ -486,12 +485,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 row,
                 tx,
-                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest().
-                        groupId(groupId).
-                        binaryRow(row).
-                        transactionId(txo.id()).
-                        requestType(RequestType.RW_GET_AND_DELETE).
-                        build()
+                (txo, groupId) -> tableMessagesFactory.readWriteSingleRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRow(row)
+                        .transactionId(txo.id())
+                        .requestType(RequestType.RW_GET_AND_DELETE)
+                        .build()
         );
     }
 
@@ -501,12 +500,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (keyRows0, txo, groupId) -> tableMessagesFactory.readWriteMultiRowReplicaRequest().
-                        groupId(groupId).
-                        binaryRows(keyRows0).
-                        transactionId(txo.id()).
-                        requestType(RequestType.RW_DELETE_ALL).
-                        build(),
+                (keyRows0, txo, groupId) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRows(keyRows0)
+                        .transactionId(txo.id())
+                        .requestType(RequestType.RW_DELETE_ALL)
+                        .build(),
                 this::collectMultiRowsResponses);
     }
 
@@ -519,12 +518,12 @@ public class InternalTableImpl implements InternalTable {
         return enlistInTx(
                 rows,
                 tx,
-                (keyRows0, txo, groupId) -> tableMessagesFactory.readWriteMultiRowReplicaRequest().
-                        groupId(groupId).
-                        binaryRows(keyRows0).
-                        transactionId(txo.id()).
-                        requestType(RequestType.RW_DELETE_EXACT_ALL).
-                        build(),
+                (keyRows0, txo, groupId) -> tableMessagesFactory.readWriteMultiRowReplicaRequest()
+                        .groupId(groupId)
+                        .binaryRows(keyRows0)
+                        .transactionId(txo.id())
+                        .requestType(RequestType.RW_DELETE_EXACT_ALL)
+                        .build(),
                 this::collectMultiRowsResponses);
     }
 

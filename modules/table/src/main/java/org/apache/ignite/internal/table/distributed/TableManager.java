@@ -160,9 +160,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Raft manager. */
     private final Loza raftMgr;
 
-    /** Replica manager. */
-    private final ReplicaManager replicaMgr;
-
     /** Replica service. */
     private final ReplicaService replicaSvc;
 
@@ -214,7 +211,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param registry Registry for versioned values.
      * @param tablesCfg Tables configuration.
      * @param raftMgr Raft manager.
-     * @param replicaMgr Replica manager.
      * @param replicaSvc Replica service.
      * @param baselineMgr Baseline manager.
      * @param txManager Transaction manager.
@@ -225,7 +221,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             Consumer<Function<Long, CompletableFuture<?>>> registry,
             TablesConfiguration tablesCfg,
             Loza raftMgr,
-            ReplicaManager replicaMgr,
             ReplicaService replicaSvc,
             BaselineManager baselineMgr,
             TopologyService topologyService,
@@ -237,7 +232,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.tablesCfg = tablesCfg;
         this.raftMgr = raftMgr;
         this.baselineMgr = baselineMgr;
-        this.replicaMgr = replicaMgr;
         this.replicaSvc = replicaSvc;
         this.txManager = txManager;
         this.dataStorageMgr = dataStorageMgr;
