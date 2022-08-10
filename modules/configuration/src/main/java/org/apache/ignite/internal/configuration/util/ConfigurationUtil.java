@@ -599,7 +599,44 @@ public class ConfigurationUtil {
      * @see PolymorphicConfigInstance
      */
     public static Map<Class<?>, Set<Class<?>>> polymorphicSchemaExtensions(Collection<Class<?>> extensions) {
-        return schemaExtensions(extensions, PolymorphicConfigInstance.class);
+        Map<Class<?>, Set<Class<?>>> res = new HashMap<>();
+
+        for (Class<?> extension : extensions) {
+            if (!extension.isAnnotationPresent(PolymorphicConfigInstance.class)) {
+                throw new IllegalArgumentException(String.format(
+                        "Extension should contain @%s: %s",
+                        PolymorphicConfigInstance.class.getSimpleName(),
+                        extension.getName()
+                ));
+            } else {
+                Class<?> topMostAncestor = nonObjectTopMostAncestor(extension);
+
+                res.computeIfAbsent(topMostAncestor, cls -> new HashSet<>()).add(extension);
+            }
+        }
+
+        return res;
+    }
+
+    /**
+     * Gets the top-most ancestor that is not Object.
+     *
+     * @param clazz Class type.
+     */
+    private static Class<?> nonObjectTopMostAncestor(Class<?> clazz) {
+        Class<?> currentClass = clazz;
+
+        while (currentClass.getSuperclass() != null) {
+            Class<?> superClass = currentClass.getSuperclass();
+
+            if (superClass.equals(Object.class)) {
+                return currentClass;
+            }
+
+            currentClass = superClass;
+        }
+
+        return currentClass;
     }
 
     /**
@@ -664,7 +701,7 @@ public class ConfigurationUtil {
         if (uniqueByName) {
             return extensions.stream()
                     .flatMap(cls -> Arrays.stream(cls.getDeclaredFields()))
-                    .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f) || isPolymorphicId(f))
+                    .filter(ConfigurationUtil::isConfigurationRelatedField)
                     .collect(toMap(
                             Field::getName,
                             identity(),
@@ -680,9 +717,44 @@ public class ConfigurationUtil {
         } else {
             return extensions.stream()
                     .flatMap(cls -> Arrays.stream(cls.getDeclaredFields()))
-                    .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f) || isPolymorphicId(f))
+                    .filter(ConfigurationUtil::isConfigurationRelatedField)
                     .collect(toList());
         }
+    }
+
+    private static boolean isConfigurationRelatedField(Field f) {
+        return isValue(f) || isConfigValue(f) || isNamedConfigValue(f) || isPolymorphicId(f);
+    }
+
+    /**
+     * Returns a map from the given extensions to all configuration-related fields defined on these extensions and their
+     * ancestors (but not on the base configuration which is annotated with {@code @}PolymorphicConfig).
+     *
+     * @param extensions Polymorphic extensions to process.
+     */
+    public static Map<Class<?>, List<Field>> polymorphicExtensionsFieldsByExtension(Collection<Class<?>> extensions) {
+        return extensions.stream()
+                .collect(toMap(identity(), ConfigurationUtil::polymorhicExtensionFields));
+    }
+
+    /**
+     * Returns configuration-related fields defined on the given polymorhic extension and all its ancestors, but not on
+     * the base class (annotated with {@code @}PolymorphicConfig).
+     *
+     * @param extension Polymorhic extension class.
+     */
+    private static List<Field> polymorhicExtensionFields(Class<?> extension) {
+        List<Field> fields = new ArrayList<>();
+
+        Class<?> currentClass = extension;
+        while (currentClass != null && currentClass != Object.class && !currentClass.isAnnotationPresent(PolymorphicConfig.class)) {
+            Arrays.stream(currentClass.getDeclaredFields())
+                    .filter(ConfigurationUtil::isConfigurationRelatedField)
+                    .forEach(fields::add);
+            currentClass = currentClass.getSuperclass();
+        }
+
+        return List.copyOf(fields);
     }
 
     /**

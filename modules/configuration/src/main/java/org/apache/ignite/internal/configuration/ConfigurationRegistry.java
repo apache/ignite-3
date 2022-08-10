@@ -125,6 +125,9 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
     ) {
         checkConfigurationType(rootKeys, storage);
 
+        checkClassesAreConfigurationSchemas(internalSchemaExtensions);
+        checkClassesAreConfigurationSchemas(polymorphicSchemaExtensions);
+
         Set<Class<?>> allSchemas = collectAllSchemas(rootKeys, internalSchemaExtensions, polymorphicSchemaExtensions);
 
         final Map<Class<?>, Set<Class<?>>> internalExtensions = internalExtensionsWithCheck(allSchemas, internalSchemaExtensions);
@@ -156,6 +159,20 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
 
             configs.put(rootKey.key(), cfg);
         });
+    }
+
+    /**
+     * Throws if any of the provided classes is not a configuration schema (that is, the class name does not end
+     * with 'ConfigurationSchema').
+     *
+     * @param classes Classes to check.
+     */
+    private void checkClassesAreConfigurationSchemas(Collection<Class<?>> classes) {
+        for (Class<?> classToCheck : classes) {
+            if (!classToCheck.getSimpleName().endsWith("ConfigurationSchema")) {
+                throw new IllegalArgumentException("Class " + classToCheck.getName() + " is not a configuration schema");
+            }
+        }
     }
 
     /**

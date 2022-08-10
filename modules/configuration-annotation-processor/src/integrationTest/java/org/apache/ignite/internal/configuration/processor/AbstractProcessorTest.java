@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.processor;
 
 import static com.google.testing.compile.Compiler.javac;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getChangeName;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getViewName;
 
@@ -86,7 +87,8 @@ public class AbstractProcessorTest {
      * @return ClassName.
      */
     protected static ClassName fromGeneratedFilePath(String fileName) {
-        final String filePath = fileName.replace("/SOURCE_OUTPUT/", "");
+        final String filePath = fileName.replace("/SOURCE_OUTPUT/", "")
+                .replace("/CLASS_OUTPUT/", "");
         return fromFilePath(filePath);
     }
 
@@ -98,11 +100,11 @@ public class AbstractProcessorTest {
      */
     protected static ClassName fromFilePath(String fileName) {
         int slashIdx = fileName.lastIndexOf("/");
-        int dotJavaIdx = fileName.lastIndexOf(".java");
+        int dotExtIdx = fileName.lastIndexOf(".");
 
         String packageName = fileName.substring(0, slashIdx).replace("/", ".");
 
-        final String className = fileName.substring(slashIdx + 1, dotJavaIdx);
+        final String className = fileName.substring(slashIdx + 1, dotExtIdx);
 
         return ClassName.get(packageName, className);
     }
@@ -114,11 +116,14 @@ public class AbstractProcessorTest {
         /** Generated source files. */
         private final List<JavaFileObject> generatedSources;
 
-        /** Generated classes mapped by config schema class name. */
-        private final Map<ClassName, JavaFileObject> generatedClasses;
+        /** Generated source files mapped by config schema class name. */
+        private final Map<ClassName, JavaFileObject> generatedSourcesMap;
 
         /** Config class sets by config schema class name. */
         private final Map<ClassName, ConfigSet> classSets;
+
+        /** Generated classes mapped by config schema class name. */
+        private final Map<ClassName, JavaFileObject> generatedClassesMap;
 
         /** Compilation status. */
         private final Compilation compilationStatus;
@@ -134,12 +139,16 @@ public class AbstractProcessorTest {
 
             generatedSources = compilation.generatedSourceFiles();
 
-            generatedClasses = generatedSources.stream()
-                    .collect(Collectors.toMap(object -> fromGeneratedFilePath(object.getName()), Function.identity()));
+            generatedSourcesMap = generatedSources.stream()
+                    .collect(toMap(object -> fromGeneratedFilePath(object.getName()), Function.identity()));
 
             classSets = schemaClasses.stream().collect(
-                    Collectors.toMap(name -> name, name -> getConfigSet(name, generatedClasses))
+                    toMap(name -> name, name -> getConfigSet(name, generatedSourcesMap))
             );
+
+            generatedClassesMap = compilation.generatedFiles().stream()
+                    .filter(generatedFile -> generatedFile.getKind().equals(JavaFileObject.Kind.CLASS))
+                    .collect(toMap(object -> fromGeneratedFilePath(object.getName()), Function.identity()));
         }
 
         /**
@@ -166,9 +175,15 @@ public class AbstractProcessorTest {
          *
          * @return Generated source files.
          */
-        public List<JavaFileObject> generated() {
+        public List<JavaFileObject> generatedSources() {
             return generatedSources;
         }
-    }
 
+        /**
+         * Returns all generated class files.
+         */
+        public Map<ClassName, JavaFileObject> generatedClassesMap() {
+            return Map.copyOf(generatedClassesMap);
+        }
+    }
 }
