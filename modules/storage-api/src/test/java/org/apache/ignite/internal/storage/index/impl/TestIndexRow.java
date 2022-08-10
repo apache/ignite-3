@@ -31,7 +31,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.impl.TestRowId;
+import org.apache.ignite.internal.storage.chm.TestRowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
