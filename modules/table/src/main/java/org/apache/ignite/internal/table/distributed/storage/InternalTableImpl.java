@@ -201,7 +201,7 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException(format("Failed to enlist a key into a transaction"));
             }
         } else {
-            fut = enlistNew(partId, tx0).thenCompose(
+            fut = enlist(partId, tx0).thenCompose(
                     primaryReplicaNode -> {
                         try {
                             return replicaSvc.invoke(primaryReplicaNode, op.apply(tx0, partGroupId));
@@ -253,7 +253,7 @@ public class InternalTableImpl implements InternalTable {
                     throw new TransactionException(format("Failed to enlist a key into a transaction"));
                 }
             } else {
-                fut = enlistNew(partToRows.getIntKey(), tx0).thenCompose(primaryReplicaNode -> {
+                fut = enlist(partToRows.getIntKey(), tx0).thenCompose(primaryReplicaNode -> {
                     try {
                         return replicaSvc.invoke(primaryReplicaNode,
                                 op.apply(partToRows.getValue(), tx0, partGroupId));
@@ -683,8 +683,7 @@ public class InternalTableImpl implements InternalTable {
      * @param tx     The transaction.
      * @return The enlist future (then will a leader become known).
      */
-    // TODO: rename
-    protected CompletableFuture<ClusterNode> enlistNew(int partId, InternalTransaction tx) {
+    protected CompletableFuture<ClusterNode> enlist(int partId, InternalTransaction tx) {
         RaftGroupService svc = partitionMap.get(partId);
 
         // TODO: ticket for placement driver
