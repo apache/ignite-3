@@ -231,6 +231,17 @@ public class CheckpointManager {
     }
 
     /**
+     * Schedules a checkpoint in the future.
+     *
+     * @param delayMillis Delay in milliseconds from the curent moment.
+     * @param reason Checkpoint reason.
+     * @return Triggered checkpoint progress.
+     */
+    public CheckpointProgress scheduleCheckpoint(long delayMillis, String reason) {
+        return checkpointer.scheduleCheckpoint(delayMillis, reason);
+    }
+
+    /**
      * Returns the progress of the last checkpoint, or the current checkpoint if in progress, {@code null} if no checkpoint has occurred.
      */
     public @Nullable CheckpointProgress lastCheckpointProgress() {

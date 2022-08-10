@@ -31,7 +31,9 @@ import org.apache.ignite.lang.IgniteStringBuilder;
  * Io for partition metadata pages.
  */
 public class PartitionMetaIo extends PageIo {
-    private static final int TREE_ROOT_PAGE_ID_OFF = COMMON_HEADER_END;
+    private static final int LAST_APPLIED_INDEX_OFF = COMMON_HEADER_END;
+
+    private static final int TREE_ROOT_PAGE_ID_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
 
     private static final int REUSE_LIST_ROOT_PAGE_ID_OFF = TREE_ROOT_PAGE_ID_OFF + Long.BYTES;
 
@@ -63,12 +65,34 @@ public class PartitionMetaIo extends PageIo {
     public void initNewPage(long pageAddr, long pageId, int pageSize) {
         super.initNewPage(pageAddr, pageId, pageSize);
 
+        setLastAppliedIndex(pageAddr, 0);
         setTreeRootPageId(pageAddr, 0);
         setReuseListRootPageId(pageAddr, 0);
         setVersionChainTreeRootPageId(pageAddr, 0);
         setVersionChainFreeListRootPageId(pageAddr, 0);
         setRowVersionFreeListRootPageId(pageAddr, 0);
         setPageCount(pageAddr, 0);
+    }
+
+    /**
+     * Sets a last applied index value.
+     *
+     * @param pageAddr Page address.
+     * @param lastAppliedIndex Last applied index value.
+     */
+    public void setLastAppliedIndex(long pageAddr, long lastAppliedIndex) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, LAST_APPLIED_INDEX_OFF, lastAppliedIndex);
+    }
+
+    /**
+     * Returns a last applied index value.
+     *
+     * @param pageAddr Page address.
+     */
+    public long getLastAppliedIndex(long pageAddr) {
+        return getLong(pageAddr, LAST_APPLIED_INDEX_OFF);
     }
 
     /**
@@ -205,7 +229,8 @@ public class PartitionMetaIo extends PageIo {
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
         sb.app("TablePartitionMeta [").nl()
-                .app("treeRootPageId=").appendHex(getTreeRootPageId(addr)).nl()
+                .app("lastAppliedIndex=").app(getLastAppliedIndex(addr)).nl()
+                .app(", treeRootPageId=").appendHex(getTreeRootPageId(addr)).nl()
                 .app(", reuseListRootPageId=").appendHex(getReuseListRootPageId(addr)).nl()
                 .app(", versionChainTreeRootPageId=").appendHex(getVersionChainTreeRootPageId(addr)).nl()
                 .app(", versionChainFreeListRootPageId=").appendHex(getVersionChainFreeListRootPageId(addr)).nl()
