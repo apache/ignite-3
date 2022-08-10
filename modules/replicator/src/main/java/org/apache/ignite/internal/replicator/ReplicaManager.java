@@ -191,7 +191,7 @@ public class ReplicaManager implements IgniteComponent {
                     CompletableFuture<Object> result = replica.processRequest(request);
 
                     result.handle((res, ex) -> {
-                        if (ex != null) {
+                        if (ex == null) {
                             clusterNetSvc.messagingService().respond(
                                     senderAddr,
                                     REPLICA_MESSAGES_FACTORY.replicaResponse().result(res).build(),
