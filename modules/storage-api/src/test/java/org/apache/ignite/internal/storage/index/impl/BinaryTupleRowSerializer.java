@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.index.impl;
 
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -25,23 +24,24 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowSerializer;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 
 /**
  * {@link IndexRowSerializer} implementation that uses {@link BinaryTuple} as the index keys serialization mechanism.
  */
 class BinaryTupleRowSerializer implements IndexRowSerializer {
-    private final BinaryTupleSchema schema;
+    private final SortedIndexDescriptor descriptor;
 
-    BinaryTupleRowSerializer(BinaryTupleSchema schema) {
-        this.schema = schema;
+    BinaryTupleRowSerializer(SortedIndexDescriptor descriptor) {
+        this.descriptor = descriptor;
     }
 
     @Override
     public IndexRow createIndexRow(Object[] columnValues, RowId rowId) {
-        if (columnValues.length != schema.elementCount()) {
+        if (columnValues.length != descriptor.indexColumns().size()) {
             throw new IllegalArgumentException(String.format(
                     "Incorrect number of column values passed. Expected %d, got %d",
-                    schema.elementCount(),
+                    descriptor.indexColumns().size(),
                     columnValues.length
             ));
         }
@@ -51,16 +51,17 @@ class BinaryTupleRowSerializer implements IndexRowSerializer {
 
     @Override
     public BinaryTuple createIndexRowPrefix(Object[] prefixColumnValues) {
-        if (prefixColumnValues.length > schema.elementCount()) {
+        if (prefixColumnValues.length > descriptor.indexColumns().size()) {
             throw new IllegalArgumentException(String.format(
                     "Incorrect number of column values passed. Expected not more than %d, got %d",
-                    schema.elementCount(),
+                    descriptor.indexColumns().size(),
                     prefixColumnValues.length
             ));
         }
 
-        Element[] prefixElements = IntStream.range(0, prefixColumnValues.length)
-                .mapToObj(schema::element)
+        Element[] prefixElements = descriptor.indexColumns().stream()
+                .limit(prefixColumnValues.length)
+                .map(columnDescriptor -> new Element(columnDescriptor.type(), columnDescriptor.nullable()))
                 .toArray(Element[]::new);
 
         BinaryTupleSchema prefixSchema = BinaryTupleSchema.create(prefixElements);
