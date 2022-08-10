@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
@@ -32,6 +33,8 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.BEFORE_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_MARK_CHECKPOINT_BEGIN;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -39,6 +42,8 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -220,6 +225,8 @@ public class CheckpointWorkflowTest {
             public void beforeCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) throws IgniteInternalCheckedException {
                 super.beforeCheckpointBegin(progress, exec);
 
+                assertNull(exec);
+
                 assertSame(progressImpl, progress);
 
                 assertEquals(readWriteLock.getReadHoldCount(), 1);
@@ -243,6 +250,8 @@ public class CheckpointWorkflowTest {
             @Override
             public void onMarkCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) throws IgniteInternalCheckedException {
                 super.onMarkCheckpointBegin(progress, exec);
+
+                assertNull(exec);
 
                 assertSame(progressImpl, progress);
 
@@ -501,7 +510,79 @@ public class CheckpointWorkflowTest {
         );
     }
 
-    // TODO: IGNITE-17475 тесты наверное надо будет написать.
+    @Test
+    void testAwaitPendingTasksOfListenerCallback() {
+        workflow = new CheckpointWorkflow(
+                log,
+                "test",
+                mock(CheckpointMarkersStorage.class),
+                newReadWriteLock(log),
+                List.of(),
+                2
+        );
+
+        workflow.start();
+
+        CompletableFuture<?> startTask0Future = new CompletableFuture<>();
+        CompletableFuture<?> finishTask0Future = new CompletableFuture<>();
+
+        CompletableFuture<?> startTask1Future = new CompletableFuture<>();
+        CompletableFuture<?> finishTask1Future = new CompletableFuture<>();
+
+        workflow.addCheckpointListener(new CheckpointListener() {
+            /** {@inheritDoc} */
+            @Override
+            public void beforeCheckpointBegin(CheckpointProgress progress, @Nullable Executor executor) {
+                assertNotNull(executor);
+
+                executor.execute(() -> {
+                    startTask0Future.complete(null);
+
+                    await(finishTask0Future, 1, SECONDS);
+                });
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public void onMarkCheckpointBegin(CheckpointProgress progress, @Nullable Executor executor) {
+                assertNotNull(executor);
+
+                executor.execute(() -> {
+                    startTask1Future.complete(null);
+
+                    await(finishTask1Future, 1, SECONDS);
+                });
+            }
+        }, null);
+
+        Runnable updateHeartbeat = mock(Runnable.class);
+
+        CompletableFuture<Checkpoint> markCheckpointBeginFuture = runAsync(() -> workflow.markCheckpointBegin(
+                coarseCurrentTimeMillis(),
+                mock(CheckpointProgressImpl.class),
+                mock(CheckpointMetricsTracker.class),
+                updateHeartbeat
+        ));
+
+        await(startTask0Future, 1, SECONDS);
+
+        assertFalse(markCheckpointBeginFuture.isDone());
+        assertFalse(startTask1Future.isDone());
+        verify(updateHeartbeat, never()).run();
+
+        finishTask0Future.complete(null);
+
+        await(startTask1Future, 1, SECONDS);
+
+        assertFalse(markCheckpointBeginFuture.isDone());
+        verify(updateHeartbeat, times(1)).run();
+
+        finishTask1Future.complete(null);
+
+        await(markCheckpointBeginFuture, 1, SECONDS);
+
+        verify(updateHeartbeat, times(2)).run();
+    }
 
     private static PersistentPageMemory newPageMemory(Collection<FullPageId> pageIds) {
         PersistentPageMemory mock = mock(PersistentPageMemory.class);

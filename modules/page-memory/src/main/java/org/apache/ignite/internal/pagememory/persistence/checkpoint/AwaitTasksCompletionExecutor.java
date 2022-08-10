@@ -48,7 +48,9 @@ class AwaitTasksCompletionExecutor implements Executor {
     /** {@inheritDoc} */
     @Override
     public void execute(Runnable command) {
-        CompletableFuture<?> future = new CompletableFuture<>().whenComplete((res, throwable) -> updateHeartbeat.run());
+        CompletableFuture<?> future = new CompletableFuture<>();
+
+        future.whenComplete((o, throwable) -> updateHeartbeat.run());
 
         pendingTaskFutures.add(future);
 
