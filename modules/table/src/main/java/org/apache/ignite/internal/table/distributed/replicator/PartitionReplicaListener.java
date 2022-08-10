@@ -384,21 +384,31 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return result;
                 });
             }
-            case RW_DELETE:
+            case RW_DELETE: {
+                CompletableFuture<RowId> lockFut = takeLocksForDelete(searchKey, indexId, txId);
+
+                return lockFut.thenCompose(lockedRowId -> {
+                    boolean removed = lockedRowId != null;
+
+                    //TODO: IGNITE-17477 RAFT commands have to apply a row id.
+                    CompletableFuture raftFut = removed ? raftClient.run(new DeleteCommand(searchRow, txId)) :
+                            CompletableFuture.completedFuture(null);
+
+                    //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
+                    return raftFut.thenApply(ignored -> removed);
+                });
+            }
             case RW_GET_AND_DELETE: {
                 CompletableFuture<RowId> lockFut = takeLocksForDelete(searchKey, indexId, txId);
 
                 return lockFut.thenCompose(lockedRowId -> {
                     BinaryRow lockedRow = lockedRowId != null ? mvDataStorage.read(lockedRowId, txId) : null;
 
-                    boolean removed = lockedRow != null;
-
-                    //TODO: IGNITE-17477 RAFT commands have to apply a row id.
-                    CompletableFuture raftFut = removed ? raftClient.run(new DeleteCommand(searchKey, txId)) :
+                    CompletableFuture raftFut = lockedRowId != null ? raftClient.run(new DeleteCommand(searchRow, txId)) :
                             CompletableFuture.completedFuture(null);
 
                     //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
-                    return raftFut.thenApply(ignored -> removed);
+                    return raftFut.thenApply(ignored -> lockedRow);
                 });
             }
             case RW_DELETE_EXACT: {
