@@ -57,7 +57,7 @@ public class TransactionImpl implements InternalTransaction {
     /** The originator. */
     private final NetworkAddress address;
 
-    /** Enlisted groups. */
+    /** Enlisted raft groups. */
     private Set<RaftGroupService> enlistedRafts = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     /** Enlisted replication groups: replication group id -> primary replica node. */

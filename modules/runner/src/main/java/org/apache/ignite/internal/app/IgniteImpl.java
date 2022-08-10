@@ -335,7 +335,6 @@ public class IgniteImpl implements Ignite {
                 registry,
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 raftMgr,
-                replicaMgr,
                 replicaSvc,
                 baselineMgr,
                 clusterSvc.topologyService(),

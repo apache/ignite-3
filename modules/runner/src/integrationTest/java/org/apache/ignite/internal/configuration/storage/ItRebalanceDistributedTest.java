@@ -487,7 +487,6 @@ public class ItRebalanceDistributedTest {
                     registry,
                     tablesCfg,
                     raftManager,
-                    replicaMgr,
                     replicaSvc,
                     baselineMgr,
                     clusterService.topologyService(),
