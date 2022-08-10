@@ -21,60 +21,41 @@ package org.apache.ignite.internal.table.distributed.replicator.action;
  * Transaction operation type.
  */
 public enum RequestType {
-    /** */
     RW_GET,
 
-    /** */
     RW_GET_ALL,
 
-    /** */
     RW_DELETE,
 
-    /** */
     RW_DELETE_ALL,
 
-    /** */
     RW_DELETE_EXACT,
 
-    /** */
     RW_DELETE_EXACT_ALL,
 
-    /** */
     RW_INSERT,
 
-    /** */
     RW_INSERT_ALL,
 
-    /** */
     RW_UPSERT,
 
-    /** */
     RW_UPSERT_ALL,
 
-    /** */
     RW_REPLACE,
 
-    /** */
     RW_REPLACE_IF_EXIST,
 
-    /** */
     RW_GET_AND_DELETE,
 
-    /** */
     RW_GET_AND_REPLACE,
 
-    /** */
     RW_GET_AND_UPSERT,
 
-    /** */
     RW_SCAN,
 
-    /** */
     RO_GET,
 
-    /** */
     RO_GET_ALL,
 
-    /** */
     RO_SCAN
 }
