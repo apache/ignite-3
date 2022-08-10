@@ -236,8 +236,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                         if (lockedRowId != null) {
                             rowsToDelete.add(keyToRows.get(searchKey));
-
-                            result.add(mvDataStorage.read(lockedRowId, txId));
+                        } else {
+                            result.add(keyToRows.get(searchKey));
                         }
                     }
 
@@ -250,7 +250,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
             }
             case RW_DELETE_EXACT_ALL: {
-                CompletableFuture<BinaryRow>[] deleteExactLockFuts = new CompletableFuture[keyRows.size()];
+                CompletableFuture<RowId>[] deleteExactLockFuts = new CompletableFuture[keyRows.size()];
 
                 int i = 0;
 
@@ -259,21 +259,24 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
 
                 return CompletableFuture.allOf(deleteExactLockFuts).thenApply(ignore -> {
+                    Collection<BinaryRow> rowsToDelete = new ArrayList<>();
                     Collection<BinaryRow> result = new ArrayList<>();
 
                     int futNum = 0;
 
                     for (BinaryRow searchKey : keyRows) {
-                        BinaryRow lockedRow = deleteExactLockFuts[futNum++].join();
+                        RowId lockedRowId = deleteExactLockFuts[futNum++].join();
 
-                        if (lockedRow != null) {
-                            result.add(lockedRow);
+                        if (lockedRowId != null) {
+                            rowsToDelete.add(keyToRows.get(searchKey));
+                        } else {
+                            result.add(keyToRows.get(searchKey));
                         }
                     }
 
                     //TODO: IGNITE-17477 RAFT commands have to apply a row id.
-                    CompletableFuture raftFut = result.isEmpty() ? CompletableFuture.completedFuture(null)
-                            : raftClient.run(new DeleteAllCommand(result, txId));
+                    CompletableFuture raftFut = rowsToDelete.isEmpty() ? CompletableFuture.completedFuture(null)
+                            : raftClient.run(new DeleteAllCommand(rowsToDelete, txId));
 
                     //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
                     return raftFut.thenApply(ignored -> result);
@@ -386,25 +389,30 @@ public class PartitionReplicaListener implements ReplicaListener {
                 CompletableFuture<RowId> lockFut = takeLocksForDelete(searchKey, indexId, txId);
 
                 return lockFut.thenCompose(lockedRowId -> {
-                    BinaryRow result = lockedRowId != null ? mvDataStorage.read(lockedRowId, txId) : null;
+                    BinaryRow lockedRow = lockedRowId != null ? mvDataStorage.read(lockedRowId, txId) : null;
 
-                    CompletableFuture raftFut = lockedRowId != null ? raftClient.run(new DeleteCommand(searchKey, txId)) :
+                    boolean removed = lockedRow != null;
+
+                    //TODO: IGNITE-17477 RAFT commands have to apply a row id.
+                    CompletableFuture raftFut = removed ? raftClient.run(new DeleteCommand(searchKey, txId)) :
                             CompletableFuture.completedFuture(null);
 
                     //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
-                    return raftFut.thenApply(ignored -> result);
+                    return raftFut.thenApply(ignored -> removed);
                 });
             }
             case RW_DELETE_EXACT: {
-                CompletableFuture<BinaryRow> lockFut = takeLocksForDeleteExact(searchKey, searchRow, indexId, txId);
+                CompletableFuture<RowId> lockFut = takeLocksForDeleteExact(searchKey, searchRow, indexId, txId);
 
                 return lockFut.thenCompose(lockedRow -> {
+                    boolean removed = lockedRow != null;
+
                     //TODO: IGNITE-17477 RAFT commands have to apply a row id.
-                    CompletableFuture raftFut = lockedRow != null ? raftClient.run(new DeleteCommand(lockedRow, txId)) :
+                    CompletableFuture raftFut = removed ? raftClient.run(new DeleteCommand(searchRow, txId)) :
                             CompletableFuture.completedFuture(null);
 
                     //TODO: IGNITE-17508 Exception handling in the partition replication listener for RAFT futures
-                    return raftFut.thenApply(ignored -> lockedRow);
+                    return raftFut.thenApply(ignored -> removed);
                 });
             }
             case RW_INSERT: {
@@ -610,15 +618,15 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param searchRow Row to remove.
      * @param indexId   Index id.
      * @param txId      Transaction id.
-     * @return Future completes with {@link BinaryRow} or {@code null} if there is no value for remove.
+     * @return Future completes with {@link RowId} or {@code null} if there is no value for remove.
      */
-    private CompletableFuture<BinaryRow> takeLocksForDeleteExact(BinaryRow searchKey, BinaryRow searchRow, UUID indexId, UUID txId) {
+    private CompletableFuture<RowId> takeLocksForDeleteExact(BinaryRow searchKey, BinaryRow searchRow, UUID indexId, UUID txId) {
         return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.EXCLUSIVE).thenCompose(idxLock -> { // Index X lock
             RowId rowId = rowIdByKey(indexId, searchKey);
 
             return lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE) // IX lock on table
                     .thenCompose(tblLock -> {
-                        CompletableFuture<BinaryRow> rowLockFut;
+                        CompletableFuture<RowId> rowLockFut;
 
                         if (rowId != null) {
                             rowLockFut = lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.SHARED) // S lock on RowId
@@ -628,7 +636,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                         if (equalValues(curVal, searchRow)) {
                                             return lockManager.acquire(txId, new LockKey(tableId, rowId),
                                                             LockMode.EXCLUSIVE) // X lock on RowId
-                                                    .thenApply(exclusiveRowLock -> curVal);
+                                                    .thenApply(exclusiveRowLock -> rowId);
                                         }
 
                                         return CompletableFuture.completedFuture(null);
@@ -707,7 +715,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         switch (request.requestType()) {
             case RW_REPLACE: {
-                CompletableFuture<BinaryRow> lockFut = takeLocsForReplace(searchKey, oldRow, indexId, txId);
+                CompletableFuture<RowId> lockFut = takeLocsForReplace(searchKey, oldRow, indexId, txId);
 
                 return lockFut.thenApply(lockedRowId -> {
                     boolean replaced = lockedRowId != null;
@@ -738,7 +746,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txId      Transaction id.
      * @return Future completes with {@link RowId} or {@code null} if there is no suitable row.
      */
-    private CompletableFuture<BinaryRow> takeLocsForReplace(BinaryRow searchKey, BinaryRow oldRow, UUID indexId, UUID txId) {
+    private CompletableFuture<RowId> takeLocsForReplace(BinaryRow searchKey, BinaryRow oldRow, UUID indexId, UUID txId) {
         return lockManager.acquire(txId, new LockKey(indexId, searchKey), LockMode.SHARED).thenCompose(shareIdxLock -> { // Index R lock
             RowId rowId = rowIdByKey(indexId, searchKey);
 
@@ -748,7 +756,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             return idxLockFut.thenCompose(exclusiveIdxLock -> lockManager.acquire(txId, new LockKey(tableId), LockMode.INTENTION_EXCLUSIVE)
                     .thenCompose(tblLock -> { // IX lock on table
-                        CompletableFuture<BinaryRow> rowLockFut;
+                        CompletableFuture<RowId> rowLockFut;
 
                         if (rowId != null) {
                             rowLockFut = lockManager.acquire(txId, new LockKey(tableId, rowId), LockMode.SHARED) // S lock on RowId
@@ -758,7 +766,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                         if (equalValues(curVal, oldRow)) {
                                             return lockManager.acquire(txId, new LockKey(tableId, rowId),
                                                             LockMode.EXCLUSIVE) // X lock on RowId
-                                                    .thenApply(rowLock -> curVal);
+                                                    .thenApply(rowLock -> rowId);
                                         }
 
                                         return CompletableFuture.completedFuture(null);
