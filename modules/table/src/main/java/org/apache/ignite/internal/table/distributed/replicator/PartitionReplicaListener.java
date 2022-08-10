@@ -204,10 +204,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return CompletableFuture.allOf(getLockFuts).thenApply(ignore -> {
                     ArrayList<BinaryRow> result = new ArrayList<>(keyRows.size());
 
-                    int futNum = 0;
-
-                    for (BinaryRow searchKey : keyRows) {
-                        RowId lockedRowId = getLockFuts[futNum++].join();
+                    for (int futNum = 0; futNum < keyRows.size(); futNum++) {
+                        RowId lockedRowId = getLockFuts[futNum].join();
 
                         result.add(lockedRowId != null ? mvDataStorage.read(lockedRowId, txId) : null);
                     }
