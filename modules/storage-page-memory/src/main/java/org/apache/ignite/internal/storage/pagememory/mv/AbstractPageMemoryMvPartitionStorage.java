@@ -56,10 +56,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     private final int partId;
     private final int groupId;
 
-    private final VersionChainFreeList versionChainFreeList;
+    protected final VersionChainFreeList versionChainFreeList;
     private final VersionChainTree versionChainTree;
     private final VersionChainDataPageReader versionChainDataPageReader;
-    private final RowVersionFreeList rowVersionFreeList;
+    protected final RowVersionFreeList rowVersionFreeList;
     private final DataPageReader rowVersionDataPageReader;
 
     private final ThreadLocal<ReadRowVersion> readRowVersionCache = ThreadLocal.withInitial(ReadRowVersion::new);

@@ -675,6 +675,7 @@ public class Checkpointer extends IgniteWorker {
      * Returns the progress of the last checkpoint, or the current checkpoint if in progress, {@code null} if no checkpoint has occurred.
      */
     public @Nullable CheckpointProgress lastCheckpointProgress() {
+        // IGNITE-17475 вот тут поменять на получения после врайт лока
         return currentCheckpointProgress;
     }
 

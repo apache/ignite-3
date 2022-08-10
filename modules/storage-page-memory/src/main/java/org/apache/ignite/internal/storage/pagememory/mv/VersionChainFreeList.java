@@ -152,4 +152,13 @@ public class VersionChainFreeList extends AbstractFreeList<VersionChain> {
             return true;
         }
     }
+
+    /**
+     * Shortcut method for {@link #saveMetadata(IoStatisticsHolder)} with statistics holder.
+     *
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    public void saveMetadata() throws IgniteInternalCheckedException {
+        super.saveMetadata(statHolder);
+    }
 }
