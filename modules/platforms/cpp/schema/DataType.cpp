@@ -17,6 +17,63 @@
 
 #include "DataType.h"
 
+#include <stdexcept>
+
 namespace ignite {
+
+bool isFixedSizeType(DATA_TYPE t) {
+    switch (t) {
+        case DATA_TYPE::INT8:
+        case DATA_TYPE::INT16:
+        case DATA_TYPE::INT32:
+        case DATA_TYPE::INT64:
+        case DATA_TYPE::FLOAT:
+        case DATA_TYPE::DOUBLE:
+        case DATA_TYPE::UUID:
+        case DATA_TYPE::DATE:
+        case DATA_TYPE::TIME:
+        case DATA_TYPE::DATETIME:
+        case DATA_TYPE::TIMESTAMP:
+            return true;
+        default:
+            return false;
+    }
+}
+
+SizeT getTypeSize(DATA_TYPE t) {
+    switch (t) {
+        case DATA_TYPE::INT8:
+            return 1;
+        case DATA_TYPE::INT16:
+            return 2;
+        case DATA_TYPE::INT32:
+            return 4;
+        case DATA_TYPE::INT64:
+            return 8;
+        case DATA_TYPE::FLOAT:
+            return 4;
+        case DATA_TYPE::DOUBLE:
+            return 8;
+        case DATA_TYPE::UUID:
+            return 16;
+        case DATA_TYPE::DATE:
+            return 3;
+        case DATA_TYPE::TIME:
+            return 5;
+        case DATA_TYPE::DATETIME:
+            return 8;
+        case DATA_TYPE::TIMESTAMP:
+            return 10;
+        case DATA_TYPE::BITMASK:
+        case DATA_TYPE::NUMBER:
+        case DATA_TYPE::DECIMAL:
+        case DATA_TYPE::STRING:
+        case DATA_TYPE::BINARY:
+            /* Only fixed size types are supported for now. */
+            throw std::logic_error("Can't get size of variable-size type id " + std::to_string(static_cast<int>(t)));
+        default:
+            throw std::logic_error("Unsupported type id " + std::to_string(static_cast<int>(t)) + " in schema");
+    }
+}
 
 } // namespace ignite
