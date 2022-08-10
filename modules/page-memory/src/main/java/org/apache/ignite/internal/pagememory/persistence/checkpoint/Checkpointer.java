@@ -121,6 +121,9 @@ public class Checkpointer extends IgniteWorker {
     /** Current checkpoint progress. This field is updated only by checkpoint thread. */
     private volatile @Nullable CheckpointProgressImpl currentCheckpointProgress;
 
+    /** Checkpoint progress after releasing write lock. */
+    private volatile @Nullable CheckpointProgressImpl afterReleaseWriteLockCheckpointProgress;
+
     /** Shutdown now. */
     private volatile boolean shutdownNow;
 
@@ -276,7 +279,8 @@ public class Checkpointer extends IgniteWorker {
                         lastCheckpointTimestamp,
                         currentCheckpointProgress,
                         tracker,
-                        this::updateHeartbeat
+                        this::updateHeartbeat,
+                        this::updateLastProgressAfterReleaseWriteLock
                 );
             } catch (Exception e) {
                 if (currentCheckpointProgress != null) {
@@ -675,8 +679,8 @@ public class Checkpointer extends IgniteWorker {
      * Returns the progress of the last checkpoint, or the current checkpoint if in progress, {@code null} if no checkpoint has occurred.
      */
     public @Nullable CheckpointProgress lastCheckpointProgress() {
-        // IGNITE-17475 вот тут поменять на получения после врайт лока
-        return currentCheckpointProgress;
+        // Because dirty pages may appear while holding write lock.
+        return afterReleaseWriteLockCheckpointProgress;
     }
 
     /**
@@ -765,5 +769,12 @@ public class Checkpointer extends IgniteWorker {
         } finally {
             blockingSectionEnd();
         }
+    }
+
+    /**
+     * Updates the {@link #lastCheckpointProgress() latest progress} after write lock is released.
+     */
+    void updateLastProgressAfterReleaseWriteLock() {
+        afterReleaseWriteLockCheckpointProgress = currentCheckpointProgress;
     }
 }

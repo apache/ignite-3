@@ -219,6 +219,8 @@ public class CheckpointWorkflowTest {
 
         CheckpointMetricsTracker tracker = mock(CheckpointMetricsTracker.class);
 
+        Runnable onReleaseWriteLock = mock(Runnable.class);
+
         workflow.addCheckpointListener(new TestCheckpointListener(events) {
             /** {@inheritDoc} */
             @Override
@@ -244,6 +246,8 @@ public class CheckpointWorkflowTest {
 
                 verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
                 verify(progressImpl, never()).initCounters(anyInt());
+
+                verify(onReleaseWriteLock, never()).run();
             }
 
             /** {@inheritDoc} */
@@ -270,6 +274,8 @@ public class CheckpointWorkflowTest {
 
                 verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
                 verify(progressImpl, never()).initCounters(anyInt());
+
+                verify(onReleaseWriteLock, never()).run();
             }
 
             /** {@inheritDoc} */
@@ -298,10 +304,18 @@ public class CheckpointWorkflowTest {
 
                 verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
                 verify(progressImpl, never()).initCounters(anyInt());
+
+                verify(onReleaseWriteLock, times(1)).run();
             }
         }, dataRegion);
 
-        Checkpoint checkpoint = workflow.markCheckpointBegin(coarseCurrentTimeMillis(), progressImpl, tracker, () -> {});
+        Checkpoint checkpoint = workflow.markCheckpointBegin(
+                coarseCurrentTimeMillis(),
+                progressImpl,
+                tracker,
+                () -> {},
+                onReleaseWriteLock
+        );
 
         verify(tracker, times(1)).onWriteLockWaitStart();
         verify(tracker, times(1)).onMarkCheckpointBeginStart();
@@ -329,6 +343,8 @@ public class CheckpointWorkflowTest {
         );
 
         verify(markersStorage, times(1)).onCheckpointBegin(checkpointId);
+
+        verify(onReleaseWriteLock, times(1)).run();
     }
 
     @Test
@@ -561,7 +577,8 @@ public class CheckpointWorkflowTest {
                 coarseCurrentTimeMillis(),
                 mock(CheckpointProgressImpl.class),
                 mock(CheckpointMetricsTracker.class),
-                updateHeartbeat
+                updateHeartbeat,
+                () -> {}
         ));
 
         await(startTask0Future, 1, SECONDS);

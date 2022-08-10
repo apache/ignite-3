@@ -174,6 +174,7 @@ class CheckpointWorkflow {
      * @param curr Current checkpoint event info.
      * @param tracker Checkpoint metrics tracker.
      * @param updateHeartbeat Update heartbeat callback.
+     * @param onReleaseWriteLock Callback on write lock release.
      * @return Checkpoint collected info.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -181,7 +182,8 @@ class CheckpointWorkflow {
             long startCheckpointTimestamp,
             CheckpointProgressImpl curr,
             CheckpointMetricsTracker tracker,
-            Runnable updateHeartbeat
+            Runnable updateHeartbeat,
+            Runnable onReleaseWriteLock
     ) throws IgniteInternalCheckedException {
         List<CheckpointListener> listeners = collectCheckpointListeners(dataRegions);
 
@@ -233,6 +235,8 @@ class CheckpointWorkflow {
             checkpointReadWriteLock.writeUnlock();
 
             tracker.onWriteLockRelease();
+
+            onReleaseWriteLock.run();
         }
 
         curr.transitTo(LOCK_RELEASED);
