@@ -44,7 +44,7 @@ public class NodeStatusCall implements Call<StatusCallInput, NodeStatus> {
                             .state(nodeState.getState().getValue())
                             .build()
             );
-        } catch (ApiException e) {
+        } catch (ApiException | IllegalArgumentException e) {
             return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getClusterUrl()));
         }
     }
