@@ -32,11 +32,13 @@ public class IniProfile implements Profile {
         this.config = new IniConfig(section, saveAction);
     }
 
+    /** {@inheritDoc} */
     @Override
     public String getName() {
         return section.getName();
     }
 
+    /** {@inheritDoc} */
     @Override
     public Config getConfig() {
         return config;

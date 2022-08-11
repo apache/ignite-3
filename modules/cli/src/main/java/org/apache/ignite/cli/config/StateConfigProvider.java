@@ -21,5 +21,10 @@ package org.apache.ignite.cli.config;
  * Provider for the application state config.
  */
 public interface StateConfigProvider {
+    /**
+     * Gets the application state config.
+     *
+     * @return application state config
+     */
     Config get();
 }

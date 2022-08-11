@@ -23,13 +23,43 @@ import java.util.Map;
  * Ignite CLI config.
  */
 public interface Config {
+    /**
+     * Gets all properties.
+     *
+     * @return all properties
+     */
     Map<String, String> getAll();
 
+    /**
+     * Gets a property.
+     *
+     * @param key property to get
+     * @return property value or {@code null} if config doesn't contain this property
+     */
     String getProperty(String key);
 
+    /**
+     * Gets a property.
+     *
+     * @param key property to get
+     * @param defaultValue default value of the property
+     *
+     * @return property value or {@code defaultValue} if config doesn't contain this property
+     */
     String getProperty(String key, String defaultValue);
 
+    /**
+     * Sets a property.
+     *
+     * @param key property to set
+     * @param value value to set
+     */
     void setProperty(String key, String value);
 
+    /**
+     * Sets properties to this profile.
+     *
+     * @param values map of properties to set
+     */
     void setProperties(Map<String, String> values);
 }

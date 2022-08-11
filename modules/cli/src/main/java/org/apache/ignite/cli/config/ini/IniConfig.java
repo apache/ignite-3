@@ -32,27 +32,32 @@ public class IniConfig implements Config {
         this.saveAction = saveAction;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Map<String, String> getAll() {
         return section.getAll();
     }
 
+    /** {@inheritDoc} */
     @Override
     public String getProperty(String key) {
         return section.getProperty(key);
     }
 
+    /** {@inheritDoc} */
     @Override
     public String getProperty(String key, String defaultValue) {
         return section.getProperty(key, defaultValue);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setProperty(String key, String value) {
         section.setProperty(key, value);
         saveAction.run();
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setProperties(Map<String, String> values) {
         section.setProperties(values);

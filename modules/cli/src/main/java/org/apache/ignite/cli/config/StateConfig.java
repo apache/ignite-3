@@ -33,7 +33,6 @@ public class StateConfig {
      * @param file INI file.
      * @return new instance of {@link Config}
      */
-
     public static Config getStateConfig(File file) {
         IniFile iniFile = loadStateConfig(file);
         return new IniConfig(iniFile.getTopLevelSection(), iniFile::store);
