@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.metrics;
 
-import org.apache.ignite.internal.metrics.Metric;
-
 /**
  * Interface for the metrics that holds int primitive.
  */
@@ -31,6 +29,7 @@ public interface IntMetric extends Metric {
     int value();
 
     /** {@inheritDoc} */
+    @Override
     default String getValueAsString() {
         return Integer.toString(value());
     }

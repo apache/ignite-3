@@ -82,9 +82,9 @@ public class DistributionMetricTest {
 
         List<Metric> scalarMetrics = distribution.asScalarMetrics();
 
-        assertEquals("0_50", scalarMetrics.get(0).name());
-        assertEquals("50_500", scalarMetrics.get(1).name());
-        assertEquals("500_", scalarMetrics.get(2).name());
+        assertEquals("distribution_0_50", scalarMetrics.get(0).name());
+        assertEquals("distribution_50_500", scalarMetrics.get(1).name());
+        assertEquals("distribution_500_inf", scalarMetrics.get(2).name());
 
         for (int i = 0; i < scalarMetrics.size(); i++) {
             LongMetric lm = (LongMetric) scalarMetrics.get(i);
@@ -108,6 +108,6 @@ public class DistributionMetricTest {
     public void testGetValueAsString() {
         DistributionMetric distribution = createAndPrepareMetric();
 
-        assertEquals("[0_50:1, 50_500:2, 500_:3]", distribution.getValueAsString());
+        assertEquals("[distribution_0_50:1, distribution_50_500:2, distribution_500_inf:3]", distribution.getValueAsString());
     }
 }

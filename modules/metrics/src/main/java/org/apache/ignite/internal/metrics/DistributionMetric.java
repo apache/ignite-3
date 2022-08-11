@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,6 +31,18 @@ import org.jetbrains.annotations.Nullable;
  * Last element contains count of measurements bigger than most right value of bounds.
  */
 public class DistributionMetric extends AbstractMetric implements CompositeMetric {
+    /** Distribution metric last interval high bound. */
+    public static final String INF = "inf";
+
+    /** Distribution range divider. */
+    public static final char RANGE_DIVIDER = '_';
+
+    /** Distribution bucket divider. */
+    public static final String BUCKET_DIVIDER = ", ";
+
+    /** Distribution metric name and value divider. */
+    public static final char METRIC_DIVIDER = ':';
+
     /** Count of measurement for each bound. */
     private final AtomicLongArray measurements;
 
@@ -48,7 +59,7 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
      * @param desc Description.
      * @param bounds Bounds of the buckets.
      */
-    public DistributionMetric(String name, @Nullable String desc, @NotNull long[] bounds) {
+    public DistributionMetric(String name, @Nullable String desc, long[] bounds) {
         super(name, desc);
 
         assert bounds != null && bounds.length > 0;
@@ -64,7 +75,7 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
      * @param arr Array to check.
      * @return {@code True} if array sorted, {@code false} otherwise.
      */
-    private static boolean isSorted(@NotNull long[] arr) {
+    private static boolean isSorted(long[] arr) {
         if (arr.length < 2) {
             return true;
         }
@@ -110,7 +121,8 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
     }
 
     /** {@inheritDoc} */
-    @Override public @Nullable String getValueAsString() {
+    @Override
+    public String getValueAsString() {
         StringBuilder sb = new StringBuilder("[");
 
         List<Metric> scalarMetrics = asScalarMetrics();
@@ -119,11 +131,11 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
             LongMetric m = (LongMetric) scalarMetrics.get(i);
 
             sb.append(m.name())
-                    .append(':')
+                    .append(METRIC_DIVIDER)
                     .append(m.value());
 
             if (i < scalarMetrics.size() - 1) {
-                sb.append(", ");
+                sb.append(BUCKET_DIVIDER);
             }
         }
 
@@ -142,15 +154,16 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
     }
 
     /** {@inheritDoc} */
-    @Override public List<Metric> asScalarMetrics() {
+    @Override
+    public List<Metric> asScalarMetrics() {
         if (scalarMetrics == null) {
             List<Metric> metrics = new ArrayList<>();
 
             for (int i = 0; i < measurements.length(); i++) {
-                String from = i == 0 ? "0" : String.valueOf(bounds[i - 1]);
-                String to = i == measurements.length() - 1 ? "" : String.valueOf(bounds[i]);
+                String from = String.valueOf(i == 0 ? 0 : bounds[i - 1]);
+                String to = i == measurements.length() - 1 ? INF : String.valueOf(bounds[i]);
 
-                String name = new StringBuilder(from).append('_').append(to).toString();
+                String name = name() + RANGE_DIVIDER + from + RANGE_DIVIDER + to;
 
                 final int index = i;
                 LongGauge gauge = new LongGauge(name, "Single distribution bucket", () -> measurements.get(index));

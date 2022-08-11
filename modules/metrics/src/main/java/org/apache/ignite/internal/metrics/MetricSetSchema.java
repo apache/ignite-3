@@ -17,20 +17,37 @@
 
 package org.apache.ignite.internal.metrics;
 
-/**
- * Basic interface for double metric.
- */
-public interface DoubleMetric extends Metric {
-    /**
-     * Value of the metric.
-     *
-     * @return Value of the metric.
-     */
-    double value();
+import java.util.Collections;
+import java.util.List;
 
-    /** {@inheritDoc} */
-    @Override
-    default String getValueAsString() {
-        return Double.toString(value());
+/**
+ * Metric set schema. Contains schema version and corresponding metric sets.
+ */
+public class MetricSetSchema {
+    /** Version. */
+    private final long version;
+
+    /** Metric sets. */
+    private final List<MetricSet> metricSets;
+
+    /**
+     * Constructor.
+     *
+     * @param version Version.
+     * @param metricSets Metric sets list.
+     */
+    public MetricSetSchema(long version, List<MetricSet> metricSets) {
+        this.version = version;
+        this.metricSets = Collections.unmodifiableList(metricSets);
+    }
+
+    /** Version. */
+    public long version() {
+        return version;
+    }
+
+    /** Metric sets. */
+    public List<MetricSet> metricSets() {
+        return metricSets;
     }
 }

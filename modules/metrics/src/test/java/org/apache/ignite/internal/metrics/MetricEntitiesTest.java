@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Iterator;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -47,32 +46,61 @@ public class MetricEntitiesTest {
         MetricSource metricSource = new TestMetricSource();
 
         registry.registerSource(metricSource);
+        assertEquals(0L, registry.metricSetSchema().version());
 
         assertThrows(IllegalStateException.class, () -> registry.registerSource(metricSource));
 
-        MetricSet metricSet = registry.enable(SOURCE_NAME);
-        assertThrows(IllegalStateException.class, () -> registry.enable("unexisting"));
+        assertEquals(0L, registry.metricSetSchema().version());
+        assertTrue(registry.metricSetSchema().metricSets().isEmpty());
 
-        assertEquals(2L, registry.version());
+        MetricSource alreadyEnabled = new TestMetricSource("alreadyEnabled");
+        alreadyEnabled.enable();
+        assertThrows(AssertionError.class, () -> registry.registerSource(alreadyEnabled));
+        assertEquals(0L, registry.metricSetSchema().version());
+
+        MetricSet metricSet = registry.enable(SOURCE_NAME);
         assertNotNull(metricSet);
+        assertEquals(1L, registry.version());
+        assertFalse(registry.metricSetSchema().metricSets().isEmpty());
+        assertNull(registry.enable(metricSource));
+
+        assertThrows(IllegalStateException.class, () -> registry.enable("unexisting"));
+        assertEquals(1L, registry.metricSetSchema().version());
 
         assertNull(registry.enable(SOURCE_NAME));
-        assertEquals(2L, registry.version());
+        assertEquals(1L, registry.version());
 
-        Iterator<MetricSet> metricSetIterator = registry.iterator();
-        assertTrue(metricSetIterator.hasNext());
-        MetricSet ms = metricSetIterator.next();
+        MetricSetSchema metricSetSchema = registry.metricSetSchema();
+        assertEquals(1L, metricSetSchema.version());
+        assertFalse(metricSetSchema.metricSets().isEmpty());
+        MetricSet ms = metricSetSchema.metricSets().get(0);
         assertEquals(metricSet, ms);
 
         registry.disable(SOURCE_NAME);
-        assertEquals(3L, registry.version());
+        assertEquals(2L, registry.version());
 
         assertThrows(IllegalStateException.class, () -> registry.disable("unexisting"));
 
-        assertFalse(registry.iterator().hasNext());
+        metricSetSchema = registry.metricSetSchema();
+        assertEquals(2L, metricSetSchema.version());
+        assertTrue(metricSetSchema.metricSets().isEmpty());
+
+        registry.disable(SOURCE_NAME);
+        assertEquals(2L, registry.version());
+        registry.disable(metricSource);
+        assertEquals(2L, registry.version());
+
+        registry.enable(metricSource);
+
+        assertEquals(3L, registry.version());
 
         registry.unregisterSource(metricSource);
-        assertFalse(registry.iterator().hasNext());
+        assertEquals(4L, registry.version());
+
+        registry.unregisterSource(metricSource);
+        metricSetSchema = registry.metricSetSchema();
+        assertEquals(4L, metricSetSchema.version());
+        assertTrue(metricSetSchema.metricSets().isEmpty());
     }
 
     @Test
@@ -106,10 +134,10 @@ public class MetricEntitiesTest {
         assertEquals(2 + DISTRIBUTION_BOUNDS.length, scalarMetrics.size());
 
         assertEquals(SCALAR_METRIC_NAME, scalarMetrics.get(0).name());
-        assertEquals("0_" + DISTRIBUTION_BOUNDS[0], scalarMetrics.get(1).name());
-        assertEquals(DISTRIBUTION_BOUNDS[0] + "_" + DISTRIBUTION_BOUNDS[1], scalarMetrics.get(2).name());
-        assertEquals(DISTRIBUTION_BOUNDS[1] + "_" + DISTRIBUTION_BOUNDS[2], scalarMetrics.get(3).name());
-        assertEquals(DISTRIBUTION_BOUNDS[2] + "_", scalarMetrics.get(4).name());
+        assertEquals(COMPOSITE_METRIC_NAME + "_0_" + DISTRIBUTION_BOUNDS[0], scalarMetrics.get(1).name());
+        assertEquals(COMPOSITE_METRIC_NAME + '_' + DISTRIBUTION_BOUNDS[0] + "_" + DISTRIBUTION_BOUNDS[1], scalarMetrics.get(2).name());
+        assertEquals(COMPOSITE_METRIC_NAME + '_' + DISTRIBUTION_BOUNDS[1] + "_" + DISTRIBUTION_BOUNDS[2], scalarMetrics.get(3).name());
+        assertEquals(COMPOSITE_METRIC_NAME + '_' + DISTRIBUTION_BOUNDS[2] + "_inf", scalarMetrics.get(4).name());
 
         registry.disable(metricSource.name());
 
@@ -119,6 +147,11 @@ public class MetricEntitiesTest {
     private static class TestMetricSource extends AbstractMetricSource<TestMetricSource.Holder> {
         protected TestMetricSource() {
             super(SOURCE_NAME);
+        }
+
+
+        protected TestMetricSource(String name) {
+            super(name);
         }
 
         @Override protected Holder createHolder() {

@@ -19,15 +19,15 @@ package org.apache.ignite.internal.metrics;
 
 import static java.util.Objects.requireNonNull;
 
-import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
-import org.apache.ignite.internal.util.FilteringIterator;
-import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.NotNull;
 
@@ -35,10 +35,8 @@ import org.jetbrains.annotations.NotNull;
  * Metric registry. Metrics source (see {@link MetricSource} must be registered in this metrics registry after initialization
  * of corresponding component and must be unregistered in case of component is destroyed or stopped. Metrics registry also
  * provides access to all enabled metrics through corresponding metrics sets. Metrics registry lifetime is equal to the node lifetime.
- * <br>
- * Implements an {@link Iterable} over the metric sets for enabled metric sources.
  */
-public class MetricRegistry implements Iterable<MetricSet> {
+public class MetricRegistry {
     private final Lock lock = new ReentrantLock();
 
     /** Map of metric sources' names to tuples of registered sources with metric sets, if enabled. */
@@ -56,7 +54,11 @@ public class MetricRegistry implements Iterable<MetricSet> {
      * @throws IllegalStateException If metric source with the given name already exists.
      */
     public void registerSource(MetricSource src) {
-        modifySources(sources -> {
+        lock.lock();
+
+        try {
+            Map<String, IgniteBiTuple<MetricSource, MetricSet>> sources = new TreeMap<>(this.sources);
+
             IgniteBiTuple<MetricSource, MetricSet> s = new IgniteBiTuple<>(src, null);
 
             IgniteBiTuple<MetricSource, MetricSet> old = sources.putIfAbsent(src.name(), s);
@@ -68,8 +70,10 @@ public class MetricRegistry implements Iterable<MetricSet> {
             // Now we sure that this metric source wasn't registered before.
             assert !src.enabled() : "Metric source shouldn't be enabled before registration in registry.";
 
-            return true;
-        });
+            this.sources = sources;
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
@@ -189,7 +193,14 @@ public class MetricRegistry implements Iterable<MetricSet> {
      */
     public void disable(@NotNull MetricSource src) {
         modifySources(sources -> {
-            checkRegistered(sources, src);
+            IgniteBiTuple<MetricSource, MetricSet> registered = checkRegistered(sources, src);
+
+            if (registered.get1().enabled()) {
+                assert registered.get2() != null;
+            } else {
+                assert registered.get2() == null;
+                return false;
+            }
 
             src.disable();
 
@@ -216,6 +227,13 @@ public class MetricRegistry implements Iterable<MetricSet> {
             }
 
             MetricSource src = registered.get1();
+
+            if (registered.get1().enabled()) {
+                assert registered.get2() != null;
+            } else {
+                assert registered.get2() == null;
+                return false;
+            }
 
             src.disable();
 
@@ -281,20 +299,34 @@ public class MetricRegistry implements Iterable<MetricSet> {
     }
 
     /**
+     * Metric set schema.
+     *
+     * @return Metric set schema.
+     */
+    public MetricSetSchema metricSetSchema() {
+        lock.lock();
+
+        try {
+            List<MetricSet> metricSetsList = new ArrayList<>();
+
+            for (Entry<String, IgniteBiTuple<MetricSource, MetricSet>> e : sources.entrySet()) {
+                if (e.getValue().get2() != null) {
+                    metricSetsList.add(e.getValue().get2());
+                }
+            }
+
+            return new MetricSetSchema(version, metricSetsList);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
      * Returns registry schema version.
      *
      * @return Version.
      */
     public long version() {
         return version;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Iterator<MetricSet> iterator() {
-        return new TransformingIterator<>(
-                new FilteringIterator<>(sources.values().iterator(), v -> v.get2() != null),
-                IgniteBiTuple::get2
-        );
     }
 }

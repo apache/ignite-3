@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.metrics;
 
-import org.apache.ignite.internal.metrics.Metric;
-
 /**
  * Interface for the metrics that holds long primitive.
  */
@@ -31,7 +29,8 @@ public interface LongMetric extends Metric {
     long value();
 
     /** {@inheritDoc} */
-    @Override default String getValueAsString() {
+    @Override
+    default String getValueAsString() {
         return Long.toString(value());
     }
 }

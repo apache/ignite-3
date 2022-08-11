@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.metrics;
 
-import java.util.Iterator;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Metric manager.
  */
-public class MetricManager implements IgniteComponent, Iterable<MetricSet> {
+public class MetricManager implements IgniteComponent {
     /**
      * Metric registry.
      */
@@ -112,10 +111,13 @@ public class MetricManager implements IgniteComponent, Iterable<MetricSet> {
         registry.disable(srcName);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Metric set schema.
+     *
+     * @return Metric set schema.
+     */
     @NotNull
-    @Override
-    public Iterator<MetricSet> iterator() {
-        return registry.iterator();
+    public MetricSetSchema metricSetSchema() {
+        return registry.metricSetSchema();
     }
 }

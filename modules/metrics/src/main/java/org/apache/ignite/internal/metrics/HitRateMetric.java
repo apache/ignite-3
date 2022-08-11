@@ -192,13 +192,4 @@ public class HitRateMetric extends AbstractMetric implements LongMetric {
     private static byte getTag(long taggedLong) {
         return (byte) (taggedLong >> TAG_OFFSET);
     }
-
-    /**
-     * Rate time interval in milliseconds.
-     *
-     * @return Rate time interval in milliseconds.
-     */
-    public long rateTimeInterval() {
-        return rateTimeInterval;
-    }
 }
