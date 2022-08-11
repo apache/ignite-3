@@ -36,7 +36,7 @@ public interface ExceptionHandler<T extends Throwable> {
             err.write(
                     ErrorUiComponent.builder()
                             .header("Unknown error")
-                            .details("Please, take a look at node log")
+                            .details(e.getMessage())
                             .build()
                             .render()
             );

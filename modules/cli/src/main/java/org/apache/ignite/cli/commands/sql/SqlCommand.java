@@ -50,6 +50,14 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
     @ArgGroup(multiplicity = "1")
     private ExecOptions execOptions;
 
+    private static class ExecOptions {
+        @Parameters(index = "0", description = "SQL query to execute")
+        private String command;
+
+        @Option(names = {"-f", "--script-file"}, description = "Path to file with SQL commands to execute")
+        private File file;
+    }
+
     private static String extract(File file) {
         try {
             return String.join("\n", Files.readAllLines(file.toPath(), StandardCharsets.UTF_8));
@@ -75,13 +83,4 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
             return new SqlExceptionHandler().handle(ExceptionWriter.fromPrintWriter(spec.commandLine().getErr()), e);
         }
     }
-
-    private static class ExecOptions {
-        @Parameters(index = "0", description = "SQL query to execute")
-        private String command;
-
-        @Option(names = {"-f", "--script-file"}, description = "Path to file with SQL commands to execute")
-        private File file;
-    }
-
 }
