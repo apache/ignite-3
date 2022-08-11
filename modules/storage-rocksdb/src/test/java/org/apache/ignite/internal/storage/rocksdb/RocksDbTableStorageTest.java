@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
@@ -59,6 +60,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -186,7 +188,7 @@ public class RocksDbTableStorageTest extends BaseMvStoragesTest {
 
     private List<IgniteBiTuple<TestKey, TestValue>> toList(Cursor<BinaryRow> cursor) throws Exception {
         try (cursor) {
-            return cursor.stream().map(this::unwrap).collect(Collectors.toList());
+            return cursor.stream().map(RocksDbTableStorageTest::unwrap).collect(Collectors.toList());
         }
     }
 
@@ -207,7 +209,7 @@ public class RocksDbTableStorageTest extends BaseMvStoragesTest {
 
         RowId rowId1 = partitionStorage1.runConsistently(() -> partitionStorage1.insert(testData, txId));
 
-        storage.destroyPartition(42);
+        assertThat(storage.destroyPartition(42), willCompleteSuccessfully());
 
         assertThat(storage.getMvPartition(42), is(nullValue()));
         assertThat(storage.getOrCreateMvPartition(42).read(rowId0, txId), is(nullValue()));
@@ -250,7 +252,8 @@ public class RocksDbTableStorageTest extends BaseMvStoragesTest {
         assertThat(storage.isVolatile(), is(false));
     }
 
-    private IgniteBiTuple<TestKey, TestValue> unwrap(BinaryRow binaryRow) {
+    @Nullable
+    private static IgniteBiTuple<TestKey, TestValue> unwrap(@Nullable BinaryRow binaryRow) {
         if (binaryRow == null) {
             return null;
         }

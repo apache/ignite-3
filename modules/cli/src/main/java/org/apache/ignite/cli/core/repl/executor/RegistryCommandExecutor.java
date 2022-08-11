@@ -23,6 +23,9 @@ import org.apache.ignite.cli.core.call.CallOutput;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.cli.core.call.StringCallInput;
 import org.jline.console.SystemRegistry;
+import org.jline.reader.ParsedLine;
+import org.jline.reader.Parser;
+import org.jline.reader.Parser.ParseContext;
 
 /**
  * Command executor based on {@link SystemRegistry}.
@@ -30,13 +33,17 @@ import org.jline.console.SystemRegistry;
 public class RegistryCommandExecutor implements Call<StringCallInput, Object> {
     private final SystemRegistry systemRegistry;
 
+    private final Parser parser;
+
     /**
      * Constructor.
      *
      * @param systemRegistry {@link SystemRegistry} instance.
+     * @param parser A {@link Parser} used to create {@code systemRegistry}.
      */
-    public RegistryCommandExecutor(SystemRegistry systemRegistry) {
+    public RegistryCommandExecutor(SystemRegistry systemRegistry, Parser parser) {
         this.systemRegistry = systemRegistry;
+        this.parser = parser;
     }
 
     /**
@@ -64,5 +71,17 @@ public class RegistryCommandExecutor implements Call<StringCallInput, Object> {
      */
     public void cleanUp() {
         systemRegistry.cleanUp();
+    }
+
+    /**
+     * Determines whether the {@link SystemRegistry} has a command with this name.
+     *
+     * @param line command name to check.
+     * @return true if the registry has the command.
+     */
+    public boolean hasCommand(String line) {
+        ParsedLine pl = parser.parse(line, 0, ParseContext.SPLIT_LINE);
+
+        return !pl.words().isEmpty() && systemRegistry.hasCommand(parser.getCommand(pl.words().get(0)));
     }
 }

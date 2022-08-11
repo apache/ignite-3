@@ -48,7 +48,7 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
-import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -308,7 +308,7 @@ public class RecordViewOperationsTest {
         AtomicLong raftIndex = new AtomicLong();
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestMvPartitionStorage(0), txManager),
+                new VersionedRowStore(new TestConcurrentHashMapMvPartitionStorage(0), txManager),
                 txManager,
                 raftIndex
         );

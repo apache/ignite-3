@@ -47,7 +47,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPartitionStorageTest {
-    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    @InjectConfiguration(
+            value = "mock.checkpoint.checkpointDelayMillis = 0",
+            polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class
+    )
     private PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration(

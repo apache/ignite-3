@@ -330,7 +330,13 @@ public class IgniteImpl implements Ignite {
         );
 
         indexManager = new IndexManager(
-                distributedTblMgr
+                distributedTblMgr,
+                clusterCfgMgr.configurationRegistry()
+                        .getConfiguration(TablesConfiguration.KEY)
+                        .tables()
+                        .any()
+                        .indices()
+                        ::listenElements
         );
 
         qryEngine = new SqlQueryProcessor(

@@ -54,6 +54,6 @@ public class TestConcurrentHashMapStorageEngine implements StorageEngine {
     /** {@inheritDoc} */
     @Override
     public MvTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
-        return new TestMvTableStorage(tableCfg);
+        return new TestConcurrentHashMapMvTableStorage(tableCfg);
     }
 }

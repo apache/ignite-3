@@ -45,6 +45,8 @@ public class PartitionMeta {
         }
     }
 
+    private volatile long lastAppliedIndex;
+
     // TODO: IGNITE-17466 Delete it
     private volatile long treeRootPageId;
 
@@ -72,6 +74,7 @@ public class PartitionMeta {
      * Constructor.
      *
      * @param checkpointId Checkpoint ID.
+     * @param lastAppliedIndex Last applied index value.
      * @param treeRootPageId Tree root page ID.
      * @param reuseListRootPageId Reuse list root page ID.
      * @param versionChainTreeRootPageId Version chain tree root page ID.
@@ -81,6 +84,7 @@ public class PartitionMeta {
      */
     public PartitionMeta(
             @Nullable UUID checkpointId,
+            long lastAppliedIndex,
             long treeRootPageId,
             long reuseListRootPageId,
             long versionChainTreeRootPageId,
@@ -88,6 +92,7 @@ public class PartitionMeta {
             long rowVersionFreeListRootPageId,
             int pageCount
     ) {
+        this.lastAppliedIndex = lastAppliedIndex;
         this.treeRootPageId = treeRootPageId;
         this.reuseListRootPageId = reuseListRootPageId;
         this.versionChainTreeRootPageId = versionChainTreeRootPageId;
@@ -108,6 +113,7 @@ public class PartitionMeta {
     PartitionMeta(@Nullable UUID checkpointId, PartitionMetaIo metaIo, long pageAddr) {
         this(
                 checkpointId,
+                metaIo.getLastAppliedIndex(pageAddr),
                 metaIo.getTreeRootPageId(pageAddr),
                 metaIo.getReuseListRootPageId(pageAddr),
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
@@ -115,6 +121,25 @@ public class PartitionMeta {
                 metaIo.getRowVersionFreeListRootPageId(pageAddr),
                 metaIo.getPageCount(pageAddr)
         );
+    }
+
+    /**
+     * Returns a last applied index value.
+     */
+    public long lastAppliedIndex() {
+        return lastAppliedIndex;
+    }
+
+    /**
+     * Sets a last applied index value.
+     *
+     * @param checkpointId Checkpoint ID.
+     * @param lastAppliedIndex Last applied index value.
+     */
+    public void lastAppliedIndex(@Nullable UUID checkpointId, long lastAppliedIndex) {
+        updateSnapshot(checkpointId);
+
+        this.lastAppliedIndex = lastAppliedIndex;
     }
 
     /**
@@ -246,7 +271,7 @@ public class PartitionMeta {
      * @param checkpointId Checkpoint ID.
      */
     private void updateSnapshot(@Nullable UUID checkpointId) {
-        PartitionMetaSnapshot current = this.metaSnapshot;
+        PartitionMetaSnapshot current = metaSnapshot;
 
         if (current.checkpointId != checkpointId) {
             META_SNAPSHOT.compareAndSet(this, current, new PartitionMetaSnapshot(checkpointId, this));
@@ -264,6 +289,8 @@ public class PartitionMeta {
      */
     public static class PartitionMetaSnapshot {
         private final @Nullable UUID checkpointId;
+
+        private final long lastAppliedIndex;
 
         private final long treeRootPageId;
 
@@ -285,12 +312,20 @@ public class PartitionMeta {
          */
         private PartitionMetaSnapshot(@Nullable UUID checkpointId, PartitionMeta partitionMeta) {
             this.checkpointId = checkpointId;
+            this.lastAppliedIndex = partitionMeta.lastAppliedIndex;
             this.treeRootPageId = partitionMeta.treeRootPageId;
             this.reuseListRootPageId = partitionMeta.reuseListRootPageId;
             this.versionChainTreeRootPageId = partitionMeta.versionChainTreeRootPageId;
             this.versionChainFreeListRootPageId = partitionMeta.versionChainFreeListRootPageId;
             this.rowVersionFreeListRootPageId = partitionMeta.rowVersionFreeListRootPageId;
             this.pageCount = partitionMeta.pageCount;
+        }
+
+        /**
+         * Returns a last applied index value.
+         */
+        public long lastAppliedIndex() {
+            return lastAppliedIndex;
         }
 
         /**
@@ -342,6 +377,7 @@ public class PartitionMeta {
          * @param pageAddr Address of the page with the partition meta.
          */
         void writeTo(PartitionMetaIo metaIo, long pageAddr) {
+            metaIo.setLastAppliedIndex(pageAddr, lastAppliedIndex);
             metaIo.setTreeRootPageId(pageAddr, treeRootPageId);
             metaIo.setReuseListRootPageId(pageAddr, reuseListRootPageId);
             metaIo.setVersionChainTreeRootPageId(pageAddr, versionChainTreeRootPageId);

@@ -17,6 +17,10 @@
 
 package org.apache.ignite.cli.commands.node.config;
 
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
+import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_DESC;
+import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_OPTION;
+
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCall;
@@ -41,9 +45,9 @@ public class NodeConfigShowSubCommand extends BaseCommand implements Callable<In
     private String selector;
 
     /**
-     * Node url option.
+     * Node URL option.
      */
-    @Option(names = {"--node-url"}, description = "Url to ignite node.", descriptionKey = "ignite.cluster-url")
+    @Option(names = {NODE_URL_OPTION}, description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String nodeUrl;
 
     @Inject

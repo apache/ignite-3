@@ -43,6 +43,7 @@ import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.MaskingCallback;
 import org.jline.reader.Parser;
 import org.jline.reader.impl.DefaultParser;
+import org.jline.reader.impl.completer.AggregateCompleter;
 import org.jline.terminal.Terminal;
 import org.jline.widget.TailTipWidgets;
 import picocli.CommandLine;
@@ -92,13 +93,13 @@ public class ReplExecutor {
             registry.register("help", picocliCommands);
 
             LineReader reader = createReader(repl.getCompleter() != null
-                    ? repl.getCompleter()
+                    ? new AggregateCompleter(registry.completer(), repl.getCompleter())
                     : registry.completer());
             if (repl.getHistoryFileName() != null) {
                 reader.variable(LineReader.HISTORY_FILE, new File(StateFolderProvider.getStateFolder(), repl.getHistoryFileName()));
             }
 
-            RegistryCommandExecutor executor = new RegistryCommandExecutor(registry);
+            RegistryCommandExecutor executor = new RegistryCommandExecutor(registry, parser);
             if (repl.isTailTipWidgetsEnabled()) {
                 TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
                         TailTipWidgets.TipType.COMPLETER);

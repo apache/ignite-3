@@ -29,7 +29,7 @@ public final class ConfigConstants {
     private static final String CONFIG_FILE_NAME = "defaults";
 
     public static final String CURRENT_PROFILE = "current_profile";
-    public static final String CLUSTER_URL = "ignite.cluster-url";
+    public static final String CLUSTER_URL = "ignite.cluster-endpoint-url";
     public static final String JDBC_URL = "ignite.jdbc-url";
 
     private ConfigConstants() {
