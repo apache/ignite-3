@@ -35,7 +35,7 @@ public class TimeoutExceptionHandler implements ExceptionHandler<TimeoutExceptio
         LOG.error("Timeout exception", e);
         err.write(
                 ErrorUiComponent.builder()
-                        .header("The command is running too long")
+                        .header("The command is running for too long")
                         .details(e.getMessage())
                         .build()
                         .render()
