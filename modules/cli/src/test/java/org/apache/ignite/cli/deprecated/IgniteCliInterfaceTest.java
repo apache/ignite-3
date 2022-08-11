@@ -39,6 +39,7 @@ import io.micronaut.context.env.Environment;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
@@ -55,6 +56,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockserver.integration.ClientAndServer;
+import org.mockserver.junit.jupiter.MockServerExtension;
 import org.mockserver.model.MediaType;
 import picocli.CommandLine;
 
@@ -64,6 +66,7 @@ import picocli.CommandLine;
  */
 @DisplayName("ignite")
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(MockServerExtension.class)
 public class IgniteCliInterfaceTest extends AbstractCliTest {
     /** DI application context. */
     ApplicationContext ctx;
@@ -86,9 +89,14 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             Path.of("log"),
             "version");
 
-    private ClientAndServer clientAndServer;
+    private final ClientAndServer clientAndServer;
 
-    private String mockUrl;
+    private final String mockUrl;
+
+    public IgniteCliInterfaceTest(ClientAndServer clientAndServer) {
+        this.clientAndServer = clientAndServer;
+        mockUrl = "http://localhost:" + clientAndServer.getPort();
+    }
 
     /**
      * Sets up environment before test execution.
@@ -102,8 +110,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         err = new ByteArrayOutputStream();
         out = new ByteArrayOutputStream();
 
-        clientAndServer = ClientAndServer.startClientAndServer(0);
-        mockUrl = "http://localhost:" + clientAndServer.getPort();
+        clientAndServer.reset();
     }
 
     /**
@@ -111,7 +118,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
      */
     @AfterEach
     void tearDown() {
-        clientAndServer.stop();
         ctx.stop();
     }
 
@@ -231,6 +237,36 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             assertEqualsIgnoreLineSeparators(
                     "network{port=12345}",
+                    configStrCaptor.getValue()
+            );
+        }
+
+        @Test
+        @DisplayName("start node1 --config ignite-config.json --port 12345")
+        void startCustomPortOverrideConfigFile() throws URISyntaxException {
+            var nodeName = "node1";
+
+            var node = new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
+
+            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(node);
+
+            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
+                    .thenReturn(ignitePaths);
+
+            Path configPath = Path.of(IgniteCliInterfaceTest.class.getResource("/ignite-config.json").toURI());
+
+            int exitCode = execute("node start " + nodeName + " --config "
+                    + configPath.toAbsolutePath()
+                    + " --port 12345");
+
+            assertThatExitCodeMeansSuccess(exitCode);
+
+            ArgumentCaptor<String> configStrCaptor = ArgumentCaptor.forClass(String.class);
+            verify(nodeMgr).start(any(), any(), any(), any(), any(), configStrCaptor.capture(), any(), any());
+
+            assertEqualsIgnoreLineSeparators(
+                    "network{port=12345},rest{port=10300}",
                     configStrCaptor.getValue()
             );
         }

@@ -937,6 +937,12 @@
                 <artifactId>mockserver-netty</artifactId>
                 <version>${mock-server.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>org.mock-server</groupId>
+                <artifactId>mockserver-junit-jupiter</artifactId>
+                <version>${mock-server.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

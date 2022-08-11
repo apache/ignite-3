@@ -74,8 +74,8 @@ public class NodeManager {
      * @param baseWorkDir  Root directory to store nodes data.
      * @param logDir       Path to log directory for receiving node state.
      * @param pidsDir      Path to directory where pid files of running nodes will be stored.
-     * @param srvCfg       Path to configuration file for Ignite node - mutually exclusive with {@code srvCfgStr}.
-     * @param srvCfgStr    Configuration for Ignite node - mutually exclusive with {@code srvCfg}.
+     * @param srvCfgPath   Path to configuration file for Ignite node - mutually exclusive with {@code srvCfgStr}.
+     * @param srvCfgStr    Configuration for Ignite node - mutually exclusive with {@code srvCfgPath}.
      * @param javaLogProps Path to logging properties file.
      * @param out          PrintWriter for user messages.
      * @return Information about successfully started node
@@ -85,7 +85,7 @@ public class NodeManager {
             Path baseWorkDir,
             Path logDir,
             Path pidsDir,
-            Path srvCfg,
+            Path srvCfgPath,
             String srvCfgStr,
             Path javaLogProps,
             PrintWriter out
@@ -134,11 +134,11 @@ public class NodeManager {
             cmdArgs.add(classpath());
             cmdArgs.add(MAIN_CLASS);
 
-            if (srvCfg != null) {
-                cmdArgs.add("--config");
-                cmdArgs.add(srvCfg.toAbsolutePath().toString());
+            if (srvCfgPath != null) {
+                cmdArgs.add("--config-path");
+                cmdArgs.add(srvCfgPath.toAbsolutePath().toString());
             } else if (srvCfgStr != null) {
-                cmdArgs.add("--configStr");
+                cmdArgs.add("--config-string");
                 cmdArgs.add(escapeQuotes(srvCfgStr));
             }
 

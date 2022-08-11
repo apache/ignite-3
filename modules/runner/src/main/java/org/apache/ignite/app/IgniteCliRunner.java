@@ -68,14 +68,14 @@ public class IgniteCliRunner {
         CommandSpec spec = CommandSpec.create();
 
         OptionSpec configPath = OptionSpec
-                .builder("--config")
+                .builder("--config-file")
                 .paramLabel("configPath")
                 .type(Path.class)
                 .description("Path to node configuration file in HOCON format.")
                 .build();
 
         OptionSpec configStr = OptionSpec
-                .builder("--configStr")
+                .builder("--config-string")
                 .paramLabel("configStr")
                 .type(String.class)
                 .description("Configuration in HOCON format.")

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.cli.deprecated.spec;
 
+import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import jakarta.inject.Inject;
@@ -75,7 +76,7 @@ public class NodeCommandSpec {
         @Parameters(paramLabel = "name", description = "Name of the new node")
         public String nodeName;
 
-        @ArgGroup
+        @ArgGroup(exclusive = false)
         private ConfigOptions configOptions;
 
         private static class ConfigOptions {
@@ -88,11 +89,11 @@ public class NodeCommandSpec {
         }
 
         private static class ConfigArguments {
-            @Option(names = "--port", description = "Node port", required = true)
-            private int port;
+            @Option(names = "--port", description = "Node port")
+            private Integer port;
 
             @Option(names = "--rest-port", description = "REST port")
-            private int restPort;
+            private Integer restPort;
 
             @Option(names = "--join", description = "Seed nodes", split = ",")
             private String[] seedNodes;
@@ -136,19 +137,25 @@ public class NodeCommandSpec {
         }
 
         private String getConfigStr() {
-            if (configOptions == null || configOptions.configPath != null) {
+            if (configOptions == null || configOptions.args == null) {
                 return null;
             }
-            // port is required
-            Map<String, Object> config = new HashMap<>();
-            config.put("network.port", configOptions.args.port);
+            Map<String, Object> configMap = new HashMap<>();
+            if (configOptions.args.port != null) {
+                configMap.put("network.port", configOptions.args.port);
+            }
             if (configOptions.args.seedNodes != null) {
-                config.put("network.nodeFinder.netClusterNodes", Arrays.asList(configOptions.args.seedNodes));
+                configMap.put("network.nodeFinder.netClusterNodes", Arrays.asList(configOptions.args.seedNodes));
             }
-            if (configOptions.args.restPort != 0) {
-                config.put("rest.port", configOptions.args.restPort);
+            if (configOptions.args.restPort != null) {
+                configMap.put("rest.port", configOptions.args.restPort);
             }
-            return ConfigFactory.parseMap(config).root().render(ConfigRenderOptions.concise().setJson(false));
+            Config config = ConfigFactory.parseMap(configMap);
+            if (configOptions.configPath != null) {
+                Config fallback = ConfigFactory.parseFile(configOptions.configPath.toFile());
+                config = config.withFallback(fallback).resolve();
+            }
+            return config.root().render(ConfigRenderOptions.concise().setJson(false));
         }
     }
 
