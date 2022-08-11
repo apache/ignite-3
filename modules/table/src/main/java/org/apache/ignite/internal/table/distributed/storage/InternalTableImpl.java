@@ -197,7 +197,7 @@ public class InternalTableImpl implements InternalTable {
             try {
                 fut = replicaSvc.invoke(clusterNode, op.apply(tx0, partGroupId));
             } catch (Throwable e) {
-                throw new TransactionException(format("Failed to enlist a row into a transaction"));
+                throw new TransactionException(format("Failed to enlist rows into a transaction"));
             }
         } else {
             fut = enlist(partId, tx0).thenCompose(
@@ -205,7 +205,7 @@ public class InternalTableImpl implements InternalTable {
                         try {
                             return replicaSvc.invoke(primaryReplicaNode, op.apply(tx0, partGroupId));
                         } catch (Throwable e) {
-                            throw new TransactionException(format("Failed to enlist a row into a transaction"));
+                            throw new TransactionException(format("Failed to enlist rows into a transaction"));
                         }
                     });
         }
@@ -249,7 +249,7 @@ public class InternalTableImpl implements InternalTable {
                 try {
                     fut = replicaSvc.invoke(clusterNode, op.apply(partToRows.getValue(), tx0, partGroupId));
                 } catch (Throwable e) {
-                    throw new TransactionException(format("Failed to enlist a row into a transaction"));
+                    throw new TransactionException(format("Failed to enlist rows into a transaction"));
                 }
             } else {
                 fut = enlist(partToRows.getIntKey(), tx0).thenCompose(primaryReplicaNode -> {
@@ -257,7 +257,7 @@ public class InternalTableImpl implements InternalTable {
                         return replicaSvc.invoke(primaryReplicaNode,
                                 op.apply(partToRows.getValue(), tx0, partGroupId));
                     } catch (Throwable e) {
-                        throw new TransactionException(format("Failed to enlist a row into a transaction"));
+                        throw new TransactionException(format("Failed to enlist rows into a transaction"));
                     }
                 });
             }

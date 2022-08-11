@@ -21,6 +21,7 @@ import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * The exception is thrown when the replica is not ready to handle a request.
@@ -30,11 +31,11 @@ public class ReplicaUnavailableException extends IgniteInternalException {
      * The constructor.
      *
      * @param groupId Replication group id.
-     * @param nodeId Node's id.
+     * @param node Node.
      */
-    public ReplicaUnavailableException(String groupId, String nodeId) {
+    public ReplicaUnavailableException(String groupId, ClusterNode node) {
         super(Replicator.REPLICA_UNAVAILABLE_ERR,
-                IgniteStringFormatter.format("Replica is not ready [replicaGrpId={}, nodeId={}]", groupId, nodeId));
+                IgniteStringFormatter.format("Replica is not ready [replicationGroupId={}, node={}]", groupId, node));
     }
 
     /**

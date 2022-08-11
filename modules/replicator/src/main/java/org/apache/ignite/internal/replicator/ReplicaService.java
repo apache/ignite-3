@@ -79,7 +79,7 @@ public class ReplicaService {
             Replica replica = replicaManager.replica(req.groupId());
 
             if (replica == null) {
-                throw new ReplicaUnavailableException(req.groupId(), node.id());
+                throw new ReplicaUnavailableException(req.groupId(), node);
             }
 
             return (CompletableFuture<R>) replica.processRequest(req);

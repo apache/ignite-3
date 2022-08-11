@@ -193,8 +193,8 @@ public class ReplicaManager implements IgniteComponent {
                                         .errorReplicaResponse()
                                         .errorMessage(
                                                 IgniteStringFormatter.format("Replica is not ready "
-                                                        + "[replicaGrpId={}, nodeId={}]",
-                                                        request.groupId(), clusterNetSvc.topologyService().localMember().id()))
+                                                        + "[replicationGroupId={}, node={}]",
+                                                        request.groupId(), clusterNetSvc.topologyService().localMember()))
                                         .errorCode(Replicator.REPLICA_UNAVAILABLE_ERR)
                                         .errorTraceId(traceId)
                                         .build(),
