@@ -27,6 +27,7 @@ import org.apache.ignite.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.cli.core.exception.handler.ShowConfigExceptionHandler;
 import org.apache.ignite.cli.decorators.JsonDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -61,6 +62,7 @@ public class ClusterConfigShowSubCommand extends BaseCommand implements Callable
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new JsonDecorator())
+                .exceptionHandler(new ShowConfigExceptionHandler())
                 .build()
                 .runPipeline();
     }

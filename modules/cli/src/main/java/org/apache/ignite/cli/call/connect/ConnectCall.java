@@ -27,6 +27,8 @@ import org.apache.ignite.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.cli.core.repl.Session;
 import org.apache.ignite.cli.core.repl.config.RootConfig;
+import org.apache.ignite.cli.core.style.component.MessageUiComponent;
+import org.apache.ignite.cli.core.style.element.UiElements;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -55,7 +57,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
             session.setJdbcUrl(constructJdbcUrl(configuration, nodeUrl));
             session.setConnectedToNode(true);
 
-            return DefaultCallOutput.success("Connected to " + nodeUrl);
+            return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
 
         } catch (ApiException | IllegalArgumentException e) {
             session.setConnectedToNode(false);
