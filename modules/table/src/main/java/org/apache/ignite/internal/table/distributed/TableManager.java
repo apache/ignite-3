@@ -617,12 +617,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Gets a list of current table assignments.
+     * Gets a list of the current table assignments.
      *
      * <p>Returns a list where on the i-th place resides a node id that considered as a leader for
      * the i-th partition on the moment of invocation.
      *
-     * @return List of current assignments.
+     * @param tableId Unique id of a table.
+     * @return List of the current assignments.
      */
     public List<String> assignments(UUID tableId) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
