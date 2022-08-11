@@ -29,9 +29,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -225,15 +222,6 @@ public class VersionedValue<T> {
         }
 
         return getDefault();
-    }
-
-    /**
-     * Waits for the latest value of a future.
-     */
-    public T waitForLatest(long timeout, TimeUnit unit) throws ExecutionException, InterruptedException, TimeoutException {
-        CompletableFuture<T> fut = history.lastEntry().getValue();
-
-        return fut.get(timeout, unit);
     }
 
     /**

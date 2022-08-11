@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.HashMap;
@@ -125,8 +126,8 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
             CompletableFuture<?> createSchemaFut = createSchema(causalityToken, tblId, tableName, schemaDescriptor);
 
-            registriesVv.get(causalityToken)
-                    .thenRun(() -> fireEvent(SchemaEvent.CREATE, new SchemaEventParameters(causalityToken, tblId, schemaDescriptor)));
+            registriesVv.get(causalityToken).thenRun(() -> inBusyLock(busyLock,
+                    () -> fireEvent(SchemaEvent.CREATE, new SchemaEventParameters(causalityToken, tblId, schemaDescriptor))));
 
             return createSchemaFut;
         } finally {
@@ -170,27 +171,29 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             String tableName,
             SchemaDescriptor schemaDescriptor
     ) {
-        return registriesVv.update(causalityToken, (registries, e) -> {
+        return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
                 return failedFuture(new IgniteInternalException(IgniteStringFormatter.format(
                         "Cannot create a schema for the table [tblId={}, ver={}]", tableId, schemaDescriptor.version()), e)
                 );
             }
 
-            SchemaRegistryImpl reg = registries.get(tableId);
+            Map<UUID, SchemaRegistryImpl> regs = registries;
+
+            SchemaRegistryImpl reg = regs.get(tableId);
 
             if (reg == null) {
-                registries = new HashMap<>(registries);
+                regs = new HashMap<>(registries);
 
                 SchemaRegistryImpl registry = createSchemaRegistry(tableId, tableName, schemaDescriptor);
 
-                registries.put(tableId, registry);
+                regs.put(tableId, registry);
             } else {
                 reg.onSchemaRegistered(schemaDescriptor);
             }
 
-            return completedFuture(registries);
-        });
+            return completedFuture(regs);
+        }));
     }
 
     /**
@@ -349,16 +352,8 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         }
 
         try {
-            return registriesVv.get(causalityToken).thenApply(regs -> {
-                if (!busyLock.enterBusy()) {
-                    throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
-                }
-                try {
-                    return tableId == null ? null : regs.get(tableId);
-                } finally {
-                    busyLock.leaveBusy();
-                }
-            });
+            return registriesVv.get(causalityToken)
+                    .thenApply(regs -> inBusyLock(busyLock, () -> tableId == null ? null : regs.get(tableId)));
         } finally {
             busyLock.leaveBusy();
         }
@@ -381,20 +376,18 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param tableId Table id.
      */
     public CompletableFuture<?> dropRegistry(long causalityToken, UUID tableId) {
-        return registriesVv.update(causalityToken, (registries, e) -> {
+        return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
                 return failedFuture(new IgniteInternalException(
-                                IgniteStringFormatter.format("Cannot remove a schema registry for the table [tblId={}]", tableId), e
-                        )
-                );
+                        IgniteStringFormatter.format("Cannot remove a schema registry for the table [tblId={}]", tableId), e));
             }
 
-            registries = new HashMap<>(registries);
+            Map<UUID, SchemaRegistryImpl> regs = new HashMap<>(registries);
 
-            registries.remove(tableId);
+            regs.remove(tableId);
 
-            return completedFuture(registries);
-        });
+            return completedFuture(regs);
+        }));
     }
 
     /** {@inheritDoc} */

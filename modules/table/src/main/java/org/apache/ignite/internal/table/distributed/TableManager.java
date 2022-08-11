@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.internal.utils.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -32,8 +33,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignme
 import static org.apache.ignite.internal.utils.RebalanceUtil.recoverable;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
-import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_COMPLETED_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
@@ -47,14 +46,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -186,6 +183,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Set of futures that should complete before completion of {@link #tablesByIdVv}, after completion this set is cleared. */
     private final Set<CompletableFuture<?>> beforeTablesVvComplete = new ConcurrentHashSet<>();
 
+    /**
+     * {@link TableImpl} is created during update of tablesByIdVv, we store reference to it in case of updating of tablesByIdVv fails,
+     * so we can stop resources associated with the table.
+     */
+    private final Map<UUID, TableImpl> tablesToStopInCaseOfError = new ConcurrentHashMap<>();
+
     /** Resolver that resolves a network address to node id. */
     private final Function<NetworkAddress, String> netAddrResolver;
 
@@ -265,27 +268,35 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     .orTimeout(TABLES_COMPLETE_TIMEOUT, TimeUnit.SECONDS)
                     .whenComplete((v, e) -> {
                         if (!busyLock.enterBusy()) {
-                            // That means that stopping of the table manager has already been started, so we need to just complete
-                            // tablesByIdVv with the token, so table manager could free all related resources.
-                            tablesByIdVv.complete(token);
-
+                            if (e != null) {
+                                LOG.warn("Error occurred while updating tables and stopping components has started.", e);
+                                // Stop of the components has been started, so we do nothing and resources of tablesByIdVv will be
+                                // freed in the logic of TableManager stop. We cannot complete tablesByIdVv exceptionally because
+                                // we will lose a context of tables.
+                            }
                             return;
                         }
                         try {
                             if (e != null) {
-                                // Here we hold busy lock and have got exception, that means that tablesByIdVv is not completed, so
-                                // we have to complete tablesByIdVv as far as it is not valid and immediately free all relates resources.
-                                tablesByIdVv.complete(token);
-
-                                cleanUpTablesResources(tablesByIdVv.get(token).get());
-
-                                return;
+                                LOG.warn("Error occurred while updating tables.", e);
+                                if (e instanceof CompletionException) {
+                                    Throwable th = e.getCause();
+                                    // Case when stopping of the previous component has been started and related futures completed
+                                    // exceptionally
+                                    if (th != null && th.getCause() != null && th.getCause() instanceof NodeStoppingException) {
+                                        // Stop of the components has been started so we do nothing and resources will be freed in the
+                                        // logic of TableManager stop
+                                        return;
+                                    }
+                                }
+                                // TODO: https://issues.apache.org/jira/browse/IGNITE-16862
+                                tablesByIdVv.completeExceptionally(token, e);
                             }
 
                             //Normal scenario, when all related futures for tablesByIdVv are completed and we can complete tablesByIdVv
                             tablesByIdVv.complete(token);
-                        } catch (InterruptedException | ExecutionException ignore) {
-                            // ignore as far as tablesByIdVv.complete ensures that tablesByIdVv.get(token) will be completed.
+
+                            tablesToStopInCaseOfError.clear();
                         } finally {
                             busyLock.leaveBusy();
                         }
@@ -466,7 +477,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return failedFuture(new NodeStoppingException());
         }
 
-
         try {
             updateAssignmentInternal(assignmentsCtx);
         } finally {
@@ -622,24 +632,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         busyLock.block();
 
-        Map<UUID, TableImpl> tables;
-
-        try {
-            // Waiting for tablesByIdVv generally can be unbounded, because we don't have time limits for receiving storage revision update,
-            // where tablesByIdVv is completed, so we add timeout here.
-            tables = tablesByIdVv.waitForLatest(TABLES_COMPLETE_TIMEOUT, TimeUnit.SECONDS);
-        } catch (ExecutionException | InterruptedException | TimeoutException e) {
-            throw new IgniteException(TABLE_NOT_COMPLETED_ERR);
-        }
+        Map<UUID, TableImpl> tables = tablesByIdVv.latest();
 
         cleanUpTablesResources(tables);
+
+        cleanUpTablesResources(tablesToStopInCaseOfError);
+
+        tablesToStopInCaseOfError.clear();
 
         shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);
     }
 
+    /**
+     * Stops resources that are related to provided tables.
+     *
+     * @param tables Tables to stop.
+     */
     private void cleanUpTablesResources(Map<UUID, TableImpl> tables) {
-
         for (TableImpl table : tables.values()) {
             try {
                 for (int p = 0; p < table.internalTable().partitions(); p++) {
@@ -675,7 +685,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         var table = new TableImpl(internalTable);
 
-        tablesByIdVv.update(causalityToken, (previous, e) -> {
+        tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
                 return failedFuture(e);
             }
@@ -685,16 +695,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             val.put(tblId, table);
 
             return completedFuture(val);
-        });
+        }));
 
         CompletableFuture<?> schemaFut = schemaManager.schemaRegistry(causalityToken, tblId)
-                .thenAccept(table::schemaView)
-                .thenCompose(v -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table)));
+                .thenAccept(schema -> inBusyLock(busyLock, () -> table.schemaView(schema)))
+                .thenCompose(
+                        v -> inBusyLock(busyLock, () -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table)))
+                );
 
         beforeTablesVvComplete.add(schemaFut);
 
+        tablesToStopInCaseOfError.put(tblId, table);
+
         // TODO should be reworked in IGNITE-16763
-        return tablesByIdVv.get(causalityToken).thenRun(() -> completeApiCreateFuture(table));
+        return tablesByIdVv.get(causalityToken).thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
     }
 
     /**
@@ -703,19 +717,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param table Table.
      */
     private void completeApiCreateFuture(TableImpl table) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            CompletableFuture<Table> tblFut = tableCreateFuts.get(table.tableId());
+        CompletableFuture<Table> tblFut = tableCreateFuts.get(table.tableId());
 
-            if (tblFut != null) {
-                tblFut.complete(table);
+        if (tblFut != null) {
+            tblFut.complete(table);
 
-                tableCreateFuts.values().removeIf(fut -> fut == tblFut);
-            }
-        } finally {
-            busyLock.leaveBusy();
+            tableCreateFuts.values().removeIf(fut -> fut == tblFut);
         }
     }
 
@@ -735,7 +742,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 raftMgr.stopRaftGroup(partitionRaftGroupName(tblId, p));
             }
 
-            tablesByIdVv.update(causalityToken, (previousVal, e) -> {
+            tablesByIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
                 if (e != null) {
                     return failedFuture(e);
                 }
@@ -745,7 +752,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 map.remove(tblId);
 
                 return completedFuture(map);
-            });
+            }));
 
             TableImpl table = tablesByIdVv.latest().get(tblId);
 
@@ -755,7 +762,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             table.internalTable().storage().destroy();
 
             CompletableFuture<?> fut = schemaManager.dropRegistry(causalityToken, table.tableId())
-                    .thenCompose(v -> fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table)));
+                    .thenCompose(
+                            v -> inBusyLock(busyLock, () -> fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table)))
+                    );
 
             beforeTablesVvComplete.add(fut);
         } catch (Exception e) {
@@ -1107,33 +1116,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private CompletableFuture<List<Table>> tablesAsyncInternal() {
         // TODO: IGNITE-16288 directTableIds should use async configuration API
-        return CompletableFuture.supplyAsync(() -> {
-            if (!busyLock.enterBusy()) {
-                throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
-            }
-            try {
-                return directTableIds();
-            } finally {
-                busyLock.leaveBusy();
-            }
-        }).thenCompose(tableIds -> {
-            if (!busyLock.enterBusy()) {
-                throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
-            }
-            try {
-                var tableFuts = new CompletableFuture[tableIds.size()];
+        return CompletableFuture.supplyAsync(() -> inBusyLock(busyLock, this::directTableIds))
+                .thenCompose(tableIds -> inBusyLock(busyLock, () -> {
+                    var tableFuts = new CompletableFuture[tableIds.size()];
 
-                var i = 0;
+                    var i = 0;
 
-                for (UUID tblId : tableIds) {
-                    tableFuts[i++] = tableAsyncInternal(tblId, false);
-                }
-
-                return allOf(tableFuts).thenApply(unused -> {
-                    if (!busyLock.enterBusy()) {
-                        throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+                    for (UUID tblId : tableIds) {
+                        tableFuts[i++] = tableAsyncInternal(tblId, false);
                     }
-                    try {
+
+                    return allOf(tableFuts).thenApply(unused -> inBusyLock(busyLock, () -> {
                         var tables = new ArrayList<Table>(tableIds.size());
 
                         try {
@@ -1149,14 +1142,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }
 
                         return tables;
-                    } finally {
-                        busyLock.leaveBusy();
-                    }
-                });
-            } finally {
-                busyLock.leaveBusy();
-            }
-        });
+                    }));
+                }));
     }
 
     /**
