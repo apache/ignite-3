@@ -52,6 +52,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
@@ -190,7 +191,8 @@ public class ItInternalTableScanTest {
                 NetworkAddress::toString,
                 addressToNode,
                 txManager,
-                mock(MvTableStorage.class)
+                mock(MvTableStorage.class),
+                mock(ReplicaService.class)
         );
     }
 

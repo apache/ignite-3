@@ -71,6 +71,8 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
+import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
@@ -269,10 +271,15 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tblCfg);
 
+        ReplicaManager replicaMgr = new ReplicaManager(clusterSvc);
+
+        ReplicaService replicaSvc = new ReplicaService(replicaMgr, clusterSvc.messagingService(), clusterSvc.topologyService());
+
         TableManager tableManager = new TableManager(
                 registry,
                 tblCfg,
                 raftMgr,
+                replicaSvc,
                 mock(BaselineManager.class),
                 clusterSvc.topologyService(),
                 txManager,
@@ -309,6 +316,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 nettyBootstrapFactory,
                 clusterSvc,
                 raftMgr,
+                replicaMgr,
                 cmgManager,
                 txManager,
                 metaStorageMgr,

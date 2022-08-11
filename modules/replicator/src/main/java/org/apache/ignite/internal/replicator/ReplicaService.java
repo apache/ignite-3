@@ -33,7 +33,6 @@ import org.apache.ignite.network.TopologyService;
 
 /**
  * The service is intended to execute requests on replicas.
- * TODO:IGNITE-17255 Implement ReplicaService.
  */
 public class ReplicaService {
     /** Network timeout. */
@@ -79,7 +78,7 @@ public class ReplicaService {
             Replica replica = replicaManager.replica(req.groupId());
 
             if (replica == null) {
-                //TODO:IGNITE-17255 Provide an exceptional response when the replica is absent.
+                //TODO:IGNITE-17514 Provide an exceptional response when the replica is absent.
             }
 
             return (CompletableFuture<R>) replica.processRequest(req);

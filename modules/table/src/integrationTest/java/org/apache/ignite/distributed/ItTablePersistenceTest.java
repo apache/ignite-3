@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
@@ -113,7 +114,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 NetworkAddress::toString,
                 addressToNode,
                 txManager,
-                mock(MvTableStorage.class)
+                mock(MvTableStorage.class),
+                mock(ReplicaService.class)
         );
 
         table.upsert(FIRST_VALUE, null).get();
@@ -136,7 +138,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 NetworkAddress::toString,
                 addressToNode,
                 txManager,
-                mock(MvTableStorage.class)
+                mock(MvTableStorage.class),
+                mock(ReplicaService.class)
         );
 
         // Remove the first key
@@ -165,7 +168,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 NetworkAddress::toString,
                 addressToNode,
                 txManager,
-                mock(MvTableStorage.class)
+                mock(MvTableStorage.class),
+                mock(ReplicaService.class)
         );
 
         table.upsert(SECOND_VALUE, null).get();

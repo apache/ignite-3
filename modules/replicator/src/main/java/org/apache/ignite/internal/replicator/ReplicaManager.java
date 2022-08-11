@@ -185,7 +185,7 @@ public class ReplicaManager implements IgniteComponent {
                     Replica replica = replicas.get(request.groupId());
 
                     if (replica == null) {
-                        //TODO:IGNITE-17255 Send an exceptional response to the client side when the replica is absent.
+                        //TODO:IGNITE-17514 Send an exceptional response to the client side when the replica is absent.
                     }
 
                     CompletableFuture<Object> result = replica.processRequest(request);

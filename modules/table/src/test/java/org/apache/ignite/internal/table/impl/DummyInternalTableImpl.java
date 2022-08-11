@@ -30,6 +30,7 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import javax.naming.OperationNotSupportedException;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
@@ -70,7 +71,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     public DummyInternalTableImpl(TxManager txManager, AtomicLong raftIndex) {
         super("test", UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
-                1, null, null, txManager, mock(MvTableStorage.class));
+                1, null, null, txManager, mock(MvTableStorage.class), mock(ReplicaService.class));
 
         RaftGroupService svc = partitionMap.get(0);
 
