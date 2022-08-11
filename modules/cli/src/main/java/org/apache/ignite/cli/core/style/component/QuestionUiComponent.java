@@ -23,7 +23,7 @@ import org.apache.ignite.cli.core.style.element.UiElement;
 import org.apache.ignite.cli.core.style.element.UiString;
 
 /**
- * UI component that represent a question.
+ * UI component that represents a question.
  */
 public class QuestionUiComponent implements UiComponent {
 
