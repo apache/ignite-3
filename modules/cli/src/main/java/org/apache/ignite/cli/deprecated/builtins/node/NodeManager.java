@@ -24,6 +24,7 @@ import jakarta.inject.Singleton;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -37,7 +38,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.cli.deprecated.IgniteCliException;
 import org.apache.ignite.cli.deprecated.builtins.module.ModuleRegistry;
 import org.apache.ignite.cli.deprecated.ui.Spinner;
-import org.jline.terminal.Terminal;
 
 /**
  * Manager of local Ignite nodes.
@@ -60,10 +60,9 @@ public class NodeManager {
      * Creates node manager.
      *
      * @param moduleRegistry Module registry.
-     * @param terminal       System terminal instance.
      */
     @Inject
-    public NodeManager(ModuleRegistry moduleRegistry, Terminal terminal) {
+    public NodeManager(ModuleRegistry moduleRegistry) {
         this.moduleRegistry = moduleRegistry;
     }
 
@@ -75,7 +74,8 @@ public class NodeManager {
      * @param baseWorkDir  Root directory to store nodes data.
      * @param logDir       Path to log directory for receiving node state.
      * @param pidsDir      Path to directory where pid files of running nodes will be stored.
-     * @param srvCfg       Path to configuration file for Ignite node.
+     * @param srvCfgPath   Path to configuration file for Ignite node - mutually exclusive with {@code srvCfgStr}.
+     * @param srvCfgStr    Configuration for Ignite node - mutually exclusive with {@code srvCfgPath}.
      * @param javaLogProps Path to logging properties file.
      * @param out          PrintWriter for user messages.
      * @return Information about successfully started node
@@ -85,7 +85,8 @@ public class NodeManager {
             Path baseWorkDir,
             Path logDir,
             Path pidsDir,
-            Path srvCfg,
+            Path srvCfgPath,
+            String srvCfgStr,
             Path javaLogProps,
             PrintWriter out
     ) {
@@ -133,9 +134,12 @@ public class NodeManager {
             cmdArgs.add(classpath());
             cmdArgs.add(MAIN_CLASS);
 
-            if (srvCfg != null) {
-                cmdArgs.add("--config");
-                cmdArgs.add(srvCfg.toAbsolutePath().toString());
+            if (srvCfgPath != null) {
+                cmdArgs.add("--config-path");
+                cmdArgs.add(srvCfgPath.toAbsolutePath().toString());
+            } else if (srvCfgStr != null) {
+                cmdArgs.add("--config-string");
+                cmdArgs.add(escapeQuotes(srvCfgStr));
             }
 
             cmdArgs.add("--work-dir");
@@ -334,7 +338,7 @@ public class NodeManager {
                         }
                     }).reduce((a, b) -> a && b).orElse(false);
                 } else {
-                    throw new IgniteCliException("Can't find node with name" + nodeName);
+                    throw new IgniteCliException("Can't find node with name " + nodeName);
                 }
             } catch (IOException e) {
                 throw new IgniteCliException("Can't open directory with pid files " + pidsDir);
@@ -377,6 +381,24 @@ public class NodeManager {
      */
     private static Path workDir(Path baseWorkDir, String nodeName) {
         return baseWorkDir.resolve(nodeName);
+    }
+
+    /**
+     * Adds backslash character before double quotes to keep them when passing as a command line argument.
+     *
+     * @param str String to escape.
+     * @return Escaped string.
+     */
+    private static String escapeQuotes(String str) {
+        StringWriter out = new StringWriter();
+        for (int i = 0; i < str.length(); i++) {
+            char c = str.charAt(i);
+            if (c == '"') {
+                out.write('\\');
+            }
+            out.write(c);
+        }
+        return out.toString();
     }
 
     /**
