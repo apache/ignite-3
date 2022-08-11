@@ -23,7 +23,7 @@ import org.apache.ignite.cli.core.style.element.UiElement;
 import org.apache.ignite.cli.core.style.element.UiString;
 
 /**
- * UI component that represent a message.
+ * UI component that represents a message.
  */
 public class MessageUiComponent implements UiComponent {
 
