@@ -26,7 +26,7 @@ import picocli.CommandLine.Command;
  * Command that prints ignite cluster topology in REPL mode.
  */
 @Command(name = "topology", description = "Prints topology information.",
-        subcommands = {PhysicalTopologyReplSubCommand.class, LogicalTopologyReplSubCommand.class })
+        subcommands = {PhysicalTopologyReplCommand.class, LogicalTopologyReplCommand.class })
 @Singleton
 public class TopologyReplCommand extends BaseCommand implements Callable<Integer> {
 

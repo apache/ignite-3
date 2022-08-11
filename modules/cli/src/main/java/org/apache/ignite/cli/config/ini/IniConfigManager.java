@@ -23,6 +23,7 @@ import static org.apache.ignite.cli.config.ConfigConstants.JDBC_URL;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.NoSuchElementException;
 import org.apache.ignite.cli.config.ConfigInitializationException;
 import org.apache.ignite.cli.config.ConfigManager;
@@ -64,10 +65,7 @@ public class IniConfigManager implements ConfigManager {
     private static IniSection findCurrentProfile(IniFile configFile) {
         IniSection internalSection = configFile.getSection(INTERNAL_SECTION_NAME);
         if (internalSection == null) {
-            IniSection section = configFile.getSections().stream()
-                    .filter(s -> !s.getName().equals(IniParser.NO_SECTION)) // Don't use top-level section
-                    .findFirst()
-                    .orElseThrow();
+            IniSection section = configFile.getSections().stream().findFirst().orElseThrow();
             internalSection = configFile.createSection(INTERNAL_SECTION_NAME);
             internalSection.setProperty(CURRENT_PROFILE, section.getName());
         }
@@ -102,6 +100,11 @@ public class IniConfigManager implements ConfigManager {
         currentProfileName = profileName;
         configFile.getSection(INTERNAL_SECTION_NAME).setProperty(CURRENT_PROFILE, profileName);
         configFile.store();
+    }
+
+    @Override
+    public Collection<String> getProfileNames() {
+        return configFile.getSectionNames();
     }
 
     private static IniFile createDefaultConfig(File file) {

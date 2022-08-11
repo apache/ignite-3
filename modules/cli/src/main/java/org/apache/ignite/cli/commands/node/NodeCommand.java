@@ -17,8 +17,8 @@
 
 package org.apache.ignite.cli.commands.node;
 
-import org.apache.ignite.cli.commands.node.config.NodeConfigSubCommand;
-import org.apache.ignite.cli.commands.node.status.NodeStatusSubCommand;
+import org.apache.ignite.cli.commands.node.config.NodeConfigCommand;
+import org.apache.ignite.cli.commands.node.status.NodeStatusCommand;
 import org.apache.ignite.cli.deprecated.spec.NodeCommandSpec;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -27,8 +27,8 @@ import picocli.CommandLine.Mixin;
  * Node command.
  */
 @Command(name = "node",
-        subcommands = {NodeConfigSubCommand.class, NodeStatusSubCommand.class},
-        description = "Node operations.")
+        subcommands = {NodeConfigCommand.class, NodeStatusCommand.class},
+        description = "Node operations")
 public class NodeCommand {
 
     @Mixin

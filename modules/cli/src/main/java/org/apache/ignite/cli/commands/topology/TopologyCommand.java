@@ -26,7 +26,7 @@ import picocli.CommandLine.Command;
  * Command that prints ignite cluster topology.
  */
 @Command(name = "topology", description = "Prints topology information.",
-        subcommands = {PhysicalTopologySubCommand.class, LogicalTopologySubCommand.class })
+        subcommands = {PhysicalTopologyCommand.class, LogicalTopologyCommand.class })
 @Singleton
 public class TopologyCommand extends BaseCommand implements Callable<Integer> {
 

@@ -17,37 +17,19 @@
 
 package org.apache.ignite.cli.commands.cliconfig.profile;
 
-import jakarta.inject.Inject;
-import java.util.concurrent.Callable;
-import org.apache.ignite.cli.call.cliconfig.profile.CliConfigUseCall;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.call.StringCallInput;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
 
 /**
  * Root profile command.
  */
 @Command(name = "profile",
-        description = "Create profile command.",
+        description = "Profile commands",
         subcommands = {
-                CliConfigCreateProfileCommand.class,
-                CliConfigShowProfileCommand.class
+                CliConfigProfileCreateCommand.class,
+                CliConfigProfileActivateCommand.class,
+                CliConfigProfileListCommand.class,
+                CliConfigProfileShowCommand.class
         })
-public class CliConfigProfileCommand extends BaseCommand implements Callable<Integer> {
-    @Option(names = {"--set-current", "-s"}, description = "Name of profile which should be activated as default.")
-    private String profileName;
-
-    @Inject
-    private CliConfigUseCall call;
-
-    @Override
-    public Integer call() {
-        return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new StringCallInput(profileName))
-                .errOutput(spec.commandLine().getErr())
-                .output(spec.commandLine().getOut())
-                .build().runPipeline();
-    }
+public class CliConfigProfileCommand extends BaseCommand {
 }

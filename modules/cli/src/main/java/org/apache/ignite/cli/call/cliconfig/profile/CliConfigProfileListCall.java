@@ -1,0 +1,45 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.cli.call.cliconfig.profile;
+
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import java.util.Collection;
+import java.util.stream.Collectors;
+import org.apache.ignite.cli.config.ConfigManagerProvider;
+import org.apache.ignite.cli.core.call.Call;
+import org.apache.ignite.cli.core.call.CallOutput;
+import org.apache.ignite.cli.core.call.DefaultCallOutput;
+import org.apache.ignite.cli.core.call.EmptyCallInput;
+
+/**
+ * List profiles call.
+ */
+@Singleton
+public class CliConfigProfileListCall implements Call<EmptyCallInput, String> {
+
+    @Inject
+    private ConfigManagerProvider provider;
+
+    @Override
+    public CallOutput<String> execute(EmptyCallInput input) {
+        Collection<String> profileNames = provider.get().getProfileNames();
+        String result = profileNames.stream().collect(Collectors.joining(System.lineSeparator()));
+        return DefaultCallOutput.success(result);
+    }
+}
