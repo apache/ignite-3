@@ -17,6 +17,10 @@
 
 package org.apache.ignite.cli.commands.node.config;
 
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
+import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_DESC;
+import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_OPTION;
+
 import jakarta.inject.Inject;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCallInput;
@@ -41,11 +45,9 @@ public class NodeConfigShowReplSubCommand extends BaseCommand implements Runnabl
     private String selector;
 
     /**
-     * Node url option.
+     * Node URL option.
      */
-    @Option(
-            names = {"--node-url"}, description = "Url to Ignite node"
-    )
+    @Option(names = {NODE_URL_OPTION}, description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String nodeUrl;
 
     @Inject

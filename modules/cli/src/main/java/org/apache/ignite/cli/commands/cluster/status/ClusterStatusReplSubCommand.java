@@ -17,6 +17,10 @@
 
 package org.apache.ignite.cli.commands.cluster.status;
 
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_DESC;
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_OPTION;
+
 import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_CLUSTER_URL_MESSAGE;
 
 import jakarta.inject.Inject;
@@ -38,10 +42,10 @@ import picocli.CommandLine.Option;
 public class ClusterStatusReplSubCommand extends BaseCommand implements Runnable {
 
     /**
-     * Cluster url option.
+     * Cluster endpoint URL option.
      */
     @SuppressWarnings("PMD.UnusedPrivateField")
-    @Option(names = {"--cluster-url"}, description = "Url to cluster node", descriptionKey = "ignite.cluster-url")
+    @Option(names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String clusterUrl;
 
     @Inject

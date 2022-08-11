@@ -30,7 +30,6 @@ import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.junit.jupiter.api.Test;
@@ -69,11 +68,6 @@ class CoreDistributedConfigurationModuleTest {
     @Test
     void providesSortedIndexConfigurationSchemaAsPolymorphicExtension() {
         assertThat(module.polymorphicSchemaExtensions(), hasItem(SortedIndexConfigurationSchema.class));
-    }
-
-    @Test
-    void providesPartialIndexConfigurationSchemaAsPolymorphicExtension() {
-        assertThat(module.polymorphicSchemaExtensions(), hasItem(PartialIndexConfigurationSchema.class));
     }
 
     @Test

@@ -39,7 +39,6 @@ import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigu
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
@@ -55,13 +54,11 @@ import org.apache.ignite.schema.definition.DefaultValueDefinition.FunctionCall;
 import org.apache.ignite.schema.definition.DefaultValueGenerators;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.builder.HashIndexDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.PartialIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.TableDefinitionBuilder;
 import org.apache.ignite.schema.definition.index.HashIndexDefinition;
 import org.apache.ignite.schema.definition.index.IndexColumnDefinition;
 import org.apache.ignite.schema.definition.index.IndexDefinition;
-import org.apache.ignite.schema.definition.index.PartialIndexDefinition;
 import org.apache.ignite.schema.definition.index.SortOrder;
 import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
 import org.junit.jupiter.api.AfterEach;
@@ -98,7 +95,6 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
                 List.of(
                         HashIndexConfigurationSchema.class,
                         SortedIndexConfigurationSchema.class,
-                        PartialIndexConfigurationSchema.class,
                         UnknownDataStorageConfigurationSchema.class,
                         ConstantValueDefaultConfigurationSchema.class,
                         FunctionCallDefaultConfigurationSchema.class,
@@ -232,29 +228,6 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
         assertEquals("COL1", idx2.columns().get(1).name());
         assertEquals(SortOrder.ASC, idx2.columns().get(0).sortOrder());
         assertEquals(SortOrder.DESC, idx2.columns().get(1).sortOrder());
-    }
-
-    /**
-     * Add/remove PartialIndex into configuration and read it back.
-     */
-    @Test
-    public void testPartialIndex() throws Exception {
-        PartialIndexDefinitionBuilder builder = SchemaBuilders.partialIndex("TEST");
-
-        builder.addIndexColumn("A").done();
-        builder.withExpression("WHERE A > 0");
-
-        PartialIndexDefinition idx = builder.build();
-
-        getTbl().change(ch -> SchemaConfigurationConverter.addIndex(idx, ch)).get();
-
-        TableDefinition tbl = SchemaConfigurationConverter.convert(getTbl().value());
-
-        PartialIndexDefinition idx2 = (PartialIndexDefinition) getIdx(idx.name(), tbl.indices());
-
-        assertNotNull(idx2);
-        assertEquals("PARTIAL", idx2.type());
-        assertEquals(idx.columns().size(), idx2.columns().size());
     }
 
     /**

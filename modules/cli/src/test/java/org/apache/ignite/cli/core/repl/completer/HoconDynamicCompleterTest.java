@@ -129,8 +129,8 @@ class HoconDynamicCompleterTest {
     void doesNotCompletesIfLastWordIsClusterUrl() {
         // Given
         completer = completerFrom("root: { subRoot: value }");
-        // And --cluster-url is the last typed word
-        String[] typedWords = {"cluster", "config", "show", "--cluster-url"};
+        // And --cluster-endpoint-url is the last typed word
+        String[] typedWords = {"cluster", "config", "show", "--cluster-endpoint-url"};
 
         // When
         List<String> completions = completer.complete(typedWords);
@@ -143,8 +143,8 @@ class HoconDynamicCompleterTest {
     void doesNotCompletesIfLastWordIsClusterUrlAndEmptyString() {
         // Given
         completer = completerFrom("root: { subRoot: value }");
-        // And --cluster-url is the last typed word
-        String[] typedWords = {"cluster", "config", "show", "--cluster-url", ""};
+        // And --cluster-endpoint-url is the last typed word
+        String[] typedWords = {"cluster", "config", "show", "--cluster-endpoint-url", ""};
 
         // When
         List<String> completions = completer.complete(typedWords);

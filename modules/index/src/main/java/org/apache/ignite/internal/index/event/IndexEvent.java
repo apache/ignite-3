@@ -15,22 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.index;
+package org.apache.ignite.internal.index.event;
+
+import org.apache.ignite.internal.manager.Event;
 
 /**
- * Partial index descriptor.
+ * Index management events.
  */
-public interface PartialIndexDefinition extends SortedIndexDefinition {
-    /**
-     * Partial index expression.
-     *
-     * @return Expression.
-     */
-    String expr();
+public enum IndexEvent implements Event {
+    /** This event is fired when an index was created. */
+    CREATE,
 
-    /** {@inheritDoc} */
-    @Override
-    default String type() {
-        return "PARTIAL";
-    }
+    /** This event is fired when an index was dropped. */
+    DROP
 }
