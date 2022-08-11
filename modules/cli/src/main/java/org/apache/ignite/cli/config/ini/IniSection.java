@@ -20,7 +20,6 @@ package org.apache.ignite.cli.config.ini;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import org.apache.ignite.cli.config.Profile;
 
 /**
  * INI section representation.
@@ -55,9 +54,5 @@ public class IniSection {
 
     public void setProperties(Map<String, String> values) {
         props.putAll(values);
-    }
-
-    public void setProperties(Profile copyFrom) {
-        props.putAll(copyFrom.getAll());
     }
 }

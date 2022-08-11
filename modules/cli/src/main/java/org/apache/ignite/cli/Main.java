@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.cli.commands.TopLevelCliCommand;
 import org.apache.ignite.cli.commands.TopLevelCliReplCommand;
+import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.cli.config.ConfigDefaultValueProvider;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
@@ -92,6 +93,8 @@ public class Main {
         VersionProvider versionProvider = micronautFactory.create(VersionProvider.class);
         System.out.println(banner(versionProvider));
 
+        ConnectToClusterQuestion question = micronautFactory.create(ConnectToClusterQuestion.class);
+
         replExecutorProvider.get().execute(Repl.builder()
                 .withPromptProvider(micronautFactory.create(PromptProvider.class))
                 .withAliases(aliases)
@@ -105,6 +108,7 @@ public class Main {
                                 .exceptionHandlers(new DefaultExceptionHandlers())
                                 .exceptionHandlers(exceptionHandlers)
                                 .build())
+                .withOnStart(question::askQuestionOnReplStart)
                 .withHistoryFileName("history")
                 .withTailTipWidgets()
                 .build());

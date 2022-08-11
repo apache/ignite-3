@@ -24,7 +24,6 @@ import static org.apache.ignite.cli.config.ConfigConstants.JDBC_URL;
 import java.io.File;
 import java.io.IOException;
 import java.util.NoSuchElementException;
-import org.apache.ignite.cli.config.ConfigConstants;
 import org.apache.ignite.cli.config.ConfigInitializationException;
 import org.apache.ignite.cli.config.ConfigManager;
 import org.apache.ignite.cli.config.Profile;
@@ -56,7 +55,7 @@ public class IniConfigManager implements ConfigManager {
             findCurrentProfile(configFile);
         } catch (IOException | NoSuchElementException e) {
             log.warn("User config is corrupted or doesn't exist.", e);
-            configFile = createDefaultConfig();
+            configFile = createDefaultConfig(file);
         }
         this.configFile = configFile;
         this.currentProfileName = findCurrentProfile(configFile).getProperty(CURRENT_PROFILE);
@@ -65,7 +64,10 @@ public class IniConfigManager implements ConfigManager {
     private static IniSection findCurrentProfile(IniFile configFile) {
         IniSection internalSection = configFile.getSection(INTERNAL_SECTION_NAME);
         if (internalSection == null) {
-            IniSection section = configFile.getSections().stream().findFirst().orElseThrow();
+            IniSection section = configFile.getSections().stream()
+                    .filter(s -> !s.getName().equals(IniParser.NO_SECTION)) // Don't use top-level section
+                    .findFirst()
+                    .orElseThrow();
             internalSection = configFile.createSection(INTERNAL_SECTION_NAME);
             internalSection.setProperty(CURRENT_PROFILE, section.getName());
         }
@@ -102,13 +104,12 @@ public class IniConfigManager implements ConfigManager {
         configFile.store();
     }
 
-    private static IniFile createDefaultConfig() {
-        File configFile = ConfigConstants.getConfigFile();
+    private static IniFile createDefaultConfig(File file) {
         try {
-            configFile.getParentFile().mkdirs();
-            configFile.delete();
-            configFile.createNewFile();
-            IniFile ini = new IniFile(configFile);
+            file.getParentFile().mkdirs();
+            file.delete();
+            file.createNewFile();
+            IniFile ini = new IniFile(file);
             IniSection internal = ini.createSection(INTERNAL_SECTION_NAME);
             internal.setProperty("current_profile", "default");
             IniSection defaultSection = ini.createSection("default");
@@ -117,7 +118,7 @@ public class IniConfigManager implements ConfigManager {
             ini.store();
             return ini;
         } catch (IOException e) {
-            throw new ConfigInitializationException(configFile.getAbsolutePath(), e);
+            throw new ConfigInitializationException(file.getAbsolutePath(), e);
         }
     }
 }

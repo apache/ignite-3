@@ -21,5 +21,10 @@ package org.apache.ignite.cli.config;
  * Provider for {@link ConfigManager}.
  */
 public interface ConfigManagerProvider {
+    /**
+     * Gets the CLI config manager.
+     *
+     * @return config manager
+     */
     ConfigManager get();
 }

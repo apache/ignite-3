@@ -15,32 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.config.ini;
+package org.apache.ignite.cli.config;
 
-import org.apache.ignite.cli.config.Config;
-import org.apache.ignite.cli.config.Profile;
+import io.micronaut.context.annotation.Replaces;
+import jakarta.inject.Singleton;
 
 /**
- * Implementation of {@link Profile} based on {@link IniSection}.
+ * Test implementation of {@link StateConfigProvider}.
  */
-public class IniProfile implements Profile {
-    private final IniSection section;
-    private final IniConfig config;
+@Singleton
+@Replaces(StateConfigProvider.class)
+public class TestStateConfigProvider implements StateConfigProvider {
 
-    public IniProfile(IniSection section, Runnable saveAction) {
-        this.section = section;
-        this.config = new IniConfig(section, saveAction);
-    }
+    public Config config = TestStateConfigHelper.createEmptyConfig();
 
-    /** {@inheritDoc} */
     @Override
-    public String getName() {
-        return section.getName();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Config getConfig() {
+    public Config get() {
         return config;
     }
 }
