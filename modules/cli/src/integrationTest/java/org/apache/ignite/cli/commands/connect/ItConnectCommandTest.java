@@ -78,7 +78,7 @@ class ItConnectCommandTest extends CliCommandTestInitializedIntegrationBase {
 
         // Then
         assertAll(
-                () -> assertErrOutputIs("Node unavailable\n"
+                () -> assertErrOutputIs("Node unavailable" + System.lineSeparator()
                         + "Could not connect to node with URL http://localhost:11111" + System.lineSeparator())
         );
         // And prompt is
