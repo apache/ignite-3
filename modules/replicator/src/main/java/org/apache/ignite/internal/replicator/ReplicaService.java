@@ -20,6 +20,7 @@ package org.apache.ignite.internal.replicator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.replicator.exception.ExceptionUtils;
+import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
@@ -78,7 +79,7 @@ public class ReplicaService {
             Replica replica = replicaManager.replica(req.groupId());
 
             if (replica == null) {
-                //TODO:IGNITE-17514 Provide an exceptional response when the replica is absent.
+                throw new ReplicaUnavailableException(req.groupId(), node.id());
             }
 
             return (CompletableFuture<R>) replica.processRequest(req);

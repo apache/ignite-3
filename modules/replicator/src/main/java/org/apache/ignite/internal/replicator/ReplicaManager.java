@@ -185,7 +185,20 @@ public class ReplicaManager implements IgniteComponent {
                     Replica replica = replicas.get(request.groupId());
 
                     if (replica == null) {
-                        //TODO:IGNITE-17514 Send an exceptional response to the client side when the replica is absent.
+                        var traceId = UUID.randomUUID();
+
+                        clusterNetSvc.messagingService().respond(
+                                senderAddr,
+                                REPLICA_MESSAGES_FACTORY
+                                        .errorReplicaResponse()
+                                        .errorMessage(
+                                                IgniteStringFormatter.format("Replica is not ready "
+                                                        + "[replicaGrpId={}, nodeId={}]",
+                                                        request.groupId(), clusterNetSvc.topologyService().localMember().id()))
+                                        .errorCode(Replicator.REPLICA_UNAVAILABLE_ERR)
+                                        .errorTraceId(traceId)
+                                        .build(),
+                                correlationId);
                     }
 
                     CompletableFuture<Object> result = replica.processRequest(request);
