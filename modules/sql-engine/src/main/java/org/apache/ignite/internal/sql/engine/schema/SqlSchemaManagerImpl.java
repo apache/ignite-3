@@ -179,7 +179,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
             return convert(table);
         } catch (NodeStoppingException e) {
-            throw new IgniteInternalException(e);
+            throw new IgniteInternalException(NODE_STOPPING_ERR, e);
         }
     }
 
@@ -223,7 +223,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     schema.addTable(removeSchema(schemaName, table.name()), igniteTable);
 
                     return null;
-                })).thenCompose(v -> completedFuture(res));
+                })).thenCompose(v -> inBusyLock(busyLock, () -> completedFuture(res)));
 
             }));
 

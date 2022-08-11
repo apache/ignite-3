@@ -110,7 +110,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      */
     private CompletableFuture<?> onSchemaCreate(ConfigurationNotificationEvent<SchemaView> schemasCtx) {
         if (!busyLock.enterBusy()) {
-            return failedFuture(new IgniteException(new NodeStoppingException()));
+            return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
 
         try {
@@ -207,7 +207,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     private SchemaRegistryImpl createSchemaRegistry(UUID tableId, String tableName, SchemaDescriptor initialSchema) {
         return new SchemaRegistryImpl(ver -> {
             if (!busyLock.enterBusy()) {
-                throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+                throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
             }
 
             try {
@@ -217,7 +217,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             }
         }, () -> {
             if (!busyLock.enterBusy()) {
-                throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+                throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
             }
 
             try {

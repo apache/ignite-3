@@ -269,7 +269,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     .whenComplete((v, e) -> {
                         if (!busyLock.enterBusy()) {
                             if (e != null) {
-                                LOG.warn("Error occurred while updating tables and stopping components has started.", e);
+                                LOG.warn("Error occurred while updating tables and stopping components.", e);
                                 // Stop of the components has been started, so we do nothing and resources of tablesByIdVv will be
                                 // freed in the logic of TableManager stop. We cannot complete tablesByIdVv exceptionally because
                                 // we will lose a context of tables.
@@ -283,13 +283,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     Throwable th = e.getCause();
                                     // Case when stopping of the previous component has been started and related futures completed
                                     // exceptionally
-                                    if (th != null && th.getCause() != null && th.getCause() instanceof NodeStoppingException) {
+                                    if (th instanceof NodeStoppingException || (th.getCause() != null
+                                            && th.getCause() instanceof NodeStoppingException)) {
                                         // Stop of the components has been started so we do nothing and resources will be freed in the
                                         // logic of TableManager stop
                                         return;
                                     }
                                 }
-                                // TODO: https://issues.apache.org/jira/browse/IGNITE-16862
+                                // TODO: https://issues.apache.org/jira/browse/IGNITE-17515
                                 tablesByIdVv.completeExceptionally(token, e);
                             }
 
