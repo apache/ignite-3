@@ -761,6 +761,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 revisionUpdater,
                 tblsCfg,
                 rm,
+                null,
                 bm,
                 ts,
                 tm,

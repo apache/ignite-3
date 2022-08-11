@@ -703,6 +703,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 revisionUpdater,
                 tblsCfg,
                 rm,
+                null,
                 bm,
                 ts,
                 tm,

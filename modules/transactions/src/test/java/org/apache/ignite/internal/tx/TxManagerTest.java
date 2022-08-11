@@ -29,9 +29,9 @@ import java.util.UUID;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -117,12 +117,13 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin();
 
-        RaftGroupService svc = Mockito.mock(RaftGroupService.class);
+        String replicationGroupName = "ReplicationGroupName";
 
-        tx.enlist(svc);
+        ClusterNode node  = Mockito.mock(ClusterNode.class);
 
-        assertEquals(1, tx.enlisted().size());
-        assertTrue(tx.enlisted().contains(svc));
+        tx.enlist("ReplicationGroupName", node);
+
+        assertEquals(node, tx.enlistedNode(replicationGroupName));
     }
 
     @Test

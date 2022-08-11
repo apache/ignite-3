@@ -60,6 +60,8 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -379,6 +381,8 @@ public class ItRebalanceDistributedTest {
 
         private final SchemaManager schemaManager;
 
+        private final ReplicaManager replicaMgr;
+
         /**
          * Constructor that simply creates a subset of components of this node.
          */
@@ -475,10 +479,15 @@ public class ItRebalanceDistributedTest {
 
             schemaManager = new SchemaManager(registry, tablesCfg);
 
+            replicaMgr = new ReplicaManager(clusterService);
+
+            ReplicaService replicaSvc = new ReplicaService(replicaMgr, clusterService.messagingService(), clusterService.topologyService());
+
             tableManager = new TableManager(
                     registry,
                     tablesCfg,
                     raftManager,
+                    replicaSvc,
                     baselineMgr,
                     clusterService.topologyService(),
                     txManager,
@@ -495,7 +504,7 @@ public class ItRebalanceDistributedTest {
 
             nodeCfgMgr.start();
 
-            Stream.of(clusterService, clusterCfgMgr, dataStorageMgr, raftManager, txManager, cmgManager,
+            Stream.of(clusterService, clusterCfgMgr, dataStorageMgr, raftManager, replicaMgr, txManager, cmgManager,
                     metaStorageManager, baselineMgr, schemaManager, tableManager).forEach(IgniteComponent::start);
 
             CompletableFuture.allOf(
@@ -512,7 +521,7 @@ public class ItRebalanceDistributedTest {
          */
         void stop() throws Exception {
             var components =
-                    List.of(tableManager, schemaManager, baselineMgr, metaStorageManager, cmgManager, dataStorageMgr,
+                    List.of(tableManager, schemaManager, baselineMgr, metaStorageManager, cmgManager, dataStorageMgr, replicaMgr,
                             raftManager, txManager, clusterCfgMgr, clusterService, nodeCfgMgr, vaultManager);
 
             for (IgniteComponent igniteComponent : components) {
