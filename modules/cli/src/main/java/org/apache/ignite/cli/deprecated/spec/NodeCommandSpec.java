@@ -17,12 +17,12 @@
 
 package org.apache.ignite.cli.deprecated.spec;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigRenderOptions;
 import static org.apache.ignite.cli.core.style.AnsiStringSupport.ansi;
 
 import com.jakewharton.fliptables.FlipTable;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigRenderOptions;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.io.IOException;
@@ -67,40 +67,17 @@ public class NodeCommandSpec {
     @Singleton
     public static class StartNodeCommandSpec extends BaseCommand implements Callable<Integer> {
 
-        /** Loader for Ignite distributive paths. */
-        @Inject
-        private CliPathsConfigLoader cliPathsCfgLdr;
-
-        /** Node manager. */
-        @Inject
-        private NodeManager nodeMgr;
-
         /** Consistent id, which will be used by new node. */
         @Parameters(paramLabel = "name", description = "Name of the new node")
         public String nodeName;
-
+        /** Loader for Ignite distributive paths. */
+        @Inject
+        private CliPathsConfigLoader cliPathsCfgLdr;
+        /** Node manager. */
+        @Inject
+        private NodeManager nodeMgr;
         @ArgGroup(exclusive = false)
         private ConfigOptions configOptions;
-
-        private static class ConfigOptions {
-            @ArgGroup(exclusive = false)
-            private ConfigArguments args;
-
-            /** Path to node config. */
-            @Option(names = "--config", description = "Configuration file to start the node with")
-            private Path configPath;
-        }
-
-        private static class ConfigArguments {
-            @Option(names = "--port", description = "Node port")
-            private Integer port;
-
-            @Option(names = "--rest-port", description = "REST port")
-            private Integer restPort;
-
-            @Option(names = "--join", description = "Seed nodes", split = ",")
-            private String[] seedNodes;
-        }
 
         /** {@inheritDoc} */
         @Override
@@ -155,6 +132,26 @@ public class NodeCommandSpec {
                 config = config.withFallback(fallback).resolve();
             }
             return config.root().render(ConfigRenderOptions.concise().setJson(false));
+        }
+
+        private static class ConfigOptions {
+            @ArgGroup(exclusive = false)
+            private ConfigArguments args;
+
+            /** Path to node config. */
+            @Option(names = "--config", description = "Configuration file to start the node with")
+            private Path configPath;
+        }
+
+        private static class ConfigArguments {
+            @Option(names = "--port", description = "Node port")
+            private Integer port;
+
+            @Option(names = "--rest-port", description = "REST port")
+            private Integer restPort;
+
+            @Option(names = "--join", description = "Seed nodes", split = ",")
+            private String[] seedNodes;
         }
     }
 

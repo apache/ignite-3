@@ -20,7 +20,6 @@ package org.apache.ignite.cli.commands.topology;
 import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_DESC;
 import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
 import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_OPTION;
-
 import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_NODE_URL_MESSAGE;
 
 import jakarta.inject.Inject;
@@ -59,7 +58,7 @@ public class LogicalTopologyReplSubCommand extends BaseCommand implements Callab
 
         if (clusterUrl != null) {
             inputBuilder.clusterUrl(clusterUrl);
-        } else if (session.isConnectedToNode())  {
+        } else if (session.isConnectedToNode()) {
             inputBuilder.clusterUrl(session.nodeUrl());
         } else {
             spec.commandLine().getErr().println(CONNECT_OR_USE_NODE_URL_MESSAGE.render());

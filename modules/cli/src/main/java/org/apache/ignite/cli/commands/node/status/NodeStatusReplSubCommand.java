@@ -20,7 +20,6 @@ package org.apache.ignite.cli.commands.node.status;
 import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
 import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_DESC;
 import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_OPTION;
-
 import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_NODE_URL_MESSAGE;
 
 import jakarta.inject.Inject;
