@@ -704,6 +704,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 tblsCfg,
                 rm,
                 null,
+                null,
+                null,
                 bm,
                 ts,
                 tm,

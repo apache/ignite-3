@@ -67,6 +67,7 @@
             <artifactId>micronaut-http-server</artifactId>
         </dependency>
 
+        <!-- qqq -->
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-replicator</artifactId>
