@@ -15,32 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.config.ini;
+package org.apache.ignite.internal.index.event;
 
-import org.apache.ignite.cli.config.Config;
-import org.apache.ignite.cli.config.Profile;
+import org.apache.ignite.internal.manager.Event;
 
 /**
- * Implementation of {@link Profile} based on {@link IniSection}.
+ * Index management events.
  */
-public class IniProfile implements Profile {
-    private final IniSection section;
-    private final IniConfig config;
+public enum IndexEvent implements Event {
+    /** This event is fired when an index was created. */
+    CREATE,
 
-    public IniProfile(IniSection section, Runnable saveAction) {
-        this.section = section;
-        this.config = new IniConfig(section, saveAction);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String getName() {
-        return section.getName();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Config getConfig() {
-        return config;
-    }
+    /** This event is fired when an index was dropped. */
+    DROP
 }

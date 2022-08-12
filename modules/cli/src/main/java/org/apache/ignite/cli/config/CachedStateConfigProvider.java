@@ -15,32 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.config.ini;
+package org.apache.ignite.cli.config;
 
-import org.apache.ignite.cli.config.Config;
-import org.apache.ignite.cli.config.Profile;
+import jakarta.inject.Singleton;
 
 /**
- * Implementation of {@link Profile} based on {@link IniSection}.
+ * Implementation of {@link StateConfigProvider} based on the ini file in the state folder.
  */
-public class IniProfile implements Profile {
-    private final IniSection section;
-    private final IniConfig config;
+@Singleton
+public class CachedStateConfigProvider implements StateConfigProvider {
+    private static final String CONFIG_FILE_NAME = "config.ini";
 
-    public IniProfile(IniSection section, Runnable saveAction) {
-        this.section = section;
-        this.config = new IniConfig(section, saveAction);
-    }
+    private final Config config = StateConfig.getStateConfig(StateFolderProvider.getStateFile(CONFIG_FILE_NAME));
 
-    /** {@inheritDoc} */
     @Override
-    public String getName() {
-        return section.getName();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Config getConfig() {
+    public Config get() {
         return config;
     }
 }

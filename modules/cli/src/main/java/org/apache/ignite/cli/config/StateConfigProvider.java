@@ -15,32 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.config.ini;
-
-import org.apache.ignite.cli.config.Config;
-import org.apache.ignite.cli.config.Profile;
+package org.apache.ignite.cli.config;
 
 /**
- * Implementation of {@link Profile} based on {@link IniSection}.
+ * Provider for the application state config.
  */
-public class IniProfile implements Profile {
-    private final IniSection section;
-    private final IniConfig config;
-
-    public IniProfile(IniSection section, Runnable saveAction) {
-        this.section = section;
-        this.config = new IniConfig(section, saveAction);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String getName() {
-        return section.getName();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Config getConfig() {
-        return config;
-    }
+public interface StateConfigProvider {
+    /**
+     * Gets the application state config.
+     *
+     * @return application state config
+     */
+    Config get();
 }
