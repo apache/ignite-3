@@ -80,6 +80,26 @@ public class NodeCommandSpec {
         @ArgGroup(exclusive = false)
         private ConfigOptions configOptions;
 
+        private static class ConfigOptions {
+            @ArgGroup(exclusive = false)
+            private ConfigArguments args;
+
+            /** Path to node config. */
+            @Option(names = "--config", description = "Configuration file to start the node with")
+            private Path configPath;
+        }
+
+        private static class ConfigArguments {
+            @Option(names = "--port", description = "Node port")
+            private Integer port;
+
+            @Option(names = "--rest-port", description = "REST port")
+            private Integer restPort;
+
+            @Option(names = "--join", description = "Seed nodes", split = ",")
+            private String[] seedNodes;
+        }
+
         /** {@inheritDoc} */
         @Override
         public Integer call() {
@@ -133,26 +153,6 @@ public class NodeCommandSpec {
                 config = config.withFallback(fallback).resolve();
             }
             return config.root().render(ConfigRenderOptions.concise().setJson(false));
-        }
-
-        private static class ConfigOptions {
-            @ArgGroup(exclusive = false)
-            private ConfigArguments args;
-
-            /** Path to node config. */
-            @Option(names = "--config", description = "Configuration file to start the node with")
-            private Path configPath;
-        }
-
-        private static class ConfigArguments {
-            @Option(names = "--port", description = "Node port")
-            private Integer port;
-
-            @Option(names = "--rest-port", description = "REST port")
-            private Integer restPort;
-
-            @Option(names = "--join", description = "Seed nodes", split = ",")
-            private String[] seedNodes;
         }
     }
 
