@@ -115,7 +115,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     private @Nullable VersionChain findVersionChain(RowId rowId) {
         try {
-            return versionChainTree.findOne(new VersionChainKey((RowId) rowId));
+            return versionChainTree.findOne(new VersionChainKey(rowId));
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Version chain lookup failed", e);
         }

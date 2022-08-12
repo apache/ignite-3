@@ -515,7 +515,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) throws StorageException {
+    public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, Timestamp timestamp) throws StorageException {
         return scan(keyFilter, timestamp, null);
     }
 
@@ -696,15 +696,25 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             }
 
             private void incrementRowId(ByteBuffer buf) {
-                for (int i = ROW_PREFIX_SIZE - 1;; i--) {
-                    byte b = (byte) (buf.get(i) + 1);
+                long lsb = 1 + buf.getLong(ROW_ID_OFFSET + Long.BYTES);
 
-                    buf.put(i, b);
+                buf.putLong(ROW_ID_OFFSET + Long.BYTES, lsb);
 
-                    if (b != 0) {
-                        break;
-                    }
+                if (lsb != 0L) {
+                    return;
                 }
+
+                long msb = 1 + buf.getLong(ROW_ID_OFFSET);
+
+                buf.putLong(ROW_ID_OFFSET, msb);
+
+                if (msb != 0L) {
+                    return;
+                }
+
+                short partitionId = (short) (1 + buf.getShort(0));
+
+                buf.putShort(0, partitionId);
             }
         };
     }
@@ -803,6 +813,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * Prepares thread-local on-heap byte buffer. Writes row id in it. Partition id is already there. Timestamp is not cleared.
      */
     private ByteBuffer prepareHeapKeyBuf(RowId rowId) {
+        assert rowId.partitionId() == partitionId : rowId;
+
         ByteBuffer keyBuf = HEAP_KEY_BUFFER.get().position(0);
 
         keyBuf.putShort((short) rowId.partitionId());

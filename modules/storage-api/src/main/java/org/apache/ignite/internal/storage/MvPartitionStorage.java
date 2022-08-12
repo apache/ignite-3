@@ -29,8 +29,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Multi-versioned partition storage. Maps RowId to a structures called "Version Chains". Each version chain is logically a stack of
  * elements with current structure:
- * <pre><code>
- *   [timestamp | txId, row data]</code></pre>
+ * <pre><code>[timestamp | txId, row data]</code></pre>
  *
  * <p>Only the chain's head can contain a transaction id, every other element must have a timestamp. Presence of transaction id indicates
  * that the row is not yet committed.

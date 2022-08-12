@@ -20,15 +20,24 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import org.apache.ignite.internal.storage.RowId;
 
 /**
- * A link to version chain.
+ * Search key for the {@link VersionChainTree}.
  */
 public class VersionChainKey {
+    /** Row id. */
     protected final RowId rowId;
 
+    /**
+     * Constructor.
+     *
+     * @param rowId Search row id.
+     */
     public VersionChainKey(RowId rowId) {
         this.rowId = rowId;
     }
 
+    /**
+     * Returns a row id.
+     */
     public RowId rowId() {
         return rowId;
     }

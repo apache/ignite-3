@@ -75,8 +75,8 @@ public class PartitionlessLinks {
     /**
      * Writes a partitionless link to a buffer: first high 2 bytes, then low 4 bytes.
      *
-     * @param buffer            where to write
-     * @param link the link to write
+     * @param buffer Where to write.
+     * @param link The link to write.
      */
     public static void writeToBuffer(ByteBuffer buffer, long link) {
         buffer.putShort((short) tag(link));

@@ -33,7 +33,8 @@ import org.apache.ignite.internal.storage.pagememory.mv.VersionChainKey;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 
 /**
- * Interface for VersionChain B+Tree-related IO.
+ * Interface for VersionChain B+Tree-related IO. Defines a following data loayout:
+ * <pre><code>[rowId's UUID (16 bytes), txId (16 bytes), head link (6 bytes), next link (6 bytes)]</code></pre>
  */
 public interface VersionChainIo {
     /** Offset of rowId's most significant bits, 8 bytes. */
