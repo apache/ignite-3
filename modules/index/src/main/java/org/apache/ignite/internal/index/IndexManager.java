@@ -338,7 +338,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         Index<?> index = indexById.remove(ctx.oldValue().id());
         indexByName.remove(index.name(), index);
 
-        fireEvent(IndexEvent.DROP, new IndexEventParameters(ctx.storageRevision(), index.id()), null);
+        fireEvent(IndexEvent.DROP, new IndexEventParameters(ctx.storageRevision(), index.id(), index.name()), null);
     }
 
     private void onIndexCreate(ConfigurationNotificationEvent<TableIndexView> ctx) {

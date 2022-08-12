@@ -62,6 +62,7 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -176,6 +177,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     TableManager tblManager;
 
+    IndexManager idxManager;
+
     SqlQueryProcessor queryProc;
 
     /** Test node. */
@@ -254,10 +257,15 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         tblManager = mockManagers();
 
+        idxManager = new IndexManager(tblManager, (lsnr) -> {});
+
+        idxManager.start();
+
         queryProc = new SqlQueryProcessor(
                 revisionUpdater,
                 cs,
                 tblManager,
+                idxManager,
                 schemaManager,
                 dataStorageManager,
                 () -> dataStorageModules.collectSchemasFields(List.of(

@@ -29,6 +29,9 @@ public class IndexEventParameters extends EventParameters {
     /** Index identifier. */
     private final UUID indexId;
 
+    /** Index name. */
+    private final String indexName;
+
     /** Index instance. */
     private final @Nullable Index<?> index;
 
@@ -39,17 +42,7 @@ public class IndexEventParameters extends EventParameters {
      * @param index An index instance.
      */
     public IndexEventParameters(long revision, Index<?> index) {
-        this(revision, index.id(), index);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param revision Causality token.
-     * @param indexId  An index identifier.
-     */
-    public IndexEventParameters(long revision, UUID indexId) {
-        this(revision, indexId, null);
+        this(revision, index.id(), index.name(), index);
     }
 
     /**
@@ -57,12 +50,25 @@ public class IndexEventParameters extends EventParameters {
      *
      * @param revision Causality token.
      * @param indexId An index identifier.
+     * @param indexName An index name.
+     */
+    public IndexEventParameters(long revision, UUID indexId, String indexName) {
+        this(revision, indexId, indexName, null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param revision Causality token.
+     * @param indexId An index identifier.
+     * @param indexName An index name.
      * @param index An index instance.
      */
-    private IndexEventParameters(long revision, UUID indexId, @Nullable Index<?> index) {
+    protected IndexEventParameters(long revision, UUID indexId, String indexName, @Nullable Index<?> index) {
         super(revision);
 
         this.indexId = indexId;
+        this.indexName = indexName;
         this.index = index;
     }
 
@@ -73,6 +79,15 @@ public class IndexEventParameters extends EventParameters {
      */
     public UUID indexId() {
         return indexId;
+    }
+
+    /**
+     * Returns a name of the index this event relates to.
+     *
+     * @return A name of the index.
+     */
+    public String indexName() {
+        return indexName;
     }
 
     /**

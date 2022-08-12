@@ -24,6 +24,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -31,15 +32,21 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.causality.VersionedValue;
+import org.apache.ignite.internal.index.Index;
+import org.apache.ignite.internal.index.IndexDescriptor;
+import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -57,6 +64,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private final VersionedValue<Map<String, IgniteSchema>> schemasVv;
 
     private final VersionedValue<Map<UUID, IgniteTable>> tablesVv;
+
+    private final VersionedValue<Map<UUID, IgniteIndex>> indicesVv;
 
     private final TableManager tableManager;
 
@@ -79,6 +88,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         this.schemaManager = schemaManager;
         schemasVv = new VersionedValue<>(registry, HashMap::new);
         tablesVv = new VersionedValue<>(registry, HashMap::new);
+        indicesVv = new VersionedValue<>(registry, HashMap::new);
 
         calciteSchemaVv = new VersionedValue<>(null, () -> {
             SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
@@ -127,7 +137,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         if (table == null) {
             throw new IgniteInternalException(
-                IgniteStringFormatter.format("Table not found [tableId={}]", id));
+                    IgniteStringFormatter.format("Table not found [tableId={}]", id));
         }
 
         if (table.version() < ver) {
@@ -238,20 +248,20 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                                         Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
 
                                         return igniteTableFuture
-                                            .thenApply(igniteTable -> {
-                                                resTbls.put(igniteTable.id(), igniteTable);
+                                                .thenApply(igniteTable -> {
+                                                    resTbls.put(igniteTable.id(), igniteTable);
 
-                                                return resTbls;
-                                            });
+                                                    return resTbls;
+                                                });
                                     }
                             )
                             .thenCombine(
-                                igniteTableFuture,
-                                (v, igniteTable) -> {
-                                    schema.addTable(removeSchema(schemaName, table.name()), igniteTable);
+                                    igniteTableFuture,
+                                    (v, igniteTable) -> {
+                                        schema.addTable(objectLocalName(schemaName, table.name()), igniteTable);
 
-                                    return null;
-                                }
+                                        return null;
+                                    }
                             )
                             .thenCompose(v -> completedFuture(res));
                 }
@@ -291,7 +301,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                     IgniteSchema schema = res.computeIfAbsent(schemaName, IgniteSchema::new);
 
-                    String calciteTableName = removeSchema(schemaName, tableName);
+                    String calciteTableName = objectLocalName(schemaName, tableName);
 
                     InternalIgniteTable table = (InternalIgniteTable) schema.getTable(calciteTableName);
 
@@ -339,7 +349,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private CompletableFuture<IgniteTableImpl> convert(long causalityToken, TableImpl table) {
         return schemaManager.schemaRegistry(causalityToken, table.tableId())
-            .thenApply(schemaRegistry -> convert(table, schemaRegistry));
+                .thenApply(schemaRegistry -> convert(table, schemaRegistry));
     }
 
     private IgniteTableImpl convert(TableImpl table) {
@@ -379,7 +389,127 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 : DefaultValueStrategy.DEFAULT_COMPUTED;
     }
 
-    private static String removeSchema(String schemaName, String canonicalName) {
+    /**
+     * Cut schema name from object canonical name, if found.
+     */
+    private static String objectLocalName(String schemaName, String canonicalName) {
         return canonicalName.substring(schemaName.length() + 1);
+    }
+
+    public synchronized CompletableFuture<?> onIndexCreated(String schemaName, Index<?> index, long causalityToken) {
+        schemasVv.update(
+                causalityToken,
+                (schemas, e) -> {
+                    if (e != null) {
+                        return failedFuture(e);
+                    }
+
+                    Map<String, IgniteSchema> res = new HashMap<>(schemas);
+
+                    IgniteSchema schema = res.computeIfAbsent(schemaName, IgniteSchema::new);
+
+                    CompletableFuture<IgniteIndex> igniteIndexFuture = convert(causalityToken, index);
+
+                    //TODO: Should we wait for table creation here?
+                    return indicesVv
+                            .update(
+                                    causalityToken,
+                                    (indices, ex) -> {
+                                        if (ex != null) {
+                                            return failedFuture(ex);
+                                        }
+
+                                        Map<UUID, IgniteIndex> resIdxs = new HashMap<>(indices);
+
+                                        return igniteIndexFuture
+                                                .thenApply(igniteIndex -> {
+                                                    resIdxs.put(index.id(), igniteIndex);
+
+                                                    return resIdxs;
+                                                });
+                                    }
+                            )
+                            .thenCombine(
+                                    igniteIndexFuture,
+                                    (v, igniteIndex) -> {
+                                        schema.addIndex(objectLocalName(schemaName, index.name()), igniteIndex);
+
+                                        return null;
+                                    }
+                            )
+                            .thenCompose(v -> completedFuture(res));
+                }
+        );
+
+        return calciteSchemaVv.get(causalityToken);
+    }
+
+    public synchronized CompletableFuture<?> onIndexDropped(String schemaName, UUID indexId, String indexName, long causalityToken) {
+        schemasVv.update(causalityToken,
+                (schemas, e) -> {
+                    if (e != null) {
+                        return failedFuture(e);
+                    }
+
+                    Map<String, IgniteSchema> res = new HashMap<>(schemas);
+
+                    IgniteSchema schema = res.computeIfAbsent(schemaName, IgniteSchema::new);
+
+                    IgniteIndex index = (IgniteIndex) schema.getIndex(indexName);
+
+                    if (index != null) {
+                        schema.removeIndex(indexName);
+
+                        return indicesVv
+                                .update(causalityToken,
+                                        (indices, ex) -> {
+                                            if (ex != null) {
+                                                return failedFuture(ex);
+                                            }
+
+                                            Map<UUID, IgniteIndex> resIdxs = new HashMap<>(indices);
+
+                                            resIdxs.remove(indexId);
+
+                                            return completedFuture(resIdxs);
+                                        }
+                                )
+                                .thenCompose(tables -> completedFuture(res));
+                    }
+
+                    return completedFuture(res);
+                }
+        );
+
+        return calciteSchemaVv.get(causalityToken);
+    }
+
+    private CompletableFuture<IgniteIndex> convert(long causalityToken, Index<?> index) {
+        return tablesVv.get(causalityToken)
+                .thenApply(tables -> tables.get(index.tableId()))
+                .thenApply(igniteTable -> convert(index, igniteTable));
+    }
+
+    private IgniteIndex convert(Index<?> index, IgniteTable table) {
+        IndexDescriptor desc = index.descriptor();
+
+        List<String> cols = desc.columns();
+
+        if (desc instanceof SortedIndexDescriptor) {
+            List<RelFieldCollation> collations = desc.columns().stream().map(colName ->
+                    TraitUtils.createFieldCollation(
+                            table.descriptor().columnDescriptor(colName).logicalIndex(),
+                            Objects.requireNonNull(((SortedIndexDescriptor) desc).collation(colName))
+                    )
+            ).collect(Collectors.toList());
+
+            return new IgniteIndex(RelCollations.of(collations), index.name(), (InternalIgniteTable) table);
+        }
+
+        List<RelFieldCollation> collations = desc.columns().stream().map(colName ->
+                TraitUtils.createFieldCollation(table.descriptor().columnDescriptor(colName).logicalIndex())
+        ).collect(Collectors.toList());
+
+        return new IgniteIndex(RelCollations.of(collations), index.name(), (InternalIgniteTable) table);
     }
 }

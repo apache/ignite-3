@@ -48,6 +48,8 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
+import org.apache.calcite.rel.RelFieldCollation.Direction;
+import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Spool;
@@ -58,6 +60,7 @@ import org.apache.calcite.rex.RexSlot;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.mapping.Mappings;
+import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteGateway;
@@ -481,18 +484,23 @@ public class TraitUtils {
      * Creates field collation with default direction and nulls ordering.
      */
     public static RelFieldCollation createFieldCollation(int fieldIdx) {
-        return createFieldCollation(fieldIdx, true);
+        return new RelFieldCollation(fieldIdx, Direction.ASCENDING, NullDirection.FIRST);
     }
 
     /**
-     * Creates field collation with default nulls ordering.
+     * Creates field collation.
      */
-    public static RelFieldCollation createFieldCollation(int fieldIdx, boolean asc) {
-        return asc
-                ? new RelFieldCollation(fieldIdx, RelFieldCollation.Direction.ASCENDING, RelFieldCollation.NullDirection.FIRST)
-                : new RelFieldCollation(fieldIdx, RelFieldCollation.Direction.DESCENDING, RelFieldCollation.NullDirection.LAST);
-    }
+    public static RelFieldCollation createFieldCollation(int fieldIdx, ColumnCollation collation) {
+        RelFieldCollation.Direction direction = collation.asc()
+                ? RelFieldCollation.Direction.ASCENDING
+                : RelFieldCollation.Direction.DESCENDING;
 
+        RelFieldCollation.NullDirection nullDirection = collation.nullsFirst()
+                ? RelFieldCollation.NullDirection.FIRST
+                : RelFieldCollation.NullDirection.LAST;
+
+        return new RelFieldCollation(fieldIdx, direction, nullDirection);
+    }
     /**
      * Creates mapping from provided projects that maps a source column idx to idx in a row after applying projections.
      *
