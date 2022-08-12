@@ -579,20 +579,20 @@ public class CheckpointWorkflowTest {
 
         assertFalse(markCheckpointBeginFuture.isDone());
         assertFalse(startTaskOnMarkCheckpointBeginFuture.isDone());
-        verify(updateHeartbeat, never()).run();
+        verify(updateHeartbeat, times(1)).run();
 
         finishTaskBeforeCheckpointBeginFuture.complete(null);
 
         await(startTaskOnMarkCheckpointBeginFuture, 1, SECONDS);
 
         assertFalse(markCheckpointBeginFuture.isDone());
-        verify(updateHeartbeat, times(1)).run();
+        verify(updateHeartbeat, times(3)).run();
 
         finishTaskOnMarkCheckpointBeginFuture.complete(null);
 
         await(markCheckpointBeginFuture, 1, SECONDS);
 
-        verify(updateHeartbeat, times(2)).run();
+        verify(updateHeartbeat, times(5)).run();
     }
 
     private static PersistentPageMemory newPageMemory(Collection<FullPageId> pageIds) {
