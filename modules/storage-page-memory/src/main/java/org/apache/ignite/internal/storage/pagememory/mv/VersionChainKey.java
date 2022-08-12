@@ -17,26 +17,19 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import org.apache.ignite.internal.storage.RowId;
+
 /**
  * A link to version chain.
  */
-public class VersionChainLink {
-    public static final int SIZE_IN_BYTES = Long.BYTES;
+public class VersionChainKey {
+    protected final RowId rowId;
 
-    private long link;
-
-    public VersionChainLink() {
+    public VersionChainKey(RowId rowId) {
+        this.rowId = rowId;
     }
 
-    public VersionChainLink(long link) {
-        this.link = link;
-    }
-
-    public long link() {
-        return link;
-    }
-
-    public void link(long link) {
-        this.link = link;
+    public RowId rowId() {
+        return rowId;
     }
 }

@@ -22,6 +22,7 @@ import java.util.Objects;
 import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.pagememory.mv.io.RowVersionDataIo;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
@@ -36,10 +37,15 @@ public class RowVersion implements Storable {
      * A 'timestamp' representing absense of a timestamp.
      */
     public static final Timestamp NULL_TIMESTAMP = new Timestamp(Long.MIN_VALUE, Long.MIN_VALUE);
+
     /**
      * Represents an absent partitionless link.
      */
     public static final long NULL_LINK = 0;
+
+    public static boolean isNullLink(long link) {
+        return PageIdUtils.pageIndex(link) == 0;
+    }
 
     private static final int TIMESTAMP_STORE_SIZE_BYTES = 2 * Long.BYTES;
     private static final int NEXT_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
@@ -114,7 +120,7 @@ public class RowVersion implements Storable {
     }
 
     public boolean hasNextLink() {
-        return nextLink != NULL_LINK;
+        return !isNullLink(nextLink);
     }
 
     boolean isTombstone() {

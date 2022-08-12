@@ -27,7 +27,15 @@ import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Multi-versioned partition storage.
+ * Multi-versioned partition storage. Maps RowId to a structures called "Version Chains". Each version chain is logically a stack of
+ * elements with current structure:
+ * <pre><code>
+ *   [timestamp | txId, row data]</code></pre>
+ *
+ * <p>Only the chain's head can contain a transaction id, every other element must have a timestamp. Presence of transaction id indicates
+ * that the row is not yet committed.
+ *
+ * <p>All timestamps in the chain must go in decreasing order, giving us a N2O (newest to oldest) order of search.
  *
  * <p>Each MvPartitionStorage instance represents exactly one partition.
  */
@@ -107,7 +115,10 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @param txId Transaction id.
      * @return Row id.
      * @throws StorageException If failed to write data into the storage.
+     *
+     * @deprecated Generates different ids for each replica.
      */
+    @Deprecated
     RowId insert(BinaryRow binaryRow, UUID txId) throws StorageException;
 
     /**

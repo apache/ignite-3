@@ -32,12 +32,12 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMa
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
+import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersionFreeList;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChain;
-import org.apache.ignite.internal.storage.pagememory.mv.VersionChainFreeList;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
@@ -229,14 +229,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                 initNewVersionChainTree = true;
             }
 
-            boolean initVersionChainFreeList = false;
-
-            if (meta.versionChainFreeListRootPageId() == 0) {
-                meta.versionChainFreeListRootPageId(checkpointId, persistentPageMemory.allocatePage(grpId, partitionId, FLAG_AUX));
-
-                initVersionChainFreeList = true;
-            }
-
             boolean initRowVersionFreeList = false;
 
             if (meta.rowVersionFreeListRootPageId() == 0) {
@@ -245,19 +237,9 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                 initRowVersionFreeList = true;
             }
 
-            VersionChainFreeList versionChainFreeList = createVersionChainFreeList(
-                    tableView,
-                    partitionId,
-                    meta.versionChainFreeListRootPageId(),
-                    initVersionChainFreeList
-            );
-
-            autoCloseables.add(versionChainFreeList::close);
-
             RowVersionFreeList rowVersionFreeList = createRowVersionFreeList(
                     tableView,
                     partitionId,
-                    versionChainFreeList,
                     meta.rowVersionFreeListRootPageId(),
                     initRowVersionFreeList
             );
@@ -267,7 +249,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             VersionChainTree versionChainTree = createVersionChainTree(
                     tableView,
                     partitionId,
-                    versionChainFreeList,
+                    rowVersionFreeList,
                     meta.versionChainTreeRootPageId(),
                     initNewVersionChainTree
             );
@@ -279,7 +261,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     dataRegion,
                     checkpointManager,
                     meta,
-                    versionChainFreeList,
                     rowVersionFreeList,
                     versionChainTree
             );
@@ -352,41 +333,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     /**
-     * Returns new {@link VersionChainFreeList} instance for partition.
-     *
-     * @param tableView Table configuration.
-     * @param partId Partition ID.
-     * @param rootPageId Root page ID.
-     * @param initNew {@code True} if new metadata should be initialized.
-     * @throws StorageException If failed.
-     */
-    private VersionChainFreeList createVersionChainFreeList(
-            TableView tableView,
-            int partId,
-            long rootPageId,
-            boolean initNew
-    ) throws StorageException {
-        try {
-            return new VersionChainFreeList(
-                    tableView.tableId(),
-                    partId,
-                    dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
-                    rootPageId,
-                    initNew,
-                    null,
-                    PageEvictionTrackerNoOp.INSTANCE,
-                    IoStatisticsHolderNoOp.INSTANCE
-            );
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(
-                    String.format("Error creating VersionChainFreeList [tableName=%s, partitionId=%s]", tableView.name(), partId),
-                    e
-            );
-        }
-    }
-
-    /**
      * Returns new {@link RowVersionFreeList} instance for partition.
      *
      * @param tableView Table configuration.
@@ -399,7 +345,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     private RowVersionFreeList createRowVersionFreeList(
             TableView tableView,
             int partId,
-            VersionChainFreeList reuseList,
             long rootPageId,
             boolean initNew
     ) throws StorageException {
@@ -408,7 +353,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     tableView.tableId(),
                     partId,
                     dataRegion.pageMemory(),
-                    reuseList,
+                    null,
                     PageLockListenerNoOp.INSTANCE,
                     rootPageId,
                     initNew,
@@ -476,7 +421,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     private VersionChainTree createVersionChainTree(
             TableView tableView,
             int partId,
-            VersionChainFreeList freeList,
+            ReuseList freeList,
             long rootPageId,
             boolean initNewTree
     ) throws StorageException {

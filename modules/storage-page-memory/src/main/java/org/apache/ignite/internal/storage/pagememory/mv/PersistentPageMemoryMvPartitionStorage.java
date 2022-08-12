@@ -71,7 +71,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param dataRegion Data region.
      * @param checkpointManager Checkpoint manager.
      * @param meta Partition meta.
-     * @param versionChainFreeList Free list for {@link VersionChain}.
      * @param rowVersionFreeList Free list for {@link RowVersion}.
      * @param versionChainTree Table tree for {@link VersionChain}.
      */
@@ -82,11 +81,10 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             DataRegion<PersistentPageMemory> dataRegion,
             CheckpointManager checkpointManager,
             PartitionMeta meta,
-            VersionChainFreeList versionChainFreeList,
             RowVersionFreeList rowVersionFreeList,
             VersionChainTree versionChainTree
     ) {
-        super(partitionId, tableView, dataRegion.pageMemory(), versionChainFreeList, rowVersionFreeList, versionChainTree);
+        super(partitionId, tableView, dataRegion.pageMemory(), rowVersionFreeList, versionChainTree);
 
         this.tableStorage = tableStorage;
 

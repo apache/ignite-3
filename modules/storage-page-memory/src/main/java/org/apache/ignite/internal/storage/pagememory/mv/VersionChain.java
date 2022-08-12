@@ -18,10 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import java.util.UUID;
-import org.apache.ignite.internal.pagememory.Storable;
-import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
-import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainDataIo;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,16 +27,9 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>NB: this represents the whole set of versions, not just one version in the chain.
  */
-public class VersionChain extends VersionChainLink implements Storable {
-    public static long NULL_UUID_COMPONENT = 0;
+public class VersionChain extends VersionChainKey {
+    public static final long NULL_UUID_COMPONENT = 0;
 
-    private static final int TRANSACTION_ID_STORE_SIZE_BYTES = 2 * Long.BYTES;
-    private static final int HEAD_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
-    private static final int NEXT_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
-
-    public static final int TRANSACTION_ID_OFFSET = 0;
-
-    private final int partitionId;
     @Nullable
     private final UUID transactionId;
 
@@ -49,33 +39,22 @@ public class VersionChain extends VersionChainLink implements Storable {
     private final long headLink;
 
     /**
-     * Link to the pre-latest version ({@link RowVersion#NULL_LINK} if there is just one version).
+     * Link to the pre-latest version ({@link RowVersion#isNullLink(long)} is {@code true} if there is just one version).
      */
     private final long nextLink;
 
     /**
      * Constructs a VersionChain without a transaction ID.
      */
-    public static VersionChain withoutTxId(int partitionId, long link, long headLink, long nextLink) {
-        return new VersionChain(partitionId, link, null, headLink, nextLink);
+    public static VersionChain withoutTxId(RowId rowId, long headLink, long nextLink) {
+        return new VersionChain(rowId, null, headLink, nextLink);
     }
 
     /**
      * Constructor.
      */
-    public VersionChain(int partitionId, @Nullable UUID transactionId, long headLink, long nextLink) {
-        this.partitionId = partitionId;
-        this.transactionId = transactionId;
-        this.headLink = headLink;
-        this.nextLink = nextLink;
-    }
-
-    /**
-     * Constructor.
-     */
-    public VersionChain(int partitionId, long link, @Nullable UUID transactionId, long headLink, long nextLink) {
-        super(link);
-        this.partitionId = partitionId;
+    public VersionChain(RowId rowId, @Nullable UUID transactionId, long headLink, long nextLink) {
+        super(rowId);
         this.transactionId = transactionId;
         this.headLink = headLink;
         this.nextLink = nextLink;
@@ -94,36 +73,16 @@ public class VersionChain extends VersionChainLink implements Storable {
         return nextLink;
     }
 
-    public long newestCommittedPartitionlessLink() {
+    public long newestCommittedLink() {
         return isUncommitted() ? nextLink : headLink;
     }
 
-    private boolean isUncommitted() {
+    public boolean isUncommitted() {
         return transactionId != null;
     }
 
     public boolean hasCommittedVersions() {
-        return newestCommittedPartitionlessLink() != RowVersion.NULL_LINK;
-    }
-
-    @Override
-    public final int partition() {
-        return partitionId;
-    }
-
-    @Override
-    public int size() {
-        return TRANSACTION_ID_STORE_SIZE_BYTES + HEAD_LINK_STORE_SIZE_BYTES + NEXT_LINK_STORE_SIZE_BYTES;
-    }
-
-    @Override
-    public int headerSize() {
-        return size();
-    }
-
-    @Override
-    public IoVersions<? extends AbstractDataPageIo> ioVersions() {
-        return VersionChainDataIo.VERSIONS;
+        return !RowVersion.isNullLink(newestCommittedLink());
     }
 
     @Override

@@ -119,12 +119,16 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         return storage.runConsistently(() -> storage.abortWrite(rowId));
     }
 
+    protected RowId newRowId() {
+        return new RowId(partitionId(), Timestamp.nextVersion());
+    }
+
     /**
      * Tests that reads from empty storage return empty results.
      */
     @Test
     public void testReadsFromEmpty() {
-        RowId rowId = insertAndAbortWrite();
+        RowId rowId = newRowId();
 
         assertEquals(partitionId(), rowId.partitionId());
 
@@ -132,26 +136,16 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         assertNull(read(rowId, Timestamp.nextVersion()));
     }
 
-    private RowId insertAndAbortWrite() {
-        return storage.runConsistently(() -> {
-            RowId rowId = storage.insert(binaryRow, txId);
-
-            storage.abortWrite(rowId);
-
-            return rowId;
-        });
-    }
-
     @Test
     public void testScanOverEmpty() throws Exception {
-        insertAndAbortWrite();
+        newRowId();
 
         assertEquals(List.of(), convert(scan(row -> true, newTransactionId())));
         assertEquals(List.of(), convert(scan(row -> true, Timestamp.nextVersion())));
     }
 
     protected int partitionId() {
-        return 0;
+        return 1;
     }
 
     protected UUID newTransactionId() {
@@ -658,7 +652,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     @Test
     void abortOfInsertMakesRowNonExistentForReadWithTxId() {
-        RowId rowId = insertAndAbortWrite();
+        RowId rowId = newRowId();
 
         BinaryRow foundRow = read(rowId, txId);
 
@@ -681,6 +675,54 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         Cursor<BinaryRow> cursor = scan(row -> true, newTransactionId());
 
         assertThrows(TxIdMismatchException.class, cursor::next);
+    }
+
+    @Test
+    void readByTimestampWorksCorrectlyAfterCommitAndAbortFollowedByUncommittedWrite() {
+        RowId rowId = commitAbortAndAddUncommitted();
+
+        BinaryRow foundRow = storage.read(rowId, Timestamp.nextVersion());
+
+        assertRowMatches(foundRow, binaryRow);
+    }
+
+    private RowId commitAbortAndAddUncommitted() {
+        return storage.runConsistently(() -> {
+            RowId rowId = storage.insert(binaryRow, txId);
+
+            storage.commitWrite(rowId, Timestamp.nextVersion());
+
+            storage.addWrite(rowId, binaryRow2, newTransactionId());
+            storage.abortWrite(rowId);
+
+            BinaryRow binaryRow3 = binaryRow(key, new TestValue(22, "bar3"));
+
+            storage.addWrite(rowId, binaryRow3, newTransactionId());
+
+            return rowId;
+        });
+    }
+
+    @Test
+    void scanByTimestampWorksCorrectlyAfterCommitAndAbortFollowedByUncommittedWrite() throws Exception {
+        commitAbortAndAddUncommitted();
+
+        try (Cursor<BinaryRow> cursor = storage.scan(k -> true, Timestamp.nextVersion())) {
+            BinaryRow foundRow = cursor.next();
+
+            assertRowMatches(foundRow, binaryRow);
+
+            assertFalse(cursor.hasNext());
+        }
+    }
+
+    @Test
+    void readByTimestampWorksCorrectlyIfNoUncommittedValueExists() {
+        RowId rowId = insert(binaryRow, txId);
+
+        BinaryRow foundRow = read(rowId, Timestamp.nextVersion());
+
+        assertThat(foundRow, is(nullValue()));
     }
 
     /**

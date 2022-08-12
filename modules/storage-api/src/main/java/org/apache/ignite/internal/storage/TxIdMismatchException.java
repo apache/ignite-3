@@ -17,10 +17,20 @@
 
 package org.apache.ignite.internal.storage;
 
+import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
 
 /**
  * Exception class that describes the situation when two independent transactions attempt to write values for the same key.
  */
 public class TxIdMismatchException extends IgniteException {
+    private final UUID transactionId;
+
+    public TxIdMismatchException(UUID transactionId) {
+        this.transactionId = transactionId;
+    }
+
+    public UUID transactionId() {
+        return transactionId;
+    }
 }
