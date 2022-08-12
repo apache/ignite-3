@@ -99,6 +99,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
 
 /**
  * Test suite for rebalance process, when replicas' number changed.
@@ -423,7 +424,7 @@ public class ItRebalanceDistributedTest {
                     vaultManager,
                     clusterService,
                     raftManager,
-                    null,
+                    Mockito.mock(ReplicaManager.class),
                     new ConcurrentMapClusterStateStorage()
             );
 
@@ -432,7 +433,7 @@ public class ItRebalanceDistributedTest {
                     clusterService,
                     cmgManager,
                     raftManager,
-                    null,
+                    Mockito.mock(ReplicaManager.class),
                     new SimpleInMemoryKeyValueStorage()
             );
 
@@ -489,8 +490,8 @@ public class ItRebalanceDistributedTest {
                     registry,
                     tablesCfg,
                     raftManager,
-                    null,
-                    null,
+                    Mockito.mock(ReplicaManager.class),
+                    Mockito.mock(LockManager.class),
                     replicaSvc,
                     baselineMgr,
                     clusterService.topologyService(),

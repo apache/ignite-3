@@ -34,7 +34,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmen
 import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -46,7 +45,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -95,7 +93,6 @@ import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
@@ -111,7 +108,6 @@ import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -166,9 +162,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Raft manager. */
     private final Loza raftMgr;
 
+    /** Replica manager. */
     private final ReplicaManager replicaMgr;
 
-    private final HeapLockManager lockMgr;
+    /** Lock manager. */
+    private final LockManager lockMgr;
 
     /** Replica service. */
     private final ReplicaService replicaSvc;
@@ -221,6 +219,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param registry Registry for versioned values.
      * @param tablesCfg Tables configuration.
      * @param raftMgr Raft manager.
+     * @param replicaMgr Replica manager.
+     * @param lockMgr Lock manager.
      * @param replicaSvc Replica service.
      * @param baselineMgr Baseline manager.
      * @param txManager Transaction manager.
@@ -232,7 +232,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             TablesConfiguration tablesCfg,
             Loza raftMgr,
             ReplicaManager replicaMgr,
-            HeapLockManager lockMgr,
+            LockManager lockMgr,
             ReplicaService replicaSvc,
             BaselineManager baselineMgr,
             TopologyService topologyService,
@@ -513,18 +513,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     String grpId = partitionRaftGroupName(tblId, partId);
 
-                    raftMgr.startRaftGroupService(
-                            grpId,
-                            newPartAssignment
-                    ).thenAccept(
-                            updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
-                                    .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
-                    ).exceptionally(th -> {
-                        LOG.warn("Unable to update raft groups on the node", th);
-
-                        return null;
-                    }).get();
-
                     if (raftMgr.shouldHaveRaftGroupLocally(nodes)) {
                         MvPartitionStorage partitionStorage = internalTbl.storage().getOrCreateMvPartition(partId);
 
@@ -552,21 +540,31 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         internalTbl.partitionRaftGroupService(partId),
                                         lockMgr,
                                         tblId,
-                                        null
+                                        new ConcurrentHashMap<>()
                                 )
                         );
                     }
+
+                    futures[partId] = raftMgr.startRaftGroupService(
+                            grpId,
+                            newPartAssignment
+                    ).thenAccept(
+                            updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
+                                    .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
+                    ).exceptionally(th -> {
+                        LOG.warn("Unable to update raft groups on the node", th);
+
+                        return null;
+                    });
                 } catch (NodeStoppingException ex) {
                     throw new AssertionError("Loza was stopped before Table manager", ex);
-                } catch (ExecutionException ex) {
-                    throw new RuntimeException(ex);
-                } catch (InterruptedException ex) {
-                    throw new RuntimeException(ex);
                 }
 
                 return completedFuture(tablesById);
             });
         }
+
+        CompletableFuture.allOf(futures).join();
     }
 
     private RaftGroupOptions groupOptionsForPartition(
@@ -1407,9 +1405,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             tbl.internalTable().partitionRaftGroupService(part),
                                             lockMgr,
                                             tblId,
-                                            null
+                                            new ConcurrentHashMap<>()
                                     )
-                            ); //String replicaGrpId, ReplicaListener listener)
+                            );
                         }
                     } catch (NodeStoppingException e) {
                         // no-op

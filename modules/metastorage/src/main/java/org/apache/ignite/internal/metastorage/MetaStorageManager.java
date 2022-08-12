@@ -94,8 +94,10 @@ public class MetaStorageManager implements IgniteComponent {
     /** Raft manager that is used for metastorage raft group handling. */
     private final Loza raftMgr;
 
+    /** Replica manager. */
     private final ReplicaManager replicaMgr;
 
+    /** Cluster management group manager. */
     private final ClusterManagementGroupManager cmgMgr;
 
     /** Meta storage service. */
@@ -144,7 +146,9 @@ public class MetaStorageManager implements IgniteComponent {
      *
      * @param vaultMgr Vault manager.
      * @param clusterService Cluster network service.
+     * @param cmgMgr Cluster management group manager.
      * @param raftMgr Raft manager.
+     * @param replicaMgr Replica manager.
      * @param storage Storage. This component owns this resource and will manage its lifecycle.
      */
     public MetaStorageManager(

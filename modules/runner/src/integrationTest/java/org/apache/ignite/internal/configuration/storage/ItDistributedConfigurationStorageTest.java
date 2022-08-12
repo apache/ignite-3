@@ -37,6 +37,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -48,6 +49,7 @@ import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
 
 /**
  * Tests for the {@link DistributedConfigurationStorage}.
@@ -90,7 +92,7 @@ public class ItDistributedConfigurationStorageTest {
                     vaultManager,
                     clusterService,
                     raftManager,
-                    null,
+                    Mockito.mock(ReplicaManager.class),
                     new ConcurrentMapClusterStateStorage()
             );
 
@@ -99,7 +101,7 @@ public class ItDistributedConfigurationStorageTest {
                     clusterService,
                     cmgManager,
                     raftManager,
-                    null,
+                    Mockito.mock(ReplicaManager.class),
                     new SimpleInMemoryKeyValueStorage()
             );
 

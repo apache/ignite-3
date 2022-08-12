@@ -78,6 +78,7 @@ import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
@@ -263,7 +264,7 @@ public class IgniteImpl implements Ignite {
 
         replicaMgr = new ReplicaManager(clusterSvc);
 
-        HeapLockManager lockMgr = new HeapLockManager();
+        LockManager lockMgr = new HeapLockManager();
 
         raftMgr = new Loza(clusterSvc, workDir, clock);
 
