@@ -24,7 +24,7 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
  * Configuration for Raft group corresponding to tables.
  */
 @Config
-public class RaftConfigurationSchema {
+public class VolatileRaftConfigurationSchema {
     /** Config of log storage budget. */
     @ConfigValue
     public LogStorageBudgetConfigurationSchema logStorage;

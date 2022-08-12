@@ -69,7 +69,9 @@ public class TableConfigurationSchema {
     @NamedConfigValue
     public TableIndexConfigurationSchema indices;
 
+    // TODO: IGNITE-16647 - RAFT configuration should be moved elsewhere
+
     /** Configuration for Raft groups corresponding to table partitions. */
     @ConfigValue
-    public RaftConfigurationSchema raft;
+    public VolatileRaftConfigurationSchema volatileRaft;
 }
