@@ -76,6 +76,7 @@ public class NodeCommandSpec {
         /** Node manager. */
         @Inject
         private NodeManager nodeMgr;
+
         @ArgGroup(exclusive = false)
         private ConfigOptions configOptions;
 

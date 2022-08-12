@@ -48,10 +48,11 @@ public class MessageUiComponent implements UiComponent {
 
     @Override
     public String render() {
+        String messageString = UiString.format(message, messageUiElements);
+        String hintString = UiString.format(hint, hintUiElements);
         return ansi(
-                UiString.format(message, messageUiElements)
-                        + (UiString.format(hint, hintUiElements) == null ? ""
-                        : System.lineSeparator() + UiString.format(hint, hintUiElements))
+                messageString
+                        + (hintString == null ? "" : System.lineSeparator() + hintString)
         );
     }
 
