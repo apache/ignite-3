@@ -15,32 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.config.ini;
+package org.apache.ignite.cli.config;
 
-import org.apache.ignite.cli.config.Config;
-import org.apache.ignite.cli.config.Profile;
+import org.apache.ignite.cli.commands.cliconfig.TestConfigManagerHelper;
 
 /**
- * Implementation of {@link Profile} based on {@link IniSection}.
+ * Test factory for application state config.
  */
-public class IniProfile implements Profile {
-    private final IniSection section;
-    private final IniConfig config;
+public class TestStateConfigHelper {
+    public static final String EMPTY = "empty.ini";
+    public static final String LAST_CONNECTED_DEFAULT = "last_connected_default.ini";
 
-    public IniProfile(IniSection section, Runnable saveAction) {
-        this.section = section;
-        this.config = new IniConfig(section, saveAction);
+    public static Config createEmptyConfig() {
+        return createConfig(EMPTY);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public String getName() {
-        return section.getName();
+    public static Config createLastConnectedDefault() {
+        return createConfig(LAST_CONNECTED_DEFAULT);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public Config getConfig() {
-        return config;
+    private static Config createConfig(String resource) {
+        return StateConfig.getStateConfig(TestConfigManagerHelper.copyResourceToTempFile(resource));
     }
 }

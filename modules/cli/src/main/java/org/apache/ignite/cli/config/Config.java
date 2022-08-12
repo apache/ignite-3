@@ -20,70 +20,46 @@ package org.apache.ignite.cli.config;
 import java.util.Map;
 
 /**
- * Ignite CLI Profile.
+ * Ignite CLI config.
  */
-public interface Profile {
+public interface Config {
     /**
-     * Gets name of the profile.
+     * Gets all properties.
      *
-     * @return profile name
+     * @return all properties
      */
-    String getName();
+    Map<String, String> getAll();
 
     /**
-     * Gets a {@link Config} stored in this profile.
-     *
-     * @return config
-     */
-    Config getConfig();
-
-    /**
-     * Convenience method to get all properties from this profile.
-     *
-     * @return map of all properties
-     */
-    default Map<String, String> getAll() {
-        return getConfig().getAll();
-    }
-
-    /**
-     * Convenience method to get a property from this profile.
+     * Gets a property.
      *
      * @param key property to get
      * @return property value or {@code null} if config doesn't contain this property
      */
-    default String getProperty(String key) {
-        return getConfig().getProperty(key);
-    }
+    String getProperty(String key);
 
     /**
-     * Convenience method to get a property from this profile.
+     * Gets a property.
      *
      * @param key property to get
      * @param defaultValue default value of the property
      *
      * @return property value or {@code defaultValue} if config doesn't contain this property
      */
-    default String getProperty(String key, String defaultValue) {
-        return getConfig().getProperty(key, defaultValue);
-    }
+    String getProperty(String key, String defaultValue);
 
     /**
-     * Convenience method to set a property to this profile.
+     * Sets a property.
      *
      * @param key property to set
      * @param value value to set
      */
-    default void setProperty(String key, String value) {
-        getConfig().setProperty(key, value);
-    }
+    void setProperty(String key, String value);
 
     /**
-     * Convenience method to set properties to this profile.
+     * Sets properties to this profile.
      *
      * @param values map of properties to set
      */
-    default void setProperties(Map<String, String> values) {
-        getConfig().setProperties(values);
-    }
+    void setProperties(Map<String, String> values);
 }
