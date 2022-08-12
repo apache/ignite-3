@@ -116,6 +116,7 @@ public class ItDistributedConfigurationPropertiesTest {
                     vaultManager,
                     clusterService,
                     raftManager,
+                    null,
                     new ConcurrentMapClusterStateStorage()
             );
 
@@ -124,6 +125,7 @@ public class ItDistributedConfigurationPropertiesTest {
                     clusterService,
                     cmgManager,
                     raftManager,
+                    null,
                     new SimpleInMemoryKeyValueStorage()
             );
 

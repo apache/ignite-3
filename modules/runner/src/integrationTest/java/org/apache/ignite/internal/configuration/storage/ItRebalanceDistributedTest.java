@@ -412,7 +412,7 @@ public class ItRebalanceDistributedTest {
 
             lockManager = new HeapLockManager();
 
-            raftManager = new Loza(clusterService, null, dir, new HybridClock());
+            raftManager = new Loza(clusterService, dir, new HybridClock());
 
             txManager = new TableTxManagerImpl(clusterService, lockManager);
 

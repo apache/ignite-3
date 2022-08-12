@@ -93,7 +93,7 @@ public class ItRaftGroupServiceTest {
         CompletableFuture<RaftGroupService>[] svcFutures = new CompletableFuture[NODES_CNT];
 
         for (int i = 0; i < NODES_CNT; i++) {
-            Loza raftServer = new Loza(clusterServices.get(i), null, workDir.resolve("node" + i), new HybridClock());
+            Loza raftServer = new Loza(clusterServices.get(i),  workDir.resolve("node" + i), new HybridClock());
 
             raftSrvs.add(raftServer);
 

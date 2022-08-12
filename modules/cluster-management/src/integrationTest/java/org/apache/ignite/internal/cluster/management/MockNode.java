@@ -80,6 +80,7 @@ public class MockNode {
                 vaultManager,
                 clusterService,
                 raftManager,
+                null,
                 new RocksDbClusterStateStorage(workDir.resolve("cmg"))
         );
 

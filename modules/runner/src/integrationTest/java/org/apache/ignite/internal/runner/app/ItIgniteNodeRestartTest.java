@@ -231,6 +231,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 vault,
                 clusterSvc,
                 raftMgr,
+                null,
                 new RocksDbClusterStateStorage(dir.resolve("cmg"))
         );
 
@@ -239,6 +240,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterSvc,
                 cmgManager,
                 raftMgr,
+                null,
                 new RocksDbKeyValueStorage(dir.resolve("metastorage"))
         );
 

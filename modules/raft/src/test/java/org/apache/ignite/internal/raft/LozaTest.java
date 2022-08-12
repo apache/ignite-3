@@ -61,7 +61,7 @@ public class LozaTest extends IgniteAbstractTest {
         Mockito.doReturn(Mockito.mock(MessagingService.class)).when(clusterNetSvc).messagingService();
         Mockito.doReturn(Mockito.mock(TopologyService.class)).when(clusterNetSvc).topologyService();
 
-        Loza loza = new Loza(clusterNetSvc, null, workDir, new HybridClock());
+        Loza loza = new Loza(clusterNetSvc, workDir, new HybridClock());
 
         loza.start();
 

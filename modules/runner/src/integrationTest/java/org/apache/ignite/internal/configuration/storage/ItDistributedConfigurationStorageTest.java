@@ -90,6 +90,7 @@ public class ItDistributedConfigurationStorageTest {
                     vaultManager,
                     clusterService,
                     raftManager,
+                    null,
                     new ConcurrentMapClusterStateStorage()
             );
 
@@ -98,6 +99,7 @@ public class ItDistributedConfigurationStorageTest {
                     clusterService,
                     cmgManager,
                     raftManager,
+                    null,
                     new SimpleInMemoryKeyValueStorage()
             );
 
