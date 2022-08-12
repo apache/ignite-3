@@ -17,20 +17,43 @@
 
 package org.apache.ignite.internal.sql.engine.session;
 
-import java.util.Map;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Expiry;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.CurrentTimeProvider;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.checkerframework.checker.index.qual.NonNegative;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A manager of a server side sql sessions.
  */
 public class SessionManager {
-    private final Map<SessionId, Session> activeSessions = new ConcurrentHashMap<>();
     private final CurrentTimeProvider timeProvider;
+
+    /** Active sessions with expiration. */
+    private Cache<SessionId, Session> activeSessions = Caffeine.newBuilder()
+            .weakKeys()
+            .weakValues()
+            .expireAfter(new Expiry<SessionId, Session>() {
+                @Override
+                public long expireAfterCreate(SessionId key, Session value, long currentTime) {
+                    return TimeUnit.MILLISECONDS.toNanos(value.getIdleTimeoutMs());
+                }
+
+                @Override
+                public long expireAfterUpdate(SessionId key, Session value, long currentTime, @NonNegative long currentDuration) {
+                    return currentDuration;
+                }
+
+                @Override
+                public long expireAfterRead(SessionId key, Session value, long currentTime, @NonNegative long currentDuration) {
+                    return TimeUnit.MILLISECONDS.toNanos(value.getIdleTimeoutMs());
+                }
+            })
+            .build();
 
     /**
      * Constructor.
@@ -53,20 +76,17 @@ public class SessionManager {
             long idleTimeoutMs,
             PropertiesHolder queryProperties
     ) {
-        var applied = new AtomicBoolean(false);
-
         SessionId sessionId;
+
         do {
             sessionId = nextSessionId();
 
-            activeSessions.computeIfAbsent(sessionId, key -> {
-                applied.set(true);
+            Session ses0 = new Session(sessionId, timeProvider, idleTimeoutMs, queryProperties);
 
-                return new Session(key, timeProvider, idleTimeoutMs, queryProperties);
-            });
-        } while (!applied.get());
-
-        return sessionId;
+            if (activeSessions.get(sessionId, key -> ses0).equals(ses0)) {
+                return sessionId;
+            }
+        } while (true);
     }
 
     /**
@@ -76,7 +96,7 @@ public class SessionManager {
      * @return A session associated with given id, or {@code null} if this session have already expired or never exists.
      */
     public @Nullable Session session(SessionId sessionId) {
-        var session = activeSessions.get(sessionId);
+        var session = activeSessions.getIfPresent(sessionId);
 
         if (session != null && !session.touch()) {
             session = null;

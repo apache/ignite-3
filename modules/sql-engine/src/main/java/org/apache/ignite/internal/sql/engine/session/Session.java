@@ -88,6 +88,11 @@ public class Session implements AsyncCloseable {
         return sessionId;
     }
 
+    /** Idle timeout. */
+    public long getIdleTimeoutMs() {
+        return idleTimeoutMs;
+    }
+
     /** Checks whether the given session has expired or not. */
     public boolean expired() {
         var last = lastTouched.get();
