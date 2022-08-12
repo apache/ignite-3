@@ -119,8 +119,25 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         return storage.runConsistently(() -> storage.abortWrite(rowId));
     }
 
+    /**
+     * Returns a partition id that should be used to create a partition instance.
+     */
+    protected int partitionId() {
+        return 1;
+    }
+
+    /**
+     * Creates a new {@link RowId}.
+     */
     protected RowId newRowId() {
-        return new RowId(partitionId(), Timestamp.nextVersion());
+        return new RowId(partitionId());
+    }
+
+    /**
+     * Creates a new transaction id.
+     */
+    protected UUID newTransactionId() {
+        return Timestamp.nextVersion().toUuid();
     }
 
     /**
@@ -142,14 +159,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         assertEquals(List.of(), convert(scan(row -> true, newTransactionId())));
         assertEquals(List.of(), convert(scan(row -> true, Timestamp.nextVersion())));
-    }
-
-    protected int partitionId() {
-        return 1;
-    }
-
-    protected UUID newTransactionId() {
-        return UUID.randomUUID();
     }
 
     /**

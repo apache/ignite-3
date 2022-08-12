@@ -24,12 +24,21 @@ import org.apache.ignite.lang.IgniteException;
  * Exception class that describes the situation when two independent transactions attempt to write values for the same key.
  */
 public class TxIdMismatchException extends IgniteException {
+    /** Conflicting transaction id. */
     private final UUID transactionId;
 
+    /**
+     * Constructor.
+     *
+     * @param transactionId Conflicting transaction id.
+     */
     public TxIdMismatchException(UUID transactionId) {
         this.transactionId = transactionId;
     }
 
+    /**
+     * Returns a conflicting transaction id.
+     */
     public UUID transactionId() {
         return transactionId;
     }

@@ -285,7 +285,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public RowId insert(BinaryRow row, UUID txId) throws StorageException {
-        RowId rowId = new RowId(partitionId, Timestamp.nextVersion());
+        RowId rowId = new RowId(partitionId);
 
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
@@ -746,7 +746,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 boolean valueHasTxId = keyBytes.length == ROW_PREFIX_SIZE;
 
                 if (!isTombstone(valueBytes, valueHasTxId)) {
-                    ByteBuffer keyBuf = ByteBuffer.wrap(keyBytes).order(BIG_ENDIAN);
+                    ByteBuffer keyBuf = ByteBuffer.wrap(keyBytes).order(BIG_ENDIAN).position(ROW_ID_OFFSET);
+
                     RowId rowId = new RowId(partitionId, keyBuf.getLong(), keyBuf.getLong());
 
                     BinaryRow binaryRow = wrapValueIntoBinaryRow(valueBytes, valueHasTxId);

@@ -215,7 +215,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /** {@inheritDoc} */
     @Override
     public RowId insert(BinaryRow row, UUID txId) throws StorageException {
-        RowId rowId = new RowId(partitionId, Timestamp.nextVersion());
+        RowId rowId = new RowId(partitionId);
 
         addWrite(rowId, row, txId);
 
@@ -282,7 +282,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /** {@inheritDoc} */
     @Override
     public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
-
         VersionChain currentVersionChain = findVersionChain(rowId);
 
         if (currentVersionChain == null || currentVersionChain.transactionId() == null) {

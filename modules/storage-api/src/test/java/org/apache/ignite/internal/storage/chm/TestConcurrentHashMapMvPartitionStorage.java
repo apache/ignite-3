@@ -110,7 +110,7 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
     /** {@inheritDoc} */
     @Override
     public RowId insert(BinaryRow row, UUID txId) throws StorageException {
-        RowId rowId = new RowId(partitionId, Timestamp.nextVersion());
+        RowId rowId = new RowId(partitionId);
 
         addWrite(rowId, row, txId);
 

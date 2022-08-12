@@ -34,7 +34,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
-import org.apache.ignite.internal.tx.Timestamp;
 
 /**
  * Convenience wrapper over an Index row.
@@ -67,7 +66,7 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
                 .map(type -> generateRandomValue(random, type))
                 .toArray();
 
-        var rowId = new RowId(0, Timestamp.nextVersion());
+        var rowId = new RowId(0);
 
         IndexRow row = indexStorage.indexRowSerializer().createIndexRow(columns, rowId);
 

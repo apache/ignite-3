@@ -21,19 +21,33 @@ import java.util.UUID;
 import org.apache.ignite.internal.tx.Timestamp;
 
 /**
- * Class that represents row id in primary index of the table.
+ * Class that represents row id in primary index of the table. Contains a timestamp-based UUID and a partition id.
  *
  * @see MvPartitionStorage
  */
 public final class RowId {
+    /** Partition id. */
     private final short partitionId;
 
+    /** Unique id. */
     private final UUID uuid;
 
-    public RowId(int partitionId, Timestamp timestamp) {
-        this(partitionId, timestamp.toUuid());
+    /**
+     * Create a row id with the UUID value based on {@link Timestamp}.
+     *
+     * @param partitionId Partition id.
+     */
+    public RowId(int partitionId) {
+        this(partitionId, Timestamp.nextVersion().toUuid());
     }
 
+    /**
+     * Constructor.
+     *
+     * @param partitionId Partition id.
+     * @param mostSignificantBits UUID's most significant bits.
+     * @param leastSignificantBits UUID's least significant bits.
+     */
     public RowId(int partitionId, long mostSignificantBits, long leastSignificantBits) {
         this(partitionId, new UUID(mostSignificantBits, leastSignificantBits));
     }
@@ -50,14 +64,21 @@ public final class RowId {
         return partitionId & 0xFFFF;
     }
 
+    /**
+     * Returns the most significant 64 bits of row id's UUID.
+     */
     public long mostSignificantBits() {
         return uuid.getMostSignificantBits();
     }
 
+    /**
+     * Returns the least significant 64 bits of row id's UUID.
+     */
     public long leastSignificantBits() {
         return uuid.getLeastSignificantBits();
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -75,10 +96,17 @@ public final class RowId {
         return uuid.equals(rowId.uuid);
     }
 
+    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         int result = partitionId;
         result = 31 * result + uuid.hashCode();
         return result;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return "RowId [partitionId=" + (partitionId & 0xFFFF) + ", uuid=" + uuid + ']';
     }
 }
