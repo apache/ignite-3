@@ -545,7 +545,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         );
                     }
 
-                    futures[partId] = raftMgr.startRaftGroupService(
+                    raftMgr.startRaftGroupService(
                             grpId,
                             newPartAssignment
                     ).thenAccept(
@@ -555,7 +555,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         LOG.warn("Unable to update raft groups on the node", th);
 
                         return null;
-                    });
+                    }).join();
+
+                    if (replicaMgr.shouldHaveReplicationGroupLocally(nodes)) {
+                        MvPartitionStorage partitionStorage = internalTbl.storage().getOrCreateMvPartition(partId);
+
+                        replicaMgr.startReplica(grpId,
+                                new PartitionReplicaListener(
+                                        partitionStorage,
+                                        internalTbl.partitionRaftGroupService(partId),
+                                        lockMgr,
+                                        tblId,
+                                        new ConcurrentHashMap<>()
+                                )
+                        );
+                    }
                 } catch (NodeStoppingException ex) {
                     throw new AssertionError("Loza was stopped before Table manager", ex);
                 }
@@ -563,8 +577,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return completedFuture(tablesById);
             });
         }
-
-        CompletableFuture.allOf(futures).join();
     }
 
     private RaftGroupOptions groupOptionsForPartition(
@@ -1398,6 +1410,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     raftGrpEvtsLsnr,
                                     groupOptions
                             );
+                        }
+
+                        if (replicaMgr.shouldHaveReplicationGroupLocally(deltaPeers)) {
+                            MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(part);
 
                             replicaMgr.startReplica(partId,
                                     new PartitionReplicaListener(

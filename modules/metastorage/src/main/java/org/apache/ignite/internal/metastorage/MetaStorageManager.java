@@ -49,7 +49,6 @@ import org.apache.ignite.internal.metastorage.watch.KeyCriterion;
 import org.apache.ignite.internal.metastorage.watch.WatchAggregator;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
-import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -94,10 +93,6 @@ public class MetaStorageManager implements IgniteComponent {
     /** Raft manager that is used for metastorage raft group handling. */
     private final Loza raftMgr;
 
-    /** Replica manager. */
-    private final ReplicaManager replicaMgr;
-
-    /** Cluster management group manager. */
     private final ClusterManagementGroupManager cmgMgr;
 
     /** Meta storage service. */
@@ -146,9 +141,7 @@ public class MetaStorageManager implements IgniteComponent {
      *
      * @param vaultMgr Vault manager.
      * @param clusterService Cluster network service.
-     * @param cmgMgr Cluster management group manager.
      * @param raftMgr Raft manager.
-     * @param replicaMgr Replica manager.
      * @param storage Storage. This component owns this resource and will manage its lifecycle.
      */
     public MetaStorageManager(
@@ -156,13 +149,11 @@ public class MetaStorageManager implements IgniteComponent {
             ClusterService clusterService,
             ClusterManagementGroupManager cmgMgr,
             Loza raftMgr,
-            ReplicaManager replicaMgr,
             KeyValueStorage storage
     ) {
         this.vaultMgr = vaultMgr;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
-        this.replicaMgr = replicaMgr;
         this.cmgMgr = cmgMgr;
         this.storage = storage;
     }
@@ -235,7 +226,6 @@ public class MetaStorageManager implements IgniteComponent {
             IgniteUtils.closeAll(
                     this::stopDeployedWatches,
                     () -> raftMgr.stopRaftGroup(METASTORAGE_RAFT_GROUP_NAME),
-                    () -> replicaMgr.stopReplica(METASTORAGE_RAFT_GROUP_NAME),
                     storage
             );
         }

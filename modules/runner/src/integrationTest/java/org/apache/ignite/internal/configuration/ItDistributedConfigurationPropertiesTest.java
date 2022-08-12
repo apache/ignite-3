@@ -46,7 +46,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -62,7 +61,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 
 /**
  * Integration test for checking different aspects of distributed configuration.
@@ -118,7 +116,6 @@ public class ItDistributedConfigurationPropertiesTest {
                     vaultManager,
                     clusterService,
                     raftManager,
-                    Mockito.mock(ReplicaManager.class),
                     new ConcurrentMapClusterStateStorage()
             );
 
@@ -127,7 +124,6 @@ public class ItDistributedConfigurationPropertiesTest {
                     clusterService,
                     cmgManager,
                     raftManager,
-                    Mockito.mock(ReplicaManager.class),
                     new SimpleInMemoryKeyValueStorage()
             );
 

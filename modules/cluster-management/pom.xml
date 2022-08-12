@@ -58,11 +58,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-replicator</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-http</artifactId>
         </dependency>

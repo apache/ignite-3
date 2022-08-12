@@ -424,7 +424,6 @@ public class ItRebalanceDistributedTest {
                     vaultManager,
                     clusterService,
                     raftManager,
-                    Mockito.mock(ReplicaManager.class),
                     new ConcurrentMapClusterStateStorage()
             );
 
@@ -433,7 +432,6 @@ public class ItRebalanceDistributedTest {
                     clusterService,
                     cmgManager,
                     raftManager,
-                    Mockito.mock(ReplicaManager.class),
                     new SimpleInMemoryKeyValueStorage()
             );
 
