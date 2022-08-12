@@ -376,91 +376,102 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     }
 
     public synchronized CompletableFuture<?> onIndexCreated(String schemaName, Index<?> index, long causalityToken) {
-        schemasVv.update(
-                causalityToken,
-                (schemas, e) -> {
-                    if (e != null) {
-                        return failedFuture(e);
-                    }
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
+        }
+        try {
+            schemasVv.update(
+                    causalityToken,
+                    (schemas, e) -> inBusyLock(busyLock, () -> {
+                                if (e != null) {
+                                    return failedFuture(e);
+                                }
 
-                    Map<String, IgniteSchema> res = new HashMap<>(schemas);
+                                Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
-                    IgniteSchema schema = res.computeIfAbsent(schemaName, IgniteSchema::new);
+                                IgniteSchema schema = res.computeIfAbsent(schemaName, IgniteSchema::new);
 
-                    CompletableFuture<IgniteIndex> igniteIndexFuture = convert(causalityToken, index);
+                                CompletableFuture<IgniteIndex> igniteIndexFuture = convert(causalityToken, index);
 
-                    //TODO: Should we wait for table creation here?
-                    return indicesVv
-                            .update(
-                                    causalityToken,
-                                    (indices, ex) -> {
-                                        if (ex != null) {
-                                            return failedFuture(ex);
-                                        }
+                                //TODO: Should we wait for table creation here?
+                                return indicesVv
+                                        .update(
+                                                causalityToken,
+                                                (indices, ex) -> inBusyLock(busyLock, () -> {
+                                                    if (ex != null) {
+                                                        return failedFuture(ex);
+                                                    }
 
-                                        Map<UUID, IgniteIndex> resIdxs = new HashMap<>(indices);
+                                                    Map<UUID, IgniteIndex> resIdxs = new HashMap<>(indices);
 
-                                        return igniteIndexFuture
-                                                .thenApply(igniteIndex -> {
-                                                    resIdxs.put(index.id(), igniteIndex);
+                                                    return igniteIndexFuture
+                                                            .thenApply(igniteIndex -> {
+                                                                resIdxs.put(index.id(), igniteIndex);
 
-                                                    return resIdxs;
-                                                });
-                                    }
-                            )
-                            .thenCombine(
-                                    igniteIndexFuture,
-                                    (v, igniteIndex) -> {
-                                        schema.addIndex(objectLocalName(schemaName, index.name()), igniteIndex);
+                                                                return resIdxs;
+                                                            });
+                                                })
+                                        )
+                                        .thenCombine(
+                                                igniteIndexFuture,
+                                                (v, igniteIndex) -> inBusyLock(busyLock, () -> {
+                                                    schema.addIndex(objectLocalName(schemaName, index.name()), igniteIndex);
 
-                                        return null;
-                                    }
-                            )
-                            .thenCompose(v -> completedFuture(res));
-                }
-        );
+                                                    return null;
+                                                })
+                                        )
+                                        .thenCompose(v -> completedFuture(res));
+                            }
+                    ));
 
-        return calciteSchemaVv.get(causalityToken);
+            return calciteSchemaVv.get(causalityToken);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     public synchronized CompletableFuture<?> onIndexDropped(String schemaName, UUID indexId, String indexName, long causalityToken) {
-        schemasVv.update(causalityToken,
-                (schemas, e) -> {
-                    if (e != null) {
-                        return failedFuture(e);
-                    }
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
+        }
+        try {
+            schemasVv.update(causalityToken, (schemas, e) -> inBusyLock(busyLock, () -> {
+                        if (e != null) {
+                            return failedFuture(e);
+                        }
 
-                    Map<String, IgniteSchema> res = new HashMap<>(schemas);
+                        Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
-                    IgniteSchema schema = res.computeIfAbsent(schemaName, IgniteSchema::new);
+                        IgniteSchema schema = res.computeIfAbsent(schemaName, IgniteSchema::new);
 
-                    IgniteIndex index = (IgniteIndex) schema.getIndex(indexName);
+                        IgniteIndex index = (IgniteIndex) schema.getIndex(indexName);
 
-                    if (index != null) {
-                        schema.removeIndex(indexName);
+                        if (index != null) {
+                            schema.removeIndex(indexName);
 
-                        return indicesVv
-                                .update(causalityToken,
-                                        (indices, ex) -> {
-                                            if (ex != null) {
-                                                return failedFuture(ex);
+                            return indicesVv.update(causalityToken, (indices, ex) -> inBusyLock(busyLock, () -> {
+                                                if (ex != null) {
+                                                    return failedFuture(ex);
+                                                }
+
+                                                Map<UUID, IgniteIndex> resIdxs = new HashMap<>(indices);
+
+                                                resIdxs.remove(indexId);
+
+                                                return completedFuture(resIdxs);
                                             }
+                                    ))
+                                    .thenCompose(tables -> completedFuture(res));
+                        }
 
-                                            Map<UUID, IgniteIndex> resIdxs = new HashMap<>(indices);
-
-                                            resIdxs.remove(indexId);
-
-                                            return completedFuture(resIdxs);
-                                        }
-                                )
-                                .thenCompose(tables -> completedFuture(res));
+                        return completedFuture(res);
                     }
+            ));
 
-                    return completedFuture(res);
-                }
-        );
-
-        return calciteSchemaVv.get(causalityToken);
+            return calciteSchemaVv.get(causalityToken);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     private CompletableFuture<IgniteIndex> convert(long causalityToken, Index<?> index) {
