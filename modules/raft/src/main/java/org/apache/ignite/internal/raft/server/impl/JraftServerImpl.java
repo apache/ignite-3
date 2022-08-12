@@ -254,7 +254,8 @@ public class JraftServerImpl implements RaftServer {
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-        assert groups.isEmpty() : IgniteStringFormatter.format("Raft groups are still running {}", groups.keySet());
+        assert groups.isEmpty() : IgniteStringFormatter.format("Raft groups {} are still running on the node {}", groups.keySet(),
+                service.topologyService().localMember().name());
 
         rpcServer.shutdown();
 
