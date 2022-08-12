@@ -504,7 +504,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
-                assertOutputEqual("Node configuration was updated successfully.");
+                assertOutputEqual("Node configuration was updated successfully");
                 assertThatStderrIsEmpty();
             }
         }
@@ -546,7 +546,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             assertThatExitCodeMeansSuccess(exitCode);
 
-            assertOutputEqual("Cluster was initialized successfully.");
+            assertOutputEqual("Cluster was initialized successfully");
             assertThatStderrIsEmpty();
         }
 
@@ -615,7 +615,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             assertThatExitCodeMeansSuccess(exitCode);
 
-            assertOutputEqual("Cluster was initialized successfully.");
+            assertOutputEqual("Cluster was initialized successfully");
             assertThatStderrIsEmpty();
         }
 
@@ -698,7 +698,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
-                assertOutputEqual("Cluster configuration was updated successfully.");
+                assertOutputEqual("Cluster configuration was updated successfully");
                 assertThatStderrIsEmpty();
             }
         }

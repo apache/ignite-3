@@ -88,7 +88,7 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
         assertEquals(0, exitCode);
         assertThat(
                 out.toString(UTF_8),
-                containsString("Node configuration was updated successfully.")
+                containsString("Node configuration was updated successfully")
 
         );
 

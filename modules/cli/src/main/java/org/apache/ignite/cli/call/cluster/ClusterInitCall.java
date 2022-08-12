@@ -44,7 +44,7 @@ public class ClusterInitCall implements Call<ClusterInitCallInput, String> {
                     .cmgNodes(input.getCmgNodes())
                     .clusterName(input.getClusterName())
             );
-            return DefaultCallOutput.success("Cluster was initialized successfully.");
+            return DefaultCallOutput.success("Cluster was initialized successfully");
         } catch (ApiException | IllegalArgumentException e) {
             return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getClusterUrl()));
         }

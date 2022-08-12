@@ -110,7 +110,7 @@ public class ConnectToClusterQuestion {
 
     private FlowBuilder<String, String> defaultUrlQuestion(String lastConnectedUrl) {
         return Flows.acceptQuestion(QuestionUiComponent.fromQuestion(
-                "Would you like to use % as the default URL? %s ", UiElements.url(lastConnectedUrl), UiElements.yesNo()
+                "Would you like to use %s as the default URL? %s ", UiElements.url(lastConnectedUrl), UiElements.yesNo()
                 ), () -> {
                     configManagerProvider.get().setProperty(ConfigConstants.CLUSTER_URL, lastConnectedUrl);
                     return "Config saved";
