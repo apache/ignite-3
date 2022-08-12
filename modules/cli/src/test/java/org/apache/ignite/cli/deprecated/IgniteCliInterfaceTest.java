@@ -39,6 +39,7 @@ import io.micronaut.context.env.Environment;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
@@ -51,9 +52,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockserver.integration.ClientAndServer;
+import org.mockserver.junit.jupiter.MockServerExtension;
 import org.mockserver.model.MediaType;
 import picocli.CommandLine;
 
@@ -63,6 +66,7 @@ import picocli.CommandLine;
  */
 @DisplayName("ignite")
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(MockServerExtension.class)
 public class IgniteCliInterfaceTest extends AbstractCliTest {
     /** DI application context. */
     ApplicationContext ctx;
@@ -85,9 +89,14 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             Path.of("log"),
             "version");
 
-    private ClientAndServer clientAndServer;
+    private final ClientAndServer clientAndServer;
 
-    private String mockUrl;
+    private final String mockUrl;
+
+    public IgniteCliInterfaceTest(ClientAndServer clientAndServer) {
+        this.clientAndServer = clientAndServer;
+        mockUrl = "http://localhost:" + clientAndServer.getPort();
+    }
 
     /**
      * Sets up environment before test execution.
@@ -101,8 +110,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         err = new ByteArrayOutputStream();
         out = new ByteArrayOutputStream();
 
-        clientAndServer = ClientAndServer.startClientAndServer(0);
-        mockUrl = "http://localhost:" + clientAndServer.getPort();
+        clientAndServer.reset();
     }
 
     /**
@@ -110,7 +118,6 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
      */
     @AfterEach
     void tearDown() {
-        clientAndServer.stop();
         ctx.stop();
     }
 
@@ -174,7 +181,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var node =
                     new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
 
-            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any()))
+            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any(), any()))
                     .thenReturn(node);
 
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
@@ -192,6 +199,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     ignitePaths.logDir,
                     ignitePaths.cliPidsDir(),
                     Path.of("conf.json"),
+                    null,
                     ignitePaths.serverJavaUtilLoggingPros(),
                     cli.getOut());
 
@@ -205,6 +213,114 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                             + "+-----------+---------+\n"
             );
             assertThatStderrIsEmpty();
+        }
+
+        @Test
+        @DisplayName("start node1 --port 12345")
+        void startCustomPort() {
+            var nodeName = "node1";
+
+            var node = new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
+
+            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(node);
+
+            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
+                    .thenReturn(ignitePaths);
+
+            int exitCode = execute("node start " + nodeName + " --port 12345");
+
+            assertThatExitCodeMeansSuccess(exitCode);
+
+            ArgumentCaptor<String> configStrCaptor = ArgumentCaptor.forClass(String.class);
+            verify(nodeMgr).start(any(), any(), any(), any(), any(), configStrCaptor.capture(), any(), any());
+
+            assertEqualsIgnoreLineSeparators(
+                    "network{port=12345}",
+                    configStrCaptor.getValue()
+            );
+        }
+
+        @Test
+        @DisplayName("start node1 --config ignite-config.json --port 12345")
+        void startCustomPortOverrideConfigFile() throws URISyntaxException {
+            var nodeName = "node1";
+
+            var node = new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
+
+            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(node);
+
+            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
+                    .thenReturn(ignitePaths);
+
+            Path configPath = Path.of(IgniteCliInterfaceTest.class.getResource("/ignite-config.json").toURI());
+
+            int exitCode = execute("node start " + nodeName + " --config "
+                    + configPath.toAbsolutePath()
+                    + " --port 12345");
+
+            assertThatExitCodeMeansSuccess(exitCode);
+
+            ArgumentCaptor<String> configStrCaptor = ArgumentCaptor.forClass(String.class);
+            verify(nodeMgr).start(any(), any(), any(), any(), any(), configStrCaptor.capture(), any(), any());
+
+            assertEqualsIgnoreLineSeparators(
+                    "network{port=12345},rest{port=10300}",
+                    configStrCaptor.getValue()
+            );
+        }
+
+        @Test
+        @DisplayName("start node1 --port 12345 --rest-port 12346")
+        void startCustomPortAndRestPort() {
+            var nodeName = "node1";
+
+            var node = new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
+
+            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(node);
+
+            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
+                    .thenReturn(ignitePaths);
+
+            int exitCode = execute("node start " + nodeName + " --port 12345 --rest-port 12346");
+
+            assertThatExitCodeMeansSuccess(exitCode);
+
+            ArgumentCaptor<String> configStrCaptor = ArgumentCaptor.forClass(String.class);
+            verify(nodeMgr).start(any(), any(), any(), any(), any(), configStrCaptor.capture(), any(), any());
+
+            assertEqualsIgnoreLineSeparators(
+                    "network{port=12345},rest{port=12346}",
+                    configStrCaptor.getValue()
+            );
+        }
+
+        @Test
+        @DisplayName("start node1 --port 12345 --rest-port 12346 --join localhost:12345")
+        void startCustomPortRestPortAndSeedNodes() {
+            var nodeName = "node1";
+
+            var node = new NodeManager.RunningNode(1, nodeName, Path.of("logfile"));
+
+            when(nodeMgr.start(any(), any(), any(), any(), any(), any(), any(), any()))
+                    .thenReturn(node);
+
+            when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
+                    .thenReturn(ignitePaths);
+
+            int exitCode = execute("node start " + nodeName + " --port 12345 --rest-port 12346 --join localhost:12345");
+
+            assertThatExitCodeMeansSuccess(exitCode);
+
+            ArgumentCaptor<String> configStrCaptor = ArgumentCaptor.forClass(String.class);
+            verify(nodeMgr).start(any(), any(), any(), any(), any(), configStrCaptor.capture(), any(), any());
+
+            assertEqualsIgnoreLineSeparators(
+                    "network{nodeFinder{netClusterNodes=[\"localhost:12345\"]},port=12345},rest{port=12346}",
+                    configStrCaptor.getValue()
+            );
         }
 
         @Test
@@ -613,7 +729,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
     }
 
     /**
-     * <em>Assert</em> that {@code expected} and {@code actual} are equal.
+     * <em>Assert</em> that {@code expected} and {@code actual} are equals ignoring differences in line separators.
      *
      * <p>If both are {@code null}, they are considered equal.
      *
@@ -621,7 +737,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
      * @param actual Actual result.
      * @see Object#equals(Object)
      */
-    private static void assertOutputEqual(String exp, String actual) {
+    private static void assertEqualsIgnoreLineSeparators(String exp, String actual) {
         assertEquals(
                 exp.lines().collect(toList()),
                 actual.lines().collect(toList())
@@ -629,10 +745,10 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
     }
 
     private void assertOutputEqual(String exp) {
-        assertOutputEqual(exp, out.toString(UTF_8));
+        assertEqualsIgnoreLineSeparators(exp, out.toString(UTF_8));
     }
 
     private void assertErrOutputEqual(String exp) {
-        assertOutputEqual(exp, err.toString(UTF_8));
+        assertEqualsIgnoreLineSeparators(exp, err.toString(UTF_8));
     }
 }

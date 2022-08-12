@@ -24,6 +24,7 @@ import org.apache.ignite.cli.call.connect.ConnectCall;
 import org.apache.ignite.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.cli.config.ConfigConstants;
 import org.apache.ignite.cli.config.ConfigManagerProvider;
+import org.apache.ignite.cli.config.StateConfigProvider;
 import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.cli.core.flow.builder.Flows;
@@ -41,7 +42,10 @@ public class ConnectToClusterQuestion {
     private ConnectCall connectCall;
 
     @Inject
-    private ConfigManagerProvider provider;
+    private ConfigManagerProvider configManagerProvider;
+
+    @Inject
+    private StateConfigProvider stateConfigProvider;
 
     @Inject
     private Session session;
@@ -54,13 +58,13 @@ public class ConnectToClusterQuestion {
      * @return {@link FlowBuilder} instance with question in case when cluster url.
      */
     public FlowBuilder<Void, String> askQuestionIfNotConnected(String clusterUrl) {
-        String clusterProperty = provider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
+        String defaultUrl = configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
         String question = "You are not connected to node. Do you want to connect to the default node "
-                + clusterProperty + " ? [Y/n] ";
+                + defaultUrl + " ? [Y/n] ";
 
         return Flows.from(clusterUrlOrSessionNode(clusterUrl))
                 .ifThen(Objects::isNull, Flows.<String, ConnectCallInput>acceptQuestion(question,
-                                () -> new ConnectCallInput(clusterProperty))
+                                () -> new ConnectCallInput(defaultUrl))
                         .then(Flows.fromCall(connectCall))
                         .toOutput(CommandLineContextProvider.getContext())
                         .build())
@@ -69,5 +73,38 @@ public class ConnectToClusterQuestion {
 
     private String clusterUrlOrSessionNode(String clusterUrl) {
         return clusterUrl != null ? clusterUrl : session.nodeUrl();
+    }
+
+    /**
+     * Ask for connect to the cluster and suggest to save the last connected URL as default.
+     */
+    public void askQuestionOnReplStart() {
+        String defaultUrl = configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
+        String lastConnectedUrl = stateConfigProvider.get().getProperty(ConfigConstants.LAST_CONNECTED_URL);
+        String question;
+        String clusterUrl;
+        if (lastConnectedUrl != null) {
+            question = "Do you want to connect to the last connected node " + lastConnectedUrl + " ? [Y/n]";
+            clusterUrl = lastConnectedUrl;
+        } else {
+            question = "Do you want to connect to the default node " + defaultUrl + " ? [Y/n]";
+            clusterUrl = defaultUrl;
+        }
+
+        Flows.acceptQuestion(question, () -> new ConnectCallInput(clusterUrl))
+                .then(Flows.fromCall(connectCall))
+                .toOutput(CommandLineContextProvider.getContext())
+                .ifThen(s -> !Objects.equals(lastConnectedUrl, defaultUrl) && session.isConnectedToNode(),
+                        defaultUrlQuestion(lastConnectedUrl).toOutput(CommandLineContextProvider.getContext()).build())
+                .build().start(Flowable.empty());
+    }
+
+    private FlowBuilder<String, String> defaultUrlQuestion(String lastConnectedUrl) {
+        return Flows.acceptQuestion("Would you like to use " + lastConnectedUrl + " as the default URL? [Y/n]",
+                () -> {
+                    configManagerProvider.get().setProperty(ConfigConstants.CLUSTER_URL, lastConnectedUrl);
+                    return "Config saved";
+                }
+        );
     }
 }

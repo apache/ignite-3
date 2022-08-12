@@ -578,7 +578,7 @@ public class VersionedValue<T> {
 
         try {
             for (Long token : history.keySet()) {
-                if (token != lastToken && causalityToken - token >= historySize) {
+                if (!token.equals(lastToken) && causalityToken - token >= historySize) {
                     history.remove(token);
                 }
             }
