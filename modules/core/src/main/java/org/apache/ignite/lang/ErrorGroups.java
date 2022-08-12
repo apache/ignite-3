@@ -137,5 +137,8 @@ public class ErrorGroups {
 
         /** The error happens when the replication level try to handle an unsupported request.  */
         public static int REPLICA_UNSUPPORTED_REQUEST_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(4);
+
+        /** The error happens when the replica is not ready to handle a request.  */
+        public static int REPLICA_UNAVAILABLE_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(5);
     }
 }

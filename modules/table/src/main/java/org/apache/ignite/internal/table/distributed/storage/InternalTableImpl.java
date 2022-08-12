@@ -58,7 +58,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TriFunction;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -197,16 +196,16 @@ public class InternalTableImpl implements InternalTable {
         if (clusterNode != null) {
             try {
                 fut = replicaSvc.invoke(clusterNode, op.apply(tx0, partGroupId));
-            } catch (NodeStoppingException e) {
-                throw new TransactionException(format("Failed to enlist a key into a transaction"));
+            } catch (Throwable e) {
+                throw new TransactionException(format("Failed to enlist rows into a transaction"));
             }
         } else {
             fut = enlist(partId, tx0).thenCompose(
                     primaryReplicaNode -> {
                         try {
                             return replicaSvc.invoke(primaryReplicaNode, op.apply(tx0, partGroupId));
-                        } catch (NodeStoppingException e) {
-                            throw new TransactionException(format("Failed to enlist a key into a transaction"));
+                        } catch (Throwable e) {
+                            throw new TransactionException(format("Failed to enlist rows into a transaction"));
                         }
                     });
         }
@@ -249,16 +248,16 @@ public class InternalTableImpl implements InternalTable {
             if (clusterNode != null) {
                 try {
                     fut = replicaSvc.invoke(clusterNode, op.apply(partToRows.getValue(), tx0, partGroupId));
-                } catch (NodeStoppingException e) {
-                    throw new TransactionException(format("Failed to enlist a key into a transaction"));
+                } catch (Throwable e) {
+                    throw new TransactionException(format("Failed to enlist rows into a transaction"));
                 }
             } else {
                 fut = enlist(partToRows.getIntKey(), tx0).thenCompose(primaryReplicaNode -> {
                     try {
                         return replicaSvc.invoke(primaryReplicaNode,
                                 op.apply(partToRows.getValue(), tx0, partGroupId));
-                    } catch (NodeStoppingException e) {
-                        throw new TransactionException(format("Failed to enlist a key into a transaction"));
+                    } catch (Throwable e) {
+                        throw new TransactionException(format("Failed to enlist rows into a transaction"));
                     }
                 });
             }
