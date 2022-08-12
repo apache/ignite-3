@@ -58,9 +58,9 @@ public class ItCommonApiTest extends AbstractBasicIntegrationTest {
         IgniteSql sql = igniteSql();
         Session ses1 = sql.sessionBuilder().build();
 
-        SqlQueryProcessor qProc = (SqlQueryProcessor) queryProcessor();
+        SqlQueryProcessor queryProc = (SqlQueryProcessor) queryProcessor();
 
-        SessionManager sessionManager = IgniteTestUtils.getFieldValue(qProc, "sessionManager");
+        SessionManager sessionManager = IgniteTestUtils.getFieldValue(queryProc, "sessionManager");
 
         Cache<Object, org.apache.ignite.internal.sql.engine.session.Session> activeSessions =
                 IgniteTestUtils.getFieldValue(sessionManager, "activeSessions");
