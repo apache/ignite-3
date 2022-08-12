@@ -66,7 +66,7 @@ class AwaitTasksCompletionExecutor implements Executor {
     }
 
     /**
-     * Await all async tasks from executor was finished.
+     * Await all async tasks from executor have finished.
      */
     void awaitPendingTasksFinished() {
         List<CompletableFuture<?>> futures = pendingTaskFutures;

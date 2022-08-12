@@ -39,12 +39,14 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     /**
      * Threshold to calculate limit for pages list on-heap caches.
      *
+     * <p>In general, this is a reservation of pages in PageMemory for converting page list caches from on-heap to off-heap.
+     *
      * <p>Note: When a checkpoint is triggered, we need some amount of page memory to store pages list on-heap cache.
      * If a checkpoint is triggered by "too many dirty pages" reason and pages list cache is rather big, we can get {@code
      * IgniteOutOfMemoryException}. To prevent this, we can limit the total amount of cached page list buckets, assuming that checkpoint
      * will be triggered if no more then 3/4 of pages will be marked as dirty (there will be at least 1/4 of clean pages) and each cached
      * page list bucket can be stored to up to 2 pages (this value is not static, but depends on PagesCache.MAX_SIZE, so if
-     * PagesCache.MAX_SIZE > PagesListNodeIo#getCapacity it can take more than 2 pages). Also some amount of page memory needed to store
+     * PagesCache.MAX_SIZE > PagesListNodeIo#getCapacity it can take more than 2 pages). Also some amount of page memory is needed to store
      * page list metadata.
      */
     private static final double PAGE_LIST_CACHE_LIMIT_THRESHOLD = 0.1;

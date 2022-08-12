@@ -46,6 +46,7 @@ import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -77,6 +78,8 @@ class CheckpointWorkflow {
      */
     static final int PARALLEL_SORT_THRESHOLD = 40_000;
 
+    private static final IgniteLogger LOG = Loggers.forClass(CheckpointWorkflow.class);
+
     /** Checkpoint marker storage. */
     private final CheckpointMarkersStorage checkpointMarkersStorage;
 
@@ -101,7 +104,6 @@ class CheckpointWorkflow {
     /**
      * Constructor.
      *
-     * @param log Logger.
      * @param igniteInstanceName Ignite instance name.
      * @param checkpointMarkersStorage Checkpoint marker storage.
      * @param checkpointReadWriteLock Checkpoint read write lock.
@@ -109,7 +111,6 @@ class CheckpointWorkflow {
      * @param checkpointThreads Number of checkpoint threads.
      */
     public CheckpointWorkflow(
-            IgniteLogger log,
             String igniteInstanceName,
             CheckpointMarkersStorage checkpointMarkersStorage,
             CheckpointReadWriteLock checkpointReadWriteLock,
@@ -140,7 +141,7 @@ class CheckpointWorkflow {
                     30_000,
                     MILLISECONDS,
                     new LinkedBlockingQueue<>(),
-                    new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", log)
+                    new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", LOG)
             );
         } else {
             callbackListenerThreadPool = null;
@@ -187,14 +188,20 @@ class CheckpointWorkflow {
     ) throws IgniteInternalCheckedException {
         List<CheckpointListener> listeners = collectCheckpointListeners(dataRegions);
 
-        checkpointReadWriteLock.readLock();
-
         AwaitTasksCompletionExecutor executor = callbackListenerThreadPool == null
                 ? null : new AwaitTasksCompletionExecutor(callbackListenerThreadPool, updateHeartbeat);
 
+        checkpointReadWriteLock.readLock();
+
         try {
+            updateHeartbeat.run();
+
             for (CheckpointListener listener : listeners) {
                 listener.beforeCheckpointBegin(curr, executor);
+
+                if (executor == null) {
+                    updateHeartbeat.run();
+                }
             }
 
             if (executor != null) {
@@ -211,12 +218,18 @@ class CheckpointWorkflow {
         DataRegionsDirtyPages dirtyPages;
 
         try {
+            updateHeartbeat.run();
+
             curr.transitTo(LOCK_TAKEN);
 
             tracker.onMarkCheckpointBeginStart();
 
             for (CheckpointListener listener : listeners) {
                 listener.onMarkCheckpointBegin(curr, executor);
+
+                if (executor == null) {
+                    updateHeartbeat.run();
+                }
             }
 
             if (executor != null) {
@@ -243,6 +256,8 @@ class CheckpointWorkflow {
 
         for (CheckpointListener listener : listeners) {
             listener.onCheckpointBegin(curr);
+
+            updateHeartbeat.run();
         }
 
         if (dirtyPages.dirtyPageCount > 0) {
@@ -251,6 +266,8 @@ class CheckpointWorkflow {
             curr.transitTo(MARKER_STORED_TO_DISK);
 
             tracker.onSplitAndSortCheckpointPagesStart();
+
+            updateHeartbeat.run();
 
             CheckpointDirtyPages checkpointPages = createAndSortCheckpointDirtyPages(dirtyPages);
 

@@ -27,7 +27,7 @@ public class CheckpointReadWriteLock {
     /**
      * Any thread with a such prefix is managed by the checkpoint.
      *
-     * <p>So some conditions can rely on it(ex. we don't need a checkpoint lock there because checkpoint is already held write lock).
+     * <p>So some conditions can rely on it(ex. we don't need a checkpoint lock there because the lock is already taken).
      */
     static final String CHECKPOINT_RUNNER_THREAD_PREFIX = "checkpoint-runner";
 

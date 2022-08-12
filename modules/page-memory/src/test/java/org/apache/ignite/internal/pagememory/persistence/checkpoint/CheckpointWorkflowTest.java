@@ -104,7 +104,6 @@ public class CheckpointWorkflowTest {
         DataRegion<PersistentPageMemory> dataRegion2 = () -> pageMemory2;
 
         workflow = new CheckpointWorkflow(
-                log,
                 "test",
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
@@ -189,7 +188,6 @@ public class CheckpointWorkflowTest {
         DataRegion<PersistentPageMemory> dataRegion = () -> pageMemory;
 
         workflow = new CheckpointWorkflow(
-                log,
                 "test",
                 markersStorage,
                 readWriteLock,
@@ -358,7 +356,6 @@ public class CheckpointWorkflowTest {
         DataRegion<PersistentPageMemory> dataRegion = () -> pageMemory;
 
         workflow = new CheckpointWorkflow(
-                log,
                 "test",
                 markersStorage,
                 readWriteLock,
@@ -446,7 +443,6 @@ public class CheckpointWorkflowTest {
         );
 
         workflow = new CheckpointWorkflow(
-                log,
                 "test",
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
@@ -499,7 +495,6 @@ public class CheckpointWorkflowTest {
         FullPageId[] dirtyPages1 = IntStream.range(0, count).mapToObj(i -> of(1, 1, i)).toArray(FullPageId[]::new);
 
         workflow = new CheckpointWorkflow(
-                log,
                 "test",
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
@@ -529,7 +524,6 @@ public class CheckpointWorkflowTest {
     @Test
     void testAwaitPendingTasksOfListenerCallback() {
         workflow = new CheckpointWorkflow(
-                log,
                 "test",
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
@@ -539,11 +533,11 @@ public class CheckpointWorkflowTest {
 
         workflow.start();
 
-        CompletableFuture<?> startTask0Future = new CompletableFuture<>();
-        CompletableFuture<?> finishTask0Future = new CompletableFuture<>();
+        CompletableFuture<?> startTaskBeforeCheckpointBeginFuture = new CompletableFuture<>();
+        CompletableFuture<?> finishTaskBeforeCheckpointBeginFuture = new CompletableFuture<>();
 
-        CompletableFuture<?> startTask1Future = new CompletableFuture<>();
-        CompletableFuture<?> finishTask1Future = new CompletableFuture<>();
+        CompletableFuture<?> startTaskOnMarkCheckpointBeginFuture = new CompletableFuture<>();
+        CompletableFuture<?> finishTaskOnMarkCheckpointBeginFuture = new CompletableFuture<>();
 
         workflow.addCheckpointListener(new CheckpointListener() {
             /** {@inheritDoc} */
@@ -552,9 +546,9 @@ public class CheckpointWorkflowTest {
                 assertNotNull(executor);
 
                 executor.execute(() -> {
-                    startTask0Future.complete(null);
+                    startTaskBeforeCheckpointBeginFuture.complete(null);
 
-                    await(finishTask0Future, 1, SECONDS);
+                    await(finishTaskBeforeCheckpointBeginFuture, 1, SECONDS);
                 });
             }
 
@@ -564,9 +558,9 @@ public class CheckpointWorkflowTest {
                 assertNotNull(executor);
 
                 executor.execute(() -> {
-                    startTask1Future.complete(null);
+                    startTaskOnMarkCheckpointBeginFuture.complete(null);
 
-                    await(finishTask1Future, 1, SECONDS);
+                    await(finishTaskOnMarkCheckpointBeginFuture, 1, SECONDS);
                 });
             }
         }, null);
@@ -581,20 +575,20 @@ public class CheckpointWorkflowTest {
                 () -> {}
         ));
 
-        await(startTask0Future, 1, SECONDS);
+        await(startTaskBeforeCheckpointBeginFuture, 1, SECONDS);
 
         assertFalse(markCheckpointBeginFuture.isDone());
-        assertFalse(startTask1Future.isDone());
+        assertFalse(startTaskOnMarkCheckpointBeginFuture.isDone());
         verify(updateHeartbeat, never()).run();
 
-        finishTask0Future.complete(null);
+        finishTaskBeforeCheckpointBeginFuture.complete(null);
 
-        await(startTask1Future, 1, SECONDS);
+        await(startTaskOnMarkCheckpointBeginFuture, 1, SECONDS);
 
         assertFalse(markCheckpointBeginFuture.isDone());
         verify(updateHeartbeat, times(1)).run();
 
-        finishTask1Future.complete(null);
+        finishTaskOnMarkCheckpointBeginFuture.complete(null);
 
         await(markCheckpointBeginFuture, 1, SECONDS);
 

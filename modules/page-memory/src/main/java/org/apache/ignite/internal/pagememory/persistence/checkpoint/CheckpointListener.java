@@ -31,7 +31,7 @@ public interface CheckpointListener {
      * <p>Holds checkpoint write lock.
      *
      * @param progress Progress of the current checkpoint.
-     * @param executor Executor for asynchronously executing the callback.
+     * @param executor Executor for asynchronously executing the callback, If {@code null}, then it should be executed in current thread.
      * @throws IgniteInternalCheckedException If failed.
      */
     default void onMarkCheckpointBegin(CheckpointProgress progress, @Nullable Executor executor) throws IgniteInternalCheckedException {
@@ -54,7 +54,7 @@ public interface CheckpointListener {
      * <p>Holds checkpoint read lock.
      *
      * @param progress Progress of the current checkpoint.
-     * @param executor Executor for asynchronously executing the callback.
+     * @param executor Executor for asynchronously executing the callback, If {@code null}, then it should be executed in current thread.
      * @throws IgniteInternalCheckedException If failed.
      */
     default void beforeCheckpointBegin(CheckpointProgress progress, @Nullable Executor executor) throws IgniteInternalCheckedException {
