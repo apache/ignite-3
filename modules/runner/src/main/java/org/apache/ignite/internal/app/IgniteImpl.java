@@ -261,16 +261,19 @@ public class IgniteImpl implements Ignite {
 
         clock = new HybridClock();
 
-        raftMgr = new Loza(clusterSvc, workDir, clock);
-
         replicaMgr = new ReplicaManager(clusterSvc);
 
-        txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
+        HeapLockManager lockMgr = new HeapLockManager();
+
+        raftMgr = new Loza(clusterSvc, replicaMgr, workDir, clock);
+
+        txManager = new TableTxManagerImpl(clusterSvc, lockMgr);
 
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
                 clusterSvc,
                 raftMgr,
+                replicaMgr,
                 new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH))
         );
 
@@ -279,6 +282,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 cmgMgr,
                 raftMgr,
+                replicaMgr,
                 new RocksDbKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH))
         );
 
@@ -335,6 +339,8 @@ public class IgniteImpl implements Ignite {
                 registry,
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 raftMgr,
+                replicaMgr,
+                lockMgr,
                 replicaSvc,
                 baselineMgr,
                 clusterSvc.topologyService(),

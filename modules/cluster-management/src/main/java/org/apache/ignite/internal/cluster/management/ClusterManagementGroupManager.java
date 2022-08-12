@@ -53,6 +53,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -113,6 +114,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private final Loza raftManager;
 
+    private final ReplicaManager replicaMgr;
+
     private final ClusterStateStorage clusterStateStorage;
 
     /** Local state. */
@@ -126,10 +129,12 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             VaultManager vault,
             ClusterService clusterService,
             Loza raftManager,
+            ReplicaManager replicaMgr,
             ClusterStateStorage clusterStateStorage
     ) {
         this.clusterService = clusterService;
         this.raftManager = raftManager;
+        this.replicaMgr = replicaMgr;
         this.clusterStateStorage = clusterStateStorage;
         this.localStateStorage = new LocalStateStorage(vault);
         this.clusterInitializer = new ClusterInitializer(clusterService);
@@ -405,6 +410,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                 raftManager.stopRaftGroup(CMG_RAFT_GROUP_NAME);
 
+                replicaMgr.stopReplica(CMG_RAFT_GROUP_NAME);
+
                 if (clusterStateStorage.isStarted()) {
                     clusterStateStorage.destroy();
                 }
@@ -618,6 +625,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         IgniteUtils.closeAll(
                 () -> raftManager.stopRaftGroup(CMG_RAFT_GROUP_NAME),
+                () -> replicaMgr.stopReplica(CMG_RAFT_GROUP_NAME),
                 clusterStateStorage
         );
 

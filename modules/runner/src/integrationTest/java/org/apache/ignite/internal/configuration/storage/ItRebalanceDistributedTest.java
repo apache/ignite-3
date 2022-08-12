@@ -412,7 +412,7 @@ public class ItRebalanceDistributedTest {
 
             lockManager = new HeapLockManager();
 
-            raftManager = new Loza(clusterService, dir, new HybridClock());
+            raftManager = new Loza(clusterService, null, dir, new HybridClock());
 
             txManager = new TableTxManagerImpl(clusterService, lockManager);
 
@@ -423,6 +423,7 @@ public class ItRebalanceDistributedTest {
                     vaultManager,
                     clusterService,
                     raftManager,
+                    null,
                     new ConcurrentMapClusterStateStorage()
             );
 
@@ -431,6 +432,7 @@ public class ItRebalanceDistributedTest {
                     clusterService,
                     cmgManager,
                     raftManager,
+                    null,
                     new SimpleInMemoryKeyValueStorage()
             );
 
@@ -487,6 +489,8 @@ public class ItRebalanceDistributedTest {
                     registry,
                     tablesCfg,
                     raftManager,
+                    null,
+                    null,
                     replicaSvc,
                     baselineMgr,
                     clusterService.topologyService(),

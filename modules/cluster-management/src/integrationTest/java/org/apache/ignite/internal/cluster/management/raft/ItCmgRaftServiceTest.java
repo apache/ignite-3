@@ -78,7 +78,7 @@ public class ItCmgRaftServiceTest {
 
         Node(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder, Path workDir) {
             this.clusterService = clusterService(testInfo, addr.port(), nodeFinder);
-            this.raftManager = new Loza(clusterService, workDir, new HybridClock());
+            this.raftManager = new Loza(clusterService, null, workDir, new HybridClock());
         }
 
         void start() {

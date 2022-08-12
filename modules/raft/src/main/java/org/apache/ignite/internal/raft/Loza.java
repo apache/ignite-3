@@ -36,7 +36,9 @@ import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -81,6 +83,8 @@ public class Loza implements IgniteComponent {
     /** Cluster network service. */
     private final ClusterService clusterNetSvc;
 
+    private final ReplicaManager replicaMgr;
+
     /** Raft server. */
     private final RaftServer raftServer;
 
@@ -100,8 +104,10 @@ public class Loza implements IgniteComponent {
      * @param dataPath      Data path.
      * @param clock         A hybrid logical clock.
      */
-    public Loza(ClusterService clusterNetSvc, Path dataPath, HybridClock clock) {
+    public Loza(ClusterService clusterNetSvc, ReplicaManager replicaMgr, Path dataPath, HybridClock clock) {
         this.clusterNetSvc = clusterNetSvc;
+
+        this.replicaMgr = replicaMgr;
 
         NodeOptions options = new NodeOptions();
 
@@ -122,10 +128,12 @@ public class Loza implements IgniteComponent {
      * @param srv Pre-started raft server.
      */
     @TestOnly
-    public Loza(JraftServerImpl srv) {
+    public Loza(JraftServerImpl srv, ReplicaManager replicaMgr) {
         this.clusterNetSvc = srv.clusterService();
 
         this.raftServer = srv;
+
+        this.replicaMgr = replicaMgr;
 
         this.executor = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterNetSvc.localConfiguration().getName(),

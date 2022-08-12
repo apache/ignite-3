@@ -49,6 +49,7 @@ import org.apache.ignite.internal.metastorage.watch.KeyCriterion;
 import org.apache.ignite.internal.metastorage.watch.WatchAggregator;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -92,6 +93,8 @@ public class MetaStorageManager implements IgniteComponent {
 
     /** Raft manager that is used for metastorage raft group handling. */
     private final Loza raftMgr;
+
+    private final ReplicaManager replicaMgr;
 
     private final ClusterManagementGroupManager cmgMgr;
 
@@ -149,11 +152,13 @@ public class MetaStorageManager implements IgniteComponent {
             ClusterService clusterService,
             ClusterManagementGroupManager cmgMgr,
             Loza raftMgr,
+            ReplicaManager replicaMgr,
             KeyValueStorage storage
     ) {
         this.vaultMgr = vaultMgr;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
+        this.replicaMgr = replicaMgr;
         this.cmgMgr = cmgMgr;
         this.storage = storage;
     }
@@ -226,6 +231,7 @@ public class MetaStorageManager implements IgniteComponent {
             IgniteUtils.closeAll(
                     this::stopDeployedWatches,
                     () -> raftMgr.stopRaftGroup(METASTORAGE_RAFT_GROUP_NAME),
+                    () -> replicaMgr.stopReplica(METASTORAGE_RAFT_GROUP_NAME),
                     storage
             );
         }

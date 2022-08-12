@@ -117,7 +117,7 @@ public class ItLozaTest {
 
             CompletableFuture<NetworkMessage> exception = CompletableFuture.failedFuture(new IOException());
 
-            loza = new Loza(service, dataPath, new HybridClock());
+            loza = new Loza(service, null, dataPath, new HybridClock());
 
             loza.start();
 
