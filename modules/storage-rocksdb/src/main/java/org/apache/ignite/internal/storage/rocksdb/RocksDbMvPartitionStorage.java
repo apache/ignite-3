@@ -802,10 +802,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * Prepares thread-local on-heap byte buffer. Writes row id in it. Partition id is already there. Timestamp is not cleared.
      */
     private ByteBuffer prepareHeapKeyBuf(RowId rowId) {
-        assert rowId instanceof RowId : rowId;
+        ByteBuffer keyBuf = HEAP_KEY_BUFFER.get().position(0);
 
-        ByteBuffer keyBuf = HEAP_KEY_BUFFER.get().position(ROW_ID_OFFSET);
-
+        keyBuf.putShort((short) rowId.partitionId());
         keyBuf.putLong(rowId.mostSignificantBits());
         keyBuf.putLong(rowId.leastSignificantBits());
 
