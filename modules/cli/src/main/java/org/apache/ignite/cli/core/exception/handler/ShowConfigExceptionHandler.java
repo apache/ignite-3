@@ -23,25 +23,27 @@ import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
 import org.apache.ignite.cli.core.style.element.UiElements;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
-/** This exception handler is used only for `cluster config show` command
- * and handles a tricky case with the 500 error on not initialized cluster.*/
+/**
+ * This exception handler is used only for `cluster config show` command and handles a tricky case with the 500 error on not initialized
+ * cluster.
+ */
 public class ShowConfigExceptionHandler extends IgniteCliApiExceptionHandler {
-        @Override
-        public int handle(ExceptionWriter err, IgniteCliApiException e) {
-            if (e.getCause() instanceof ApiException) {
-                ApiException apiException = (ApiException) e.getCause();
-                if (apiException.getCode() == 500) { //TODO: should be 404
-                    err.write(
-                            ErrorUiComponent.builder()
-                                    .header("Cannot show cluster config")
-                                    .details("Probably you have not initialized the cluster, try to run %s command",
-                                            UiElements.command("cluster init"))
-                                    .build()
-                                    .render()
-                    );
-                    return 1;
-                }
+    @Override
+    public int handle(ExceptionWriter err, IgniteCliApiException e) {
+        if (e.getCause() instanceof ApiException) {
+            ApiException apiException = (ApiException) e.getCause();
+            if (apiException.getCode() == 500) { //TODO: https://issues.apache.org/jira/browse/IGNITE-17510
+                err.write(
+                        ErrorUiComponent.builder()
+                                .header("Cannot show cluster config")
+                                .details("Probably, you have not initialized the cluster, try to run %s command",
+                                        UiElements.command("cluster init"))
+                                .build()
+                                .render()
+                );
+                return 1;
             }
-            return super.handle(err, e);
         }
+        return super.handle(err, e);
     }
+}
