@@ -250,33 +250,11 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
         CompletableFuture<SchemaDescriptor> fut = new CompletableFuture<>();
 
-        var clo = new EventListener<SchemaEventParameters>() {
-            @Override
-            public CompletableFuture<Boolean> notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable exception) {
-                if (tblId.equals(parameters.tableId()) && schemaVer <= parameters.schemaDescriptor().version()) {
-                    fut.complete(getSchemaDescriptorLocally(schemaVer, tblCfg));
-
-                    return completedFuture(true);
-                }
-
-                return completedFuture(false);
+        registriesVv.whenComplete((token, regs, e) -> {
+            if (schemaVer <= regs.get(tblId).lastSchemaVersion()) {
+                fut.complete(getSchemaDescriptorLocally(schemaVer, tblCfg));
             }
-
-            @Override
-            public void remove(@NotNull Throwable exception) {
-                fut.completeExceptionally(exception);
-            }
-        };
-
-        listen(SchemaEvent.CREATE, clo);
-
-        if (schemaVer <= registry.lastSchemaVersion()) {
-            fut.complete(getSchemaDescriptorLocally(schemaVer, tblCfg));
-        }
-
-        if (!isSchemaExists(tblId, schemaVer) && fut.complete(null)) {
-            removeListener(SchemaEvent.CREATE, clo);
-        }
+        });
 
         return fut.join();
     }

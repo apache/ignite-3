@@ -1294,35 +1294,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
 
-        EventListener<TableEventParameters> clo = new EventListener<>() {
-            @Override
-            public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                if (!id.equals(parameters.tableId())) {
-                    return completedFuture(false);
-                }
-
-                if (e == null) {
-                    tablesByIdVv.get(parameters.causalityToken()).thenRun(() -> getTblFut.complete(parameters.table()));
-                } else {
-                    getTblFut.completeExceptionally(e);
-                }
-
-                return completedFuture(true);
+        tablesByIdVv.whenComplete((token, tables, th) -> {
+            if (th == null) {
+                tablesByIdVv.get(token).thenRun(() -> getTblFut.complete(tablesByIdVv.latest().get(id)));
+            } else {
+                getTblFut.completeExceptionally(th);
             }
-
-            @Override
-            public void remove(@NotNull Throwable e) {
-                getTblFut.completeExceptionally(e);
-            }
-        };
-
-        listen(TableEvent.CREATE, clo);
-
-        tbl = tablesByIdVv.latest().get(id);
-
-        if (tbl != null && getTblFut.complete(tbl) || !isTableConfigured(id) && getTblFut.complete(null)) {
-            removeListener(TableEvent.CREATE, clo, null);
-        }
+        });
 
         return getTblFut;
     }
