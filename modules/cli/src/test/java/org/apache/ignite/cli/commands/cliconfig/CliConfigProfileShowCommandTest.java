@@ -30,7 +30,7 @@ class CliConfigProfileShowCommandTest extends CliConfigCommandTestBase {
     }
 
     @Test
-    public void testWithInternalSection() {
+    public void testWithDefaultProfile() {
         execute();
 
         assertAll(
@@ -40,8 +40,8 @@ class CliConfigProfileShowCommandTest extends CliConfigCommandTestBase {
     }
 
     @Test
-    public void testWithoutInternalSection() {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithoutInternalPart());
+    public void testWithoutDefaultProfile() {
+        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithoutDefaultProfile());
         execute();
 
         assertAll(

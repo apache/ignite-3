@@ -63,7 +63,7 @@ public class ClusterConfigShowCommand extends BaseCommand implements Callable<In
 
     private ClusterConfigShowCallInput buildCallInput() {
         return ClusterConfigShowCallInput.builder()
-                .clusterUrl(clusterUrl.get())
+                .clusterUrl(clusterUrl.getClusterUrl())
                 .selector(selector)
                 .build();
     }

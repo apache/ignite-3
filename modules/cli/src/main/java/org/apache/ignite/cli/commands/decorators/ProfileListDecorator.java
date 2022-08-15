@@ -15,29 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.call.cliconfig.profile;
+package org.apache.ignite.cli.commands.decorators;
 
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
-import java.util.Collection;
-import org.apache.ignite.cli.config.ConfigManagerProvider;
-import org.apache.ignite.cli.core.call.Call;
-import org.apache.ignite.cli.core.call.CallOutput;
-import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.call.EmptyCallInput;
+import java.util.stream.Collectors;
+import org.apache.ignite.cli.call.cliconfig.profile.ProfileList;
+import org.apache.ignite.cli.core.decorator.Decorator;
+import org.apache.ignite.cli.core.decorator.TerminalOutput;
 
 /**
- * List profiles call.
+ * Decorator for printing {@link ProfileList}.
  */
-@Singleton
-public class CliConfigProfileListCall implements Call<EmptyCallInput, ProfileList> {
-
-    @Inject
-    private ConfigManagerProvider provider;
-
+public class ProfileListDecorator implements Decorator<ProfileList, TerminalOutput> {
     @Override
-    public CallOutput<ProfileList> execute(EmptyCallInput input) {
-        Collection<String> profileNames = provider.get().getProfileNames();
-        return DefaultCallOutput.success(new ProfileList(profileNames));
+    public TerminalOutput decorate(ProfileList data) {
+        return () -> data.getProfileNames().stream().collect(Collectors.joining(System.lineSeparator()));
     }
 }

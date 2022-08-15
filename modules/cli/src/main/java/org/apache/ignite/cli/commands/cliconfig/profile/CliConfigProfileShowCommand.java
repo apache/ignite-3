@@ -17,18 +17,19 @@
 
 package org.apache.ignite.cli.commands.cliconfig.profile;
 
+import static picocli.CommandLine.Command;
+
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cliconfig.profile.CliConfigProfileShowCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.EmptyCallInput;
-import picocli.CommandLine;
 
 /**
  * Show current profile command.
  */
-@CommandLine.Command(name = "show", description = "Shows current default profile")
+@Command(name = "show", description = "Shows current profile")
 public class CliConfigProfileShowCommand extends BaseCommand implements Callable<Integer> {
 
     @Inject

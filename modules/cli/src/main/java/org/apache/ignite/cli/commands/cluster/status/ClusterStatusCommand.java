@@ -48,7 +48,7 @@ public class ClusterStatusCommand extends BaseCommand implements Callable<Intege
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(clusterStatusCall)
-                .inputProvider(() -> new StatusCallInput(clusterUrl.get()))
+                .inputProvider(() -> new StatusCallInput(clusterUrl.getClusterUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new ClusterStatusDecorator())

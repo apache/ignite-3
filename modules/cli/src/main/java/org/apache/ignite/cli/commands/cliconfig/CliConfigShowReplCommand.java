@@ -37,7 +37,7 @@ public class CliConfigShowReplCommand extends BaseCommand implements Callable<In
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new StringCallInput(null))
+                .inputProvider(StringCallInput::new)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new ProfileDecorator())

@@ -46,7 +46,7 @@ public class PhysicalTopologyCommand extends BaseCommand implements Callable<Int
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> TopologyCallInput.builder().clusterUrl(clusterUrl.get()).build())
+                .inputProvider(() -> TopologyCallInput.builder().clusterUrl(clusterUrl.getClusterUrl()).build())
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new TopologyDecorator())

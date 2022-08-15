@@ -53,7 +53,7 @@ public class NodeUrlOptions {
      *
      * @return node URL
      */
-    public String get() {
+    public String getNodeUrl() {
         if (nodeUrl != null) {
             return nodeUrl;
         } else {

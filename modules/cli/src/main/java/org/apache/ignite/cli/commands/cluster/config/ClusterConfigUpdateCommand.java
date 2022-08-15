@@ -61,7 +61,7 @@ public class ClusterConfigUpdateCommand extends BaseCommand implements Callable<
 
     private ClusterConfigUpdateCallInput buildCallInput() {
         return ClusterConfigUpdateCallInput.builder()
-                .clusterUrl(clusterUrl.get())
+                .clusterUrl(clusterUrl.getClusterUrl())
                 .config(config)
                 .build();
     }

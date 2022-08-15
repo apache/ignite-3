@@ -64,7 +64,7 @@ public class NodeConfigShowCommand extends BaseCommand implements Callable<Integ
 
     private NodeConfigShowCallInput buildCallInput() {
         return NodeConfigShowCallInput.builder()
-                .nodeUrl(nodeUrl.get())
+                .nodeUrl(nodeUrl.getNodeUrl())
                 .selector(selector)
                 .build();
     }

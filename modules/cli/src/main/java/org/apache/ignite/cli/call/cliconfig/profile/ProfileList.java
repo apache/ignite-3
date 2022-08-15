@@ -17,27 +17,30 @@
 
 package org.apache.ignite.cli.call.cliconfig.profile;
 
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
+
 import java.util.Collection;
-import org.apache.ignite.cli.config.ConfigManagerProvider;
-import org.apache.ignite.cli.core.call.Call;
-import org.apache.ignite.cli.core.call.CallOutput;
-import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.call.EmptyCallInput;
 
 /**
- * List profiles call.
+ * Holds the list of profile names for decorating the output of the profile list command.
  */
-@Singleton
-public class CliConfigProfileListCall implements Call<EmptyCallInput, ProfileList> {
+public class ProfileList {
+    private final Collection<String> profileNames;
 
-    @Inject
-    private ConfigManagerProvider provider;
+    /**
+     * Creates an instance with provided profile list.
+     *
+     * @param profileNames profile list
+     */
+    public ProfileList(Collection<String> profileNames) {
+        this.profileNames = profileNames;
+    }
 
-    @Override
-    public CallOutput<ProfileList> execute(EmptyCallInput input) {
-        Collection<String> profileNames = provider.get().getProfileNames();
-        return DefaultCallOutput.success(new ProfileList(profileNames));
+    /**
+     * Gets profile list.
+     *
+     * @return profile list
+     */
+    public Collection<String> getProfileNames() {
+        return profileNames;
     }
 }

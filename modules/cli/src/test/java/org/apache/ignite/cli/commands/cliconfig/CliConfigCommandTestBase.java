@@ -31,6 +31,6 @@ public abstract class CliConfigCommandTestBase extends CliCommandTestBase {
 
     @BeforeEach
     void configManagerRefresh() {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithInternalPart());
+        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithDefaultProfile());
     }
 }

@@ -53,7 +53,7 @@ public class ClusterUrlOptions {
      *
      * @return cluster URL
      */
-    public String get() {
+    public String getClusterUrl() {
         if (clusterUrl != null) {
             return clusterUrl;
         } else {

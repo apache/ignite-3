@@ -68,12 +68,12 @@ public class ProfileMixinTest {
     /**
      * Cluster URL from test profile in integration_tests.ini.
      */
-    private static final String PROFILE_URL = "http://localhost:10301";
+    private static final String URL_FROM_PROFILE = "http://localhost:10301";
 
     /**
      * Cluster URL override from command line.
      */
-    private static final String TEST_URL = "http://localhost:10302";
+    private static final String URL_FROM_CMD = "http://localhost:10302";
 
     @Inject
     private ApplicationContext ctx;
@@ -103,7 +103,7 @@ public class ProfileMixinTest {
         T call = registerMockCall(callClass);
         execute(command + " --profile test");
         IT callInput = verifyCallInput(call, callInputClass);
-        assertEquals(PROFILE_URL, urlSupplier.apply(callInput));
+        assertEquals(URL_FROM_PROFILE, urlSupplier.apply(callInput));
     }
 
     @ParameterizedTest
@@ -115,9 +115,9 @@ public class ProfileMixinTest {
             Class<IT> callInputClass,
             Function<IT, String> urlSupplier) {
         T call = registerMockCall(callClass);
-        execute(command + " --node-url " + TEST_URL);
+        execute(command + " --node-url " + URL_FROM_CMD);
         IT callInput = verifyCallInput(call, callInputClass);
-        assertEquals(TEST_URL, urlSupplier.apply(callInput));
+        assertEquals(URL_FROM_CMD, urlSupplier.apply(callInput));
     }
 
     @ParameterizedTest
@@ -129,9 +129,9 @@ public class ProfileMixinTest {
             Class<IT> callInputClass,
             Function<IT, String> urlSupplier) {
         T call = registerMockCall(callClass);
-        execute(command + " --cluster-endpoint-url " + TEST_URL);
+        execute(command + " --cluster-endpoint-url " + URL_FROM_CMD);
         IT callInput = verifyCallInput(call, callInputClass);
-        assertEquals(TEST_URL, urlSupplier.apply(callInput));
+        assertEquals(URL_FROM_CMD, urlSupplier.apply(callInput));
     }
 
     @ParameterizedTest
@@ -143,9 +143,9 @@ public class ProfileMixinTest {
             Class<IT> callInputClass,
             Function<IT, String> urlSupplier) {
         T call = registerMockCall(callClass);
-        execute(command + " --profile test --node-url " + TEST_URL);
+        execute(command + " --profile test --node-url " + URL_FROM_CMD);
         IT callInput = verifyCallInput(call, callInputClass);
-        assertEquals(TEST_URL, urlSupplier.apply(callInput));
+        assertEquals(URL_FROM_CMD, urlSupplier.apply(callInput));
     }
 
     @ParameterizedTest
@@ -157,9 +157,9 @@ public class ProfileMixinTest {
             Class<IT> callInputClass,
             Function<IT, String> urlSupplier) {
         T call = registerMockCall(callClass);
-        execute(command + " --profile test --cluster-endpoint-url " + TEST_URL);
+        execute(command + " --profile test --cluster-endpoint-url " + URL_FROM_CMD);
         IT callInput = verifyCallInput(call, callInputClass);
-        assertEquals(TEST_URL, urlSupplier.apply(callInput));
+        assertEquals(URL_FROM_CMD, urlSupplier.apply(callInput));
     }
 
     static Stream<Arguments> nodeCallsProvider() {

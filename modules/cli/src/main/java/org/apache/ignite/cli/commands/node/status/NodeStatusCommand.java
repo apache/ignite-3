@@ -47,7 +47,7 @@ public class NodeStatusCommand extends BaseCommand implements Callable<Integer> 
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(nodeStatusCall)
-                .inputProvider(() -> new StatusCallInput(nodeUrl.get()))
+                .inputProvider(() -> new StatusCallInput(nodeUrl.getNodeUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new NodeStatusDecorator())

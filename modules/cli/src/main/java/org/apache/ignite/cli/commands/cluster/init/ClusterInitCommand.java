@@ -82,7 +82,7 @@ public class ClusterInitCommand extends BaseCommand implements Callable<Integer>
 
     private ClusterInitCallInput buildCallInput() {
         return ClusterInitCallInput.builder()
-                .clusterUrl(clusterUrl.get())
+                .clusterUrl(clusterUrl.getClusterUrl())
                 .metaStorageNodes(metaStorageNodes)
                 .cmgNodes(cmgNodes)
                 .clusterName(clusterName)

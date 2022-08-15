@@ -80,7 +80,7 @@ public class UrlOptionsNegativeTest {
     TestConfigManagerProvider configManagerProvider;
 
     private void setUp(Class<?> cmdClass) {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithInternalPart());
+        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createSectionWithDefaultProfile());
         MicronautFactory factory = new MicronautFactory(context);
         cmd = new CommandLine(cmdClass, factory);
         CommandLineContextProvider.setCmd(cmd);

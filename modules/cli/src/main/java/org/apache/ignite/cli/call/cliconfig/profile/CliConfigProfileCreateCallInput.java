@@ -29,17 +29,14 @@ public class CliConfigProfileCreateCallInput implements CallInput {
 
     private final boolean activate;
 
-    /**
-     * Creates new instance.
-     *
-     * @param name profile name
-     * @param copyFrom profile name to copy from
-     * @param activate if {@code true}, activate the profile
-     */
-    public CliConfigProfileCreateCallInput(String name, String copyFrom, boolean activate) {
+    private CliConfigProfileCreateCallInput(String name, String copyFrom, boolean activate) {
         this.name = name;
         this.copyFrom = copyFrom;
         this.activate = activate;
+    }
+
+    public static CliConfigProfileCreateCallInputBuilder builder() {
+        return new CliConfigProfileCreateCallInputBuilder();
     }
 
     public String getName() {
@@ -53,4 +50,35 @@ public class CliConfigProfileCreateCallInput implements CallInput {
     public boolean isActivate() {
         return activate;
     }
+
+    /**
+     * Builder of {@link CliConfigProfileCreateCallInput}.
+     */
+    public static class CliConfigProfileCreateCallInputBuilder {
+        private String name;
+
+        private String copyFrom;
+
+        private boolean activate;
+
+        public CliConfigProfileCreateCallInputBuilder profileName(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public CliConfigProfileCreateCallInputBuilder copyFrom(String copyFrom) {
+            this.copyFrom = copyFrom;
+            return this;
+        }
+
+        public CliConfigProfileCreateCallInputBuilder activate(boolean activate) {
+            this.activate = activate;
+            return this;
+        }
+
+        public CliConfigProfileCreateCallInput build() {
+            return new CliConfigProfileCreateCallInput(name, copyFrom, activate);
+        }
+    }
+
 }

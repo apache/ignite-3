@@ -38,7 +38,7 @@ import org.apache.ignite.internal.logger.Loggers;
 public class IniConfigManager implements ConfigManager {
     private static final IgniteLogger log = Loggers.forClass(IniConfigManager.class);
 
-    private static final String INTERNAL_SECTION_NAME = "ignitecli_internal";
+    private static final String DEFAULT_PROFILE_NAME = "default";
 
     private final IniFile configFile;
 
@@ -53,23 +53,25 @@ public class IniConfigManager implements ConfigManager {
         IniFile configFile;
         try {
             configFile = new IniFile(file);
-            findCurrentProfile(configFile);
+            findCurrentProfileName(configFile);
         } catch (IOException | NoSuchElementException e) {
             log.warn("User config is corrupted or doesn't exist.", e);
             configFile = createDefaultConfig(file);
         }
         this.configFile = configFile;
-        this.currentProfileName = findCurrentProfile(configFile).getProperty(CURRENT_PROFILE);
+        this.currentProfileName = findCurrentProfileName(configFile);
     }
 
-    private static IniSection findCurrentProfile(IniFile configFile) {
-        IniSection internalSection = configFile.getSection(INTERNAL_SECTION_NAME);
-        if (internalSection == null) {
-            IniSection section = configFile.getSections().stream().findFirst().orElseThrow();
-            internalSection = configFile.createSection(INTERNAL_SECTION_NAME);
-            internalSection.setProperty(CURRENT_PROFILE, section.getName());
+    private static String findCurrentProfileName(IniFile configFile) {
+        IniSection topLevelSection = configFile.getTopLevelSection();
+        // Throw an exception in case there are no sections so that the config is recreated with default parameters
+        IniSection section = configFile.getSections().stream().findFirst().orElseThrow();
+        String currentProfile = topLevelSection.getProperty(CURRENT_PROFILE);
+        if (currentProfile == null) {
+            topLevelSection.setProperty(CURRENT_PROFILE, section.getName());
+            currentProfile = section.getName();
         }
-        return internalSection;
+        return currentProfile;
     }
 
     @Override
@@ -98,7 +100,7 @@ public class IniConfigManager implements ConfigManager {
             throw new ProfileNotFoundException(profileName);
         }
         currentProfileName = profileName;
-        configFile.getSection(INTERNAL_SECTION_NAME).setProperty(CURRENT_PROFILE, profileName);
+        configFile.getTopLevelSection().setProperty(CURRENT_PROFILE, profileName);
         configFile.store();
     }
 
@@ -113,9 +115,8 @@ public class IniConfigManager implements ConfigManager {
             file.delete();
             file.createNewFile();
             IniFile ini = new IniFile(file);
-            IniSection internal = ini.createSection(INTERNAL_SECTION_NAME);
-            internal.setProperty("current_profile", "default");
-            IniSection defaultSection = ini.createSection("default");
+            ini.getTopLevelSection().setProperty("current_profile", DEFAULT_PROFILE_NAME);
+            IniSection defaultSection = ini.createSection(DEFAULT_PROFILE_NAME);
             defaultSection.setProperty(CLUSTER_URL, "http://localhost:10300");
             defaultSection.setProperty(JDBC_URL, "jdbc:ignite:thin://127.0.0.1:10800");
             ini.store();
