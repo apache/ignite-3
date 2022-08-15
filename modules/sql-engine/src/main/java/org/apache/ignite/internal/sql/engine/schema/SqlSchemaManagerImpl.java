@@ -366,7 +366,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private CompletableFuture<IgniteIndex> convert(long causalityToken, Index<?> index) {
         return tablesVv.get(causalityToken)
                 .thenApply(tables -> tables.get(index.tableId()))
-                .thenApply(igniteTable -> convert(index, igniteTable));
+                .thenApply(igniteTable -> inBusyLock(busyLock, () -> convert(index, igniteTable)));
     }
 
     private IgniteIndex convert(Index<?> index, IgniteTable table) {
@@ -456,7 +456,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                                             return null;
                                         })
                                 )
-                                .thenCompose(v -> completedFuture(res));
+                                .thenCompose(v -> inBusyLock(busyLock, () -> completedFuture(res)));
                     }));
 
             return calciteSchemaVv.get(causalityToken);
@@ -498,7 +498,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                                 return completedFuture(resIdxs);
                             }
-                    )).thenCompose(tables -> completedFuture(res));
+                    )).thenCompose(v -> inBusyLock(busyLock, () -> completedFuture(res)));
                 }
 
                 return completedFuture(res);
