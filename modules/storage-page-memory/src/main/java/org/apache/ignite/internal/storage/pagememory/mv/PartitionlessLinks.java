@@ -52,6 +52,13 @@ public class PartitionlessLinks {
         int tag = 0xFFFF & getShort(pageAddr, offset);
         int pageIdx = getInt(pageAddr, offset + Short.BYTES);
 
+        // Links to metapages are impossible. For the sake of simplicity, NULL_LINK is returned in this case.
+        if (pageIdx == 0) {
+            assert tag == 0 : tag;
+
+            return RowVersion.NULL_LINK;
+        }
+
         long pageId = pageId(partitionId, (byte) tag, pageIdx);
 
         return link(pageId, tag >>> 8);

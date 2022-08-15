@@ -81,7 +81,7 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
     private long advanceToNextVersion(long pageAddr, DataPagePayload payload) {
         long nextLink = readPartitionlessLink(partitionId, pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
 
-        if (RowVersion.isNullLink(nextLink)) {
+        if (nextLink == RowVersion.NULL_LINK) {
             return STOP_TRAVERSAL;
         }
 

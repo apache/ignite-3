@@ -82,7 +82,7 @@ public class VersionChain extends VersionChainKey {
     }
 
     public boolean hasCommittedVersions() {
-        return !RowVersion.isNullLink(newestCommittedLink());
+        return newestCommittedLink() != RowVersion.NULL_LINK;
     }
 
     @Override

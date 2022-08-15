@@ -26,7 +26,7 @@ import org.apache.ignite.internal.tx.Timestamp;
  * @see MvPartitionStorage
  */
 public final class RowId {
-    /** Partition id. */
+    /** Partition id. Short type reduces payload when transfering an object over network. */
     private final short partitionId;
 
     /** Unique id. */
@@ -53,7 +53,7 @@ public final class RowId {
     }
 
     private RowId(int partitionId, UUID uuid) {
-        this.partitionId = (short) (partitionId & 0xFFFF);
+        this.partitionId = (short) partitionId;
         this.uuid = uuid;
     }
 
