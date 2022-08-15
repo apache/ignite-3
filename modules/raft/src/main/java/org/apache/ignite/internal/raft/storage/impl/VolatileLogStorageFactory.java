@@ -52,6 +52,7 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
         Map<String, LogStorageBudgetFactory> factories = new HashMap<>();
 
         ClassLoader serviceClassLoader = Thread.currentThread().getContextClassLoader();
+        
         for (LogStorageBudgetsModule module : ServiceLoader.load(LogStorageBudgetsModule.class, serviceClassLoader)) {
             Map<String, LogStorageBudgetFactory> factoriesFromModule = module.budgetFactories();
 

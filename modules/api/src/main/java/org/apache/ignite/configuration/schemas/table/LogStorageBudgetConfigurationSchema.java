@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
  */
 @PolymorphicConfig
 public class LogStorageBudgetConfigurationSchema {
-    /** Name of data storage. */
+    /** Name of budget. */
     @PolymorphicId(hasDefault = true)
     public String name = UnlimitedBudgetConfigurationSchema.NAME;
 }

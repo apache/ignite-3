@@ -21,7 +21,7 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 
 /**
- * Configuration for Raft group corresponding to tables.
+ * Configuration for Raft group corresponding to volatile tables.
  */
 @Config
 public class VolatileRaftConfigurationSchema {

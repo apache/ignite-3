@@ -28,7 +28,7 @@ public class EntryCountBudgetConfigurationSchema extends LogStorageBudgetConfigu
     /** The budget name. */
     public static final String NAME = "entry-count";
 
-    /** Returns maximum number of entries allowed by the budget. */
+    /** Maximum number of entries allowed by the budget. */
     @Value
     public long entriesCountLimit;
 }
