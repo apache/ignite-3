@@ -17,30 +17,50 @@
 
 package org.apache.ignite.cli.config.ini;
 
+import java.util.Map;
 import org.apache.ignite.cli.config.Config;
-import org.apache.ignite.cli.config.Profile;
 
 /**
- * Implementation of {@link Profile} based on {@link IniSection}.
+ * Implementation of {@link Config} based on {@link IniSection}.
  */
-public class IniProfile implements Profile {
+public class IniConfig implements Config {
     private final IniSection section;
-    private final IniConfig config;
+    private final Runnable saveAction;
 
-    public IniProfile(IniSection section, Runnable saveAction) {
+    public IniConfig(IniSection section, Runnable saveAction) {
         this.section = section;
-        this.config = new IniConfig(section, saveAction);
+        this.saveAction = saveAction;
     }
 
     /** {@inheritDoc} */
     @Override
-    public String getName() {
-        return section.getName();
+    public Map<String, String> getAll() {
+        return section.getAll();
     }
 
     /** {@inheritDoc} */
     @Override
-    public Config getConfig() {
-        return config;
+    public String getProperty(String key) {
+        return section.getProperty(key);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getProperty(String key, String defaultValue) {
+        return section.getProperty(key, defaultValue);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setProperty(String key, String value) {
+        section.setProperty(key, value);
+        saveAction.run();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setProperties(Map<String, String> values) {
+        section.setProperties(values);
+        saveAction.run();
     }
 }

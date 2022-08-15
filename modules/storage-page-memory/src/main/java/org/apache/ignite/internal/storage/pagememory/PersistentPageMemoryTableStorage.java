@@ -357,7 +357,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     PageLockListenerNoOp.INSTANCE,
                     rootPageId,
                     initNew,
-                    null,
+                    dataRegion.pageListCacheLimit(),
                     PageEvictionTrackerNoOp.INSTANCE,
                     IoStatisticsHolderNoOp.INSTANCE
             );

@@ -126,7 +126,8 @@ public class CheckpointManager {
                 igniteInstanceName,
                 checkpointMarkersStorage,
                 checkpointReadWriteLock,
-                dataRegions
+                dataRegions,
+                checkpointConfigView.checkpointThreads()
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(

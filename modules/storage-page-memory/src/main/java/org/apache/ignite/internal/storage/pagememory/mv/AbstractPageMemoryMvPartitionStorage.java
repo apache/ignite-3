@@ -53,8 +53,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     private final int partitionId;
     private final int groupId;
 
+    protected final VersionChainFreeList versionChainFreeList;
     private final VersionChainTree versionChainTree;
-    private final RowVersionFreeList rowVersionFreeList;
+    private final VersionChainDataPageReader versionChainDataPageReader;
     private final DataPageReader rowVersionDataPageReader;
 
     private final ThreadLocal<ReadRowVersion> readRowVersionCache;

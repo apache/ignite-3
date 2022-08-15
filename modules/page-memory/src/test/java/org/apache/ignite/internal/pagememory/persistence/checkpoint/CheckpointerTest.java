@@ -197,6 +197,10 @@ public class CheckpointerTest {
 
         checkpointer.startCheckpointProgress();
 
+        assertNull(checkpointer.lastCheckpointProgress());
+
+        checkpointer.updateLastProgressAfterReleaseWriteLock();
+
         CheckpointProgressImpl currentProgress = (CheckpointProgressImpl) checkpointer.lastCheckpointProgress();
 
         assertSame(scheduledProgress, currentProgress);
@@ -379,6 +383,8 @@ public class CheckpointerTest {
         verify(compactor, times(1)).addDeltaFiles(eq(1));
 
         assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 3);
+
+        verify(checkpointer, times(1)).updateLastProgressAfterReleaseWriteLock();
     }
 
     @Test
@@ -431,16 +437,24 @@ public class CheckpointerTest {
     private CheckpointWorkflow createCheckpointWorkflow(CheckpointDirtyPages dirtyPages) throws Exception {
         CheckpointWorkflow mock = mock(CheckpointWorkflow.class);
 
-        when(mock.markCheckpointBegin(anyLong(), any(CheckpointProgressImpl.class), any(CheckpointMetricsTracker.class)))
-                .then(answer -> {
-                    CheckpointProgressImpl progress = answer.getArgument(1);
+        when(mock.markCheckpointBegin(
+                anyLong(),
+                any(CheckpointProgressImpl.class),
+                any(CheckpointMetricsTracker.class),
+                any(Runnable.class),
+                any(Runnable.class)
+        )).then(answer -> {
+            CheckpointProgressImpl progress = answer.getArgument(1);
 
-                    progress.pagesToWrite(dirtyPages);
+            progress.pagesToWrite(dirtyPages);
 
-                    progress.initCounters(dirtyPages.dirtyPagesCount());
+            progress.initCounters(dirtyPages.dirtyPagesCount());
 
-                    return new Checkpoint(dirtyPages, progress);
-                });
+            ((Runnable) answer.getArgument(3)).run();
+            ((Runnable) answer.getArgument(4)).run();
+
+            return new Checkpoint(dirtyPages, progress);
+        });
 
         doAnswer(answer -> {
             ((Checkpoint) answer.getArgument(0)).progress.transitTo(FINISHED);

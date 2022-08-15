@@ -110,7 +110,7 @@ public final class Flows {
     }
 
     /**
-     * Create new {@link FlowBuilder} which started from question.
+     * Create new {@link FlowBuilder} which starts from question.
      *
      * @param question question text.
      * @param answers all possible answers.

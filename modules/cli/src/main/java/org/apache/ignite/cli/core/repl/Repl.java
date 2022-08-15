@@ -51,6 +51,8 @@ public class Repl {
 
     private final boolean tailTipWidgetsEnabled;
 
+    private final Runnable onStart;
+
     /**
      * Constructor.
      *
@@ -63,6 +65,7 @@ public class Repl {
      * @param completer completer instance.
      * @param historyFileName file name for storing commands history.
      * @param tailTipWidgetsEnabled whether tailtip widgets are enabled.
+     * @param onStart callback that will run when REPL is started.
      */
     public Repl(PromptProvider promptProvider,
             Class<?> commandClass,
@@ -72,7 +75,8 @@ public class Repl {
             CallExecutionPipelineProvider provider,
             Completer completer,
             String historyFileName,
-            boolean tailTipWidgetsEnabled
+            boolean tailTipWidgetsEnabled,
+            Runnable onStart
     ) {
         this.promptProvider = promptProvider;
         this.commandClass = commandClass;
@@ -83,6 +87,7 @@ public class Repl {
         this.completer = completer;
         this.historyFileName = historyFileName;
         this.tailTipWidgetsEnabled = tailTipWidgetsEnabled;
+        this.onStart = onStart;
     }
 
     /**
@@ -146,5 +151,9 @@ public class Repl {
 
     public boolean isTailTipWidgetsEnabled() {
         return tailTipWidgetsEnabled;
+    }
+
+    public void onStart() {
+        onStart.run();
     }
 }
