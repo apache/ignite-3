@@ -92,7 +92,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         table = engine.createTable(tableCfg);
         table.start();
 
-        storage = table.createMvPartitionStorage(partitionId());
+        storage = table.createMvPartitionStorage(PARTITION_ID);
     }
 
     @AfterEach

@@ -49,6 +49,9 @@ import org.junit.jupiter.api.Test;
  * Base test for MV partition storages.
  */
 public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest {
+    /** A partition id that should be used to create a partition instance. */
+    protected static final int PARTITION_ID = 1;
+
     protected MvPartitionStorage storage;
 
     protected final UUID txId = newTransactionId();
@@ -120,20 +123,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     }
 
     /**
-     * Returns a partition id that should be used to create a partition instance.
-     */
-    protected int partitionId() {
-        return 1;
-    }
-
-    /**
-     * Creates a new {@link RowId}.
-     */
-    protected RowId newRowId() {
-        return new RowId(partitionId());
-    }
-
-    /**
      * Creates a new transaction id.
      */
     protected UUID newTransactionId() {
@@ -145,9 +134,9 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
      */
     @Test
     public void testReadsFromEmpty() {
-        RowId rowId = newRowId();
+        RowId rowId = new RowId(PARTITION_ID);
 
-        assertEquals(partitionId(), rowId.partitionId());
+        assertEquals(PARTITION_ID, rowId.partitionId());
 
         assertNull(read(rowId, newTransactionId()));
         assertNull(read(rowId, Timestamp.nextVersion()));
@@ -155,7 +144,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     @Test
     public void testScanOverEmpty() throws Exception {
-        newRowId();
+        new RowId(PARTITION_ID);
 
         assertEquals(List.of(), convert(scan(row -> true, newTransactionId())));
         assertEquals(List.of(), convert(scan(row -> true, Timestamp.nextVersion())));
@@ -661,7 +650,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     @Test
     void abortOfInsertMakesRowNonExistentForReadWithTxId() {
-        RowId rowId = newRowId();
+        RowId rowId = new RowId(PARTITION_ID);
 
         BinaryRow foundRow = read(rowId, txId);
 
