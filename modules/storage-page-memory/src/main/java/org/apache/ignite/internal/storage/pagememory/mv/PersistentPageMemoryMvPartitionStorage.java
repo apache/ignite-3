@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
@@ -33,6 +34,9 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for persistent case.
@@ -53,14 +57,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     /** Value of currently persisted last applied index. */
     private volatile long persistedIndex;
 
-    /** Checkpoint listener that updates the value of {@link #persistedIndex}. */
-    private final CheckpointListener checkpointListener = new CheckpointListener() {
-        /** {@inheritDoc} */
-        @Override
-        public void afterCheckpointEnd(CheckpointProgress progress) {
-            persistedIndex = meta.metaSnapshot(progress.id()).lastAppliedIndex();
-        }
-    };
+    /** Checkpoint listener. */
+    private final CheckpointListener checkpointListener;
 
     /**
      * Constructor.
@@ -93,7 +91,27 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         this.checkpointManager = checkpointManager;
         checkpointTimeoutLock = checkpointManager.checkpointTimeoutLock();
 
-        checkpointManager.addCheckpointListener(checkpointListener, dataRegion);
+        checkpointManager.addCheckpointListener(checkpointListener = new CheckpointListener() {
+            /** {@inheritDoc} */
+            @Override
+            public void beforeCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) throws IgniteInternalCheckedException {
+                // It may take some time, it's not scary because we keep a read lock here.
+                syncMetadataOnCheckpoint(exec);
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public void onMarkCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) throws IgniteInternalCheckedException {
+                // Should be fast, because here we only need to save the delta, reduce write lock holding time.
+                syncMetadataOnCheckpoint(exec);
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public void afterCheckpointEnd(CheckpointProgress progress) {
+                persistedIndex = meta.metaSnapshot(progress.id()).lastAppliedIndex();
+            }
+        }, dataRegion);
 
         this.meta = meta;
     }
@@ -157,5 +175,34 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     public void close() {
         checkpointManager.removeCheckpointListener(checkpointListener);
+    }
+
+    /**
+     * Syncs and saves meta-information on checkpoint.
+     *
+     * @param executor Executor for asynchronous data synchronization.
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    private void syncMetadataOnCheckpoint(@Nullable Executor executor) throws IgniteInternalCheckedException {
+        if (executor == null) {
+            versionChainFreeList.saveMetadata();
+            rowVersionFreeList.saveMetadata();
+        } else {
+            executor.execute(() -> {
+                try {
+                    versionChainFreeList.saveMetadata();
+                } catch (IgniteInternalCheckedException e) {
+                    throw new IgniteInternalException("Failed to save VersionChainFreeList metadata", e);
+                }
+            });
+
+            executor.execute(() -> {
+                try {
+                    rowVersionFreeList.saveMetadata();
+                } catch (IgniteInternalCheckedException e) {
+                    throw new IgniteInternalException("Failed to save RowVersionFreeList metadata", e);
+                }
+            });
+        }
     }
 }
