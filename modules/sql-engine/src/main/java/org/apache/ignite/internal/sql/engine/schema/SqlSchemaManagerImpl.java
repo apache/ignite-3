@@ -372,8 +372,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private IgniteIndex convert(Index<?> index, IgniteTable table) {
         IndexDescriptor desc = index.descriptor();
 
-        List<String> cols = desc.columns();
-
         if (desc instanceof SortedIndexDescriptor) {
             List<RelFieldCollation> collations = desc.columns().stream().map(colName ->
                     TraitUtils.createFieldCollation(
@@ -410,6 +408,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return canonicalName.substring(schemaName.length() + 1);
     }
 
+    /**
+     * Index created callback.
+     */
     public synchronized CompletableFuture<?> onIndexCreated(String schemaName, Index<?> index, long causalityToken) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
@@ -464,6 +465,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
     }
 
+    /**
+     * Index dropped callback.
+     */
     public synchronized CompletableFuture<?> onIndexDropped(String schemaName, UUID indexId, String indexName, long causalityToken) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
@@ -484,18 +488,17 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     schema.removeIndex(indexName);
 
                     return indicesVv.update(causalityToken, (indices, ex) -> inBusyLock(busyLock, () -> {
-                                        if (ex != null) {
-                                            return failedFuture(ex);
-                                        }
+                                if (ex != null) {
+                                    return failedFuture(ex);
+                                }
 
-                                        Map<UUID, IgniteIndex> resIdxs = new HashMap<>(indices);
+                                Map<UUID, IgniteIndex> resIdxs = new HashMap<>(indices);
 
-                                        resIdxs.remove(indexId);
+                                resIdxs.remove(indexId);
 
-                                        return completedFuture(resIdxs);
-                                    }
-                            ))
-                            .thenCompose(tables -> completedFuture(res));
+                                return completedFuture(resIdxs);
+                            }
+                    )).thenCompose(tables -> completedFuture(res));
                 }
 
                 return completedFuture(res);
