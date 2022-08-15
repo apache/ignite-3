@@ -44,13 +44,6 @@ public class VersionChain extends VersionChainKey {
     private final long nextLink;
 
     /**
-     * Constructs a VersionChain without a transaction ID.
-     */
-    public static VersionChain withoutTxId(RowId rowId, long headLink, long nextLink) {
-        return new VersionChain(rowId, null, headLink, nextLink);
-    }
-
-    /**
      * Constructor.
      */
     public VersionChain(RowId rowId, @Nullable UUID transactionId, long headLink, long nextLink) {

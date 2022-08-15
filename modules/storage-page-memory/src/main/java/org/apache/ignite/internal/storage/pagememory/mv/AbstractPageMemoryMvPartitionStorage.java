@@ -57,9 +57,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     protected final RowVersionFreeList rowVersionFreeList;
     private final DataPageReader rowVersionDataPageReader;
 
-    private final ThreadLocal<ReadRowVersion> readRowVersionCache;
-    private final ThreadLocal<ScanVersionChainByTimestamp> scanVersionChainByTimestampCache;
-
     /**
      * Constructor.
      *
@@ -84,9 +81,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         groupId = tableView.tableId();
 
         rowVersionDataPageReader = new DataPageReader(pageMemory, groupId, IoStatisticsHolderNoOp.INSTANCE);
-
-        readRowVersionCache = ThreadLocal.withInitial(() -> new ReadRowVersion(partitionId));
-        scanVersionChainByTimestampCache = ThreadLocal.withInitial(() -> new ScanVersionChainByTimestamp(partitionId));
     }
 
     /** {@inheritDoc} */
@@ -136,7 +130,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     private RowVersion readRowVersion(long nextLink, Predicate<Timestamp> loadValue) {
-        ReadRowVersion read = freshReadRowVersion();
+        ReadRowVersion read = new ReadRowVersion(partitionId);
 
         try {
             rowVersionDataPageReader.traverse(nextLink, read, loadValue);
@@ -145,14 +139,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
 
         return read.result();
-    }
-
-    private ReadRowVersion freshReadRowVersion() {
-        ReadRowVersion traversal = readRowVersionCache.get();
-
-        traversal.reset();
-
-        return traversal;
     }
 
     private void throwIfChainBelongsToAnotherTx(VersionChain versionChain, UUID txId) {
@@ -193,7 +179,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         long newestCommittedLink = versionChain.newestCommittedLink();
 
-        ScanVersionChainByTimestamp scanByTimestamp = freshScanByTimestamp();
+        ScanVersionChainByTimestamp scanByTimestamp = new ScanVersionChainByTimestamp(partitionId);
 
         try {
             rowVersionDataPageReader.traverse(newestCommittedLink, scanByTimestamp, timestamp);
@@ -202,14 +188,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
 
         return scanByTimestamp.result();
-    }
-
-    private ScanVersionChainByTimestamp freshScanByTimestamp() {
-        ScanVersionChainByTimestamp traversal = scanVersionChainByTimestampCache.get();
-
-        traversal.reset();
-
-        return traversal;
     }
 
     /** {@inheritDoc} */
@@ -296,14 +274,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         removeRowVersion(latestVersion);
 
         if (latestVersion.hasNextLink()) {
-            VersionChain versionChainReplacement = VersionChain.withoutTxId(
-                    rowId,
-                    latestVersion.nextLink(),
-                    // Next can be safely replaced with any value (like 0), because this field is only used when there
-                    // is some uncommitted value, but when we add an uncommitted value, we 'fix' such placeholder value
-                    // (like 0) by replacing it with a valid value.
-                    RowVersion.NULL_LINK
-            );
+            // Next can be safely replaced with any value (like 0), because this field is only used when there
+            // is some uncommitted value, but when we add an uncommitted value, we 'fix' such placeholder value
+            // (like 0) by replacing it with a valid value.
+            VersionChain versionChainReplacement = new VersionChain(rowId, null, latestVersion.nextLink(), RowVersion.NULL_LINK);
 
             updateVersionChain(versionChainReplacement);
         } else {
@@ -342,8 +316,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
 
         try {
-            VersionChain updatedVersionChain = VersionChain.withoutTxId(
+            VersionChain updatedVersionChain = new VersionChain(
                     currentVersionChain.rowId(),
+                    null,
                     currentVersionChain.headLink(),
                     currentVersionChain.nextLink()
             );
