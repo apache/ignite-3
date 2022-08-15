@@ -116,7 +116,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @throws StorageException If failed to write data into the storage.
      *
      * @deprecated Generates different ids for each replica. {@link #addWrite(RowId, BinaryRow, UUID)} with explicit replicated id must be
-     * used instead.
+     *      used instead.
      */
     @Deprecated
     RowId insert(BinaryRow binaryRow, UUID txId) throws StorageException;
