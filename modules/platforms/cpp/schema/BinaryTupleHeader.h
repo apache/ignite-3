@@ -40,7 +40,7 @@ struct BinaryTupleHeader {
     /** Tuple flags. */
     std::byte flags {0};
 
-    /** Encode size as bit mask. */
+    /** Encodes size as bit mask. */
     static constexpr unsigned int sizeToFlags(SizeT size) noexcept {
         if (size <= UINT8_MAX) {
             return 0b00;
@@ -51,7 +51,7 @@ struct BinaryTupleHeader {
         }
     }
 
-    /** Set the size of varlen-table entries. */
+    /** Sets the size of varlen-table entries. */
     unsigned int setVarLenEntrySize(SizeT varlenAreaSize) noexcept {
         const unsigned sizeLog2 = sizeToFlags(varlenAreaSize);
         flags &= ~VARLEN_ENTRY_SIZE_MASK;
@@ -59,15 +59,15 @@ struct BinaryTupleHeader {
         return 1u << sizeLog2;
     }
 
-    /** Get the size of a single varlen-table entry, in bytes. */
+    /** Gets the size of a single varlen-table entry, in bytes. */
     SizeT getVarLenEntrySize() const noexcept {
         return 1u << static_cast<unsigned>(flags & VARLEN_ENTRY_SIZE_MASK);
     }
 
-    /** Set the nullmap flag on. */
+    /** Sets the nullmap flag on. */
     void setNullMapFlag() noexcept { flags |= NULLMAP_FLAG; }
 
-    /** Get the nullmap flag value. */
+    /** Gets the nullmap flag value. */
     bool getNullMapFlag() const noexcept { return (flags & NULLMAP_FLAG) != std::byte{0}; }
 };
 

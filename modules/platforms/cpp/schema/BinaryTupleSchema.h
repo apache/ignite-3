@@ -41,7 +41,7 @@ public:
     BinaryTupleSchema &operator=(BinaryTupleSchema &&other) noexcept = default;
 
     /**
-     * @brief constructs a new Binary Tuple Schema object
+     * @brief Constructs a new Binary Tuple Schema object.
      *
      * @tparam T ColumnInfo iterator.
      * @param begin 
@@ -60,7 +60,7 @@ public:
     }
 
     /**
-     * @brief tests if there are any nullable elements
+     * @brief Tests if there are any nullable elements.
      *
      * @return true If there is one or more nullable elements.
      * @return false If there are no nullable elements.
@@ -68,14 +68,14 @@ public:
     bool hasNullables() const noexcept { return nullables; }
 
     /**
-     * @brief gets total number of elements in tuple schema
+     * @brief Gets total number of elements in tuple schema.
      *
      * @return Number of elements.
      */
     IntT numElements() const noexcept { return elements.size(); }
 
     /**
-     * @brief gets element info
+     * @brief Gets element info.
      *
      * @param index Element number.
      * @return Element info.
@@ -83,14 +83,14 @@ public:
     const ColumnInfo &getElement(IntT index) const { return elements[index]; }
 
     /**
-     * @brief gets the nullmap size
+     * @brief Gets the nullmap size.
      *
      * @return Nullmap size in bytes.
      */
     static constexpr SizeT getNullMapSize(IntT numElements) noexcept { return (numElements + 7) / 8; }
 
     /**
-     * @brief gets offset of the byte that contains null-bit of a given tuple element
+     * @brief Gets offset of the byte that contains null-bit of a given tuple element.
      *
      * @param index Tuple element index.
      * @return Offset of the required byte relative to the tuple start.
@@ -98,7 +98,7 @@ public:
     static constexpr SizeT getNullOffset(IntT index) noexcept { return BinaryTupleHeader::SIZE + index / 8; }
 
     /**
-     * @brief gets a null-bit mask corresponding to a given tuple element
+     * @brief Gets a null-bit mask corresponding to a given tuple element.
      *
      * @param index Tuple element index.
      * @return Mask to extract the required null-bit.
@@ -106,7 +106,7 @@ public:
     static constexpr std::byte getNullMask(IntT index) noexcept { return std::byte{1} << (index % 8); }
 
     /**
-     * @brief checks if a null-bit is set for a given tuple element
+     * @brief Checks if a null-bit is set for a given tuple element.
      *
      * Note that this doesn't check for the null-map presence. It has to be done before
      * calling this function.

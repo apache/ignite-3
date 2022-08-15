@@ -23,8 +23,6 @@ set(HEADERS Types.h)
 
 add_library(${TARGET} INTERFACE)
 
-#target_sources(${TARGET} INTERFACE ${HEADERS})
-
 target_include_directories(${TARGET} INTERFACE
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
     $<INSTALL_INTERFACE:${INSTALL_INCLUDEDIR}>)

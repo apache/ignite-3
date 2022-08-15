@@ -23,7 +23,7 @@ add_library(${TARGET} STATIC
     BinaryTupleBuilder.cpp BinaryTupleBuilder.h
     BinaryTupleHeader.h
     BinaryTupleParser.cpp BinaryTupleParser.h
-    BinaryTupleSchema.cpp BinaryTupleSchema.h
+    BinaryTupleSchema.h
     DataType.cpp DataType.h)
 
 target_link_libraries(${TARGET} ignite-common)

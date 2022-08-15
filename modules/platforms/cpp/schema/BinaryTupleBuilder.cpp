@@ -86,6 +86,7 @@ SizeT BinaryTupleBuilder::sizeOf(DATA_TYPE type, BytesView bytes) {
         case DATA_TYPE::BITMASK:
         case DATA_TYPE::NUMBER:
         case DATA_TYPE::DECIMAL:
+            // TODO: support the types above with IGNITE-17401.
         default:
             throw std::logic_error("Unsupported type " + std::to_string(static_cast<int>(type)));
     }
@@ -170,6 +171,7 @@ void BinaryTupleBuilder::append(DATA_TYPE type, const BytesView &bytes) {
         case DATA_TYPE::BITMASK:
         case DATA_TYPE::NUMBER:
         case DATA_TYPE::DECIMAL:
+            // TODO: support the types above with IGNITE-17401.
         default:
             throw std::logic_error("Unsupported type " + std::to_string(static_cast<int>(type)));
     }

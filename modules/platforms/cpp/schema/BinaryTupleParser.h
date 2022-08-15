@@ -30,7 +30,7 @@ namespace ignite {
 class BinaryTupleParser {
     BytesView binaryTuple; /**< The binary tuple to parse. */
 
-    IntT elementCount; /**< Total number of elements. */
+    const IntT elementCount; /**< Total number of elements. */
 
     IntT elementIndex; /**< Index of the next element to parse. */
 
@@ -46,7 +46,7 @@ class BinaryTupleParser {
 
 public:
     /**
-     * @brief constructs a new parser object
+     * @brief Constructs a new parser object.
      *
      * The @ref data buffer may contain more binary data than single binary tuple.
      * The parser finds where the tuple ends and reads data only up to this point.
@@ -59,42 +59,42 @@ public:
     explicit BinaryTupleParser(IntT numElements, BytesView data);
 
     /**
-     * @brief gets the original binary tuple
+     * @brief Gets the original binary tuple.
      *
      * @return BytesView Binary tuple.
      */
     BytesView getTuple() const noexcept { return binaryTuple; }
 
     /**
-     * @brief gets the binary tuple size in bytes
+     * @brief Gets the binary tuple size in bytes.
      *
      * @return Tuple size.
      */
     SizeT getSize() const noexcept { return binaryTuple.size(); }
 
     /**
-     * @brief gets the expected total number of tuple elements
+     * @brief Gets the expected total number of tuple elements.
      *
      * @return Number of elements.
      */
     IntT numElements() const noexcept { return elementCount; }
 
     /**
-     * @brief gets the number of parsed tuple elements
+     * @brief Gets the number of parsed tuple elements.
      *
      * @return Number of parsed elements.
      */
     IntT numParsedElements() const noexcept { return elementIndex; }
 
     /**
-     * @brief gets the next value of the tuple
+     * @brief Gets the next value of the tuple.
      *
      * @return The next value.
      */
     ElementView getNext();
 
     /**
-     * @brief gets a series of values
+     * @brief Gets a series of values.
      *
      * @param num Required number of values. The value of NO_NUM means all the available values.
      * @return A set of values.
@@ -102,7 +102,7 @@ public:
     TupleView parse(IntT num = NO_NUM);
 
     /**
-     * @brief gets a series of values presuming they belong to a key. So no NULL values are allowed
+     * @brief Gets a series of values presuming they belong to a key. So no NULL values are allowed.
      *
      * @param num Required number of values. The value of NO_NUM means all the available values.
      * @return A set of values.
@@ -110,7 +110,7 @@ public:
     KeyView parseKey(IntT num = NO_NUM);
 
     /**
-     * @brief reads value of specified element
+     * @brief Reads value of specified element.
      *
      * @param bytes Binary view of the element.
      * @return Element value.
@@ -118,7 +118,7 @@ public:
     static std::int8_t getInt8(BytesView bytes);
 
     /**
-     * @brief reads value of specified element
+     * @brief Reads value of specified element.
      *
      * @param bytes Binary view of the element.
      * @return Element value.
@@ -126,7 +126,7 @@ public:
     static std::int16_t getInt16(BytesView bytes);
 
     /**
-     * @brief reads value of specified element
+     * @brief Reads value of specified element.
      *
      * @param bytes Binary view of the element.
      * @return Element value.
@@ -134,7 +134,7 @@ public:
     static std::int32_t getInt32(BytesView bytes);
 
     /**
-     * @brief reads value of specified element
+     * @brief Reads value of specified element.
      *
      * @param bytes Binary view of the element.
      * @return Element value.
@@ -142,7 +142,7 @@ public:
     static std::int64_t getInt64(BytesView bytes);
 
     /**
-     * @brief reads value of specified element
+     * @brief Reads value of specified element.
      *
      * @param bytes Binary view of the element.
      * @return Element value.
@@ -150,7 +150,7 @@ public:
     static float getFloat(BytesView bytes);
 
     /**
-     * @brief reads value of specified element
+     * @brief Reads value of specified element.
      *
      * @param bytes Binary view of the element.
      * @return Element value.

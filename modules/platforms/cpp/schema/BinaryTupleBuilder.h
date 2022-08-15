@@ -46,7 +46,7 @@ namespace ignite {
  * 5. Finally, the resulting binary tuple is obtained with the @ref build call.
  */
 class BinaryTupleBuilder {
-    IntT elementCount; /**< Total number of elements. */
+    const IntT elementCount; /**< Total number of elements. */
 
     IntT elementIndex; /**< Index of the next element to add. */
 
@@ -66,19 +66,19 @@ class BinaryTupleBuilder {
 
 public:
     /**
-     * @brief constructs a new Tuple Builder object
+     * @brief Constructs a new Tuple Builder object.
      *
      * @param schema Binary tuple schema.
      */
     explicit BinaryTupleBuilder(IntT elementCount) noexcept;
 
     /**
-     * @brief starts a new tuple
+     * @brief Starts a new tuple.
      */
     void start() noexcept;
 
     /**
-     * @brief assigns a null value for the next element
+     * @brief Assigns a null value for the next element.
      */
     void claim(std::nullopt_t /*null*/) noexcept {
         assert(elementIndex < elementCount);
@@ -87,7 +87,7 @@ public:
     }
 
     /**
-     * @brief assigns a binary value for the next element
+     * @brief Assigns a binary value for the next element.
      *
      * @param valueSize required size for the value
      */
@@ -98,7 +98,7 @@ public:
     }
 
     /**
-     * @brief assigns a binary value for the next element
+     * @brief Assigns a binary value for the next element.
      *
      * @param type Element type.
      * @param bytes Binary element value.
@@ -108,7 +108,7 @@ public:
     }
 
     /**
-     * @brief assigns a value or null for the next element
+     * @brief Assigns a value or null for the next element.
      *
      * @tparam BytesT Byte container for a single internal tuple field.
      * @param type Element type.
@@ -124,7 +124,7 @@ public:
     }
 
     /**
-     * @brief assigns values for a number of elements
+     * @brief Assigns values for a number of elements.
      *
      * @tparam BytesT Byte container for a single internal tuple field.
      * @param schema Tuple schema.
@@ -138,12 +138,12 @@ public:
     }
 
     /**
-     * @brief performs binary tuple layout
+     * @brief Performs binary tuple layout.
      */
     void layout();
 
     /**
-     * @brief appends a null value for the next element
+     * @brief Appends a null value for the next element.
      */
     void append(std::nullopt_t /*null*/) {
         assert(nullElements > 0);
@@ -153,7 +153,7 @@ public:
     }
 
     /**
-     * @brief appends a value for the next element
+     * @brief Appends a value for the next element.
      *
      * @param type Element type.
      * @param value Value of an internal tuple field.
@@ -161,7 +161,7 @@ public:
     void append(DATA_TYPE type, const BytesView &bytes);
 
     /**
-     * @brief appends a value or null for the next element
+     * @brief Appends a value or null for the next element.
      *
      * @tparam BytesT Byte container for a single internal tuple field.
      * @param type Element type.
@@ -177,7 +177,7 @@ public:
     }
 
     /**
-     * @brief appends values for a number of elements
+     * @brief Appends values for a number of elements.
      *
      * @tparam BytesT Byte container for a single internal tuple field.
      * @param schema Tuple schema.
@@ -191,7 +191,7 @@ public:
     }
 
     /**
-     * @brief finalizes and returns a binary tuple
+     * @brief Finalizes and returns a binary tuple.
      *
      * @return Byte buffer with binary tuple.
      */
@@ -201,7 +201,7 @@ public:
     }
 
     /**
-     * @brief builds a binary tuple from an internal tuple representation
+     * @brief Builds a binary tuple from an internal tuple representation.
      *
      * @tparam BytesT Byte container for a single internal tuple field.
      * @param schema Tuple schema.
@@ -219,7 +219,7 @@ public:
 
 private:
     /**
-     * @brief checks if a value of a given integer type can be compressed to a smaller integer type
+     * @brief Checks if a value of a given integer type can be compressed to a smaller integer type.
      *
      * @tparam T Source integer type.
      * @tparam U Target integer type.
@@ -236,7 +236,7 @@ private:
     }
 
     /**
-     * @brief computes required binary size for a given value
+     * @brief Computes required binary size for a given value.
      *
      * @param value Actual element value.
      * @return Required size.
@@ -246,7 +246,7 @@ private:
     }
 
     /**
-     * @brief computes required binary size for a given value
+     * @brief Computes required binary size for a given value.
      *
      * @param value Actual element value.
      * @return Required size.
@@ -259,7 +259,7 @@ private:
     }
 
     /**
-     * @brief computes required binary size for a given value
+     * @brief Computes required binary size for a given value.
      *
      * @param value Actual element value.
      * @return Required size.
@@ -275,7 +275,7 @@ private:
     }
 
     /**
-     * @brief computes required binary size for a given value
+     * @brief Computes required binary size for a given value.
      *
      * @param value Actual element value.
      * @return Required size.
@@ -291,7 +291,7 @@ private:
     }
 
     /**
-     * @brief computes required binary size for a given value
+     * @brief Computes required binary size for a given value.
      *
      * @param value Actual element value.
      * @return Required size.
@@ -301,7 +301,7 @@ private:
     }
 
     /**
-     * @brief computes required binary size for a given value
+     * @brief Computes required binary size for a given value.
      *
      * @param value Actual element value.
      * @return Required size.
@@ -312,7 +312,7 @@ private:
     }
 
     /**
-     * @brief computes required binary size for a given value
+     * @brief Computes required binary size for a given value.
      *
      * @param type Element type.
      * @param bytes Binary element value.
@@ -321,14 +321,14 @@ private:
     static SizeT sizeOf(DATA_TYPE type, BytesView bytes);
 
     /**
-     * @brief writes binary value of specified element
+     * @brief Writes binary value of specified element.
      *
      * @param bytes Binary element value.
      */
     void putBytes(BytesView bytes);
 
     /**
-     * @brief writes binary value of specified element
+     * @brief Writes binary value of specified element.
      *
      * The written value may differ from the original because of value compression.
      *
@@ -337,7 +337,7 @@ private:
     void putInt8(BytesView bytes);
 
     /**
-     * @brief writes binary value of specified element
+     * @brief Writes binary value of specified element.
      *
      * The written value may differ from the original because of value compression.
      *
@@ -346,7 +346,7 @@ private:
     void putInt16(BytesView bytes);
 
     /**
-     * @brief writes binary value of specified element
+     * @brief Writes binary value of specified element.
      *
      * The written value may differ from the original because of value compression.
      *
@@ -355,7 +355,7 @@ private:
     void putInt32(BytesView bytes);
 
     /**
-     * @brief writes binary value of specified element
+     * @brief Writes binary value of specified element.
      *
      * The written value may differ from the original because of value compression.
      *
@@ -364,7 +364,7 @@ private:
     void putInt64(BytesView bytes);
 
     /**
-     * @brief writes binary value of specified element
+     * @brief Writes binary value of specified element.
      *
      * The written value may differ from the original because of value compression.
      *
@@ -373,7 +373,7 @@ private:
     void putFloat(BytesView bytes);
 
     /**
-     * @brief writes binary value of specified element
+     * @brief Writes binary value of specified element.
      *
      * The written value may differ from the original because of value compression.
      *
@@ -382,7 +382,7 @@ private:
     void putDouble(BytesView bytes);
 
     /**
-     * @brief adds an entry to the offset table
+     * @brief Adds an entry to the offset table.
      */
     void appendEntry() {
         uint64_t offset = nextValue - valueBase;
