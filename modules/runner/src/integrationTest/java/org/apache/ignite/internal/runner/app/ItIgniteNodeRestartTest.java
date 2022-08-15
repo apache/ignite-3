@@ -279,6 +279,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 registry,
                 tblCfg,
                 raftMgr,
+                null,
+                null,
                 replicaSvc,
                 mock(BaselineManager.class),
                 clusterSvc.topologyService(),

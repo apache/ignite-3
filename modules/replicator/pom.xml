@@ -43,11 +43,6 @@
             <artifactId>ignite-network-api</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-cluster-management</artifactId>
-        </dependency>
-
         <!-- 3rd party dependencies -->
         <dependency>
             <groupId>org.jetbrains</groupId>

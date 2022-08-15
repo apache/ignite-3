@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.replicator;
 
+import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,6 +35,7 @@ import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
@@ -249,5 +251,15 @@ public class ReplicaManager implements IgniteComponent {
         busyLock.block();
 
         assert replicas.isEmpty() : IgniteStringFormatter.format("There are replicas alive [replicas={}]", replicas.keySet());
+    }
+
+    /**
+     * Determines whether a replication group should be started locally
+     * according to a collection of nodes that should have a replication group.
+     */
+    public boolean shouldHaveReplicationGroupLocally(Collection<ClusterNode> replicas) {
+        String locNodeName = clusterNetSvc.topologyService().localMember().name();
+
+        return replicas.stream().anyMatch(r -> locNodeName.equals(r.name()));
     }
 }

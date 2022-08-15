@@ -78,6 +78,7 @@ import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
@@ -263,9 +264,11 @@ public class IgniteImpl implements Ignite {
 
         raftMgr = new Loza(clusterSvc, workDir, clock);
 
-        replicaMgr = new ReplicaManager(clusterSvc);
+        LockManager lockMgr = new HeapLockManager();
 
-        txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
+        txManager = new TableTxManagerImpl(clusterSvc, lockMgr);
+
+        replicaMgr = new ReplicaManager(clusterSvc);
 
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
@@ -335,6 +338,8 @@ public class IgniteImpl implements Ignite {
                 registry,
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 raftMgr,
+                replicaMgr,
+                lockMgr,
                 replicaSvc,
                 baselineMgr,
                 clusterSvc.topologyService(),
