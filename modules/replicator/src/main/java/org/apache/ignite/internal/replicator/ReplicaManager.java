@@ -105,7 +105,10 @@ public class ReplicaManager implements IgniteComponent {
      * @throws NodeStoppingException Is thrown when the node is stopping.
      * @throws ReplicaAlreadyIsStartedException Is thrown when a replica with the same replication group id already started.
      */
-    public Replica startReplica(String replicaGrpId, RaftGroupService raftGroupService, ReplicaListener listener) throws NodeStoppingException {
+    public Replica startReplica(
+            String replicaGrpId,
+            RaftGroupService raftGroupService,
+            ReplicaListener listener) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }

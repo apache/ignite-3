@@ -206,8 +206,9 @@ public class InternalTableImpl implements InternalTable {
         } else {
             fut = enlist(partId, tx0).thenCompose(
                     primaryReplicaAndTerm0 -> {
-                        ReplicaRequestParameters requestParams = new ReplicaRequestParameters(tx0, partGroupId, primaryReplicaAndTerm0.get1(),
-                                primaryReplicaAndTerm0.get2());
+                        ReplicaRequestParameters requestParams = new ReplicaRequestParameters(
+                                tx0, partGroupId, primaryReplicaAndTerm0.get1(), primaryReplicaAndTerm0.get2()
+                        );
 
                         try {
                             return replicaSvc.invoke(primaryReplicaAndTerm0.get1(), op.apply(requestParams));
@@ -727,8 +728,6 @@ public class InternalTableImpl implements InternalTable {
         RaftGroupService svc = partitionMap.get(partId);
 
         // TODO: ticket for placement driver
-//        CompletableFuture<Void> fut0 = svc.leader() == null ? svc.refreshLeader() : completedFuture(null);
-
         CompletableFuture<IgniteBiTuple<Peer, Long>> fut0 = svc.refreshAndGetLeaderWithTerm();
 
         // TODO asch IGNITE-15091 fixme need to map to the same leaseholder.

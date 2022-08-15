@@ -69,7 +69,8 @@ public class Replica {
 
         return raftGroupService.refreshAndGetLeaderWithTerm()
                 .thenCompose((replicaAndTerm) -> {
-                    if (replicaAndTerm.get1().address().equals(request.primaryReplica().address()) && replicaAndTerm.get2().equals(request.term())) {
+                    if (replicaAndTerm.get1().address().equals(request.primaryReplica().address())
+                            && replicaAndTerm.get2().equals(request.term())) {
                         return listener.invoke(request);
                     } else {
                         return CompletableFuture.failedFuture(new PrimaryReplicaMissException(

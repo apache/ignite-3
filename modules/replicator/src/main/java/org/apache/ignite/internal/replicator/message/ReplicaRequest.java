@@ -19,6 +19,7 @@ package org.apache.ignite.internal.replicator.message;
 
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * Replica request.
@@ -37,6 +38,7 @@ public interface ReplicaRequest extends NetworkMessage {
      *
      * @return Gets a primary replica.
      */
+    @Marshallable
     ClusterNode primaryReplica();
 
     /**
@@ -44,5 +46,6 @@ public interface ReplicaRequest extends NetworkMessage {
      *
      * @return Gets a raft term.
      */
+    @Marshallable
     Long term();
 }
