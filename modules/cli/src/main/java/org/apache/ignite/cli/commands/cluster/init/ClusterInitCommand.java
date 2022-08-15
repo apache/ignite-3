@@ -18,17 +18,14 @@
 package org.apache.ignite.cli.commands.cluster.init;
 
 import jakarta.inject.Inject;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cluster.ClusterInitCall;
 import org.apache.ignite.cli.call.cluster.ClusterInitCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.cluster.ClusterUrlOptions;
+import org.apache.ignite.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Option;
 
 /**
  * Initializes an Ignite cluster.
@@ -37,32 +34,10 @@ import picocli.CommandLine.Option;
 public class ClusterInitCommand extends BaseCommand implements Callable<Integer> {
     /** Cluster endpoint URL option. */
     @Mixin
-    private ClusterUrlOptions clusterUrl;
+    private ClusterUrlProfileMixin clusterUrl;
 
-    /**
-     * List of names of the nodes (each represented by a separate command line argument) that will host the Meta Storage. If the
-     * "--cmg-nodes" parameter is omitted, the same nodes will also host the Cluster Management Group.
-     */
-    @Option(names = "--meta-storage-node", required = true, description = {
-            "Name of the node (repeat like '--meta-storage-node node1 --meta-storage-node node2' to specify more than one node)",
-            "that will host the Meta Storage.",
-            "If the --cmg-node parameter is omitted, the same nodes will also host the Cluster Management Group."
-    })
-    private List<String> metaStorageNodes;
-
-    /**
-     * List of names of the nodes (each represented by a separate command line argument) that will host the Cluster Management Group.
-     */
-    @Option(names = "--cmg-node", description = {
-            "Name of the node (repeat like '--cmg-node node1 --cmg-node node2' to specify more than one node)",
-            "that will host the Cluster Management Group.",
-            "If omitted, then --meta-storage-node values will also supply the nodes for the Cluster Management Group."
-    })
-    private List<String> cmgNodes = new ArrayList<>();
-
-    /** Name of the cluster. */
-    @Option(names = "--cluster-name", required = true, description = "Human-readable name of the cluster")
-    private String clusterName;
+    @Mixin
+    private ClusterInitOptions clusterInitOptions;
 
     @Inject
     private ClusterInitCall call;
@@ -81,9 +56,7 @@ public class ClusterInitCommand extends BaseCommand implements Callable<Integer>
     private ClusterInitCallInput buildCallInput() {
         return ClusterInitCallInput.builder()
                 .clusterUrl(clusterUrl.getClusterUrl())
-                .metaStorageNodes(metaStorageNodes)
-                .cmgNodes(cmgNodes)
-                .clusterName(clusterName)
+                .fromClusterInitOptions(clusterInitOptions)
                 .build();
     }
 }

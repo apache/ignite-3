@@ -17,21 +17,19 @@
 
 package org.apache.ignite.cli.commands.node.status;
 
-import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
-import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_DESC;
-import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_OPTION;
 import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_NODE_URL_MESSAGE;
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.node.status.NodeStatusCall;
 import org.apache.ignite.cli.commands.BaseCommand;
+import org.apache.ignite.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StatusCallInput;
 import org.apache.ignite.cli.core.repl.Session;
 import org.apache.ignite.cli.decorators.NodeStatusDecorator;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
+import picocli.CommandLine.Mixin;
 
 /**
  * Display the node status in REPL.
@@ -39,8 +37,8 @@ import picocli.CommandLine.Option;
 @Command(name = "status", description = "Prints status of the node")
 public class NodeStatusReplCommand extends BaseCommand implements Callable<Integer> {
     /** Node URL option. */
-    @Option(names = {NODE_URL_OPTION}, description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
-    private String nodeUrl;
+    @Mixin
+    private NodeUrlMixin nodeUrl;
 
     @Inject
     private NodeStatusCall nodeStatusCall;
@@ -53,8 +51,8 @@ public class NodeStatusReplCommand extends BaseCommand implements Callable<Integ
     public Integer call() {
         String inputUrl;
 
-        if (nodeUrl != null) {
-            inputUrl = nodeUrl;
+        if (nodeUrl.getNodeUrl() != null) {
+            inputUrl = nodeUrl.getNodeUrl();
         } else if (session.isConnectedToNode()) {
             inputUrl = session.nodeUrl();
         } else {

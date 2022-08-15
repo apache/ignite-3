@@ -17,20 +17,18 @@
 
 package org.apache.ignite.cli.commands.cluster.status;
 
-import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_DESC;
-import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
-import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_OPTION;
 import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_CLUSTER_URL_MESSAGE;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.cli.call.cluster.status.ClusterStatusCall;
 import org.apache.ignite.cli.commands.BaseCommand;
+import org.apache.ignite.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StatusCallInput;
 import org.apache.ignite.cli.core.repl.Session;
 import org.apache.ignite.cli.decorators.ClusterStatusDecorator;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
+import picocli.CommandLine.Mixin;
 
 /**
  * Command that prints status of ignite cluster.
@@ -38,8 +36,8 @@ import picocli.CommandLine.Option;
 @Command(name = "status", description = "Prints status of the cluster")
 public class ClusterStatusReplCommand extends BaseCommand implements Runnable {
     /** Cluster endpoint URL option. */
-    @Option(names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
-    private String clusterUrl;
+    @Mixin
+    private ClusterUrlMixin clusterUrl;
 
     @Inject
     private ClusterStatusCall clusterStatusReplCall;
@@ -52,8 +50,8 @@ public class ClusterStatusReplCommand extends BaseCommand implements Runnable {
     public void run() {
         String inputUrl;
 
-        if (clusterUrl != null) {
-            inputUrl = clusterUrl;
+        if (clusterUrl.getClusterUrl() != null) {
+            inputUrl = clusterUrl.getClusterUrl();
         } else if (session.isConnectedToNode()) {
             inputUrl = session.nodeUrl();
         } else {

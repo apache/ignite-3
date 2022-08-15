@@ -44,6 +44,7 @@ import org.apache.ignite.cli.commands.node.config.NodeConfigShowCommand;
 import org.apache.ignite.cli.commands.node.config.NodeConfigShowReplCommand;
 import org.apache.ignite.cli.commands.node.config.NodeConfigUpdateCommand;
 import org.apache.ignite.cli.commands.node.config.NodeConfigUpdateReplCommand;
+import org.apache.ignite.cli.commands.node.status.NodeStatusCommand;
 import org.apache.ignite.cli.commands.node.status.NodeStatusReplCommand;
 import org.apache.ignite.cli.commands.topology.LogicalTopologyCommand;
 import org.apache.ignite.cli.commands.topology.LogicalTopologyReplCommand;
@@ -104,6 +105,7 @@ public class UrlOptionsNegativeTest {
         return List.of(
                 arguments(NodeConfigShowCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeConfigUpdateCommand.class, NODE_URL_OPTION, List.of("{key: value}")),
+                arguments(NodeStatusCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(ClusterConfigShowCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterConfigUpdateCommand.class, CLUSTER_URL_OPTION, List.of("{key: value}")),
                 arguments(ClusterStatusCommand.class, CLUSTER_URL_OPTION, List.of()),
@@ -122,11 +124,11 @@ public class UrlOptionsNegativeTest {
                 arguments(NodeStatusReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(ClusterConfigShowReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterConfigUpdateReplCommand.class, CLUSTER_URL_OPTION, List.of("{key: value}")),
-                arguments(ConnectCommand.class, "", List.of()),
                 arguments(ClusterStatusReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(LogicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(PhysicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
-                arguments(ClusterInitReplCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test"))
+                arguments(ClusterInitReplCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),
+                arguments(ConnectCommand.class, "", List.of())
         // TODO https://issues.apache.org/jira/browse/IGNITE-17102
         //                Arguments.arguments(ClusterShowReplCommand.class, CLUSTER_URL_OPTION, List.of()),
         );
@@ -138,10 +140,12 @@ public class UrlOptionsNegativeTest {
     void incorrectPort(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions) {
         execute(cmdClass, urlOptionName, NODE_URL + "incorrect", additionalOptions);
 
+        String expectedErrOutput = "Invalid URL '" + NODE_URL
+                + "incorrect' (Error at index 5 in: \"10300incorrect\")";
         assertAll(
-                this::assertExitCodeIsFailure,
+                this::assertExitCodeIsParseError,
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Invalid URL port: \"10300incorrect\"" + System.lineSeparator())
+                () -> assertErrOutputContains(expectedErrOutput)
         );
     }
 
@@ -151,10 +155,12 @@ public class UrlOptionsNegativeTest {
     void invalidUrlScheme(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions) {
         execute(cmdClass, urlOptionName, "incorrect" + NODE_URL, additionalOptions);
 
+        String expectedErrOutput = "Invalid URL 'incorrect" + NODE_URL
+                + "' (unknown protocol: incorrecthttp)";
         assertAll(
-                this::assertExitCodeIsFailure,
+                this::assertExitCodeIsParseError,
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Expected URL scheme 'http' or 'https' but was 'incorrecthttp'" + System.lineSeparator())
+                () -> assertErrOutputContains(expectedErrOutput)
         );
     }
 
@@ -192,9 +198,11 @@ public class UrlOptionsNegativeTest {
     void incorrectPortRepl(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions) {
         execute(cmdClass, urlOptionName, NODE_URL + "incorrect", additionalOptions);
 
+        String expectedErrOutput = "Invalid URL '" + NODE_URL
+                + "incorrect' (Error at index 5 in: \"10300incorrect\")";
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Invalid URL port: \"10300incorrect\"" + System.lineSeparator())
+                () -> assertErrOutputContains(expectedErrOutput)
         );
     }
 
@@ -204,9 +212,11 @@ public class UrlOptionsNegativeTest {
     void invalidUrlSchemeRepl(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions) {
         execute(cmdClass, urlOptionName, "incorrect" + NODE_URL, additionalOptions);
 
+        String expectedErrOutput = "Invalid URL 'incorrect" + NODE_URL
+                + "' (unknown protocol: incorrecthttp)";
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Expected URL scheme 'http' or 'https' but was 'incorrecthttp'" + System.lineSeparator())
+                () -> assertErrOutputContains(expectedErrOutput)
         );
     }
 
@@ -241,14 +251,14 @@ public class UrlOptionsNegativeTest {
                 .isEqualTo(1);
     }
 
-    private void assertOutputIsEmpty() {
-        assertThat(sout.toString())
-                .as("Check command output")
-                .isEmpty();
+    private void assertExitCodeIsParseError() {
+        assertThat(exitCode)
+                .as("Check exit code")
+                .isEqualTo(2);
     }
 
-    private void assertErrOutputIsEmpty() {
-        assertThat(serr.toString())
+    private void assertOutputIsEmpty() {
+        assertThat(sout.toString())
                 .as("Check command output")
                 .isEmpty();
     }
@@ -259,10 +269,10 @@ public class UrlOptionsNegativeTest {
                 .isEqualTo(expectedErrOutput);
     }
 
-    private void assertOutputContains(String expectedOutput) {
-        assertThat(sout.toString())
-                .as("Expected command output to contain: " + expectedOutput + " but was " + sout.toString())
-                .contains(expectedOutput);
+    private void assertErrOutputContains(String expectedErrOutput) {
+        assertThat(serr.toString())
+                .as("Check command error output")
+                .contains(expectedErrOutput);
     }
 
 }
