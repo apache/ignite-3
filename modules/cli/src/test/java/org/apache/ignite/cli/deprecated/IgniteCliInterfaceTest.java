@@ -471,7 +471,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             }
 
             @Test
-            @DisplayName("show --node-url http://localhost:10300 --selector local.baseline")
+            @DisplayName("show --node-url http://localhost:10300 local.baseline")
             void showSubtree() {
                 clientAndServer
                         .when(request()
@@ -480,7 +480,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
 
-                int exitCode = execute("node config show --node-url " + mockUrl + " --selector local.baseline");
+                int exitCode = execute("node config show --node-url " + mockUrl + " local.baseline");
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
@@ -665,7 +665,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             }
 
             @Test
-            @DisplayName("show --cluster-endpoint-url http://localhost:10300 --selector local.baseline")
+            @DisplayName("show --cluster-endpoint-url http://localhost:10300 local.baseline")
             void showSubtree() {
                 clientAndServer
                         .when(request()
@@ -674,7 +674,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
 
-                int exitCode = execute("cluster config show --cluster-endpoint-url " + mockUrl + " --selector local.baseline");
+                int exitCode = execute("cluster config show --cluster-endpoint-url " + mockUrl + " local.baseline");
 
                 assertThatExitCodeMeansSuccess(exitCode);
 

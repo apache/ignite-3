@@ -58,9 +58,9 @@ public class HoconDynamicCompleter implements DynamicCompleter {
     }
 
     /**
-     * Completes the given typed words with the config keys that a in the same level as the last typed words.
+     * Completes the given typed words with the config keys that are in the same level as the last typed words.
      * <p/>
-     * Example: given typed words ["cluster", "config", "show", "--selector", "a"], The last word is "a", only root config values will be
+     * Example: given typed words ["cluster", "config", "show", "a"], The last word is "a", only root config values will be
      * suggested to autocomplete: "aimem", "aipersist". If user hits "aimem" and types dot "." then only subkeys of "aimem." will be
      * suggested: "aimem.pageSize", "aimem.regions".
      */
