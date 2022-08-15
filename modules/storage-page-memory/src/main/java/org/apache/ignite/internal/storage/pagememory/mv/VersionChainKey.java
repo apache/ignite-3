@@ -24,7 +24,7 @@ import org.apache.ignite.internal.storage.RowId;
  */
 public class VersionChainKey {
     /** Row id. */
-    protected final RowId rowId;
+    private final RowId rowId;
 
     /**
      * Constructor.

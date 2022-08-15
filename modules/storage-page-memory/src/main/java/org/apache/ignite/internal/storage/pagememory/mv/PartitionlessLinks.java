@@ -49,7 +49,7 @@ public class PartitionlessLinks {
      * @return Partitionless link.
      */
     public static long readPartitionlessLink(int partitionId, long pageAddr, int offset) {
-        int tag = 0xFFFF & getShort(pageAddr, offset);
+        int tag = getShort(pageAddr, offset) & 0xFFFF;
         int pageIdx = getInt(pageAddr, offset + Short.BYTES);
 
         // Links to metapages are impossible. For the sake of simplicity, NULL_LINK is returned in this case.
@@ -59,9 +59,12 @@ public class PartitionlessLinks {
             return RowVersion.NULL_LINK;
         }
 
-        long pageId = pageId(partitionId, (byte) tag, pageIdx);
+        byte flags = (byte) tag;
+        int itemId = tag >>> 8;
 
-        return link(pageId, tag >>> 8);
+        long pageId = pageId(partitionId, flags, pageIdx);
+
+        return link(pageId, itemId);
     }
 
     /**
@@ -82,7 +85,7 @@ public class PartitionlessLinks {
     /**
      * Writes a partitionless link to a buffer: first high 2 bytes, then low 4 bytes.
      *
-     * @param buffer Where to write.
+     * @param buffer Buffer to write into.
      * @param link The link to write.
      */
     public static void writeToBuffer(ByteBuffer buffer, long link) {

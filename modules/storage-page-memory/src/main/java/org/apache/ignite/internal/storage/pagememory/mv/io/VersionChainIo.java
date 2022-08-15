@@ -33,7 +33,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.VersionChainKey;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 
 /**
- * Interface for VersionChain B+Tree-related IO. Defines a following data loayout:
+ * Interface for VersionChain B+Tree-related IO. Defines a following data layout:
  * <pre><code>[rowId's UUID (16 bytes), txId (16 bytes), head link (6 bytes), next link (6 bytes)]</code></pre>
  */
 public interface VersionChainIo {
@@ -115,7 +115,7 @@ public interface VersionChainIo {
      * @param versionChain Version chain.
      * @return Comparison result.
      */
-    default int compareTo(long pageAddr, int idx, VersionChainKey versionChain) {
+    default int compare(long pageAddr, int idx, VersionChainKey versionChain) {
         RowId rowId = versionChain.rowId();
 
         int offset = offset(idx);

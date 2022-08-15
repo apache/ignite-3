@@ -80,7 +80,7 @@ public class VersionChainTree extends BplusTree<VersionChainKey, VersionChain> {
     protected int compare(BplusIo<VersionChainKey> io, long pageAddr, int idx, VersionChainKey row) {
         VersionChainIo versionChainIo = (VersionChainIo) io;
 
-        return versionChainIo.compareTo(pageAddr, idx, row);
+        return versionChainIo.compare(pageAddr, idx, row);
     }
 
     /** {@inheritDoc} */

@@ -53,9 +53,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     private final int partitionId;
     private final int groupId;
 
-    protected final VersionChainFreeList versionChainFreeList;
     private final VersionChainTree versionChainTree;
-    private final VersionChainDataPageReader versionChainDataPageReader;
+    protected final RowVersionFreeList rowVersionFreeList;
     private final DataPageReader rowVersionDataPageReader;
 
     private final ThreadLocal<ReadRowVersion> readRowVersionCache;
@@ -158,7 +157,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     private void throwIfChainBelongsToAnotherTx(VersionChain versionChain, UUID txId) {
         if (versionChain.transactionId() != null && !txId.equals(versionChain.transactionId())) {
-            throw new TxIdMismatchException(versionChain.transactionId());
+            throw new TxIdMismatchException(txId, versionChain.transactionId());
         }
     }
 

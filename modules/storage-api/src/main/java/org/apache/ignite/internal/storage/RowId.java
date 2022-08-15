@@ -107,6 +107,6 @@ public final class RowId {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return "RowId [partitionId=" + (partitionId & 0xFFFF) + ", uuid=" + uuid + ']';
+        return "RowId [partitionId=" + partitionId() + ", uuid=" + uuid + ']';
     }
 }

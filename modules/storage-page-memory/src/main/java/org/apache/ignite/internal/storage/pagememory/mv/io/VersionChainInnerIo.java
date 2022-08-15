@@ -41,7 +41,7 @@ public final class VersionChainInnerIo extends BplusInnerIo<VersionChainKey> imp
      *
      * @param ver Page format version.
      */
-    VersionChainInnerIo(int ver) {
+    private VersionChainInnerIo(int ver) {
         super(T_VERSION_CHAIN_INNER_IO, ver, true, SIZE_IN_BYTES);
     }
 

@@ -34,6 +34,7 @@ import org.jetbrains.annotations.Nullable;
  */
 class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
     private final int partitionId;
+
     /**
      * Contains the result when the traversal ends.
      */

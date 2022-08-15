@@ -847,7 +847,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         long lsb = GridUnsafe.getLong(valueBytes, GridUnsafe.BYTE_ARR_OFF + Long.BYTES);
 
         if (txId.getMostSignificantBits() != msb || txId.getLeastSignificantBits() != lsb) {
-            throw new TxIdMismatchException(new UUID(msb, lsb));
+            throw new TxIdMismatchException(txId, new UUID(msb, lsb));
         }
     }
 

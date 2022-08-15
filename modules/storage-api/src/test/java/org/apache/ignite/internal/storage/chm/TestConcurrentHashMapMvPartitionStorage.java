@@ -125,7 +125,7 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.begin == null) {
                 if (!txId.equals(versionChain.txId)) {
-                    throw new TxIdMismatchException(versionChain.txId);
+                    throw new TxIdMismatchException(txId, versionChain.txId);
                 }
 
                 res[0] = versionChain.row;
@@ -210,7 +210,7 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
             }
 
             if (versionChain.txId != null && !versionChain.txId.equals(txId)) {
-                throw new TxIdMismatchException(versionChain.txId);
+                throw new TxIdMismatchException(txId, versionChain.txId);
             }
 
             return binaryRow;

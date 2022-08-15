@@ -41,7 +41,7 @@ public final class VersionChainLeafIo extends BplusLeafIo<VersionChainKey> imple
      *
      * @param ver Page format version.
      */
-    VersionChainLeafIo(int ver) {
+    private VersionChainLeafIo(int ver) {
         super(T_VERSION_CHAIN_LEAF_IO, ver, SIZE_IN_BYTES);
     }
 

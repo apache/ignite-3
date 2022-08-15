@@ -183,17 +183,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      */
     private void syncMetadataOnCheckpoint(@Nullable Executor executor) throws IgniteInternalCheckedException {
         if (executor == null) {
-            versionChainFreeList.saveMetadata();
             rowVersionFreeList.saveMetadata();
         } else {
-            executor.execute(() -> {
-                try {
-                    versionChainFreeList.saveMetadata();
-                } catch (IgniteInternalCheckedException e) {
-                    throw new IgniteInternalException("Failed to save VersionChainFreeList metadata", e);
-                }
-            });
-
             executor.execute(() -> {
                 try {
                     rowVersionFreeList.saveMetadata();
