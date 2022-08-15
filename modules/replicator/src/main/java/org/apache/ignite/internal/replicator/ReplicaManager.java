@@ -40,6 +40,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
+import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -97,19 +98,20 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Starts a replica. If a replica with the same partition id is already exist the method throws an exception.
      *
-     * @param replicaGrpId   Replication group id.
+     * @param replicaGrpId Replication group id.
+     * @param raftGroupService Raft group service.
      * @param listener Replica listener.
      * @return Replica.
      * @throws NodeStoppingException Is thrown when the node is stopping.
      * @throws ReplicaAlreadyIsStartedException Is thrown when a replica with the same replication group id already started.
      */
-    public Replica startReplica(String replicaGrpId, ReplicaListener listener) throws NodeStoppingException {
+    public Replica startReplica(String replicaGrpId, RaftGroupService raftGroupService, ReplicaListener listener) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return startReplicaInternal(replicaGrpId, listener);
+            return startReplicaInternal(replicaGrpId, raftGroupService, listener);
         } finally {
             busyLock.leaveBusy();
         }
@@ -119,11 +121,12 @@ public class ReplicaManager implements IgniteComponent {
      * Internal method for start a replica.
      *
      * @param replicaGrpId   Replication group id.
+     * @param raftGroupService Raft group service.
      * @param listener Replica listener.
      * @return Replica.
      */
-    private Replica startReplicaInternal(String replicaGrpId, ReplicaListener listener) {
-        var replica = new Replica(replicaGrpId, listener);
+    private Replica startReplicaInternal(String replicaGrpId, RaftGroupService raftGroupService, ReplicaListener listener) {
+        var replica = new Replica(replicaGrpId, raftGroupService, listener);
 
         Replica previous = replicas.putIfAbsent(replicaGrpId, replica);
 

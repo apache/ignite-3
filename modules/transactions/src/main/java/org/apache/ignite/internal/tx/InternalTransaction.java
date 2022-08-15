@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.UUID;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -37,9 +38,9 @@ public interface InternalTransaction extends Transaction {
      * Returns enlisted primary replica node associated with given replication group.
      *
      * @param partGroupId Replication group id.
-     * @return Enlisted primary replica node associated with given replication group.
+     * @return Enlisted primary replica node and raft term associated with given replication group.
      */
-    ClusterNode enlistedNode(String partGroupId);
+    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(String partGroupId);
 
     /**
      * Returns a transaction state.
@@ -52,8 +53,8 @@ public interface InternalTransaction extends Transaction {
      * Enlists a partition group into a transaction.
      *
      * @param replicationGroupId Replication group id to enlist.
-     * @param node Primary replica cluster node to enlist for given replication group.
+     * @param nodeAndTerm Primary replica cluster node and raft term to enlist for given replication group.
      * @return {@code True} if a partition is enlisted into the transaction.
      */
-    ClusterNode enlist(String replicationGroupId, ClusterNode node);
+    IgniteBiTuple<ClusterNode, Long> enlist(String replicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm);
 }

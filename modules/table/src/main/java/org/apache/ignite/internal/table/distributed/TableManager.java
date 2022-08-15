@@ -548,6 +548,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                     try {
                                         replicaMgr.startReplica(grpId,
+                                                updatedRaftGroupService,
                                                 new PartitionReplicaListener(
                                                         partitionStorage,
                                                         updatedRaftGroupService,
@@ -1414,6 +1415,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(part);
 
                             replicaMgr.startReplica(partId,
+                                    tbl.internalTable().partitionRaftGroupService(part),
                                     new PartitionReplicaListener(
                                             partitionStorage,
                                             tbl.internalTable().partitionRaftGroupService(part),

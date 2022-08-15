@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.replicator.message;
 
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkMessage;
 
 /**
@@ -30,4 +31,18 @@ public interface ReplicaRequest extends NetworkMessage {
      * @return Replication group id.
      */
     String groupId();
+
+    /**
+     * Gets a primary replica.
+     *
+     * @return Gets a primary replica.
+     */
+    ClusterNode primaryReplica();
+
+    /**
+     * Gets a raft term.
+     *
+     * @return Gets a raft term.
+     */
+    Long term();
 }

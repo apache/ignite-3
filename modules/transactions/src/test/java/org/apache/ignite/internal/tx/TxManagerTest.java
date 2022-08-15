@@ -29,6 +29,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -121,9 +122,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         ClusterNode node  = Mockito.mock(ClusterNode.class);
 
-        tx.enlist("ReplicationGroupName", node);
+        tx.enlist(replicationGroupName, new IgniteBiTuple<>(node, 1L));
 
-        assertEquals(node, tx.enlistedNode(replicationGroupName));
+        assertEquals(new IgniteBiTuple<>(node, 1L), tx.enlistedNodeAndTerm(replicationGroupName));
     }
 
     @Test
