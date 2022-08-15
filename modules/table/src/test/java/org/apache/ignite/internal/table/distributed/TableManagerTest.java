@@ -468,6 +468,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         tableManager.stop();
 
         verify(rm, times(PARTITIONS)).stopRaftGroup(anyString());
+        verify(replicaMgr, times(PARTITIONS)).stopReplica(anyString());
     }
 
     /**
