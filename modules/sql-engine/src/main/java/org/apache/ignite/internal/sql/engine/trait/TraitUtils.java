@@ -501,6 +501,7 @@ public class TraitUtils {
 
         return new RelFieldCollation(fieldIdx, direction, nullDirection);
     }
+
     /**
      * Creates mapping from provided projects that maps a source column idx to idx in a row after applying projections.
      *
