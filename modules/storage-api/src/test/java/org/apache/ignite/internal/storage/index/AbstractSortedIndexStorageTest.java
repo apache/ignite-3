@@ -63,8 +63,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
-import org.apache.ignite.internal.storage.chm.TestRowId;
 import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestIndexRow;
@@ -222,7 +222,7 @@ public abstract class AbstractSortedIndexStorageTest {
                 .map(type -> SchemaTestUtils.generateRandomValue(random, type))
                 .toArray();
 
-        IndexRow row = indexStorage.indexRowSerializer().createIndexRow(columns, new TestRowId(0));
+        IndexRow row = indexStorage.indexRowSerializer().createIndexRow(columns, new RowId(0));
 
         Object[] actual = indexStorage.indexRowDeserializer().deserializeColumns(row);
 
@@ -263,7 +263,7 @@ public abstract class AbstractSortedIndexStorageTest {
         SortedIndexStorage index = createIndexStorage(indexDefinition);
 
         var columnValues = new Object[] { "foo", 1 };
-        var rowId = new TestRowId(0);
+        var rowId = new RowId(0);
 
         IndexRow row = index.indexRowSerializer().createIndexRow(columnValues, rowId);
 
@@ -294,9 +294,9 @@ public abstract class AbstractSortedIndexStorageTest {
 
         var columnValues1 = new Object[] { "foo", 1 };
         var columnValues2 = new Object[] { "bar", 3 };
-        var rowId1 = new TestRowId(0);
-        var rowId2 = new TestRowId(0);
-        var rowId3 = new TestRowId(0);
+        var rowId1 = new RowId(0);
+        var rowId2 = new RowId(0);
+        var rowId3 = new RowId(0);
 
         IndexRow row1 = index.indexRowSerializer().createIndexRow(columnValues1, rowId1);
         IndexRow row2 = index.indexRowSerializer().createIndexRow(columnValues1, rowId2);
@@ -330,9 +330,9 @@ public abstract class AbstractSortedIndexStorageTest {
 
         var columnValues1 = new Object[] { "foo", 1 };
         var columnValues2 = new Object[] { "bar", 3 };
-        var rowId1 = new TestRowId(0);
-        var rowId2 = new TestRowId(0);
-        var rowId3 = new TestRowId(0);
+        var rowId1 = new RowId(0);
+        var rowId2 = new RowId(0);
+        var rowId3 = new RowId(0);
 
         IndexRow row1 = index.indexRowSerializer().createIndexRow(columnValues1, rowId1);
         IndexRow row2 = index.indexRowSerializer().createIndexRow(columnValues1, rowId2);
@@ -444,10 +444,10 @@ public abstract class AbstractSortedIndexStorageTest {
         for (SortedIndexStorage index : Arrays.asList(index1, index2)) {
             IndexRowSerializer serializer = index.indexRowSerializer();
 
-            index.put(serializer.createIndexRow(val9010, new TestRowId(0)));
-            index.put(serializer.createIndexRow(val8010, new TestRowId(0)));
-            index.put(serializer.createIndexRow(val9020, new TestRowId(0)));
-            index.put(serializer.createIndexRow(val8020, new TestRowId(0)));
+            index.put(serializer.createIndexRow(val9010, new RowId(0)));
+            index.put(serializer.createIndexRow(val8010, new RowId(0)));
+            index.put(serializer.createIndexRow(val9020, new RowId(0)));
+            index.put(serializer.createIndexRow(val8020, new RowId(0)));
         }
 
         // Test without bounds.
@@ -557,7 +557,7 @@ public abstract class AbstractSortedIndexStorageTest {
     }
 
     /**
-     * Tests that an empty range is returned if {@link SortedIndexStorage#range} method is called using overlapping keys.
+     * Tests that an empty range is returned if {@link SortedIndexStorage#scan} method is called using overlapping keys.
      */
     @Test
     void testEmptyRange() throws Exception {
@@ -591,7 +591,7 @@ public abstract class AbstractSortedIndexStorageTest {
 
         Object[] nullArray = new Object[storage.indexDescriptor().indexColumns().size()];
 
-        IndexRow nullRow = storage.indexRowSerializer().createIndexRow(nullArray, new TestRowId(0));
+        IndexRow nullRow = storage.indexRowSerializer().createIndexRow(nullArray, new RowId(0));
 
         TestIndexRow entry2 = new TestIndexRow(storage, nullRow, nullArray);
 

@@ -15,13 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.mv;
-
-import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.lang.IgniteInternalException;
+package org.apache.ignite.cli.config;
 
 /**
- * Thrown when trying to do a modification at {@link RowId} that has already become invalid for writes.
+ * Provider for the application state config.
  */
-class RowIdIsInvalidForModificationsException extends IgniteInternalException {
+public interface StateConfigProvider {
+    /**
+     * Gets the application state config.
+     *
+     * @return application state config
+     */
+    Config get();
 }

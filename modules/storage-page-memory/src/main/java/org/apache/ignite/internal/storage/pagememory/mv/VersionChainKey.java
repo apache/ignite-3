@@ -15,51 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory;
+package org.apache.ignite.internal.storage.pagememory.mv;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.storage.SearchRow;
+import org.apache.ignite.internal.storage.RowId;
 
 /**
- * {@link SearchRow} implementation.
+ * Search key for the {@link VersionChainTree}.
  */
-public class TableSearchRow {
-    protected final int hash;
-
-    protected final ByteBuffer key;
+public class VersionChainKey {
+    /** Row id. */
+    private final RowId rowId;
 
     /**
      * Constructor.
      *
-     * @param hash Key hash.
-     * @param key Key byte buffer.
+     * @param rowId Search row id.
      */
-    public TableSearchRow(int hash, ByteBuffer key) {
-        assert !key.isReadOnly();
-        assert key.position() == 0;
-
-        this.hash = hash;
-        this.key = key;
+    public VersionChainKey(RowId rowId) {
+        this.rowId = rowId;
     }
 
     /**
-     * Returns key object as a byte buffer.
+     * Returns a row id.
      */
-    public ByteBuffer key() {
-        return key.rewind();
-    }
-
-    /**
-     * Returns hash of row.
-     */
-    public int hash() {
-        return hash;
-    }
-
-    /**
-     * Returns a row link.
-     */
-    public long link() {
-        return 0;
+    public RowId rowId() {
+        return rowId;
     }
 }

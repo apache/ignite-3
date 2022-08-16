@@ -28,7 +28,6 @@ public final class StateFolderProvider {
     private static final String PARENT_FOLDER_NAME = "ignitecli";
 
     private StateFolderProvider() {
-
     }
 
     /**
@@ -36,8 +35,8 @@ public final class StateFolderProvider {
      *
      * @return Folder for state storage.
      */
-    public static File getStateFolder() {
-        return getStateRoot().resolve(PARENT_FOLDER_NAME).toFile();
+    public static File getStateFile(String name) {
+        return getStateRoot().resolve(PARENT_FOLDER_NAME).resolve(name).toFile();
     }
 
     private static Path getStateRoot() {

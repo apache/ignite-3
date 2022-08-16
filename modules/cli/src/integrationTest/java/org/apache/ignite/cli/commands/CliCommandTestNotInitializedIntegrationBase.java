@@ -30,6 +30,7 @@ import org.apache.ignite.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.cli.config.ConfigDefaultValueProvider;
 import org.apache.ignite.cli.config.ini.IniConfigManager;
+import org.apache.ignite.cli.core.repl.context.CommandLineContextProvider;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,12 +44,16 @@ import picocli.CommandLine;
 public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTestBase {
     /** Correct ignite jdbc url. */
     protected static final String JDBC_URL = "jdbc:ignite:thin://127.0.0.1:10800";
+
     @Inject
-    ConfigDefaultValueProvider configDefaultValueProvider;
+    private ConfigDefaultValueProvider configDefaultValueProvider;
+
     @Inject
-    TestConfigManagerProvider configManagerProvider;
+    protected TestConfigManagerProvider configManagerProvider;
+
     @Inject
     private ApplicationContext context;
+
     private CommandLine cmd;
 
     private StringWriter sout;
@@ -73,6 +78,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
         serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));
         cmd.setErr(new PrintWriter(serr));
+        CommandLineContextProvider.setCmd(cmd);
     }
 
     @BeforeAll

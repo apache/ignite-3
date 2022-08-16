@@ -15,27 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory;
+package org.apache.ignite.cli.config;
 
-import org.apache.ignite.internal.pagememory.tree.BplusTree;
-import org.apache.ignite.internal.storage.PartitionStorage;
+import io.micronaut.context.annotation.Replaces;
+import jakarta.inject.Singleton;
 
 /**
- * Implementation of {@link PartitionStorage} based on a {@link BplusTree} for in-memory case.
+ * Test implementation of {@link StateConfigProvider}.
  */
-class VolatilePageMemoryPartitionStorage extends AbstractPageMemoryPartitionStorage {
-    /**
-     * Constructor.
-     *
-     * @param partId Partition id.
-     * @param freeList Table free list.
-     * @param tree Table tree.
-     */
-    public VolatilePageMemoryPartitionStorage(
-            int partId,
-            TableFreeList freeList,
-            TableTree tree
-    ) {
-        super(partId, freeList, tree);
+@Singleton
+@Replaces(StateConfigProvider.class)
+public class TestStateConfigProvider implements StateConfigProvider {
+
+    public Config config = TestStateConfigHelper.createEmptyConfig();
+
+    @Override
+    public Config get() {
+        return config;
     }
 }

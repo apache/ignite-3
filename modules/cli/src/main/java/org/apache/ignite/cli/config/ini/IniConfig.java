@@ -15,49 +15,52 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory;
+package org.apache.ignite.cli.config.ini;
 
-import static org.apache.ignite.internal.storage.StorageUtils.toByteArray;
-
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.storage.DataRow;
+import java.util.Map;
+import org.apache.ignite.cli.config.Config;
 
 /**
- * Delegating implementation of {@link DataRow}.
+ * Implementation of {@link Config} based on {@link IniSection}.
  */
-class TableDataRowAdapter implements DataRow {
-    private final TableDataRow tableDataRow;
+public class IniConfig implements Config {
+    private final IniSection section;
+    private final Runnable saveAction;
 
-    /**
-     * Constructor.
-     *
-     * @param tableDataRow Table data row.
-     */
-    TableDataRowAdapter(TableDataRow tableDataRow) {
-        this.tableDataRow = tableDataRow;
+    public IniConfig(IniSection section, Runnable saveAction) {
+        this.section = section;
+        this.saveAction = saveAction;
     }
 
     /** {@inheritDoc} */
     @Override
-    public byte[] valueBytes() {
-        return toByteArray(value());
+    public Map<String, String> getAll() {
+        return section.getAll();
     }
 
     /** {@inheritDoc} */
     @Override
-    public ByteBuffer value() {
-        return tableDataRow.value();
+    public String getProperty(String key) {
+        return section.getProperty(key);
     }
 
     /** {@inheritDoc} */
     @Override
-    public byte[] keyBytes() {
-        return toByteArray(key());
+    public String getProperty(String key, String defaultValue) {
+        return section.getProperty(key, defaultValue);
     }
 
     /** {@inheritDoc} */
     @Override
-    public ByteBuffer key() {
-        return tableDataRow.key();
+    public void setProperty(String key, String value) {
+        section.setProperty(key, value);
+        saveAction.run();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setProperties(Map<String, String> values) {
+        section.setProperties(values);
+        saveAction.run();
     }
 }

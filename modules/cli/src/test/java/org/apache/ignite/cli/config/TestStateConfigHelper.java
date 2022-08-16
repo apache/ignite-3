@@ -15,28 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.mv;
+package org.apache.ignite.cli.config;
+
+import org.apache.ignite.cli.commands.cliconfig.TestConfigManagerHelper;
 
 /**
- * A link to version chain.
+ * Test factory for application state config.
  */
-public class VersionChainLink {
-    public static final int SIZE_IN_BYTES = Long.BYTES;
+public class TestStateConfigHelper {
+    public static final String EMPTY = "empty.ini";
+    public static final String LAST_CONNECTED_DEFAULT = "last_connected_default.ini";
 
-    private long link;
-
-    public VersionChainLink() {
+    public static Config createEmptyConfig() {
+        return createConfig(EMPTY);
     }
 
-    public VersionChainLink(long link) {
-        this.link = link;
+    public static Config createLastConnectedDefault() {
+        return createConfig(LAST_CONNECTED_DEFAULT);
     }
 
-    public long link() {
-        return link;
-    }
-
-    public void link(long link) {
-        this.link = link;
+    private static Config createConfig(String resource) {
+        return StateConfig.getStateConfig(TestConfigManagerHelper.copyResourceToTempFile(resource));
     }
 }

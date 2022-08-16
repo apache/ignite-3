@@ -15,28 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.io;
+package org.apache.ignite.cli.config;
 
-import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
-import org.apache.ignite.internal.storage.pagememory.TableTree;
+import jakarta.inject.Singleton;
 
 /**
- * IO routines for {@link TableTree} meta pages.
+ * Implementation of {@link StateConfigProvider} based on the ini file in the state folder.
  */
-public class TableMetaIo extends BplusMetaIo {
-    /** Page IO type. */
-    public static final short T_TABLE_META_IO = 3;
+@Singleton
+public class CachedStateConfigProvider implements StateConfigProvider {
+    private static final String CONFIG_FILE_NAME = "config.ini";
 
-    /** I/O versions. */
-    public static final IoVersions<TableMetaIo> VERSIONS = new IoVersions<>(new TableMetaIo(1));
+    private final Config config = StateConfig.getStateConfig(StateFolderProvider.getStateFile(CONFIG_FILE_NAME));
 
-    /**
-     * Constructor.
-     *
-     * @param ver Page format version.
-     */
-    protected TableMetaIo(int ver) {
-        super(T_TABLE_META_IO, ver);
+    @Override
+    public Config get() {
+        return config;
     }
 }
