@@ -31,6 +31,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
@@ -60,8 +61,8 @@ public class TransactionImpl implements InternalTransaction {
     /** Enlisted raft groups. */
     private Set<RaftGroupService> enlistedRafts = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-    /** Enlisted replication groups: replication group id -> primary replica node. */
-    private Map<String, ClusterNode> enlisted = new ConcurrentHashMap<>();
+    /** Enlisted replication groups: replication group id -> (primary replica node, raft term). */
+    private Map<String, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
 
     /**
      * The constructor.
@@ -85,7 +86,7 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override
-    public ClusterNode enlistedNode(String partGroupId) {
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(String partGroupId) {
         return enlisted.get(partGroupId);
     }
 
@@ -98,10 +99,10 @@ public class TransactionImpl implements InternalTransaction {
 
     /** {@inheritDoc} */
     @Override
-    public ClusterNode enlist(String repicationGroupId, ClusterNode node) {
-        enlisted.put(repicationGroupId, node);
+    public IgniteBiTuple<ClusterNode, Long> enlist(String repicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
+        enlisted.put(repicationGroupId, nodeAndTerm);
 
-        return node;
+        return nodeAndTerm;
     }
 
     /** {@inheritDoc} */

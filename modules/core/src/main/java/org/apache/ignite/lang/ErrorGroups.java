@@ -140,5 +140,8 @@ public class ErrorGroups {
 
         /** The error happens when the replica is not ready to handle a request.  */
         public static int REPLICA_UNAVAILABLE_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(5);
+
+        /** The error happens when the replica is not the current primary replica. */
+        public static int REPLICA_MISS_ERR = REPLICATOR_ERR_GROUP.registerErrorCode(6);
     }
 }
