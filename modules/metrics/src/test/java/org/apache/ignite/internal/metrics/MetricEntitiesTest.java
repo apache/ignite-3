@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -40,67 +41,72 @@ public class MetricEntitiesTest {
     private static final long[] DISTRIBUTION_BOUNDS = new long[] { 10, 100, 1000 };
 
     @Test
-    public void testMetricRegistry() {
+    public void testMetricLifecycle() {
         MetricRegistry registry = new MetricRegistry();
 
         MetricSource metricSource = new TestMetricSource();
 
         registry.registerSource(metricSource);
-        assertEquals(0L, registry.metricSetSchema().version());
+        assertEquals(0L, registry.metricSnapshot().get2());
 
         assertThrows(IllegalStateException.class, () -> registry.registerSource(metricSource));
 
-        assertEquals(0L, registry.metricSetSchema().version());
-        assertTrue(registry.metricSetSchema().metricSets().isEmpty());
+        assertEquals(0L, registry.metricSnapshot().get2());
+        assertTrue(registry.metricSnapshot().get1().isEmpty());
 
         MetricSource alreadyEnabled = new TestMetricSource("alreadyEnabled");
         alreadyEnabled.enable();
         assertThrows(AssertionError.class, () -> registry.registerSource(alreadyEnabled));
-        assertEquals(0L, registry.metricSetSchema().version());
+        assertEquals(0L, registry.metricSnapshot().get2());
 
+        // Enabling metric source, metric snapshot and its version should be changed.
         MetricSet metricSet = registry.enable(SOURCE_NAME);
         assertNotNull(metricSet);
-        assertEquals(1L, registry.version());
-        assertFalse(registry.metricSetSchema().metricSets().isEmpty());
+        assertEquals(1L, registry.metricSnapshot().get2());
+        assertFalse(registry.metricSnapshot().get1().isEmpty());
         assertNull(registry.enable(metricSource));
 
         assertThrows(IllegalStateException.class, () -> registry.enable("unexisting"));
-        assertEquals(1L, registry.metricSetSchema().version());
+        assertEquals(1L, registry.metricSnapshot().get2());
 
+        // Enabling the metric source that was already enabled before, metric snapshot should not be changed.
         assertNull(registry.enable(SOURCE_NAME));
-        assertEquals(1L, registry.version());
-
-        MetricSetSchema metricSetSchema = registry.metricSetSchema();
-        assertEquals(1L, metricSetSchema.version());
-        assertFalse(metricSetSchema.metricSets().isEmpty());
-        MetricSet ms = metricSetSchema.metricSets().get(0);
+        IgniteBiTuple<List<MetricSet>, Long> metricSnapshot = registry.metricSnapshot();
+        assertEquals(1L, metricSnapshot.get2());
+        assertFalse(metricSnapshot.get1().isEmpty());
+        MetricSet ms = metricSnapshot.get1().get(0);
         assertEquals(metricSet, ms);
 
+        // Disable the metric source.
         registry.disable(SOURCE_NAME);
-        assertEquals(2L, registry.version());
+        assertEquals(2L, registry.metricSnapshot().get2());
 
+        // Disable unexisting metric source, exception is thrown, metric snapshot should not be changed.
         assertThrows(IllegalStateException.class, () -> registry.disable("unexisting"));
+        metricSnapshot = registry.metricSnapshot();
+        assertEquals(2L, metricSnapshot.get2());
+        assertTrue(metricSnapshot.get1().isEmpty());
 
-        metricSetSchema = registry.metricSetSchema();
-        assertEquals(2L, metricSetSchema.version());
-        assertTrue(metricSetSchema.metricSets().isEmpty());
-
+        // Trying to disable the metric source that was already enabled before, metric snapshot should not be changed.
         registry.disable(SOURCE_NAME);
-        assertEquals(2L, registry.version());
+        assertEquals(2L, registry.metricSnapshot().get2());
         registry.disable(metricSource);
-        assertEquals(2L, registry.version());
+        assertEquals(2L, registry.metricSnapshot().get2());
 
+        // Enabling metric source again, metric snapshot changes.
         registry.enable(metricSource);
+        assertEquals(3L, registry.metricSnapshot().get2());
+        assertFalse(registry.metricSnapshot().get1().isEmpty());
 
-        assertEquals(3L, registry.version());
-
+        // Unregister enabled metric source, it should be disabled, metric snapshot should be changed.
         registry.unregisterSource(metricSource);
-        assertEquals(4L, registry.version());
+        assertEquals(4L, registry.metricSnapshot().get2());
 
+        // Trying to unregister the metric source that was already unregistered before, metric snapshot should not be changed.
         registry.unregisterSource(metricSource);
-        metricSetSchema = registry.metricSetSchema();
-        assertEquals(4L, metricSetSchema.version());
-        assertTrue(metricSetSchema.metricSets().isEmpty());
+        metricSnapshot = registry.metricSnapshot();
+        assertEquals(4L, metricSnapshot.get2());
+        assertTrue(metricSnapshot.get1().isEmpty());
     }
 
     @Test

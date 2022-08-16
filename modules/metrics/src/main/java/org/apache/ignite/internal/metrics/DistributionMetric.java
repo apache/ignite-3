@@ -31,6 +31,16 @@ import org.jetbrains.annotations.Nullable;
  * Last element contains count of measurements bigger than most right value of bounds.
  */
 public class DistributionMetric extends AbstractMetric implements CompositeMetric {
+    /** Updater that atomically updates {@link #scalarMetrics} field. */
+    private static final AtomicReferenceFieldUpdater<DistributionMetric, List> scalarMetricsUpdater =
+        AtomicReferenceFieldUpdater.newUpdater(DistributionMetric.class, List.class, "scalarMetrics");
+
+    /** Distribution metric first interval low bound. */
+    public static final long FIRST_LOW_BOUND = 0;
+
+    /** Distribution metric first interval low bound, string representation. */
+    public static final String FIRST_LOW_BOUND_STRING = "0";
+
     /** Distribution metric last interval high bound. */
     public static final String INF = "inf";
 
@@ -57,31 +67,33 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
      *
      * @param name Name.
      * @param desc Description.
-     * @param bounds Bounds of the buckets.
+     * @param bounds Bounds of the buckets. The array must be sorted and its elements must be unique. The 0-th bound must be
+     *               greater or equal to {@code 0}.
      */
     public DistributionMetric(String name, @Nullable String desc, long[] bounds) {
         super(name, desc);
 
         assert bounds != null && bounds.length > 0;
-        assert isSorted(bounds);
+        assert bounds[0] >= FIRST_LOW_BOUND;
+        assert isSortedAndUnique(bounds);
 
         this.bounds = bounds;
         this.measurements = new AtomicLongArray(bounds.length + 1);
     }
 
     /**
-     * Check whether given array is sorted.
+     * Check whether given array is sorted and its elements are unique.
      *
      * @param arr Array to check.
-     * @return {@code True} if array sorted, {@code false} otherwise.
+     * @return {@code True} if array sorted and its elements are unique, {@code false} otherwise.
      */
-    private static boolean isSorted(long[] arr) {
+    private static boolean isSortedAndUnique(long[] arr) {
         if (arr.length < 2) {
             return true;
         }
 
         for (int i = 1; i < arr.length; i++) {
-            if (arr[i - 1] > arr[i]) {
+            if (arr[i - 1] >= arr[i]) {
                 return false;
             }
         }
@@ -159,8 +171,9 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
         if (scalarMetrics == null) {
             List<Metric> metrics = new ArrayList<>();
 
+            String from = FIRST_LOW_BOUND_STRING;
+
             for (int i = 0; i < measurements.length(); i++) {
-                String from = String.valueOf(i == 0 ? 0 : bounds[i - 1]);
                 String to = i == measurements.length() - 1 ? INF : String.valueOf(bounds[i]);
 
                 String name = name() + RANGE_DIVIDER + from + RANGE_DIVIDER + to;
@@ -169,12 +182,11 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
                 LongGauge gauge = new LongGauge(name, "Single distribution bucket", () -> measurements.get(index));
 
                 metrics.add(gauge);
+
+                from = to;
             }
 
-            AtomicReferenceFieldUpdater<DistributionMetric, List> updater =
-                    AtomicReferenceFieldUpdater.newUpdater(DistributionMetric.class, List.class, "scalarMetrics");
-
-            updater.compareAndSet(this, null, unmodifiableList(metrics));
+            scalarMetricsUpdater.compareAndSet(this, null, unmodifiableList(metrics));
         }
 
         return scalarMetrics;

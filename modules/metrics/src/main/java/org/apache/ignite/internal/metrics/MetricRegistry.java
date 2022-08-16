@@ -17,17 +17,19 @@
 
 package org.apache.ignite.internal.metrics;
 
+import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.TreeMap;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Function;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.NotNull;
 
@@ -37,13 +39,22 @@ import org.jetbrains.annotations.NotNull;
  * provides access to all enabled metrics through corresponding metrics sets. Metrics registry lifetime is equal to the node lifetime.
  */
 public class MetricRegistry {
+    private static final AtomicReferenceFieldUpdater<MetricRegistry, IgniteBiTuple> metricSnapshotUpdater =
+        newUpdater(MetricRegistry.class, IgniteBiTuple.class, "metricSnapshot");
+
     private final Lock lock = new ReentrantLock();
 
-    /** Map of metric sources' names to tuples of registered sources with metric sets, if enabled. */
-    private volatile Map<String, IgniteBiTuple<MetricSource, MetricSet>> sources = new TreeMap<>();
+    /** Registered metric sources. */
+    private final Map<String, MetricSource> sources = new HashMap<>();
 
-    /** Version always should be changed on metrics enabled/disabled action. */
-    private volatile long version;
+    /** Enabled metric sets. */
+    private final Map<String, MetricSet> sets = new TreeMap<>();
+
+    /**
+     * Metrics snapshot. This is a list of metric sets with corresponding version, the values of the metrics in the
+     * metric sets that are included into the snapshot, are changed dynamically.
+     */
+    private volatile IgniteBiTuple<List<MetricSet>, Long> metricSnapshot = new IgniteBiTuple<>(emptyList(), 0L);
 
     /**
      * Register metric source. It must be registered in this metrics registry after initialization of corresponding component
@@ -57,20 +68,14 @@ public class MetricRegistry {
         lock.lock();
 
         try {
-            Map<String, IgniteBiTuple<MetricSource, MetricSet>> sources = new TreeMap<>(this.sources);
+            // Metric source shouldn't be enabled before because the second call of MetricSource#enable will return null.
+            assert !src.enabled() : "Metric source shouldn't be enabled before registration in registry.";
 
-            IgniteBiTuple<MetricSource, MetricSet> s = new IgniteBiTuple<>(src, null);
-
-            IgniteBiTuple<MetricSource, MetricSet> old = sources.putIfAbsent(src.name(), s);
+            MetricSource old = sources.putIfAbsent(src.name(), src);
 
             if (old != null) {
                 throw new IllegalStateException("Metrics source with given name already exists: " + src.name());
             }
-
-            // Now we sure that this metric source wasn't registered before.
-            assert !src.enabled() : "Metric source shouldn't be enabled before registration in registry.";
-
-            this.sources = sources;
         } finally {
             lock.unlock();
         }
@@ -93,21 +98,17 @@ public class MetricRegistry {
      * @param srcName Metric source name.
      */
     public void unregisterSource(String srcName) {
-        modifySources(sources -> {
-            IgniteBiTuple<MetricSource, MetricSet> s = sources.get(srcName);
+        lock.lock();
 
-            if (s == null) {
-                return false;
+        try {
+            MetricSource registered = sources.get(srcName);
+
+            if (registered != null) {
+                disable(registered);
             }
-
-            assert s.get1() != null;
-
-            s.get1().disable();
-
-            sources.remove(srcName);
-
-            return true;
-        });
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
@@ -119,30 +120,23 @@ public class MetricRegistry {
      * @throws IllegalArgumentException If metric source isn't the same as registered.
      */
     public MetricSet enable(@NotNull MetricSource src) {
-        AtomicReference<MetricSet> metricSetRef = new AtomicReference<>();
+        lock.lock();
 
-        modifySources(sources -> {
-            IgniteBiTuple<MetricSource, MetricSet> registered = checkRegistered(sources, src);
+        try {
+            MetricSource registered = checkAndGetRegistered(src);
 
-            if (registered.get2() != null) {
-                assert src.enabled();
-                return false;
+            MetricSet metricSet = registered.enable();
+
+            if (metricSet != null) {
+                sets.put(src.name(), metricSet);
+
+                updateMetricSnapshot();
             }
 
-            MetricSet metricSet = src.enable();
-
-            assert metricSet != null;
-
-            IgniteBiTuple<MetricSource, MetricSet> updated = new IgniteBiTuple<>(src, metricSet);
-
-            sources.put(src.name(), updated);
-
-            metricSetRef.set(metricSet);
-
-            return true;
-        });
-
-        return metricSetRef.get();
+            return metricSet;
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
@@ -153,35 +147,27 @@ public class MetricRegistry {
      * @throws IllegalStateException If metric source with the given name doesn't exist.
      */
     public MetricSet enable(final String srcName) {
-        AtomicReference<MetricSet> metricSetRef = new AtomicReference<>();
+        lock.lock();
 
-        modifySources(sources -> {
-            IgniteBiTuple<MetricSource, MetricSet> registered = sources.get(srcName);
+        try {
+            MetricSource src = sources.get(srcName);
 
-            if (registered == null) {
+            if (src == null) {
                 throw new IllegalStateException("Metrics source with given name doesn't exist: " + srcName);
             }
 
-            MetricSource src = registered.get1();
+            MetricSet metricSet = src.enable();
 
-            if (registered.get2() != null) {
-                assert src.enabled();
-                return false;
+            if (metricSet != null) {
+                sets.put(src.name(), metricSet);
+
+                updateMetricSnapshot();
             }
 
-            MetricSet metricSet = src.enable();
-            assert metricSet != null;
-
-            IgniteBiTuple<MetricSource, MetricSet> updated = new IgniteBiTuple<>(src, metricSet);
-
-            sources.put(src.name(), updated);
-
-            metricSetRef.set(metricSet);
-
-            return true;
-        });
-
-        return metricSetRef.get();
+            return metricSet;
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
@@ -192,24 +178,23 @@ public class MetricRegistry {
      * @throws IllegalArgumentException If metric source isn't the same as registered.
      */
     public void disable(@NotNull MetricSource src) {
-        modifySources(sources -> {
-            IgniteBiTuple<MetricSource, MetricSet> registered = checkRegistered(sources, src);
+        lock.lock();
 
-            if (registered.get1().enabled()) {
-                assert registered.get2() != null;
-            } else {
-                assert registered.get2() == null;
-                return false;
+        try {
+            MetricSource registered = checkAndGetRegistered(src);
+
+            if (!registered.enabled()) {
+                return;
             }
 
-            src.disable();
+            registered.disable();
 
-            IgniteBiTuple<MetricSource, MetricSet> updated = new IgniteBiTuple<>(src, null);
+            sets.remove(registered.name());
 
-            sources.put(src.name(), updated);
-
-            return true;
-        });
+            updateMetricSnapshot();
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
@@ -219,55 +204,48 @@ public class MetricRegistry {
      * @throws IllegalStateException If metric source with given name doesn't exists.
      */
     public void disable(final String srcName) {
-        modifySources(sources -> {
-            IgniteBiTuple<MetricSource, MetricSet> registered = sources.get(srcName);
+        lock.lock();
 
-            if (registered == null) {
+        try {
+            MetricSource src = sources.get(srcName);
+
+            if (src == null) {
                 throw new IllegalStateException("Metrics source with given name doesn't exists: " + srcName);
             }
 
-            MetricSource src = registered.get1();
-
-            if (registered.get1().enabled()) {
-                assert registered.get2() != null;
-            } else {
-                assert registered.get2() == null;
-                return false;
+            if (!src.enabled()) {
+                return;
             }
 
             src.disable();
 
-            IgniteBiTuple<MetricSource, MetricSet> updated = new IgniteBiTuple<>(src, null);
+            sets.remove(srcName);
 
-            sources.put(src.name(), updated);
-
-            return true;
-        });
+            updateMetricSnapshot();
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
-     * Check that the given metric source is registered.
+     * Check that the given metric source is registered. This method should be called under the {@link MetricRegistry#lock}.
      *
-     * @param sources Sources map.
      * @param src Metric source.
-     * @return Registered pair of metric source and metric set.
+     * @return Registered metric source.
      * @throws IllegalStateException If metric source isn't registered.
      * @throws IllegalArgumentException If metric source isn't the same as registered.
      */
     @NotNull
-    private IgniteBiTuple<MetricSource, MetricSet> checkRegistered(
-            Map<String, IgniteBiTuple<MetricSource, MetricSet>> sources,
-            @NotNull MetricSource src
-    ) {
+    private MetricSource checkAndGetRegistered(@NotNull MetricSource src) {
         requireNonNull(src);
 
-        IgniteBiTuple<MetricSource, MetricSet> registered = sources.get(src.name());
+        MetricSource registered = sources.get(src.name());
 
         if (registered == null) {
             throw new IllegalStateException("Metrics source isn't registered: " + src.name());
         }
 
-        if (!src.equals(registered.get1())) {
+        if (!src.equals(registered)) {
             throw new IllegalArgumentException("Given metric source is not the same as registered by the same name: " + src.name());
         }
 
@@ -275,58 +253,30 @@ public class MetricRegistry {
     }
 
     /**
-     * Updates {@link MetricRegistry#sources} map using copy-on-write principle. Increments version of registry.
-     *
-     * @param modifier Modifier for the sources map. Accepts the new, modifiable version of the map. Returns boolean value, whether
-     *                 the map was modified.
+     * Update {@link MetricRegistry#metricSnapshot}, only metric sets from registered and enabled metric sources are included,
+     * version is incremented.
      */
-    private void modifySources(Function<Map<String, IgniteBiTuple<MetricSource, MetricSet>>, Boolean> modifier) {
-        lock.lock();
+    private void updateMetricSnapshot() {
+        List<MetricSet> metricSets = new ArrayList<>(sets.size());
 
-        try {
-            Map<String, IgniteBiTuple<MetricSource, MetricSet>> sources0 = new TreeMap<>(sources);
-
-            boolean modified = modifier.apply(sources0);
-
-            if (modified) {
-                sources = sources0;
-
-                version++;
-            }
-        } finally {
-            lock.unlock();
+        for (MetricSet metricSet : sets.values()) {
+            metricSets.add(metricSet);
         }
+
+        long newVersion = metricSnapshot.get2() + 1;
+
+        IgniteBiTuple<List<MetricSet>, Long> newMetricSnapshot = new IgniteBiTuple<>(unmodifiableList(metricSets), newVersion);
+
+        metricSnapshotUpdater.compareAndSet(this, this.metricSnapshot, newMetricSnapshot);
     }
 
     /**
-     * Metric set schema.
+     * Metrics snapshot. This is a list of metric sets with corresponding version, the values of the metrics in the
+     * metric sets that are included into the snapshot, are changed dynamically.
      *
-     * @return Metric set schema.
+     * @return Metrics snapshot.
      */
-    public MetricSetSchema metricSetSchema() {
-        lock.lock();
-
-        try {
-            List<MetricSet> metricSetsList = new ArrayList<>();
-
-            for (Entry<String, IgniteBiTuple<MetricSource, MetricSet>> e : sources.entrySet()) {
-                if (e.getValue().get2() != null) {
-                    metricSetsList.add(e.getValue().get2());
-                }
-            }
-
-            return new MetricSetSchema(version, metricSetsList);
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    /**
-     * Returns registry schema version.
-     *
-     * @return Version.
-     */
-    public long version() {
-        return version;
+    public IgniteBiTuple<List<MetricSet>, Long> metricSnapshot() {
+        return metricSnapshot;
     }
 }

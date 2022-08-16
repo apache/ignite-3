@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.metrics;
 
+import java.util.List;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -112,12 +114,13 @@ public class MetricManager implements IgniteComponent {
     }
 
     /**
-     * Metric set schema.
+     * Metrics snapshot. This is a snapshot of metric sets with corresponding version, the values of the metrics in the
+     * metric sets that are included into the snapshot, are changed dynamically.
      *
-     * @return Metric set schema.
+     * @return Metrics snapshot.
      */
     @NotNull
-    public MetricSetSchema metricSetSchema() {
-        return registry.metricSetSchema();
+    public IgniteBiTuple<List<MetricSet>, Long> metricSetSchema() {
+        return registry.metricSnapshot();
     }
 }

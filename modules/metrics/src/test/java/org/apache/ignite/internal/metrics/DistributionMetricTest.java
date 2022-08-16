@@ -35,6 +35,8 @@ public class DistributionMetricTest {
         assertThrows(Throwable.class, () -> new DistributionMetric("test", null, null));
         assertThrows(AssertionError.class, () -> new DistributionMetric("test", null, new long[0]));
         assertThrows(AssertionError.class, () -> new DistributionMetric("test", null, new long[] { 10, 1}));
+        assertThrows(AssertionError.class, () -> new DistributionMetric("test", null, new long[] { 1, 10, 10, 100}));
+        assertThrows(AssertionError.class, () -> new DistributionMetric("test", null, new long[] { -1, 1, 10, 100}));
     }
 
     /**
