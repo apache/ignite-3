@@ -39,8 +39,9 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<Timestamp>> {
     private boolean readingFirstSlot = true;
 
     private long firstFragmentLink;
-    @Nullable
-    private Timestamp timestamp;
+
+    private @Nullable Timestamp timestamp;
+
     private long nextLink;
 
     private final ReadRowVersionValue readRowVersionValue = new ReadRowVersionValue();
@@ -49,10 +50,12 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<Timestamp>> {
         this.partitionId = partitionId;
     }
 
+    /** {@inheritDoc} */
     @Override
     public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Predicate<Timestamp> loadValue) {
         if (readingFirstSlot) {
             readingFirstSlot = false;
+
             return readFullOrInitiateReadFragmented(link, pageAddr, payload, loadValue);
         } else {
             return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
@@ -67,6 +70,7 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<Timestamp>> {
 
         if (!loadValue.test(timestamp)) {
             result = new RowVersion(partitionIdFromLink(link), firstFragmentLink, timestamp, nextLink, null);
+
             return STOP_TRAVERSAL;
         }
 
@@ -77,6 +81,7 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<Timestamp>> {
         return PageIdUtils.partitionId(PageIdUtils.pageId(link));
     }
 
+    /** {@inheritDoc} */
     @Override
     public void finish() {
         if (result != null) {
@@ -87,7 +92,9 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<Timestamp>> {
         readRowVersionValue.finish();
 
         byte[] valueBytes = readRowVersionValue.result();
+
         ByteBuffer value = ByteBuffer.wrap(valueBytes).order(ByteBufferRow.ORDER);
+
         result = new RowVersion(partitionIdFromLink(firstFragmentLink), firstFragmentLink, timestamp, nextLink, value);
     }
 

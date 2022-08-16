@@ -30,17 +30,12 @@ import org.jetbrains.annotations.Nullable;
 public class VersionChain extends VersionChainKey {
     public static final long NULL_UUID_COMPONENT = 0;
 
-    @Nullable
-    private final UUID transactionId;
+    private final @Nullable UUID transactionId;
 
-    /**
-     * Link to the most recent version.
-     */
+    /** Link to the most recent version. */
     private final long headLink;
 
-    /**
-     * Link to the newest committed {@link RowVersion} if head is not yet committed, or {@link RowVersion#NULL_LINK} otherwise.
-     */
+    /** Link to the newest committed {@link RowVersion} if head is not yet committed, or {@link RowVersion#NULL_LINK} otherwise. */
     private final long nextLink;
 
     /**
@@ -56,8 +51,7 @@ public class VersionChain extends VersionChainKey {
     /**
      * Returns a transaction id, associated with a chain's head, or {@code null} if head is already committed.
      */
-    @Nullable
-    public UUID transactionId() {
+    public @Nullable UUID transactionId() {
         return transactionId;
     }
 

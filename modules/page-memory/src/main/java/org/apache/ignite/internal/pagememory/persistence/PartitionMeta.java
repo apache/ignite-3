@@ -47,12 +47,6 @@ public class PartitionMeta {
 
     private volatile long lastAppliedIndex;
 
-    // TODO: IGNITE-17466 Delete it
-    private volatile long treeRootPageId;
-
-    // TODO: IGNITE-17466 Delete it
-    private volatile long reuseListRootPageId;
-
     private volatile long versionChainTreeRootPageId;
 
     private volatile long rowVersionFreeListRootPageId;
@@ -73,8 +67,6 @@ public class PartitionMeta {
      *
      * @param checkpointId Checkpoint ID.
      * @param lastAppliedIndex Last applied index value.
-     * @param treeRootPageId Tree root page ID.
-     * @param reuseListRootPageId Reuse list root page ID.
      * @param versionChainTreeRootPageId Version chain tree root page ID.
      * @param rowVersionFreeListRootPageId Row version free list root page ID.
      * @param pageCount Count of pages in the partition.
@@ -82,15 +74,11 @@ public class PartitionMeta {
     public PartitionMeta(
             @Nullable UUID checkpointId,
             long lastAppliedIndex,
-            long treeRootPageId,
-            long reuseListRootPageId,
             long versionChainTreeRootPageId,
             long rowVersionFreeListRootPageId,
             int pageCount
     ) {
         this.lastAppliedIndex = lastAppliedIndex;
-        this.treeRootPageId = treeRootPageId;
-        this.reuseListRootPageId = reuseListRootPageId;
         this.versionChainTreeRootPageId = versionChainTreeRootPageId;
         this.rowVersionFreeListRootPageId = rowVersionFreeListRootPageId;
         this.pageCount = pageCount;
@@ -109,8 +97,6 @@ public class PartitionMeta {
         this(
                 checkpointId,
                 metaIo.getLastAppliedIndex(pageAddr),
-                metaIo.getTreeRootPageId(pageAddr),
-                metaIo.getReuseListRootPageId(pageAddr),
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
                 metaIo.getRowVersionFreeListRootPageId(pageAddr),
                 metaIo.getPageCount(pageAddr)
@@ -134,44 +120,6 @@ public class PartitionMeta {
         updateSnapshot(checkpointId);
 
         this.lastAppliedIndex = lastAppliedIndex;
-    }
-
-    /**
-     * Returns tree root page ID.
-     */
-    public long treeRootPageId() {
-        return treeRootPageId;
-    }
-
-    /**
-     * Sets tree root page ID.
-     *
-     * @param checkpointId Checkpoint ID.
-     * @param treeRootPageId Tree root page ID.
-     */
-    public void treeRootPageId(@Nullable UUID checkpointId, long treeRootPageId) {
-        updateSnapshot(checkpointId);
-
-        this.treeRootPageId = treeRootPageId;
-    }
-
-    /**
-     * Returns reuse list root page ID.
-     */
-    public long reuseListRootPageId() {
-        return reuseListRootPageId;
-    }
-
-    /**
-     * Sets reuse list root page ID.
-     *
-     * @param checkpointId Checkpoint ID.
-     * @param reuseListRootPageId Reuse list root page ID.
-     */
-    public void reuseListRootPageId(@Nullable UUID checkpointId, long reuseListRootPageId) {
-        updateSnapshot(checkpointId);
-
-        this.reuseListRootPageId = reuseListRootPageId;
     }
 
     /**
@@ -267,10 +215,6 @@ public class PartitionMeta {
 
         private final long lastAppliedIndex;
 
-        private final long treeRootPageId;
-
-        private final long reuseListRootPageId;
-
         private final long versionChainTreeRootPageId;
 
         private final long rowVersionFreeListRootPageId;
@@ -286,8 +230,6 @@ public class PartitionMeta {
         private PartitionMetaSnapshot(@Nullable UUID checkpointId, PartitionMeta partitionMeta) {
             this.checkpointId = checkpointId;
             this.lastAppliedIndex = partitionMeta.lastAppliedIndex;
-            this.treeRootPageId = partitionMeta.treeRootPageId;
-            this.reuseListRootPageId = partitionMeta.reuseListRootPageId;
             this.versionChainTreeRootPageId = partitionMeta.versionChainTreeRootPageId;
             this.rowVersionFreeListRootPageId = partitionMeta.rowVersionFreeListRootPageId;
             this.pageCount = partitionMeta.pageCount;
@@ -298,20 +240,6 @@ public class PartitionMeta {
          */
         public long lastAppliedIndex() {
             return lastAppliedIndex;
-        }
-
-        /**
-         * Returns tree root page ID.
-         */
-        public long treeRootPageId() {
-            return treeRootPageId;
-        }
-
-        /**
-         * Returns reuse list root page ID.
-         */
-        public long reuseListRootPageId() {
-            return reuseListRootPageId;
         }
 
         /**
@@ -343,8 +271,6 @@ public class PartitionMeta {
          */
         void writeTo(PartitionMetaIo metaIo, long pageAddr) {
             metaIo.setLastAppliedIndex(pageAddr, lastAppliedIndex);
-            metaIo.setTreeRootPageId(pageAddr, treeRootPageId);
-            metaIo.setReuseListRootPageId(pageAddr, reuseListRootPageId);
             metaIo.setVersionChainTreeRootPageId(pageAddr, versionChainTreeRootPageId);
             metaIo.setRowVersionFreeListRootPageId(pageAddr, rowVersionFreeListRootPageId);
             metaIo.setPageCount(pageAddr, pageCount);

@@ -28,9 +28,7 @@ import org.apache.ignite.internal.storage.StorageException;
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for in-memory case.
  */
 public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPartitionStorage {
-    /**
-     * Last applied index value.
-     */
+    /** Last applied index value. */
     private volatile long lastAppliedIndex;
 
     /**

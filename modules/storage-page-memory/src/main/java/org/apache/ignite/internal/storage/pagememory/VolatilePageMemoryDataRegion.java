@@ -50,8 +50,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
 
     private volatile VolatilePageMemory pageMemory;
 
-    private volatile TableFreeList tableFreeList;
-
     private volatile RowVersionFreeList rowVersionFreeList;
 
     /**
@@ -81,34 +79,12 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         pageMemory.start();
 
         try {
-            tableFreeList = createTableFreeList(pageMemory);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error creating a TableFreeList", e);
-        }
-
-        try {
             rowVersionFreeList = createRowVersionFreeList(pageMemory, null);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error creating a RowVersionFreeList", e);
         }
 
         this.pageMemory = pageMemory;
-    }
-
-    private TableFreeList createTableFreeList(PageMemory pageMemory) throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
-
-        return new TableFreeList(
-                FREE_LIST_GROUP_ID,
-                FREE_LIST_PARTITION_ID,
-                pageMemory,
-                PageLockListenerNoOp.INSTANCE,
-                metaPageId,
-                true,
-                null,
-                PageEvictionTrackerNoOp.INSTANCE,
-                IoStatisticsHolderNoOp.INSTANCE
-        );
     }
 
     private static RowVersionFreeList createRowVersionFreeList(
@@ -138,7 +114,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
     public void stop() throws Exception {
         closeAll(
                 pageMemory != null ? () -> pageMemory.stop(true) : null,
-                tableFreeList != null ? tableFreeList::close : null,
                 rowVersionFreeList != null ? rowVersionFreeList::close : null
         );
     }
@@ -149,17 +124,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         checkDataRegionStarted();
 
         return pageMemory;
-    }
-
-    /**
-     * Returns table free list.
-     *
-     * @throws StorageException If the data region did not start.
-     */
-    public TableFreeList tableFreeList() {
-        checkDataRegionStarted();
-
-        return tableFreeList;
     }
 
     /**
