@@ -30,8 +30,8 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 
 /**
- * Handling of <em>partitionless links</em>, that is, page memory links from which partition ID is removed.
- * They are used to spare storage space in cases when we know the partition ID from the context.
+ * Handling of <em>partitionless links</em>, that is, page memory links from which partition ID is removed. They are used to spare storage
+ * space in cases when we know the partition ID from the context.
  *
  * @see PageIdUtils#link(long, int)
  */
@@ -70,9 +70,9 @@ public class PartitionlessLinks {
     /**
      * Writes a partitionless link to memory: first high 2 bytes, then low 4 bytes.
      *
-     * @param addr              address in memory where to start
-     * @param link the link to write
-     * @return number of bytes written (equal to {@link #PARTITIONLESS_LINK_SIZE_BYTES})
+     * @param addr Address in memory where to start.
+     * @param link The link to write.
+     * @return Number of bytes written (equal to {@link #PARTITIONLESS_LINK_SIZE_BYTES}).
      */
     public static long writePartitionlessLink(long addr, long link) {
         putShort(addr, 0, (short) tag(link));
@@ -92,9 +92,5 @@ public class PartitionlessLinks {
         buffer.putShort((short) tag(link));
 
         buffer.putInt(pageIndex(link));
-    }
-
-    private PartitionlessLinks() {
-        // prevent instantiation
     }
 }

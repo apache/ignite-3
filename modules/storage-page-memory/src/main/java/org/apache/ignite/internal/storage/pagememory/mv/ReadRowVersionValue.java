@@ -23,11 +23,13 @@ import org.apache.ignite.internal.pagememory.datapage.ReadPageMemoryRowValue;
  * Reads {@link RowVersion#value()} from page-memory.
  */
 class ReadRowVersionValue extends ReadPageMemoryRowValue {
+    /** {@inheritDoc} */
     @Override
     protected int valueSizeOffsetInFirstSlot() {
         return RowVersion.VALUE_SIZE_OFFSET;
     }
 
+    /** {@inheritDoc} */
     @Override
     protected int valueOffsetInFirstSlot() {
         return RowVersion.VALUE_OFFSET;

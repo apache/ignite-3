@@ -299,7 +299,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /** {@inheritDoc} */
     @Override
     public void commitWrite(RowId rowId, Timestamp timestamp) throws StorageException {
-
         VersionChain currentVersionChain = findVersionChain(rowId);
 
         if (currentVersionChain == null || currentVersionChain.transactionId() == null) {
@@ -408,11 +407,15 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     private class ScanCursor implements Cursor<BinaryRow> {
         private final IgniteCursor<VersionChain> treeCursor;
+
         private final Predicate<BinaryRow> keyFilter;
+
         private final @Nullable UUID transactionId;
+
         private final @Nullable Timestamp timestamp;
 
         private BinaryRow nextRow = null;
+
         private boolean iterationExhausted = false;
 
         public ScanCursor(
