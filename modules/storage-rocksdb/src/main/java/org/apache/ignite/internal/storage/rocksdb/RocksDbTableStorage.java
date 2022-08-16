@@ -105,7 +105,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
     /** Map with flush futures by sequence number at the time of the {@link #awaitFlush(boolean)} call. */
     private final ConcurrentMap<Long, CompletableFuture<Void>> flushFuturesBySequenceNumber = new ConcurrentHashMap<>();
 
-    /** Latest known sequence number folue for persisted data. Not volatile, protected by explicit synchronization. */
+    /** Latest known sequence number for persisted data. Not volatile, protected by explicit synchronization. */
     private long latestPersistedSequenceNumber;
 
     /**
@@ -263,7 +263,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
      */
     void completeFutures(long sequenceNumber) {
         synchronized (this) {
-            if (sequenceNumber < latestPersistedSequenceNumber) {
+            if (sequenceNumber <= latestPersistedSequenceNumber) {
                 return;
             }
 
