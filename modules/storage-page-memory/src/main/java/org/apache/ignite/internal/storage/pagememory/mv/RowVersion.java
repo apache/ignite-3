@@ -171,7 +171,7 @@ public class RowVersion implements Storable {
 
     /** {@inheritDoc} */
     @Override
-    public IoVersions<? extends AbstractDataPageIo> ioVersions() {
+    public IoVersions<? extends AbstractDataPageIo<?>> ioVersions() {
         return RowVersionDataIo.VERSIONS;
     }
 

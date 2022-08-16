@@ -398,11 +398,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @throws StorageException If failed to destroy the data or storage is already stopped.
      */
     public void destroy() {
-        try {
-            versionChainTree.destroy();
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error while destroying data", e);
-        }
+        // TODO: IGNITE-17132 Implement it
     }
 
     private class ScanCursor implements Cursor<BinaryRow> {
