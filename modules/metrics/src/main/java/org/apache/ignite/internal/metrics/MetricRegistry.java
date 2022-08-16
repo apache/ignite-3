@@ -81,6 +81,7 @@ public class MetricRegistry {
      * Metric source is also disabled while unregistered, see {@link #disable(String)}.
      *
      * @param src Metric source.
+     * @throws IllegalStateException If the given metric source isn't registered.
      */
     public void unregisterSource(MetricSource src) {
         unregisterSource(src.name());
@@ -91,16 +92,15 @@ public class MetricRegistry {
      * Metric source is also disabled while unregistered, see {@link #disable(String)}.
      *
      * @param srcName Metric source name.
+     * @throws IllegalStateException If the metric source with the given name isn't registered.
      */
     public void unregisterSource(String srcName) {
         lock.lock();
 
         try {
-            MetricSource registered = sources.get(srcName);
+            disable(srcName);
 
-            if (registered != null) {
-                disable(registered);
-            }
+            sources.remove(srcName);
         } finally {
             lock.unlock();
         }
@@ -190,7 +190,7 @@ public class MetricRegistry {
      * Disable metric set for the given metric source.
      *
      * @param srcName Metric source name.
-     * @throws IllegalStateException If metric source with given name doesn't exists.
+     * @throws IllegalStateException If metric source with given name doesn't exist.
      */
     public void disable(final String srcName) {
         lock.lock();
@@ -269,8 +269,7 @@ public class MetricRegistry {
     }
 
     /**
-     * Update {@link MetricRegistry#metricSnapshot}, only metric sets from registered and enabled metric sources are included,
-     * version is incremented. This method should be called under the {@link MetricRegistry#lock}.
+     * Create a new version of {@link MetricRegistry#metricSnapshot}. This method should be called under the {@link MetricRegistry#lock}.
      *
      * @param metricSets New map of metric sets that should be saved to new version of metric snapshot.
      */

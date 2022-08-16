@@ -88,7 +88,7 @@ public class MetricEntitiesTest {
         assertEquals(2L, metricSnapshot.get2());
         assertTrue(metricSnapshot.get1().isEmpty());
 
-        // Trying to disable the metric source that was already enabled before, metric snapshot should not be changed.
+        // Trying to disable the metric source that was already disabled before, metric snapshot should not be changed.
         registry.disable(SOURCE_NAME);
         assertEquals(2L, registry.metricSnapshot().get2());
         registry.disable(metricSource);
@@ -102,9 +102,10 @@ public class MetricEntitiesTest {
         // Unregister enabled metric source, it should be disabled, metric snapshot should be changed.
         registry.unregisterSource(metricSource);
         assertEquals(4L, registry.metricSnapshot().get2());
+        assertTrue(registry.metricSnapshot().get1().isEmpty());
 
         // Trying to unregister the metric source that was already unregistered before, metric snapshot should not be changed.
-        registry.unregisterSource(metricSource);
+        assertThrows(IllegalStateException.class, () -> registry.unregisterSource(metricSource));
         metricSnapshot = registry.metricSnapshot();
         assertEquals(4L, metricSnapshot.get2());
         assertTrue(metricSnapshot.get1().isEmpty());
