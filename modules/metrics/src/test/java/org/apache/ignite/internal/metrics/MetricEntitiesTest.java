@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
 
@@ -71,10 +72,10 @@ public class MetricEntitiesTest {
 
         // Enabling the metric source that was already enabled before, metric snapshot should not be changed.
         assertNull(registry.enable(SOURCE_NAME));
-        IgniteBiTuple<List<MetricSet>, Long> metricSnapshot = registry.metricSnapshot();
+        IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot = registry.metricSnapshot();
         assertEquals(1L, metricSnapshot.get2());
         assertFalse(metricSnapshot.get1().isEmpty());
-        MetricSet ms = metricSnapshot.get1().get(0);
+        MetricSet ms = metricSnapshot.get1().get(SOURCE_NAME);
         assertEquals(metricSet, ms);
 
         // Disable the metric source.

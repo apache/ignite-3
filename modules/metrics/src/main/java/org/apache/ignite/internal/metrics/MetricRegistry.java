@@ -17,14 +17,12 @@
 
 package org.apache.ignite.internal.metrics;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
@@ -47,14 +45,11 @@ public class MetricRegistry {
     /** Registered metric sources. */
     private final Map<String, MetricSource> sources = new HashMap<>();
 
-    /** Enabled metric sets. */
-    private final Map<String, MetricSet> sets = new TreeMap<>();
-
     /**
-     * Metrics snapshot. This is a list of metric sets with corresponding version, the values of the metrics in the
+     * Metrics snapshot. This is a snapshot of metric sets with corresponding version, the values of the metrics in the
      * metric sets that are included into the snapshot, are changed dynamically.
      */
-    private volatile IgniteBiTuple<List<MetricSet>, Long> metricSnapshot = new IgniteBiTuple<>(emptyList(), 0L);
+    private volatile IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot = new IgniteBiTuple<>(emptyMap(), 0L);
 
     /**
      * Register metric source. It must be registered in this metrics registry after initialization of corresponding component
@@ -128,9 +123,7 @@ public class MetricRegistry {
             MetricSet metricSet = registered.enable();
 
             if (metricSet != null) {
-                sets.put(src.name(), metricSet);
-
-                updateMetricSnapshot();
+                addMetricSet(src.name(), metricSet);
             }
 
             return metricSet;
@@ -159,9 +152,7 @@ public class MetricRegistry {
             MetricSet metricSet = src.enable();
 
             if (metricSet != null) {
-                sets.put(src.name(), metricSet);
-
-                updateMetricSnapshot();
+                addMetricSet(src.name(), metricSet);
             }
 
             return metricSet;
@@ -189,9 +180,7 @@ public class MetricRegistry {
 
             registered.disable();
 
-            sets.remove(registered.name());
-
-            updateMetricSnapshot();
+            removeMetricSet(registered.name());
         } finally {
             lock.unlock();
         }
@@ -219,9 +208,7 @@ public class MetricRegistry {
 
             src.disable();
 
-            sets.remove(srcName);
-
-            updateMetricSnapshot();
+            removeMetricSet(srcName);
         } finally {
             lock.unlock();
         }
@@ -253,30 +240,57 @@ public class MetricRegistry {
     }
 
     /**
-     * Update {@link MetricRegistry#metricSnapshot}, only metric sets from registered and enabled metric sources are included,
-     * version is incremented.
+     * Add metric set to {@link MetricRegistry#metricSnapshot}. This creates new version of metric snapshot. This method should be
+     * called under the {@link MetricRegistry#lock}.
+     *
+     * @param srcName Metric source name.
+     * @param metricSet Metric set.
      */
-    private void updateMetricSnapshot() {
-        List<MetricSet> metricSets = new ArrayList<>(sets.size());
+    private void addMetricSet(String srcName, MetricSet metricSet) {
+        Map<String, MetricSet> metricSets = new TreeMap<>(metricSnapshot.get1());
 
-        for (MetricSet metricSet : sets.values()) {
-            metricSets.add(metricSet);
-        }
+        metricSets.put(srcName, metricSet);
 
-        long newVersion = metricSnapshot.get2() + 1;
-
-        IgniteBiTuple<List<MetricSet>, Long> newMetricSnapshot = new IgniteBiTuple<>(unmodifiableList(metricSets), newVersion);
-
-        metricSnapshotUpdater.compareAndSet(this, this.metricSnapshot, newMetricSnapshot);
+        updateMetricSnapshot(metricSets);
     }
 
     /**
-     * Metrics snapshot. This is a list of metric sets with corresponding version, the values of the metrics in the
+     * Removes metric set from {@link MetricRegistry#metricSnapshot}. This creates new version of metric snapshot. This method should be
+     * called under the {@link MetricRegistry#lock}.
+     *
+     * @param srcName Metric source name.
+     */
+    private void removeMetricSet(String srcName) {
+        Map<String, MetricSet> metricSets = new TreeMap<>(metricSnapshot.get1());
+
+        metricSets.remove(srcName);
+
+        updateMetricSnapshot(metricSets);
+    }
+
+    /**
+     * Update {@link MetricRegistry#metricSnapshot}, only metric sets from registered and enabled metric sources are included,
+     * version is incremented. This method should be called under the {@link MetricRegistry#lock}.
+     *
+     * @param metricSets New map of metric sets that should be saved to new version of metric snapshot.
+     */
+    private void updateMetricSnapshot(Map<String, MetricSet> metricSets) {
+        IgniteBiTuple<Map<String, MetricSet>, Long> old = metricSnapshot;
+
+        long newVersion = old.get2() + 1;
+
+        IgniteBiTuple<Map<String, MetricSet>, Long> newMetricSnapshot = new IgniteBiTuple<>(unmodifiableMap(metricSets), newVersion);
+
+        metricSnapshotUpdater.compareAndSet(this, old, newMetricSnapshot);
+    }
+
+    /**
+     * Metrics snapshot. This is a snapshot of metric sets with corresponding version, the values of the metrics in the
      * metric sets that are included into the snapshot, are changed dynamically.
      *
      * @return Metrics snapshot.
      */
-    public IgniteBiTuple<List<MetricSet>, Long> metricSnapshot() {
+    public IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot() {
         return metricSnapshot;
     }
 }
