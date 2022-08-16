@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
 public class DistributionMetric extends AbstractMetric implements CompositeMetric {
     /** Updater that atomically updates {@link #scalarMetrics} field. */
     private static final AtomicReferenceFieldUpdater<DistributionMetric, List> scalarMetricsUpdater =
-        AtomicReferenceFieldUpdater.newUpdater(DistributionMetric.class, List.class, "scalarMetrics");
+            AtomicReferenceFieldUpdater.newUpdater(DistributionMetric.class, List.class, "scalarMetrics");
 
     /** Distribution metric first interval low bound. */
     public static final long FIRST_LOW_BOUND = 0;

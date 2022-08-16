@@ -40,7 +40,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class MetricRegistry {
     private static final AtomicReferenceFieldUpdater<MetricRegistry, IgniteBiTuple> metricSnapshotUpdater =
-        newUpdater(MetricRegistry.class, IgniteBiTuple.class, "metricSnapshot");
+            newUpdater(MetricRegistry.class, IgniteBiTuple.class, "metricSnapshot");
 
     private final Lock lock = new ReentrantLock();
 
