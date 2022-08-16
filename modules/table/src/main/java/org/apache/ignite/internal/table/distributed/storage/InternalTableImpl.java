@@ -46,10 +46,6 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
-import org.apache.ignite.internal.table.distributed.command.scan.ScanCloseCommand;
-import org.apache.ignite.internal.table.distributed.command.scan.ScanInitCommand;
-import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBatchCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.ReplicaRequestParameters;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -57,7 +53,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
@@ -303,13 +298,13 @@ public class InternalTableImpl implements InternalTable {
 
         String partGroupId = partitionMap.get(partId).groupId();
 
-        ClusterNode clusterNode = tx0.enlistedNode(partGroupId);
+        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx0.enlistedNodeAndTerm(partGroupId);
 
         CompletableFuture<Collection<BinaryRow>> fut;
 
-        if (clusterNode != null) {
+        if (primaryReplicaAndTerm != null) {
             try {
-                fut = replicaSvc.invoke(clusterNode, tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
+                fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
                         .groupId(partGroupId)
                         .transactionId(tx.id())
                         .scanId(scanId)
@@ -322,12 +317,13 @@ public class InternalTableImpl implements InternalTable {
             fut = enlist(partId, tx0).thenCompose(
                     primaryReplicaNode -> {
                         try {
-                            return replicaSvc.invoke(primaryReplicaNode, tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
-                                    .groupId(partGroupId)
-                                    .transactionId(tx.id())
-                                    .scanId(scanId)
-                                    .batchSize(batchSize)
-                                    .build());
+                            return replicaSvc.invoke(primaryReplicaNode.get1(),
+                                    tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
+                                            .groupId(partGroupId)
+                                            .transactionId(tx.id())
+                                            .scanId(scanId)
+                                            .batchSize(batchSize)
+                                            .build());
                         } catch (Throwable e) {
                             throw new TransactionException(format("Failed to enlist cursor into a transaction"));
                         }

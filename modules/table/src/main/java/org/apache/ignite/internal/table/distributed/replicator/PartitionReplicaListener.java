@@ -183,8 +183,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         txCursors.clear();
 
-        if (ex != null)
+        if (ex != null) {
             throw ex;
+        }
     }
 
     /**
