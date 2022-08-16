@@ -67,7 +67,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                 partitionId,
                 tableCfg.value(),
                 dataRegion.pageMemory(),
-                dataRegion.versionChainFreeList(),
                 dataRegion.rowVersionFreeList(),
                 versionChainTree
         );
@@ -134,7 +133,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
                     dataRegion.pageMemory().allocatePage(grpId, partId, FLAG_AUX),
-                    dataRegion.versionChainFreeList(),
+                    dataRegion.rowVersionFreeList(),
                     true
             );
         } catch (IgniteInternalCheckedException e) {

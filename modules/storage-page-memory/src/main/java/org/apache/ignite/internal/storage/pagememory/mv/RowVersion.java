@@ -36,6 +36,7 @@ public class RowVersion implements Storable {
      * A 'timestamp' representing absense of a timestamp.
      */
     public static final Timestamp NULL_TIMESTAMP = new Timestamp(Long.MIN_VALUE, Long.MIN_VALUE);
+
     /**
      * Represents an absent partitionless link.
      */

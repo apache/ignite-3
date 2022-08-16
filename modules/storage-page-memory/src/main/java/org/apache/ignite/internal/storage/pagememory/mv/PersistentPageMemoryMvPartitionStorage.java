@@ -69,7 +69,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param dataRegion Data region.
      * @param checkpointManager Checkpoint manager.
      * @param meta Partition meta.
-     * @param versionChainFreeList Free list for {@link VersionChain}.
      * @param rowVersionFreeList Free list for {@link RowVersion}.
      * @param versionChainTree Table tree for {@link VersionChain}.
      */
@@ -80,11 +79,10 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             DataRegion<PersistentPageMemory> dataRegion,
             CheckpointManager checkpointManager,
             PartitionMeta meta,
-            VersionChainFreeList versionChainFreeList,
             RowVersionFreeList rowVersionFreeList,
             VersionChainTree versionChainTree
     ) {
-        super(partitionId, tableView, dataRegion.pageMemory(), versionChainFreeList, rowVersionFreeList, versionChainTree);
+        super(partitionId, tableView, dataRegion.pageMemory(), rowVersionFreeList, versionChainTree);
 
         this.tableStorage = tableStorage;
 
@@ -185,17 +183,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      */
     private void syncMetadataOnCheckpoint(@Nullable Executor executor) throws IgniteInternalCheckedException {
         if (executor == null) {
-            versionChainFreeList.saveMetadata();
             rowVersionFreeList.saveMetadata();
         } else {
-            executor.execute(() -> {
-                try {
-                    versionChainFreeList.saveMetadata();
-                } catch (IgniteInternalCheckedException e) {
-                    throw new IgniteInternalException("Failed to save VersionChainFreeList metadata", e);
-                }
-            });
-
             executor.execute(() -> {
                 try {
                     rowVersionFreeList.saveMetadata();

@@ -27,11 +27,12 @@ import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
+import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersionFreeList;
-import org.apache.ignite.internal.storage.pagememory.mv.VersionChainFreeList;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link DataRegion} for in-memory case.
@@ -50,8 +51,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
     private volatile VolatilePageMemory pageMemory;
 
     private volatile TableFreeList tableFreeList;
-
-    private volatile VersionChainFreeList versionChainFreeList;
 
     private volatile RowVersionFreeList rowVersionFreeList;
 
@@ -82,19 +81,13 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         pageMemory.start();
 
         try {
-            this.tableFreeList = createTableFreeList(pageMemory);
+            tableFreeList = createTableFreeList(pageMemory);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error creating a TableFreeList", e);
         }
 
         try {
-            versionChainFreeList = createVersionChainFreeList(pageMemory);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error creating a VersionChainFreeList", e);
-        }
-
-        try {
-            rowVersionFreeList = createRowVersionFreeList(pageMemory, versionChainFreeList);
+            rowVersionFreeList = createRowVersionFreeList(pageMemory, null);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error creating a RowVersionFreeList", e);
         }
@@ -118,26 +111,9 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         );
     }
 
-    private static VersionChainFreeList createVersionChainFreeList(PageMemory pageMemory) throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
-
-        return new VersionChainFreeList(
-                FREE_LIST_GROUP_ID,
-                FREE_LIST_PARTITION_ID,
-                pageMemory,
-                PageLockListenerNoOp.INSTANCE,
-                metaPageId,
-                true,
-                // Because in memory.
-                null,
-                PageEvictionTrackerNoOp.INSTANCE,
-                IoStatisticsHolderNoOp.INSTANCE
-        );
-    }
-
     private static RowVersionFreeList createRowVersionFreeList(
             PageMemory pageMemory,
-            VersionChainFreeList reuseList
+            @Nullable ReuseList reuseList
     ) throws IgniteInternalCheckedException {
         long metaPageId = pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
 
@@ -163,7 +139,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         closeAll(
                 pageMemory != null ? () -> pageMemory.stop(true) : null,
                 tableFreeList != null ? tableFreeList::close : null,
-                versionChainFreeList != null ? versionChainFreeList::close : null,
                 rowVersionFreeList != null ? rowVersionFreeList::close : null
         );
     }
@@ -185,17 +160,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         checkDataRegionStarted();
 
         return tableFreeList;
-    }
-
-    /**
-     * Returns version chain free list.
-     *
-     * @throws StorageException If the data region did not start.
-     */
-    public VersionChainFreeList versionChainFreeList() {
-        checkDataRegionStarted();
-
-        return versionChainFreeList;
     }
 
     /**
