@@ -17,6 +17,9 @@
 
 package org.apache.ignite.cli.commands.cluster.init;
 
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_DESC;
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_OPTION;
 import static picocli.CommandLine.Command;
 
 import jakarta.inject.Inject;
@@ -37,11 +40,11 @@ import picocli.CommandLine.Option;
 public class ClusterInitReplSubCommand extends BaseCommand implements Runnable {
 
     /**
-     * Node url option.
+     * Cluster endpoint URL option.
      */
     @Option(
-            names = {"--cluster-url"}, description = "Url to ignite node.",
-            descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
+            names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY,
+            defaultValue = "http://localhost:10300"
     )
     private String clusterUrl;
 
@@ -86,7 +89,8 @@ public class ClusterInitReplSubCommand extends BaseCommand implements Runnable {
         } else if (clusterUrl != null) {
             input.clusterUrl(clusterUrl);
         } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--node-endpoint' option.");
+            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '"
+                    + CLUSTER_URL_OPTION + "' option.");
             return;
         }
 

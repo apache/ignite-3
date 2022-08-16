@@ -126,7 +126,8 @@ public class CheckpointManager {
                 igniteInstanceName,
                 checkpointMarkersStorage,
                 checkpointReadWriteLock,
-                dataRegions
+                dataRegions,
+                checkpointConfigView.checkpointThreads()
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
@@ -205,7 +206,7 @@ public class CheckpointManager {
      * @param listener Listener.
      * @param dataRegion Persistent data region for which listener is corresponded to, {@code null} for all regions.
      */
-    public void addCheckpointListener(CheckpointListener listener, DataRegion<PersistentPageMemory> dataRegion) {
+    public void addCheckpointListener(CheckpointListener listener, @Nullable DataRegion<PersistentPageMemory> dataRegion) {
         checkpointWorkflow.addCheckpointListener(listener, dataRegion);
     }
 
@@ -226,6 +227,17 @@ public class CheckpointManager {
      */
     public CheckpointProgress forceCheckpoint(String reason) {
         return checkpointer.scheduleCheckpoint(0, reason);
+    }
+
+    /**
+     * Schedules a checkpoint in the future.
+     *
+     * @param delayMillis Delay in milliseconds from the curent moment.
+     * @param reason Checkpoint reason.
+     * @return Triggered checkpoint progress.
+     */
+    public CheckpointProgress scheduleCheckpoint(long delayMillis, String reason) {
+        return checkpointer.scheduleCheckpoint(delayMillis, reason);
     }
 
     /**

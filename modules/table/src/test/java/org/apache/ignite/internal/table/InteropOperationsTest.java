@@ -45,7 +45,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshallerTest;
-import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -122,7 +122,7 @@ public class InteropOperationsTest {
         AtomicLong raftIndex = new AtomicLong();
 
         INT_TABLE = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
+                new VersionedRowStore(new TestConcurrentHashMapMvPartitionStorage(0), txManager),
                 txManager,
                 raftIndex
         );

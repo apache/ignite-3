@@ -17,6 +17,10 @@
 
 package org.apache.ignite.cli.commands.node.status;
 
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
+import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_DESC;
+import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_OPTION;
+
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.util.concurrent.Callable;
@@ -38,12 +42,10 @@ import picocli.CommandLine.Option;
 public class NodeStatusReplSubCommand extends BaseCommand implements Callable<Integer> {
 
     /**
-     * Node url option.
+     * Node URL option.
      */
     @SuppressWarnings("PMD.UnusedPrivateField")
-    @Option(
-            names = {"--node-url"}, description = "Url to node.", descriptionKey = "ignite.cluster-url"
-    )
+    @Option(names = {NODE_URL_OPTION}, description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String nodeUrl;
 
     @Inject
@@ -62,7 +64,8 @@ public class NodeStatusReplSubCommand extends BaseCommand implements Callable<In
         } else if (session.isConnectedToNode()) {
             inputUrl = session.nodeUrl();
         } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--node-url' option.");
+            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '"
+                    + NODE_URL_OPTION + "' option.");
             return 2;
         }
 

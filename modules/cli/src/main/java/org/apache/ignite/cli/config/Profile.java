@@ -23,17 +23,67 @@ import java.util.Map;
  * Ignite CLI Profile.
  */
 public interface Profile {
+    /**
+     * Gets name of the profile.
+     *
+     * @return profile name
+     */
     String getName();
 
-    Map<String, String> getAll();
+    /**
+     * Gets a {@link Config} stored in this profile.
+     *
+     * @return config
+     */
+    Config getConfig();
 
-    String getProperty(String key);
+    /**
+     * Convenience method to get all properties from this profile.
+     *
+     * @return map of all properties
+     */
+    default Map<String, String> getAll() {
+        return getConfig().getAll();
+    }
 
-    String getProperty(String key, String defaultValue);
+    /**
+     * Convenience method to get a property from this profile.
+     *
+     * @param key property to get
+     * @return property value or {@code null} if config doesn't contain this property
+     */
+    default String getProperty(String key) {
+        return getConfig().getProperty(key);
+    }
 
-    void setProperty(String key, String value);
+    /**
+     * Convenience method to get a property from this profile.
+     *
+     * @param key property to get
+     * @param defaultValue default value of the property
+     *
+     * @return property value or {@code defaultValue} if config doesn't contain this property
+     */
+    default String getProperty(String key, String defaultValue) {
+        return getConfig().getProperty(key, defaultValue);
+    }
 
-    void setProperties(Map<String, String> values);
+    /**
+     * Convenience method to set a property to this profile.
+     *
+     * @param key property to set
+     * @param value value to set
+     */
+    default void setProperty(String key, String value) {
+        getConfig().setProperty(key, value);
+    }
 
-    void setProperties(Profile copyFrom);
+    /**
+     * Convenience method to set properties to this profile.
+     *
+     * @param values map of properties to set
+     */
+    default void setProperties(Map<String, String> values) {
+        getConfig().setProperties(values);
+    }
 }

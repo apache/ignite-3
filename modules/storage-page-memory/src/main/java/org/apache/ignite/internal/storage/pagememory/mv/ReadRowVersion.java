@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks.readPartitionlessLink;
+
 import java.nio.ByteBuffer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
@@ -30,6 +32,8 @@ import org.jetbrains.annotations.Nullable;
  * Traversal for reading a row version by its link. Loads the version value conditionally.
  */
 class ReadRowVersion implements PageMemoryTraversal<Predicate<Timestamp>> {
+    private final int partitionId;
+
     private RowVersion result;
 
     private boolean readingFirstSlot = true;
@@ -40,6 +44,10 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<Timestamp>> {
     private long nextLink;
 
     private final ReadRowVersionValue readRowVersionValue = new ReadRowVersionValue();
+
+    ReadRowVersion(int partitionId) {
+        this.partitionId = partitionId;
+    }
 
     @Override
     public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Predicate<Timestamp> loadValue) {
@@ -55,7 +63,7 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<Timestamp>> {
         firstFragmentLink = link;
 
         timestamp = Timestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
-        nextLink = PartitionlessLinks.readFromMemory(pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
+        nextLink = readPartitionlessLink(partitionId, pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
 
         if (!loadValue.test(timestamp)) {
             result = new RowVersion(partitionIdFromLink(link), firstFragmentLink, timestamp, nextLink, null);

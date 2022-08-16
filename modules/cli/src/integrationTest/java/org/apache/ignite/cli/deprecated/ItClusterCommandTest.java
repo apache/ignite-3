@@ -170,7 +170,7 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
     void initClusterWithNodesOfDifferentRoles(TestInfo testInfo) {
         int exitCode = cmd(ctx).execute(
                 "cluster", "init",
-                "--cluster-url", FIRST_NODE.restHostPort(),
+                "--cluster-endpoint-url", FIRST_NODE.restHostPort(),
                 "--meta-storage-node", SECOND_NODE.nodeName(testInfo),
                 "--cmg-node", THIRD_NODE.nodeName(testInfo),
                 "--cluster-name", "ignite-cluster"

@@ -22,6 +22,7 @@ import static java.lang.System.nanoTime;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointReadWriteLock.CHECKPOINT_RUNNER_THREAD_PREFIX;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
@@ -99,16 +100,8 @@ public class Checkpointer extends IgniteWorker {
             + "pages=%d, "
             + "reason='%s']";
 
-    /**
-     * Any thread with a such prefix is managed by the checkpoint.
-     *
-     * <p>So some conditions can rely on it(ex. we don't need a checkpoint lock there because checkpoint is already held write lock).
-     */
-    static final String CHECKPOINT_RUNNER_THREAD_PREFIX = "checkpoint-runner";
-
     /** Pause detector. */
-    @Nullable
-    private final LongJvmPauseDetector pauseDetector;
+    private final @Nullable LongJvmPauseDetector pauseDetector;
 
     /** Checkpoint config. */
     private final PageMemoryCheckpointConfiguration checkpointConfig;
@@ -120,15 +113,16 @@ public class Checkpointer extends IgniteWorker {
     private final CheckpointPagesWriterFactory checkpointPagesWriterFactory;
 
     /** Checkpoint runner thread pool. If {@code null} tasks are to be run in single thread. */
-    @Nullable
-    private final ThreadPoolExecutor checkpointWritePagesPool;
+    private final @Nullable ThreadPoolExecutor checkpointWritePagesPool;
 
     /** Next scheduled checkpoint progress. */
     private volatile CheckpointProgressImpl scheduledCheckpointProgress;
 
     /** Current checkpoint progress. This field is updated only by checkpoint thread. */
-    @Nullable
-    private volatile CheckpointProgressImpl currentCheckpointProgress;
+    private volatile @Nullable CheckpointProgressImpl currentCheckpointProgress;
+
+    /** Checkpoint progress after releasing write lock. */
+    private volatile @Nullable CheckpointProgressImpl afterReleaseWriteLockCheckpointProgress;
 
     /** Shutdown now. */
     private volatile boolean shutdownNow;
@@ -281,7 +275,13 @@ public class Checkpointer extends IgniteWorker {
             startCheckpointProgress();
 
             try {
-                chp = checkpointWorkflow.markCheckpointBegin(lastCheckpointTimestamp, currentCheckpointProgress, tracker);
+                chp = checkpointWorkflow.markCheckpointBegin(
+                        lastCheckpointTimestamp,
+                        currentCheckpointProgress,
+                        tracker,
+                        this::updateHeartbeat,
+                        this::updateLastProgressAfterReleaseWriteLock
+                );
             } catch (Exception e) {
                 if (currentCheckpointProgress != null) {
                     currentCheckpointProgress.fail(e);
@@ -679,7 +679,8 @@ public class Checkpointer extends IgniteWorker {
      * Returns the progress of the last checkpoint, or the current checkpoint if in progress, {@code null} if no checkpoint has occurred.
      */
     public @Nullable CheckpointProgress lastCheckpointProgress() {
-        return currentCheckpointProgress;
+        // Because dirty pages may appear while holding write lock.
+        return afterReleaseWriteLockCheckpointProgress;
     }
 
     /**
@@ -768,5 +769,12 @@ public class Checkpointer extends IgniteWorker {
         } finally {
             blockingSectionEnd();
         }
+    }
+
+    /**
+     * Updates the {@link #lastCheckpointProgress() latest progress} after write lock is released.
+     */
+    void updateLastProgressAfterReleaseWriteLock() {
+        afterReleaseWriteLockCheckpointProgress = currentCheckpointProgress;
     }
 }

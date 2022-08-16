@@ -104,7 +104,7 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
     /**
      * Updates row version's timestamp.
      *
-     * @param link         link to the slot containing row version
+     * @param link link to the slot containing row version
      * @param newTimestamp timestamp to set
      * @throws IgniteInternalCheckedException if something fails
      */
@@ -123,6 +123,7 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
     }
 
     private class UpdateTimestampHandler implements PageHandler<Timestamp, Object> {
+        /** {@inheritDoc} */
         @Override
         public Object run(
                 int groupId,
@@ -142,5 +143,14 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
 
             return true;
         }
+    }
+
+    /**
+     * Shortcut method for {@link #saveMetadata(IoStatisticsHolder)} with statistics holder.
+     *
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    public void saveMetadata() throws IgniteInternalCheckedException {
+        super.saveMetadata(statHolder);
     }
 }

@@ -17,6 +17,10 @@
 
 package org.apache.ignite.cli.commands.topology;
 
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_DESC;
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_OPTION;
+
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cluster.topology.LogicalTopologyCall;
@@ -33,9 +37,9 @@ import picocli.CommandLine.Option;
 @Command(name = "logical")
 public class LogicalTopologySubCommand extends BaseCommand implements Callable<Integer> {
     /**
-     * Node url option.
+     * Cluster endpoint URL option.
      */
-    @Option(names = {"--cluster-url"}, description = "Url to ignite node.", descriptionKey = "ignite.cluster-url")
+    @Option(names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String clusterUrl;
 
     @Inject

@@ -43,7 +43,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
@@ -108,7 +108,7 @@ public class PartitionCommandListenerTest {
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(addr);
 
         versionedRowStore = new VersionedRowStore(
-                new TestMvPartitionStorage(List.of(), 0),
+                new TestConcurrentHashMapMvPartitionStorage(0),
                 new TxManagerImpl(clusterService, new HeapLockManager())
         );
 

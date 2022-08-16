@@ -17,13 +17,18 @@
 
 package org.apache.ignite.cli.commands.node.config;
 
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
+import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_DESC;
+import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_OPTION;
+
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.apache.ignite.cli.call.configuration.NodeConfigUpdateCall;
 import org.apache.ignite.cli.call.configuration.NodeConfigUpdateCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.repl.Session;
+import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.cli.core.flow.Flowable;
+import org.apache.ignite.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -36,9 +41,9 @@ import picocli.CommandLine.Parameters;
 @Singleton
 public class NodeConfigUpdateReplSubCommand extends BaseCommand implements Runnable {
     /**
-     * Node url option.
+     * Node URL option.
      */
-    @Option(names = {"--node-url"}, description = "Url to Ignite node.", descriptionKey = "ignite.cluster-url")
+    @Option(names = {NODE_URL_OPTION}, description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String nodeUrl;
 
     /**
@@ -51,26 +56,20 @@ public class NodeConfigUpdateReplSubCommand extends BaseCommand implements Runna
     NodeConfigUpdateCall call;
 
     @Inject
-    private Session session;
+    private ConnectToClusterQuestion question;
 
     /** {@inheritDoc} */
     @Override
     public void run() {
-        var input = NodeConfigUpdateCallInput.builder().config(config);
-        if (session.isConnectedToNode()) {
-            input.nodeUrl(session.nodeUrl());
-        } else if (nodeUrl != null) {
-            input.nodeUrl(nodeUrl);
-        } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--cluster-url' option.");
-            return;
-        }
-
-        CallExecutionPipeline.builder(call)
-                .inputProvider(input::build)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
+        question.askQuestionIfNotConnected(nodeUrl)
+                .map(this::nodeConfigUpdateCallInput)
+                .then(Flows.fromCall(call))
+                .toOutput(spec.commandLine().getOut(), spec.commandLine().getErr())
                 .build()
-                .runPipeline();
+                .start(Flowable.empty());
+    }
+
+    private NodeConfigUpdateCallInput nodeConfigUpdateCallInput(String nodeUrl) {
+        return NodeConfigUpdateCallInput.builder().config(config).nodeUrl(nodeUrl).build();
     }
 }

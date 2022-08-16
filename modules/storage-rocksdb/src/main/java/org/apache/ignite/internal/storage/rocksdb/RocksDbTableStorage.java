@@ -21,8 +21,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.META_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.PARTITION_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.columnFamilyType;
-import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
-import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexName;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -30,9 +28,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -46,10 +42,7 @@ import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
-import org.apache.ignite.internal.storage.rocksdb.index.BinaryRowComparator;
-import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -89,6 +82,12 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
     /** Write options for write operations. */
     private final WriteOptions writeOptions = new WriteOptions().setDisableWAL(true);
 
+    /**
+     * Flush options to be used to asynchronously flush the Rocks DB memtable. It needs to be cached, because
+     * {@link RocksDB#flush(FlushOptions)} contract requires this object to not be GC-ed.
+     */
+    private final FlushOptions flushOptions = new FlushOptions().setWaitForFlush(false);
+
     /** Meta information. */
     private volatile RocksDbMetaStorage meta;
 
@@ -97,9 +96,6 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
 
     /** Partition storages. */
     private volatile AtomicReferenceArray<RocksDbMvPartitionStorage> partitions;
-
-    /** Column families for indexes by their names. */
-    private final Map<String, RocksDbSortedIndexStorage> sortedIndices = new ConcurrentHashMap<>();
 
     /**
      * Instance of the latest scheduled flush closure.
@@ -212,15 +208,6 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
 
                         break;
 
-                    case SORTED_INDEX:
-                        String indexName = sortedIndexName(cf.name());
-
-                        var indexDescriptor = new SortedIndexDescriptor(indexName, tableCfg.value());
-
-                        sortedIndices.put(indexName, new RocksDbSortedIndexStorage(cf, indexDescriptor));
-
-                        break;
-
                     default:
                         throw new StorageException("Unidentified column family [name=" + cf.name() + ", table=" + tableCfg.name() + ']');
                 }
@@ -247,7 +234,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
                     return;
                 }
 
-                try (FlushOptions flushOptions = new FlushOptions().setWaitForFlush(false)) {
+                try {
                     db.flush(flushOptions);
                 } catch (RocksDBException e) {
                     LOG.error("Error occurred during the explicit flush for table '{}'", e, tableCfg.name());
@@ -280,7 +267,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
 
         resources.add(writeOptions);
 
-        resources.addAll(sortedIndices.values());
+        resources.add(flushOptions);
 
         for (int i = 0; i < partitions.length(); i++) {
             MvPartitionStorage partition = partitions.get(i);
@@ -354,49 +341,42 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> destroyPartition(int partitionId) throws StorageException {
+    public CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException {
         RocksDbMvPartitionStorage mvPartition = getMvPartition(partitionId);
 
-        if (mvPartition != null) {
-            partitions.set(partitionId, null);
-
-            mvPartition.destroy();
+        if (mvPartition == null) {
+            return CompletableFuture.completedFuture(null);
         }
 
-        return CompletableFuture.completedFuture(null);
+        mvPartition.destroy();
+
+        // Wait for the data to actually be removed from the disk and close the storage.
+        return mvPartition.flush()
+                .whenComplete((v, e) -> {
+                    partitions.set(partitionId, null);
+
+                    try {
+                        mvPartition.close();
+                    } catch (Exception ex) {
+                        LOG.error("Error when closing partition storage for partId = {}", ex, partitionId);
+                    }
+                });
     }
 
-    /** {@inheritDoc} */
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(String indexName) {
-        assert !stopped : "Storage has been stopped";
-
-        return sortedIndices.computeIfAbsent(indexName, name -> {
-            var indexDescriptor = new SortedIndexDescriptor(name, tableCfg.value());
-
-            ColumnFamilyDescriptor cfDescriptor = sortedIndexCfDescriptor(indexDescriptor);
-
-            ColumnFamily cf;
-            try {
-                cf = ColumnFamily.create(db, cfDescriptor);
-            } catch (RocksDBException e) {
-                throw new StorageException("Failed to create new RocksDB column family: " + new String(cfDescriptor.getName(), UTF_8), e);
-            }
-
-            return new RocksDbSortedIndexStorage(cf, indexDescriptor);
-        });
+    public void createIndex(String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void dropIndex(String indexName) {
-        assert !stopped : "Storage has been stopped";
+    @Nullable
+    public SortedIndexStorage getSortedIndex(int partitionId, String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
 
-        sortedIndices.computeIfPresent(indexName, (name, indexStorage) -> {
-            indexStorage.destroy();
-
-            return null;
-        });
+    @Override
+    public CompletableFuture<Void> destroyIndex(String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */
@@ -466,24 +446,8 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
             case PARTITION:
                 return new ColumnFamilyDescriptor(cfName.getBytes(UTF_8), new ColumnFamilyOptions());
 
-            case SORTED_INDEX:
-                var indexDescriptor = new SortedIndexDescriptor(sortedIndexName(cfName), tableCfg.value());
-
-                return sortedIndexCfDescriptor(indexDescriptor);
-
             default:
                 throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + tableCfg.name() + ']');
         }
-    }
-
-    /**
-     * Creates a Column Family descriptor for a Sorted Index.
-     */
-    private static ColumnFamilyDescriptor sortedIndexCfDescriptor(SortedIndexDescriptor descriptor) {
-        String cfName = sortedIndexCfName(descriptor.name());
-
-        ColumnFamilyOptions options = new ColumnFamilyOptions().setComparator(new BinaryRowComparator(descriptor));
-
-        return new ColumnFamilyDescriptor(cfName.getBytes(UTF_8), options);
     }
 }

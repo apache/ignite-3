@@ -52,7 +52,6 @@ import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigu
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
@@ -165,7 +164,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
                     SortedIndexConfigurationSchema.class,
-                    PartialIndexConfigurationSchema.class,
                     UnknownDataStorageConfigurationSchema.class,
                     RocksDbDataStorageConfigurationSchema.class,
                     TestConcurrentHashMapDataStorageConfigurationSchema.class,

@@ -728,13 +728,15 @@ public final class IgniteTestUtils {
      * Awaits completion of the given stage and returns its result.
      *
      * @param stage The stage.
+     * @param timeout Maximum time to wait.
+     * @param unit Time unit of the timeout argument.
      * @param <T> Type of the result returned by the stage.
      * @return A result of the stage.
      */
     @SuppressWarnings("UnusedReturnValue")
-    public static <T> T await(CompletionStage<T> stage) {
+    public static <T> T await(CompletionStage<T> stage, long timeout, TimeUnit unit) {
         try {
-            return stage.toCompletableFuture().get(TIMEOUT_SEC, TimeUnit.SECONDS);
+            return stage.toCompletableFuture().get(timeout, unit);
         } catch (Throwable e) {
             if (e instanceof ExecutionException) {
                 e = e.getCause();
@@ -748,5 +750,17 @@ public final class IgniteTestUtils {
         assert false;
 
         return null;
+    }
+
+    /**
+     * Awaits completion of the given stage and returns its result.
+     *
+     * @param stage The stage.
+     * @param <T> Type of the result returned by the stage.
+     * @return A result of the stage.
+     */
+    @SuppressWarnings("UnusedReturnValue")
+    public static <T> T await(CompletionStage<T> stage) {
+        return await(stage, TIMEOUT_SEC, TimeUnit.SECONDS);
     }
 }

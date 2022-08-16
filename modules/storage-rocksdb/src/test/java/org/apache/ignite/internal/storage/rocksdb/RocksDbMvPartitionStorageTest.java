@@ -48,7 +48,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTest<RocksDbMvPartitionStorage> {
+public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
     private RocksDbStorageEngine engine;
 
     private RocksDbTableStorage table;
@@ -73,7 +73,10 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
 
         assertThat(((RocksDbDataStorageView) tableCfg.dataStorage().value()).dataRegion(), equalTo(DEFAULT_DATA_REGION_NAME));
 
-        engineConfig.defaultRegion().change(c -> c.changeSize(16 * 1024).changeWriteBufferSize(16 * 1024)).get(1, SECONDS);
+        engineConfig.change(cfg -> cfg
+                .changeFlushDelayMillis(0)
+                .changeDefaultRegion(c -> c.changeSize(16 * 1024).changeWriteBufferSize(16 * 1024))
+        ).get(1, SECONDS);
 
         engine = new RocksDbStorageEngine(engineConfig, workDir);
 

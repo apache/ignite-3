@@ -31,11 +31,17 @@ import org.apache.ignite.lang.IgniteStringBuilder;
  * Io for partition metadata pages.
  */
 public class PartitionMetaIo extends PageIo {
-    private static final int TREE_ROOT_PAGE_ID_OFF = COMMON_HEADER_END;
+    private static final int LAST_APPLIED_INDEX_OFF = COMMON_HEADER_END;
+
+    private static final int TREE_ROOT_PAGE_ID_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
 
     private static final int REUSE_LIST_ROOT_PAGE_ID_OFF = TREE_ROOT_PAGE_ID_OFF + Long.BYTES;
 
-    private static final int PAGE_COUNT_OFF = REUSE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
+    private static final int VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF = REUSE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
+
+    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF + Long.BYTES;
+
+    private static final int PAGE_COUNT_OFF = ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
 
     /** Page IO type. */
     public static final short T_TABLE_PARTITION_META_IO = 7;
@@ -57,9 +63,33 @@ public class PartitionMetaIo extends PageIo {
     public void initNewPage(long pageAddr, long pageId, int pageSize) {
         super.initNewPage(pageAddr, pageId, pageSize);
 
+        setLastAppliedIndex(pageAddr, 0);
         setTreeRootPageId(pageAddr, 0);
         setReuseListRootPageId(pageAddr, 0);
+        setVersionChainTreeRootPageId(pageAddr, 0);
+        setRowVersionFreeListRootPageId(pageAddr, 0);
         setPageCount(pageAddr, 0);
+    }
+
+    /**
+     * Sets a last applied index value.
+     *
+     * @param pageAddr Page address.
+     * @param lastAppliedIndex Last applied index value.
+     */
+    public void setLastAppliedIndex(long pageAddr, long lastAppliedIndex) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, LAST_APPLIED_INDEX_OFF, lastAppliedIndex);
+    }
+
+    /**
+     * Returns a last applied index value.
+     *
+     * @param pageAddr Page address.
+     */
+    public long getLastAppliedIndex(long pageAddr) {
+        return getLong(pageAddr, LAST_APPLIED_INDEX_OFF);
     }
 
     /**
@@ -68,6 +98,7 @@ public class PartitionMetaIo extends PageIo {
      * @param pageAddr Page address.
      * @param pageId Tree root page ID.
      */
+    // TODO: IGNITE-17466 Delete it
     public void setTreeRootPageId(long pageAddr, long pageId) {
         assertPageType(pageAddr);
 
@@ -79,6 +110,7 @@ public class PartitionMetaIo extends PageIo {
      *
      * @param pageAddr Page address.
      */
+    // TODO: IGNITE-17466 Delete it
     public long getTreeRootPageId(long pageAddr) {
         return getLong(pageAddr, TREE_ROOT_PAGE_ID_OFF);
     }
@@ -89,6 +121,7 @@ public class PartitionMetaIo extends PageIo {
      * @param pageAddr Page address.
      * @param pageId Reuse list root page ID.
      */
+    // TODO: IGNITE-17466 Delete it
     public void setReuseListRootPageId(long pageAddr, long pageId) {
         assertPageType(pageAddr);
 
@@ -100,8 +133,51 @@ public class PartitionMetaIo extends PageIo {
      *
      * @param pageAddr Page address.
      */
+    // TODO: IGNITE-17466 Delete it
     public long getReuseListRootPageId(long pageAddr) {
         return getLong(pageAddr, REUSE_LIST_ROOT_PAGE_ID_OFF);
+    }
+
+    /**
+     * Sets version chain tree root page ID.
+     *
+     * @param pageAddr Page address.
+     * @param pageId Version chain tree root page ID.
+     */
+    public void setVersionChainTreeRootPageId(long pageAddr, long pageId) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF, pageId);
+    }
+
+    /**
+     * Returns version chain tree root page ID.
+     *
+     * @param pageAddr Page address.
+     */
+    public long getVersionChainTreeRootPageId(long pageAddr) {
+        return getLong(pageAddr, VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF);
+    }
+
+    /**
+     * Sets row version free list root page ID.
+     *
+     * @param pageAddr Page address.
+     * @param pageId Row version free list root page ID.
+     */
+    public void setRowVersionFreeListRootPageId(long pageAddr, long pageId) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF, pageId);
+    }
+
+    /**
+     * Returns row version free list root page ID.
+     *
+     * @param pageAddr Page address.
+     */
+    public long getRowVersionFreeListRootPageId(long pageAddr) {
+        return getLong(pageAddr, ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF);
     }
 
     /**
@@ -129,8 +205,11 @@ public class PartitionMetaIo extends PageIo {
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
         sb.app("TablePartitionMeta [").nl()
-                .app("treeRootPageId=").appendHex(getTreeRootPageId(addr)).nl()
+                .app("lastAppliedIndex=").app(getLastAppliedIndex(addr)).nl()
+                .app(", treeRootPageId=").appendHex(getTreeRootPageId(addr)).nl()
                 .app(", reuseListRootPageId=").appendHex(getReuseListRootPageId(addr)).nl()
+                .app(", versionChainTreeRootPageId=").appendHex(getVersionChainTreeRootPageId(addr)).nl()
+                .app(", rowVersionFreeListRootPageId=").appendHex(getRowVersionFreeListRootPageId(addr)).nl()
                 .app(", pageCount=").app(getPageCount(addr)).nl()
                 .app(']');
     }

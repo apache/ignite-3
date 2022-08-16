@@ -17,6 +17,10 @@
 
 package org.apache.ignite.cli.commands.cluster.init;
 
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_DESC;
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_OPTION;
+
 import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,11 +39,11 @@ import picocli.CommandLine.Option;
 public class ClusterInitSubCommand extends BaseCommand implements Callable<Integer> {
 
     /**
-     * Node url option.
+     * Cluster endpoint URL option.
      */
     @Option(
-            names = {"--cluster-url"}, description = "Url to ignite node.",
-            descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
+            names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY,
+            defaultValue = "http://localhost:10300"
     )
     private String clusterUrl;
 

@@ -32,11 +32,10 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
-import org.apache.ignite.internal.storage.pagememory.mv.PageMemoryMvPartitionStorage;
+import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Abstract table storage implementation based on {@link PageMemory}.
@@ -59,7 +58,7 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
      *
      * @param tableCfg Table configuration.
      */
-    public AbstractPageMemoryTableStorage(TableConfiguration tableCfg) {
+    protected AbstractPageMemoryTableStorage(TableConfiguration tableCfg) {
         this.tableCfg = tableCfg;
     }
 
@@ -134,25 +133,21 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public SortedIndexStorage getOrCreateSortedIndex(String indexName) {
-        throw new UnsupportedOperationException("Indexes are not supported yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void dropIndex(String indexName) {
-        throw new UnsupportedOperationException("Indexes are not supported yet.");
-    }
-
     /**
-     * Returns a new instance of {@link VolatilePageMemoryPartitionStorage}.
+     * Returns a new instance of {@link AbstractPageMemoryPartitionStorage}.
      *
-     * @param partId Partition id.
+     * @param partitionId Partition id.
      * @throws StorageException If there is an error while creating the partition storage.
      */
-    protected abstract VolatilePageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException;
+    protected abstract AbstractPageMemoryPartitionStorage createPartitionStorage(int partitionId) throws StorageException;
+
+    /**
+     * Returns a new instance of {@link AbstractPageMemoryMvPartitionStorage}.
+     *
+     * @param partitionId Partition id.
+     * @throws StorageException If there is an error while creating the mv partition storage.
+     */
+    public abstract AbstractPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException;
 
     /** {@inheritDoc} */
     @Override
@@ -189,7 +184,7 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> destroyPartition(int partitionId) throws StorageException {
+    public CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException {
         assert started : "Storage has not started yet";
 
         MvPartitionStorage partition = getMvPartition(partitionId);
@@ -205,11 +200,21 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
         return CompletableFuture.completedFuture(null);
     }
 
-    /**
-     * This API is not yet ready. But we need to test mv storages anyways.
-     */
-    @TestOnly
-    public abstract PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId);
+    @Override
+    public void createIndex(String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    @Nullable
+    public SortedIndexStorage getSortedIndex(int partitionId, String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    public CompletableFuture<Void> destroyIndex(String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
 
     /**
      * Closes all {@link #partitions} and {@link #autoCloseables}.

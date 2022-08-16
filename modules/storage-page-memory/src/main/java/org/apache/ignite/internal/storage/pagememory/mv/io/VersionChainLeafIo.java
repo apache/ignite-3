@@ -17,14 +17,11 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv.io;
 
-import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
-
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
-import org.apache.ignite.internal.storage.pagememory.mv.VersionChainLink;
+import org.apache.ignite.internal.storage.pagememory.mv.VersionChainKey;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 
 /**
@@ -32,7 +29,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
  *
  * <p>Structure: link(long).
  */
-public class VersionChainLeafIo extends BplusLeafIo<VersionChainLink> implements VersionChainIo {
+public final class VersionChainLeafIo extends BplusLeafIo<VersionChainKey> implements VersionChainIo {
     /** Page IO type. */
     public static final short T_VERSION_CHAIN_LEAF_IO = 11;
 
@@ -44,43 +41,25 @@ public class VersionChainLeafIo extends BplusLeafIo<VersionChainLink> implements
      *
      * @param ver Page format version.
      */
-    protected VersionChainLeafIo(int ver) {
-        super(T_VERSION_CHAIN_LEAF_IO, ver, VersionChainLink.SIZE_IN_BYTES);
+    private VersionChainLeafIo(int ver) {
+        super(T_VERSION_CHAIN_LEAF_IO, ver, SIZE_IN_BYTES);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void store(long dstPageAddr, int dstIdx, BplusIo<VersionChainLink> srcIo, long srcPageAddr, int srcIdx) {
-        assertPageType(dstPageAddr);
-
-        long srcLink = link(srcPageAddr, srcIdx);
-
-        int dstOff = offset(dstIdx);
-
-        putLong(dstPageAddr, dstOff, srcLink);
+    public void store(long dstPageAddr, int dstIdx, BplusIo<VersionChainKey> srcIo, long srcPageAddr, int srcIdx) {
+        VersionChainIo.super.store(dstPageAddr, dstIdx, srcIo, srcPageAddr, srcIdx);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void storeByOffset(long pageAddr, int off, VersionChainLink row) {
-        assertPageType(pageAddr);
-
-        putLong(pageAddr, off, row.link());
+    public void storeByOffset(long pageAddr, int off, VersionChainKey row) {
+        VersionChainIo.super.storeByOffset(pageAddr, off, row);
     }
 
     /** {@inheritDoc} */
     @Override
-    public VersionChainLink getLookupRow(BplusTree<VersionChainLink, ?> tree, long pageAddr, int idx) {
-        long link = link(pageAddr, idx);
-
-        return new VersionChainLink(link);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long link(long pageAddr, int idx) {
-        assert idx < getCount(pageAddr) : idx;
-
-        return getLong(pageAddr, offset(idx));
+    public VersionChainKey getLookupRow(BplusTree<VersionChainKey, ?> tree, long pageAddr, int idx) {
+        return getRow(pageAddr, idx, 0xFFFF);
     }
 }

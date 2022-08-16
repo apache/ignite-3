@@ -23,7 +23,7 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cliconfig.CliConfigCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.cliconfig.profile.CliConfigProfileCommand;
-import org.apache.ignite.cli.commands.decorators.ConfigDecorator;
+import org.apache.ignite.cli.commands.decorators.ProfileDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
 import picocli.CommandLine.Command;
@@ -52,7 +52,7 @@ public class CliConfigSubCommand extends BaseCommand implements Callable<Integer
                 .inputProvider(() -> new StringCallInput(profileName))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new ConfigDecorator())
+                .decorator(new ProfileDecorator())
                 .build()
                 .runPipeline();
     }
