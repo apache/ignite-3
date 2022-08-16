@@ -43,10 +43,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -65,7 +63,7 @@ import org.rocksdb.WriteOptions;
 /**
  * Table storage implementation based on {@link RocksDB} instance.
  */
-class RocksDbTableStorage implements TableStorage, MvTableStorage {
+class RocksDbTableStorage implements MvTableStorage {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbTableStorage.class);
 
@@ -368,25 +366,6 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    public PartitionStorage getOrCreatePartition(int partId) throws StorageException {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Nullable
-    @Override
-    public PartitionStorage getPartition(int partId) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void dropPartition(int partId) throws StorageException {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public RocksDbMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
         RocksDbMvPartitionStorage partition = getMvPartition(partitionId);
 
@@ -435,17 +414,19 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
                 });
     }
 
+    /** {@inheritDoc} */
     @Override
     public void createIndex(String indexName) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
+    /** {@inheritDoc} */
     @Override
-    @Nullable
-    public SortedIndexStorage getSortedIndex(int partitionId, String indexName) {
+    public @Nullable SortedIndexStorage getSortedIndex(int partitionId, String indexName) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> destroyIndex(String indexName) {
         throw new UnsupportedOperationException("Not implemented yet");

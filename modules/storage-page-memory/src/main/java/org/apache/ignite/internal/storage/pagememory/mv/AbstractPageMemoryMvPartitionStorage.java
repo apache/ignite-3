@@ -299,7 +299,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /** {@inheritDoc} */
     @Override
     public void commitWrite(RowId rowId, Timestamp timestamp) throws StorageException {
-
         VersionChain currentVersionChain = findVersionChain(rowId);
 
         if (currentVersionChain == null || currentVersionChain.transactionId() == null) {
@@ -393,13 +392,26 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         versionChainTree.close();
     }
 
+    /**
+     * Removes all data from this storage and frees all associated resources.
+     *
+     * @throws StorageException If failed to destroy the data or storage is already stopped.
+     */
+    public void destroy() {
+        // TODO: IGNITE-17132 Implement it
+    }
+
     private class ScanCursor implements Cursor<BinaryRow> {
         private final IgniteCursor<VersionChain> treeCursor;
+
         private final Predicate<BinaryRow> keyFilter;
+
         private final @Nullable UUID transactionId;
+
         private final @Nullable Timestamp timestamp;
 
         private BinaryRow nextRow = null;
+
         private boolean iterationExhausted = false;
 
         public ScanCursor(

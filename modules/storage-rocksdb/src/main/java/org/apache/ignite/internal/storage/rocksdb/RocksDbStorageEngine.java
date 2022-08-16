@@ -146,7 +146,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public RocksDbTableStorage createTable(TableConfiguration tableCfg) throws StorageException {
+    public RocksDbTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
         TableView tableView = tableCfg.value();
 
         assert tableView.dataStorage().name().equals(ENGINE_NAME) : tableView.dataStorage().name();
@@ -164,11 +164,5 @@ public class RocksDbStorageEngine implements StorageEngine {
         }
 
         return new RocksDbTableStorage(this, tablePath, tableCfg, dataRegion);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public RocksDbTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
-        return createTable(tableCfg);
     }
 }

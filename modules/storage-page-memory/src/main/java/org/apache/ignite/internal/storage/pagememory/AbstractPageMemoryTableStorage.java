@@ -27,10 +27,8 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.tostring.S;
@@ -41,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
  * Abstract table storage implementation based on {@link PageMemory}.
  */
 // TODO: IGNITE-16642 Support indexes.
-public abstract class AbstractPageMemoryTableStorage implements TableStorage, MvTableStorage {
+public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     protected final TableConfiguration tableCfg;
 
     /** List of objects to be closed on the {@link #stop}. */
@@ -49,9 +47,7 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
 
     protected volatile boolean started;
 
-    protected volatile AtomicReferenceArray<PartitionStorage> partitions;
-
-    protected volatile AtomicReferenceArray<MvPartitionStorage> mvPartitions;
+    protected volatile AtomicReferenceArray<AbstractPageMemoryMvPartitionStorage> mvPartitions;
 
     /**
      * Constructor.
@@ -73,8 +69,6 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
     public void start() throws StorageException {
         TableView tableView = tableCfg.value();
 
-        partitions = new AtomicReferenceArray<>(tableView.partitions());
-
         mvPartitions = new AtomicReferenceArray<>(tableView.partitions());
 
         started = true;
@@ -85,61 +79,6 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
     public void stop() throws StorageException {
         close(false);
     }
-
-    /** {@inheritDoc} */
-    @Override
-    public PartitionStorage getOrCreatePartition(int partId) throws StorageException {
-        PartitionStorage partition = getPartition(partId);
-
-        if (partition != null) {
-            return partition;
-        }
-
-        partition = createPartitionStorage(partId);
-
-        partitions.set(partId, partition);
-
-        return partition;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable PartitionStorage getPartition(int partId) {
-        assert started : "Storage has not started yet";
-
-        if (partId < 0 || partId >= partitions.length()) {
-            throw new IllegalArgumentException(S.toString(
-                    "Unable to access partition with id outside of configured range",
-                    "table", tableCfg.name().value(), false,
-                    "partitionId", partId, false,
-                    "partitions", partitions.length(), false
-            ));
-        }
-
-        return partitions.get(partId);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void dropPartition(int partId) throws StorageException {
-        assert started : "Storage has not started yet";
-
-        PartitionStorage partition = getPartition(partId);
-
-        if (partition != null) {
-            partitions.set(partId, null);
-
-            partition.destroy();
-        }
-    }
-
-    /**
-     * Returns a new instance of {@link AbstractPageMemoryPartitionStorage}.
-     *
-     * @param partitionId Partition id.
-     * @throws StorageException If there is an error while creating the partition storage.
-     */
-    protected abstract AbstractPageMemoryPartitionStorage createPartitionStorage(int partitionId) throws StorageException;
 
     /**
      * Returns a new instance of {@link AbstractPageMemoryMvPartitionStorage}.
@@ -152,7 +91,7 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
     /** {@inheritDoc} */
     @Override
     public MvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
-        MvPartitionStorage partition = getMvPartition(partitionId);
+        AbstractPageMemoryMvPartitionStorage partition = getMvPartition(partitionId);
 
         if (partition != null) {
             return partition;
@@ -167,7 +106,7 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
 
     /** {@inheritDoc} */
     @Override
-    public MvPartitionStorage getMvPartition(int partitionId) {
+    public AbstractPageMemoryMvPartitionStorage getMvPartition(int partitionId) {
         assert started : "Storage has not started yet";
 
         if (partitionId < 0 || partitionId >= mvPartitions.length()) {
@@ -200,24 +139,26 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
         return CompletableFuture.completedFuture(null);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void createIndex(String indexName) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
+    /** {@inheritDoc} */
     @Override
-    @Nullable
-    public SortedIndexStorage getSortedIndex(int partitionId, String indexName) {
+    public @Nullable SortedIndexStorage getSortedIndex(int partitionId, String indexName) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> destroyIndex(String indexName) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /**
-     * Closes all {@link #partitions} and {@link #autoCloseables}.
+     * Closes all {@link #mvPartitions} and {@link #autoCloseables}.
      *
      * @param destroy Destroy partitions.
      * @throws StorageException If failed.
@@ -227,8 +168,8 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
 
         List<AutoCloseable> autoCloseables = new ArrayList<>(this.autoCloseables);
 
-        for (int i = 0; i < partitions.length(); i++) {
-            PartitionStorage partition = partitions.getAndUpdate(i, p -> null);
+        for (int i = 0; i < mvPartitions.length(); i++) {
+            AbstractPageMemoryMvPartitionStorage partition = mvPartitions.getAndUpdate(i, p -> null);
 
             if (partition != null) {
                 autoCloseables.add(destroy ? partition::destroy : partition);
@@ -244,6 +185,5 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage, Mv
         }
 
         this.autoCloseables.clear();
-        partitions = null;
     }
 }

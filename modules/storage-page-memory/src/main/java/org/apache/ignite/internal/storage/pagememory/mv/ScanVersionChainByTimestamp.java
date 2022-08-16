@@ -35,11 +35,8 @@ import org.jetbrains.annotations.Nullable;
 class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
     private final int partitionId;
 
-    /**
-     * Contains the result when the traversal ends.
-     */
-    @Nullable
-    private ByteBufferRow result;
+    /** Contains the result when the traversal ends. */
+    private @Nullable ByteBufferRow result;
 
     /**
      * First it's {@code true} (this means that we traverse first slots of versions of the Version Chain using NextLink);
@@ -53,6 +50,7 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
         this.partitionId = partitionId;
     }
 
+    /** {@inheritDoc} */
     @Override
     public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Timestamp timestamp) {
         if (lookingForVersion) {
@@ -93,6 +91,7 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
         return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void finish() {
         if (lookingForVersion) {
@@ -112,8 +111,7 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
         }
     }
 
-    @Nullable
-    ByteBufferRow result() {
+    @Nullable ByteBufferRow result() {
         return result;
     }
 
