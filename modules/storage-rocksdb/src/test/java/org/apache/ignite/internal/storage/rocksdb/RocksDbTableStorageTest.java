@@ -126,7 +126,7 @@ public class RocksDbTableStorageTest extends BaseMvStoragesTest {
     }
 
     /**
-     * Tests that {@link RocksDbTableStorage#getPartition} correctly returns an existing partition.
+     * Tests that {@link RocksDbTableStorage#getMvPartition(int)} correctly returns an existing partition.
      */
     @Test
     void testCreatePartition() {
@@ -248,8 +248,7 @@ public class RocksDbTableStorageTest extends BaseMvStoragesTest {
         assertThat(storage.isVolatile(), is(false));
     }
 
-    @Nullable
-    private static IgniteBiTuple<TestKey, TestValue> unwrap(@Nullable BinaryRow binaryRow) {
+    private static @Nullable IgniteBiTuple<TestKey, TestValue> unwrap(@Nullable BinaryRow binaryRow) {
         if (binaryRow == null) {
             return null;
         }

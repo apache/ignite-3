@@ -393,6 +393,19 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         versionChainTree.close();
     }
 
+    /**
+     * Removes all data from this storage and frees all associated resources.
+     *
+     * @throws StorageException If failed to destroy the data or storage is already stopped.
+     */
+    public void destroy() {
+        try {
+            versionChainTree.destroy();
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error while destroying data", e);
+        }
+    }
+
     private class ScanCursor implements Cursor<BinaryRow> {
         private final IgniteCursor<VersionChain> treeCursor;
         private final Predicate<BinaryRow> keyFilter;
