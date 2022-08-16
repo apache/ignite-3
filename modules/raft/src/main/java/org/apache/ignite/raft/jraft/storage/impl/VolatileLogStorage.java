@@ -185,26 +185,16 @@ public class VolatileLogStorage implements LogStorage, Describer, VolatileStorag
                 return 0;
             }
 
-            int appended = 0;
             for (LogEntry logEntry : entries) {
-
                 log.put(logEntry.getId().getIndex(), logEntry);
-
-                appended++;
             }
 
             lastLogIndex = log.lastKey();
             firstLogIndex = log.firstKey();
 
-            budget.onAppended(entries.subList(0, appended));
+            budget.onAppended(entries);
 
-            if (appended < entriesCount) {
-                throw new LogStorageOverflowException(entriesCount - appended);
-            }
-
-            return appended;
-        } catch (LogStorageOverflowException e) {
-            throw e;
+            return entriesCount;
         } catch (Exception e) {
             LOG.error("Fail to append entry.", e);
             return 0;
