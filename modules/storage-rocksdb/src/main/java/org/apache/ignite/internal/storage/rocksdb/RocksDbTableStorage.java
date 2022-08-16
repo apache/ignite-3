@@ -27,8 +27,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -97,16 +102,18 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
     /** Partition storages. */
     private volatile AtomicReferenceArray<RocksDbMvPartitionStorage> partitions;
 
+    /** Map with flush futures by sequence number at the time of the {@link #awaitFlush(boolean)} call. */
+    private final ConcurrentMap<Long, CompletableFuture<Void>> flushFuturesBySequenceNumber = new ConcurrentHashMap<>();
+
+    /** Latest known sequence number folue for persisted data. Not volatile, protected by explicit synchronization. */
+    private long latestPersistedSequenceNumber;
+
     /**
      * Instance of the latest scheduled flush closure.
      *
      * @see #scheduleFlush()
      */
     private volatile Runnable latestFlushClosure;
-
-    /** Flag indicating if the storage has been stopped. */
-    @Deprecated
-    private volatile boolean stopped = false;
 
     //TODO Use it instead of the "stopped" flag.
     /** Busy lock to stop synchronously. */
@@ -224,9 +231,62 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
     }
 
     /**
+     * Returns a future to wait next flush operation from the current point in time. Uses {@link RocksDB#getLatestSequenceNumber()} to
+     * achieve this.
+     *
+     * @param schedule {@code true} if {@link RocksDB#flush(FlushOptions)} should be explicitly triggerred in the near future.
+     *
+     * @see #scheduleFlush()
+     */
+    public CompletableFuture<Void> awaitFlush(boolean schedule) {
+        CompletableFuture<Void> future;
+
+        long dbSequenceNumber = db.getLatestSequenceNumber();
+
+        synchronized (this) {
+            if (dbSequenceNumber <= latestPersistedSequenceNumber) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            future = flushFuturesBySequenceNumber.computeIfAbsent(dbSequenceNumber, l -> new CompletableFuture<>());
+        }
+
+        if (schedule) {
+            scheduleFlush();
+        }
+
+        return future;
+    }
+
+    /**
+     * Completes all futures in {@link #flushFuturesBySequenceNumber} up to a given sequence number.
+     */
+    void completeFutures(long sequenceNumber) {
+        synchronized (this) {
+            if (sequenceNumber < latestPersistedSequenceNumber) {
+                return;
+            }
+
+            latestPersistedSequenceNumber = sequenceNumber;
+        }
+
+        Set<Entry<Long, CompletableFuture<Void>>> entries = flushFuturesBySequenceNumber.entrySet();
+
+        for (Iterator<Entry<Long, CompletableFuture<Void>>> iterator = entries.iterator(); iterator.hasNext(); ) {
+            Entry<Long, CompletableFuture<Void>> entry = iterator.next();
+
+            if (sequenceNumber >= entry.getKey()) {
+                entry.getValue().complete(null);
+
+                iterator.remove();
+            }
+        }
+    }
+
+    /**
      * Schedules a flush of the table. If run several times within a small amount of time, only the last scheduled flush will be executed.
      */
-    public void scheduleFlush() {
+    void scheduleFlush() {
         Runnable newClosure = new Runnable() {
             @Override
             public void run() {
@@ -253,13 +313,15 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
     /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
-        stopped = true;
-
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
 
         busyLock.block();
+
+        for (CompletableFuture<Void> future : flushFuturesBySequenceNumber.values()) {
+            future.cancel(false);
+        }
 
         List<AutoCloseable> resources = new ArrayList<>();
 
@@ -351,7 +413,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         mvPartition.destroy();
 
         // Wait for the data to actually be removed from the disk and close the storage.
-        return mvPartition.flush()
+        return awaitFlush(false)
                 .whenComplete((v, e) -> {
                     partitions.set(partitionId, null);
 
