@@ -108,6 +108,9 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
     /** Latest known sequence number for persisted data. Not volatile, protected by explicit synchronization. */
     private long latestPersistedSequenceNumber;
 
+    /** Mutex for {@link #latestPersistedSequenceNumber} modifications. */
+    private final Object latestPersistedSequenceNumberMux = new Object();
+
     /**
      * Instance of the latest scheduled flush closure.
      *
@@ -220,7 +223,10 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
                 }
             }
 
-            latestPersistedSequenceNumber = db.getLatestSequenceNumber();
+            // Pointless synchronization, but without it there would be a warning in the code.
+            synchronized (latestPersistedSequenceNumberMux) {
+                latestPersistedSequenceNumber = db.getLatestSequenceNumber();
+            }
         } catch (RocksDBException e) {
             throw new StorageException("Failed to initialize RocksDB instance", e);
         }
@@ -245,7 +251,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
 
         long dbSequenceNumber = db.getLatestSequenceNumber();
 
-        synchronized (this) {
+        synchronized (latestPersistedSequenceNumberMux) {
             if (dbSequenceNumber <= latestPersistedSequenceNumber) {
                 return CompletableFuture.completedFuture(null);
             }
@@ -264,7 +270,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
      * Completes all futures in {@link #flushFuturesBySequenceNumber} up to a given sequence number.
      */
     void completeFutures(long sequenceNumber) {
-        synchronized (this) {
+        synchronized (latestPersistedSequenceNumberMux) {
             if (sequenceNumber <= latestPersistedSequenceNumber) {
                 return;
             }
