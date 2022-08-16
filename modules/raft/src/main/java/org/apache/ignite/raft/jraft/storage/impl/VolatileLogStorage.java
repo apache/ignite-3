@@ -192,6 +192,7 @@ public class VolatileLogStorage implements LogStorage, Describer, VolatileStorag
             lastLogIndex = log.lastKey();
             firstLogIndex = log.firstKey();
 
+            // TODO: IGNITE-17336 - use the budgeting
             budget.onAppended(entries);
 
             return entriesCount;
