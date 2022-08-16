@@ -828,4 +828,19 @@ public class IgniteUtils {
             busyLock.leaveBusy();
         }
     }
+
+    /**
+     * Gets simple class name taking care of empty names.
+     *
+     * @param cls Class to get the name for.
+     * @return Simple class name.
+     */
+    public static String getSimpleName(Class<?> cls) {
+        String name = cls.getSimpleName();
+
+        if (name == null || name.isEmpty())
+            name = cls.getName().substring(cls.getPackage().getName().length() + 1);
+
+        return name;
+    }
 }
