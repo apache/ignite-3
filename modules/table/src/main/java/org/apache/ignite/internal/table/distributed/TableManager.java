@@ -117,6 +117,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
+import org.apache.ignite.lang.IgniteTriConsumer;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -1294,15 +1295,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
 
-        tablesByIdVv.whenComplete((token, tables, th) -> {
+        IgniteTriConsumer<Long, Map<UUID, TableImpl>, Throwable> tablesListener = (token, tables, th) -> {
             if (th == null) {
                 tablesByIdVv.get(token).thenRun(() -> getTblFut.complete(tablesByIdVv.latest().get(id)));
             } else {
                 getTblFut.completeExceptionally(th);
             }
-        });
+        };
 
-        return getTblFut;
+        tablesByIdVv.whenComplete(tablesListener);
+
+        return getTblFut.whenComplete((unused, throwable) -> tablesByIdVv.removeWhenComplete(tablesListener));
     }
 
     /**

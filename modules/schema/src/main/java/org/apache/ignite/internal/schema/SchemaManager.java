@@ -52,6 +52,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
+import org.apache.ignite.lang.IgniteTriConsumer;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -249,13 +250,15 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
         CompletableFuture<SchemaDescriptor> fut = new CompletableFuture<>();
 
-        registriesVv.whenComplete((token, regs, e) -> {
+        IgniteTriConsumer<Long, Map<UUID, SchemaRegistryImpl>, Throwable> schemaListener = (token, regs, e) -> {
             if (schemaVer <= regs.get(tblId).lastSchemaVersion()) {
                 fut.complete(getSchemaDescriptorLocally(schemaVer, tblCfg));
             }
-        });
+        };
 
-        return fut.join();
+        registriesVv.whenComplete(schemaListener);
+
+        return fut.whenComplete((unused, throwable) -> registriesVv.removeWhenComplete(schemaListener)).join();
     }
 
     /**
