@@ -68,6 +68,7 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
         intersection.retainAll(names2);
 
         if (!intersection.isEmpty()) {
+            // TODO: IGNITE-17540 - add error code
             throw new IgniteInternalException(
                     String.format("Storage budget '%s' is provided by more than one module", intersection.iterator().next())
             );
@@ -93,6 +94,7 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
         LogStorageBudgetFactory factory = budgetFactories.get(logStorageBudgetConfig.name());
 
         if (factory == null) {
+            // TODO: IGNITE-17540 - add error code
             throw new IgniteInternalException("Cannot find a log storage budget by name '" + logStorageBudgetConfig.name() + "'");
         }
 
