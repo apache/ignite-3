@@ -21,21 +21,14 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.DataRow;
-import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.basic.BinarySearchRow;
 import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
@@ -59,16 +52,12 @@ import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
-import org.apache.ignite.internal.table.distributed.command.scan.ScanCloseCommand;
-import org.apache.ignite.internal.table.distributed.command.scan.ScanInitCommand;
-import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBatchCommand;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
+import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -85,15 +74,12 @@ public class PartitionListener implements RaftGroupListener {
     /**
      * Lock context id.
      *
-     * @see org.apache.ignite.internal.tx.LockKey#contextId
+     * @see LockKey#contextId()
      */
     private final UUID lockContextId;
 
     /** The versioned storage. */
     private final VersionedRowStore storage;
-
-    /** Cursors map. */
-    private final Map<IgniteUuid, CursorMeta> cursors;
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -108,7 +94,6 @@ public class PartitionListener implements RaftGroupListener {
         this.lockContextId = tableId;
         this.storage = store;
         this.txManager = store.txManager();
-        this.cursors = new ConcurrentHashMap<>();
     }
 
     /** {@inheritDoc} */
@@ -183,12 +168,6 @@ public class PartitionListener implements RaftGroupListener {
                 clo.result(handleGetAndReplaceCommand((GetAndReplaceCommand) command));
             } else if (command instanceof GetAndUpsertCommand) {
                 clo.result(handleGetAndUpsertCommand((GetAndUpsertCommand) command));
-            } else if (command instanceof ScanInitCommand) {
-                handleScanInitCommand((CommandClosure<ScanInitCommand>) clo, (ScanInitCommand) command);
-            } else if (command instanceof ScanRetrieveBatchCommand) {
-                handleScanRetrieveBatchCommand((CommandClosure<ScanRetrieveBatchCommand>) clo, (ScanRetrieveBatchCommand) command);
-            } else if (command instanceof ScanCloseCommand) {
-                handleScanCloseCommand((CommandClosure<ScanCloseCommand>) clo, (ScanCloseCommand) command);
             } else if (command instanceof FinishTxCommand) {
                 clo.result(handleFinishTxCommand((FinishTxCommand) command));
             } else {
@@ -452,102 +431,6 @@ public class PartitionListener implements RaftGroupListener {
         return stateChanged;
     }
 
-    /**
-     * Handler for the {@link ScanInitCommand}.
-     *
-     * @param clo Command closure.
-     * @param cmd Command.
-     */
-    private void handleScanInitCommand(
-            CommandClosure<ScanInitCommand> clo,
-            ScanInitCommand cmd
-    ) {
-        IgniteUuid cursorId = cmd.scanId();
-
-        try {
-            Cursor<BinaryRow> cursor = storage.scan(key -> true);
-
-            cursors.put(
-                    cursorId,
-                    new CursorMeta(
-                            cursor,
-                            cmd.requesterNodeId(),
-                            new AtomicInteger(0)
-                    )
-            );
-        } catch (StorageException e) {
-            clo.result(e);
-        }
-
-        clo.result(null);
-    }
-
-    /**
-     * Handler for the {@link ScanRetrieveBatchCommand}.
-     *
-     * @param clo Command closure.
-     * @param cmd Command.
-     */
-    private void handleScanRetrieveBatchCommand(
-            CommandClosure<ScanRetrieveBatchCommand> clo,
-            ScanRetrieveBatchCommand cmd
-    ) {
-        CursorMeta cursorDesc = cursors.get(cmd.scanId());
-
-        if (cursorDesc == null) {
-            clo.result(new NoSuchElementException(format(
-                    "Cursor with id={} is not found on server side.", cmd.scanId())));
-
-            return;
-        }
-
-        AtomicInteger internalBatchCounter = cursorDesc.batchCounter();
-
-        if (internalBatchCounter.getAndSet(clo.command().batchCounter()) != clo.command().batchCounter() - 1) {
-            throw new IllegalStateException(
-                    "Counters from received scan command and handled scan command in partition listener are inconsistent");
-        }
-
-        List<BinaryRow> res = new ArrayList<>();
-
-        try {
-            for (int i = 0; i < cmd.itemsToRetrieveCount() && cursorDesc.cursor().hasNext(); i++) {
-                res.add(cursorDesc.cursor().next());
-            }
-        } catch (NoSuchElementException e) {
-            clo.result(e);
-        }
-
-        clo.result(new MultiRowsResponse(res));
-    }
-
-    /**
-     * Handler for the {@link ScanCloseCommand}.
-     *
-     * @param clo Command closure.
-     * @param cmd Command.
-     */
-    private void handleScanCloseCommand(
-            CommandClosure<ScanCloseCommand> clo,
-            ScanCloseCommand cmd
-    ) {
-        CursorMeta cursorDesc = cursors.remove(cmd.scanId());
-
-        if (cursorDesc == null) {
-            clo.result(null);
-
-            return;
-        }
-
-        try {
-            cursorDesc.cursor().close();
-        } catch (Exception e) {
-            throw new IgniteInternalException(e);
-        }
-
-        clo.result(null);
-    }
-
     /** {@inheritDoc} */
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
@@ -621,46 +504,5 @@ public class PartitionListener implements RaftGroupListener {
     @TestOnly
     public VersionedRowStore getStorage() {
         return storage;
-    }
-
-    /**
-     * Cursor meta information: origin node id and type.
-     */
-    private static class CursorMeta {
-        /** Cursor. */
-        private final Cursor<BinaryRow> cursor;
-
-        /** Id of the node that creates cursor. */
-        private final String requesterNodeId;
-
-        /** Batch counter of a cursor. */
-        private final AtomicInteger batchCounter;
-
-        /**
-         * The constructor.
-         *
-         * @param cursor          The cursor.
-         * @param requesterNodeId Id of the node that creates cursor.
-         */
-        CursorMeta(Cursor<BinaryRow> cursor, String requesterNodeId, AtomicInteger batchCounter) {
-            this.cursor = cursor;
-            this.requesterNodeId = requesterNodeId;
-            this.batchCounter = batchCounter;
-        }
-
-        /** Returns cursor. */
-        public Cursor<BinaryRow> cursor() {
-            return cursor;
-        }
-
-        /** Returns id of the node that creates cursor. */
-        public String requesterNodeId() {
-            return requesterNodeId;
-        }
-
-        /** Returns batch counter of a cursor. */
-        public AtomicInteger batchCounter() {
-            return batchCounter;
-        }
     }
 }

@@ -15,33 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command.scan;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.raft.client.WriteCommand;
-import org.jetbrains.annotations.NotNull;
+import java.util.function.Predicate;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.network.annotations.Marshallable;
 
 /**
- * Scan close command for PartitionListener that closes scan with given id.
+ * Scan retrieve batch replica request.
  */
-public class ScanCloseCommand implements WriteCommand {
-    /** Id of scan that is associated with the current command. */
-    @NotNull
-    private final IgniteUuid scanId;
+public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
+    /** Batch size. */
+    int batchSize();
+
+    /** The id uniquely determines a cursor for the transaction. */
+    long scanId();
 
     /**
-     * The Constructor.
+     * Gets a scan row filter. The filter has a sense only for first request, for the second one and followings the field is ignored.
      *
-     * @param scanId Id of scan that is associated with the current command.
+     * @return Row filter predicate.
      */
-    public ScanCloseCommand(@NotNull IgniteUuid scanId) {
-        this.scanId = scanId;
-    }
-
-    /**
-     * Returns id of scan that is associated with the current command.
-     */
-    public @NotNull IgniteUuid scanId() {
-        return scanId;
-    }
+    @Marshallable
+    Predicate<BinaryRow> rowFilter();
 }
