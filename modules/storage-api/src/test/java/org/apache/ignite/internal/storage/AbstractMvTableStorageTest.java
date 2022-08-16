@@ -39,9 +39,9 @@ import org.junit.jupiter.api.Test;
 // TODO: Use this to test RocksDB-based storage, see https://issues.apache.org/jira/browse/IGNITE-17318
 // TODO: Use this to test B+tree-based storage, see https://issues.apache.org/jira/browse/IGNITE-17320
 public abstract class AbstractMvTableStorageTest {
-    private static final String SORTED_INDEX_NAME_1 = "SORTED_IDX_1";
+    private static final String SORTED_INDEX_NAME = "SORTED_IDX";
 
-    private static final String SORTED_INDEX_NAME_2 = "SORTED_IDX_2";
+    private static final String HASH_INDEX_NAME = "HASH_IDX";
 
     private MvTableStorage tableStorage;
 
@@ -82,37 +82,61 @@ public abstract class AbstractMvTableStorageTest {
 
         assertThat(tableStorage.getOrCreateMvPartition(partitionId), is(notNullValue()));
 
-        tableStorage.createIndex(SORTED_INDEX_NAME_1);
+        tableStorage.createIndex(SORTED_INDEX_NAME);
+        tableStorage.createIndex(HASH_INDEX_NAME);
 
         assertThat(tableStorage.getMvPartition(partitionId), is(notNullValue()));
 
-        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME_1), is(notNullValue()));
+        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME), is(notNullValue()));
+
+        assertThat(tableStorage.getHashIndex(partitionId, HASH_INDEX_NAME), is(notNullValue()));
 
         // Validate that destroying a partition also destroys associated indices.
         assertThat(tableStorage.destroyPartition(partitionId), willCompleteSuccessfully());
 
         assertThat(tableStorage.getMvPartition(partitionId), is(nullValue()));
 
-        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME_1), is(nullValue()));
+        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME), is(nullValue()));
+
+        assertThat(tableStorage.getHashIndex(partitionId, HASH_INDEX_NAME), is(nullValue()));
     }
 
     /**
-     * Test creating an index.
+     * Test creating a Sorted Index.
      */
     @Test
     public void testCreateSortedIndex() {
         int partitionId = 0;
 
-        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME_1), is(nullValue()));
+        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME), is(nullValue()));
 
-        tableStorage.createIndex(SORTED_INDEX_NAME_1);
+        tableStorage.createIndex(SORTED_INDEX_NAME);
 
-        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME_1), is(nullValue()));
+        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME), is(nullValue()));
 
         // Index should only be available after the associated partition has been created.
         tableStorage.getOrCreateMvPartition(partitionId);
 
-        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME_1), is(notNullValue()));
+        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME), is(notNullValue()));
+    }
+
+    /**
+     * Test creating a Hash Index.
+     */
+    @Test
+    public void testCreateHashIndex() {
+        int partitionId = 0;
+
+        assertThat(tableStorage.getHashIndex(partitionId, HASH_INDEX_NAME), is(nullValue()));
+
+        tableStorage.createIndex(HASH_INDEX_NAME);
+
+        assertThat(tableStorage.getHashIndex(partitionId, HASH_INDEX_NAME), is(nullValue()));
+
+        // Index should only be available after the associated partition has been created.
+        tableStorage.getOrCreateMvPartition(partitionId);
+
+        assertThat(tableStorage.getHashIndex(partitionId, HASH_INDEX_NAME), is(notNullValue()));
     }
 
     /**
@@ -124,26 +148,40 @@ public abstract class AbstractMvTableStorageTest {
 
         tableStorage.getOrCreateMvPartition(partitionId);
 
-        tableStorage.createIndex(SORTED_INDEX_NAME_1);
-        tableStorage.createIndex(SORTED_INDEX_NAME_2);
+        tableStorage.createIndex(SORTED_INDEX_NAME);
+        tableStorage.createIndex(HASH_INDEX_NAME);
 
-        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME_1), is(notNullValue()));
-        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME_2), is(notNullValue()));
+        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME), is(notNullValue()));
+        assertThat(tableStorage.getHashIndex(partitionId, HASH_INDEX_NAME), is(notNullValue()));
 
-        assertThat(tableStorage.destroyIndex(SORTED_INDEX_NAME_1), willCompleteSuccessfully());
+        assertThat(tableStorage.destroyIndex(SORTED_INDEX_NAME), willCompleteSuccessfully());
 
-        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME_1), is(nullValue()));
-        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME_2), is(notNullValue()));
+        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME), is(nullValue()));
+        assertThat(tableStorage.getHashIndex(partitionId, HASH_INDEX_NAME), is(notNullValue()));
 
-        // Check that destroying an index twice is not an error
-        assertThat(tableStorage.destroyIndex(SORTED_INDEX_NAME_1), willCompleteSuccessfully());
+        assertThat(tableStorage.destroyIndex(HASH_INDEX_NAME), willCompleteSuccessfully());
 
-        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME_1), is(nullValue()));
+        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME), is(nullValue()));
+        assertThat(tableStorage.getHashIndex(partitionId, HASH_INDEX_NAME), is(nullValue()));
+    }
 
-        assertThat(tableStorage.destroyIndex(SORTED_INDEX_NAME_2), willCompleteSuccessfully());
+    /**
+     * Tests that indices are only accessible via methods of the corresponding type.
+     */
+    @Test
+    public void testMixedIndices() {
+        int partitionId = 0;
 
-        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME_1), is(nullValue()));
-        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME_2), is(nullValue()));
+        tableStorage.getOrCreateMvPartition(partitionId);
+
+        tableStorage.createIndex(SORTED_INDEX_NAME);
+        tableStorage.createIndex(HASH_INDEX_NAME);
+
+        assertThat(tableStorage.getSortedIndex(partitionId, SORTED_INDEX_NAME), is(notNullValue()));
+        assertThat(tableStorage.getHashIndex(partitionId, HASH_INDEX_NAME), is(notNullValue()));
+
+        assertThat(tableStorage.getSortedIndex(partitionId, HASH_INDEX_NAME), is(nullValue()));
+        assertThat(tableStorage.getHashIndex(partitionId, SORTED_INDEX_NAME), is(nullValue()));
     }
 
     private void createTestTable() {
@@ -154,13 +192,13 @@ public abstract class AbstractMvTableStorageTest {
                 )
                 .withPrimaryKey("ID")
                 .withIndex(
-                        SchemaBuilders.sortedIndex(SORTED_INDEX_NAME_1)
+                        SchemaBuilders.sortedIndex(SORTED_INDEX_NAME)
                                 .addIndexColumn("COLUMN0").done()
                                 .build()
                 )
                 .withIndex(
-                        SchemaBuilders.sortedIndex(SORTED_INDEX_NAME_2)
-                                .addIndexColumn("COLUMN0").done()
+                        SchemaBuilders.hashIndex(HASH_INDEX_NAME)
+                                .withColumns("COLUMN0")
                                 .build()
                 )
                 .build();

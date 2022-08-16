@@ -29,6 +29,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.tostring.S;
@@ -148,6 +149,12 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     /** {@inheritDoc} */
     @Override
     public @Nullable SortedIndexStorage getSortedIndex(int partitionId, String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    @Nullable
+    public HashIndexStorage getHashIndex(int partitionId, String indexName) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 

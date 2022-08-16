@@ -45,6 +45,7 @@ import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -423,6 +424,12 @@ class RocksDbTableStorage implements MvTableStorage {
     /** {@inheritDoc} */
     @Override
     public @Nullable SortedIndexStorage getSortedIndex(int partitionId, String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    @Nullable
+    public HashIndexStorage getHashIndex(int partitionId, String indexName) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 

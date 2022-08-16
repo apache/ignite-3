@@ -59,7 +59,7 @@ public class BinaryTupleParser {
     private final int valueBase;
 
     /** Binary tuple. */
-    protected final ByteBuffer buffer;
+    private final ByteBuffer buffer;
 
     /**
      * Constructor.
@@ -67,7 +67,7 @@ public class BinaryTupleParser {
      * @param numElements Number of tuple elements.
      * @param buffer Buffer with a binary tuple.
      */
-    public BinaryTupleParser(int numElements, ByteBuffer buffer) {
+    BinaryTupleParser(int numElements, ByteBuffer buffer) {
         this.numElements = numElements;
 
         assert buffer.order() == ByteOrder.LITTLE_ENDIAN;
@@ -105,6 +105,13 @@ public class BinaryTupleParser {
      */
     public boolean hasNullMap() {
         return entryBase > BinaryTupleSchema.HEADER_SIZE;
+    }
+
+    /**
+     * Returns the content of this tuple as a byte buffer.
+     */
+    public ByteBuffer asByteBuffer() {
+        return buffer;
     }
 
     /**

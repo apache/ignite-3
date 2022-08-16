@@ -19,11 +19,10 @@ package org.apache.ignite.internal.storage.index;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
 
+import java.util.Arrays;
 import java.util.List;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
-import org.apache.ignite.configuration.schemas.table.IndexColumnView;
-import org.apache.ignite.configuration.schemas.table.SortedIndexView;
+import org.apache.ignite.configuration.schemas.table.HashIndexView;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.schema.NativeType;
@@ -32,13 +31,13 @@ import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Descriptor for creating a Sorted Index Storage.
+ * Descriptor for creating a Hash Index Storage.
  *
- * @see SortedIndexStorage
+ * @see HashIndexStorage
  */
-public class SortedIndexDescriptor {
+public class HashIndexDescriptor {
     /**
-     * Descriptor of a Sorted Index column (column name and column sort order).
+     * Descriptor of a Hash Index column.
      */
     public static class ColumnDescriptor {
         private final String name;
@@ -47,13 +46,10 @@ public class SortedIndexDescriptor {
 
         private final boolean nullable;
 
-        private final boolean asc;
-
-        ColumnDescriptor(ColumnView tableColumnView, IndexColumnView indexColumnView) {
+        ColumnDescriptor(ColumnView tableColumnView) {
             this.name = tableColumnView.name();
             this.type = SchemaDescriptorConverter.convert(SchemaConfigurationConverter.convert(tableColumnView.type()));
             this.nullable = tableColumnView.nullable();
-            this.asc = indexColumnView.asc();
         }
 
         /**
@@ -64,7 +60,7 @@ public class SortedIndexDescriptor {
         }
 
         /**
-         * Returns a column descriptor.
+         * Returns a column type.
          */
         public NativeType type() {
             return type;
@@ -75,13 +71,6 @@ public class SortedIndexDescriptor {
          */
         public boolean nullable() {
             return nullable;
-        }
-
-        /**
-         * Returns {@code true} if this column is sorted in ascending order or {@code false} otherwise.
-         */
-        public boolean asc() {
-            return asc;
         }
 
         @Override
@@ -100,25 +89,23 @@ public class SortedIndexDescriptor {
      * @param name index name.
      * @param tableConfig table configuration.
      */
-    public SortedIndexDescriptor(String name, TableView tableConfig) {
+    public HashIndexDescriptor(String name, TableView tableConfig) {
         this.name = name;
 
         TableIndexView indexConfig = tableConfig.indices().get(name);
 
         assert indexConfig != null;
-        assert indexConfig instanceof SortedIndexView : indexConfig.type();
+        assert indexConfig instanceof HashIndexView : indexConfig.type();
 
-        NamedListView<? extends IndexColumnView> indexColumns = ((SortedIndexView) indexConfig).columns();
+        String[] indexColumns = ((HashIndexView) indexConfig).columnNames();
 
-        columns = indexColumns.namedListKeys().stream()
+        columns = Arrays.stream(indexColumns)
                 .map(columnName -> {
                     ColumnView columnView = tableConfig.columns().get(columnName);
 
                     assert columnView != null : "Incorrect index column configuration. " + columnName + " column does not exist";
 
-                    IndexColumnView indexColumnView = indexColumns.get(columnName);
-
-                    return new ColumnDescriptor(columnView, indexColumnView);
+                    return new ColumnDescriptor(columnView);
                 })
                 .collect(toUnmodifiableList());
     }

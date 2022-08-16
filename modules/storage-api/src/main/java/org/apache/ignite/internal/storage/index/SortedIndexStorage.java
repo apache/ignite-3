@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Storage for a Sorted Index.
  *
- * <p>This storage serves as a sorted mapping from a subset of a table's columns (a.k.a. index columns) to a {@link RowId}
+ * <p>This storage serves as a sorted mapping from a subset of a table's columns (a.k.a. index columns) to a set of {@link RowId}s
  * from a {@link org.apache.ignite.internal.storage.MvPartitionStorage} from the same table.
  *
  * @see org.apache.ignite.schema.definition.index.SortedIndexDefinition
@@ -56,24 +56,14 @@ public interface SortedIndexStorage {
     SortedIndexDescriptor indexDescriptor();
 
     /**
-     * Returns a factory for creating index rows for this storage.
-     */
-    IndexRowSerializer indexRowSerializer();
-
-    /**
-     * Returns a class deserializing index columns.
-     */
-    IndexRowDeserializer indexRowDeserializer();
-
-    /**
      * Adds the given index row to the index.
      */
     void put(IndexRow row);
 
     /**
-     * Removes the given key from the index.
+     * Removes the given row from the index.
      *
-     * <p>Removing a non-existent key is a no-op.
+     * <p>Removing a non-existent row is a no-op.
      */
     void remove(IndexRow row);
 

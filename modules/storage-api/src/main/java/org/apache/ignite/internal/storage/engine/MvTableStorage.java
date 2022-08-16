@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.jetbrains.annotations.Nullable;
 
@@ -77,6 +78,16 @@ public interface MvTableStorage {
      */
     @Nullable
     SortedIndexStorage getSortedIndex(int partitionId, String indexName);
+
+    /**
+     * Returns an already created Hash Index with the given name or {@code null} if it does not exist.
+     *
+     * @param partitionId Partition ID for which this index has been built.
+     * @param indexName Index name.
+     * @return Hash Index storage or {@code null} if it does not exist.
+     */
+    @Nullable
+    HashIndexStorage getHashIndex(int partitionId, String indexName);
 
     /**
      * Destroys the index under the given name and all data in it.
