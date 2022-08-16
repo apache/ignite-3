@@ -27,14 +27,9 @@ import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Iterator;
-import java.util.Map.Entry;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -146,9 +141,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** The value of {@link #lastAppliedIndex} persisted to the device at this moment. */
     private volatile long persistedIndex;
 
-    /** Map with flush futures by applied index at the time of the {@link #flush()} call. */
-    private final ConcurrentMap<Long, CompletableFuture<Void>> flushFuturesByAppliedIndex = new ConcurrentHashMap<>();
-
     /**
      * Constructor.
      *
@@ -202,13 +194,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> flush() {
-        CompletableFuture<Void> flushFuture = flushFuturesByAppliedIndex.computeIfAbsent(
-                lastAppliedIndex, index -> new CompletableFuture<>()
-        );
-
-        tableStorage.scheduleFlush();
-
-        return flushFuture;
+        return tableStorage.awaitFlush(true);
     }
 
     /** {@inheritDoc} */
@@ -241,27 +227,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * Reads a value of {@link #lastAppliedIndex()} from the storage, avoiding memtable, and sets it as a new value of
      * {@link #persistedIndex()}.
      *
-     * <p/>All futures returned by {@link #flush()} are completed here if they correspond to the value of {@link #persistedIndex()}
-     * (if flush was called before data started being flushed to the storage).
-     *
      * @throws StorageException If failed to read index from the storage.
      */
     public void refreshPersistedIndex() throws StorageException {
-        long persistedIndex = readLastAppliedIndex(persistedTierReadOpts);
-
-        this.persistedIndex = persistedIndex;
-
-        Set<Entry<Long, CompletableFuture<Void>>> entries = flushFuturesByAppliedIndex.entrySet();
-
-        for (Iterator<Entry<Long, CompletableFuture<Void>>> iterator = entries.iterator(); iterator.hasNext(); ) {
-            Entry<Long, CompletableFuture<Void>> entry = iterator.next();
-
-            if (persistedIndex >= entry.getKey()) {
-                entry.getValue().complete(null);
-
-                iterator.remove();
-            }
-        }
+        persistedIndex = readLastAppliedIndex(persistedTierReadOpts);
     }
 
     /**
@@ -792,10 +761,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
-        for (CompletableFuture<Void> future : flushFuturesByAppliedIndex.values()) {
-            future.cancel(false);
-        }
-
         IgniteUtils.closeAll(persistedTierReadOpts, readOpts, writeOpts, upperBound);
     }
 

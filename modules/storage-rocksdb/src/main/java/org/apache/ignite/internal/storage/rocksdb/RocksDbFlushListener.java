@@ -21,6 +21,7 @@ import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_BE
 import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_COMPLETED;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -70,9 +71,14 @@ class RocksDbFlushListener extends AbstractEventListener {
     /** {@inheritDoc} */
     @Override
     public void onFlushCompleted(RocksDB db, FlushJobInfo flushJobInfo) {
+        ExecutorService threadPool = tableStorage.engine().threadPool();
+
         if (lastEventType.compareAndSet(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED)) {
-            lastFlushProcessed = CompletableFuture.runAsync(this::refreshPersistedIndexes, tableStorage.engine().threadPool());
+            lastFlushProcessed = CompletableFuture.runAsync(this::refreshPersistedIndexes, threadPool);
         }
+
+        // Do it for every column family, there's no way to tell in advance which one has the latest sequence number.
+        lastFlushProcessed.whenCompleteAsync((o, throwable) -> tableStorage.completeFutures(flushJobInfo.getLargestSeqno()), threadPool);
     }
 
     private void refreshPersistedIndexes() {
