@@ -34,9 +34,7 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
@@ -148,7 +146,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public TableStorage createTable(TableConfiguration tableCfg) throws StorageException {
+    public RocksDbTableStorage createTable(TableConfiguration tableCfg) throws StorageException {
         TableView tableView = tableCfg.value();
 
         assert tableView.dataStorage().name().equals(ENGINE_NAME) : tableView.dataStorage().name();
@@ -168,8 +166,9 @@ public class RocksDbStorageEngine implements StorageEngine {
         return new RocksDbTableStorage(this, tablePath, tableCfg, dataRegion);
     }
 
+    /** {@inheritDoc} */
     @Override
-    public MvTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
-        return (MvTableStorage) createTable(tableCfg);
+    public RocksDbTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
+        return createTable(tableCfg);
     }
 }

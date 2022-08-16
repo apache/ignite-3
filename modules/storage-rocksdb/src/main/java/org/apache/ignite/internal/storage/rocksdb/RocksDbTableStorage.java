@@ -219,6 +219,8 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
                         throw new StorageException("Unidentified column family [name=" + cf.name() + ", table=" + tableCfg.name() + ']');
                 }
             }
+
+            latestPersistedSequenceNumber = db.getLatestSequenceNumber();
         } catch (RocksDBException e) {
             throw new StorageException("Failed to initialize RocksDB instance", e);
         }
@@ -295,7 +297,9 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
                 }
 
                 try {
-                    db.flush(flushOptions);
+                    // Explicit list of CF handles is mandatory!
+                    // Default flush is buggy and only invokes listener methods for a single random CF.
+                    db.flush(flushOptions, List.of(metaCfHandle(), partitionCfHandle()));
                 } catch (RocksDBException e) {
                     LOG.error("Error occurred during the explicit flush for table '{}'", e, tableCfg.name());
                 }
