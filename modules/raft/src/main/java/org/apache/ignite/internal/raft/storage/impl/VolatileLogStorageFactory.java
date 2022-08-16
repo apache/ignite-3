@@ -29,12 +29,11 @@ import org.apache.ignite.raft.jraft.core.LogStorageBudgetFactory;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetsModule;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
-import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
 import org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileLogStorage;
 
 /**
- * Log storage factory based on {@link LocalLogStorage}.
+ * Log storage factory based on {@link VolatileLogStorage}.
  */
 public class VolatileLogStorageFactory implements LogStorageFactory {
     private final LogStorageBudgetView logStorageBudgetConfig;
