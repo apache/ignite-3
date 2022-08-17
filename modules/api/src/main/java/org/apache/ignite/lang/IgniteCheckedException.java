@@ -19,6 +19,7 @@ package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
 import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
+import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.errorMessageFromCause;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
@@ -65,7 +66,7 @@ public class IgniteCheckedException extends Exception {
      * @param code Full error code.
      */
     public IgniteCheckedException(UUID traceId, int code) {
-        super();
+        super(errorMessage(traceId, code, null));
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -90,7 +91,7 @@ public class IgniteCheckedException extends Exception {
      * @param message Detail message.
      */
     public IgniteCheckedException(UUID traceId, int code, String message) {
-        super(message);
+        super(errorMessage(traceId, code, message));
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -115,7 +116,7 @@ public class IgniteCheckedException extends Exception {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteCheckedException(UUID traceId, int code, Throwable cause) {
-        super(errorMessageFromCause(cause), cause);
+        super(errorMessageFromCause(traceId, code, cause), cause);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
@@ -142,7 +143,7 @@ public class IgniteCheckedException extends Exception {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteCheckedException(UUID traceId, int code, String message, Throwable cause) {
-        super(message, cause);
+        super(errorMessage(traceId, code, message), cause);
 
         this.traceId = traceId;
         this.groupName = errorGroupByCode((extractGroupCode(code))).name();
