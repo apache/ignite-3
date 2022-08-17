@@ -49,6 +49,9 @@ import org.junit.jupiter.api.Test;
  * Base test for MV partition storages.
  */
 public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest {
+    /** A partition id that should be used to create a partition instance. */
+    protected static final int PARTITION_ID = 1;
+
     protected MvPartitionStorage storage;
 
     protected final UUID txId = newTransactionId();
@@ -120,42 +123,31 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     }
 
     /**
+     * Creates a new transaction id.
+     */
+    protected UUID newTransactionId() {
+        return Timestamp.nextVersion().toUuid();
+    }
+
+    /**
      * Tests that reads from empty storage return empty results.
      */
     @Test
     public void testReadsFromEmpty() {
-        RowId rowId = insertAndAbortWrite();
+        RowId rowId = new RowId(PARTITION_ID);
 
-        assertEquals(partitionId(), rowId.partitionId());
+        assertEquals(PARTITION_ID, rowId.partitionId());
 
         assertNull(read(rowId, newTransactionId()));
         assertNull(read(rowId, Timestamp.nextVersion()));
     }
 
-    private RowId insertAndAbortWrite() {
-        return storage.runConsistently(() -> {
-            RowId rowId = storage.insert(binaryRow, txId);
-
-            storage.abortWrite(rowId);
-
-            return rowId;
-        });
-    }
-
     @Test
     public void testScanOverEmpty() throws Exception {
-        insertAndAbortWrite();
+        new RowId(PARTITION_ID);
 
         assertEquals(List.of(), convert(scan(row -> true, newTransactionId())));
         assertEquals(List.of(), convert(scan(row -> true, Timestamp.nextVersion())));
-    }
-
-    protected int partitionId() {
-        return 0;
-    }
-
-    protected UUID newTransactionId() {
-        return UUID.randomUUID();
     }
 
     /**
@@ -658,7 +650,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     @Test
     void abortOfInsertMakesRowNonExistentForReadWithTxId() {
-        RowId rowId = insertAndAbortWrite();
+        RowId rowId = new RowId(PARTITION_ID);
 
         BinaryRow foundRow = read(rowId, txId);
 
@@ -681,6 +673,54 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         Cursor<BinaryRow> cursor = scan(row -> true, newTransactionId());
 
         assertThrows(TxIdMismatchException.class, cursor::next);
+    }
+
+    @Test
+    void readByTimestampWorksCorrectlyAfterCommitAndAbortFollowedByUncommittedWrite() {
+        RowId rowId = commitAbortAndAddUncommitted();
+
+        BinaryRow foundRow = storage.read(rowId, Timestamp.nextVersion());
+
+        assertRowMatches(foundRow, binaryRow);
+    }
+
+    private RowId commitAbortAndAddUncommitted() {
+        return storage.runConsistently(() -> {
+            RowId rowId = storage.insert(binaryRow, txId);
+
+            storage.commitWrite(rowId, Timestamp.nextVersion());
+
+            storage.addWrite(rowId, binaryRow2, newTransactionId());
+            storage.abortWrite(rowId);
+
+            BinaryRow binaryRow3 = binaryRow(key, new TestValue(22, "bar3"));
+
+            storage.addWrite(rowId, binaryRow3, newTransactionId());
+
+            return rowId;
+        });
+    }
+
+    @Test
+    void scanByTimestampWorksCorrectlyAfterCommitAndAbortFollowedByUncommittedWrite() throws Exception {
+        commitAbortAndAddUncommitted();
+
+        try (Cursor<BinaryRow> cursor = storage.scan(k -> true, Timestamp.nextVersion())) {
+            BinaryRow foundRow = cursor.next();
+
+            assertRowMatches(foundRow, binaryRow);
+
+            assertFalse(cursor.hasNext());
+        }
+    }
+
+    @Test
+    void readByTimestampWorksCorrectlyIfNoUncommittedValueExists() {
+        RowId rowId = insert(binaryRow, txId);
+
+        BinaryRow foundRow = read(rowId, Timestamp.nextVersion());
+
+        assertThat(foundRow, is(nullValue()));
     }
 
     /**

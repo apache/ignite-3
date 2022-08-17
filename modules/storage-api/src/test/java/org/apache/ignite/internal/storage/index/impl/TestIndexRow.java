@@ -31,7 +31,6 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.chm.TestRowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -67,7 +66,7 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
                 .map(type -> generateRandomValue(random, type))
                 .toArray();
 
-        var rowId = new TestRowId(0);
+        var rowId = new RowId(0);
 
         IndexRow row = indexStorage.indexRowSerializer().createIndexRow(columns, rowId);
 

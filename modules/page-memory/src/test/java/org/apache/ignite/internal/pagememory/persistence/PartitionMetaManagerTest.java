@@ -99,18 +99,14 @@ public class PartitionMetaManagerTest {
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
                 PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
 
-                assertEquals(0, meta.treeRootPageId());
-                assertEquals(0, meta.reuseListRootPageId());
+                assertEquals(0, meta.lastAppliedIndex());
                 assertEquals(0, meta.versionChainTreeRootPageId());
-                assertEquals(0, meta.versionChainFreeListRootPageId());
                 assertEquals(0, meta.rowVersionFreeListRootPageId());
                 assertEquals(1, meta.pageCount());
 
                 // Change the meta and write it to the file.
-                meta.treeRootPageId(null, 100);
-                meta.reuseListRootPageId(null, 500);
+                meta.lastAppliedIndex(null, 50);
                 meta.versionChainTreeRootPageId(null, 300);
-                meta.versionChainFreeListRootPageId(null, 600);
                 meta.rowVersionFreeListRootPageId(null, 900);
                 meta.incrementPageCount(null);
 
@@ -127,10 +123,8 @@ public class PartitionMetaManagerTest {
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
                 PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
 
-                assertEquals(100, meta.treeRootPageId());
-                assertEquals(500, meta.reuseListRootPageId());
+                assertEquals(50, meta.lastAppliedIndex());
                 assertEquals(300, meta.versionChainTreeRootPageId());
-                assertEquals(600, meta.versionChainFreeListRootPageId());
                 assertEquals(900, meta.rowVersionFreeListRootPageId());
                 assertEquals(2, meta.pageCount());
             }
@@ -139,7 +133,7 @@ public class PartitionMetaManagerTest {
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
                 manager.writeMetaToBuffer(
                         partId,
-                        new PartitionMeta(UUID.randomUUID(), 0, 200, 1000, 300, 600, 900, 4).metaSnapshot(null),
+                        new PartitionMeta(UUID.randomUUID(), 100, 300, 900, 4).metaSnapshot(null),
                         buffer.rewind()
                 );
 
@@ -154,10 +148,8 @@ public class PartitionMetaManagerTest {
 
                 PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
 
-                assertEquals(200, meta.treeRootPageId());
-                assertEquals(1000, meta.reuseListRootPageId());
+                assertEquals(100, meta.lastAppliedIndex());
                 assertEquals(300, meta.versionChainTreeRootPageId());
-                assertEquals(600, meta.versionChainFreeListRootPageId());
                 assertEquals(900, meta.rowVersionFreeListRootPageId());
                 assertEquals(4, meta.pageCount());
             }
@@ -173,10 +165,8 @@ public class PartitionMetaManagerTest {
 
                 PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
 
-                assertEquals(0, meta.treeRootPageId());
-                assertEquals(0, meta.reuseListRootPageId());
+                assertEquals(0, meta.lastAppliedIndex());
                 assertEquals(0, meta.versionChainTreeRootPageId());
-                assertEquals(0, meta.versionChainFreeListRootPageId());
                 assertEquals(0, meta.rowVersionFreeListRootPageId());
                 assertEquals(1, meta.pageCount());
             }

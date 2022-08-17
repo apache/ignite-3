@@ -47,7 +47,9 @@ public interface StorageEngine {
      * @deprecated Replaced with {@link MvTableStorage}.
      */
     @Deprecated
-    TableStorage createTable(TableConfiguration tableCfg) throws StorageException;
+    default TableStorage createTable(TableConfiguration tableCfg) throws StorageException {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Creates new table storage.
