@@ -25,14 +25,17 @@ import java.util.Collection;
  */
 public class ProfileList {
     private final Collection<String> profileNames;
+    private final String currentProfileName;
 
     /**
      * Creates an instance with provided profile list.
      *
      * @param profileNames profile list
+     * @param currentProfileName current profile name
      */
-    public ProfileList(Collection<String> profileNames) {
+    public ProfileList(Collection<String> profileNames, String currentProfileName) {
         this.profileNames = profileNames;
+        this.currentProfileName = currentProfileName;
     }
 
     /**
@@ -42,5 +45,14 @@ public class ProfileList {
      */
     public Collection<String> getProfileNames() {
         return profileNames;
+    }
+
+    /**
+     * Gets current profile name.
+     *
+     * @return current profile name
+     */
+    public String getCurrentProfileName() {
+        return currentProfileName;
     }
 }

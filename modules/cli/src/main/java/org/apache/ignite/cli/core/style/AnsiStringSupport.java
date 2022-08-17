@@ -48,6 +48,15 @@ public final class AnsiStringSupport {
         }
     }
 
+    /** Represents the text style. */
+    public enum Style {
+        BOLD;
+
+        public String mark(String textToMark) {
+            return String.format("@|bold %s|@", textToMark);
+        }
+    }
+
     /**
      * Represents ansi colors that are used in CLI.
      */

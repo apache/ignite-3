@@ -17,6 +17,9 @@
 
 package org.apache.ignite.cli.commands.decorators;
 
+import static org.apache.ignite.cli.core.style.AnsiStringSupport.Style;
+import static org.apache.ignite.cli.core.style.AnsiStringSupport.ansi;
+
 import java.util.stream.Collectors;
 import org.apache.ignite.cli.call.cliconfig.profile.ProfileList;
 import org.apache.ignite.cli.core.decorator.Decorator;
@@ -28,6 +31,32 @@ import org.apache.ignite.cli.core.decorator.TerminalOutput;
 public class ProfileListDecorator implements Decorator<ProfileList, TerminalOutput> {
     @Override
     public TerminalOutput decorate(ProfileList data) {
-        return () -> data.getProfileNames().stream().collect(Collectors.joining(System.lineSeparator()));
+        if (isatty()) {
+            return decorateCurrentProfileName(data);
+        } else {
+            return () -> data.getProfileNames().stream().collect(Collectors.joining(System.lineSeparator()));
+        }
+    }
+
+    private TerminalOutput decorateCurrentProfileName(ProfileList data) {
+        String currentProfileName = data.getCurrentProfileName();
+        return () -> data.getProfileNames().stream()
+                .map(p -> {
+                    if (p.equals(currentProfileName)) {
+                        return ansi(Style.BOLD.mark("* " + p));
+                    } else {
+                        return "  " + p;
+                    }
+                })
+                .collect(Collectors.joining(System.lineSeparator()));
+    }
+
+    /**
+     * Determine whether the console output is redirected or not.
+     *
+     * @return {@code true} if output is a terminal
+     */
+    private static boolean isatty() {
+        return System.console() != null;
     }
 }
