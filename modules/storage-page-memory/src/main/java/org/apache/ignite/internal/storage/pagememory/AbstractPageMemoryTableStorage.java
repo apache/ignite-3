@@ -107,7 +107,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    public AbstractPageMemoryMvPartitionStorage getMvPartition(int partitionId) {
+    public @Nullable AbstractPageMemoryMvPartitionStorage getMvPartition(int partitionId) {
         assert started : "Storage has not started yet";
 
         if (partitionId < 0 || partitionId >= mvPartitions.length()) {

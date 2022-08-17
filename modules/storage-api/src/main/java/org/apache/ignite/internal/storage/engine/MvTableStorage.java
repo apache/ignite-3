@@ -46,8 +46,7 @@ public interface MvTableStorage {
      * @return Partition storage or {@code null} if it does not exist.
      * @throws IllegalArgumentException If partition id is out of configured bounds.
      */
-    @Nullable
-    MvPartitionStorage getMvPartition(int partitionId);
+    @Nullable MvPartitionStorage getMvPartition(int partitionId);
 
     /**
      * Destroys a partition and all associated indices.
@@ -76,8 +75,7 @@ public interface MvTableStorage {
      * @param indexName Index name.
      * @return Sorted Index storage or {@code null} if it does not exist..
      */
-    @Nullable
-    SortedIndexStorage getSortedIndex(int partitionId, String indexName);
+    @Nullable SortedIndexStorage getSortedIndex(int partitionId, String indexName);
 
     /**
      * Returns an already created Hash Index with the given name or {@code null} if it does not exist.

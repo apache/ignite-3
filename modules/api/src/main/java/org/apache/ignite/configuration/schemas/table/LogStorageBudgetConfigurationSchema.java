@@ -15,22 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.deprecated;
+package org.apache.ignite.configuration.schemas.table;
 
-import java.util.logging.Handler;
-import java.util.logging.LogRecord;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 
 /**
- * Adapter for {@link Handler} with empty implementations of all methods but {@link Handler#publish(LogRecord)}.
+ * Configuration schema for RAFT log storage budget.
  */
-public abstract class NoOpHandler extends Handler {
-    @Override
-    public void flush() {
-        // no-op
-    }
-
-    @Override
-    public void close() throws SecurityException {
-        // no-op
-    }
+@PolymorphicConfig
+public class LogStorageBudgetConfigurationSchema {
+    /** Name of budget. */
+    @PolymorphicId(hasDefault = true)
+    public String name = UnlimitedBudgetConfigurationSchema.NAME;
 }

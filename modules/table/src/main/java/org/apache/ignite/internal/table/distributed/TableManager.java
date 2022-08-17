@@ -548,7 +548,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             .supplyAsync(
                                     () -> internalTbl.storage().getOrCreateMvPartition(partId), ioExecutor)
                             .thenComposeAsync((partitionStorage) -> {
-                                RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, partitionStorage,
+                                RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, tblCfg, partitionStorage,
                                         newPartAssignment);
 
                                 try {
@@ -601,6 +601,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private RaftGroupOptions groupOptionsForPartition(
             InternalTable internalTbl,
+            ExtendedTableConfiguration tableConfig,
             MvPartitionStorage partitionStorage,
             List<ClusterNode> peers
     ) {
@@ -608,7 +609,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         if (internalTbl.storage().isVolatile()) {
             raftGroupOptions = RaftGroupOptions.forVolatileStores()
-                    .setLogStorageFactory(new VolatileLogStorageFactory())
+                    .setLogStorageFactory(new VolatileLogStorageFactory(tableConfig.volatileRaft().logStorage().value()))
                     .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage());
         } else {
             raftGroupOptions = RaftGroupOptions.forPersistentStores();
@@ -1442,7 +1443,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (raftMgr.shouldHaveRaftGroupLocally(deltaPeers)) {
                             MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(part);
 
-                            RaftGroupOptions groupOptions = groupOptionsForPartition(tbl.internalTable(), partitionStorage, assignments);
+                            RaftGroupOptions groupOptions = groupOptionsForPartition(
+                                    tbl.internalTable(),
+                                    tblCfg,
+                                    partitionStorage,
+                                    assignments
+                            );
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
                                     tblId,
