@@ -28,6 +28,7 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -94,8 +95,16 @@ public class HashIndexDescriptor {
 
         TableIndexView indexConfig = tableConfig.indices().get(name);
 
-        assert indexConfig != null;
-        assert indexConfig instanceof HashIndexView : indexConfig.type();
+        if (indexConfig == null) {
+            throw new StorageException(String.format("Index configuration for \"%s\" could not be found", name));
+        }
+
+        if (!(indexConfig instanceof HashIndexView)) {
+            throw new StorageException(String.format(
+                    "Index \"%s\" is not configured as a Hash Index. Actual type: %s",
+                    name, indexConfig.type()
+            ));
+        }
 
         String[] indexColumns = ((HashIndexView) indexConfig).columnNames();
 

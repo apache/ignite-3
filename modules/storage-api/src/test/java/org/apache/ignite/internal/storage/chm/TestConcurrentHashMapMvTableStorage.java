@@ -17,14 +17,10 @@
 
 package org.apache.ignite.internal.storage.chm;
 
-import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.HASH_INDEX_TYPE;
-import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.SORTED_INDEX_TYPE;
-
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -110,51 +106,31 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public void createIndex(String indexName) {
-        TableIndexView indexConfig = tableConfig.value().indices().get(indexName);
-
-        switch (indexConfig.type()) {
-            case HASH_INDEX_TYPE:
-                hashIndicesByName.computeIfAbsent(
-                        indexName,
-                        name -> new HashIndices(new HashIndexDescriptor(name, tableConfig.value()))
-                );
-
-                break;
-            case SORTED_INDEX_TYPE:
-                sortedIndicesByName.computeIfAbsent(
-                        indexName,
-                        name -> new SortedIndices(new SortedIndexDescriptor(name, tableConfig.value()))
-                );
-
-                break;
-            default:
-                throw new StorageException("Unknown index type: " + indexConfig.type());
+    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, String indexName) {
+        if (!partitions.containsKey(partitionId)) {
+            throw new StorageException("Partition ID " + partitionId + " does not exist");
         }
-    }
 
-    @Override
-    @Nullable
-    public SortedIndexStorage getSortedIndex(int partitionId, String indexName) {
-        SortedIndices sortedIndices = sortedIndicesByName.get(indexName);
-
-        if (sortedIndices == null || !partitions.containsKey(partitionId)) {
-            return null;
-        }
+        SortedIndices sortedIndices = sortedIndicesByName.computeIfAbsent(
+                indexName,
+                name -> new SortedIndices(new SortedIndexDescriptor(name, tableConfig.value()))
+        );
 
         return sortedIndices.getOrCreateStorage(partitionId);
     }
 
     @Override
-    @Nullable
-    public HashIndexStorage getHashIndex(int partitionId, String indexName) {
-        HashIndices hashIndices = hashIndicesByName.get(indexName);
-
-        if (hashIndices == null || !partitions.containsKey(partitionId)) {
-            return null;
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, String indexName) {
+        if (!partitions.containsKey(partitionId)) {
+            throw new StorageException("Partition ID " + partitionId + " does not exist");
         }
 
-        return hashIndices.getOrCreateStorage(partitionId);
+        HashIndices sortedIndices = hashIndicesByName.computeIfAbsent(
+                indexName,
+                name -> new HashIndices(new HashIndexDescriptor(name, tableConfig.value()))
+        );
+
+        return sortedIndices.getOrCreateStorage(partitionId);
     }
 
     @Override
