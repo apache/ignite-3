@@ -20,13 +20,10 @@ package org.apache.ignite.internal.metrics;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.NotNull;
@@ -37,10 +34,7 @@ import org.jetbrains.annotations.NotNull;
  * provides access to all enabled metrics through corresponding metrics sets. Metrics registry lifetime is equal to the node lifetime.
  */
 public class MetricRegistry {
-    private static final AtomicReferenceFieldUpdater<MetricRegistry, IgniteBiTuple> metricSnapshotUpdater =
-            newUpdater(MetricRegistry.class, IgniteBiTuple.class, "metricSnapshot");
-
-    private final Lock lock = new ReentrantLock();
+    private final ReentrantLock lock = new ReentrantLock();
 
     /** Registered metric sources. */
     private final Map<String, MetricSource> sources = new HashMap<>();
@@ -224,6 +218,8 @@ public class MetricRegistry {
      */
     @NotNull
     private MetricSource checkAndGetRegistered(@NotNull MetricSource src) {
+        assert lock.isHeldByCurrentThread() : "Access to shared state from an incorrect thread " + Thread.currentThread().getName();
+
         requireNonNull(src);
 
         MetricSource registered = sources.get(src.name());
@@ -247,6 +243,8 @@ public class MetricRegistry {
      * @param metricSet Metric set.
      */
     private void addMetricSet(String srcName, MetricSet metricSet) {
+        assert lock.isHeldByCurrentThread() : "Access to a shared state from an incorrect thread " + Thread.currentThread().getName();
+
         Map<String, MetricSet> metricSets = new TreeMap<>(metricSnapshot.get1());
 
         metricSets.put(srcName, metricSet);
@@ -261,6 +259,8 @@ public class MetricRegistry {
      * @param srcName Metric source name.
      */
     private void removeMetricSet(String srcName) {
+        assert lock.isHeldByCurrentThread() : "Access to a shared state from an incorrect thread " + Thread.currentThread().getName();
+
         Map<String, MetricSet> metricSets = new TreeMap<>(metricSnapshot.get1());
 
         metricSets.remove(srcName);
@@ -274,13 +274,11 @@ public class MetricRegistry {
      * @param metricSets New map of metric sets that should be saved to new version of metric snapshot.
      */
     private void updateMetricSnapshot(Map<String, MetricSet> metricSets) {
+        assert lock.isHeldByCurrentThread() : "Access to shared state from an incorrect thread " + Thread.currentThread().getName();
+
         IgniteBiTuple<Map<String, MetricSet>, Long> old = metricSnapshot;
 
-        long newVersion = old.get2() + 1;
-
-        IgniteBiTuple<Map<String, MetricSet>, Long> newMetricSnapshot = new IgniteBiTuple<>(unmodifiableMap(metricSets), newVersion);
-
-        metricSnapshotUpdater.compareAndSet(this, old, newMetricSnapshot);
+        metricSnapshot = new IgniteBiTuple<>(unmodifiableMap(metricSets), old.get2() + 1);
     }
 
     /**
