@@ -50,7 +50,7 @@ import org.rocksdb.Slice;
  * Tests for making sure that RAFT groups corresponding to partition stores of in-memory tables use volatile
  * storages for storing RAFT meta and RAFT log, while they are persistent for persistent storages.
  */
-class ItRaftStorageVolatilenessTest extends AbstractClusterIntegrationTest {
+class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
     private static final String TABLE_NAME = "test";
 
     @Override
