@@ -60,8 +60,10 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
@@ -73,6 +75,7 @@ import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
+import org.apache.ignite.internal.configuration.schema.SchemaConfiguration;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -344,6 +347,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
         });
 
+        tablesCfg.tables().any().columns().listen(new ConfigurationNamedListListener<NamedListView<ColumnView>>() {
+            @Override
+            public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<NamedListView<ColumnView>> ctx) {
+                if (!busyLock.enterBusy()) {
+                    return failedFuture(new NodeStoppingException());
+                }
+                try {
+                     onColumnsChanged(ctx);
+
+                    return ConfigurationNamedListListener.super.onUpdate(ctx);
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }
+        });
+
         schemaManager.listen(SchemaEvent.CREATE, new EventListener<>() {
             /** {@inheritDoc} */
             @Override
@@ -357,6 +376,56 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 return completedFuture(false);
             }
+        });
+    }
+
+    private static void onColumnsChanged(ConfigurationNotificationEvent<NamedListView<ColumnView>> ctx) {
+        ExtendedTableConfiguration tblConfig = ctx.config(ExtendedTableConfiguration.class);
+        NamedListView<ColumnView> oldCols = ctx.oldValue();
+        NamedListView<ColumnView> newCols = ctx.newValue();
+
+        ((ExtendedTableConfiguration) tblConfig).schemas().change(schemasCh -> {
+            schemasCh.createOrUpdate(String.valueOf(schemasCh.size() + 1), schemaCh -> {
+                ExtendedTableView currTableView = (ExtendedTableView) tblConfig.value();
+
+                SchemaDescriptor descriptor;
+
+                //TODO IGNITE-15747 Remove try-catch and force configuration validation
+                // here to ensure a valid configuration passed to prepareSchemaDescriptor() method.
+                try {
+                    int lastSchemaId = currTableView.schemas().size();
+
+                    descriptor = SchemaUtils.prepareSchemaDescriptor(
+                            lastSchemaId + 1,
+                            currTableView);
+
+                    if (oldCols == null) {
+                        return; //TODO: does initial schema processed somewhere else???
+                    }
+
+                    SchemaConfiguration prevSchemaConf = tblConfig.schemas().get(String.valueOf(lastSchemaId));
+                    SchemaDescriptor prevDesc = SchemaSerializerImpl.INSTANCE.deserialize(prevSchemaConf.schema().value());
+
+                    descriptor.columnMapping(SchemaUtils.columnMapper(
+                            prevDesc,
+                            oldCols,
+                            descriptor,
+                            newCols));
+                } catch (IllegalArgumentException ex) {
+                    // Convert unexpected exceptions here,
+                    // because validation actually happens later,
+                    // when bulk configuration update is applied.
+                    ConfigurationValidationException e =
+                            new ConfigurationValidationException(ex.getMessage());
+
+                    e.addSuppressed(ex);
+
+                    throw e;
+                }
+
+                schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(descriptor));
+            });
+
         });
     }
 
@@ -961,40 +1030,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     ch.update(name, tblCh -> {
                                 tableChange.accept(tblCh);
-
-                                ((ExtendedTableChange) tblCh).changeSchemas(schemasCh ->
-                                        schemasCh.createOrUpdate(String.valueOf(schemasCh.size() + 1), schemaCh -> {
-                                            ExtendedTableView currTableView = (ExtendedTableView) tablesCfg.tables().get(name).value();
-
-                                            SchemaDescriptor descriptor;
-
-                                            //TODO IGNITE-15747 Remove try-catch and force configuration validation
-                                            // here to ensure a valid configuration passed to prepareSchemaDescriptor() method.
-                                            try {
-                                                descriptor = SchemaUtils.prepareSchemaDescriptor(
-                                                        ((ExtendedTableView) tblCh).schemas().size(),
-                                                        tblCh);
-
-                                                descriptor.columnMapping(SchemaUtils.columnMapper(
-                                                        tblImpl.schemaView().schema(currTableView.schemas().size()),
-                                                        currTableView,
-                                                        descriptor,
-                                                        tblCh));
-                                            } catch (IllegalArgumentException ex) {
-                                                // Convert unexpected exceptions here,
-                                                // because validation actually happens later,
-                                                // when bulk configuration update is applied.
-                                                ConfigurationValidationException e =
-                                                        new ConfigurationValidationException(ex.getMessage());
-
-                                                e.addSuppressed(ex);
-
-                                                throw e;
-                                            }
-
-                                            schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(descriptor));
-                                        }));
-                            }
+                     }
                     );
                 }).whenComplete((res, t) -> {
                     if (t != null) {

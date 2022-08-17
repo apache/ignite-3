@@ -87,15 +87,15 @@ public class IgniteSchema extends AbstractSchema {
         tblMap.remove(tblName);
     }
 
-    public void addIndex(String name, IgniteIndex index) {
-        idxMap.put(name, index);
+    public void addIndex(String indexName, IgniteIndex index) {
+        idxMap.put(indexName, index);
     }
 
-    public IgniteIndex getIndex(String name) {
-        return idxMap.get(name);
+    public IgniteIndex getIndex(String indexName) {
+        return idxMap.get(indexName);
     }
 
     public void removeIndex(String indexName) {
-        tblMap.remove(indexName);
+        idxMap.remove(indexName);
     }
 }
