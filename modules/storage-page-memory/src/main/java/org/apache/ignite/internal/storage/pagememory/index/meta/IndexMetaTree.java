@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.mv;
+package org.apache.ignite.internal.storage.pagememory.index.meta;
 
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -23,32 +23,32 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
-import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainInnerIo;
-import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainIo;
-import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainLeafIo;
-import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainMetaIo;
+import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaInnerIo;
+import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaIo;
+import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaLeafIo;
+import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaTreeMetaIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link BplusTree} implementation for storing version chains.
+ * Tree for storing index meta-information, such as the root of an index tree.
  */
-public class VersionChainTree extends BplusTree<VersionChainKey, VersionChain> {
+public class IndexMetaTree extends BplusTree<IndexMeta, IndexMeta> {
     /**
      * Constructor.
      *
      * @param grpId Group ID.
      * @param grpName Group name.
-     * @param partId Partition id.
+     * @param partId Partition ID.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
-     * @param globalRmvId Global remove ID.
+     * @param globalRmvId Remove ID.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      * @param initNew {@code True} if new tree should be created.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public VersionChainTree(
+    public IndexMetaTree(
             int grpId,
             String grpName,
             int partId,
@@ -60,7 +60,7 @@ public class VersionChainTree extends BplusTree<VersionChainKey, VersionChain> {
             boolean initNew
     ) throws IgniteInternalCheckedException {
         super(
-                "VersionChainTree_" + grpId,
+                "IndexMetaTree_" + grpId,
                 grpId,
                 grpName,
                 partId,
@@ -71,24 +71,24 @@ public class VersionChainTree extends BplusTree<VersionChainKey, VersionChain> {
                 reuseList
         );
 
-        setIos(VersionChainInnerIo.VERSIONS, VersionChainLeafIo.VERSIONS, VersionChainMetaIo.VERSIONS);
+        setIos(IndexMetaInnerIo.VERSIONS, IndexMetaLeafIo.VERSIONS, IndexMetaTreeMetaIo.VERSIONS);
 
         initTree(initNew);
     }
 
     /** {@inheritDoc} */
     @Override
-    protected int compare(BplusIo<VersionChainKey> io, long pageAddr, int idx, VersionChainKey row) {
-        VersionChainIo versionChainIo = (VersionChainIo) io;
+    protected int compare(BplusIo<IndexMeta> io, long pageAddr, int idx, IndexMeta row) {
+        IndexMetaIo indexMetaIo = (IndexMetaIo) io;
 
-        return versionChainIo.compare(pageAddr, idx, row);
+        return indexMetaIo.compare(pageAddr, idx, row);
     }
 
     /** {@inheritDoc} */
     @Override
-    public VersionChain getRow(BplusIo<VersionChainKey> io, long pageAddr, int idx, Object x) {
-        VersionChainIo versionChainIo = (VersionChainIo) io;
+    public IndexMeta getRow(BplusIo<IndexMeta> io, long pageAddr, int idx, Object x) {
+        IndexMetaIo indexMetaIo = (IndexMetaIo) io;
 
-        return versionChainIo.getRow(pageAddr, idx, partId);
+        return indexMetaIo.getRow(pageAddr, idx);
     }
 }
