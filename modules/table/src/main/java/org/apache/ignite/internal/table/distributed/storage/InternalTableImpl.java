@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -51,8 +51,8 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReplicaR
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.ClusterNode;

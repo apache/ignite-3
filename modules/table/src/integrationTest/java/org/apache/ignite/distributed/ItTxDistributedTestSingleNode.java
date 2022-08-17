@@ -42,7 +42,6 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.TableImpl;

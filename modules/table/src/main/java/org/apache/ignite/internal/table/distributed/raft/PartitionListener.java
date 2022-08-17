@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -489,32 +490,33 @@ public class PartitionListener implements RaftGroupListener {
 
             boolean stateChanged = txManager.changeState(txId, TxState.PENDING, cmd.finish() ? TxState.COMMITED : TxState.ABORTED);
 
-        LockManager lockManager = txManager.lockManager();
+            LockManager lockManager = txManager.lockManager();
 
-        // This code is technically incorrect and assumes that "stateChanged" is always true. This was done because transaction state is not
-        // persisted and thus FinishTxCommand couldn't be completed on recovery after node restart ("changeState" uses "replace").
-        if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
-            lockManager.locks(txId)
-                    .forEachRemaining(
-                            lock -> {
-                                storage.commitWrite((ByteBuffer) lock.lockKey().key(), txId);
-                            }
-                    );
-        } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
-            lockManager.locks(txId)
-                    .forEachRemaining(
-                            lock -> {
-                                storage.abortWrite((ByteBuffer) lock.lockKey().key());
-                            }
-                    );
-        }
+            // This code is technically incorrect and assumes that "stateChanged" is always true.
+            // This was done because transaction state is not persisted
+            // and thus FinishTxCommand couldn't be completed on recovery after node restart ("changeState" uses "replace").
+            if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
+                lockManager.locks(txId)
+                        .forEachRemaining(
+                                lock -> {
+                                    storage.commitWrite((ByteBuffer) lock.lockKey().key(), txId);
+                                }
+                        );
+            } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
+                lockManager.locks(txId)
+                        .forEachRemaining(
+                                lock -> {
+                                    storage.abortWrite((ByteBuffer) lock.lockKey().key());
+                                }
+                        );
+            }
 
-        // TODO: tmp
-        if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
-            storage.pendingKeys.getOrDefault(txId, Collections.emptyList()).forEach(key -> storage.commitWrite((ByteBuffer) key, txId));
-        } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
-            storage.pendingKeys.getOrDefault(txId, Collections.emptyList()).forEach(key -> storage.abortWrite((ByteBuffer) key));
-        }
+            // TODO: tmp
+            if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
+                storage.pendingKeys.getOrDefault(txId, Collections.emptyList()).forEach(key -> storage.commitWrite((ByteBuffer) key, txId));
+            } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
+                storage.pendingKeys.getOrDefault(txId, Collections.emptyList()).forEach(key -> storage.abortWrite((ByteBuffer) key));
+            }
 
             storage.delegate().lastAppliedIndex(commandIndex);
 
