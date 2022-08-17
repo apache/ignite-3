@@ -73,6 +73,6 @@ public class ItUpdateConfigurationCallTest extends CallInitializedIntegrationTes
 
     private String readConfigurationProperty(String selector) {
         var input = ClusterConfigShowCallInput.builder().clusterUrl(NODE_URL).selector(selector).build();
-        return readCall.execute(input).body();
+        return readCall.execute(input).body().getValue();
     }
 }

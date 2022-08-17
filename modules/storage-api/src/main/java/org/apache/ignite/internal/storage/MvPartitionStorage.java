@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -26,11 +27,49 @@ import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Multi-versioned partition storage.
+ * Multi-versioned partition storage. Maps RowId to a structures called "Version Chains". Each version chain is logically a stack of
+ * elements with the following structure:
+ * <pre><code>[timestamp | txId, row data]</code></pre>
+ *
+ * <p>Only the chain's head can contain a transaction id, every other element must have a timestamp. Presence of transaction id indicates
+ * that the row is not yet committed.
+ *
+ * <p>All timestamps in the chain must go in decreasing order, giving us a N2O (newest to oldest) order of search.
  *
  * <p>Each MvPartitionStorage instance represents exactly one partition.
  */
 public interface MvPartitionStorage extends AutoCloseable {
+    /**
+     * Closure for executing write operations on the storage.
+     *
+     * @param <V> Type of the result returned from the closure.
+     */
+    @SuppressWarnings("PublicInnerClass")
+    @FunctionalInterface
+    interface WriteClosure<V> {
+        V execute() throws StorageException;
+    }
+
+    /**
+     * Executes {@link WriteClosure} atomically, meaning that partial result of an incomplete closure will never be written to the
+     * physical device, thus guaranteeing data consistency after restart. Simply runs the closure in case of a volatile storage.
+     *
+     * @param closure Data access closure to be executed.
+     * @param <V> Type of the result returned from the closure.
+     * @return Closure result.
+     * @throws StorageException If failed to write data to the storage.
+     */
+    <V> V runConsistently(WriteClosure<V> closure) throws StorageException;
+
+    /**
+     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage. It means that the future can be
+     * completed when {@link #persistedIndex()} is higher than {@link #lastAppliedIndex()} at the moment of the method's call. This feature
+     * allows implementing a batch flush for several partitions at once.
+     *
+     * @return Future that's completed when flushing of the data is completed.
+     */
+    CompletableFuture<Void> flush();
+
     /**
      * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
      */
@@ -75,7 +114,11 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @param txId Transaction id.
      * @return Row id.
      * @throws StorageException If failed to write data into the storage.
+     *
+     * @deprecated Generates different ids for each replica. {@link #addWrite(RowId, BinaryRow, UUID)} with explicit replicated id must be
+     *      used instead.
      */
+    @Deprecated
     RowId insert(BinaryRow binaryRow, UUID txId) throws StorageException;
 
     /**

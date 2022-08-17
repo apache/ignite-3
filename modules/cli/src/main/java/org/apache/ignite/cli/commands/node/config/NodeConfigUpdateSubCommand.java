@@ -17,6 +17,10 @@
 
 package org.apache.ignite.cli.commands.node.config;
 
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
+import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_DESC;
+import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_OPTION;
+
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.util.concurrent.Callable;
@@ -36,9 +40,9 @@ import picocli.CommandLine.Parameters;
 @Singleton
 public class NodeConfigUpdateSubCommand extends BaseCommand implements Callable<Integer> {
     /**
-     * Node url option.
+     * Node URL option.
      */
-    @Option(names = {"--node-url"}, description = "Url to Ignite node.", descriptionKey = "ignite.cluster-url")
+    @Option(names = {NODE_URL_OPTION}, description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String nodeUrl;
 
     /**

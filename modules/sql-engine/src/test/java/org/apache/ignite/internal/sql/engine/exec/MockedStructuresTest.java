@@ -35,9 +35,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -49,7 +52,6 @@ import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigu
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
@@ -66,7 +68,10 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapDataStorageModule;
@@ -79,6 +84,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDa
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
@@ -158,7 +164,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
                     SortedIndexConfigurationSchema.class,
-                    PartialIndexConfigurationSchema.class,
                     UnknownDataStorageConfigurationSchema.class,
                     RocksDbDataStorageConfigurationSchema.class,
                     TestConcurrentHashMapDataStorageConfigurationSchema.class,
@@ -268,6 +273,28 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         rocksDbEngineConfig.regions()
                 .change(c -> c.create("test_region", rocksDbDataRegionChange -> {}))
                 .get(1, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Checks inner transactions are initialized correctly.
+     */
+    @Test
+    public void testInnerTxInitiated() throws Exception {
+        SessionId sesId = queryProc.createSession(PropertiesHolder.holderFor(Map.of()));
+
+        InternalTransaction tx = mock(InternalTransaction.class);
+
+        when(tm.begin()).thenReturn(tx);
+
+        String sql = "CREATE TABLE TEST (c1 int PRIMARY KEY, c2 varbinary(255))";
+
+        CompletableFuture<AsyncSqlCursor<List<Object>>> f = queryProc.querySingleAsync(sesId, QueryContext.of(), sql);
+
+        AsyncSqlCursor<List<Object>> asyncRes = f.get();
+
+        asyncRes.closeAsync();
+
+        verify(tm, never()).begin();
     }
 
     /**

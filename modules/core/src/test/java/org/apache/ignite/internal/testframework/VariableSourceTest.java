@@ -33,7 +33,7 @@ class VariableSourceTest {
      * Test class for the {@link #testStaticFieldInjection()} test.
      */
     static class NormalVariableSourceTest {
-        private static final List<Object[]> arguments = List.of(
+        public static final List<Object[]> arguments = List.of(
                 new Object[] {0, "foo"},
                 new Object[] {1, "bar"},
                 new Object[] {2, "baz"}
@@ -58,7 +58,7 @@ class VariableSourceTest {
      * Test class for the {@link #testNonStaticFieldInjection()} test.
      */
     static class NonStaticVariableSourceTest {
-        private final String arguments = "foo";
+        public final String arguments = "foo";
 
         @ParameterizedTest
         @VariableSource("arguments")

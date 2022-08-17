@@ -92,7 +92,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public VolatilePageMemoryTableStorage createTable(TableConfiguration tableCfg) {
+    public VolatilePageMemoryTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
         TableView tableView = tableCfg.value();
 
         assert tableView.dataStorage().name().equals(ENGINE_NAME) : tableView.dataStorage().name();
@@ -100,12 +100,6 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
         VolatilePageMemoryDataStorageView dataStorageView = (VolatilePageMemoryDataStorageView) tableView.dataStorage();
 
         return new VolatilePageMemoryTableStorage(tableCfg, regions.get(dataStorageView.dataRegion()));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public VolatilePageMemoryTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
-        return createTable(tableCfg);
     }
 
     /**

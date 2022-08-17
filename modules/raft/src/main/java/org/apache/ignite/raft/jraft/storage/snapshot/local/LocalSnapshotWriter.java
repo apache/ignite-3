@@ -68,7 +68,7 @@ public class LocalSnapshotWriter extends SnapshotWriter {
             }
         }
         catch (final IOException e) {
-            LOG.error("Fail to load snapshot meta from {}.", metaPath);
+            LOG.error("Fail to load snapshot meta from {}.", metaPath, e);
             setError(RaftError.EIO, "Fail to load snapshot meta from %s", metaPath);
             return false;
         }

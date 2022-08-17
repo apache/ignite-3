@@ -321,9 +321,10 @@ public abstract class PagesList extends DataStructure {
     /**
      * Save metadata without exclusive lock on it.
      *
+     * @param statHolder Statistics holder to track IO operations.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public void saveMetadata(IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+    protected void saveMetadata(IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
         long nextPageId = metaPageId;
 
         assert nextPageId != 0;

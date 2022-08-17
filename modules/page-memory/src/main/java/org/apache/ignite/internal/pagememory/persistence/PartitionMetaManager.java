@@ -26,6 +26,8 @@ import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
@@ -38,6 +40,8 @@ import org.jetbrains.annotations.Nullable;
  */
 // TODO: IGNITE-17132 Do not forget about deleting the partition meta information
 public class PartitionMetaManager {
+    private static final IgniteLogger LOG = Loggers.forClass(PartitionMetaManager.class);
+
     private final Map<GroupPartitionId, PartitionMeta> metas = new ConcurrentHashMap<>();
 
     private final PageIoRegistry ioRegistry;
@@ -95,30 +99,34 @@ public class PartitionMetaManager {
         long partitionMetaPageId = partitionMetaPageId(groupPartitionId.getPartitionId());
 
         try {
-            if (filePageStore.size() > filePageStore.headerSize()) {
+            if (containsPartitionMeta(filePageStore)) {
                 // Reads the partition meta.
-                filePageStore.readByPhysicalOffset(partitionMetaPageId, buffer, false);
+                try {
+                    filePageStore.readWithoutPageIdCheck(partitionMetaPageId, buffer, false);
 
-                return new PartitionMeta(checkpointId, ioRegistry.resolve(bufferAddr), bufferAddr);
-            } else {
-                // Creates and writes a partition meta.
-                PartitionMetaIo io = PartitionMetaIo.VERSIONS.latest();
-
-                io.initNewPage(bufferAddr, partitionMetaPageId, pageSize);
-
-                // Because we will now write this page.
-                io.setPageCount(bufferAddr, 1);
-
-                int pageIdx = filePageStore.allocatePage();
-
-                assert pageIdx == 0 : pageIdx;
-
-                filePageStore.write(partitionMetaPageId, buffer.rewind(), true);
-
-                filePageStore.sync();
-
-                return new PartitionMeta(checkpointId, io, bufferAddr);
+                    return new PartitionMeta(checkpointId, ioRegistry.resolve(bufferAddr), bufferAddr);
+                } catch (IgniteInternalDataIntegrityViolationException e) {
+                    LOG.info(() -> "Error reading partition meta page, will be recreated: " + groupPartitionId, e);
+                }
             }
+
+            // Creates and writes a partition meta.
+            PartitionMetaIo io = PartitionMetaIo.VERSIONS.latest();
+
+            io.initNewPage(bufferAddr, partitionMetaPageId, pageSize);
+
+            // Because we will now write this page.
+            io.setPageCount(bufferAddr, 1);
+
+            int pageIdx = filePageStore.allocatePage();
+
+            assert pageIdx == 0 : pageIdx;
+
+            filePageStore.write(partitionMetaPageId, buffer.rewind(), true);
+
+            filePageStore.sync();
+
+            return new PartitionMeta(checkpointId, io, bufferAddr);
         } finally {
             freeBuffer(buffer);
         }
@@ -147,5 +155,9 @@ public class PartitionMetaManager {
         io.initNewPage(pageAddr, partitionMetaPageId, pageSize);
 
         partitionMeta.writeTo(io, pageAddr);
+    }
+
+    private boolean containsPartitionMeta(FilePageStore filePageStore) throws IgniteInternalCheckedException {
+        return filePageStore.deltaFileCount() > 0 || filePageStore.size() > filePageStore.headerSize();
     }
 }

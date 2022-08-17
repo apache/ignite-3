@@ -58,7 +58,6 @@ import org.mockito.Mockito;
  * Basic table operations test.
  */
 public class RecordBinaryViewOperationsTest {
-    //TODO: IGNITE-16468 Extend test coverage.
 
     @Test
     public void insert() {

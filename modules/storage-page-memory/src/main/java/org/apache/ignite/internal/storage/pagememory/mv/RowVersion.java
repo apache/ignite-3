@@ -32,13 +32,10 @@ import org.jetbrains.annotations.Nullable;
  * Represents row version inside row version chain.
  */
 public class RowVersion implements Storable {
-    /**
-     * A 'timestamp' representing absense of a timestamp.
-     */
+    /** A 'timestamp' representing absense of a timestamp. */
     public static final Timestamp NULL_TIMESTAMP = new Timestamp(Long.MIN_VALUE, Long.MIN_VALUE);
-    /**
-     * Represents an absent partitionless link.
-     */
+
+    /** Represents an absent partitionless link. */
     public static final long NULL_LINK = 0;
 
     private static final int TIMESTAMP_STORE_SIZE_BYTES = 2 * Long.BYTES;
@@ -51,15 +48,17 @@ public class RowVersion implements Storable {
     public static final int VALUE_OFFSET = VALUE_SIZE_OFFSET + VALUE_SIZE_STORE_SIZE_BYTES;
 
     private final int partitionId;
+
     private long link;
 
-    @Nullable
-    private final Timestamp timestamp;
+    private final @Nullable Timestamp timestamp;
+
     private final long nextLink;
+
     private final int valueSize;
+
     @IgniteToStringExclude
-    @Nullable
-    private final ByteBuffer value;
+    private final @Nullable ByteBuffer value;
 
     /**
      * Constructor.
@@ -83,8 +82,7 @@ public class RowVersion implements Storable {
         this.value = value;
     }
 
-    @Nullable
-    public Timestamp timestamp() {
+    public @Nullable Timestamp timestamp() {
         return timestamp;
     }
 
@@ -92,14 +90,12 @@ public class RowVersion implements Storable {
         return timestampForStorage(timestamp);
     }
 
-    static Timestamp timestampForStorage(Timestamp timestamp) {
+    static Timestamp timestampForStorage(@Nullable Timestamp timestamp) {
         return timestamp == null ? NULL_TIMESTAMP : timestamp;
     }
 
     /**
      * Returns partitionless link of the next version or {@code 0} if this version is the last in the chain (i.e. it's the oldest version).
-     *
-     * @return partitionless link of the next version or {@code 0} if this version is the last in the chain
      */
     public long nextLink() {
         return nextLink;
@@ -141,21 +137,25 @@ public class RowVersion implements Storable {
         return timestamp != null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public final void link(long link) {
         this.link = link;
     }
 
+    /** {@inheritDoc} */
     @Override
     public final long link() {
         return link;
     }
 
+    /** {@inheritDoc} */
     @Override
     public final int partition() {
         return partitionId;
     }
 
+    /** {@inheritDoc} */
     @Override
     public int size() {
         assert value != null;
@@ -163,16 +163,19 @@ public class RowVersion implements Storable {
         return TIMESTAMP_STORE_SIZE_BYTES + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES + value.limit();
     }
 
+    /** {@inheritDoc} */
     @Override
     public int headerSize() {
         return TIMESTAMP_STORE_SIZE_BYTES + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES;
     }
 
+    /** {@inheritDoc} */
     @Override
-    public IoVersions<? extends AbstractDataPageIo> ioVersions() {
+    public IoVersions<? extends AbstractDataPageIo<?>> ioVersions() {
         return RowVersionDataIo.VERSIONS;
     }
 
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(RowVersion.class, this);

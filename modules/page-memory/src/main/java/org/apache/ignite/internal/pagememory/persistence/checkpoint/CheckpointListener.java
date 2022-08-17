@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import java.util.concurrent.Executor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Listener which methods will be called in a corresponded checkpoint life cycle period.
@@ -29,9 +31,10 @@ public interface CheckpointListener {
      * <p>Holds checkpoint write lock.
      *
      * @param progress Progress of the current checkpoint.
+     * @param executor Executor for asynchronously executing the callback, If {@code null}, then it should be executed in current thread.
      * @throws IgniteInternalCheckedException If failed.
      */
-    default void onMarkCheckpointBegin(CheckpointProgress progress) throws IgniteInternalCheckedException {
+    default void onMarkCheckpointBegin(CheckpointProgress progress, @Nullable Executor executor) throws IgniteInternalCheckedException {
     }
 
     /**
@@ -51,9 +54,10 @@ public interface CheckpointListener {
      * <p>Holds checkpoint read lock.
      *
      * @param progress Progress of the current checkpoint.
+     * @param executor Executor for asynchronously executing the callback, If {@code null}, then it should be executed in current thread.
      * @throws IgniteInternalCheckedException If failed.
      */
-    default void beforeCheckpointBegin(CheckpointProgress progress) throws IgniteInternalCheckedException {
+    default void beforeCheckpointBegin(CheckpointProgress progress, @Nullable Executor executor) throws IgniteInternalCheckedException {
     }
 
     /**

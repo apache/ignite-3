@@ -25,7 +25,7 @@ import org.apache.ignite.cli.sql.table.Table;
 /**
  * Implementation of {@link Decorator} for {@link Table}.
  */
-public class TableDecorator implements Decorator<Table<String>, TerminalOutput> {
+public class TableDecorator implements Decorator<Table, TerminalOutput> {
 
     /**
      * Transform {@link Table} to {@link TerminalOutput}.
@@ -34,7 +34,7 @@ public class TableDecorator implements Decorator<Table<String>, TerminalOutput> 
      * @return User friendly interpretation of {@link Table} in {@link TerminalOutput}.
      */
     @Override
-    public TerminalOutput decorate(Table<String> table) {
+    public TerminalOutput decorate(Table table) {
         return () -> FlipTableConverters.fromObjects(table.header(), table.content());
     }
 }

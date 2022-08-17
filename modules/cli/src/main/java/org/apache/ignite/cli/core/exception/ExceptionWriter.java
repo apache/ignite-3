@@ -39,4 +39,9 @@ public interface ExceptionWriter {
     static ExceptionWriter fromPrintWriter(PrintWriter pw) {
         return pw::println;
     }
+
+
+    static ExceptionWriter nullWriter() {
+        return fromPrintWriter(new PrintWriter(PrintWriter.nullWriter()));
+    }
 }

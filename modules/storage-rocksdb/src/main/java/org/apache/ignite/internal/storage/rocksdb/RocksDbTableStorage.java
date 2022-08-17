@@ -21,60 +21,75 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.META_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.PARTITION_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.columnFamilyType;
-import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
-import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexName;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.storage.PartitionStorage;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.engine.TableStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
-import org.apache.ignite.internal.storage.rocksdb.index.BinaryRowComparator;
-import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.DBOptions;
+import org.rocksdb.FlushOptions;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.WriteOptions;
 
 /**
  * Table storage implementation based on {@link RocksDB} instance.
  */
-class RocksDbTableStorage implements TableStorage, MvTableStorage {
+class RocksDbTableStorage implements MvTableStorage {
+    /** Logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(RocksDbTableStorage.class);
+
+    /** RocksDB storage engine instance. */
+    private final RocksDbStorageEngine engine;
+
     /** Path for the directory that stores table data. */
     private final Path tablePath;
 
     /** Table configuration. */
     private final TableConfiguration tableCfg;
 
-    /** Thread pool for async operations. */
-    private final Executor threadPool;
-
     /** Data region for the table. */
     private final RocksDbDataRegion dataRegion;
 
     /** Rocks DB instance. */
     private volatile RocksDB db;
+
+    /** Write options for write operations. */
+    private final WriteOptions writeOptions = new WriteOptions().setDisableWAL(true);
+
+    /**
+     * Flush options to be used to asynchronously flush the Rocks DB memtable. It needs to be cached, because
+     * {@link RocksDB#flush(FlushOptions)} contract requires this object to not be GC-ed.
+     */
+    private final FlushOptions flushOptions = new FlushOptions().setWaitForFlush(false);
 
     /** Meta information. */
     private volatile RocksDbMetaStorage meta;
@@ -83,32 +98,77 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
     private volatile ColumnFamily partitionCf;
 
     /** Partition storages. */
-    private volatile AtomicReferenceArray<PartitionStorage> partitions;
+    private volatile AtomicReferenceArray<RocksDbMvPartitionStorage> partitions;
 
-    /** Column families for indexes by their names. */
-    private final Map<String, RocksDbSortedIndexStorage> sortedIndices = new ConcurrentHashMap<>();
+    /** Map with flush futures by sequence number at the time of the {@link #awaitFlush(boolean)} call. */
+    private final ConcurrentMap<Long, CompletableFuture<Void>> flushFuturesBySequenceNumber = new ConcurrentHashMap<>();
 
-    /** Flag indicating if the storage has been stopped. */
-    private volatile boolean stopped = false;
+    /** Latest known sequence number for persisted data. Not volatile, protected by explicit synchronization. */
+    private long latestPersistedSequenceNumber;
+
+    /** Mutex for {@link #latestPersistedSequenceNumber} modifications. */
+    private final Object latestPersistedSequenceNumberMux = new Object();
+
+    /**
+     * Instance of the latest scheduled flush closure.
+     *
+     * @see #scheduleFlush()
+     */
+    private volatile Runnable latestFlushClosure;
+
+    //TODO Use it instead of the "stopped" flag.
+    /** Busy lock to stop synchronously. */
+    final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    /** Prevents double stopping the component. */
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /**
      * Constructor.
      *
+     * @param engine RocksDB storage engine instance.
      * @param tablePath Path for the directory that stores table data.
      * @param tableCfg Table configuration.
-     * @param threadPool Thread pool for async operations.
      * @param dataRegion Data region for the table.
      */
     RocksDbTableStorage(
+            RocksDbStorageEngine engine,
             Path tablePath,
             TableConfiguration tableCfg,
-            Executor threadPool,
             RocksDbDataRegion dataRegion
     ) {
+        this.engine = engine;
         this.tablePath = tablePath;
         this.tableCfg = tableCfg;
-        this.threadPool = threadPool;
         this.dataRegion = dataRegion;
+    }
+
+    /**
+     * Returns a storage engine instance.
+     */
+    public RocksDbStorageEngine engine() {
+        return engine;
+    }
+
+    /**
+     * Returns a {@link RocksDB} instance.
+     */
+    public RocksDB db() {
+        return db;
+    }
+
+    /**
+     * Returns a column family handle for partitions column family.
+     */
+    public ColumnFamilyHandle partitionCfHandle() {
+        return partitionCf.handle();
+    }
+
+    /**
+     * Returns a column family handle for meta column family.
+     */
+    public ColumnFamilyHandle metaCfHandle() {
+        return meta.columnFamily().handle();
     }
 
     /** {@inheritDoc} */
@@ -133,6 +193,9 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         DBOptions dbOptions = new DBOptions()
                 .setCreateIfMissing(true)
                 .setCreateMissingColumnFamilies(true)
+                // Atomic flush must be enabled to guarantee consistency between different column families when WAL is disabled.
+                .setAtomicFlush(true)
+                .setListeners(List.of(new RocksDbFlushListener(this)))
                 .setWriteBufferManager(dataRegion.writeBufferManager());
 
         try {
@@ -153,18 +216,14 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
 
                         break;
 
-                    case SORTED_INDEX:
-                        String indexName = sortedIndexName(cf.name());
-
-                        var indexDescriptor = new SortedIndexDescriptor(indexName, tableCfg.value());
-
-                        sortedIndices.put(indexName, new RocksDbSortedIndexStorage(cf, indexDescriptor));
-
-                        break;
-
                     default:
                         throw new StorageException("Unidentified column family [name=" + cf.name() + ", table=" + tableCfg.name() + ']');
                 }
+            }
+
+            // Pointless synchronization, but without it there would be a warning in the code.
+            synchronized (latestPersistedSequenceNumberMux) {
+                latestPersistedSequenceNumber = db.getLatestSequenceNumber();
             }
         } catch (RocksDBException e) {
             throw new StorageException("Failed to initialize RocksDB instance", e);
@@ -173,23 +232,115 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         partitions = new AtomicReferenceArray<>(tableCfg.value().partitions());
 
         for (int partId : meta.getPartitionIds()) {
-            partitions.set(partId, new RocksDbPartitionStorage(db, partitionCf, partId, threadPool));
+            partitions.set(partId, new RocksDbMvPartitionStorage(this, partId));
         }
     }
+
+    /**
+     * Returns a future to wait next flush operation from the current point in time. Uses {@link RocksDB#getLatestSequenceNumber()} to
+     * achieve this.
+     *
+     * @param schedule {@code true} if {@link RocksDB#flush(FlushOptions)} should be explicitly triggerred in the near future.
+     *
+     * @see #scheduleFlush()
+     */
+    public CompletableFuture<Void> awaitFlush(boolean schedule) {
+        CompletableFuture<Void> future;
+
+        long dbSequenceNumber = db.getLatestSequenceNumber();
+
+        synchronized (latestPersistedSequenceNumberMux) {
+            if (dbSequenceNumber <= latestPersistedSequenceNumber) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            future = flushFuturesBySequenceNumber.computeIfAbsent(dbSequenceNumber, l -> new CompletableFuture<>());
+        }
+
+        if (schedule) {
+            scheduleFlush();
+        }
+
+        return future;
+    }
+
+    /**
+     * Completes all futures in {@link #flushFuturesBySequenceNumber} up to a given sequence number.
+     */
+    void completeFutures(long sequenceNumber) {
+        synchronized (latestPersistedSequenceNumberMux) {
+            if (sequenceNumber <= latestPersistedSequenceNumber) {
+                return;
+            }
+
+            latestPersistedSequenceNumber = sequenceNumber;
+        }
+
+        Set<Entry<Long, CompletableFuture<Void>>> entries = flushFuturesBySequenceNumber.entrySet();
+
+        for (Iterator<Entry<Long, CompletableFuture<Void>>> iterator = entries.iterator(); iterator.hasNext(); ) {
+            Entry<Long, CompletableFuture<Void>> entry = iterator.next();
+
+            if (sequenceNumber >= entry.getKey()) {
+                entry.getValue().complete(null);
+
+                iterator.remove();
+            }
+        }
+    }
+
+    /**
+     * Schedules a flush of the table. If run several times within a small amount of time, only the last scheduled flush will be executed.
+     */
+    void scheduleFlush() {
+        Runnable newClosure = new Runnable() {
+            @Override
+            public void run() {
+                if (latestFlushClosure != this) {
+                    return;
+                }
+
+                try {
+                    // Explicit list of CF handles is mandatory!
+                    // Default flush is buggy and only invokes listener methods for a single random CF.
+                    db.flush(flushOptions, List.of(metaCfHandle(), partitionCfHandle()));
+                } catch (RocksDBException e) {
+                    LOG.error("Error occurred during the explicit flush for table '{}'", e, tableCfg.name());
+                }
+            }
+        };
+
+        latestFlushClosure = newClosure;
+
+        int delay = engine.configuration().flushDelayMillis().value();
+
+        engine.scheduledPool().schedule(newClosure, delay, TimeUnit.MILLISECONDS);
+    }
+
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
-        stopped = true;
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
+        for (CompletableFuture<Void> future : flushFuturesBySequenceNumber.values()) {
+            future.cancel(false);
+        }
 
         List<AutoCloseable> resources = new ArrayList<>();
 
         resources.add(db);
 
-        resources.addAll(sortedIndices.values());
+        resources.add(writeOptions);
+
+        resources.add(flushOptions);
 
         for (int i = 0; i < partitions.length(); i++) {
-            PartitionStorage partition = partitions.get(i);
+            MvPartitionStorage partition = partitions.get(i);
 
             if (partition != null) {
                 resources.add(partition);
@@ -215,112 +366,70 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    public PartitionStorage getOrCreatePartition(int partId) throws StorageException {
-        PartitionStorage storage = getPartition(partId);
-
-        if (storage != null) {
-            return storage;
-        }
-
-        // Possible races when creating the partitions with the same ID are safe, since both the storage creation and the meta update
-        // are cheap and idempotent.
-        storage = new RocksDbPartitionStorage(db, partitionCf, partId, threadPool);
-
-        partitions.set(partId, storage);
-
-        meta.putPartitionId(partId);
-
-        return storage;
-    }
-
-    /** {@inheritDoc} */
-    @Nullable
-    @Override
-    public PartitionStorage getPartition(int partId) {
-        assert !stopped : "Storage has been stopped";
-
-        checkPartitionId(partId);
-
-        return partitions.get(partId);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void dropPartition(int partId) throws StorageException {
-        PartitionStorage partition = getPartition(partId);
+    public RocksDbMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
+        RocksDbMvPartitionStorage partition = getMvPartition(partitionId);
 
         if (partition != null) {
-            partitions.set(partId, null);
-
-            partition.destroy();
-
-            meta.removePartitionId(partId);
+            return partition;
         }
-    }
 
-    /** {@inheritDoc} */
-    @Override
-    public RocksDbMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
-        getOrCreatePartition(partitionId);
+        partition = new RocksDbMvPartitionStorage(this, partitionId);
 
-        return getMvPartition(partitionId);
+        partitions.set(partitionId, partition);
+
+        meta.putPartitionId(partitionId);
+
+        return partition;
     }
 
     /** {@inheritDoc} */
     @Override
     public @Nullable RocksDbMvPartitionStorage getMvPartition(int partitionId) {
-        if (getPartition(partitionId) == null) {
-            return null;
-        }
+        checkPartitionId(partitionId);
 
-        return new RocksDbMvPartitionStorage(partitionId, db, partitionCf.handle(), meta.columnFamily().handle());
+        return partitions.get(partitionId);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> destroyPartition(int partitionId) throws StorageException {
+    public CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException {
         RocksDbMvPartitionStorage mvPartition = getMvPartition(partitionId);
 
-        dropPartition(partitionId);
-
-        if (mvPartition != null) {
-            mvPartition.destroy();
+        if (mvPartition == null) {
+            return CompletableFuture.completedFuture(null);
         }
 
-        return CompletableFuture.completedFuture(null);
+        mvPartition.destroy();
+
+        // Wait for the data to actually be removed from the disk and close the storage.
+        return awaitFlush(false)
+                .whenComplete((v, e) -> {
+                    partitions.set(partitionId, null);
+
+                    try {
+                        mvPartition.close();
+                    } catch (Exception ex) {
+                        LOG.error("Error when closing partition storage for partId = {}", ex, partitionId);
+                    }
+                });
     }
 
     /** {@inheritDoc} */
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(String indexName) {
-        assert !stopped : "Storage has been stopped";
-
-        return sortedIndices.computeIfAbsent(indexName, name -> {
-            var indexDescriptor = new SortedIndexDescriptor(name, tableCfg.value());
-
-            ColumnFamilyDescriptor cfDescriptor = sortedIndexCfDescriptor(indexDescriptor);
-
-            ColumnFamily cf;
-            try {
-                cf = ColumnFamily.create(db, cfDescriptor);
-            } catch (RocksDBException e) {
-                throw new StorageException("Failed to create new RocksDB column family: " + new String(cfDescriptor.getName(), UTF_8), e);
-            }
-
-            return new RocksDbSortedIndexStorage(cf, indexDescriptor);
-        });
+    public void createIndex(String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */
     @Override
-    public void dropIndex(String indexName) {
-        assert !stopped : "Storage has been stopped";
+    public @Nullable SortedIndexStorage getSortedIndex(int partitionId, String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
 
-        sortedIndices.computeIfPresent(indexName, (name, indexStorage) -> {
-            indexStorage.destroy();
-
-            return null;
-        });
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> destroyIndex(String indexName) {
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */
@@ -390,24 +499,8 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
             case PARTITION:
                 return new ColumnFamilyDescriptor(cfName.getBytes(UTF_8), new ColumnFamilyOptions());
 
-            case SORTED_INDEX:
-                var indexDescriptor = new SortedIndexDescriptor(sortedIndexName(cfName), tableCfg.value());
-
-                return sortedIndexCfDescriptor(indexDescriptor);
-
             default:
                 throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + tableCfg.name() + ']');
         }
-    }
-
-    /**
-     * Creates a Column Family descriptor for a Sorted Index.
-     */
-    private static ColumnFamilyDescriptor sortedIndexCfDescriptor(SortedIndexDescriptor descriptor) {
-        String cfName = sortedIndexCfName(descriptor.name());
-
-        ColumnFamilyOptions options = new ColumnFamilyOptions().setComparator(new BinaryRowComparator(descriptor));
-
-        return new ColumnFamilyDescriptor(cfName.getBytes(UTF_8), options);
     }
 }

@@ -36,10 +36,20 @@ public class PageMemoryCheckpointConfigurationSchema {
     @Value(hasDefault = true)
     public int frequencyDeviation = 40;
 
+    /** Delay before executing a checkpoint triggered by RAFT. */
+    @Range(min = 0)
+    @Value(hasDefault = true)
+    public int checkpointDelayMillis = 200;
+
     /** Number of checkpoint threads. */
     @Range(min = 1)
     @Value(hasDefault = true)
-    public int threads = 4;
+    public int checkpointThreads = 4;
+
+    /** Number of threads to compact delta files. */
+    @Range(min = 1)
+    @Value(hasDefault = true)
+    public int compactionThreads = 4;
 
     /** Timeout for checkpoint read lock acquisition in milliseconds. */
     @Range(min = 0)

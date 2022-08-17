@@ -17,18 +17,30 @@
 
 package org.apache.ignite.sql;
 
-import org.apache.ignite.lang.IgniteException;
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_NO_RESULT_SET_ERR;
+
+import java.util.UUID;
 
 /**
  * Exception is thrown when the query doesn't intend to return any rows. E.g. DML or DDL queries.
  */
-public class NoRowSetExpectedException extends IgniteException {
+public class NoRowSetExpectedException extends SqlException {
     /**
      * Creates an exception.
-     *
-     * @param msg Message.
      */
-    public NoRowSetExpectedException(String msg) {
-        super(msg);
+    public NoRowSetExpectedException() {
+        super(QUERY_NO_RESULT_SET_ERR, "Query has no result set");
+    }
+
+    /**
+     * Creates a new exception with the given trace id, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public NoRowSetExpectedException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

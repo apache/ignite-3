@@ -18,6 +18,7 @@
 package org.apache.ignite.lang;
 
 import java.util.UUID;
+import org.apache.ignite.lang.ErrorGroups.Index;
 
 /**
  * Exception is thrown when appropriate index is not found.
@@ -29,18 +30,17 @@ public class IndexNotFoundException extends IgniteException {
      * @param indexName Index canonical name.
      */
     public IndexNotFoundException(String indexName) {
-        super(IgniteStringFormatter.format("Index '{}' does not exist.", indexName));
+        super(Index.INDEX_NOT_FOUND_ERR, IgniteStringFormatter.format("Index '{}' does not exist.", indexName));
     }
 
     /**
      * Creates a new exception with the given trace id, error code, detail message and cause.
      *
      * @param traceId Unique identifier of this exception.
-     * @param code Full error code.
      * @param message Detail message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IndexNotFoundException(UUID traceId, int code, String message, Throwable cause) {
-        super(traceId, code, message, cause);
+    public IndexNotFoundException(UUID traceId, String message, Throwable cause) {
+        super(traceId, Index.INDEX_NOT_FOUND_ERR, message, cause);
     }
 }

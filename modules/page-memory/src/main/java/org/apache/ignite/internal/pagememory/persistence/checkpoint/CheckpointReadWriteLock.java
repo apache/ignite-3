@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Checkpointer.CHECKPOINT_RUNNER_THREAD_PREFIX;
-
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.lang.IgniteInternalException;
 
@@ -26,6 +24,13 @@ import org.apache.ignite.lang.IgniteInternalException;
  * Wrapper of the classic read write lock with checkpoint features.
  */
 public class CheckpointReadWriteLock {
+    /**
+     * Any thread with a such prefix is managed by the checkpoint.
+     *
+     * <p>So some conditions can rely on it(ex. we don't need a checkpoint lock there because the lock is already taken).
+     */
+    static final String CHECKPOINT_RUNNER_THREAD_PREFIX = "checkpoint-runner";
+
     private final ThreadLocal<Integer> checkpointReadLockHoldCount = ThreadLocal.withInitial(() -> 0);
 
     /** Checkpoint lock. */

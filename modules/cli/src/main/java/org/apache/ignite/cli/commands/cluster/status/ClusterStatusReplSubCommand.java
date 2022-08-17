@@ -17,6 +17,10 @@
 
 package org.apache.ignite.cli.commands.cluster.status;
 
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_DESC;
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_OPTION;
+
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.apache.ignite.cli.call.cluster.status.ClusterStatusCall;
@@ -36,10 +40,10 @@ import picocli.CommandLine.Option;
 public class ClusterStatusReplSubCommand extends BaseCommand implements Runnable {
 
     /**
-     * Cluster url option.
+     * Cluster endpoint URL option.
      */
     @SuppressWarnings("PMD.UnusedPrivateField")
-    @Option(names = {"--cluster-url"}, description = "Url to cluster node.", descriptionKey = "ignite.cluster-url")
+    @Option(names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String clusterUrl;
 
     @Inject
@@ -58,7 +62,8 @@ public class ClusterStatusReplSubCommand extends BaseCommand implements Runnable
         } else if (session.isConnectedToNode()) {
             inputUrl = session.nodeUrl();
         } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--cluster-url' option.");
+            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '"
+                    + CLUSTER_URL_OPTION + "' option.");
             return;
         }
 

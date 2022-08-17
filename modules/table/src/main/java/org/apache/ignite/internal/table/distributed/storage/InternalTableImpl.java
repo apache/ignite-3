@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.table.distributed.replicator.action.RequestTyp
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.ClusterNode;
@@ -230,6 +232,11 @@ public class InternalTableImpl implements InternalTable {
             Function<CompletableFuture<Object>[], CompletableFuture<T>> reducer
     ) {
         final boolean implicit = tx == null;
+
+        if (!implicit && tx.state() != null && tx.state() != TxState.PENDING) {
+            return failedFuture(new TransactionException(
+                    "The operation is attempted for completed transaction"));
+        }
 
         final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
 

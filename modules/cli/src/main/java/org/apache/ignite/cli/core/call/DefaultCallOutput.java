@@ -91,7 +91,7 @@ public class DefaultCallOutput<T> implements CallOutput<T> {
      * @return new instance of {@link DefaultCallOutputBuilder}.
      */
     public static <T> DefaultCallOutputBuilder<T> builder() {
-        return new DefaultCallOutputBuilder<T>();
+        return new DefaultCallOutputBuilder<>();
     }
 
     /**

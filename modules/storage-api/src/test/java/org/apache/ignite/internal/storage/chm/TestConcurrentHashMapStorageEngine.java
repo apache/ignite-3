@@ -22,7 +22,6 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.engine.TableStorage;
 
 /**
  * Test implementation of the {@link StorageEngine} based on class {@link ConcurrentHashMap}.
@@ -45,15 +44,9 @@ public class TestConcurrentHashMapStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public TableStorage createTable(TableConfiguration tableCfg) throws StorageException {
+    public MvTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
         assert tableCfg.dataStorage().name().value().equals(ENGINE_NAME) : tableCfg.dataStorage().name().value();
 
-        return new TestConcurrentHashMapTableStorage(tableCfg);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public MvTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
-        return new TestMvTableStorage(tableCfg);
+        return new TestConcurrentHashMapMvTableStorage(tableCfg);
     }
 }

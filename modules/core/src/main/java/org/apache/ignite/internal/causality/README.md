@@ -2,7 +2,7 @@ This package contains classes that are used for implementation of functionality 
 
 ### The purpose
 
-Every component registers configuration update listeners while starting. These listeners receive notifications during the further lifetime of the node, and also during the [recovery](TODO link to recovery readme IGNITE-16670) process while retrieving notifications from Metastorage. The details of the component start described [here](../../../../../../../../../runner/README.md#node-components-startup). While handling the notifications, listeners should rely on the fact that the components that they depend on, won’t return stale or inconsistent data, regardless of the order in which these listeners will be called. It should be guaranteed by the causality tokens mechanism.
+Every component registers configuration update listeners while starting. These listeners receive notifications during the further lifetime of the node, and also during the [recovery](../manager/RECOVERY.md) process while retrieving notifications from Metastorage. The details of the component start described [here](../../../../../../../../../runner/README.md#node-components-startup). While handling the notifications, listeners should rely on the fact that the components that they depend on, won’t return stale or inconsistent data, regardless of the order in which these listeners will be called. It should be guaranteed by the causality tokens mechanism.
 
 ### Causality tokens
 

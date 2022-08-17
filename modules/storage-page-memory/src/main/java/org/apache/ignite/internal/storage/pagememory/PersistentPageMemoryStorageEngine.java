@@ -100,6 +100,13 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
         this.longJvmPauseDetector = longJvmPauseDetector;
     }
 
+    /**
+     * Returns a storage engine configuration.
+     */
+    public PersistentPageMemoryStorageEngineConfiguration configuration() {
+        return engineConfig;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
@@ -180,14 +187,14 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public PersistentPageMemoryTableStorage createTable(TableConfiguration tableCfg) throws StorageException {
+    public PersistentPageMemoryTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
         TableView tableView = tableCfg.value();
 
         assert tableView.dataStorage().name().equals(ENGINE_NAME) : tableView.dataStorage().name();
 
         PersistentPageMemoryDataStorageView dataStorageView = (PersistentPageMemoryDataStorageView) tableView.dataStorage();
 
-        return new PersistentPageMemoryTableStorage(tableCfg, regions.get(dataStorageView.dataRegion()));
+        return new PersistentPageMemoryTableStorage(this, tableCfg, regions.get(dataStorageView.dataRegion()));
     }
 
     /**

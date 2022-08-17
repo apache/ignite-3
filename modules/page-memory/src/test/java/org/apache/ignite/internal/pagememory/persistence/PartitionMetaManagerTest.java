@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.PartitionMeta.partitionMetaPageId;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
+import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
+import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -29,9 +32,13 @@ import static org.mockito.Mockito.mock;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.UUID;
+import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreIo;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterAll;
@@ -79,52 +86,101 @@ public class PartitionMetaManagerTest {
 
     @Test
     void testReadWritePartitionMeta(@WorkDirectory Path workDir) throws Exception {
-        Path filePath = workDir.resolve("test");
+        Path testFilePath = workDir.resolve("test");
 
         PartitionMetaManager manager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
 
-        GroupPartitionId id = new GroupPartitionId(0, 0);
+        GroupPartitionId partId = new GroupPartitionId(0, 0);
 
-        try (FilePageStore filePageStore = createFilePageStore(filePath)) {
+        ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
+
+        try {
             // Check for an empty file.
-            PartitionMeta meta = manager.readOrCreateMeta(null, id, filePageStore);
+            try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
+                PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
 
-            assertEquals(0, meta.treeRootPageId());
-            assertEquals(0, meta.reuseListRootPageId());
-            assertEquals(1, meta.pageCount());
+                assertEquals(0, meta.lastAppliedIndex());
+                assertEquals(0, meta.versionChainTreeRootPageId());
+                assertEquals(0, meta.rowVersionFreeListRootPageId());
+                assertEquals(1, meta.pageCount());
 
-            // Change the meta and write it to the file.
-            meta.treeRootPageId(null, 100);
-            meta.reuseListRootPageId(null, 500);
-            meta.incrementPageCount(null);
+                // Change the meta and write it to the file.
+                meta.lastAppliedIndex(null, 50);
+                meta.versionChainTreeRootPageId(null, 300);
+                meta.rowVersionFreeListRootPageId(null, 900);
+                meta.incrementPageCount(null);
 
-            ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
-
-            try {
-                manager.writeMetaToBuffer(id, meta.metaSnapshot(UUID.randomUUID()), buffer);
+                manager.writeMetaToBuffer(partId, meta.metaSnapshot(UUID.randomUUID()), buffer);
 
                 filePageStore.allocatePage();
 
-                filePageStore.write(partitionMetaPageId(id.getPartitionId()), buffer.rewind(), true);
+                filePageStore.write(partitionMetaPageId(partId.getPartitionId()), buffer.rewind(), true);
 
                 filePageStore.sync();
-            } finally {
-                freeBuffer(buffer);
             }
-        }
 
-        try (FilePageStore filePageStore = createFilePageStore(filePath)) {
             // Check not empty file.
-            PartitionMeta meta = manager.readOrCreateMeta(null, id, filePageStore);
+            try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
+                PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
 
-            assertEquals(100, meta.treeRootPageId());
-            assertEquals(500, meta.reuseListRootPageId());
-            assertEquals(2, meta.pageCount());
+                assertEquals(50, meta.lastAppliedIndex());
+                assertEquals(300, meta.versionChainTreeRootPageId());
+                assertEquals(900, meta.rowVersionFreeListRootPageId());
+                assertEquals(2, meta.pageCount());
+            }
+
+            // Check with delta file.
+            try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
+                manager.writeMetaToBuffer(
+                        partId,
+                        new PartitionMeta(UUID.randomUUID(), 100, 300, 900, 4).metaSnapshot(null),
+                        buffer.rewind()
+                );
+
+                DeltaFilePageStoreIo deltaFilePageStoreIo = filePageStore.getOrCreateNewDeltaFile(
+                        index -> workDir.resolve("testDelta" + index),
+                        () -> new int[]{0}
+                ).get(1, SECONDS);
+
+                deltaFilePageStoreIo.write(partitionMetaPageId(partId.getPartitionId()), buffer.rewind(), true);
+
+                deltaFilePageStoreIo.sync();
+
+                PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
+
+                assertEquals(100, meta.lastAppliedIndex());
+                assertEquals(300, meta.versionChainTreeRootPageId());
+                assertEquals(900, meta.rowVersionFreeListRootPageId());
+                assertEquals(4, meta.pageCount());
+            }
+
+            // Let's check the broken CRC.
+            try (
+                    FileIo fileIo = new RandomAccessFileIoFactory().create(testFilePath);
+                    FilePageStore filePageStore = createFilePageStore(testFilePath);
+            ) {
+                zeroMemory(bufferAddress(buffer), PAGE_SIZE);
+
+                fileIo.writeFully(buffer.rewind(), filePageStore.headerSize());
+
+                PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
+
+                assertEquals(0, meta.lastAppliedIndex());
+                assertEquals(0, meta.versionChainTreeRootPageId());
+                assertEquals(0, meta.rowVersionFreeListRootPageId());
+                assertEquals(1, meta.pageCount());
+            }
+        } finally {
+            freeBuffer(buffer);
         }
     }
 
     private static FilePageStore createFilePageStore(Path filePath) throws Exception {
-        FilePageStore filePageStore = new FilePageStore(VERSION_1, PAGE_SIZE, PAGE_SIZE, filePath, new RandomAccessFileIoFactory());
+        FilePageStore filePageStore = new FilePageStore(new FilePageStoreIo(
+                new RandomAccessFileIoFactory(),
+                filePath,
+                new FilePageStoreHeader(VERSION_1, PAGE_SIZE)
+        ));
 
         filePageStore.ensure();
 

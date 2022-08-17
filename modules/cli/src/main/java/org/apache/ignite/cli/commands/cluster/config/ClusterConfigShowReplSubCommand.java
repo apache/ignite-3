@@ -17,16 +17,20 @@
 
 package org.apache.ignite.cli.commands.cluster.config;
 
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_DESC;
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_OPTION;
+
 import jakarta.inject.Inject;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.JsonDecorator;
-import org.apache.ignite.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.cli.core.exception.handler.IgniteCliApiExceptionHandler;
-import org.apache.ignite.cli.core.repl.Session;
+import org.apache.ignite.cli.core.flow.Flowable;
+import org.apache.ignite.cli.core.flow.builder.Flows;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -45,37 +49,30 @@ public class ClusterConfigShowReplSubCommand extends BaseCommand implements Runn
     private String selector;
 
     /**
-     * Node url option.
+     * Cluster endpoint URL option.
      */
-    @Option(names = {"--cluster-url"}, description = "Url to Ignite node.")
+    @Option(names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String clusterUrl;
 
     @Inject
     private ClusterConfigShowCall call;
 
     @Inject
-    private Session session;
+    private ConnectToClusterQuestion question;
 
     @Override
     public void run() {
-        var input = ClusterConfigShowCallInput.builder().selector(selector);
-        if (session.isConnectedToNode()) {
-            input.clusterUrl(session.nodeUrl());
-        } else if (clusterUrl != null) {
-            input.clusterUrl(clusterUrl);
-        } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '--cluster-url' option.");
-            return;
-        }
-
-        CallExecutionPipeline.builder(call)
-                .inputProvider(input::build)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .decorator(new JsonDecorator())
+        question.askQuestionIfNotConnected(clusterUrl)
+                .map(this::configShowCallInput)
+                .then(Flows.fromCall(call))
+                .toOutput(spec.commandLine().getOut(), spec.commandLine().getErr())
                 .exceptionHandler(new ShowConfigReplExceptionHandler())
                 .build()
-                .runPipeline();
+                .start(Flowable.empty());
+    }
+
+    private ClusterConfigShowCallInput configShowCallInput(String clusterUrl) {
+        return ClusterConfigShowCallInput.builder().selector(selector).clusterUrl(clusterUrl).build();
     }
 
     private static class ShowConfigReplExceptionHandler extends IgniteCliApiExceptionHandler {

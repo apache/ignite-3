@@ -17,18 +17,39 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import org.apache.ignite.internal.storage.SearchRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.util.Cursor;
+import org.intellij.lang.annotations.MagicConstant;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Storage for a Sorted Index.
  *
- * <p>This storage serves as a sorted mapping from a subset of a table's columns (a.k.a. index columns) to a {@link SearchRow}
- * from a {@link org.apache.ignite.internal.storage.PartitionStorage} from the same table.
+ * <p>This storage serves as a sorted mapping from a subset of a table's columns (a.k.a. index columns) to a {@link RowId}
+ * from a {@link org.apache.ignite.internal.storage.MvPartitionStorage} from the same table.
  *
  * @see org.apache.ignite.schema.definition.index.SortedIndexDefinition
  */
-public interface SortedIndexStorage extends AutoCloseable {
+public interface SortedIndexStorage {
+    /** Exclude lower bound. */
+    int GREATER = 0;
+
+    /** Include lower bound. */
+    int GREATER_OR_EQUAL = 1;
+
+    /** Exclude upper bound. */
+    int LESS = 0;
+
+    /** Include upper bound. */
+    int LESS_OR_EQUAL = 1 << 1;
+
+    /** Forward scan. */
+    int FORWARD = 0;
+
+    /** Backwards scan. */
+    int BACKWARDS = 1 << 2;
+
     /**
      * Returns the Index Descriptor of this storage.
      */
@@ -37,7 +58,7 @@ public interface SortedIndexStorage extends AutoCloseable {
     /**
      * Returns a factory for creating index rows for this storage.
      */
-    IndexRowFactory indexRowFactory();
+    IndexRowSerializer indexRowSerializer();
 
     /**
      * Returns a class deserializing index columns.
@@ -45,9 +66,7 @@ public interface SortedIndexStorage extends AutoCloseable {
     IndexRowDeserializer indexRowDeserializer();
 
     /**
-     * Adds the given index key and {@link SearchRow} to the index.
-     *
-     * <p>Putting a new value under the same key will overwrite the previous associated value.
+     * Adds the given index row to the index.
      */
     void put(IndexRow row);
 
@@ -59,13 +78,20 @@ public interface SortedIndexStorage extends AutoCloseable {
     void remove(IndexRow row);
 
     /**
-     * Returns a range of index values between the lower bound (inclusive) and the upper bound (inclusive).
+     * Returns a range of index values between the lower bound and the upper bound.
+     *
+     * @param lowerBound Lower bound. Exclusivity is controlled by a {@link #GREATER_OR_EQUAL} or {@link #GREATER} flag.
+     *      {@code null} means unbounded.
+     * @param upperBound Upper bound. Exclusivity is controlled by a {@link #LESS} or {@link #LESS_OR_EQUAL} flag.
+     *      {@code null} means unbounded.
+     * @param flags Control flags. {@link #GREATER} | {@link #LESS} | {@link #FORWARD} by default. Other available values
+     *      are {@link #GREATER_OR_EQUAL}, {@link #LESS_OR_EQUAL} and {@link #BACKWARDS}.
+     * @return Cursor with fetched index rows.
+     * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.
      */
-    // TODO: add options https://issues.apache.org/jira/browse/IGNITE-16059
-    Cursor<IndexRow> range(IndexRowPrefix lowerBound, IndexRowPrefix upperBound);
-
-    /**
-     * Removes all data in this index and frees the associated resources.
-     */
-    void destroy();
+    Cursor<IndexRow> scan(
+            @Nullable BinaryTuple lowerBound,
+            @Nullable BinaryTuple upperBound,
+            @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
+    );
 }

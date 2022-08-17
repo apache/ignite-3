@@ -23,14 +23,18 @@ import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
@@ -329,6 +333,207 @@ public class SqlDdlParserTest {
         assertThatOptionPresent(createTable.createOptionList().getList(), "DATAREGION", "default");
         assertThatOptionPresent(createTable.createOptionList().getList(), "pageSize", 1024);
         assertThatOptionPresent(createTable.createOptionList().getList(), "persistent", true);
+    }
+
+    @Test
+    public void createIndexSimpleCase() throws SqlParseException {
+        var query = "create index my_index on my_table (col)";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateIndex.class));
+
+        var createIndex = (IgniteSqlCreateIndex) node;
+
+        assertThat(createIndex.indexName().getSimple(), is("MY_INDEX"));
+        assertThat(createIndex.tableName().names, is(List.of("MY_TABLE")));
+        assertThat(createIndex.ifNotExists, is(false));
+        assertThat(createIndex.type(), is(IgniteSqlIndexType.IMPLICIT_TREE));
+        assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col", SqlIdentifier.class,
+                id -> id.isSimple() && id.getSimple().equals("COL"))));
+    }
+
+    @Test
+    public void createIndexImplicitTypeExplicitDirection() throws SqlParseException {
+        var query = "create index my_index on my_table (col1 asc, col2 desc)";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateIndex.class));
+
+        var createIndex = (IgniteSqlCreateIndex) node;
+
+        assertThat(createIndex.indexName().getSimple(), is("MY_INDEX"));
+        assertThat(createIndex.tableName().names, is(List.of("MY_TABLE")));
+        assertThat(createIndex.ifNotExists, is(false));
+        assertThat(createIndex.type(), is(IgniteSqlIndexType.IMPLICIT_TREE));
+        assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col1 asc", SqlIdentifier.class,
+                id -> id.isSimple() && id.getSimple().equals("COL1"))));
+        assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col2 desc", SqlBasicCall.class,
+                bc -> bc.isA(Set.of(SqlKind.DESCENDING))
+                        && bc.getOperandList().size() == 1
+                        && bc.getOperandList().get(0) instanceof SqlIdentifier
+                        && ((SqlIdentifier) bc.getOperandList().get(0)).isSimple()
+                        && ((SqlIdentifier) bc.getOperandList().get(0)).getSimple().equals("COL2"))));
+    }
+
+    @Test
+    public void createIndexExplicitTypeMixedDirection() throws SqlParseException {
+        var query = "create index my_index on my_table using tree (col1, col2 asc, col3 desc)";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateIndex.class));
+
+        var createIndex = (IgniteSqlCreateIndex) node;
+
+        assertThat(createIndex.indexName().getSimple(), is("MY_INDEX"));
+        assertThat(createIndex.tableName().names, is(List.of("MY_TABLE")));
+        assertThat(createIndex.ifNotExists, is(false));
+        assertThat(createIndex.type(), is(IgniteSqlIndexType.TREE));
+        assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col1", SqlIdentifier.class,
+                id -> id.isSimple() && id.getSimple().equals("COL1"))));
+        assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col2 asc", SqlIdentifier.class,
+                id -> id.isSimple() && id.getSimple().equals("COL2"))));
+        assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col3 desc", SqlBasicCall.class,
+                bc -> bc.isA(Set.of(SqlKind.DESCENDING))
+                        && bc.getOperandList().size() == 1
+                        && bc.getOperandList().get(0) instanceof SqlIdentifier
+                        && ((SqlIdentifier) bc.getOperandList().get(0)).isSimple()
+                        && ((SqlIdentifier) bc.getOperandList().get(0)).getSimple().equals("COL3"))));
+    }
+
+    @Test
+    public void createHashIndex() throws SqlParseException {
+        var query = "create index my_index on my_table using hash (col)";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateIndex.class));
+
+        var createIndex = (IgniteSqlCreateIndex) node;
+
+        assertThat(createIndex.indexName().getSimple(), is("MY_INDEX"));
+        assertThat(createIndex.tableName().names, is(List.of("MY_TABLE")));
+        assertThat(createIndex.ifNotExists, is(false));
+        assertThat(createIndex.type(), is(IgniteSqlIndexType.HASH));
+        assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col", SqlIdentifier.class,
+                id -> id.isSimple() && id.getSimple().equals("COL"))));
+    }
+
+    @Test
+    public void sortDirectionMustNotBeSpecifiedForHashIndex() {
+        var query = "create index my_index on my_table using hash (col1, col2 asc)";
+
+        var ex = assertThrows(SqlParseException.class, () -> parse(query));
+        assertThat(ex.getMessage(), containsString("Encountered \" \"ASC\""));
+    }
+
+    @Test
+    public void createIndexIfNotExists() throws SqlParseException {
+        var query = "create index if not exists my_index on my_table (col)";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateIndex.class));
+
+        var createIndex = (IgniteSqlCreateIndex) node;
+
+        assertThat(createIndex.indexName().getSimple(), is("MY_INDEX"));
+        assertThat(createIndex.tableName().names, is(List.of("MY_TABLE")));
+        assertThat(createIndex.ifNotExists, is(true));
+    }
+
+    @Test
+    public void createIndexTableInParticularSchema() throws SqlParseException {
+        var query = "create index my_index on my_schema.my_table (col)";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateIndex.class));
+
+        var createIndex = (IgniteSqlCreateIndex) node;
+
+        assertThat(createIndex.indexName().getSimple(), is("MY_INDEX"));
+        assertThat(createIndex.tableName().names, is(List.of("MY_SCHEMA", "MY_TABLE")));
+    }
+
+    @Test
+    public void createIndexExplicitNullDirection() throws SqlParseException {
+        var query = "create index my_index on my_table (col1 nulls first, col2 nulls last, col3 desc nulls first)";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateIndex.class));
+
+        var createIndex = (IgniteSqlCreateIndex) node;
+
+        assertThat(createIndex.indexName().getSimple(), is("MY_INDEX"));
+        assertThat(createIndex.tableName().names, is(List.of("MY_TABLE")));
+        assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col1 nulls first", SqlBasicCall.class,
+                bc -> bc.isA(Set.of(SqlKind.NULLS_FIRST))
+                        && bc.getOperandList().size() == 1
+                        && bc.getOperandList().get(0) instanceof SqlIdentifier
+                        && ((SqlIdentifier) bc.getOperandList().get(0)).isSimple()
+                        && ((SqlIdentifier) bc.getOperandList().get(0)).getSimple().equals("COL1"))));
+        assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col2 nulls last", SqlBasicCall.class,
+                bc -> bc.isA(Set.of(SqlKind.NULLS_LAST))
+                        && bc.getOperandList().size() == 1
+                        && bc.getOperandList().get(0) instanceof SqlIdentifier
+                        && ((SqlIdentifier) bc.getOperandList().get(0)).isSimple()
+                        && ((SqlIdentifier) bc.getOperandList().get(0)).getSimple().equals("COL2"))));
+        assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col3 desc nulls first", SqlBasicCall.class,
+                bc -> bc.isA(Set.of(SqlKind.NULLS_FIRST))
+                        && bc.getOperandList().size() == 1
+                        && bc.getOperandList().get(0) instanceof SqlBasicCall
+                        && bc.getOperandList().get(0).isA(Set.of(SqlKind.DESCENDING))
+                        && ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().size() == 1
+                        && ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0) instanceof SqlIdentifier
+                        && ((SqlIdentifier) ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0)).isSimple()
+                        && ((SqlIdentifier) ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0))
+                                .getSimple().equals("COL3"))));
+    }
+
+    @Test
+    public void dropIndexSimpleCase() throws SqlParseException {
+        var query = "drop index my_index";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlDropIndex.class));
+
+        var dropIndex = (IgniteSqlDropIndex) node;
+
+        assertThat(dropIndex.ifExists(), is(false));
+        assertThat(dropIndex.indexName().names, is(List.of("MY_INDEX")));
+    }
+
+    @Test
+    public void dropIndexSchemaSpecified() throws SqlParseException {
+        var query = "drop index my_schema.my_index";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlDropIndex.class));
+
+        var dropIndex = (IgniteSqlDropIndex) node;
+
+        assertThat(dropIndex.ifExists(), is(false));
+        assertThat(dropIndex.indexName().names, is(List.of("MY_SCHEMA", "MY_INDEX")));
+    }
+
+    @Test
+    public void dropIndexIfExists() throws SqlParseException {
+        var query = "drop index if exists my_index";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlDropIndex.class));
+
+        var dropIndex = (IgniteSqlDropIndex) node;
+
+        assertThat(dropIndex.ifExists(), is(true));
+        assertThat(dropIndex.indexName().names, is(List.of("MY_INDEX")));
     }
 
     private IgniteSqlCreateTable parseCreateTable(String stmt) throws SqlParseException {
