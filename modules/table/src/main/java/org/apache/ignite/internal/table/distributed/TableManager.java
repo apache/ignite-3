@@ -1297,13 +1297,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         IgniteTriConsumer<Long, Map<UUID, TableImpl>, Throwable> tablesListener = (token, tables, th) -> {
             if (th == null) {
-                tablesByIdVv.get(token).thenRun(() -> getTblFut.complete(tablesByIdVv.latest().get(id)));
+                getTblFut.complete(tables.get(id));
             } else {
                 getTblFut.completeExceptionally(th);
             }
         };
 
         tablesByIdVv.whenComplete(tablesListener);
+
+        // This check is needed for the case when we have registered tablesListener,
+        // but tablesByIdVv has already been completed, so listener would be triggered only for the next versioned value update.
+        tbl = tablesByIdVv.latest().get(id);
+
+        if (tbl != null) {
+            tablesByIdVv.removeWhenComplete(tablesListener);
+
+            return CompletableFuture.completedFuture(tbl);
+        }
 
         return getTblFut.whenComplete((unused, throwable) -> tablesByIdVv.removeWhenComplete(tablesListener));
     }

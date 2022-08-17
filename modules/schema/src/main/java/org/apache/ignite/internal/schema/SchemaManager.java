@@ -238,13 +238,9 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @return Schema descriptor.
      */
     private SchemaDescriptor tableSchema(UUID tblId, String tableName, int schemaVer) {
-        SchemaRegistry registry = registriesVv.latest().get(tblId);
-
-        assert registry != null : IgniteStringFormatter.format("Registry for the table not found [tblId={}]", tblId);
-
         ExtendedTableConfiguration tblCfg = ((ExtendedTableConfiguration) tablesCfg.tables().get(tableName));
 
-        if (schemaVer <= registry.lastSchemaVersion()) {
+        if (checkSchemaVersion(tblId, schemaVer)) {
             return getSchemaDescriptorLocally(schemaVer, tblCfg);
         }
 
@@ -258,7 +254,30 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
         registriesVv.whenComplete(schemaListener);
 
+        // This check is needed for the case when we have registered schemaListener,
+        // but registriesVv has already been completed, so listener would be triggered only for the next versioned value update.
+        if (checkSchemaVersion(tblId, schemaVer)) {
+            registriesVv.removeWhenComplete(schemaListener);
+
+            return getSchemaDescriptorLocally(schemaVer, tblCfg);
+        }
+
         return fut.whenComplete((unused, throwable) -> registriesVv.removeWhenComplete(schemaListener)).join();
+    }
+
+    /**
+     * Checks that the provided schema version is less or equal than the latest version from the schema registry.
+     *
+     * @param tblId Unique table id.
+     * @param schemaVer Schema version for the table.
+     * @return True, if the schema version is less or equal than the latest version from the schema registry, false otherwise.
+     */
+    private boolean checkSchemaVersion(UUID tblId, int schemaVer) {
+        SchemaRegistry registry = registriesVv.latest().get(tblId);
+
+        assert registry != null : IgniteStringFormatter.format("Registry for the table not found [tblId={}]", tblId);
+
+        return schemaVer <= registry.lastSchemaVersion();
     }
 
     /**
