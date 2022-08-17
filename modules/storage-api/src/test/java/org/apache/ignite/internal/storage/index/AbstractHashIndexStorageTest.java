@@ -17,74 +17,54 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.schema.SchemaBuilders.column;
 import static org.apache.ignite.schema.SchemaBuilders.tableBuilder;
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
-import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.index.HashIndexDefinition;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base class for Hash Index storage tests.
  */
-@ExtendWith(ConfigurationExtension.class)
 public abstract class AbstractHashIndexStorageTest {
+    private static final int TEST_PARTITION = 0;
+
     private static final String INT_COLUMN_NAME = "intVal";
 
     private static final String STR_COLUMN_NAME = "strVal";
 
-    private TableConfiguration tableCfg;
+    private MvPartitionStorage partitionStorage;
 
     private HashIndexStorage indexStorage;
 
     private BinaryTupleRowSerializer serializer;
 
-    @BeforeEach
-    void setUp(@InjectConfiguration(
-            polymorphicExtensions = {
-                    HashIndexConfigurationSchema.class,
-                    TestConcurrentHashMapDataStorageConfigurationSchema.class,
-                    ConstantValueDefaultConfigurationSchema.class,
-                    FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class,
-                    UnlimitedBudgetConfigurationSchema.class
-            },
-            // This value only required for configuration validity, it's not used otherwise.
-            value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
-    ) TableConfiguration tableCfg) {
-        createTestTable(tableCfg);
+    protected void initialize(MvTableStorage tableStorage) {
+        createTestTable(tableStorage.configuration());
 
-        this.tableCfg = tableCfg;
-        this.indexStorage = createIndexStorage();
+        this.partitionStorage = tableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        this.indexStorage = createIndex(tableStorage);
         this.serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
     }
 
@@ -111,25 +91,20 @@ public abstract class AbstractHashIndexStorageTest {
     }
 
     /**
-     * Creates a storage instance for testing.
-     */
-    protected abstract HashIndexStorage createIndexStorage(String name, TableView tableCfg);
-
-    /**
      * Configures and creates a storage instance for testing.
      */
-    private HashIndexStorage createIndexStorage() {
+    private static HashIndexStorage createIndex(MvTableStorage tableStorage) {
         HashIndexDefinition indexDefinition = SchemaBuilders.hashIndex("hashIndex")
                 .withColumns(INT_COLUMN_NAME, STR_COLUMN_NAME)
                 .build();
 
-        CompletableFuture<Void> createIndexFuture = tableCfg.change(cfg ->
+        CompletableFuture<Void> createIndexFuture = tableStorage.configuration().change(cfg ->
                 cfg.changeIndices(idxList ->
                         idxList.create(indexDefinition.name(), idx -> convert(indexDefinition, idx))));
 
-        assertThat(createIndexFuture, willBe(nullValue(Void.class)));
+        assertThat(createIndexFuture, willCompleteSuccessfully());
 
-        return createIndexStorage(indexDefinition.name(), tableCfg.value());
+        return tableStorage.getOrCreateHashIndex(TEST_PARTITION, indexDefinition.name());
     }
 
     /**
@@ -138,21 +113,21 @@ public abstract class AbstractHashIndexStorageTest {
     @Test
     void testGet() {
         // First two rows have the same index key, but different row IDs
-        IndexRow row1 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(0));
-        IndexRow row2 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(0));
-        IndexRow row3 = serializer.serializeRow(new Object[]{ 2, "bar" }, new RowId(0));
+        IndexRow row1 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
+        IndexRow row2 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
+        IndexRow row3 = serializer.serializeRow(new Object[]{ 2, "bar" }, new RowId(TEST_PARTITION));
 
-        assertThat(indexStorage.get(row1.indexColumns()), is(empty()));
-        assertThat(indexStorage.get(row2.indexColumns()), is(empty()));
-        assertThat(indexStorage.get(row3.indexColumns()), is(empty()));
+        assertThat(getAll(row1), is(empty()));
+        assertThat(getAll(row2), is(empty()));
+        assertThat(getAll(row3), is(empty()));
 
-        indexStorage.put(row1);
-        indexStorage.put(row2);
-        indexStorage.put(row3);
+        put(row1);
+        put(row2);
+        put(row3);
 
-        assertThat(indexStorage.get(row1.indexColumns()), containsInAnyOrder(row1.rowId(), row2.rowId()));
-        assertThat(indexStorage.get(row2.indexColumns()), containsInAnyOrder(row1.rowId(), row2.rowId()));
-        assertThat(indexStorage.get(row3.indexColumns()), contains(row3.rowId()));
+        assertThat(getAll(row1), containsInAnyOrder(row1.rowId(), row2.rowId()));
+        assertThat(getAll(row2), containsInAnyOrder(row1.rowId(), row2.rowId()));
+        assertThat(getAll(row3), contains(row3.rowId()));
     }
 
     /**
@@ -160,12 +135,12 @@ public abstract class AbstractHashIndexStorageTest {
      */
     @Test
     void testPutIdempotence() {
-        IndexRow row = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(0));
+        IndexRow row = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
 
-        indexStorage.put(row);
-        indexStorage.put(row);
+        put(row);
+        put(row);
 
-        assertThat(indexStorage.get(row.indexColumns()), contains(row.rowId()));
+        assertThat(getAll(row), contains(row.rowId()));
     }
 
     /**
@@ -173,35 +148,35 @@ public abstract class AbstractHashIndexStorageTest {
      */
     @Test
     void testRemove() {
-        IndexRow row1 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(0));
-        IndexRow row2 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(0));
-        IndexRow row3 = serializer.serializeRow(new Object[]{ 2, "bar" }, new RowId(0));
+        IndexRow row1 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
+        IndexRow row2 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
+        IndexRow row3 = serializer.serializeRow(new Object[]{ 2, "bar" }, new RowId(TEST_PARTITION));
 
-        indexStorage.put(row1);
-        indexStorage.put(row2);
-        indexStorage.put(row3);
+        put(row1);
+        put(row2);
+        put(row3);
 
-        assertThat(indexStorage.get(row1.indexColumns()), containsInAnyOrder(row1.rowId(), row2.rowId()));
-        assertThat(indexStorage.get(row2.indexColumns()), containsInAnyOrder(row1.rowId(), row2.rowId()));
-        assertThat(indexStorage.get(row3.indexColumns()), contains(row3.rowId()));
+        assertThat(getAll(row1), containsInAnyOrder(row1.rowId(), row2.rowId()));
+        assertThat(getAll(row2), containsInAnyOrder(row1.rowId(), row2.rowId()));
+        assertThat(getAll(row3), contains(row3.rowId()));
 
-        indexStorage.remove(row1);
+        remove(row1);
 
-        assertThat(indexStorage.get(row1.indexColumns()), contains(row2.rowId()));
-        assertThat(indexStorage.get(row2.indexColumns()), contains(row2.rowId()));
-        assertThat(indexStorage.get(row3.indexColumns()), contains(row3.rowId()));
+        assertThat(getAll(row1), contains(row2.rowId()));
+        assertThat(getAll(row2), contains(row2.rowId()));
+        assertThat(getAll(row3), contains(row3.rowId()));
 
-        indexStorage.remove(row2);
+        remove(row2);
 
-        assertThat(indexStorage.get(row1.indexColumns()), is(empty()));
-        assertThat(indexStorage.get(row2.indexColumns()), is(empty()));
-        assertThat(indexStorage.get(row3.indexColumns()), contains(row3.rowId()));
+        assertThat(getAll(row1), is(empty()));
+        assertThat(getAll(row2), is(empty()));
+        assertThat(getAll(row3), contains(row3.rowId()));
 
-        indexStorage.remove(row3);
+        remove(row3);
 
-        assertThat(indexStorage.get(row1.indexColumns()), is(empty()));
-        assertThat(indexStorage.get(row2.indexColumns()), is(empty()));
-        assertThat(indexStorage.get(row3.indexColumns()), is(empty()));
+        assertThat(getAll(row1), is(empty()));
+        assertThat(getAll(row2), is(empty()));
+        assertThat(getAll(row3), is(empty()));
     }
 
     /**
@@ -209,16 +184,40 @@ public abstract class AbstractHashIndexStorageTest {
      */
     @Test
     void testRemoveIdempotence() {
-        IndexRow row = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(0));
+        IndexRow row = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
 
-        assertDoesNotThrow(() -> indexStorage.remove(row));
+        assertDoesNotThrow(() -> remove(row));
 
-        indexStorage.put(row);
+        put(row);
 
-        indexStorage.remove(row);
+        remove(row);
 
-        assertThat(indexStorage.get(row.indexColumns()), is(empty()));
+        assertThat(getAll(row), is(empty()));
 
-        assertDoesNotThrow(() -> indexStorage.remove(row));
+        assertDoesNotThrow(() -> remove(row));
+    }
+
+    private Collection<RowId> getAll(IndexRow row) {
+        try (Cursor<RowId> cursor = indexStorage.get(row.indexColumns())) {
+            return cursor.stream().collect(toList());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void put(IndexRow row) {
+        partitionStorage.runConsistently(() -> {
+            indexStorage.put(row);
+
+            return null;
+        });
+    }
+
+    private void remove(IndexRow row) {
+        partitionStorage.runConsistently(() -> {
+            indexStorage.remove(row);
+
+            return null;
+        });
     }
 }

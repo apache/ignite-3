@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.util;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+
 /**
  * Implement hash function for byte arrays.
  *
@@ -42,7 +45,19 @@ public class HashUtils {
      * @param data The input byte array.
      * @return The 32-bit hash.
      */
-    public static int hash32(final byte[] data) {
+    public static int hash32(byte[] data) {
+        long hash = hash64(data);
+
+        return (int) (hash ^ (hash >>> 32));
+    }
+
+    /**
+     * Generates 32-bit hash from the byte array with a seed of zero.
+     *
+     * @param data The input byte array.
+     * @return The 32-bit hash.
+     */
+    public static int hash32(ByteBuffer data) {
         long hash = hash64(data);
 
         return (int) (hash ^ (hash >>> 32));
@@ -57,7 +72,7 @@ public class HashUtils {
      * @param seed   The initial seed value.
      * @return The 32-bit hash.
      */
-    public static int hash32(final byte[] data, final int offset, final int length, final int seed) {
+    public static int hash32(byte[] data, int offset, int length, int seed) {
         long hash = hash64(data, offset, length, seed);
 
         return (int) (hash ^ (hash >>> 32));
@@ -69,7 +84,7 @@ public class HashUtils {
      * @param data The input byte.
      * @return The 32-bit hash.
      */
-    public static int hash32(final byte data, int seed) {
+    public static int hash32(byte data, int seed) {
         long hash = hash64(data, seed);
 
         return (int) (hash ^ (hash >>> 32));
@@ -81,7 +96,7 @@ public class HashUtils {
      * @param data The input short value.
      * @return The 32-bit hash.
      */
-    public static int hash32(final short data, int seed) {
+    public static int hash32(short data, int seed) {
         long hash = hash64(data, seed);
 
         return (int) (hash ^ (hash >>> 32));
@@ -93,7 +108,7 @@ public class HashUtils {
      * @param data The input integer value.
      * @return The 32-bit hash.
      */
-    public static int hash32(final int data, int seed) {
+    public static int hash32(int data, int seed) {
         long hash = hash64(data, seed);
 
         return (int) (hash ^ (hash >>> 32));
@@ -105,7 +120,7 @@ public class HashUtils {
      * @param data The input long value.
      * @return The 32-bit hash.
      */
-    public static int hash32(final long data, int seed) {
+    public static int hash32(long data, int seed) {
         long hash = hash64(data, seed);
 
         return (int) (hash ^ (hash >>> 32));
@@ -117,7 +132,7 @@ public class HashUtils {
      * @param data The input byte.
      * @return The 64-bit hash.
      */
-    public static long hash64(final byte data, long seed) {
+    public static long hash64(byte data, long seed) {
         return hashInternal(data, seed);
     }
 
@@ -127,7 +142,7 @@ public class HashUtils {
      * @param data The input short value.
      * @return The 64-bit hash.
      */
-    public static long hash64(final short data, long seed) {
+    public static long hash64(short data, long seed) {
         return hashInternal(data, seed);
     }
 
@@ -137,7 +152,7 @@ public class HashUtils {
      * @param data The input integer value.
      * @return The 64-bit hash.
      */
-    public static long hash64(final int data, long seed) {
+    public static long hash64(int data, long seed) {
         return hashInternal(data, seed);
     }
 
@@ -148,7 +163,7 @@ public class HashUtils {
      * @param data The input long value.
      * @return The 64-bit hash.
      */
-    public static long hash64(final long data, long seed) {
+    public static long hash64(long data, long seed) {
         return hashInternal(data, seed);
     }
 
@@ -158,8 +173,18 @@ public class HashUtils {
      * @param data The input byte array.
      * @return The 64-bit hash.
      */
-    public static long hash64(final byte[] data) {
+    public static long hash64(byte[] data) {
         return hash64(data, 0, data.length, 0);
+    }
+
+    /**
+     * Generates 64-bit hash from the ByteBuffer with a seed of zero.
+     *
+     * @param data The input ByteBuffer.
+     * @return The 64-bit hash.
+     */
+    public static long hash64(ByteBuffer data) {
+        return hash64(data, 0, data.remaining(), 0);
     }
 
     /**
@@ -171,7 +196,21 @@ public class HashUtils {
      * @param seed   The initial seed value.
      * @return The 64-bit hash.
      */
-    public static long hash64(final byte[] data, final int offset, final int length, final int seed) {
+    public static long hash64(byte[] data, int offset, int length, int seed) {
+        // Use an unsigned 32-bit integer as the seed
+        return hashInternal(data, offset, length, seed & 0xffffffffL);
+    }
+
+    /**
+     * Generates 64-bit hash from the ByteBuffer with the given offset, length and seed.
+     *
+     * @param data   The input ByteBuffer.
+     * @param offset The first element of array.
+     * @param length The length of array.
+     * @param seed   The initial seed value.
+     * @return The 64-bit hash.
+     */
+    public static long hash64(ByteBuffer data, int offset, int length, int seed) {
         // Use an unsigned 32-bit integer as the seed
         return hashInternal(data, offset, length, seed & 0xffffffffL);
     }
@@ -183,7 +222,7 @@ public class HashUtils {
      * @param seed   The initial seed value.
      * @return The 64-bit hash.
      */
-    private static long hashInternal(final byte data, final long seed) {
+    private static long hashInternal(byte data, long seed) {
         long h1 = seed;
         long h2 = seed;
 
@@ -215,7 +254,7 @@ public class HashUtils {
      * @param seed The initial seed value.
      * @return The 64-bit hash.
      */
-    private static long hashInternal(final short data, final long seed) {
+    private static long hashInternal(short data, long seed) {
         long h1 = seed;
         long h2 = seed;
 
@@ -247,7 +286,7 @@ public class HashUtils {
      * @param seed The initial seed value.
      * @return The 64-bit hash.
      */
-    private static long hashInternal(final int data, final long seed) {
+    private static long hashInternal(int data, long seed) {
         long h1 = seed;
         long h2 = seed;
 
@@ -279,7 +318,7 @@ public class HashUtils {
      * @param seed The initial seed value.
      * @return The 64-bit hash.
      */
-    private static long hashInternal(final long data, final long seed) {
+    private static long hashInternal(long data, long seed) {
         long h1 = seed;
         long h2 = seed;
 
@@ -313,14 +352,14 @@ public class HashUtils {
      * @param seed   The initial seed value.
      * @return The 64-bit hash.
      */
-    private static long hashInternal(final byte[] data, final int offset, final int length, final long seed) {
+    private static long hashInternal(byte[] data, int offset, int length, long seed) {
         long h1 = seed;
         long h2 = seed;
-        final int nblocks = length >> 4;
+        int nblocks = length >> 4;
 
         // body
         for (int i = 0; i < nblocks; i++) {
-            final int index = offset + (i << 4);
+            int index = offset + (i << 4);
             long k1 = getLittleEndianLong(data, index);
             long k2 = getLittleEndianLong(data, index + 8);
 
@@ -346,7 +385,7 @@ public class HashUtils {
         // tail
         long k1 = 0;
         long k2 = 0;
-        final int index = offset + (nblocks << 4);
+        int index = offset + (nblocks << 4);
         switch (offset + length - index) {
             case 15:
                 k2 ^= ((long) data[index + 14] & 0xff) << 48;
@@ -420,13 +459,136 @@ public class HashUtils {
     }
 
     /**
+     * Generates 64-bit hash from the ByteBuffer with the given offset, length and seed.
+     *
+     * @param data   The input ByteBuffer.
+     * @param offset The first element of array.
+     * @param length The length of array.
+     * @param seed   The initial seed value.
+     * @return The 64-bit hash.
+     */
+    private static long hashInternal(ByteBuffer data, int offset, int length, long seed) {
+        long h1 = seed;
+        long h2 = seed;
+
+        int nblocks = length >> 4;
+
+        // Emulating #getLittleEndianLong
+        ByteOrder prevOrder = data.order();
+
+        data.order(ByteOrder.LITTLE_ENDIAN);
+
+        // body
+        for (int i = 0; i < nblocks; i++) {
+            int index = offset + (i << 4);
+            long k1 = data.getLong(index);
+            long k2 = data.getLong(index + 8);
+
+            // mix functions for k1
+            k1 *= C1;
+            k1 = Long.rotateLeft(k1, R1);
+            k1 *= C2;
+            h1 ^= k1;
+            h1 = Long.rotateLeft(h1, R2);
+            h1 += h2;
+            h1 = h1 * M + N1;
+
+            // mix functions for k2
+            k2 *= C2;
+            k2 = Long.rotateLeft(k2, R3);
+            k2 *= C1;
+            h2 ^= k2;
+            h2 = Long.rotateLeft(h2, R1);
+            h2 += h1;
+            h2 = h2 * M + N2;
+        }
+
+        data.order(prevOrder);
+
+        // tail
+        long k1 = 0;
+        long k2 = 0;
+        int index = offset + (nblocks << 4);
+        switch (offset + length - index) {
+            case 15:
+                k2 ^= ((long) data.get(index + 14) & 0xff) << 48;
+                // fallthrough
+            case 14:
+                k2 ^= ((long) data.get(index + 13) & 0xff) << 40;
+                // fallthrough
+            case 13:
+                k2 ^= ((long) data.get(index + 12) & 0xff) << 32;
+                // fallthrough
+            case 12:
+                k2 ^= ((long) data.get(index + 11) & 0xff) << 24;
+                // fallthrough
+            case 11:
+                k2 ^= ((long) data.get(index + 10) & 0xff) << 16;
+                // fallthrough
+            case 10:
+                k2 ^= ((long) data.get(index + 9) & 0xff) << 8;
+                // fallthrough
+            case 9:
+                k2 ^= data.get(index + 8) & 0xff;
+                k2 *= C2;
+                k2 = Long.rotateLeft(k2, R3);
+                k2 *= C1;
+                h2 ^= k2;
+
+                // fallthrough
+            case 8:
+                k1 ^= ((long) data.get(index + 7) & 0xff) << 56;
+                // fallthrough
+            case 7:
+                k1 ^= ((long) data.get(index + 6) & 0xff) << 48;
+                // fallthrough
+            case 6:
+                k1 ^= ((long) data.get(index + 5) & 0xff) << 40;
+                // fallthrough
+            case 5:
+                k1 ^= ((long) data.get(index + 4) & 0xff) << 32;
+                // fallthrough
+            case 4:
+                k1 ^= ((long) data.get(index + 3) & 0xff) << 24;
+                // fallthrough
+            case 3:
+                k1 ^= ((long) data.get(index + 2) & 0xff) << 16;
+                // fallthrough
+            case 2:
+                k1 ^= ((long) data.get(index + 1) & 0xff) << 8;
+                // fallthrough
+            case 1:
+                k1 ^= data.get(index) & 0xff;
+                k1 *= C1;
+                k1 = Long.rotateLeft(k1, R1);
+                k1 *= C2;
+                h1 ^= k1;
+                // fallthrough
+            default:
+                break;
+        }
+
+        // finalization
+        h1 ^= length;
+        h2 ^= length;
+
+        h1 += h2;
+        h2 += h1;
+
+        h1 = fmix64(h1);
+        h2 = fmix64(h2);
+
+        return h1 + h2;
+    }
+
+    /**
      * Gets the little-endian long from 8 bytes starting at the specified index.
      *
      * @param data  The data.
      * @param index The index.
      * @return The little-endian long.
      */
-    private static long getLittleEndianLong(final byte[] data, final int index) {
+    private static long getLittleEndianLong(byte[] data, int index) {
         return (((long) data[index] & 0xff))
                 | (((long) data[index + 1] & 0xff) << 8)
                 | (((long) data[index + 2] & 0xff) << 16)

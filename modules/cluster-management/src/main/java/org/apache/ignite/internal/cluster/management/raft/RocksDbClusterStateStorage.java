@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -134,14 +135,9 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
     @Override
     public <T> Cursor<T> getWithPrefix(byte[] prefix, BiFunction<byte[], byte[], T> entryTransformer) {
-        byte[] upperBound = prefix.clone();
+        byte[] upperBound = RocksUtils.rangeEnd(prefix);
 
-        // using 0xFF as max value since RocksDB uses unsigned byte comparison
-        assert upperBound[upperBound.length - 1] != (byte) 0xFF;
-
-        upperBound[upperBound.length - 1] += 1;
-
-        Slice upperBoundSlice = new Slice(upperBound);
+        Slice upperBoundSlice = upperBound == null ? null : new Slice(upperBound);
 
         ReadOptions readOptions = new ReadOptions().setIterateUpperBound(upperBoundSlice);
 

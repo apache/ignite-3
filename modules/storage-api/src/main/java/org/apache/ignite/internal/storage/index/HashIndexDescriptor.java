@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.HashIndexView;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
@@ -80,7 +81,7 @@ public class HashIndexDescriptor {
         }
     }
 
-    private final String name;
+    private final UUID id;
 
     private final List<ColumnDescriptor> columns;
 
@@ -91,8 +92,6 @@ public class HashIndexDescriptor {
      * @param tableConfig table configuration.
      */
     public HashIndexDescriptor(String name, TableView tableConfig) {
-        this.name = name;
-
         TableIndexView indexConfig = tableConfig.indices().get(name);
 
         if (indexConfig == null) {
@@ -106,9 +105,11 @@ public class HashIndexDescriptor {
             ));
         }
 
+        this.id = indexConfig.id();
+
         String[] indexColumns = ((HashIndexView) indexConfig).columnNames();
 
-        columns = Arrays.stream(indexColumns)
+        this.columns = Arrays.stream(indexColumns)
                 .map(columnName -> {
                     ColumnView columnView = tableConfig.columns().get(columnName);
 
@@ -120,10 +121,10 @@ public class HashIndexDescriptor {
     }
 
     /**
-     * Returns this index' name.
+     * Returns the ID of this Index.
      */
-    public String name() {
-        return name;
+    public UUID id() {
+        return id;
     }
 
     /**
