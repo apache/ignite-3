@@ -399,10 +399,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             lastSchemaId + 1,
                             currTableView);
 
-                    if (oldCols == null) {
-                        return; //TODO: does initial schema processed somewhere else???
-                    }
-
                     SchemaConfiguration prevSchemaConf = tblConfig.schemas().get(String.valueOf(lastSchemaId));
                     SchemaDescriptor prevDesc = SchemaSerializerImpl.INSTANCE.deserialize(prevSchemaConf.schema().value());
 

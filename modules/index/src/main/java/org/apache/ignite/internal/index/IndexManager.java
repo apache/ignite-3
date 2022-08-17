@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.schema.definition.TableDefinitionImpl.canonicalName;
 
 import java.util.ArrayList;
@@ -334,28 +335,65 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
     }
 
-    private void onIndexDrop(ConfigurationNotificationEvent<TableIndexView> ctx) {
-        Index<?> index = indexById.remove(ctx.oldValue().id());
-        indexByName.remove(index.name(), index);
+    private CompletableFuture<?> onIndexDrop(ConfigurationNotificationEvent<TableIndexView> ctx) {
+        if (!busyLock.enterBusy()) {
+            String idxName = ctx.newValue().name();
+            UUID idxId = ((TableIndexView) ctx.newValue()).id();
 
-        fireEvent(IndexEvent.DROP, new IndexEventParameters(ctx.storageRevision(), index.id(), index.name()), null);
+            fireEvent(IndexEvent.CREATE,
+                    new IndexEventParameters(ctx.storageRevision(), idxId, idxName),
+                    new NodeStoppingException()
+            );
+
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            Index<?> index = indexById.remove(ctx.oldValue().id());
+            indexByName.remove(index.name(), index);
+
+            fireEvent(IndexEvent.DROP, new IndexEventParameters(ctx.storageRevision(), index.id(), index.name()), null);
+        }
+        finally {
+            busyLock.leaveBusy();
+        }
+
+        return CompletableFuture.completedFuture(null);
     }
 
-    private void onIndexCreate(ConfigurationNotificationEvent<TableIndexView> ctx) {
-        Index<?> index = createIndex(
-                ctx.config(ExtendedTableConfiguration.class).id().value(),
-                ctx.newValue()
-        );
+    private CompletableFuture<?> onIndexCreate(ConfigurationNotificationEvent<TableIndexView> ctx) {
+        if (!busyLock.enterBusy()) {
+            String idxName = ctx.newValue().name();
+            UUID idxId = ((TableIndexView) ctx.newValue()).id();
 
-        Index<?> prev = indexById.putIfAbsent(index.id(), index);
+            fireEvent(IndexEvent.CREATE,
+                    new IndexEventParameters(ctx.storageRevision(), idxId, idxName),
+                    new NodeStoppingException()
+            );
 
-        assert prev == null;
+            return failedFuture(new NodeStoppingException());
+        }
 
-        prev = indexByName.putIfAbsent(index.name(), index);
+        try {
+            Index<?> index = createIndex(
+                    ctx.config(ExtendedTableConfiguration.class).id().value(),
+                    ctx.newValue()
+            );
 
-        assert prev == null;
+            Index<?> prev = indexById.putIfAbsent(index.id(), index);
 
-        fireEvent(IndexEvent.CREATE, new IndexEventParameters(ctx.storageRevision(), index), null);
+            assert prev == null;
+
+            prev = indexByName.putIfAbsent(index.name(), index);
+
+            assert prev == null;
+
+            fireEvent(IndexEvent.CREATE, new IndexEventParameters(ctx.storageRevision(), index), null);
+        } finally {
+            busyLock.leaveBusy();
+        }
+
+        return CompletableFuture.completedFuture(null);
     }
 
     private Index<?> createIndex(UUID tableId, TableIndexView indexView) {
@@ -405,13 +443,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         /** {@inheritDoc} */
         @Override
         public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
-            try {
-                onIndexCreate(ctx);
-            } catch (Exception e) {
-                return CompletableFuture.completedFuture(e);
-            }
-
-            return CompletableFuture.completedFuture(null);
+            return onIndexCreate(ctx);
         }
 
         /** {@inheritDoc} */
@@ -427,16 +459,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         /** {@inheritDoc} */
         @Override
         public @NotNull CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
-            if (!busyLock.enterBusy()) {
-                return CompletableFuture.completedFuture(new NodeStoppingException());
-            }
-            try {
-                onIndexDrop(ctx);
-            } finally {
-                busyLock.leaveBusy();
-            }
-
-            return CompletableFuture.completedFuture(null);
+            return onIndexDrop(ctx);
         }
 
         /** {@inheritDoc} */

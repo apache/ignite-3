@@ -364,19 +364,19 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     }
 
     private CompletableFuture<IgniteIndex> convert(long causalityToken, Index<?> index) {
-        return tablesVv.get(causalityToken)
-                .thenApply(tables -> tables.get(index.tableId()))
-                .thenApply(igniteTable -> inBusyLock(busyLock, () -> convert(index, igniteTable)));
+        return schemaManager.schemaRegistry(causalityToken, index.tableId())
+                .thenApply(schemaRegistry -> inBusyLock(busyLock, () -> convert(index, schemaRegistry)));
     }
 
-    private IgniteIndex convert(Index<?> index, IgniteTable table) {
+    private IgniteIndex convert(Index<?> index, SchemaRegistry schemaRegistry) {
         IndexDescriptor desc = index.descriptor();
+        IgniteTable table = tablesVv.latest().get(index.tableId());
+        SchemaDescriptor schema = schemaRegistry.schema();
 
         if (desc instanceof SortedIndexDescriptor) {
             List<RelFieldCollation> collations = desc.columns().stream().map(colName ->
                     TraitUtils.createFieldCollation(
-                            table.descriptor().columnDescriptor(colName)
-                                    .logicalIndex(),
+                            schema.column(colName).columnOrder(),
                             Objects.requireNonNull(
                                     ((SortedIndexDescriptor) desc).collation(
                                             colName))
@@ -387,9 +387,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
 
         List<RelFieldCollation> collations = desc.columns().stream().map(colName ->
-                TraitUtils.createFieldCollation(
-                        table.descriptor().columnDescriptor(colName)
-                                .logicalIndex())
+                TraitUtils.createFieldCollation(schema.column(colName).columnOrder())
         ).collect(Collectors.toList());
 
         return new IgniteIndex(RelCollations.of(collations), index.name(), (InternalIgniteTable) table);
