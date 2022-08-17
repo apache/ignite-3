@@ -35,7 +35,6 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -208,49 +207,7 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException(format("Failed to enlist rows into a transaction"));
             }
         } else {
-            CompletableFuture<R> result = new CompletableFuture<>();
-
-            fut = result.completeAsync(() -> {
-                AtomicReference<R> res = new AtomicReference<>(null);
-                AtomicReference<Throwable> ex = new AtomicReference<>(null);
-
-                for (int i = 0; i < 5; i++) {
-                    enlist(partId, tx0).<R>thenCompose(
-                            primaryReplicaAndTerm0 -> {
-                                ReplicaRequestParameters requestParams = new ReplicaRequestParameters(
-                                        tx0, partGroupId, primaryReplicaAndTerm0.get1(), primaryReplicaAndTerm0.get2()
-                                );
-
-                                try {
-                                    return replicaSvc.invoke(primaryReplicaAndTerm0.get1(), op.apply(requestParams));
-                                } catch (Throwable e) {
-                                    throw new TransactionException(e);
-                                }
-                            })
-                            .whenComplete((res0, e) -> {
-                                res.set(res0);
-                                ex.set(e);
-                            })
-                            .join();
-
-                    if (ex.get() == null) {
-                        return res.get();
-                    } else if (ex.get() instanceof TransactionException) {
-                        if (!(ex.get().getCause() instanceof PrimaryReplicaMissException)) {
-                            throw (TransactionException) ex.get();
-                        }
-                    }
-                }
-
-                if (ex.get() == null) {
-                    return res.get();
-                } else if (ex.get() instanceof TransactionException
-                        && ex.get().getCause() instanceof PrimaryReplicaMissException) {
-                    throw (TransactionException) ex.get();
-                } else {
-                    throw new TransactionException(format("Failed to enlist rows into a transaction"));
-                }
-            });
+            fut = sendWithRetry(op, tx0, partId, null, partGroupId, 0);
         }
 
         return postEnlist(fut, implicit, tx0);
@@ -300,52 +257,7 @@ public class InternalTableImpl implements InternalTable {
                     throw new TransactionException(format("Failed to enlist rows into a transaction"));
                 }
             } else {
-                CompletableFuture<Object> result = new CompletableFuture<>();
-
-                fut = result.completeAsync(() -> {
-                    AtomicReference<Object> res = new AtomicReference<>(null);
-                    AtomicReference<Throwable> ex = new AtomicReference<>(null);
-
-                    for (int i = 0; i < 5; i++) {
-                        enlist(partToRows.getIntKey(), tx0).thenCompose(
-                                        primaryReplicaAndTerm0 -> {
-                                            ReplicaRequestParameters requestParams = new ReplicaRequestParameters(tx0,
-                                                    partToRows.getValue(),
-                                                    partGroupId,
-                                                    primaryReplicaAndTerm0.get1(),
-                                                    primaryReplicaAndTerm0.get2()
-                                            );
-
-                                            try {
-                                                return replicaSvc.invoke(primaryReplicaAndTerm0.get1(), op.apply(requestParams));
-                                            } catch (Throwable e) {
-                                                throw new TransactionException(e);
-                                            }
-                                        })
-                                .whenComplete((res0, e) -> {
-                                    res.set(res0);
-                                    ex.set(e);
-                                })
-                                .join();
-
-                        if (ex.get() == null) {
-                            return res.get();
-                        } else if (ex.get() instanceof TransactionException) {
-                            if (!(ex.get().getCause() instanceof PrimaryReplicaMissException)) {
-                                throw (TransactionException) ex.get();
-                            }
-                        }
-                    }
-
-                    if (ex.get() == null) {
-                        return res.get();
-                    } else if (ex.get() instanceof TransactionException
-                            && ex.get().getCause() instanceof PrimaryReplicaMissException) {
-                        throw (TransactionException) ex.get();
-                    } else {
-                        throw new TransactionException(format("Failed to enlist rows into a transaction"));
-                    }
-                });
+                fut = sendWithRetry(op, tx0, partToRows.getIntKey(), partToRows.getValue(), partGroupId, 0);
             }
 
             futures[batchNum++] = fut;
@@ -354,6 +266,46 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture<T> fut = reducer.apply(futures);
 
         return postEnlist(fut, implicit, tx0);
+    }
+
+    private <R> CompletableFuture<R> sendWithRetry(
+            Function<ReplicaRequestParameters, ReplicaRequest> op,
+            InternalTransaction tx,
+            int partId,
+            List<BinaryRow> rows,
+            String partGroupId,
+            int attempt
+    ) {
+        return enlist(partId, tx).<R>thenCompose(
+                        primaryReplicaAndTerm0 -> {
+                            ReplicaRequestParameters requestParams = new ReplicaRequestParameters(tx,
+                                    rows,
+                                    partGroupId,
+                                    primaryReplicaAndTerm0.get1(),
+                                    primaryReplicaAndTerm0.get2()
+                            );
+
+                            try {
+                                return replicaSvc.invoke(primaryReplicaAndTerm0.get1(), op.apply(requestParams));
+                            } catch (Throwable e) {
+                                throw new TransactionException(e);
+                            }
+                        })
+                .handle((res0, e) -> {
+                    if (e != null) {
+                        if (e.getCause() instanceof PrimaryReplicaMissException && attempt < 5) {
+                            try {
+                                return (R) sendWithRetry(op, tx, partId, rows, partGroupId, attempt + 1).get();
+                            } catch (Throwable ex) {
+                                throw new TransactionException(ex);
+                            }
+                        }
+
+                        throw new TransactionException(e);
+                    }
+
+                    return res0;
+                });
     }
 
     /**
