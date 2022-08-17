@@ -33,9 +33,6 @@ public enum CheckpointState {
     /** Checkpoint counted the pages and write lock was released. **/
     LOCK_RELEASED,
 
-    /** Checkpoint marker was stored to disk. **/
-    MARKER_STORED_TO_DISK,
-
     /** Dirty pages sorted. */
     PAGES_SORTED,
 

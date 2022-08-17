@@ -131,7 +131,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         CheckpointManager checkpointManager = createCheckpointManager(
                 checkpointConfig,
-                workDir,
                 filePageStoreManager,
                 partitionMetaManager,
                 dataRegions
@@ -194,7 +193,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         CheckpointManager checkpointManager = createCheckpointManager(
                 checkpointConfig,
-                workDir,
                 filePageStoreManager,
                 partitionMetaManager,
                 dataRegions
@@ -275,7 +273,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         CheckpointManager checkpointManager = createCheckpointManager(
                 checkpointConfig,
-                workDir,
                 filePageStoreManager,
                 partitionMetaManager,
                 dataRegions
@@ -340,7 +337,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         CheckpointManager checkpointManager = createCheckpointManager(
                 checkpointConfig,
-                workDir,
                 filePageStoreManager,
                 partitionMetaManager,
                 dataRegions
@@ -473,7 +469,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
     private static CheckpointManager createCheckpointManager(
             PageMemoryCheckpointConfiguration checkpointConfig,
-            Path storagePath,
             FilePageStoreManager filePageStoreManager,
             PartitionMetaManager partitionMetaManager,
             Collection<DataRegion<PersistentPageMemory>> dataRegions
@@ -486,7 +481,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 filePageStoreManager,
                 partitionMetaManager,
                 dataRegions,
-                storagePath,
                 ioRegistry,
                 PAGE_SIZE
         );

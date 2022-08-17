@@ -21,7 +21,6 @@ import static java.lang.System.nanoTime;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.MARKER_STORED_TO_DISK;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SNAPSHOT_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.SCHEDULED;
@@ -129,7 +128,6 @@ public class CheckpointProgressImplTest {
         assertFalse(progressImpl.greaterOrEqualTo(LOCK_TAKEN));
         assertFalse(progressImpl.greaterOrEqualTo(PAGES_SNAPSHOT_TAKEN));
         assertFalse(progressImpl.greaterOrEqualTo(LOCK_RELEASED));
-        assertFalse(progressImpl.greaterOrEqualTo(MARKER_STORED_TO_DISK));
         assertFalse(progressImpl.greaterOrEqualTo(PAGES_SORTED));
         assertFalse(progressImpl.greaterOrEqualTo(FINISHED));
 
@@ -139,7 +137,6 @@ public class CheckpointProgressImplTest {
         assertTrue(progressImpl.greaterOrEqualTo(LOCK_TAKEN));
         assertFalse(progressImpl.greaterOrEqualTo(PAGES_SNAPSHOT_TAKEN));
         assertFalse(progressImpl.greaterOrEqualTo(LOCK_RELEASED));
-        assertFalse(progressImpl.greaterOrEqualTo(MARKER_STORED_TO_DISK));
         assertFalse(progressImpl.greaterOrEqualTo(PAGES_SORTED));
         assertFalse(progressImpl.greaterOrEqualTo(FINISHED));
 
@@ -149,7 +146,6 @@ public class CheckpointProgressImplTest {
         assertTrue(progressImpl.greaterOrEqualTo(LOCK_TAKEN));
         assertTrue(progressImpl.greaterOrEqualTo(PAGES_SNAPSHOT_TAKEN));
         assertFalse(progressImpl.greaterOrEqualTo(LOCK_RELEASED));
-        assertFalse(progressImpl.greaterOrEqualTo(MARKER_STORED_TO_DISK));
         assertFalse(progressImpl.greaterOrEqualTo(PAGES_SORTED));
         assertFalse(progressImpl.greaterOrEqualTo(FINISHED));
 
@@ -159,17 +155,6 @@ public class CheckpointProgressImplTest {
         assertTrue(progressImpl.greaterOrEqualTo(LOCK_TAKEN));
         assertTrue(progressImpl.greaterOrEqualTo(PAGES_SNAPSHOT_TAKEN));
         assertTrue(progressImpl.greaterOrEqualTo(LOCK_RELEASED));
-        assertFalse(progressImpl.greaterOrEqualTo(MARKER_STORED_TO_DISK));
-        assertFalse(progressImpl.greaterOrEqualTo(PAGES_SORTED));
-        assertFalse(progressImpl.greaterOrEqualTo(FINISHED));
-
-        progressImpl.transitTo(MARKER_STORED_TO_DISK);
-
-        assertTrue(progressImpl.greaterOrEqualTo(SCHEDULED));
-        assertTrue(progressImpl.greaterOrEqualTo(LOCK_TAKEN));
-        assertTrue(progressImpl.greaterOrEqualTo(PAGES_SNAPSHOT_TAKEN));
-        assertTrue(progressImpl.greaterOrEqualTo(LOCK_RELEASED));
-        assertTrue(progressImpl.greaterOrEqualTo(MARKER_STORED_TO_DISK));
         assertFalse(progressImpl.greaterOrEqualTo(PAGES_SORTED));
         assertFalse(progressImpl.greaterOrEqualTo(FINISHED));
 
@@ -179,7 +164,6 @@ public class CheckpointProgressImplTest {
         assertTrue(progressImpl.greaterOrEqualTo(LOCK_TAKEN));
         assertTrue(progressImpl.greaterOrEqualTo(PAGES_SNAPSHOT_TAKEN));
         assertTrue(progressImpl.greaterOrEqualTo(LOCK_RELEASED));
-        assertTrue(progressImpl.greaterOrEqualTo(MARKER_STORED_TO_DISK));
         assertTrue(progressImpl.greaterOrEqualTo(PAGES_SORTED));
         assertFalse(progressImpl.greaterOrEqualTo(FINISHED));
 
@@ -189,7 +173,6 @@ public class CheckpointProgressImplTest {
         assertTrue(progressImpl.greaterOrEqualTo(LOCK_TAKEN));
         assertTrue(progressImpl.greaterOrEqualTo(PAGES_SNAPSHOT_TAKEN));
         assertTrue(progressImpl.greaterOrEqualTo(LOCK_RELEASED));
-        assertTrue(progressImpl.greaterOrEqualTo(MARKER_STORED_TO_DISK));
         assertTrue(progressImpl.greaterOrEqualTo(PAGES_SORTED));
         assertTrue(progressImpl.greaterOrEqualTo(FINISHED));
     }
@@ -207,9 +190,6 @@ public class CheckpointProgressImplTest {
         assertTrue(progressImpl.inProgress());
 
         progressImpl.transitTo(PAGES_SORTED);
-        assertTrue(progressImpl.inProgress());
-
-        progressImpl.transitTo(MARKER_STORED_TO_DISK);
         assertTrue(progressImpl.inProgress());
 
         progressImpl.transitTo(PAGES_SORTED);
@@ -264,23 +244,17 @@ public class CheckpointProgressImplTest {
         assertFalse(future3.isDone());
         assertSame(future3, progressImpl.futureFor(LOCK_RELEASED));
 
-        CompletableFuture<?> future4 = progressImpl.futureFor(MARKER_STORED_TO_DISK);
+        CompletableFuture<?> future4 = progressImpl.futureFor(PAGES_SORTED);
 
         assertNotNull(future4);
         assertFalse(future4.isDone());
-        assertSame(future4, progressImpl.futureFor(MARKER_STORED_TO_DISK));
+        assertSame(future4, progressImpl.futureFor(PAGES_SORTED));
 
-        CompletableFuture<?> future5 = progressImpl.futureFor(PAGES_SORTED);
+        CompletableFuture<?> future5 = progressImpl.futureFor(FINISHED);
 
         assertNotNull(future5);
         assertFalse(future5.isDone());
-        assertSame(future5, progressImpl.futureFor(PAGES_SORTED));
-
-        CompletableFuture<?> future6 = progressImpl.futureFor(FINISHED);
-
-        assertNotNull(future6);
-        assertFalse(future6.isDone());
-        assertSame(future6, progressImpl.futureFor(FINISHED));
+        assertSame(future5, progressImpl.futureFor(FINISHED));
 
         progressImpl.transitTo(LOCK_RELEASED);
 
@@ -291,15 +265,13 @@ public class CheckpointProgressImplTest {
 
         assertFalse(future4.isDone());
         assertFalse(future5.isDone());
-        assertFalse(future6.isDone());
 
         assertSame(future0, progressImpl.futureFor(SCHEDULED));
         assertSame(future1, progressImpl.futureFor(LOCK_TAKEN));
         assertSame(future2, progressImpl.futureFor(PAGES_SNAPSHOT_TAKEN));
         assertSame(future3, progressImpl.futureFor(LOCK_RELEASED));
-        assertSame(future4, progressImpl.futureFor(MARKER_STORED_TO_DISK));
-        assertSame(future5, progressImpl.futureFor(PAGES_SORTED));
-        assertSame(future6, progressImpl.futureFor(FINISHED));
+        assertSame(future4, progressImpl.futureFor(PAGES_SORTED));
+        assertSame(future5, progressImpl.futureFor(FINISHED));
     }
 
     @Test
@@ -341,29 +313,9 @@ public class CheckpointProgressImplTest {
         progressImpl.transitTo(SCHEDULED);
         assertEquals(LOCK_RELEASED, progressImpl.state());
 
-        // Transit to MARKER_STORED_TO_DISK.
-
-        progressImpl.transitTo(MARKER_STORED_TO_DISK);
-        assertEquals(MARKER_STORED_TO_DISK, progressImpl.state());
-
-        progressImpl.transitTo(LOCK_RELEASED);
-        assertEquals(MARKER_STORED_TO_DISK, progressImpl.state());
-
-        progressImpl.transitTo(PAGES_SNAPSHOT_TAKEN);
-        assertEquals(MARKER_STORED_TO_DISK, progressImpl.state());
-
-        progressImpl.transitTo(LOCK_TAKEN);
-        assertEquals(MARKER_STORED_TO_DISK, progressImpl.state());
-
-        progressImpl.transitTo(SCHEDULED);
-        assertEquals(MARKER_STORED_TO_DISK, progressImpl.state());
-
         // Transit to PAGES_SORTED.
 
         progressImpl.transitTo(PAGES_SORTED);
-        assertEquals(PAGES_SORTED, progressImpl.state());
-
-        progressImpl.transitTo(MARKER_STORED_TO_DISK);
         assertEquals(PAGES_SORTED, progressImpl.state());
 
         progressImpl.transitTo(LOCK_RELEASED);
@@ -384,9 +336,6 @@ public class CheckpointProgressImplTest {
         assertEquals(FINISHED, progressImpl.state());
 
         progressImpl.transitTo(PAGES_SORTED);
-        assertEquals(FINISHED, progressImpl.state());
-
-        progressImpl.transitTo(MARKER_STORED_TO_DISK);
         assertEquals(FINISHED, progressImpl.state());
 
         progressImpl.transitTo(LOCK_RELEASED);
