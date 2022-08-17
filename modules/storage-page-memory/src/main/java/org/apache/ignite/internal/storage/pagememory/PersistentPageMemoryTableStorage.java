@@ -261,7 +261,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     /**
-     * Returns new {@link TableTree} instance for partition.
+     * Returns new {@link VersionChainTree} instance for partition.
      *
      * @param tableView Table configuration.
      * @param partId Partition ID.
