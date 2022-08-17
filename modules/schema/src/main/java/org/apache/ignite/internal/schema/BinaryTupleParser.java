@@ -110,7 +110,7 @@ public class BinaryTupleParser {
     /**
      * Returns the content of this tuple as a byte buffer.
      */
-    public ByteBuffer asByteBuffer() {
+    public ByteBuffer byteBuffer() {
         return buffer;
     }
 

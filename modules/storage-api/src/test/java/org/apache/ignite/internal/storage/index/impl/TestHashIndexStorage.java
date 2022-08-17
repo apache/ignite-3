@@ -35,7 +35,7 @@ import org.apache.ignite.internal.storage.index.IndexRow;
  * Test-only implementation of a {@link HashIndexStorage}.
  */
 public class TestHashIndexStorage implements HashIndexStorage {
-    private final ConcurrentMap<ByteBuffer, Set<RowId>> index;
+    private final ConcurrentMap<ByteBuffer, Set<RowId>> index = new ConcurrentHashMap<>();
 
     private final HashIndexDescriptor descriptor;
 
@@ -44,7 +44,6 @@ public class TestHashIndexStorage implements HashIndexStorage {
      */
     public TestHashIndexStorage(HashIndexDescriptor descriptor) {
         this.descriptor = descriptor;
-        this.index = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -54,12 +53,12 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     @Override
     public Collection<RowId> get(BinaryTuple key) {
-        return index.getOrDefault(key.asByteBuffer(), Set.of());
+        return index.getOrDefault(key.byteBuffer(), Set.of());
     }
 
     @Override
     public void put(IndexRow row) {
-        index.compute(row.indexColumns().asByteBuffer(), (k, v) -> {
+        index.compute(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v == null) {
                 return Set.of(row.rowId());
             } else if (v.contains(row.rowId())) {
@@ -77,7 +76,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void remove(IndexRow row) {
-        index.computeIfPresent(row.indexColumns().asByteBuffer(), (k, v) -> {
+        index.computeIfPresent(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v.contains(row.rowId())) {
                 if (v.size() == 1) {
                     return null;

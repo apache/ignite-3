@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
  * Storage for a Sorted Index.
  *
  * <p>This storage serves as a sorted mapping from a subset of a table's columns (a.k.a. index columns) to a set of {@link RowId}s
- * from a {@link org.apache.ignite.internal.storage.MvPartitionStorage} from the same table.
+ * from a single {@link org.apache.ignite.internal.storage.MvPartitionStorage} from the same table.
  *
  * @see org.apache.ignite.schema.definition.index.SortedIndexDefinition
  */

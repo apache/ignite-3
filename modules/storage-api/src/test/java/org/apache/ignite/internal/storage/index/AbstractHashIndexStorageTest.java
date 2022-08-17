@@ -87,7 +87,7 @@ public abstract class AbstractHashIndexStorageTest {
     }
 
     /**
-     * Configures a test table with columns of all supported types.
+     * Configures a test table with some indexed columns.
      */
     private static void createTestTable(TableConfiguration tableCfg) {
         ColumnDefinition pkColumn = column("pk", ColumnType.INT32).asNullable(false).build();
@@ -114,7 +114,7 @@ public abstract class AbstractHashIndexStorageTest {
     protected abstract HashIndexStorage createIndexStorage(String name, TableView tableCfg);
 
     /**
-     * Creates a Sorted Index using the given columns.
+     * Configures and creates a storage instance for testing.
      */
     private HashIndexStorage createIndexStorage() {
         HashIndexDefinition indexDefinition = SchemaBuilders.hashIndex("hashIndex")

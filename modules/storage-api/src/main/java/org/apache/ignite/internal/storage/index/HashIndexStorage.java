@@ -25,7 +25,7 @@ import org.apache.ignite.internal.storage.RowId;
  * Storage for a Hash Index.
  *
  * <p>This storage serves as an unordered mapping from a subset of a table's columns (a.k.a. index columns) to a set of {@link RowId}s
- * from a {@link org.apache.ignite.internal.storage.MvPartitionStorage} from the same table.
+ * from a single {@link org.apache.ignite.internal.storage.MvPartitionStorage} from the same table.
  *
  * @see org.apache.ignite.schema.definition.index.HashIndexDefinition
  */
