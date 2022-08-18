@@ -270,23 +270,24 @@ public class InternalTableImpl implements InternalTable {
 
     private <R> CompletableFuture<R> sendWithRetry(
             Function<ReplicaRequestParameters, ReplicaRequest> op,
-            InternalTransaction tx,
+            InternalTransaction tx0,
             int partId,
             List<BinaryRow> rows,
             String partGroupId,
             int attempt
     ) {
-        return enlist(partId, tx).<R>thenCompose(
-                        primaryReplicaAndTerm0 -> {
-                            ReplicaRequestParameters requestParams = new ReplicaRequestParameters(tx,
+        CompletableFuture<R> result = new CompletableFuture();
+
+        enlist(partId, tx0).<R>thenCompose(
+                        primaryReplicaAndTerm -> {
+                            ReplicaRequestParameters requestParams = new ReplicaRequestParameters(tx0,
                                     rows,
                                     partGroupId,
-                                    primaryReplicaAndTerm0.get1(),
-                                    primaryReplicaAndTerm0.get2()
+                                    primaryReplicaAndTerm.get1(),
+                                    primaryReplicaAndTerm.get2()
                             );
-
                             try {
-                                return replicaSvc.invoke(primaryReplicaAndTerm0.get1(), op.apply(requestParams));
+                                return replicaSvc.invoke(primaryReplicaAndTerm.get1(), op.apply(requestParams));
                             } catch (Throwable e) {
                                 throw new TransactionException(e);
                             }
@@ -294,18 +295,23 @@ public class InternalTableImpl implements InternalTable {
                 .handle((res0, e) -> {
                     if (e != null) {
                         if (e.getCause() instanceof PrimaryReplicaMissException && attempt < 5) {
-                            try {
-                                return (R) sendWithRetry(op, tx, partId, rows, partGroupId, attempt + 1).get();
-                            } catch (Throwable ex) {
-                                throw new TransactionException(ex);
-                            }
+                            return sendWithRetry(op, tx0, partId, rows, partGroupId, attempt + 1).handle((r2, e2) -> {
+                                if (e2 != null) {
+                                    return result.completeExceptionally(e2);
+                                }
+                                else {
+                                    return result.complete((R) r2);
+                                }
+                            });
                         }
 
-                        throw new TransactionException(e);
+                        return result.completeExceptionally(e);
                     }
 
-                    return res0;
+                    return result.complete(res0);
                 });
+
+        return result;
     }
 
     /**
