@@ -548,7 +548,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             return schemaHolder.onIndexDropped(
                             "PUBLIC",
                             parameters.indexId(),
-                            parameters.indexName(),
                             parameters.causalityToken()
                     )
                     .thenApply(v -> false);

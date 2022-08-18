@@ -335,13 +335,19 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
     }
 
-    private CompletableFuture<?> onIndexDrop(ConfigurationNotificationEvent<TableIndexView> ctx) {
+    /**
+     * Callback method is called when index configuration changed and an index was dropped.
+     *
+     * @param evt Index configuration event.
+     * @return A future.
+     */
+    private CompletableFuture<?> onIndexDrop(ConfigurationNotificationEvent<TableIndexView> evt) {
         if (!busyLock.enterBusy()) {
-            String idxName = ctx.newValue().name();
-            UUID idxId = ((TableIndexView) ctx.newValue()).id();
+            String idxName = evt.newValue().name();
+            UUID idxId = ((TableIndexView) evt.newValue()).id();
 
             fireEvent(IndexEvent.CREATE,
-                    new IndexEventParameters(ctx.storageRevision(), idxId, idxName),
+                    new IndexEventParameters(evt.storageRevision(), idxId, idxName),
                     new NodeStoppingException()
             );
 
@@ -349,10 +355,10 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            Index<?> index = indexById.remove(ctx.oldValue().id());
+            Index<?> index = indexById.remove(evt.oldValue().id());
             indexByName.remove(index.name(), index);
 
-            fireEvent(IndexEvent.DROP, new IndexEventParameters(ctx.storageRevision(), index.id(), index.name()), null);
+            fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), index.id(), index.name()), null);
         } finally {
             busyLock.leaveBusy();
         }
@@ -360,13 +366,19 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         return CompletableFuture.completedFuture(null);
     }
 
-    private CompletableFuture<?> onIndexCreate(ConfigurationNotificationEvent<TableIndexView> ctx) {
+    /**
+     * Callback method triggers when index configuration changed and a new index was added.
+     *
+     * @param evt Index configuration changed event.
+     * @return A future.
+     */
+    private CompletableFuture<?> onIndexCreate(ConfigurationNotificationEvent<TableIndexView> evt) {
         if (!busyLock.enterBusy()) {
-            String idxName = ctx.newValue().name();
-            UUID idxId = ((TableIndexView) ctx.newValue()).id();
+            String idxName = evt.newValue().name();
+            UUID idxId = ((TableIndexView) evt.newValue()).id();
 
             fireEvent(IndexEvent.CREATE,
-                    new IndexEventParameters(ctx.storageRevision(), idxId, idxName),
+                    new IndexEventParameters(evt.storageRevision(), idxId, idxName),
                     new NodeStoppingException()
             );
 
@@ -375,8 +387,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         try {
             Index<?> index = createIndex(
-                    ctx.config(ExtendedTableConfiguration.class).id().value(),
-                    ctx.newValue()
+                    //TODO: https://issues.apache.org/jira/browse/IGNITE-17474 Add tableID to index config instead of lookup to parent.
+                    evt.config(ExtendedTableConfiguration.class).id().value(), // Parent element is table.
+                    evt.newValue()
             );
 
             Index<?> prev = indexById.putIfAbsent(index.id(), index);
@@ -387,7 +400,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             assert prev == null;
 
-            fireEvent(IndexEvent.CREATE, new IndexEventParameters(ctx.storageRevision(), index), null);
+            fireEvent(IndexEvent.CREATE, new IndexEventParameters(evt.storageRevision(), index), null);
         } finally {
             busyLock.leaveBusy();
         }

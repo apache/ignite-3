@@ -407,7 +407,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     }
 
     /**
-     * Index created callback.
+     * Index created callback method register index in Calcite schema.
+     *
+     * @param schemaName Schema name.
+     * @param index Index instance.
+     * @param causalityToken Causality token.
+     * @return Schema registration future.
      */
     public synchronized CompletableFuture<?> onIndexCreated(String schemaName, Index<?> index, long causalityToken) {
         if (!busyLock.enterBusy()) {
@@ -427,7 +432,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                         CompletableFuture<IgniteIndex> igniteIndexFuture = convert(causalityToken, index);
 
-                        //TODO: Should we wait for table creation here?
                         return indicesVv
                                 .update(
                                         causalityToken,
@@ -449,7 +453,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                                 .thenCombine(
                                         igniteIndexFuture,
                                         (v, igniteIndex) -> inBusyLock(busyLock, () -> {
-                                            schema.addIndex(objectLocalName(schemaName, index.name()), igniteIndex);
+                                            schema.addIndex(index.id(), igniteIndex);
 
                                             return null;
                                         })
@@ -464,9 +468,14 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     }
 
     /**
-     * Index dropped callback.
+     * Index dropped callback method deregisters index from Calcite schema.
+     *
+     * @param schemaName Schema name.
+     * @param indexId Index id.
+     * @param causalityToken Causality token.
+     * @return Schema registration future.
      */
-    public synchronized CompletableFuture<?> onIndexDropped(String schemaName, UUID indexId, String indexName, long causalityToken) {
+    public synchronized CompletableFuture<?> onIndexDropped(String schemaName, UUID indexId, long causalityToken) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
@@ -480,11 +489,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                 IgniteSchema schema = res.computeIfAbsent(schemaName, IgniteSchema::new);
 
-                IgniteIndex index = (IgniteIndex) schema.getIndex(indexName);
-
-                if (index != null) {
-                    schema.removeIndex(indexName);
-
+                if (schema.removeIndex(indexId)) {
                     return indicesVv.update(causalityToken, (indices, ex) -> inBusyLock(busyLock, () -> {
                                 if (ex != null) {
                                     return failedFuture(ex);

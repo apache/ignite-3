@@ -350,16 +350,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tablesCfg.tables().any().columns().listen(new ConfigurationNamedListListener<NamedListView<ColumnView>>() {
             @Override
             public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<NamedListView<ColumnView>> ctx) {
-                if (!busyLock.enterBusy()) {
-                    return failedFuture(new NodeStoppingException());
-                }
-                try {
-                    onColumnsChanged(ctx);
-
-                    return ConfigurationNamedListListener.super.onUpdate(ctx);
-                } finally {
-                    busyLock.leaveBusy();
-                }
+                return onColumnsChanged(ctx);
             }
         });
 
@@ -379,50 +370,76 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
     }
 
-    private static void onColumnsChanged(ConfigurationNotificationEvent<NamedListView<ColumnView>> ctx) {
-        ExtendedTableConfiguration tblConfig = ctx.config(ExtendedTableConfiguration.class);
-        NamedListView<ColumnView> oldCols = ctx.oldValue();
-        NamedListView<ColumnView> newCols = ctx.newValue();
+    /**
+     * Callback method is called when columns configuration was changed.
+     * The method creates a new schema version, and thus, triggers the schema changes.
+     *
+     * @param ctx Columns configuration event.
+     * @return A future.
+     */
+    private CompletableFuture<?> onColumnsChanged(ConfigurationNotificationEvent<NamedListView<ColumnView>> ctx) {
+        if (!busyLock.enterBusy()) {
+            ExtendedTableConfiguration tblConfig = ctx.config(ExtendedTableConfiguration.class);
+            String tblName = tblConfig.name().value();
+            UUID tblId = tblConfig.id().value();
 
-        ((ExtendedTableConfiguration) tblConfig).schemas().change(schemasCh -> {
-            schemasCh.createOrUpdate(String.valueOf(schemasCh.size() + 1), schemaCh -> {
-                ExtendedTableView currTableView = (ExtendedTableView) tblConfig.value();
+            // Fire termination event here because we won't proceed with the schema changing.
+            fireEvent(TableEvent.ALTER,
+                    new TableEventParameters(ctx.storageRevision(), tblId, tblName),
+                    new NodeStoppingException()
+            );
 
-                SchemaDescriptor descriptor;
+            return failedFuture(new NodeStoppingException());
+        }
+        try {
+            ExtendedTableConfiguration tblConfig = ctx.config(ExtendedTableConfiguration.class);
+            NamedListView<ColumnView> oldCols = ctx.oldValue();
+            NamedListView<ColumnView> newCols = ctx.newValue();
 
-                //TODO IGNITE-15747 Remove try-catch and force configuration validation
-                // here to ensure a valid configuration passed to prepareSchemaDescriptor() method.
-                try {
-                    int lastSchemaId = currTableView.schemas().size();
+            ((ExtendedTableConfiguration) tblConfig).schemas().change(schemasCh -> {
+                schemasCh.createOrUpdate(String.valueOf(schemasCh.size() + 1), schemaCh -> {
+                    ExtendedTableView currTableView = (ExtendedTableView) tblConfig.value();
 
-                    descriptor = SchemaUtils.prepareSchemaDescriptor(
-                            lastSchemaId + 1,
-                            currTableView);
+                    SchemaDescriptor descriptor;
 
-                    SchemaConfiguration prevSchemaConf = tblConfig.schemas().get(String.valueOf(lastSchemaId));
-                    SchemaDescriptor prevDesc = SchemaSerializerImpl.INSTANCE.deserialize(prevSchemaConf.schema().value());
+                    //TODO IGNITE-15747 Remove try-catch and force configuration validation
+                    // here to ensure a valid configuration passed to prepareSchemaDescriptor() method.
+                    try {
+                        int lastSchemaId = currTableView.schemas().size();
 
-                    descriptor.columnMapping(SchemaUtils.columnMapper(
-                            prevDesc,
-                            oldCols,
-                            descriptor,
-                            newCols));
-                } catch (IllegalArgumentException ex) {
-                    // Convert unexpected exceptions here,
-                    // because validation actually happens later,
-                    // when bulk configuration update is applied.
-                    ConfigurationValidationException e =
-                            new ConfigurationValidationException(ex.getMessage());
+                        descriptor = SchemaUtils.prepareSchemaDescriptor(
+                                lastSchemaId + 1,
+                                currTableView);
 
-                    e.addSuppressed(ex);
+                        SchemaConfiguration prevSchemaConf = tblConfig.schemas().get(String.valueOf(lastSchemaId));
+                        SchemaDescriptor prevDesc = SchemaSerializerImpl.INSTANCE.deserialize(prevSchemaConf.schema().value());
 
-                    throw e;
-                }
+                        descriptor.columnMapping(SchemaUtils.columnMapper(
+                                prevDesc,
+                                oldCols,
+                                descriptor,
+                                newCols));
+                    } catch (IllegalArgumentException ex) {
+                        // Convert unexpected exceptions here,
+                        // because validation actually happens later,
+                        // when bulk configuration update is applied.
+                        ConfigurationValidationException e =
+                                new ConfigurationValidationException(ex.getMessage());
 
-                schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(descriptor));
+                        e.addSuppressed(ex);
+
+                        throw e;
+                    }
+
+                    schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(descriptor));
+                });
+
             });
+        } finally {
+            busyLock.leaveBusy();
+        }
 
-        });
+        return completedFuture(null);
     }
 
     /**
@@ -1026,7 +1043,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
 
                     ch.update(name, tblCh -> {
-                                tableChange.accept(tblCh);
+                        tableChange.accept(tblCh);
                     });
                 }).whenComplete((res, t) -> {
                     if (t != null) {
