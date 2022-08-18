@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -33,7 +34,6 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -48,6 +48,7 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.replication.request.ReplicaRequestParameters;
 import org.apache.ignite.internal.table.distributed.command.response.MultiRowsResponse;
 import org.apache.ignite.internal.table.distributed.command.scan.ScanCloseCommand;
 import org.apache.ignite.internal.table.distributed.command.scan.ScanInitCommand;
@@ -56,6 +57,8 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReplicaR
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -76,8 +79,8 @@ public class InternalTableImpl implements InternalTable {
     /** Log. */
     private static final IgniteLogger LOG = Loggers.forClass(InternalTableImpl.class);
 
-    /** IgniteUuid generator. */
-    private static final IgniteUuidGenerator UUID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
+    /** Cursor id generator. */
+    private static final AtomicLong CURSOR_ID_GENERATOR = new AtomicLong();
 
     /** Partition map. */
     protected final Int2ObjectMap<RaftGroupService> partitionMap;
@@ -201,12 +204,25 @@ public class InternalTableImpl implements InternalTable {
 
             try {
                 fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), op.apply(requestParams));
+                fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), op.apply(requestParams));
             } catch (PrimaryReplicaMissException e) {
                 throw new TransactionException(e);
             } catch (Throwable e) {
                 throw new TransactionException(format("Failed to enlist rows into a transaction"));
             }
         } else {
+            fut = enlist(partId, tx0).thenCompose(
+                    primaryReplicaAndTerm0 -> {
+                        ReplicaRequestParameters requestParams = new ReplicaRequestParameters(
+                                tx0, partGroupId, primaryReplicaAndTerm0.get1(), primaryReplicaAndTerm0.get2()
+                        );
+
+                        try {
+                            return replicaSvc.invoke(primaryReplicaAndTerm0.get1(), op.apply(requestParams));
+                        } catch (Throwable e) {
+                            throw new TransactionException(format("Failed to enlist rows into a transaction"));
+                        }
+                    });
             fut = sendWithRetry(op, tx0, partId, null, partGroupId, 0);
         }
 
@@ -230,6 +246,11 @@ public class InternalTableImpl implements InternalTable {
     ) {
         final boolean implicit = tx == null;
 
+        if (!implicit && tx.state() != null && tx.state() != TxState.PENDING) {
+            return failedFuture(new TransactionException(
+                    "The operation is attempted for completed transaction"));
+        }
+
         final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
 
         Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = mapRowsToPartitions(keyRows);
@@ -251,12 +272,24 @@ public class InternalTableImpl implements InternalTable {
 
                 try {
                     fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), op.apply(requestParams));
+                    fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), op.apply(requestParams));
                 } catch (PrimaryReplicaMissException e) {
                     throw new TransactionException(e);
                 } catch (Throwable e) {
                     throw new TransactionException(format("Failed to enlist rows into a transaction"));
                 }
             } else {
+                fut = enlist(partToRows.getIntKey(), tx0).thenCompose(primaryReplicaAndTerm0 -> {
+                    ReplicaRequestParameters requestParams = new ReplicaRequestParameters(tx0, partToRows.getValue(), partGroupId,
+                            primaryReplicaAndTerm0.get1(), primaryReplicaAndTerm0.get2());
+
+                    try {
+                        return replicaSvc.invoke(primaryReplicaAndTerm0.get1(),
+                                op.apply(requestParams));
+                    } catch (Throwable e) {
+                        throw new TransactionException(format("Failed to enlist rows into a transaction"));
+                    }
+                });
                 fut = sendWithRetry(op, tx0, partToRows.getIntKey(), partToRows.getValue(), partGroupId, 0);
             }
 
@@ -264,6 +297,62 @@ public class InternalTableImpl implements InternalTable {
         }
 
         CompletableFuture<T> fut = reducer.apply(futures);
+
+        return postEnlist(fut, implicit, tx0);
+    }
+
+    /**
+     * Retrieves a batch rows from replication storage.
+     *
+     * @param tx Internal transaction.
+     * @param partId Partition number.
+     * @param scanId Scan id.
+     * @param batchSize Size of batch.
+     * @return Batch of retrieved rows.
+     */
+    private CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
+            InternalTransaction tx,
+            int partId,
+            long scanId,
+            int batchSize
+    ) {
+        final boolean implicit = tx == null;
+
+        final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
+
+        String partGroupId = partitionMap.get(partId).groupId();
+
+        IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx0.enlistedNodeAndTerm(partGroupId);
+
+        CompletableFuture<Collection<BinaryRow>> fut;
+
+        if (primaryReplicaAndTerm != null) {
+            try {
+                fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
+                        .groupId(partGroupId)
+                        .transactionId(tx.id())
+                        .scanId(scanId)
+                        .batchSize(batchSize)
+                        .build());
+            } catch (Throwable e) {
+                throw new TransactionException(format("Failed to enlist cursor into a transaction"));
+            }
+        } else {
+            fut = enlist(partId, tx0).thenCompose(
+                    primaryReplicaNode -> {
+                        try {
+                            return replicaSvc.invoke(primaryReplicaNode.get1(),
+                                    tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
+                                            .groupId(partGroupId)
+                                            .transactionId(tx.id())
+                                            .scanId(scanId)
+                                            .batchSize(batchSize)
+                                            .build());
+                        } catch (Throwable e) {
+                            throw new TransactionException(format("Failed to enlist cursor into a transaction"));
+                        }
+                    });
+        }
 
         return postEnlist(fut, implicit, tx0);
     }
@@ -614,7 +703,7 @@ public class InternalTableImpl implements InternalTable {
             );
         }
 
-        return new PartitionScanPublisher(partitionMap.get(p));
+        return new PartitionScanPublisher((scanId, batchSize) -> enlistCursorInTx(tx, p, scanId, batchSize));
     }
 
     /**
@@ -771,18 +860,20 @@ public class InternalTableImpl implements InternalTable {
      * Partition scan publisher.
      */
     private static class PartitionScanPublisher implements Publisher<BinaryRow> {
-        /** {@link Publisher} that relatively notifies about partition rows. */
-        private final RaftGroupService raftGrpSvc;
+        /** The closure enlists a partition, that is scanned, to the transaction context and retrieves a batch rows. */
+        private final BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch;
 
+        /** True when the publisher has a subscriber, false otherwise. */
         private AtomicBoolean subscribed;
 
         /**
          * The constructor.
          *
-         * @param raftGrpSvc {@link RaftGroupService} to run corresponding raft commands.
+         * @param retrieveBatch Closure that gets a new batch from the remote replica.
          */
-        PartitionScanPublisher(RaftGroupService raftGrpSvc) {
-            this.raftGrpSvc = raftGrpSvc;
+        PartitionScanPublisher(BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch) {
+            this.retrieveBatch = retrieveBatch;
+
             this.subscribed = new AtomicBoolean(false);
         }
 
@@ -813,14 +904,8 @@ public class InternalTableImpl implements InternalTable {
             /**
              * Scan id to uniquely identify it on server side.
              */
-            private final IgniteUuid scanId;
+            private final Long scanId;
 
-            /**
-             * Scan initial operation that created server cursor.
-             */
-            private final CompletableFuture<Void> scanInitOp;
-
-            private AtomicInteger scanCounter = new AtomicInteger(1);
 
             private final AtomicLong requestedItemsCnt;
 
@@ -828,15 +913,14 @@ public class InternalTableImpl implements InternalTable {
 
             /**
              * The constructor.
+             * TODO: IGNITE-15544 Close partition scans on node left.
              *
              * @param subscriber The subscriber.
              */
             private PartitionScanSubscription(Subscriber<? super BinaryRow> subscriber) {
                 this.subscriber = subscriber;
                 this.canceled = new AtomicBoolean(false);
-                this.scanId = UUID_GENERATOR.randomUuid();
-                // TODO: IGNITE-15544 Close partition scans on node left.
-                this.scanInitOp = raftGrpSvc.run(new ScanInitCommand("", scanId));
+                this.scanId = CURSOR_ID_GENERATOR.getAndIncrement();
                 this.requestedItemsCnt = new AtomicLong(0);
             }
 
@@ -871,25 +955,8 @@ public class InternalTableImpl implements InternalTable {
             /** {@inheritDoc} */
             @Override
             public void cancel() {
-                cancel(true);
-            }
-
-            /**
-             * Cancels given subscription and closes cursor if necessary.
-             *
-             * @param closeCursor If {@code true} closes inner storage scan.
-             */
-            private void cancel(boolean closeCursor) {
                 if (!canceled.compareAndSet(false, true)) {
                     return;
-                }
-
-                if (closeCursor) {
-                    scanInitOp.thenRun(() -> raftGrpSvc.run(new ScanCloseCommand(scanId))).exceptionally(closeT -> {
-                        LOG.warn("Unable to close scan", closeT);
-
-                        return null;
-                    });
                 }
             }
 
@@ -903,36 +970,31 @@ public class InternalTableImpl implements InternalTable {
                     return;
                 }
 
-                scanInitOp.thenCompose((none) -> raftGrpSvc.<MultiRowsResponse>run(
-                                new ScanRetrieveBatchCommand(n, scanId, scanCounter.getAndIncrement())))
-                        .thenAccept(
-                                res -> {
-                                    if (res.getValues() == null) {
-                                        cancel();
+                retrieveBatch.apply(scanId, n).thenAccept(binaryRows -> {
+                    if (binaryRows == null) {
+                        cancel();
 
-                                        subscriber.onComplete();
+                        subscriber.onComplete();
 
-                                        return;
-                                    } else {
-                                        res.getValues().forEach(subscriber::onNext);
-                                    }
+                        return;
+                    } else {
+                        binaryRows.forEach(subscriber::onNext);
+                    }
 
-                                    if (res.getValues().size() < n) {
-                                        cancel();
+                    if (binaryRows.size() < n) {
+                        cancel();
 
-                                        subscriber.onComplete();
-                                    } else if (requestedItemsCnt.addAndGet(Math.negateExact(res.getValues().size())) > 0) {
-                                        scanBatch(INTERNAL_BATCH_SIZE);
-                                    }
-                                })
-                        .exceptionally(
-                                t -> {
-                                    cancel(!scanInitOp.isCompletedExceptionally());
+                        subscriber.onComplete();
+                    } else if (requestedItemsCnt.addAndGet(Math.negateExact(binaryRows.size())) > 0) {
+                        scanBatch(INTERNAL_BATCH_SIZE);
+                    }
+                }).exceptionally(t -> {
+                    cancel();
 
-                                    subscriber.onError(t);
+                    subscriber.onError(t);
 
-                                    return null;
-                                });
+                    return null;
+                });
             }
         }
     }

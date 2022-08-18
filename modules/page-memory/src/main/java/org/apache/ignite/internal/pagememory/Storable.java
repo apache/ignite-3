@@ -59,5 +59,5 @@ public interface Storable {
     /**
      * Returns I/O for handling this storable.
      */
-    IoVersions<? extends AbstractDataPageIo> ioVersions();
+    IoVersions<? extends AbstractDataPageIo<?>> ioVersions();
 }

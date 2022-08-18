@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.engine;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -58,28 +57,6 @@ public interface TableStorage {
      * @throws StorageException         If an error has occurred during the partition destruction.
      */
     void dropPartition(int partId) throws StorageException;
-
-    /**
-     * Creates or returns an already created Sorted Index with the given name.
-     *
-     * <p>A prerequisite for calling this method is to have the index already configured under the same name in the Table Configuration
-     * (see {@link #configuration()}).
-     *
-     * @param indexName Index name.
-     * @return Sorted Index storage.
-     * @throws StorageException if no index has been configured under the given name or it has been configured incorrectly (e.g. it was
-     *                          configured as a Hash Index).
-     */
-    SortedIndexStorage getOrCreateSortedIndex(String indexName);
-
-    /**
-     * Destroys the index under the given name and all data in it.
-     *
-     * <p>This method is a no-op if the index under the given name does not exist.
-     *
-     * @param indexName Index name.
-     */
-    void dropIndex(String indexName);
 
     /**
      * Returns {@code true} if this storage is volatile (i.e. stores its data in memory), or {@code false} if it's persistent.

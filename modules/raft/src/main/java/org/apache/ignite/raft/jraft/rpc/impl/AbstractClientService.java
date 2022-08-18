@@ -73,7 +73,11 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     }
 
     @Override public void onAppeared(ClusterNode member) {
-        // No-op. TODO asch https://issues.apache.org/jira/browse/IGNITE-14843
+        // TODO https://issues.apache.org/jira/browse/IGNITE-14837
+        // Perhaps, We can remove checking for dead nodes and replace it with SWIM node alive event
+        // and start replicator when the event is received.
+
+        // No-op.
     }
 
     @Override public void onDisappeared(ClusterNode member) {

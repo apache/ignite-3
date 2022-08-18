@@ -27,5 +27,5 @@ public interface IndexRowDeserializer {
      * @param indexRow Index row.
      * @return Values of the indexed columns.
      */
-    Object[] indexedColumnValues(IndexRow indexRow);
+    Object[] deserializeColumns(IndexRow indexRow);
 }

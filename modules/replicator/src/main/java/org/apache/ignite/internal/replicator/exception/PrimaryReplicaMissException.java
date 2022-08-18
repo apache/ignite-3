@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.replicator.exception;
 
+import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -53,5 +54,17 @@ public class PrimaryReplicaMissException extends IgniteInternalException {
                 "The replica is not the current primary replica [requestAddress={}, "
                 + "localAddress={}, requestTerm={}, localTerm={}]", requestAddress, localAddress, requestTerm, localTerm),
                 cause);
+    }
+
+    /**
+     * The constructor is used for create an exception instance that has thrown in remote server.
+     *
+     * @param traceId Trace id.
+     * @param code Error code.
+     * @param message Error message.
+     * @param cause Cause exception.
+     */
+    public PrimaryReplicaMissException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

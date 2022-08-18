@@ -43,6 +43,7 @@ public interface ReplicaRequest extends NetworkMessage {
 
     /**
      * Gets a raft term.
+     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
      *
      * @return Gets a raft term.
      */

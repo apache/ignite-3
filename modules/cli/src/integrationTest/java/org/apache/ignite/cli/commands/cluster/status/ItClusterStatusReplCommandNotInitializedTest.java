@@ -31,7 +31,7 @@ class ItClusterStatusReplCommandNotInitializedTest extends CliCommandTestNotInit
     @Test
     @DisplayName("Should print status when valid cluster url is given but cluster is not initialized")
     void printStatus() {
-        execute("cluster", "status", "--cluster-url", NODE_URL);
+        execute("cluster", "status", "--cluster-endpoint-url", NODE_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,

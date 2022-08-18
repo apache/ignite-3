@@ -2,7 +2,6 @@
 # description: Test join on is not distinct from query
 # group: [join]
 # Ignore https://issues.apache.org/jira/browse/IGNITE-15574
-# Ignore https://issues.apache.org/jira/browse/IGNITE-15412
 
 
 statement ok

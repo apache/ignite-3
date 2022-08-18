@@ -33,7 +33,7 @@ import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.command.GetAllCommand;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
@@ -154,7 +154,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         partitionListener = new PartitionListener(
                 tblId,
-                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager)
+                new VersionedRowStore(new TestConcurrentHashMapMvPartitionStorage(0), txManager)
         );
     }
 

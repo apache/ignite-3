@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
@@ -35,6 +36,21 @@ import org.apache.ignite.internal.storage.StorageException;
  * Implementation of {@link DataRegion} for persistent case.
  */
 class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory> {
+    /**
+     * Threshold to calculate limit for pages list on-heap caches.
+     *
+     * <p>In general, this is a reservation of pages in PageMemory for converting page list caches from on-heap to off-heap.
+     *
+     * <p>Note: When a checkpoint is triggered, we need some amount of page memory to store pages list on-heap cache.
+     * If a checkpoint is triggered by "too many dirty pages" reason and pages list cache is rather big, we can get {@code
+     * IgniteOutOfMemoryException}. To prevent this, we can limit the total amount of cached page list buckets, assuming that checkpoint
+     * will be triggered if no more then 3/4 of pages will be marked as dirty (there will be at least 1/4 of clean pages) and each cached
+     * page list bucket can be stored to up to 2 pages (this value is not static, but depends on PagesCache.MAX_SIZE, so if
+     * PagesCache.MAX_SIZE > PagesListNodeIo#getCapacity it can take more than 2 pages). Also some amount of page memory is needed to store
+     * page list metadata.
+     */
+    private static final double PAGE_LIST_CACHE_LIMIT_THRESHOLD = 0.1;
+
     private final PersistentPageMemoryDataRegionConfiguration cfg;
 
     private final PageIoRegistry ioRegistry;
@@ -48,6 +64,8 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     private final CheckpointManager checkpointManager;
 
     private volatile PersistentPageMemory pageMemory;
+
+    private volatile AtomicLong pageListCacheLimit;
 
     /**
      * Constructor.
@@ -82,24 +100,23 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     public void start() {
         PersistentPageMemoryDataRegionView dataRegionConfigView = cfg.value();
 
-        PersistentPageMemory pageMemoryImpl = new PersistentPageMemory(
+        PersistentPageMemory pageMemory = new PersistentPageMemory(
                 cfg,
                 ioRegistry,
                 calculateSegmentSizes(dataRegionConfigView, Runtime.getRuntime().availableProcessors()),
                 calculateCheckpointBufferSize(dataRegionConfigView),
                 filePageStoreManager,
                 null,
-                (fullPageId, buf, tag) -> {
-                    // Write page to disk.
-                    filePageStoreManager.write(fullPageId.groupId(), fullPageId.pageId(), buf, true);
-                },
+                (pageMemory0, fullPageId, buf) -> checkpointManager.writePageToDeltaFilePageStore(pageMemory0, fullPageId, buf, true),
                 checkpointManager.checkpointTimeoutLock(),
                 pageSize
         );
 
-        pageMemoryImpl.start();
+        pageMemory.start();
 
-        pageMemory = pageMemoryImpl;
+        pageListCacheLimit = new AtomicLong((long) (pageMemory.totalPages() * PAGE_LIST_CACHE_LIMIT_THRESHOLD));
+
+        this.pageMemory = pageMemory;
     }
 
     /**
@@ -138,6 +155,15 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
      */
     public CheckpointManager checkpointManager() {
         return checkpointManager;
+    }
+
+    /**
+     * Returns page list cache limit.
+     */
+    public AtomicLong pageListCacheLimit() {
+        checkDataRegionStarted();
+
+        return pageListCacheLimit;
     }
 
     /**

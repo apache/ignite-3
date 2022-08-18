@@ -21,6 +21,8 @@ import static java.nio.file.Files.createDirectories;
 import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -32,13 +34,16 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager;
 import org.apache.ignite.internal.util.IgniteStripedLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -49,11 +54,23 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /** File suffix. */
     public static final String FILE_SUFFIX = ".bin";
 
+    /** Suffix of the temporary file. */
+    public static final String TMP_FILE_SUFFIX = ".tmp";
+
     /** Partition file prefix. */
     public static final String PART_FILE_PREFIX = "part-";
 
-    /** Partition file template. */
+    /** Partition delta file prefix. */
+    public static final String PART_DELTA_FILE_PREFIX = PART_FILE_PREFIX + "%d-delta-";
+
+    /** Partition file template, example "part-1.bin". */
     public static final String PART_FILE_TEMPLATE = PART_FILE_PREFIX + "%d" + FILE_SUFFIX;
+
+    /** Partition temporary delta file template, example "part-1-delta-1.bin". */
+    public static final String PART_DELTA_FILE_TEMPLATE = PART_DELTA_FILE_PREFIX + "%d" + FILE_SUFFIX;
+
+    /** Partition delta file template, example "part-1-delta-1.bin.tmp". */
+    public static final String TMP_PART_DELTA_FILE_TEMPLATE = PART_DELTA_FILE_TEMPLATE + TMP_FILE_SUFFIX;
 
     /** Group directory prefix. */
     public static final String GROUP_DIR_PREFIX = "table-";
@@ -66,9 +83,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
     /** Page size in bytes. */
     private final int pageSize;
-
-    /** Page read write manager. */
-    private final PageReadWriteManager pageReadWriteManager = new PageReadWriteManagerImpl(this);
 
     /**
      * Executor to disallow running code that modifies data in {@link #groupPageStores} concurrently with cleanup of file page store.
@@ -106,12 +120,6 @@ public class FilePageStoreManager implements PageReadWriteManager {
         this.dbDir = storagePath.resolve("db");
         this.pageSize = pageSize;
 
-        try {
-            createDirectories(dbDir);
-        } catch (IOException e) {
-            throw new IgniteInternalCheckedException("Could not create work directory for page stores: " + dbDir, e);
-        }
-
         cleanupAsyncExecutor = new LongOperationAsyncExecutor(igniteInstanceName, log);
 
         groupPageStores = new GroupPageStoresMap<>(cleanupAsyncExecutor);
@@ -121,8 +129,16 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
     /**
      * Starts the file page store manager.
+     *
+     * @throws IgniteInternalCheckedException If failed.
      */
-    public void start() {
+    public void start() throws IgniteInternalCheckedException {
+        try {
+            createDirectories(dbDir);
+        } catch (IOException e) {
+            throw new IgniteInternalCheckedException("Could not create work directory for page stores: " + dbDir, e);
+        }
+
         if (log.isWarnEnabled()) {
             String tmpDir = System.getProperty("java.io.tmpdir");
 
@@ -130,6 +146,24 @@ public class FilePageStoreManager implements PageReadWriteManager {
                 log.warn("Persistence store directory is in the temp directory and may be cleaned. "
                         + "To avoid this change location of persistence directories [currentDir={}]", this.dbDir);
             }
+        }
+
+        try (Stream<Path> tmpFileStream = Files.find(
+                dbDir,
+                Integer.MAX_VALUE,
+                (path, basicFileAttributes) -> path.getFileName().toString().endsWith(TMP_FILE_SUFFIX)
+        )) {
+            List<Path> tmpFiles = tmpFileStream.collect(toList());
+
+            if (!tmpFiles.isEmpty()) {
+                if (log.isInfoEnabled()) {
+                    log.info("Temporary files to be deleted: {}", tmpFiles.size());
+                }
+
+                tmpFiles.forEach(IgniteUtils::deleteIfExists);
+            }
+        } catch (IOException e) {
+            throw new IgniteInternalCheckedException("Could not create work directory for page stores: " + dbDir, e);
         }
     }
 
@@ -145,7 +179,15 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /** {@inheritDoc} */
     @Override
     public void read(int grpId, long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
-        pageReadWriteManager.read(grpId, pageId, pageBuf, keepCrc);
+        FilePageStore pageStore = getStore(grpId, partitionId(pageId));
+
+        try {
+            pageStore.read(pageId, pageBuf, keepCrc);
+        } catch (IgniteInternalCheckedException e) {
+            // TODO: IGNITE-16899 By analogy with 2.0, fail a node
+
+            throw e;
+        }
     }
 
     /** {@inheritDoc} */
@@ -156,13 +198,35 @@ public class FilePageStoreManager implements PageReadWriteManager {
             ByteBuffer pageBuf,
             boolean calculateCrc
     ) throws IgniteInternalCheckedException {
-        return pageReadWriteManager.write(grpId, pageId, pageBuf, calculateCrc);
+        FilePageStore pageStore = getStore(grpId, partitionId(pageId));
+
+        try {
+            pageStore.write(pageId, pageBuf, calculateCrc);
+        } catch (IgniteInternalCheckedException e) {
+            // TODO: IGNITE-16899 By analogy with 2.0, fail a node
+
+            throw e;
+        }
+
+        return pageStore;
     }
 
     /** {@inheritDoc} */
     @Override
     public long allocatePage(int grpId, int partId, byte flags) throws IgniteInternalCheckedException {
-        return pageReadWriteManager.allocatePage(grpId, partId, flags);
+        assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
+
+        FilePageStore pageStore = getStore(grpId, partId);
+
+        try {
+            int pageIdx = pageStore.allocatePage();
+
+            return pageId(partId, flags, pageIdx);
+        } catch (IgniteInternalCheckedException e) {
+            // TODO: IGNITE-16899 By analogy with 2.0, fail a node
+
+            throw e;
+        }
     }
 
     /**
@@ -202,6 +266,13 @@ public class FilePageStoreManager implements PageReadWriteManager {
      */
     public @Nullable List<FilePageStore> getStores(int grpId) {
         return groupPageStores.get(grpId);
+    }
+
+    /**
+     * Returns all page stores of all groups.
+     */
+    public Collection<List<FilePageStore>> allPageStores() {
+        return groupPageStores.allPageStores();
     }
 
     /**
@@ -305,14 +376,71 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
         try {
             for (int i = 0; i < partitions; i++) {
-                Path partFilePath = groupWorkDir.resolve(String.format(PART_FILE_TEMPLATE, i));
+                int part = i;
 
-                partitionFilePageStores.add(filePageStoreFactory.createPageStore(partFilePath, buffer.rewind()));
+                Path partFilePath = groupWorkDir.resolve(String.format(PART_FILE_TEMPLATE, part));
+
+                Path[] partDeltaFiles = findPartitionDeltaFiles(groupWorkDir, part);
+
+                FilePageStore filePageStore = filePageStoreFactory.createPageStore(buffer.rewind(), partFilePath, partDeltaFiles);
+
+                partitionFilePageStores.add(filePageStore);
             }
 
             return unmodifiableList(partitionFilePageStores);
         } finally {
             freeBuffer(buffer);
         }
+    }
+
+    /**
+     * Returns paths (unsorted) to delta files for the requested partition.
+     *
+     * @param groupWorkDir Group directory.
+     * @param partition Partition number.
+     */
+    Path[] findPartitionDeltaFiles(Path groupWorkDir, int partition) throws IgniteInternalCheckedException {
+        assert partition >= 0 : partition;
+
+        String partitionDeltaFilePrefix = String.format(PART_DELTA_FILE_PREFIX, partition);
+
+        try (Stream<Path> deltaFileStream = Files.find(
+                groupWorkDir,
+                1,
+                (path, basicFileAttributes) -> path.getFileName().toString().startsWith(partitionDeltaFilePrefix))
+        ) {
+            return deltaFileStream.toArray(Path[]::new);
+        } catch (IOException e) {
+            throw new IgniteInternalCheckedException(
+                    IgniteStringFormatter.format(
+                            "Error while searching delta partition files [groupDir={}, partition={}]",
+                            groupWorkDir,
+                            partition
+                    ),
+                    e
+            );
+        }
+    }
+
+    /**
+     * Returns the temporary path to the delta file page store, like "part-1-delta-1.bin.tmp".
+     *
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     * @param index Index of the delta file page store.
+     */
+    public Path tmpDeltaFilePageStorePath(int groupId, int partitionId, int index) {
+        return dbDir.resolve(GROUP_DIR_PREFIX + groupId).resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, partitionId, index));
+    }
+
+    /**
+     * Returns the path to the delta file page store, like "part-1-delta-1.bin".
+     *
+     * @param groupId Group ID.
+     * @param partitionId Partition ID.
+     * @param index Index of the delta file page store.
+     */
+    public Path deltaFilePageStorePath(int groupId, int partitionId, int index) {
+        return dbDir.resolve(GROUP_DIR_PREFIX + groupId).resolve(String.format(PART_DELTA_FILE_TEMPLATE, partitionId, index));
     }
 }

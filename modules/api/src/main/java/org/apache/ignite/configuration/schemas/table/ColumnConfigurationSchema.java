@@ -38,9 +38,9 @@ public class ColumnConfigurationSchema {
     public ColumnTypeConfigurationSchema type;
 
     /** Nullable flag. */
-    @Value
+    @Value(hasDefault = true)
     @Immutable
-    public boolean nullable;
+    public boolean nullable = false;
 
     /** Default value. */
     @ConfigValue

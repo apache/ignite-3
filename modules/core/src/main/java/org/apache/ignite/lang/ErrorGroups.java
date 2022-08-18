@@ -27,8 +27,15 @@ public class ErrorGroups {
         /** Unknown error group. */
         public static final ErrorGroup COMMON_ERR_GROUP = ErrorGroup.newGroup("CMN", 1);
 
+        /** Unexpected error. */
+        public static final int UNEXPECTED_ERR = COMMON_ERR_GROUP.registerErrorCode(1);
+
+        /** Node stopping error. */
+        public static final int NODE_STOPPING_ERR = COMMON_ERR_GROUP.registerErrorCode(2);
+
         /** Unknown error. */
-        public static final int UNKNOWN_ERR = COMMON_ERR_GROUP.registerErrorCode(1);
+        @Deprecated
+        public static final int UNKNOWN_ERR = COMMON_ERR_GROUP.registerErrorCode(0xFFFF);
     }
 
     /** Tables error group. */
@@ -104,6 +111,60 @@ public class ErrorGroups {
 
         /** Storage engine not valid. */
         public static final int STORAGE_ENGINE_NOT_VALID_ERR = SQL_ERR_GROUP.registerErrorCode(8);
+
+        /** Cursor is already closed error. */
+        public static final int CURSOR_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode(9);
+    }
+
+    /** Meta storage error group. */
+    public static class MetaStorage {
+        /** Meta storage error group. */
+        public static final ErrorGroup META_STORAGE_ERR_GROUP = ErrorGroup.newGroup("META", 5);
+
+        /** Failed to start the underlying key value storage. */
+        public static final int STARTING_STORAGE_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(1);
+
+        /** Failed to restore the underlying key value storage. */
+        public static final int RESTORING_STORAGE_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(2);
+
+        /** Failed to close the underlying key value storage. */
+        public static final int CLOSING_STORAGE_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(3);
+
+        /** Failed to compact the underlying key value storage. */
+        public static final int COMPACTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(4);
+
+        /** Failed to perform an operation on the underlying key value storage. */
+        public static final int OP_EXECUTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(5);
+
+        /** Failed to perform an operation within a specified time period. Usually in such cases the operation should be retried. */
+        public static final int OP_EXECUTION_TIMEOUT_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(6);
+
+        /** Failed to iterate over the underlying key value storage. */
+        public static final int WATCH_EXECUTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(7);
+
+        /** Failed to stop a watcher. */
+        public static final int WATCH_STOPPING_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(8);
+
+        /** Failed to deploy or update a watcher. */
+        public static final int DEPLOYING_WATCH_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(9);
+
+        /** Failed to iterate over meta storage cursor. */
+        public static final int CURSOR_EXECUTION_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(10);
+
+        /** Failed to close a cursor. */
+        public static final int CURSOR_CLOSING_ERR = META_STORAGE_ERR_GROUP.registerErrorCode(11);
+    }
+
+    /** Index error group. */
+    public static class Index {
+        /** Index error group. */
+        public static final ErrorGroup INDEX_ERR_GROUP = ErrorGroup.newGroup("IDX", 6);
+
+        /** Invalid index definition. */
+        public static final int INVALID_INDEX_DEFINITION_ERR = INDEX_ERR_GROUP.registerErrorCode(1);
+
+        /** Index not found. */
+        public static final int INDEX_NOT_FOUND_ERR = INDEX_ERR_GROUP.registerErrorCode(2);
     }
 
     /** Transactions error group. */

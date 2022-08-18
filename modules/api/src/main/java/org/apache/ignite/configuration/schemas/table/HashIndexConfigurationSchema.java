@@ -29,5 +29,5 @@ import org.apache.ignite.configuration.annotation.Value;
 public class HashIndexConfigurationSchema extends TableIndexConfigurationSchema {
     /** Columns names for hash indexes. */
     @Value
-    public String[] colNames;
+    public String[] columnNames;
 }

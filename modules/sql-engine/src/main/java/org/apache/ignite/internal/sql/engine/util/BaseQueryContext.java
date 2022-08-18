@@ -57,6 +57,7 @@ import org.apache.ignite.internal.sql.engine.trait.CorrelationTraitDef;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
 import org.apache.ignite.internal.sql.engine.trait.RewindabilityTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
@@ -160,6 +161,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private CalciteCatalogReader catalogReader;
 
+    private InternalTransaction tx;
+
     /**
      * Private constructor, used by a builder.
      */
@@ -168,7 +171,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
             FrameworkConfig cfg,
             QueryCancel cancel,
             Object[] parameters,
-            IgniteLogger log
+            IgniteLogger log,
+            InternalTransaction tx
     ) {
         super(Contexts.chain(cfg.getContext()));
 
@@ -179,6 +183,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         this.log = log;
         this.cancel = cancel;
         this.parameters = parameters;
+        this.tx = tx;
 
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, cfg.getTypeSystem());
 
@@ -225,6 +230,10 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     public RexBuilder rexBuilder() {
         return rexBuilder;
+    }
+
+    public InternalTransaction transaction() {
+        return tx;
     }
 
     /**
@@ -279,6 +288,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
 
+        private InternalTransaction tx;
+
         public Builder frameworkConfig(FrameworkConfig frameworkCfg) {
             this.frameworkCfg = Objects.requireNonNull(frameworkCfg);
             return this;
@@ -304,8 +315,13 @@ public final class BaseQueryContext extends AbstractQueryContext {
             return this;
         }
 
+        public Builder transaction(InternalTransaction tx) {
+            this.tx = tx;
+            return this;
+        }
+
         public BaseQueryContext build() {
-            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log);
+            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log, tx);
         }
     }
 }

@@ -48,7 +48,6 @@ import static org.apache.ignite.internal.util.GridUnsafe.copyMemory;
 import static org.apache.ignite.internal.util.GridUnsafe.getInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getLong;
 import static org.apache.ignite.internal.util.GridUnsafe.putIntVolatile;
-import static org.apache.ignite.internal.util.GridUnsafe.setMemory;
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
 import static org.apache.ignite.internal.util.IgniteUtils.hash;
@@ -234,7 +233,7 @@ public class PersistentPageMemory implements PageMemory {
             long checkpointBufferSize,
             PageReadWriteManager pageStoreManager,
             @Nullable PageChangeTracker changeTracker,
-            PageStoreWriter flushDirtyPageForReplacement,
+            WriteDirtyPage flushDirtyPageForReplacement,
             CheckpointTimeoutLock checkpointTimeoutLock,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
@@ -543,10 +542,11 @@ public class PersistentPageMemory implements PageMemory {
 
             long absPtr = seg.absolute(relPtr);
 
-            setMemory(absPtr + PAGE_OVERHEAD, pageSize(), (byte) 0);
+            zeroMemory(absPtr + PAGE_OVERHEAD, pageSize());
 
             fullPageId(absPtr, fullId);
             writeTimestamp(absPtr, coarseCurrentTimeMillis());
+
             rwLock.init(absPtr + PAGE_LOCK_OFFSET, tag(pageId));
 
             assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO IGNITE-16612
@@ -576,6 +576,9 @@ public class PersistentPageMemory implements PageMemory {
         } finally {
             seg.writeLock().unlock();
         }
+
+        // Finish replacement only when an exception wasn't thrown otherwise it possible to corrupt B+Tree.
+        delayedPageReplacementTracker.delayedPageWrite().finishReplacement();
 
         return pageId;
     }
@@ -727,9 +730,11 @@ public class PersistentPageMemory implements PageMemory {
                 long pageAddr = absPtr + PAGE_OVERHEAD;
 
                 if (!restore) {
+                    delayedPageReplacementTracker.waitUnlock(fullId);
+
                     readPageFromStore = true;
                 } else {
-                    setMemory(absPtr + PAGE_OVERHEAD, pageSize(), (byte) 0);
+                    zeroMemory(absPtr + PAGE_OVERHEAD, pageSize());
 
                     // Must init page ID in order to ensure RWLock tag consistency.
                     setPageId(pageAddr, pageId);
@@ -753,7 +758,7 @@ public class PersistentPageMemory implements PageMemory {
 
                 long pageAddr = absPtr + PAGE_OVERHEAD;
 
-                setMemory(pageAddr, pageSize(), (byte) 0);
+                zeroMemory(pageAddr, pageSize());
 
                 fullPageId(absPtr, fullId);
                 writeTimestamp(absPtr, coarseCurrentTimeMillis());
@@ -781,6 +786,8 @@ public class PersistentPageMemory implements PageMemory {
             return absPtr;
         } finally {
             seg.writeLock().unlock();
+
+            delayedPageReplacementTracker.delayedPageWrite().finishReplacement();
 
             if (readPageFromStore) {
                 assert lockedPageAbsPtr != -1 : "Page is expected to have a valid address [pageId=" + fullId
@@ -1467,18 +1474,9 @@ public class PersistentPageMemory implements PageMemory {
                 // Can evict a dirty page only if should be written by a checkpoint.
                 // These pages does not have tmp buffer.
                 if (checkpointPages != null && checkpointPages.allowToSave(fullPageId)) {
-                    assert pageStoreManager != null;
+                    WriteDirtyPage writeDirtyPage = delayedPageReplacementTracker.delayedPageWrite();
 
-                    PageStoreWriter saveDirtyPage = delayedPageReplacementTracker.delayedPageWrite();
-
-                    saveDirtyPage.writePage(
-                            fullPageId,
-                            wrapPointer(absPtr + PAGE_OVERHEAD, pageSize()),
-                            partGeneration(
-                                    fullPageId.groupId(),
-                                    partitionId(fullPageId.pageId())
-                            )
-                    );
+                    writeDirtyPage.write(PersistentPageMemory.this, fullPageId, wrapPointer(absPtr + PAGE_OVERHEAD, pageSize()));
 
                     setDirty(fullPageId, absPtr, false, true);
 
@@ -1514,7 +1512,7 @@ public class PersistentPageMemory implements PageMemory {
 
             long absPtr = absolute(relPtr);
 
-            setMemory(absPtr + PAGE_OVERHEAD, pageSize(), (byte) 0);
+            zeroMemory(absPtr + PAGE_OVERHEAD, pageSize());
 
             dirty(absPtr, false);
 
@@ -1924,7 +1922,7 @@ public class PersistentPageMemory implements PageMemory {
             PageStoreWriter pageStoreWriter,
             CheckpointMetricsTracker tracker
     ) throws IgniteInternalCheckedException {
-        assert buf.remaining() == pageSize();
+        assert buf.remaining() == pageSize() : buf.remaining();
 
         Segment seg = segment(fullId.groupId(), fullId.pageId());
 

@@ -66,11 +66,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Lock manager. */
     private final LockManager lockManager;
 
-    /**
-     * The storage for tx states.
-     *
-     * <p>TODO IGNITE-15931 use Storage for states, implement max size, implement replication.
-     */
+    // TODO <MUTED> IGNITE-15931 use Storage for states, implement max size, implement replication.
+    /** The storage for tx states. */
     private final ConcurrentHashMap<UUID, TxState> states = new ConcurrentHashMap<>();
 
     /**

@@ -33,6 +33,11 @@ import java.util.regex.Pattern;
  * INI file parser.
  */
 public class IniParser {
+    /**
+     * Section name for properties outside any section.
+     */
+    public static final String NO_SECTION = "NO_SECTION";
+
     private static final Pattern SECTION_PATTERN  = Pattern.compile("\\s*\\[([^]]*)\\]\\s*");
     private static final Pattern KEY_VALUE_PATTER = Pattern.compile("\\s*([^=]*)=(.*)");
     private static final Pattern COMMENT_LINE = Pattern.compile("^[;|#].*");
@@ -70,7 +75,8 @@ public class IniParser {
 
     private Map<String, IniSection> parseIniFile(BufferedReader bufferedReader) throws IOException {
         Map<String, IniSection> map = new LinkedHashMap<>();
-        IniSection currentSection = new IniSection("NO_SECTION");
+        IniSection currentSection = new IniSection(NO_SECTION);
+        map.put(NO_SECTION, currentSection);
         String line;
         while ((line = bufferedReader.readLine()) != null) {
 

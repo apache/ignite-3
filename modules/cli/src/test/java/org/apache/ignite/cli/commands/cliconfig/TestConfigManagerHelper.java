@@ -30,34 +30,46 @@ import org.apache.ignite.cli.config.ConfigManager;
  * Test factory for {@link ConfigManager}.
  */
 public class TestConfigManagerHelper {
-    public static final String EMPTY = "empty.ini";
-    public static final String TWO_SECTION_WITH_INTERNAL_PART = "two_section_with_internal.ini";
-    public static final String TWO_SECTION_WITHOUT_INTERNAL_PART = "two_section_without_internal.ini";
-    public static final String INTEGRATION_TESTS = "integration_tests.ini";
+    private static final String EMPTY = "empty.ini";
+    private static final String TWO_SECTION_WITH_INTERNAL_PART = "two_section_with_internal.ini";
+    private static final String TWO_SECTION_WITHOUT_INTERNAL_PART = "two_section_without_internal.ini";
+    private static final String INTEGRATION_TESTS = "integration_tests.ini";
+
+    private static final String CLUSTER_URL_NON_DEFAULT = "cluster_url_non_default.ini";
 
     public static File createEmptyConfig() {
-        return createIniFile(EMPTY);
+        return copyResourceToTempFile(EMPTY);
     }
 
     public static File createSectionWithInternalPart() {
-        return createIniFile(TWO_SECTION_WITH_INTERNAL_PART);
+        return copyResourceToTempFile(TWO_SECTION_WITH_INTERNAL_PART);
     }
 
     public static File createSectionWithoutInternalPart() {
-        return createIniFile(TWO_SECTION_WITHOUT_INTERNAL_PART);
+        return copyResourceToTempFile(TWO_SECTION_WITHOUT_INTERNAL_PART);
     }
 
     public static File createIntegrationTests() {
-        return createIniFile(INTEGRATION_TESTS);
+        return copyResourceToTempFile(INTEGRATION_TESTS);
     }
 
-    private static File createIniFile(String iniResource) {
+    public static File createClusterUrlNonDefault() {
+        return copyResourceToTempFile(CLUSTER_URL_NON_DEFAULT);
+    }
+
+    /**
+     * Helper method to copy file from the classpath to the temporary file which will be deleted on exit.
+     *
+     * @param resource The resource name
+     * @return A temporary file containing the resource's contents
+     */
+    public static File copyResourceToTempFile(String resource) {
         try {
             File tempFile = File.createTempFile("cli", null);
 
             try (FileOutputStream fileOutputStream = new FileOutputStream(tempFile)) {
                 FileChannel dest = fileOutputStream.getChannel();
-                InputStream resourceAsStream = TestConfigManagerHelper.class.getClassLoader().getResourceAsStream(iniResource);
+                InputStream resourceAsStream = TestConfigManagerHelper.class.getClassLoader().getResourceAsStream(resource);
                 ReadableByteChannel src = Channels.newChannel(resourceAsStream);
                 dest.transferFrom(src, 0, Integer.MAX_VALUE);
                 tempFile.deleteOnExit();

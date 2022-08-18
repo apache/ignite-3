@@ -26,8 +26,8 @@ import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * When placed on a test method, this annotation will be used to resolve its parameters using a static variable declared in the enclosing
- * test class.
+ * When placed on a test method, this annotation will be used to resolve its parameters using a public static variable declared in the
+ * enclosing test class or its superclasses.
  *
  * <p>This annotation is conceptually similar to the {@link MethodSource} annotation and uses the same parameter resolution procedures.
  */

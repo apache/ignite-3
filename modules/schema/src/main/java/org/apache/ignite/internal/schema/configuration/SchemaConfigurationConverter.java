@@ -20,7 +20,6 @@ package org.apache.ignite.internal.schema.configuration;
 import static java.math.RoundingMode.HALF_UP;
 import static java.util.Arrays.asList;
 import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.HASH_INDEX_TYPE;
-import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.PARTIAL_INDEX_TYPE;
 import static org.apache.ignite.configuration.schemas.table.TableIndexConfigurationSchema.SORTED_INDEX_TYPE;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
@@ -52,8 +51,6 @@ import org.apache.ignite.configuration.schemas.table.HashIndexView;
 import org.apache.ignite.configuration.schemas.table.IndexColumnChange;
 import org.apache.ignite.configuration.schemas.table.IndexColumnView;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultView;
-import org.apache.ignite.configuration.schemas.table.PartialIndexChange;
-import org.apache.ignite.configuration.schemas.table.PartialIndexView;
 import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
 import org.apache.ignite.configuration.schemas.table.SortedIndexChange;
 import org.apache.ignite.configuration.schemas.table.SortedIndexView;
@@ -66,7 +63,6 @@ import org.apache.ignite.configuration.schemas.table.TablesChange;
 import org.apache.ignite.internal.schema.definition.ColumnDefinitionImpl;
 import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
 import org.apache.ignite.internal.schema.definition.index.HashIndexDefinitionImpl;
-import org.apache.ignite.internal.schema.definition.index.PartialIndexDefinitionImpl;
 import org.apache.ignite.internal.schema.definition.index.PrimaryKeyDefinitionImpl;
 import org.apache.ignite.internal.schema.definition.index.SortedIndexColumnDefinitionImpl;
 import org.apache.ignite.internal.schema.definition.index.SortedIndexDefinitionImpl;
@@ -82,7 +78,6 @@ import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.index.HashIndexDefinition;
 import org.apache.ignite.schema.definition.index.IndexColumnDefinition;
 import org.apache.ignite.schema.definition.index.IndexDefinition;
-import org.apache.ignite.schema.definition.index.PartialIndexDefinition;
 import org.apache.ignite.schema.definition.index.SortOrder;
 import org.apache.ignite.schema.definition.index.SortedIndexColumnDefinition;
 import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
@@ -155,19 +150,7 @@ public class SchemaConfigurationConverter {
 
                 String[] colNames = hashIdx.columns().stream().map(IndexColumnDefinition::name).toArray(String[]::new);
 
-                return idxChg.convert(HashIndexChange.class).changeColNames(colNames);
-
-            case PARTIAL_INDEX_TYPE:
-                PartialIndexDefinition partIdx = (PartialIndexDefinition) idx;
-
-                return idxChg.changeUniq(partIdx.unique())
-                        .convert(PartialIndexChange.class)
-                        .changeExpr(partIdx.expr())
-                        .changeColumns(colsChg -> {
-                            for (SortedIndexColumnDefinition col : partIdx.columns()) {
-                                colsChg.create(col.name(), colInit -> convert(col, colInit));
-                            }
-                        });
+                return idxChg.convert(HashIndexChange.class).changeColumnNames(colNames);
 
             case SORTED_INDEX_TYPE:
                 SortedIndexDefinition sortIdx = (SortedIndexDefinition) idx;
@@ -197,7 +180,7 @@ public class SchemaConfigurationConverter {
 
         switch (type.toUpperCase()) {
             case HASH_INDEX_TYPE:
-                String[] hashCols = ((HashIndexView) idxView).colNames();
+                String[] hashCols = ((HashIndexView) idxView).columnNames();
 
                 return new HashIndexDefinitionImpl(name, asList(hashCols));
 
@@ -210,18 +193,6 @@ public class SchemaConfigurationConverter {
                         .collect(Collectors.toList());
 
                 return new SortedIndexDefinitionImpl(name, sortedIndexColumnDefinitions, idxView.uniq());
-
-            case PARTIAL_INDEX_TYPE:
-                String expr = ((PartialIndexView) idxView).expr();
-
-                NamedListView<? extends IndexColumnView> partialIndexColumns = ((PartialIndexView) idxView).columns();
-
-                List<SortedIndexColumnDefinition> partialIndexColumnDefinitions = partialIndexColumns.namedListKeys().stream()
-                        .map(partialIndexColumns::get)
-                        .map(SchemaConfigurationConverter::convert)
-                        .collect(Collectors.toList());
-
-                return new PartialIndexDefinitionImpl(name, partialIndexColumnDefinitions, expr, idxView.uniq());
 
             default:
                 throw new IllegalArgumentException("Unknown type " + type);
@@ -490,7 +461,13 @@ public class SchemaConfigurationConverter {
         var indices = new HashMap<String, IndexDefinition>(capacity(idxsView.size()));
 
         for (String key : idxsView.namedListKeys()) {
-            IndexDefinition definition = convert(idxsView.get(key));
+            TableIndexView indexView = idxsView.get(key);
+
+            if (indexView == null) { // skip just deleted indices
+                continue;
+            }
+
+            IndexDefinition definition = convert(indexView);
 
             indices.put(definition.name(), definition);
         }

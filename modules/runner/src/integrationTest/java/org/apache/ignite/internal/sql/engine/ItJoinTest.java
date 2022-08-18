@@ -51,7 +51,7 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
                 ).withPrimaryKey("ID")
         );
 
-        // TODO: support indexes. https://issues.apache.org/jira/browse/IGNITE-14925
+        // TODO: support indexes. https://issues.apache.org/jira/browse/IGNITE-17304
         // sql("create index t1_idx on t1 (c3, c2, c1)");
         // sql("create index t2_idx on t2 (c3, c2, c1)");
 

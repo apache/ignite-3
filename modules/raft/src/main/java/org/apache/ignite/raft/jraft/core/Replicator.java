@@ -1125,7 +1125,9 @@ public class Replicator implements ThreadId.OnError {
                     LOG.warn("Fail to issue RPC to {}, consecutiveErrorTimes={}, error={}", r.options.getPeerId(),
                         r.consecutiveErrorTimes, status);
                 }
-                r.startHeartbeatTimer(startTimeMs); // TODO asch use discovery instead of constant probing IGNITE-14843
+                // TODO https://issues.apache.org/jira/browse/IGNITE-14837
+                // Consider using discovery instead of constant probing.
+                r.startHeartbeatTimer(startTimeMs);
                 return;
             }
             r.consecutiveErrorTimes = 0;

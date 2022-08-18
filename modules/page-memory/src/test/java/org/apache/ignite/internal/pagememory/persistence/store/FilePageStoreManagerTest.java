@@ -17,14 +17,22 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager.PART_DELTA_FILE_TEMPLATE;
+import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager.PART_FILE_TEMPLATE;
+import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager.TMP_FILE_SUFFIX;
+import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager.TMP_PART_DELTA_FILE_TEMPLATE;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.arrayContainingInAnyOrder;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -37,6 +45,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
@@ -59,24 +68,14 @@ public class FilePageStoreManagerTest {
     private Path workDir;
 
     @Test
-    void testCreateManager() throws Exception {
+    void testCreateManager() {
         // Checks if the manager was successfully created.
 
         assertDoesNotThrow(this::createManager);
 
         Path dbDir = workDir.resolve("db");
 
-        assertTrue(Files.isDirectory(dbDir));
-
-        // Checks for failed manager creation.
-
-        Files.delete(dbDir);
-
-        Files.createFile(dbDir);
-
-        IgniteInternalCheckedException exception = assertThrows(IgniteInternalCheckedException.class, this::createManager);
-
-        assertThat(exception.getMessage(), containsString("Could not create work directory for page stores"));
+        assertFalse(Files.exists(dbDir));
     }
 
     @Test
@@ -88,6 +87,18 @@ public class FilePageStoreManagerTest {
         assertDoesNotThrow(manager::stop);
 
         verify(manager, times(1)).stopAllGroupFilePageStores(false);
+    }
+
+    @Test
+    void testStartFailed() throws Exception {
+        Files.createFile(workDir.resolve("db"));
+
+        FilePageStoreManager manager = createManager();
+
+        IgniteInternalCheckedException exception = assertThrows(IgniteInternalCheckedException.class, manager::start);
+
+        assertThat(exception.getMessage(), containsString("Could not create work directory for page stores"));
+
     }
 
     @Test
@@ -230,6 +241,133 @@ public class FilePageStoreManagerTest {
         }
 
         assertThat(workDir.resolve("db/table-1").toFile().listFiles(), emptyArray());
+    }
+
+    @Test
+    void testRemoveTmpFilesOnStart() throws Exception {
+        FilePageStoreManager manager = createManager();
+
+        manager.start();
+
+        manager.initialize("test0", 1, 1);
+        manager.initialize("test1", 2, 1);
+
+        Path grpDir0 = workDir.resolve("db/table-1");
+        Path grpDir1 = workDir.resolve("db/table-2");
+
+        Files.createFile(grpDir0.resolve(String.format(PART_FILE_TEMPLATE, 1) + TMP_FILE_SUFFIX));
+        Files.createFile(grpDir0.resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, 1, 1)));
+        Files.createFile(grpDir1.resolve(String.format(PART_FILE_TEMPLATE, 3) + TMP_FILE_SUFFIX));
+        Files.createFile(grpDir1.resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, 3, 1)));
+
+        assertDoesNotThrow(manager::start);
+
+        try (
+                Stream<Path> grpFileStream0 = Files.list(grpDir0);
+                Stream<Path> grpFileStream1 = Files.list(grpDir1);
+        ) {
+            assertThat(grpFileStream0.collect(toList()), empty());
+            assertThat(grpFileStream1.collect(toList()), empty());
+        }
+    }
+
+    @Test
+    void testFindPartitionDeltaFiles() throws Exception {
+        FilePageStoreManager manager = createManager();
+
+        manager.start();
+
+        manager.initialize("test0", 1, 1);
+        manager.initialize("test1", 2, 1);
+
+        Path grpDir0 = workDir.resolve("db/table-1");
+        Path grpDir1 = workDir.resolve("db/table-2");
+
+        Path grp0Part1deltaFilePath0 = grpDir0.resolve(String.format(PART_DELTA_FILE_TEMPLATE, 1, 0));
+        Path grp0Part1deltaFilePath1 = grpDir0.resolve(String.format(PART_DELTA_FILE_TEMPLATE, 1, 1));
+        Path grp0Part1deltaFilePath2 = grpDir0.resolve(String.format(PART_DELTA_FILE_TEMPLATE, 1, 2));
+
+        Path grp0Part2deltaFilePath0 = grpDir0.resolve(String.format(PART_DELTA_FILE_TEMPLATE, 2, 0));
+
+        Path grp1Part4deltaFilePath3 = grpDir1.resolve(String.format(PART_DELTA_FILE_TEMPLATE, 4, 3));
+
+        Files.createFile(grp0Part1deltaFilePath0);
+        Files.createFile(grp0Part1deltaFilePath1);
+        Files.createFile(grp0Part1deltaFilePath2);
+
+        Files.createFile(grp0Part2deltaFilePath0);
+
+        Files.createFile(grp1Part4deltaFilePath3);
+
+        assertThat(
+                manager.findPartitionDeltaFiles(grpDir0, 1),
+                arrayContainingInAnyOrder(grp0Part1deltaFilePath0, grp0Part1deltaFilePath1, grp0Part1deltaFilePath2)
+        );
+
+        assertThat(
+                manager.findPartitionDeltaFiles(grpDir0, 2),
+                arrayContainingInAnyOrder(grp0Part2deltaFilePath0)
+        );
+
+        assertThat(
+                manager.findPartitionDeltaFiles(grpDir1, 4),
+                arrayContainingInAnyOrder(grp1Part4deltaFilePath3)
+        );
+
+        assertThat(manager.findPartitionDeltaFiles(grpDir0, 100), emptyArray());
+        assertThat(manager.findPartitionDeltaFiles(grpDir1, 100), emptyArray());
+    }
+
+    @Test
+    void testTmpDeltaFilePageStorePath() throws Exception {
+        FilePageStoreManager manager = createManager();
+
+        Path tableDir = workDir.resolve("db/table-0");
+
+        assertEquals(
+                tableDir.resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, 0, 0)),
+                manager.tmpDeltaFilePageStorePath(0, 0, 0)
+        );
+
+        assertEquals(
+                tableDir.resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, 1, 2)),
+                manager.tmpDeltaFilePageStorePath(0, 1, 2)
+        );
+    }
+
+    @Test
+    void testDeltaFilePageStorePath() throws Exception {
+        FilePageStoreManager manager = createManager();
+
+        Path tableDir = workDir.resolve("db/table-0");
+
+        assertEquals(
+                tableDir.resolve(String.format(PART_DELTA_FILE_TEMPLATE, 0, 0)),
+                manager.deltaFilePageStorePath(0, 0, 0)
+        );
+
+        assertEquals(
+                tableDir.resolve(String.format(PART_DELTA_FILE_TEMPLATE, 1, 2)),
+                manager.deltaFilePageStorePath(0, 1, 2)
+        );
+    }
+
+    @Test
+    void testAllPageStores() throws Exception {
+        FilePageStoreManager manager = createManager();
+
+        manager.start();
+
+        manager.initialize("test0", 1, 1);
+        manager.initialize("test1", 2, 1);
+
+        assertThat(
+                manager.allPageStores().stream().flatMap(List::stream).map(FilePageStore::filePath).collect(toList()),
+                containsInAnyOrder(
+                        workDir.resolve("db/table-1").resolve("part-0.bin"),
+                        workDir.resolve("db/table-2").resolve("part-0.bin")
+                )
+        );
     }
 
     private FilePageStoreManager createManager() throws Exception {

@@ -42,8 +42,19 @@ public class ReplicationException extends IgniteInternalException {
      * @param cause        Optional nested exception (can be {@code null}).
      */
     public ReplicationException(String replicaGrpId, Throwable cause) {
-        super(Replicator.REPLICA_COMMON_ERR, IgniteStringFormatter.format("Error during replication [replicaGrpId={}]", replicaGrpId),
+        this(Replicator.REPLICA_COMMON_ERR, IgniteStringFormatter.format("Error during replication [replicaGrpId={}]", replicaGrpId),
                 cause);
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param code    Exception code.
+     * @param message Exception message.
+     * @param cause   Optional nested exception (can be {@code null}).
+     */
+    public ReplicationException(int code, String message, Throwable cause) {
+        super(code, message, cause);
     }
 
     /**

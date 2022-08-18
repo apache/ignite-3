@@ -38,7 +38,7 @@ public class ReplExecutorProvider {
     }
 
     public void injectFactory(MicronautFactory micronautFactory) {
-        this.factory = new PicocliCommandsFactory(micronautFactory);
+        factory = new PicocliCommandsFactory(micronautFactory);
         factory.setTerminal(terminal);
     }
 }

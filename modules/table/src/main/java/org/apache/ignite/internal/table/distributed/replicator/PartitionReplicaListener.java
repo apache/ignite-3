@@ -24,9 +24,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -41,6 +44,8 @@ import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpsertCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanCloseReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.tx.Lock;
@@ -48,9 +53,11 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -83,6 +90,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
 
     /**
+     * Cursors map. The key of the map is internal Ignite uuid which consists of a transaction id ({@link UUID}) and a cursor id ({@link
+     * Long}).
+     */
+    private final ConcurrentNavigableMap<IgniteUuid, Cursor<BinaryRow>> cursors;
+
+    /**
      * The constructor.
      *
      * @param mvDataStorage Data storage.
@@ -105,6 +118,20 @@ public class PartitionReplicaListener implements ReplicaListener {
         //TODO: IGNITE-17479 Integrate indexes into replicaListener command handlers
         this.indexScanId = new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 1);
         this.indexPkId = new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 2);
+
+        cursors = new ConcurrentSkipListMap<>((o1, o2) -> {
+            if (o1 == o2) {
+                return 0;
+            }
+
+            int res = o1.globalId().compareTo(o2.globalId());
+
+            if (res == 0) {
+                res = Long.compare(o1.localId(), o2.localId());
+            }
+
+            return res;
+        });
     }
 
     /** {@inheritDoc} */
@@ -116,9 +143,97 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processMultiEntryAction((ReadWriteMultiRowReplicaRequest) request);
         } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
             return processTwoEntriesAction((ReadWriteSwapRowReplicaRequest) request);
+        } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
+            return processScanRetrieveBatchAction((ReadWriteScanRetrieveBatchReplicaRequest) request);
+        } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
+            processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
+
+            return CompletableFuture.completedFuture(null);
         } else {
-            throw  new UnsupportedReplicaRequestException(request.getClass());
+            throw new UnsupportedReplicaRequestException(request.getClass());
         }
+    }
+
+    /**
+     * Close all cursors connected with a transaction.
+     *
+     * @param txId Transaction id.
+     * @throws Exception When an issue happens on cursor closing.
+     */
+    public void closeAllTransactionCursors(UUID txId) {
+        var lowCursorId = new IgniteUuid(txId, Long.MIN_VALUE);
+        var upperCursorId = new IgniteUuid(txId, Long.MAX_VALUE);
+
+        Map<IgniteUuid, Cursor<BinaryRow>> txCursors = cursors.subMap(lowCursorId, true, upperCursorId, true);
+
+        ReplicationException ex = null;
+
+        for (Cursor<BinaryRow> cursor : txCursors.values()) {
+            try {
+                cursor.close();
+            } catch (Exception e) {
+                if (ex == null) {
+                    ex = new ReplicationException(Replicator.REPLICA_COMMON_ERR,
+                            IgniteStringFormatter.format("Close cursor exception [msg={}]", e.getMessage()), e);
+                } else {
+                    ex.addSuppressed(e);
+                }
+            }
+        }
+
+        txCursors.clear();
+
+        if (ex != null) {
+            throw ex;
+        }
+    }
+
+    /**
+     * Precesses scan close request.
+     *
+     * @param request Scan close request operation.
+     * @return Listener response.
+     */
+    private void processScanCloseAction(ReadWriteScanCloseReplicaRequest request) {
+        UUID txId = request.transactionId();
+
+        IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
+
+        Cursor<BinaryRow> cursor = cursors.remove(cursorId);
+
+        if (cursor != null) {
+            try {
+                cursor.close();
+            } catch (Exception e) {
+                throw new ReplicationException(Replicator.REPLICA_COMMON_ERR,
+                        IgniteStringFormatter.format("Close cursor exception [msg={}]", e.getMessage()), e);
+            }
+        }
+    }
+
+    /**
+     * Precesses scan retrieve batch request.
+     *
+     * @param request Scan retrieve batch request operation.
+     * @return Listener response.
+     */
+    private CompletableFuture<Object> processScanRetrieveBatchAction(ReadWriteScanRetrieveBatchReplicaRequest request) {
+        UUID txId = request.transactionId();
+        int batchCount = request.batchSize();
+
+        IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
+
+        return lockManager.acquire(txId, new LockKey(tableId), LockMode.SHARED).thenCompose(tblLock -> {
+            ArrayList<BinaryRow> batchRows = new ArrayList<>(batchCount);
+
+            Cursor<BinaryRow> cursor = cursors.computeIfAbsent(cursorId, id -> mvDataStorage.scan(request.rowFilter(), txId));
+
+            for (int i = 0; i < batchCount || !cursor.hasNext(); i++) {
+                batchRows.add(cursor.next());
+            }
+
+            return CompletableFuture.completedFuture(batchRows);
+        });
     }
 
     /**
@@ -707,7 +822,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Precesses two actions.
      *
-     * @param action Two actions operation.
+     * @param request Two actions operation request.
      * @return Listener response.
      */
     private CompletableFuture<Object> processTwoEntriesAction(ReadWriteSwapRowReplicaRequest request) {

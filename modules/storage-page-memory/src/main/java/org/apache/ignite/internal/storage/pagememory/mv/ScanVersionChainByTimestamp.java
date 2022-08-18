@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks.readPartitionlessLink;
+
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
-import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.Nullable;
@@ -32,11 +33,10 @@ import org.jetbrains.annotations.Nullable;
  * version it needs, it switches to traversing the slots comprising the version (because it might be fragmented).
  */
 class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
-    /**
-     * Contains the result when the traversal ends.
-     */
-    @Nullable
-    private ByteBufferRow result;
+    private final int partitionId;
+
+    /** Contains the result when the traversal ends. */
+    private @Nullable ByteBufferRow result;
 
     /**
      * First it's {@code true} (this means that we traverse first slots of versions of the Version Chain using NextLink);
@@ -46,6 +46,11 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
 
     private final ReadRowVersionValue readRowVersionValue = new ReadRowVersionValue();
 
+    ScanVersionChainByTimestamp(int partitionId) {
+        this.partitionId = partitionId;
+    }
+
+    /** {@inheritDoc} */
     @Override
     public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Timestamp timestamp) {
         if (lookingForVersion) {
@@ -54,16 +59,12 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
             if (rowTimestampMatches(rowVersionTs, timestamp)) {
                 return readFullyOrStartReadingFragmented(link, pageAddr, payload);
             } else {
-                return advanceToNextVersion(pageAddr, payload, partitionIdFromLink(link));
+                return advanceToNextVersion(pageAddr, payload);
             }
         } else {
             // We are continuing reading a fragmented row.
             return readNextFragment(link, pageAddr, payload);
         }
-    }
-
-    private int partitionIdFromLink(long link) {
-        return PageIdUtils.partitionId(PageIdUtils.pageId(link));
     }
 
     private boolean rowTimestampMatches(Timestamp rowVersionTs, Timestamp timestamp) {
@@ -76,18 +77,21 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
         return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
     }
 
-    private long advanceToNextVersion(long pageAddr, DataPagePayload payload, int partitionId) {
-        long partitionlessNextLink = PartitionlessLinks.readFromMemory(pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
-        if (partitionlessNextLink == RowVersion.NULL_LINK) {
+    private long advanceToNextVersion(long pageAddr, DataPagePayload payload) {
+        long nextLink = readPartitionlessLink(partitionId, pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
+
+        if (nextLink == RowVersion.NULL_LINK) {
             return STOP_TRAVERSAL;
         }
-        return PartitionlessLinks.addPartitionIdToPartititionlessLink(partitionlessNextLink, partitionId);
+
+        return nextLink;
     }
 
     private long readNextFragment(long link, long pageAddr, DataPagePayload payload) {
         return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void finish() {
         if (lookingForVersion) {
@@ -107,8 +111,7 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
         }
     }
 
-    @Nullable
-    ByteBufferRow result() {
+    @Nullable ByteBufferRow result() {
         return result;
     }
 

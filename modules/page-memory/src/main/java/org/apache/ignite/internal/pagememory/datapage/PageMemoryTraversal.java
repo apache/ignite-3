@@ -22,7 +22,7 @@ import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 /**
  * Controls page memory traversal.
  *
- * @see DataPageReader#traverse(long, PageMemoryTraversal)
+ * @see DataPageReader#traverse(long, PageMemoryTraversal, Object)
  */
 public interface PageMemoryTraversal<T> {
     /**
