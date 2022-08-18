@@ -102,8 +102,14 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
         public final int foobar = 0;
     }
 
+    /**
+     * Tests that distributed configuration storage correctly picks up latest configuration MetaStorage revision
+     * during recovery process.
+     *
+     * @throws Exception If failed.
+     */
     @Test
-    public void testMetastorageRevisionDifferentFromConfigurationOnRestart() throws Exception {
+    public void testMetaStorageRevisionDifferentFromConfigurationOnRestart() throws Exception {
         RootKey<DistributedTestConfiguration, DistributedTestView> rootKey = DistributedTestConfiguration.KEY;
 
         ConfigurationAsmGenerator cgen = new ConfigurationAsmGenerator();
@@ -112,8 +118,8 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
 
         int configurationChangesCount = 7;
 
-        try (ConfigurationStorage storage = new DistributedConfigurationStorage(wrapper.metaStorageManager(), vaultManager)) {
-            TestConfigurationChanger changer = new TestConfigurationChanger(cgen, List.of(rootKey), Collections.emptyMap(),
+        try (var storage = new DistributedConfigurationStorage(wrapper.metaStorageManager(), vaultManager)) {
+            var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Collections.emptyMap(),
                     storage, Collections.emptyList(), Collections.emptyList());
 
             changer.start();
@@ -138,8 +144,8 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
         // This emulates a change in MetaStorage that is not related to the configuration.
         vaultManager.put(MetaStorageManager.APPLIED_REV, ByteUtils.longToBytes(configurationChangesCount + 1)).get();
 
-        try (ConfigurationStorage storage = new DistributedConfigurationStorage(wrapper.metaStorageManager(), vaultManager)) {
-            TestConfigurationChanger changer = new TestConfigurationChanger(cgen, List.of(rootKey), Collections.emptyMap(),
+        try (var storage = new DistributedConfigurationStorage(wrapper.metaStorageManager(), vaultManager)) {
+            var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Collections.emptyMap(),
                     storage, Collections.emptyList(), Collections.emptyList());
 
             changer.start();

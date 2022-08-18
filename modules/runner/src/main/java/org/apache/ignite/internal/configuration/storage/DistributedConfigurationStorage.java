@@ -196,18 +196,17 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                     return vaultMgr.get(CONFIGURATION_REVISIONS_KEY).thenApplyAsync(revisionsEntry -> {
                         long appliedRevision = appliedRevEntry == null ? 0L : ByteUtils.bytesToLong(appliedRevEntry.value());
 
-                        long prevMasterKeyRevision = 0;
-                        long curMasterKeyRevision = 0;
+                        long cfgRevision = appliedRevision;
 
                         if (revisionsEntry != null) {
                             byte[] value = revisionsEntry.value();
-                            prevMasterKeyRevision = ByteUtils.bytesToLong(value, 0);
-                            curMasterKeyRevision = ByteUtils.bytesToLong(value, Long.BYTES);
-                        }
+                            long prevMasterKeyRevision = ByteUtils.bytesToLong(value, 0);
+                            long curMasterKeyRevision = ByteUtils.bytesToLong(value, Long.BYTES);
 
-                        // If current master key revision is higher than applied revision, then node failed
-                        // before applied revision changed, so we have to use previous master key revision
-                        long cfgRevision = curMasterKeyRevision <= appliedRevision ? curMasterKeyRevision : prevMasterKeyRevision;
+                            // If current master key revision is higher than applied revision, then node failed
+                            // before applied revision changed, so we have to use previous master key revision
+                            cfgRevision = curMasterKeyRevision <= appliedRevision ? curMasterKeyRevision : prevMasterKeyRevision;
+                        }
 
                         var data = new HashMap<String, Serializable>();
 
