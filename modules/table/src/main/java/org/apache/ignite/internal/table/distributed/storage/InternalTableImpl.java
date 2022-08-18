@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -41,12 +40,14 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReplicaRequestParameters;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -72,6 +73,9 @@ public class InternalTableImpl implements InternalTable {
 
     /** Cursor id generator. */
     private static final AtomicLong CURSOR_ID_GENERATOR = new AtomicLong();
+
+    /** Number of attempts. */
+    private static final int ATTEMPTS_TO_ENLIST_PARTITION = 5;
 
     /** Partition map. */
     protected final Int2ObjectMap<RaftGroupService> partitionMap;
@@ -189,28 +193,21 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<R> fut;
 
-        if (primaryReplicaAndTerm != null) {
-            ReplicaRequestParameters requestParams = new ReplicaRequestParameters(tx0, partGroupId, primaryReplicaAndTerm.get1(),
-                    primaryReplicaAndTerm.get2());
+        ReplicaRequest request = op.apply(
+                new ReplicaRequestParameters(tx0, partGroupId, primaryReplicaAndTerm.get1(),
+                primaryReplicaAndTerm.get2())
+        );
 
+        if (primaryReplicaAndTerm != null) {
             try {
-                fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), op.apply(requestParams));
+                fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+            } catch (PrimaryReplicaMissException e) {
+                throw new TransactionException(e);
             } catch (Throwable e) {
-                throw new TransactionException(format("Failed to enlist rows into a transaction"));
+                throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlist(partId, tx0).thenCompose(
-                    primaryReplicaAndTerm0 -> {
-                        ReplicaRequestParameters requestParams = new ReplicaRequestParameters(
-                                tx0, partGroupId, primaryReplicaAndTerm0.get1(), primaryReplicaAndTerm0.get2()
-                        );
-
-                        try {
-                            return replicaSvc.invoke(primaryReplicaAndTerm0.get1(), op.apply(requestParams));
-                        } catch (Throwable e) {
-                            throw new TransactionException(format("Failed to enlist rows into a transaction"));
-                        }
-                    });
+            fut = enlistWithRetry(tx0, partId, request, ATTEMPTS_TO_ENLIST_PARTITION);
         }
 
         return postEnlist(fut, implicit, tx0);
@@ -253,27 +250,21 @@ public class InternalTableImpl implements InternalTable {
 
             CompletableFuture<Object> fut;
 
-            if (primaryReplicaAndTerm != null) {
-                ReplicaRequestParameters requestParams = new ReplicaRequestParameters(tx0, partToRows.getValue(), partGroupId,
-                        primaryReplicaAndTerm.get1(), primaryReplicaAndTerm.get2());
+            ReplicaRequest request = op.apply(
+                    new ReplicaRequestParameters(tx0, partToRows.getValue(), partGroupId,
+                    primaryReplicaAndTerm.get1(), primaryReplicaAndTerm.get2())
+            );
 
+            if (primaryReplicaAndTerm != null) {
                 try {
-                    fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), op.apply(requestParams));
+                    fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+                } catch (PrimaryReplicaMissException e) {
+                    throw new TransactionException(e);
                 } catch (Throwable e) {
-                    throw new TransactionException(format("Failed to enlist rows into a transaction"));
+                    throw new TransactionException("Failed to invoke the replica request.");
                 }
             } else {
-                fut = enlist(partToRows.getIntKey(), tx0).thenCompose(primaryReplicaAndTerm0 -> {
-                    ReplicaRequestParameters requestParams = new ReplicaRequestParameters(tx0, partToRows.getValue(), partGroupId,
-                            primaryReplicaAndTerm0.get1(), primaryReplicaAndTerm0.get2());
-
-                    try {
-                        return replicaSvc.invoke(primaryReplicaAndTerm0.get1(),
-                                op.apply(requestParams));
-                    } catch (Throwable e) {
-                        throw new TransactionException(format("Failed to enlist rows into a transaction"));
-                    }
-                });
+                fut = enlistWithRetry(tx0, partToRows.getIntKey(), request, ATTEMPTS_TO_ENLIST_PARTITION);
             }
 
             futures[batchNum++] = fut;
@@ -309,35 +300,80 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<Collection<BinaryRow>> fut;
 
+        ReadWriteScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
+                .groupId(partGroupId)
+                .transactionId(tx0.id())
+                .scanId(scanId)
+                .batchSize(batchSize)
+                .build();
+
         if (primaryReplicaAndTerm != null) {
             try {
-                fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
-                        .groupId(partGroupId)
-                        .transactionId(tx.id())
-                        .scanId(scanId)
-                        .batchSize(batchSize)
-                        .build());
+                fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+            } catch (PrimaryReplicaMissException e) {
+                throw new TransactionException(e);
             } catch (Throwable e) {
-                throw new TransactionException(format("Failed to enlist cursor into a transaction"));
+                throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlist(partId, tx0).thenCompose(
-                    primaryReplicaNode -> {
-                        try {
-                            return replicaSvc.invoke(primaryReplicaNode.get1(),
-                                    tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
-                                            .groupId(partGroupId)
-                                            .transactionId(tx.id())
-                                            .scanId(scanId)
-                                            .batchSize(batchSize)
-                                            .build());
-                        } catch (Throwable e) {
-                            throw new TransactionException(format("Failed to enlist cursor into a transaction"));
-                        }
-                    });
+            fut = enlistWithRetry(tx0, partId, request, ATTEMPTS_TO_ENLIST_PARTITION);
         }
 
         return postEnlist(fut, implicit, tx0);
+    }
+
+    /**
+     * Partition enlisting with retrying.
+     *
+     * @param tx Internal transaction.
+     * @param partId Partition number.
+     * @param request Replica request.
+     * @param attempts Number of attempts.
+     * @return The future.
+     */
+    private <R> CompletableFuture<R> enlistWithRetry(
+            InternalTransaction tx,
+            int partId,
+            ReplicaRequest request,
+            int attempts
+    ) {
+        CompletableFuture<R> result = new CompletableFuture();
+
+        enlist(partId, tx).<R>thenCompose(
+                        primaryReplicaAndTerm -> {
+                            try {
+                                return replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+                            } catch (PrimaryReplicaMissException e) {
+                                throw new TransactionException(e);
+                            } catch (Throwable e) {
+                                throw new TransactionException(
+                                        IgniteStringFormatter.format(
+                                                "Failed to enlist partition[tableName={}, partId={}] into a transaction",
+                                                tableName,
+                                                partId
+                                                )
+                                );
+                            }
+                        })
+                .handle((res0, e) -> {
+                    if (e != null) {
+                        if (e.getCause() instanceof PrimaryReplicaMissException && attempts > 0) {
+                            return enlistWithRetry(tx, partId, request, attempts - 1).handle((r2, e2) -> {
+                                if (e2 != null) {
+                                    return result.completeExceptionally(e2);
+                                } else {
+                                    return result.complete((R) r2);
+                                }
+                            });
+                        }
+
+                        return result.completeExceptionally(e);
+                    }
+
+                    return result.complete(res0);
+                });
+
+        return result;
     }
 
     /**
