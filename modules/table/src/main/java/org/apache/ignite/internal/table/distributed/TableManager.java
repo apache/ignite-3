@@ -354,7 +354,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     return failedFuture(new NodeStoppingException());
                 }
                 try {
-                     onColumnsChanged(ctx);
+                    onColumnsChanged(ctx);
 
                     return ConfigurationNamedListListener.super.onUpdate(ctx);
                 } finally {
@@ -1027,8 +1027,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     ch.update(name, tblCh -> {
                                 tableChange.accept(tblCh);
-                     }
-                    );
+                    });
                 }).whenComplete((res, t) -> {
                     if (t != null) {
                         Throwable ex = getRootCause(t);

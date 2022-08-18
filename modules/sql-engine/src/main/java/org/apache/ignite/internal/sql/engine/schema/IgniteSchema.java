@@ -87,6 +87,8 @@ public class IgniteSchema extends AbstractSchema {
         tblMap.remove(tblName);
     }
 
+    //TODO: Replace indexName->indexId
+    //TODO: Add index to table?
     public void addIndex(String indexName, IgniteIndex index) {
         idxMap.put(indexName, index);
     }

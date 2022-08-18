@@ -353,8 +353,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             indexByName.remove(index.name(), index);
 
             fireEvent(IndexEvent.DROP, new IndexEventParameters(ctx.storageRevision(), index.id(), index.name()), null);
-        }
-        finally {
+        } finally {
             busyLock.leaveBusy();
         }
 
