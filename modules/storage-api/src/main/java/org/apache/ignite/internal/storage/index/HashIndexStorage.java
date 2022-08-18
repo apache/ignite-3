@@ -17,21 +17,38 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import java.util.Collection;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 
 /**
- * Temporary API for creating Index rows from a list of column values. All columns must be sorted according to the index columns order,
- * specified by the {@link SortedIndexDescriptor#indexColumns()}.
+ * Storage for a Hash Index.
+ *
+ * <p>This storage serves as an unordered mapping from a subset of a table's columns (a.k.a. index columns) to a set of {@link RowId}s
+ * from a single {@link org.apache.ignite.internal.storage.MvPartitionStorage} from the same table.
+ *
+ * @see org.apache.ignite.schema.definition.index.HashIndexDefinition
  */
-public interface IndexRowSerializer {
+public interface HashIndexStorage {
     /**
-     * Creates an Index row from a list of column values.
+     * Returns the Index Descriptor of this storage.
      */
-    IndexRow createIndexRow(Object[] columnValues, RowId rowId);
+    HashIndexDescriptor indexDescriptor();
 
     /**
-     * Creates an Prefix row from a list of column values.
+     * Returns a collection of {@code RowId}s that correspond to the given index key.
      */
-    BinaryTuple createIndexRowPrefix(Object[] prefixColumnValues);
+    Collection<RowId> get(BinaryTuple key);
+
+    /**
+     * Adds the given index row to the index.
+     */
+    void put(IndexRow row);
+
+    /**
+     * Removes the given row from the index.
+     *
+     * <p>Removing a non-existent row is a no-op.
+     */
+    void remove(IndexRow row);
 }

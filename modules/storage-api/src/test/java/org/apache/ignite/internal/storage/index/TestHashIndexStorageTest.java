@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+
 /**
- * Class for extracting indexed column values from an {@link IndexRow}.
+ * Class for testing the {@link HashIndexStorage}.
  */
-public interface IndexRowDeserializer {
-    /**
-     * De-serializes column values that were used to create the index.
-     *
-     * @param indexRow Index row.
-     * @return Values of the indexed columns.
-     */
-    Object[] deserializeColumns(IndexRow indexRow);
+public class TestHashIndexStorageTest extends AbstractHashIndexStorageTest {
+    @Override
+    protected HashIndexStorage createIndexStorage(String name, TableView tableCfg) {
+        return new TestHashIndexStorage(new HashIndexDescriptor(name, tableCfg));
+    }
 }

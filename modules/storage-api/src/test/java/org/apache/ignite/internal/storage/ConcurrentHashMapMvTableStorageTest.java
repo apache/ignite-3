@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage;
 
+import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -38,6 +39,7 @@ public class ConcurrentHashMapMvTableStorageTest extends AbstractMvTableStorageT
             polymorphicExtensions = {
                     TestConcurrentHashMapDataStorageConfigurationSchema.class,
                     SortedIndexConfigurationSchema.class,
+                    HashIndexConfigurationSchema.class,
                     NullValueDefaultConfigurationSchema.class,
                     UnlimitedBudgetConfigurationSchema.class
             },
