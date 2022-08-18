@@ -411,14 +411,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 lastSchemaId + 1,
                                 currTableView);
 
-                        SchemaConfiguration prevSchemaConf = tblConfig.schemas().get(String.valueOf(lastSchemaId));
-                        SchemaDescriptor prevDesc = SchemaSerializerImpl.INSTANCE.deserialize(prevSchemaConf.schema().value());
+                        if (oldCols != null) {
+                            SchemaConfiguration prevSchemaConf = tblConfig.schemas().get(String.valueOf(lastSchemaId));
+                            SchemaDescriptor prevDesc = SchemaSerializerImpl.INSTANCE.deserialize(prevSchemaConf.schema().value());
 
-                        descriptor.columnMapping(SchemaUtils.columnMapper(
-                                prevDesc,
-                                oldCols,
-                                descriptor,
-                                newCols));
+                            descriptor.columnMapping(SchemaUtils.columnMapper(
+                                    prevDesc,
+                                    oldCols,
+                                    descriptor,
+                                    newCols));
+                        }
                     } catch (IllegalArgumentException ex) {
                         // Convert unexpected exceptions here,
                         // because validation actually happens later,
