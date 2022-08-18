@@ -27,6 +27,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.exception.ReplicaAlreadyIsStartedException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.ErrorReplicaResponseBuilder;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -223,28 +224,25 @@ public class ReplicaManager implements IgniteComponent {
 
                             LOG.warn("Exception was thrown [traceId={}]", ex, traceId);
 
+                            ErrorReplicaResponseBuilder errorBuilder = REPLICA_MESSAGES_FACTORY
+                                    .errorReplicaResponse()
+                                    .errorClassName(ex.getClass().getName())
+                                    .errorTraceId(traceId);
+
                             if (ex instanceof IgniteInternalException) {
                                 clusterNetSvc.messagingService().respond(
                                         senderAddr,
-                                        REPLICA_MESSAGES_FACTORY
-                                                .errorReplicaResponse()
-                                                .errorMessage(ex.getMessage())
+                                        errorBuilder.errorMessage(ex.getMessage())
                                                 .errorCode(((IgniteInternalException) ex).code())
-                                                .errorClassName(ex.getClass().getName())
-                                                .errorTraceId(traceId)
                                                 .build(),
                                         correlationId);
                             } else {
                                 clusterNetSvc.messagingService().respond(
                                         senderAddr,
-                                        REPLICA_MESSAGES_FACTORY
-                                                .errorReplicaResponse()
-                                                .errorMessage(
+                                        errorBuilder.errorMessage(
                                                         IgniteStringFormatter.format("Process replication response finished with exception "
                                                                 + "[replicaGrpId={}, msg={}]", request.groupId(), ex.getMessage()))
                                                 .errorCode(Replicator.REPLICA_COMMON_ERR)
-                                                .errorClassName(ex.getClass().getName())
-                                                .errorTraceId(traceId)
                                                 .build(),
                                         correlationId);
                             }
