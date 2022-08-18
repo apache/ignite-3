@@ -21,18 +21,11 @@ package org.apache.ignite.cli.core.flow.question;
  * Question writer and reader interface.
  */
 public interface QuestionWriterReader {
-
     /**
-     * Write question to output.
+     * Write question to output and read answer from input.
      *
-     * @param question text.
-     */
-    void write(String question);
-
-    /**
-     * Read answer from input.
-     *
+     * @param question question to ask.
      * @return user answer.
      */
-    String readAnswer();
+    String readAnswer(String question);
 }
