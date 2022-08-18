@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 import java.util.Iterator;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
-import org.apache.ignite.internal.sql.engine.util.TransformingIterator;
+import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.NotNull;
 
 /**
