@@ -37,6 +37,7 @@ import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchem
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.RowId;
@@ -74,7 +75,8 @@ public abstract class AbstractHashIndexStorageTest {
                     TestConcurrentHashMapDataStorageConfigurationSchema.class,
                     ConstantValueDefaultConfigurationSchema.class,
                     FunctionCallDefaultConfigurationSchema.class,
-                    NullValueDefaultConfigurationSchema.class
+                    NullValueDefaultConfigurationSchema.class,
+                    UnlimitedBudgetConfigurationSchema.class
             },
             // This value only required for configuration validity, it's not used otherwise.
             value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
