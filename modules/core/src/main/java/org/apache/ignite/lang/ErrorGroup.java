@@ -201,6 +201,13 @@ public class ErrorGroup {
      * @return New error message with predefined prefix.
      */
     public static String errorMessage(UUID traceId, String groupName, int code, String message) {
+        if (message != null) {
+            Matcher m = EXCEPTION_MESSAGE_PATTERN.matcher(message.replaceAll("[\\s|\\t\\r\\n]+", " ").trim());
+            if (m.matches()) {
+                return message;
+            }
+        }
+
         return ERR_PREFIX + groupName + '-' + extractErrorCode(code) + " TraceId:" + traceId + ((message != null) ? ' ' + message : "");
     }
 

@@ -29,8 +29,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
+import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcQueryCursor;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
@@ -57,6 +59,7 @@ import org.apache.ignite.internal.sql.engine.QueryValidator;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -272,10 +275,19 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @return StringWriter filled with exception.
      */
     private StringWriter getWriterWithStackTrace(Throwable t) {
+        String message = null;
+        if (t instanceof CompletionException) {
+            if (t.getCause() instanceof IgniteException || t.getCause() instanceof CalciteContextException) {
+                message = t.getCause().getMessage();
+            }
+        }
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
 
-        t.printStackTrace(pw);
+        pw.print(message);
+
+        // check if stacktrace is needed
+        // t.printStackTrace(pw);
         return sw;
     }
 
