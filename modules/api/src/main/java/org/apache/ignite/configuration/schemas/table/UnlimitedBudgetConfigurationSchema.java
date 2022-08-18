@@ -15,22 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.deprecated;
+package org.apache.ignite.configuration.schemas.table;
 
-import java.util.logging.Handler;
-import java.util.logging.LogRecord;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
 /**
- * Adapter for {@link Handler} with empty implementations of all methods but {@link Handler#publish(LogRecord)}.
+ * Configuration for 'unlimited' log storage budget.
  */
-public abstract class NoOpHandler extends Handler {
-    @Override
-    public void flush() {
-        // no-op
-    }
-
-    @Override
-    public void close() throws SecurityException {
-        // no-op
-    }
+@PolymorphicConfigInstance(UnlimitedBudgetConfigurationSchema.NAME)
+public class UnlimitedBudgetConfigurationSchema extends LogStorageBudgetConfigurationSchema {
+    /** The budget name. */
+    public static final String NAME = "unlimited";
 }

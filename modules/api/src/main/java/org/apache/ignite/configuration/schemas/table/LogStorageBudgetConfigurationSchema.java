@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index;
+package org.apache.ignite.configuration.schemas.table;
+
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 
 /**
- * Class for extracting indexed column values from an {@link IndexRow}.
+ * Configuration schema for RAFT log storage budget.
  */
-public interface IndexRowDeserializer {
-    /**
-     * De-serializes column values that were used to create the index.
-     *
-     * @param indexRow Index row.
-     * @return Values of the indexed columns.
-     */
-    Object[] deserializeColumns(IndexRow indexRow);
+@PolymorphicConfig
+public class LogStorageBudgetConfigurationSchema {
+    /** Name of budget. */
+    @PolymorphicId(hasDefault = true)
+    public String name = UnlimitedBudgetConfigurationSchema.NAME;
 }

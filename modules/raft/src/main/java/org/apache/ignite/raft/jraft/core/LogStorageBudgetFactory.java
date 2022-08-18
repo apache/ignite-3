@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,23 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index;
+package org.apache.ignite.raft.jraft.core;
 
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.configuration.schemas.table.LogStorageBudgetView;
+import org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget;
 
 /**
- * Temporary API for creating Index rows from a list of column values. All columns must be sorted according to the index columns order,
- * specified by the {@link SortedIndexDescriptor#indexColumns()}.
+ * Factory for {@link org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget} instances.
  */
-public interface IndexRowSerializer {
+public interface LogStorageBudgetFactory {
     /**
-     * Creates an Index row from a list of column values.
+     * Creates a new budget using the given config.
+     *
+     * @param config Budget config.
+     * @return The created budget.
      */
-    IndexRow createIndexRow(Object[] columnValues, RowId rowId);
-
-    /**
-     * Creates an Prefix row from a list of column values.
-     */
-    BinaryTuple createIndexRowPrefix(Object[] prefixColumnValues);
+    LogStorageBudget create(LogStorageBudgetView config);
 }

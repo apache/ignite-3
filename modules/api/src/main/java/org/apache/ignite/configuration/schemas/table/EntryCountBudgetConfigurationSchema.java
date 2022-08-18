@@ -15,38 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.configuration.schemas.table;
 
-import java.nio.ByteBuffer;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Utility class for storages.
+ * Configuration for 'entry-count' log storage budget.
  */
-public class StorageUtils {
-    /**
-     * Returns byte buffer hash that matches corresponding array hash.
-     *
-     * @param buf Byte buffer.
-     */
-    public static int hashCode(ByteBuffer buf) {
-        int result = 1;
-        for (int i = buf.position(); i < buf.limit(); i++) {
-            result = 31 * result + buf.get(i);
-        }
-        return result;
-    }
+@PolymorphicConfigInstance(EntryCountBudgetConfigurationSchema.NAME)
+public class EntryCountBudgetConfigurationSchema extends LogStorageBudgetConfigurationSchema {
+    /** The budget name. */
+    public static final String NAME = "entry-count";
 
-    /**
-     * Converts to an array of bytes.
-     *
-     * @param buf Byte buffer.
-     */
-    // TODO: IGNITE-16350 Get rid of copying byte arrays.
-    public static byte[] toByteArray(ByteBuffer buf) {
-        byte[] arr = new byte[buf.limit()];
-
-        buf.get(arr);
-
-        return arr;
-    }
+    /** Maximum number of entries allowed by the budget. */
+    @Value
+    public long entriesCountLimit;
 }

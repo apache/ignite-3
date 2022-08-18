@@ -36,6 +36,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
@@ -43,6 +44,7 @@ import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSch
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.schema.definition.ColumnDefinitionImpl;
@@ -98,7 +100,9 @@ public class SchemaConfigurationConverterTest extends AbstractSchemaConverterTes
                         UnknownDataStorageConfigurationSchema.class,
                         ConstantValueDefaultConfigurationSchema.class,
                         FunctionCallDefaultConfigurationSchema.class,
-                        NullValueDefaultConfigurationSchema.class
+                        NullValueDefaultConfigurationSchema.class,
+                        UnlimitedBudgetConfigurationSchema.class,
+                        EntryCountBudgetConfigurationSchema.class
                 )
         );
 

@@ -30,7 +30,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainMetaIo;
  * {@link PageIoModule} related to {@link VolatilePageMemoryMvPartitionStorage} and {@link PersistentPageMemoryMvPartitionStorage}
  * implementations.
  */
-public class PageMemoryMvStorageIoModule implements PageIoModule {
+public class MvPageIoModule implements PageIoModule {
     /** {@inheritDoc} */
     @Override
     public Collection<IoVersions<?>> ioVersions() {
