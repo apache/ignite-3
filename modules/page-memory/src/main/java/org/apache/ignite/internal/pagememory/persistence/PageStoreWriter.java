@@ -26,7 +26,6 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * Interface for write page to {@link PageStore}.
  */
-// TODO: IGNITE-15818 Maybe refactor.
 public interface PageStoreWriter {
     /**
      * Callback for write page. {@link PersistentPageMemory} will copy page content to buffer before call.

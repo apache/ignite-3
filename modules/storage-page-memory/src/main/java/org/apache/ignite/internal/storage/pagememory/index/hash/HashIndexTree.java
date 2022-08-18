@@ -23,6 +23,7 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
+import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexRowIo;
 import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeMetaIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -65,7 +66,9 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
 
     @Override
     protected int compare(BplusIo<HashIndexRowKey> io, long pageAddr, int idx, HashIndexRowKey row) throws IgniteInternalCheckedException {
-        return 0;
+        HashIndexRowIo hashIndexRowIo = (HashIndexRowIo) io;
+
+        return hashIndexRowIo.compare(pageAddr, idx, row);
     }
 
     @Override
