@@ -103,7 +103,7 @@ public class TestConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Data> readAll() {
+    public CompletableFuture<Data> readAllOnStart() {
         return supplyAsync(() -> {
             synchronized (this) {
                 if (fail) {
@@ -163,6 +163,12 @@ public class TestConfigurationStorage implements ConfigurationStorage {
     @Override
     public synchronized CompletableFuture<Long> lastRevision() {
         return CompletableFuture.completedFuture(version);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> writeConfigurationRevision(long prevRevision, long currentRevision) {
+        return CompletableFuture.completedFuture(null);
     }
 
     /**

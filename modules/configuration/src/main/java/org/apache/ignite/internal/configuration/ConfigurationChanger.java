@@ -199,7 +199,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         Data data;
 
         try {
-            data = storage.readAll().get();
+            data = storage.readAllOnStart().get();
         } catch (ExecutionException e) {
             throw new ConfigurationChangeException("Failed to initialize configuration: " + e.getCause().getMessage(), e.getCause());
         } catch (InterruptedException e) {
@@ -572,20 +572,23 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         storageRoots = new StorageRoots(newSuperRoot, newChangeId);
 
-        if (dataValuesPrefixMap.isEmpty()) {
-            oldStorageRoots.changeFuture.complete(null);
+        // Save revisions for recovery.
+        return storage.writeConfigurationRevision(oldStorageRoots.version, storageRoots.version).thenCompose(unused -> {
+            if (dataValuesPrefixMap.isEmpty()) {
+                oldStorageRoots.changeFuture.complete(null);
 
-            return CompletableFuture.completedFuture(null);
-        } else {
-            return notificator.notify(oldSuperRoot, newSuperRoot, newChangeId, notificationListenerCnt.incrementAndGet())
-                .whenComplete((v, t) -> {
-                    if (t == null) {
-                        oldStorageRoots.changeFuture.complete(null);
-                    } else {
-                        oldStorageRoots.changeFuture.completeExceptionally(t);
-                    }
-                });
-        }
+                return CompletableFuture.completedFuture(null);
+            } else {
+                return notificator.notify(oldSuperRoot, newSuperRoot, newChangeId, notificationListenerCnt.incrementAndGet())
+                        .whenComplete((v, t) -> {
+                            if (t == null) {
+                                oldStorageRoots.changeFuture.complete(null);
+                            } else {
+                                oldStorageRoots.changeFuture.completeExceptionally(t);
+                            }
+                        });
+            }
+        });
     }
 
     /**

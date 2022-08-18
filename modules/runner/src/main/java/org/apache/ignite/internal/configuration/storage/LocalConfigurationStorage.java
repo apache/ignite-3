@@ -119,7 +119,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Data> readAll() {
+    public CompletableFuture<Data> readAllOnStart() {
         return readAll(LOC_KEYS_START_RANGE, LOC_KEYS_END_RANGE);
     }
 
@@ -221,6 +221,13 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     public CompletableFuture<Long> lastRevision() {
         return vaultMgr.get(VERSION_KEY)
                 .thenApply(entry -> entry == null ? 0 : (Long) fromBytes(entry.value()));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> writeConfigurationRevision(long prevRevision, long currentRevision) {
+        // No-op.
+        return CompletableFuture.completedFuture(null);
     }
 
     /**

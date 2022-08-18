@@ -68,6 +68,11 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     private static final ByteArray MASTER_KEY = new ByteArray(DISTRIBUTED_PREFIX + "$master$key");
 
     /**
+     * Key for a value of previous and current configuration's MetaStorage revision.
+     */
+    private static final ByteArray CONFIGURATION_REVISIONS_KEY = new ByteArray(DISTRIBUTED_PREFIX + "$revisions");
+
+    /**
      * Prefix for all keys in the distributed storage. This key is expected to be the first key in lexicographical order of distributed
      * configuration keys.
      */
@@ -153,7 +158,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                     // Meta Storage should not return nulls as values
                     assert value != null;
 
-                    if (key.equals(MASTER_KEY)) {
+                    if (key.equals(MASTER_KEY) || key.equals(CONFIGURATION_REVISIONS_KEY)) {
                         continue;
                     }
 
@@ -185,38 +190,53 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Data> readAll() throws StorageException {
+    public CompletableFuture<Data> readAllOnStart() throws StorageException {
         return registerFuture(vaultMgr.get(MetaStorageManager.APPLIED_REV)
-                .thenApplyAsync(appliedRevEntry -> {
-                    long appliedRevision = appliedRevEntry == null ? 0L : ByteUtils.bytesToLong(appliedRevEntry.value());
+                .thenComposeAsync(appliedRevEntry -> {
+                    return vaultMgr.get(CONFIGURATION_REVISIONS_KEY).thenApplyAsync(revisionsEntry -> {
+                        long appliedRevision = appliedRevEntry == null ? 0L : ByteUtils.bytesToLong(appliedRevEntry.value());
 
-                    var data = new HashMap<String, Serializable>();
+                        long prevMasterKeyRevision = 0;
+                        long curMasterKeyRevision = 0;
 
-                    try (Cursor<VaultEntry> entries = storedDistributedConfigKeys()) {
-                        for (VaultEntry entry : entries) {
-                            ByteArray key = entry.key();
-                            byte[] value = entry.value();
-
-                            // vault iterator should not return nulls as values
-                            assert value != null;
-
-                            if (key.equals(MASTER_KEY)) {
-                                continue;
-                            }
-
-                            String dataKey = key.toString().substring(DISTRIBUTED_PREFIX.length());
-
-                            data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
+                        if (revisionsEntry != null) {
+                            byte[] value = revisionsEntry.value();
+                            prevMasterKeyRevision = ByteUtils.bytesToLong(value, 0);
+                            curMasterKeyRevision = ByteUtils.bytesToLong(value, Long.BYTES);
                         }
-                    } catch (Exception e) {
-                        throw new StorageException("Exception when closing a Vault cursor", e);
-                    }
 
-                    assert data.isEmpty() || appliedRevision > 0;
+                        // If current master key revision is higher than applied revision, then node failed
+                        // before applied revision changed, so we have to use previous master key revision
+                        long cfgRevision = curMasterKeyRevision <= appliedRevision ? curMasterKeyRevision : prevMasterKeyRevision;
 
-                    changeId.set(data.isEmpty() ? 0 : appliedRevision);
+                        var data = new HashMap<String, Serializable>();
 
-                    return new Data(data, appliedRevision);
+                        try (Cursor<VaultEntry> entries = storedDistributedConfigKeys()) {
+                            for (VaultEntry entry : entries) {
+                                ByteArray key = entry.key();
+                                byte[] value = entry.value();
+
+                                // vault iterator should not return nulls as values
+                                assert value != null;
+
+                                if (key.equals(MASTER_KEY) || key.equals(CONFIGURATION_REVISIONS_KEY)) {
+                                    continue;
+                                }
+
+                                String dataKey = key.toString().substring(DISTRIBUTED_PREFIX.length());
+
+                                data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
+                            }
+                        } catch (Exception e) {
+                            throw new StorageException("Exception when closing a Vault cursor", e);
+                        }
+
+                        assert data.isEmpty() || cfgRevision > 0;
+
+                        changeId.set(data.isEmpty() ? 0 : cfgRevision);
+
+                        return new Data(data, cfgRevision);
+                    }, threadPool);
                 }, threadPool));
     }
 
@@ -247,23 +267,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         operations.add(Operations.put(MASTER_KEY, ByteUtils.longToBytes(curChangeId)));
 
-        // Condition for a valid MetaStorage data update. Several possibilities here:
-        //  - First update ever, MASTER_KEY property must be absent from MetaStorage.
-        //  - Current node has already performed some updates or received them from MetaStorage watch listener. In this
-        //    case "curChangeId" must match the MASTER_KEY revision exactly.
-        //  - Current node has been restarted and received updates from MetaStorage watch listeners after that. Same as
-        //    above, "curChangeId" must match the MASTER_KEY revision exactly.
-        //  - Current node has been restarted and have not received any updates from MetaStorage watch listeners yet.
-        //    In this case "curChangeId" matches APPLIED_REV, which may or may not match the MASTER_KEY revision. Two
-        //    options here:
-        //     - MASTER_KEY is missing in local MetaStorage copy. This means that current node have not performed nor
-        //       observed any configuration changes. Valid condition is "MASTER_KEY does not exist".
-        //     - MASTER_KEY is present in local MetaStorage copy. The MASTER_KEY revision is unknown but is less than or
-        //       equal to APPLIED_REV. Obviously, there have been no updates from the future yet. It's also guaranteed
-        //       that the next received configuration update will have the MASTER_KEY revision strictly greater than
-        //       current APPLIED_REV. This allows to conclude that "MASTER_KEY revision <= curChangeId" is a valid
-        //       condition for update.
-        // Combining all of the above, it's concluded that the following condition must be used:
         SimpleCondition condition = curChangeId == 0L
                 ? Conditions.notExists(MASTER_KEY)
                 : Conditions.revision(MASTER_KEY).le(curChangeId);
@@ -338,6 +341,17 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override
     public CompletableFuture<Long> lastRevision() {
         return metaStorageMgr.get(MASTER_KEY).thenApply(Entry::revision);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> writeConfigurationRevision(long prevRevision, long currentRevision) {
+        byte[] value = new byte[Long.BYTES * 2];
+
+        ByteUtils.longToBytes(prevRevision, value, 0, Long.BYTES);
+        ByteUtils.longToBytes(currentRevision, value, Long.BYTES, Long.BYTES);
+
+        return vaultMgr.put(CONFIGURATION_REVISIONS_KEY, value);
     }
 
     /**

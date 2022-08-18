@@ -86,7 +86,7 @@ public class ByteUtils {
      * @param limit Limit of bytes to write into output.
      * @return Number of bytes overwritten in {@code bytes} array.
      */
-    private static byte[] longToBytes(long l, byte[] bytes, int off, int limit) {
+    public static byte[] longToBytes(long l, byte[] bytes, int off, int limit) {
         assert bytes != null;
         assert limit <= Long.BYTES;
         assert bytes.length >= off + limit;
