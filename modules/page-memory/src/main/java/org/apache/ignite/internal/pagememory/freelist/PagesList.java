@@ -25,8 +25,8 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo.T_PAGE_LIST_NODE;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.MAX_ITEMID_NUM;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.changeType;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.MAX_ITEM_ID_NUM;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.changeFlag;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.itemId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
@@ -988,7 +988,7 @@ public abstract class PagesList extends DataStructure {
             assert dataIo.isEmpty(dataAddr); // We can put only empty data pages to reuse bucket.
 
             // Change page type to index and add it as next node page to this list.
-            long newDataId = changeType(dataId, FLAG_AUX);
+            long newDataId = changeFlag(dataId, FLAG_AUX);
 
             setupNextPage(io, pageId, pageAddr, newDataId, dataAddr);
 
@@ -1065,7 +1065,7 @@ public abstract class PagesList extends DataStructure {
 
         try {
             while ((nextId = bag.pollFreePage()) != 0L) {
-                assert itemId(nextId) > 0 && itemId(nextId) <= MAX_ITEMID_NUM : hexLong(nextId);
+                assert itemId(nextId) > 0 && itemId(nextId) <= MAX_ITEM_ID_NUM : hexLong(nextId);
 
                 int idx = io.addPage(prevAddr, nextId, pageSize());
 
@@ -1266,7 +1266,7 @@ public abstract class PagesList extends DataStructure {
 
                         dirty = true;
 
-                        if (isReuseBucket(bucket) && !(itemId(pageId) > 0 && itemId(pageId) <= MAX_ITEMID_NUM)) {
+                        if (isReuseBucket(bucket) && !(itemId(pageId) > 0 && itemId(pageId) <= MAX_ITEM_ID_NUM)) {
                             throw corruptedFreeListException("Incorrectly recycled pageId in reuse bucket: " + hexLong(pageId), pageId);
                         }
 

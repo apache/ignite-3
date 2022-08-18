@@ -20,12 +20,12 @@ package org.apache.ignite.internal.storage.pagememory.mv.io;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
-import static org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks.writePartitionlessLink;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionlessLink;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks;
+import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersion;
 import org.apache.ignite.internal.storage.pagememory.mv.Timestamps;
 import org.apache.ignite.internal.tx.Timestamp;

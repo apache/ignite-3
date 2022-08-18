@@ -21,4 +21,21 @@ package org.apache.ignite.internal.storage.pagememory.index.hash;
  * Key to search for a {@link HashIndexRow} in the {@link HashIndexTree}.
  */
 public class HashIndexRowKey {
+    private final int indexColumnsHash;
+
+    /**
+     * Constructor.
+     *
+     * @param indexColumnsHash Hash of the index columns.
+     */
+    public HashIndexRowKey(int indexColumnsHash) {
+        this.indexColumnsHash = indexColumnsHash;
+    }
+
+    /**
+     * Returns the hash of the index columns.
+     */
+    public int indexColumnsHash() {
+        return indexColumnsHash;
+    }
 }

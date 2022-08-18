@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash.io;
 
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
+
 import java.util.UUID;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRowKey;
@@ -25,6 +27,8 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 /**
  * Interface for {@link IndexMeta} B+Tree-related IO.
  *
+ * <p>TODO: IGNITE-17535 не забудь!
+ *
  * <p>Defines a following data layout:
  * <ul>
  *     <li>Index ID - {@link UUID} (16 bytes);</li>
@@ -32,6 +36,12 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
  * </ul>
  */
 public interface HashIndexRowIo {
+    /** Offset of the index columns hash (4 bytes). */
+    int INDEX_COLUMNS_HASH_OFFSET = 0;
+
+    /** Offset of the index column link (6 bytes). ??? */
+    int INDEX_COLUMNS_LINK_OFFSET = INDEX_COLUMNS_HASH_OFFSET + Integer.BYTES;
+
     /**
      * Returns an offset of the element inside the page.
      *
@@ -50,15 +60,14 @@ public interface HashIndexRowIo {
     default int compare(long pageAddr, int idx, HashIndexRowKey rowKey) {
         int elementOffset = offset(idx);
 
-        /*
-        int cmp = Long.compare(getLong(pageAddr, elementOffset + INDEX_ID_MSB_OFFSET), indexMeta.id().getMostSignificantBits());
+        int cmp = Integer.compare(getInt(pageAddr, elementOffset + INDEX_COLUMNS_HASH_OFFSET), rowKey.indexColumnsHash());
 
         if (cmp != 0) {
             return cmp;
         }
 
-        return Long.compare(getLong(pageAddr, elementOffset + INDEX_ID_LSB_OFFSET), indexMeta.id().getLeastSignificantBits());
-         */
+        // TODO: IGNITE-17535 вот тут надо будет доставить индексный строки и их уже савнивать
+
         return 0;
     }
 }

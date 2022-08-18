@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks.readPartitionlessLink;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionlessLink;
 
 import java.nio.ByteBuffer;
 import java.util.function.Predicate;

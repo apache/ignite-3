@@ -23,5 +23,12 @@ import org.apache.ignite.internal.storage.index.IndexRow;
  * {@link IndexRow} implementation used in the {@link HashIndexTree}.
  */
 public class HashIndexRow extends HashIndexRowKey {
-    private int hash;
+    /**
+     * Constructor.
+     *
+     * @param indexColumnsHash Hash of the index columns.
+     */
+    public HashIndexRow(int indexColumnsHash) {
+        super(indexColumnsHash);
+    }
 }
