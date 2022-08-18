@@ -43,7 +43,7 @@ class CliConfigProfileListCommandTest extends CliConfigCommandTestBase {
 
     @Test
     public void testSingleProfile() {
-        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createClusterUrlNonDefault());
+        configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createOneSectionWithDefaultProfile());
         execute();
 
         String expectedResult = "default" + System.lineSeparator();

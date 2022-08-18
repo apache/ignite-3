@@ -31,6 +31,7 @@ import org.apache.ignite.cli.config.ConfigManager;
  */
 public class TestConfigManagerHelper {
     private static final String EMPTY = "empty.ini";
+    private static final String ONE_SECTION_WITH_DEFAULT_PROFILE = "one_section_with_default_profile.ini";
     private static final String TWO_SECTION_WITH_DEFAULT_PROFILE = "two_section_with_default_profile.ini";
     private static final String TWO_SECTION_WITHOUT_DEFAULT_PROFILE = "two_section_without_default_profile.ini";
     private static final String INTEGRATION_TESTS = "integration_tests.ini";
@@ -39,6 +40,10 @@ public class TestConfigManagerHelper {
 
     public static File createEmptyConfig() {
         return copyResourceToTempFile(EMPTY);
+    }
+
+    public static File createOneSectionWithDefaultProfile() {
+        return copyResourceToTempFile(ONE_SECTION_WITH_DEFAULT_PROFILE);
     }
 
     public static File createSectionWithDefaultProfile() {
