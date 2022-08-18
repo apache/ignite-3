@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.MARKER_STORED_TO_DISK;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SNAPSHOT_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.newReadWriteLock;
@@ -105,7 +104,6 @@ public class CheckpointWorkflowTest {
 
         workflow = new CheckpointWorkflow(
                 "test",
-                mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 List.of(dataRegion0, dataRegion1),
                 1
@@ -177,8 +175,6 @@ public class CheckpointWorkflowTest {
 
     @Test
     void testMarkCheckpointBegin() throws Exception {
-        CheckpointMarkersStorage markersStorage = mock(CheckpointMarkersStorage.class);
-
         CheckpointReadWriteLock readWriteLock = newReadWriteLock(log);
 
         List<FullPageId> dirtyPages = List.of(of(0, 0, 1), of(0, 0, 2), of(0, 0, 3));
@@ -189,7 +185,6 @@ public class CheckpointWorkflowTest {
 
         workflow = new CheckpointWorkflow(
                 "test",
-                markersStorage,
                 readWriteLock,
                 List.of(dataRegion),
                 1
@@ -233,8 +228,6 @@ public class CheckpointWorkflowTest {
 
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), empty());
 
-                verify(markersStorage, never()).onCheckpointBegin(checkpointId);
-
                 verify(tracker, never()).onWriteLockWaitStart();
                 verify(tracker, never()).onMarkCheckpointBeginStart();
                 verify(tracker, never()).onMarkCheckpointBeginEnd();
@@ -260,8 +253,6 @@ public class CheckpointWorkflowTest {
                 assertTrue(readWriteLock.isWriteLockHeldByCurrentThread());
 
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), equalTo(List.of(LOCK_TAKEN)));
-
-                verify(markersStorage, never()).onCheckpointBegin(checkpointId);
 
                 verify(tracker, times(1)).onWriteLockWaitStart();
                 verify(tracker, times(1)).onMarkCheckpointBeginStart();
@@ -290,8 +281,6 @@ public class CheckpointWorkflowTest {
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), equalTo(List.of(LOCK_TAKEN, PAGES_SNAPSHOT_TAKEN, LOCK_RELEASED)));
 
                 assertThat(pagesCountArgumentCaptor.getAllValues(), equalTo(List.of(3)));
-
-                verify(markersStorage, never()).onCheckpointBegin(checkpointId);
 
                 verify(tracker, times(1)).onWriteLockWaitStart();
                 verify(tracker, times(1)).onMarkCheckpointBeginStart();
@@ -337,18 +326,14 @@ public class CheckpointWorkflowTest {
 
         assertThat(
                 checkpointStateArgumentCaptor.getAllValues(),
-                equalTo(List.of(LOCK_TAKEN, PAGES_SNAPSHOT_TAKEN, LOCK_RELEASED, MARKER_STORED_TO_DISK, PAGES_SORTED))
+                equalTo(List.of(LOCK_TAKEN, PAGES_SNAPSHOT_TAKEN, LOCK_RELEASED, PAGES_SORTED))
         );
-
-        verify(markersStorage, times(1)).onCheckpointBegin(checkpointId);
 
         verify(onReleaseWriteLock, times(1)).run();
     }
 
     @Test
     void testMarkCheckpointEnd() throws Exception {
-        CheckpointMarkersStorage markersStorage = mock(CheckpointMarkersStorage.class);
-
         CheckpointReadWriteLock readWriteLock = newReadWriteLock(log);
 
         PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
@@ -357,7 +342,6 @@ public class CheckpointWorkflowTest {
 
         workflow = new CheckpointWorkflow(
                 "test",
-                markersStorage,
                 readWriteLock,
                 List.of(dataRegion),
                 1
@@ -391,8 +375,6 @@ public class CheckpointWorkflowTest {
 
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), empty());
 
-                verify(markersStorage, times(1)).onCheckpointEnd(checkpointId);
-
                 verify(progressImpl, times(1)).pagesToWrite(isNull());
                 verify(progressImpl, times(1)).clearCounters();
             }
@@ -422,8 +404,6 @@ public class CheckpointWorkflowTest {
         workflow.removeCheckpointListener(checkpointListener);
 
         assertDoesNotThrow(() -> workflow.markCheckpointEnd(new Checkpoint(EMPTY, progressImpl)));
-
-        verify(markersStorage, times(1)).onCheckpointEnd(checkpointId);
     }
 
     @Test
@@ -444,7 +424,6 @@ public class CheckpointWorkflowTest {
 
         workflow = new CheckpointWorkflow(
                 "test",
-                mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 List.of(),
                 1
@@ -496,7 +475,6 @@ public class CheckpointWorkflowTest {
 
         workflow = new CheckpointWorkflow(
                 "test",
-                mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 List.of(),
                 1
@@ -525,7 +503,6 @@ public class CheckpointWorkflowTest {
     void testAwaitPendingTasksOfListenerCallback() {
         workflow = new CheckpointWorkflow(
                 "test",
-                mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 List.of(),
                 2
