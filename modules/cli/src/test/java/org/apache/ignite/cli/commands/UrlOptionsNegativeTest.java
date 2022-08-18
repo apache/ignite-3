@@ -45,7 +45,9 @@ import org.apache.ignite.cli.commands.node.config.NodeConfigShowReplCommand;
 import org.apache.ignite.cli.commands.node.config.NodeConfigUpdateCommand;
 import org.apache.ignite.cli.commands.node.config.NodeConfigUpdateReplCommand;
 import org.apache.ignite.cli.commands.node.status.NodeStatusReplCommand;
+import org.apache.ignite.cli.commands.topology.LogicalTopologyCommand;
 import org.apache.ignite.cli.commands.topology.LogicalTopologyReplCommand;
+import org.apache.ignite.cli.commands.topology.PhysicalTopologyCommand;
 import org.apache.ignite.cli.commands.topology.PhysicalTopologyReplCommand;
 import org.apache.ignite.cli.config.ini.IniConfigManager;
 import org.apache.ignite.cli.core.repl.context.CommandLineContextProvider;
@@ -105,8 +107,8 @@ public class UrlOptionsNegativeTest {
                 arguments(ClusterConfigShowCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterConfigUpdateCommand.class, CLUSTER_URL_OPTION, List.of("{key: value}")),
                 arguments(ClusterStatusCommand.class, CLUSTER_URL_OPTION, List.of()),
-                arguments(LogicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
-                arguments(PhysicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(LogicalTopologyCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(PhysicalTopologyCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(ClusterInitCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test"))
         // TODO https://issues.apache.org/jira/browse/IGNITE-17102
         //                Arguments.arguments(ClusterShowCommand.class, CLUSTER_URL_OPTION, List.of()),
