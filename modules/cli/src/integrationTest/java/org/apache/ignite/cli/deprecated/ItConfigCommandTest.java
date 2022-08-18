@@ -157,7 +157,6 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
                 "show",
                 "--node-url",
                 "http://localhost:" + node.restAddress().port(),
-                "--selector",
                 "network"
         );
 
