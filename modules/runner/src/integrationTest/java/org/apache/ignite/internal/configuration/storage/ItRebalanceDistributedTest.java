@@ -61,6 +61,7 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -487,7 +488,9 @@ public class ItRebalanceDistributedTest {
                     txManager,
                     dataStorageMgr,
                     metaStorageManager,
-                    schemaManager);
+                    schemaManager,
+                    view -> new LocalLogStorageFactory()
+            );
         }
 
         /**

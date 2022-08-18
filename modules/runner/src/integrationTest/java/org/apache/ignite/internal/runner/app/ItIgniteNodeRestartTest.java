@@ -68,6 +68,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -277,7 +278,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 txManager,
                 dataStorageManager,
                 metaStorageMgr,
-                schemaManager
+                schemaManager,
+                view -> new LocalLogStorageFactory()
         );
 
         // Preparing the result map.

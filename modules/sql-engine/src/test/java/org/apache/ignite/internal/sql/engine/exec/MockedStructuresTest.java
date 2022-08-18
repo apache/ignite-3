@@ -68,6 +68,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -771,7 +772,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 tm,
                 dataStorageManager,
                 msm,
-                schemaManager
+                schemaManager,
+                view -> new LocalLogStorageFactory()
         );
 
         tableManager.start();

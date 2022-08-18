@@ -95,7 +95,7 @@ public class JraftServerImpl implements RaftServer {
     private IgniteRpcServer rpcServer;
 
     /** Started groups. */
-    private ConcurrentMap<String, RaftGroupService> groups = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, RaftGroupService> groups = new ConcurrentHashMap<>();
 
     /** Lock storage with predefined monitor objects,
      * needed to prevent concurrent start of the same raft group. */

@@ -14,13 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.storage.impl;
 
-import org.apache.ignite.raft.jraft.storage.LogStorage;
+package org.apache.ignite.internal.raft.storage.impl;
 
-class VolatileLogStorageTest extends BaseLogStorageTest {
-    @Override
-    protected LogStorage newLogStorage() {
-        return new VolatileLogStorage(new UnlimitedBudget(), new OnHeapLogs(), new OnHeapLogs());
-    }
+import org.apache.ignite.configuration.schemas.table.LogStorageBudgetView;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+
+/**
+ * Creates {@link LogStorageFactory} instances.
+ */
+public interface LogStorageFactoryCreator {
+    /**
+     * Creates a {@link LogStorageFactory} instance with the given configuration.
+     *
+     * @param budgetView Configuration.
+     * @return LogStorageFactory instance.
+     */
+    LogStorageFactory factory(LogStorageBudgetView budgetView);
 }

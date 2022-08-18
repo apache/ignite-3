@@ -86,7 +86,7 @@ import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
-import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -205,6 +205,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Schema manager. */
     private final SchemaManager schemaManager;
 
+    private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
+
     /** Executor for scheduling retries of a rebalance. */
     private final ScheduledExecutorService rebalanceScheduler;
 
@@ -226,6 +228,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param txManager Transaction manager.
      * @param dataStorageMgr Data storage manager.
      * @param schemaManager Schema manager.
+     * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for volatile
+     *                                         tables.
      */
     public TableManager(
             Consumer<Function<Long, CompletableFuture<?>>> registry,
@@ -236,7 +240,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             TxManager txManager,
             DataStorageManager dataStorageMgr,
             MetaStorageManager metaStorageMgr,
-            SchemaManager schemaManager
+            SchemaManager schemaManager,
+            LogStorageFactoryCreator volatileLogStorageFactoryCreator
     ) {
         this.tablesCfg = tablesCfg;
         this.raftMgr = raftMgr;
@@ -245,6 +250,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.dataStorageMgr = dataStorageMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.schemaManager = schemaManager;
+        this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
 
         netAddrResolver = addr -> {
             ClusterNode node = topologyService.getByAddress(addr);
@@ -610,7 +616,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         if (internalTbl.storage().isVolatile()) {
             raftGroupOptions = RaftGroupOptions.forVolatileStores()
-                    .setLogStorageFactory(new VolatileLogStorageFactory(tableConfig.volatileRaft().logStorage().value()))
+                    .setLogStorageFactory(volatileLogStorageFactoryCreator.factory(tableConfig.volatileRaft().logStorage().value()))
                     .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage());
         } else {
             raftGroupOptions = RaftGroupOptions.forPersistentStores();
