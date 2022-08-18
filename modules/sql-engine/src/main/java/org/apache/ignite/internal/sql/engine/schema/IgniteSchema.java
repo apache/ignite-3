@@ -111,8 +111,9 @@ public class IgniteSchema extends AbstractSchema {
     public boolean removeIndex(UUID indexId) {
         IgniteIndex rmv = idxMap.remove(indexId);
 
-        if (rmv == null)
+        if (rmv == null) {
             return false;
+        }
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
         // Decouple tables and indices.
