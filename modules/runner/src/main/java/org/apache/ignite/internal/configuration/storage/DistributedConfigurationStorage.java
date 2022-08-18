@@ -68,9 +68,9 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     private static final ByteArray MASTER_KEY = new ByteArray(DISTRIBUTED_PREFIX + "$master$key");
 
     /**
-     * Key for a value of previous and current configuration's MetaStorage revision.
+     * Vault's key for a value of previous and current configuration's MetaStorage revision.
      */
-    private static final ByteArray CONFIGURATION_REVISIONS_KEY = new ByteArray(DISTRIBUTED_PREFIX + "$revisions");
+    private static final ByteArray CONFIGURATION_REVISIONS_KEY = new ByteArray("$revisions");
 
     /**
      * Prefix for all keys in the distributed storage. This key is expected to be the first key in lexicographical order of distributed
@@ -158,7 +158,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                     // Meta Storage should not return nulls as values
                     assert value != null;
 
-                    if (key.equals(MASTER_KEY) || key.equals(CONFIGURATION_REVISIONS_KEY)) {
+                    if (key.equals(MASTER_KEY)) {
                         continue;
                     }
 
@@ -219,7 +219,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                                 // vault iterator should not return nulls as values
                                 assert value != null;
 
-                                if (key.equals(MASTER_KEY) || key.equals(CONFIGURATION_REVISIONS_KEY)) {
+                                if (key.equals(MASTER_KEY)) {
                                     continue;
                                 }
 
