@@ -29,7 +29,7 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
  */
 public class IndexMetaLeafIo extends BplusLeafIo<IndexMeta> implements IndexMetaIo {
     /** Page IO type. */
-    public static final short T_INDEX_META_LEAF_IO = 14;
+    public static final short T_INDEX_META_LEAF_IO = 15;
 
     /** I/O versions. */
     public static final IoVersions<IndexMetaLeafIo> VERSIONS = new IoVersions<>(new IndexMetaLeafIo(1));

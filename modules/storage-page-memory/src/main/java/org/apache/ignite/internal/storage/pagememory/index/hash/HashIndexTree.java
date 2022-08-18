@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.index.meta;
+package org.apache.ignite.internal.storage.pagememory.index.hash;
 
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -23,17 +23,14 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
-import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaInnerIo;
-import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaIo;
-import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaLeafIo;
-import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaTreeMetaIo;
+import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeMetaIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link BplusTree} implementation for storing {@link IndexMeta}.
+ * {@link BplusTree} implementation for storing {@link HashIndexRow}.
  */
-public class IndexMetaTree extends BplusTree<IndexMeta, IndexMeta> {
+public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
     /**
      * Constructor.
      *
@@ -48,9 +45,9 @@ public class IndexMetaTree extends BplusTree<IndexMeta, IndexMeta> {
      * @param initNew {@code True} if new tree should be created.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public IndexMetaTree(
+    public HashIndexTree(
             int grpId,
-            String grpName,
+            @Nullable String grpName,
             int partId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
@@ -59,24 +56,20 @@ public class IndexMetaTree extends BplusTree<IndexMeta, IndexMeta> {
             @Nullable ReuseList reuseList,
             boolean initNew
     ) throws IgniteInternalCheckedException {
-        super("IndexMetaTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+        super("HashIndexTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
-        setIos(IndexMetaInnerIo.VERSIONS, IndexMetaLeafIo.VERSIONS, IndexMetaTreeMetaIo.VERSIONS);
+        setIos(null, null, HashIndexTreeMetaIo.VERSIONS);
 
         initTree(initNew);
     }
 
     @Override
-    protected int compare(BplusIo<IndexMeta> io, long pageAddr, int idx, IndexMeta row) {
-        IndexMetaIo indexMetaIo = (IndexMetaIo) io;
-
-        return indexMetaIo.compare(pageAddr, idx, row);
+    protected int compare(BplusIo<HashIndexRowKey> io, long pageAddr, int idx, HashIndexRowKey row) throws IgniteInternalCheckedException {
+        return 0;
     }
 
     @Override
-    public IndexMeta getRow(BplusIo<IndexMeta> io, long pageAddr, int idx, Object x) {
-        IndexMetaIo indexMetaIo = (IndexMetaIo) io;
-
-        return indexMetaIo.getRow(pageAddr, idx);
+    public HashIndexRow getRow(BplusIo<HashIndexRowKey> io, long pageAddr, int idx, Object x) throws IgniteInternalCheckedException {
+        return null;
     }
 }
