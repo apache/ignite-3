@@ -1297,7 +1297,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         IgniteTriConsumer<Long, Map<UUID, TableImpl>, Throwable> tablesListener = (token, tables, th) -> {
             if (th == null) {
-                getTblFut.complete(tables.get(id));
+                TableImpl table = tables.get(id);
+
+                if (table != null) {
+                    getTblFut.complete(table);
+                }
             } else {
                 getTblFut.completeExceptionally(th);
             }
