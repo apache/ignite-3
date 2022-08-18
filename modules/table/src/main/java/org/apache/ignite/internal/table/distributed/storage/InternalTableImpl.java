@@ -74,7 +74,8 @@ public class InternalTableImpl implements InternalTable {
     /** Cursor id generator. */
     private static final AtomicLong CURSOR_ID_GENERATOR = new AtomicLong();
 
-    private static final int ATTEMPTS_TO_ENLIST_A_PARTITION = 5;
+    /** Number of attempts. */
+    private static final int ATTEMPTS_TO_ENLIST_PARTITION = 5;
 
     /** Partition map. */
     protected final Int2ObjectMap<RaftGroupService> partitionMap;
@@ -206,7 +207,7 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlistWithRetry(tx0, partId, request, ATTEMPTS_TO_ENLIST_A_PARTITION);
+            fut = enlistWithRetry(tx0, partId, request, ATTEMPTS_TO_ENLIST_PARTITION);
         }
 
         return postEnlist(fut, implicit, tx0);
@@ -263,7 +264,7 @@ public class InternalTableImpl implements InternalTable {
                     throw new TransactionException("Failed to invoke the replica request.");
                 }
             } else {
-                fut = enlistWithRetry(tx0, partToRows.getIntKey(), request, ATTEMPTS_TO_ENLIST_A_PARTITION);
+                fut = enlistWithRetry(tx0, partToRows.getIntKey(), request, ATTEMPTS_TO_ENLIST_PARTITION);
             }
 
             futures[batchNum++] = fut;
@@ -315,7 +316,7 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlistWithRetry(tx0, partId, request, ATTEMPTS_TO_ENLIST_A_PARTITION);
+            fut = enlistWithRetry(tx0, partId, request, ATTEMPTS_TO_ENLIST_PARTITION);
         }
 
         return postEnlist(fut, implicit, tx0);

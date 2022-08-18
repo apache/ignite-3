@@ -214,11 +214,10 @@ public class ReplicaManager implements IgniteComponent {
                     CompletableFuture<Object> result = replica.processRequest(request);
 
                     result.handle((res, ex) -> {
+                        NetworkMessage msg;
+
                         if (ex == null) {
-                            clusterNetSvc.messagingService().respond(
-                                    senderAddr,
-                                    REPLICA_MESSAGES_FACTORY.replicaResponse().result(res).build(),
-                                    correlationId);
+                            msg = REPLICA_MESSAGES_FACTORY.replicaResponse().result(res).build();
                         } else {
                             var traceId = UUID.randomUUID();
 
@@ -230,25 +229,19 @@ public class ReplicaManager implements IgniteComponent {
                                     .errorTraceId(traceId);
 
                             if (ex instanceof IgniteInternalException) {
-                                clusterNetSvc.messagingService().respond(
-                                        senderAddr,
-                                        errorBuilder.errorMessage(ex.getMessage())
-                                                .errorCode(((IgniteInternalException) ex).code())
-                                                .build(),
-                                        correlationId);
+                                msg = errorBuilder.errorMessage(ex.getMessage())
+                                        .errorCode(((IgniteInternalException) ex).code())
+                                        .build();
                             } else {
-                                clusterNetSvc.messagingService().respond(
-                                        senderAddr,
-                                        errorBuilder.errorMessage(
-                                                        IgniteStringFormatter.format("Process replication response finished with exception "
-                                                                + "[replicaGrpId={}, msg={}]", request.groupId(), ex.getMessage()))
-                                                .errorCode(Replicator.REPLICA_COMMON_ERR)
-                                                .build(),
-                                        correlationId);
+                                msg = errorBuilder.errorMessage(
+                                                IgniteStringFormatter.format("Process replication response finished with "
+                                                        + "exception [replicaGrpId={}, msg={}]", request.groupId(), ex.getMessage()))
+                                        .errorCode(Replicator.REPLICA_COMMON_ERR)
+                                        .build();
                             }
-
-
                         }
+
+                        clusterNetSvc.messagingService().respond(senderAddr, msg, correlationId);
 
                         return null;
                     });
