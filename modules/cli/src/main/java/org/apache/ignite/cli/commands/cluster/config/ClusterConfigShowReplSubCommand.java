@@ -31,6 +31,7 @@ import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
 /**
  * Command that shows configuration from the cluster in REPL mode.
@@ -42,7 +43,7 @@ public class ClusterConfigShowReplSubCommand extends BaseCommand implements Runn
     /**
      * Configuration selector option.
      */
-    @Option(names = {"--selector"}, description = "Configuration path selector")
+    @Parameters(arity = "0..1", description = "Configuration path selector")
     private String selector;
 
     /**

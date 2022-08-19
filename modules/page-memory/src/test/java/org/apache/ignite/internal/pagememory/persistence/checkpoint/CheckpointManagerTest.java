@@ -35,7 +35,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -53,8 +52,6 @@ import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -62,13 +59,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * For {@link CheckpointManager} testing.
  */
 @ExtendWith(ConfigurationExtension.class)
-@ExtendWith(WorkDirectoryExtension.class)
 public class CheckpointManagerTest {
     @InjectConfiguration
     private PageMemoryCheckpointConfiguration checkpointConfig;
-
-    @WorkDirectory
-    private Path workDir;
 
     @Test
     void testSimple() throws Exception {
@@ -84,7 +77,6 @@ public class CheckpointManagerTest {
                 mock(FilePageStoreManager.class),
                 mock(PartitionMetaManager.class),
                 List.of(dataRegion),
-                workDir,
                 mock(PageIoRegistry.class),
                 1024
         );
@@ -175,7 +167,6 @@ public class CheckpointManagerTest {
                 filePageStoreManager,
                 mock(PartitionMetaManager.class),
                 List.of(),
-                workDir,
                 mock(PageIoRegistry.class),
                 1024
         ));

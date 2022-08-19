@@ -110,7 +110,7 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
     /** {@inheritDoc} */
     @Override
     public RowId insert(BinaryRow row, UUID txId) throws StorageException {
-        RowId rowId = new TestRowId(partitionId);
+        RowId rowId = new RowId(partitionId);
 
         addWrite(rowId, row, txId);
 
@@ -125,7 +125,7 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.begin == null) {
                 if (!txId.equals(versionChain.txId)) {
-                    throw new TxIdMismatchException();
+                    throw new TxIdMismatchException(txId, versionChain.txId);
                 }
 
                 res[0] = versionChain.row;
@@ -210,7 +210,7 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
             }
 
             if (versionChain.txId != null && !versionChain.txId.equals(txId)) {
-                throw new TxIdMismatchException();
+                throw new TxIdMismatchException(txId, versionChain.txId);
             }
 
             return binaryRow;
