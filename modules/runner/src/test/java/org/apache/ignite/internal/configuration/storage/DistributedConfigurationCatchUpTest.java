@@ -94,9 +94,6 @@ public class DistributedConfigurationCatchUpTest {
 
         MetaStorageMockWrapper wrapper = new MetaStorageMockWrapper();
 
-        // This value is a tribute to the specific error that was occurring. Can as well be 1.
-        int configurationChangesCount = 7;
-
         try (var storage = new DistributedConfigurationStorage(wrapper.metaStorageManager(), vaultManager)) {
             var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Collections.emptyMap(),
                     storage, Collections.emptyList(), Collections.emptyList());
@@ -104,16 +101,14 @@ public class DistributedConfigurationCatchUpTest {
             try {
                 changer.start();
 
-                for (int i = 0; i < configurationChangesCount; i++) {
-                    ConfigurationSource source = source(
-                            rootKey,
-                            (DistributedTestChange change) -> change.changeFoobar(1)
-                    );
+                ConfigurationSource source = source(
+                        rootKey,
+                        (DistributedTestChange change) -> change.changeFoobar(1)
+                );
 
-                    CompletableFuture<Void> change = changer.change(source);
+                CompletableFuture<Void> change = changer.change(source);
 
-                    change.get();
-                }
+                change.get();
             } finally {
                 changer.stop();
             }
@@ -123,7 +118,7 @@ public class DistributedConfigurationCatchUpTest {
         vaultManager.put(MetaStorageMockWrapper.TEST_KEY, new byte[]{4, 1, 2, 3, 4}).get();
 
         // This emulates a change in MetaStorage that is not related to the configuration.
-        vaultManager.put(MetaStorageManager.APPLIED_REV, ByteUtils.longToBytes(configurationChangesCount + 1)).get();
+        vaultManager.put(MetaStorageManager.APPLIED_REV, ByteUtils.longToBytes(2)).get();
 
         try (var storage = new DistributedConfigurationStorage(wrapper.metaStorageManager(), vaultManager)) {
             var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Collections.emptyMap(),
@@ -135,7 +130,8 @@ public class DistributedConfigurationCatchUpTest {
                 // Should return last configuration change, not last MetaStorage change.
                 Long lastConfigurationChangeRevision = storage.lastRevision().get();
 
-                assertEquals(configurationChangesCount, lastConfigurationChangeRevision);
+                // Should be one, because we only changed configuration once.
+                assertEquals(1, lastConfigurationChangeRevision);
             } finally {
                 changer.stop();
             }

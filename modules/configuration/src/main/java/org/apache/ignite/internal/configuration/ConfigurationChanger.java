@@ -581,13 +581,15 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                         return CompletableFuture.completedFuture(null);
                     } else {
                         long notificationNumber = notificationListenerCnt.incrementAndGet();
-                        return notificator.notify(oldSuperRoot, newSuperRoot, newChangeId, notificationNumber).whenComplete((v, t) -> {
-                            if (t == null) {
-                                oldStorageRoots.changeFuture.complete(null);
-                            } else {
-                                oldStorageRoots.changeFuture.completeExceptionally(t);
-                            }
-                        });
+
+                        return notificator.notify(oldSuperRoot, newSuperRoot, newChangeId, notificationNumber)
+                                .whenComplete((v, t) -> {
+                                    if (t == null) {
+                                        oldStorageRoots.changeFuture.complete(null);
+                                    } else {
+                                        oldStorageRoots.changeFuture.completeExceptionally(t);
+                                    }
+                                });
                     }
                 });
     }

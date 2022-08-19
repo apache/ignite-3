@@ -51,6 +51,7 @@ import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Distributed configuration storage.
@@ -195,8 +196,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                 .thenCombineAsync(vaultMgr.get(CONFIGURATION_REVISIONS_KEY), this::readAllOnStart0, threadPool));
     }
 
-    @NotNull
-    private Data readAllOnStart0(VaultEntry appliedRevEntry, VaultEntry revisionsEntry) {
+    private Data readAllOnStart0(@Nullable VaultEntry appliedRevEntry, @Nullable VaultEntry revisionsEntry) {
         long appliedRevision = appliedRevEntry == null ? 0L : ByteUtils.bytesToLong(appliedRevEntry.value());
 
         long cfgRevision = appliedRevision;
