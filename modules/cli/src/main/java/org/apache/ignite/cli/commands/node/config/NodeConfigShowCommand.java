@@ -27,14 +27,12 @@ import org.apache.ignite.cli.commands.node.NodeUrlOptions;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 /**
  * Command that shows configuration from the cluster.
  */
-@Command(name = "show",
-        description = "Shows node configuration")
+@Command(name = "show", description = "Shows node configuration")
 public class NodeConfigShowCommand extends BaseCommand implements Callable<Integer> {
     /**
      * Node URL option.
