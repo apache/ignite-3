@@ -103,7 +103,7 @@ public class TestConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Data> readAllOnStart() {
+    public CompletableFuture<Data> readDataOnRecovery() {
         return supplyAsync(() -> {
             synchronized (this) {
                 if (fail) {

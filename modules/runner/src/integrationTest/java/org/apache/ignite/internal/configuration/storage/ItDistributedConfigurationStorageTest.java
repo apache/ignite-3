@@ -168,7 +168,7 @@ public class ItDistributedConfigurationStorageTest {
         try {
             node2.start();
 
-            CompletableFuture<Data> storageData = node2.cfgStorage.readAllOnStart();
+            CompletableFuture<Data> storageData = node2.cfgStorage.readDataOnRecovery();
 
             assertThat(storageData.thenApply(Data::values), willBe(equalTo(data)));
         } finally {

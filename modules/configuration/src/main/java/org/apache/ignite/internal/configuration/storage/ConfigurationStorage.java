@@ -27,11 +27,11 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
  */
 public interface ConfigurationStorage extends AutoCloseable {
     /**
-     * Reads all configuration values and current storage version on the start.
+     * Reads all configuration values and current storage version during the recovery phase.
      *
      * @return Future that resolves into extracted values and version or a {@link StorageException} if the data could not be read.
      */
-    CompletableFuture<Data> readAllOnStart();
+    CompletableFuture<Data> readDataOnRecovery();
 
     /**
      * Retrieves the most recent values which keys start with the given prefix, regardless of the current storage version.

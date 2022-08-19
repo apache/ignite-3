@@ -73,7 +73,7 @@ public class ByteUtils {
      * @return Array of bytes.
      */
     public static byte[] longToBytes(long l) {
-        return longToBytes(l, new byte[8], 0, 8);
+        return longToBytes(l, new byte[8], 0);
     }
 
     /**
@@ -83,15 +83,13 @@ public class ByteUtils {
      * @param l     Unsigned long value.
      * @param bytes Bytes array to write result to.
      * @param off   Offset in the target array to write result to.
-     * @param limit Limit of bytes to write into output.
      * @return Number of bytes overwritten in {@code bytes} array.
      */
-    public static byte[] longToBytes(long l, byte[] bytes, int off, int limit) {
+    public static byte[] longToBytes(long l, byte[] bytes, int off) {
         assert bytes != null;
-        assert limit <= Long.BYTES;
-        assert bytes.length >= off + limit;
+        assert bytes.length >= off + Long.BYTES;
 
-        for (int i = limit - 1; i >= 0; i--) {
+        for (int i = Long.BYTES - 1; i >= 0; i--) {
             bytes[off + i] = (byte) l;
             l >>>= 8;
         }

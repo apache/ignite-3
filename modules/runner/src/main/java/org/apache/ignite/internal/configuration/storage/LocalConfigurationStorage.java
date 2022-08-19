@@ -119,7 +119,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Data> readAllOnStart() {
+    public CompletableFuture<Data> readDataOnRecovery() {
         return readAll(LOC_KEYS_START_RANGE, LOC_KEYS_END_RANGE);
     }
 

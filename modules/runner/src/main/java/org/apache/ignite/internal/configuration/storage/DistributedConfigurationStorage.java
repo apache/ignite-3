@@ -190,53 +190,54 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Data> readAllOnStart() throws StorageException {
+    public CompletableFuture<Data> readDataOnRecovery() throws StorageException {
         return registerFuture(vaultMgr.get(MetaStorageManager.APPLIED_REV)
-                .thenComposeAsync(appliedRevEntry -> {
-                    return vaultMgr.get(CONFIGURATION_REVISIONS_KEY).thenApplyAsync(revisionsEntry -> {
-                        long appliedRevision = appliedRevEntry == null ? 0L : ByteUtils.bytesToLong(appliedRevEntry.value());
+                .thenCombineAsync(vaultMgr.get(CONFIGURATION_REVISIONS_KEY), this::readAllOnStart0, threadPool));
+    }
 
-                        long cfgRevision = appliedRevision;
+    @NotNull
+    private Data readAllOnStart0(VaultEntry appliedRevEntry, VaultEntry revisionsEntry) {
+        long appliedRevision = appliedRevEntry == null ? 0L : ByteUtils.bytesToLong(appliedRevEntry.value());
 
-                        if (revisionsEntry != null) {
-                            byte[] value = revisionsEntry.value();
-                            long prevMasterKeyRevision = ByteUtils.bytesToLong(value, 0);
-                            long curMasterKeyRevision = ByteUtils.bytesToLong(value, Long.BYTES);
+        long cfgRevision = appliedRevision;
 
-                            // If current master key revision is higher than applied revision, then node failed
-                            // before applied revision changed, so we have to use previous master key revision
-                            cfgRevision = curMasterKeyRevision <= appliedRevision ? curMasterKeyRevision : prevMasterKeyRevision;
-                        }
+        if (revisionsEntry != null) {
+            byte[] value = revisionsEntry.value();
+            long prevMasterKeyRevision = ByteUtils.bytesToLong(value, 0);
+            long curMasterKeyRevision = ByteUtils.bytesToLong(value, Long.BYTES);
 
-                        var data = new HashMap<String, Serializable>();
+            // If current master key revision is higher than applied revision, then node failed
+            // before applied revision changed, so we have to use previous master key revision
+            cfgRevision = curMasterKeyRevision <= appliedRevision ? curMasterKeyRevision : prevMasterKeyRevision;
+        }
 
-                        try (Cursor<VaultEntry> entries = storedDistributedConfigKeys()) {
-                            for (VaultEntry entry : entries) {
-                                ByteArray key = entry.key();
-                                byte[] value = entry.value();
+        var data = new HashMap<String, Serializable>();
 
-                                // vault iterator should not return nulls as values
-                                assert value != null;
+        try (Cursor<VaultEntry> entries = storedDistributedConfigKeys()) {
+            for (VaultEntry entry : entries) {
+                ByteArray key = entry.key();
+                byte[] value = entry.value();
 
-                                if (key.equals(MASTER_KEY)) {
-                                    continue;
-                                }
+                // vault iterator should not return nulls as values
+                assert value != null;
 
-                                String dataKey = key.toString().substring(DISTRIBUTED_PREFIX.length());
+                if (key.equals(MASTER_KEY)) {
+                    continue;
+                }
 
-                                data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
-                            }
-                        } catch (Exception e) {
-                            throw new StorageException("Exception when closing a Vault cursor", e);
-                        }
+                String dataKey = key.toString().substring(DISTRIBUTED_PREFIX.length());
 
-                        assert data.isEmpty() || cfgRevision > 0;
+                data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
+            }
+        } catch (Exception e) {
+            throw new StorageException("Exception when closing a Vault cursor", e);
+        }
 
-                        changeId.set(data.isEmpty() ? 0 : cfgRevision);
+        assert data.isEmpty() || cfgRevision > 0;
 
-                        return new Data(data, cfgRevision);
-                    }, threadPool);
-                }, threadPool));
+        changeId.set(data.isEmpty() ? 0 : cfgRevision);
+
+        return new Data(data, cfgRevision);
     }
 
     /** {@inheritDoc} */
@@ -347,8 +348,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     public CompletableFuture<Void> writeConfigurationRevision(long prevRevision, long currentRevision) {
         byte[] value = new byte[Long.BYTES * 2];
 
-        ByteUtils.longToBytes(prevRevision, value, 0, Long.BYTES);
-        ByteUtils.longToBytes(currentRevision, value, Long.BYTES, Long.BYTES);
+        ByteUtils.longToBytes(prevRevision, value, 0);
+        ByteUtils.longToBytes(currentRevision, value, Long.BYTES);
 
         return vaultMgr.put(CONFIGURATION_REVISIONS_KEY, value);
     }

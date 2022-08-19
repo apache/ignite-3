@@ -427,6 +427,7 @@ public class ConfigurationNotifier {
 
                 NamedListConfiguration<?, InnerNode, ?> namedListCfg = namedDynamicConfig(config, key);
 
+                // Initialize named list configuration.
                 namedListCfg.touchMembers();
 
                 for (String name : newNamedList.namedListKeys()) {
