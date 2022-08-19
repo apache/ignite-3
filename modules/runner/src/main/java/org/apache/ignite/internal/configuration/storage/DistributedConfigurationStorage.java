@@ -200,8 +200,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     }
 
     /**
-     * Resolves configuration revision based on the saved in the Vault revision of the metastorage and also
-     * previous and current revisions of the configuration.
+     * Resolves current configuration revision based on the saved in the Vault revision of the metastorage and also
+     * previous and current revisions of the configuration saved in the Vault.
      *
      * @param appliedRevEntry Applied revision entry.
      * @param revisionsEntry Configuration revisions entry.
