@@ -117,6 +117,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
+import org.apache.ignite.lang.IgniteTriConsumer;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -1295,37 +1296,31 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
 
-        EventListener<TableEventParameters> clo = new EventListener<>() {
-            @Override
-            public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                if (!id.equals(parameters.tableId())) {
-                    return completedFuture(false);
+        IgniteTriConsumer<Long, Map<UUID, TableImpl>, Throwable> tablesListener = (token, tables, th) -> {
+            if (th == null) {
+                TableImpl table = tables.get(id);
+
+                if (table != null) {
+                    getTblFut.complete(table);
                 }
-
-                if (e == null) {
-                    tablesByIdVv.get(parameters.causalityToken()).thenRun(() -> getTblFut.complete(parameters.table()));
-                } else {
-                    getTblFut.completeExceptionally(e);
-                }
-
-                return completedFuture(true);
-            }
-
-            @Override
-            public void remove(@NotNull Throwable e) {
-                getTblFut.completeExceptionally(e);
+            } else {
+                getTblFut.completeExceptionally(th);
             }
         };
 
-        listen(TableEvent.CREATE, clo);
+        tablesByIdVv.whenComplete(tablesListener);
 
+        // This check is needed for the case when we have registered tablesListener,
+        // but tablesByIdVv has already been completed, so listener would be triggered only for the next versioned value update.
         tbl = tablesByIdVv.latest().get(id);
 
-        if (tbl != null && getTblFut.complete(tbl) || !isTableConfigured(id) && getTblFut.complete(null)) {
-            removeListener(TableEvent.CREATE, clo, null);
+        if (tbl != null) {
+            tablesByIdVv.removeWhenComplete(tablesListener);
+
+            return CompletableFuture.completedFuture(tbl);
         }
 
-        return getTblFut;
+        return getTblFut.whenComplete((unused, throwable) -> tablesByIdVv.removeWhenComplete(tablesListener));
     }
 
     /**
