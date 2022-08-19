@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -153,21 +154,23 @@ public abstract class AbstractMvTableStorageTest {
                         SchemaBuilders.column("COLUMN0", ColumnType.INT32).build()
                 )
                 .withPrimaryKey("ID")
-                .withIndex(
-                        SchemaBuilders.sortedIndex(SORTED_INDEX_NAME_1)
-                                .addIndexColumn("COLUMN0").done()
-                                .build()
-                )
-                .withIndex(
-                        SchemaBuilders.sortedIndex(SORTED_INDEX_NAME_2)
-                                .addIndexColumn("COLUMN0").done()
-                                .build()
-                )
                 .build();
 
         CompletableFuture<Void> createTableFuture = tableStorage.configuration()
                 .change(tableChange -> SchemaConfigurationConverter.convert(tableDefinition, tableChange));
 
         assertThat(createTableFuture, willCompleteSuccessfully());
+
+        CompletableFuture<Void> indexCreateFut = tableStorage.configuration().change(tblCh ->
+                List.of(SchemaBuilders.sortedIndex(SORTED_INDEX_NAME_1)
+                                .addIndexColumn("COLUMN0").done()
+                                .build(),
+                        SchemaBuilders.sortedIndex(SORTED_INDEX_NAME_2)
+                                .addIndexColumn("COLUMN0").done()
+                                .build()
+                ).forEach(idxDef -> SchemaConfigurationConverter.addIndex(idxDef, tblCh))
+        );
+
+        assertThat(indexCreateFut, willCompleteSuccessfully());
     }
 }

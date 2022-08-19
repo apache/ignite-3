@@ -83,16 +83,19 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
                         SchemaBuilders.column("VAL", ColumnType.string()).asNullable(true).build()
                 )
                 .withPrimaryKey("ID")
-                .withIndex(
-                        SchemaBuilders.sortedIndex(tableName + "_JID_IDX").addIndexColumn("JID").done().build()
-                )
                 .build();
 
-        return CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
+        Table table = CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
                         .changeReplicas(2)
                         .changePartitions(10)
         );
+
+        CLUSTER_NODES.get(0).tables().alterTableAsync(schTbl1.canonicalName(), tblCh -> SchemaConfigurationConverter.addIndex(
+                SchemaBuilders.sortedIndex(tableName + "_JID_IDX").addIndexColumn("JID").done().build(), tblCh)
+        );
+
+        return table;
     }
 
     private void prepareDataSet(int rowsCount) {

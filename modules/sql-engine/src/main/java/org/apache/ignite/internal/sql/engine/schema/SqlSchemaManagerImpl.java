@@ -370,8 +370,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private IgniteIndex convert(Index<?> index, SchemaRegistry schemaRegistry) {
         IndexDescriptor desc = index.descriptor();
-        IgniteTable table = tablesVv.latest().get(index.tableId());
         SchemaDescriptor schema = schemaRegistry.schema();
+        IgniteTable table = tablesVv.latest().get(index.tableId());
+
+        assert table != null;
 
         if (desc instanceof SortedIndexDescriptor) {
             List<RelFieldCollation> collations = desc.columns().stream().map(colName ->

@@ -54,17 +54,18 @@ public class ItProjectScanMergeRuleTest extends AbstractBasicIntegrationTest {
                         SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build()
                 )
                 .withPrimaryKey("ID")
-                .withIndex(
-                        SchemaBuilders.sortedIndex(IDX_CAT_ID)
-                                .addIndexColumn("CAT_ID").done()
-                                .build()
-                )
                 .build();
 
         Table tbl = CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)
+        );
+
+        CLUSTER_NODES.get(0).tables().alterTable(schTbl1.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.addIndex(SchemaBuilders.sortedIndex(IDX_CAT_ID)
+                        .addIndexColumn("CAT_ID").done()
+                        .build(), tblCh)
         );
 
         insertData(tbl, new String[]{"ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"}, new Object[][]{

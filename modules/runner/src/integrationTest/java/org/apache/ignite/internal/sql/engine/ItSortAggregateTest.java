@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.List;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -49,12 +50,6 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
                         SchemaBuilders.column("VAL1", ColumnType.INT32).asNullable(true).build()
                 )
                 .withPrimaryKey("ID")
-                .withIndex(
-                        SchemaBuilders.sortedIndex("IDX")
-                                .addIndexColumn("GRP0").done()
-                                .addIndexColumn("GRP1").done()
-                                .build()
-                )
                 .build();
 
         TableDefinition schTbl2 = SchemaBuilders.tableBuilder("PUBLIC", "TEST_ONE_COL_IDX")
@@ -63,11 +58,6 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
                         SchemaBuilders.column("COL0", ColumnType.INT32).asNullable(true).build()
                 )
                 .withPrimaryKey("PK")
-                .withIndex(
-                        SchemaBuilders.sortedIndex("IDX")
-                                .addIndexColumn("COL0").desc().done()
-                                .build()
-                )
                 .build();
 
         Table table = CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
@@ -78,6 +68,17 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
 
         Table tblOneColIdx = CLUSTER_NODES.get(0).tables().createTable(schTbl2.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl2, tblCh)
+        );
+
+        CLUSTER_NODES.get(0).tables().alterTable(schTbl1.canonicalName(), tblCh ->
+                List.of(SchemaBuilders.sortedIndex("IDX")
+                                .addIndexColumn("GRP0").done()
+                                .addIndexColumn("GRP1").done()
+                                .build(),
+                        SchemaBuilders.sortedIndex("IDX")
+                                .addIndexColumn("COL0").desc().done()
+                                .build()
+                ).forEach(idxDef -> SchemaConfigurationConverter.addIndex(idxDef, tblCh))
         );
 
         RecordView<Tuple> view = table.recordView();
