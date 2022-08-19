@@ -18,23 +18,31 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.UUID;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The command replaces an old entry to a new one.
+ * RAFT partition transactional command.
  */
-public class ReplaceIfExistCommand extends SingleKeyCommand implements WriteCommand {
+public abstract class PartitionCommand implements WriteCommand {
+    /** Transaction id. */
+    private UUID txId;
+
     /**
-     * Creates a new instance of ReplaceIfExistCommand with the given row to be replaced. The {@code row} should not be {@code null}.
+     * The constructor.
      *
-     * @param row Binary row.
      * @param txId Transaction id.
-     *
-     * @see TransactionalCommand
      */
-    public ReplaceIfExistCommand(@NotNull BinaryRow row, @NotNull UUID txId) {
-        super(row, txId);
+    public PartitionCommand(@NotNull UUID txId) {
+        this.txId = txId;
+    }
+
+    /**
+     * Gets a transaction id.
+     *
+     * @return Transaction id.
+     */
+    public UUID getTxId() {
+        return txId;
     }
 }

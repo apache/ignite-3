@@ -18,23 +18,35 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.UUID;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The command deletes a entry by passed key.
+ * The command deletes a entry by passed row id.
  */
-public class DeleteCommand extends SingleKeyCommand implements WriteCommand {
+public class DeleteCommand extends PartitionCommand implements WriteCommand {
+    /** Id of the row to be deleted. */
+    private final RowId rowId;
+
     /**
-     * Creates a new instance of DeleteCommand with the given key to be deleted. The {@code keyRow} should not be {@code null}.
+     * Creates a new instance of DeleteCommand with the given row id to be deleted. The {@code rowId} should not be {@code null}.
      *
-     * @param keyRow    Binary key row.
-     * @param txId      Transaction id.
-     *
-     * @see TransactionalCommand
+     * @param txId  Transaction id.
+     * @param rowId Row id.
+     * @see PartitionCommand
      */
-    public DeleteCommand(@NotNull BinaryRow keyRow, @NotNull UUID txId) {
-        super(keyRow, txId);
+    public DeleteCommand(@NotNull RowId rowId, @NotNull UUID txId) {
+        super(txId);
+        this.rowId = rowId;
+    }
+
+    /**
+     * Gets a row id to be deleted.
+     *
+     * @return Row id.
+     */
+    public RowId getRowId() {
+        return rowId;
     }
 }

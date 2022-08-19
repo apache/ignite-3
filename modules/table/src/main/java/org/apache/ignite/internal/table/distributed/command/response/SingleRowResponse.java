@@ -21,19 +21,11 @@ import java.io.Serializable;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.table.distributed.command.CommandUtils;
-import org.apache.ignite.internal.table.distributed.command.GetAndDeleteCommand;
-import org.apache.ignite.internal.table.distributed.command.GetAndReplaceCommand;
-import org.apache.ignite.internal.table.distributed.command.GetAndUpsertCommand;
-import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * This class represents a response object message that contains a single {@link BinaryRow}.
  *
- * @see GetCommand
- * @see GetAndDeleteCommand
- * @see GetAndUpsertCommand
- * @see GetAndReplaceCommand
  */
 public class SingleRowResponse implements Serializable {
     /** Binary row. */

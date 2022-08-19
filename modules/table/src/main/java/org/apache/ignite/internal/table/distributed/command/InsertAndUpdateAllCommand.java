@@ -17,67 +17,54 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * A multi key transactional command.
+ * The command inserts or update a batch rows.
  */
-public abstract class MultiKeyCommand implements TransactionalCommand, Serializable {
+public class InsertAndUpdateAllCommand extends PartitionCommand implements WriteCommand {
     /** Binary rows. */
     private transient Collection<BinaryRow> rows;
 
-    /** Transaction id. */
-    private @NotNull UUID txId;
-
-    /*
-     * Row bytes.
-     * It is a temporary solution, before network have not implement correct serialization BinaryRow.
-     * TODO: Remove the field after (IGNITE-14793).
-     */
-    private byte[] rowsBytes;
+    /** Rows to update. */
+    private final Map<RowId, BinaryRow> rowsToUpdate;
 
     /**
-     * The constructor.
+     * Creates a new instance of {@link InsertAndUpdateAllCommand} with the given rows to be inserted or updated. The {@code rows} and
+     * {@code rowsToUpdate} should not be {@code null} both.
      *
-     * @param rows Rows.
-     * @param txId Transaction id.
+     * @param rows         Binary rows.
+     * @param rowsToUpdate Mapping a row id to the row to update.
+     * @param txId         Transaction id.
+     * @see PartitionCommand
      */
-    public MultiKeyCommand(@NotNull Collection<BinaryRow> rows, @NotNull UUID txId) {
-        assert rows != null && !rows.isEmpty();
+    public InsertAndUpdateAllCommand(Collection<BinaryRow> rows, Map<RowId, BinaryRow> rowsToUpdate, @NotNull UUID txId) {
+        super(txId);
         this.rows = rows;
-        this.txId = txId;
-
-        rowsBytes = CommandUtils.rowsToBytes(rows);
+        this.rowsToUpdate = rowsToUpdate;
     }
 
     /**
-     * Gets a collection of binary rows.
+     * Gets rows to insert.
      *
      * @return Binary rows.
      */
     public Collection<BinaryRow> getRows() {
-        if (rows == null && rowsBytes != null) {
-            rows = new ArrayList<>();
-
-            CommandUtils.readRows(rowsBytes, rows::add);
-        }
-
         return rows;
     }
 
     /**
-     * Returns a transaction id.
+     * Gets rows to update.
      *
-     * @return The transaction id.
+     * @return Binary rows.
      */
-    @NotNull
-    @Override
-    public UUID getTxId() {
-        return txId;
+    public Map<RowId, BinaryRow> getRowsToUpdate() {
+        return rowsToUpdate;
     }
 }

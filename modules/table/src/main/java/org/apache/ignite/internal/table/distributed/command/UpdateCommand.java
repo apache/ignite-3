@@ -19,23 +19,51 @@ package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * This is a command to get a value before upsert it.
+ * The command updates a row specified by the row id specified.
  */
-public class GetAndUpsertCommand extends SingleKeyCommand implements WriteCommand {
+public class UpdateCommand extends PartitionCommand implements WriteCommand {
+    /** Id of row that will be updated. */
+    private final RowId rowId;
+
+    /** Binary row. */
+    private BinaryRow row;
+
     /**
-     * Creates a new instance of GetAndUpsertCommand with the given row to be got and upserted. The
-     * {@code row} should not be {@code null}.
+     * Creates a new instance of UpdateCommand with the given row to be updated. The {@code row} or {@code rowId} should not be {@code
+     * null}.
      *
-     * @param row Binary row.
-     * @param txId Transaction id.
-     *
-     * @see TransactionalCommand
+     * @param rowId Row id.
+     * @param row   Binary row.
+     * @param txId  The transaction id.
+     * @see PartitionCommand
      */
-    public GetAndUpsertCommand(@NotNull BinaryRow row, @NotNull UUID txId) {
-        super(row, txId);
+    public UpdateCommand(@NotNull RowId rowId, @NotNull BinaryRow row, @NotNull UUID txId) {
+        super(txId);
+
+        this.rowId = rowId;
+        this.row = row;
+    }
+
+    /**
+     * Gets a row id that will update.
+     *
+     * @return Row id.
+     */
+    public RowId getRowId() {
+        return rowId;
+    }
+
+    /**
+     * Gets a binary row.
+     *
+     * @return Binary key.
+     */
+    public BinaryRow getRow() {
+        return row;
     }
 }

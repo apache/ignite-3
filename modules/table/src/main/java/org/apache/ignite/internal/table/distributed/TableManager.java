@@ -106,7 +106,6 @@ import org.apache.ignite.internal.table.distributed.raft.RebalanceRaftGroupEvent
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -577,7 +576,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     raftMgr.startRaftGroupNode(
                                             grpId,
                                             newPartAssignment,
-                                            new PartitionListener(tblId, new VersionedRowStore(partitionStorage, txManager)),
+                                            new PartitionListener(tblId, partitionStorage, txManager, new ConcurrentHashMap<>()),
                                             new RebalanceRaftGroupEventsListener(
                                                     metaStorageMgr,
                                                     tablesCfg.tables().get(tablesById.get(tblId).name()),
@@ -1493,7 +1492,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
                                     tblId,
-                                    new VersionedRowStore(partitionStorage, txManager)
+                                    partitionStorage,
+                                    txManager,
+                                    new ConcurrentHashMap<>()
                             );
 
                             RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(

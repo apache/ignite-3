@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,12 +40,13 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -182,13 +184,14 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** {@inheritDoc} */
     @Override
     public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted, boolean interactedAfterSnapshot) {
-        VersionedRowStore storage = getListener(restarted, raftGroupId()).getStorage();
+        MvPartitionStorage storage = getListener(restarted, raftGroupId()).getStorage();
+        Map<ByteBuffer, RowId> primaryIndex = getListener(restarted, raftGroupId()).getPk();
 
         Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
         Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
 
         return () -> {
-            BinaryRow read = storage.get(key, null);
+            BinaryRow read = storage.read(primaryIndex.get(key.keySlice()), UUID.randomUUID());
 
             if (read == null) {
                 return false;
@@ -216,9 +219,13 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     txManager.start(); // Init listener.
 
+                    var testMpPartStorage = new TestConcurrentHashMapMvPartitionStorage(0);
+
                     PartitionListener listener = new PartitionListener(
                             UUID.randomUUID(),
-                            new VersionedRowStore(new TestConcurrentHashMapMvPartitionStorage(0), txManager));
+                            testMpPartStorage,
+                            txManager,
+                            new ConcurrentHashMap<>());
 
                     paths.put(listener, workDir);
 

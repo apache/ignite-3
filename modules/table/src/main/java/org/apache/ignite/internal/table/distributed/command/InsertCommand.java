@@ -25,16 +25,29 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The command inserts a row.
  */
-public class InsertCommand extends SingleKeyCommand implements WriteCommand {
+public class InsertCommand extends PartitionCommand implements WriteCommand {
+    /** Binary row. */
+    private BinaryRow row;
+
     /**
      * Creates a new instance of InsertCommand with the given row to be inserted. The {@code row} should not be {@code null}.
      *
      * @param row Binary row.
      * @param txId Transaction id.
      *
-     * @see TransactionalCommand
+     * @see PartitionCommand
      */
     public InsertCommand(@NotNull BinaryRow row, @NotNull UUID txId) {
-        super(row, txId);
+        super(txId);
+        this.row = row;
+    }
+
+    /**
+     * Gets a binary row.
+     *
+     * @return Binary key.
+     */
+    public BinaryRow getRow() {
+        return row;
     }
 }

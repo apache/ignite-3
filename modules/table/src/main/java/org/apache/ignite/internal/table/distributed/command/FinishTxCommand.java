@@ -21,10 +21,7 @@ import java.util.UUID;
 import org.apache.ignite.raft.client.WriteCommand;
 
 /** State machine command to finish a transaction. */
-public class FinishTxCommand implements WriteCommand {
-    /** Transaction id. */
-    private final UUID txId;
-
+public class FinishTxCommand extends PartitionCommand implements WriteCommand {
     /** Commit or rollback state. */
     private final boolean finish;
 
@@ -35,17 +32,8 @@ public class FinishTxCommand implements WriteCommand {
      * @param finish        Commit or rollback state {@code True} to commit.
      */
     public FinishTxCommand(UUID txId, boolean finish) {
-        this.txId = txId;
+        super(txId);
         this.finish = finish;
-    }
-
-    /**
-     * Returns a timestamp.
-     *
-     * @return The timestamp.
-     */
-    public UUID txId() {
-        return txId;
     }
 
     /**

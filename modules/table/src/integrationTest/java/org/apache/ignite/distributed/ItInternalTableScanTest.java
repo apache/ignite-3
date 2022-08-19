@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
@@ -62,7 +63,6 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
@@ -165,7 +165,7 @@ public class ItInternalTableScanTest {
 
         raftSrv.startRaftGroup(
                 grpName,
-                new PartitionListener(tblId, new VersionedRowStore(mockStorage, txManager)),
+                new PartitionListener(tblId, mockStorage, txManager, new ConcurrentHashMap<>()),
                 conf,
                 RaftGroupOptions.defaults()
         );

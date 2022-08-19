@@ -26,6 +26,7 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
@@ -35,18 +36,14 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.table.distributed.command.GetAllCommand;
-import org.apache.ignite.internal.table.distributed.command.GetCommand;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -93,7 +90,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         @Override
                         public Void apply(Void ignored, Throwable err) {
                             if (err == null) {
-                                if (cmd instanceof GetCommand || cmd instanceof GetAllCommand) {
+                                //TODO: IGNITE-17523 Code follow should be moved to a demo replica listener.
+                                /*if (cmd instanceof GetCommand || cmd instanceof GetAllCommand) {
                                     CommandClosure<ReadCommand> clo = new CommandClosure<>() {
                                         @Override
                                         public ReadCommand command() {
@@ -111,7 +109,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                     } catch (Throwable e) {
                                         res.completeExceptionally(new TransactionException(e));
                                     }
-                                } else {
+                                } else*/ {
                                     CommandClosure<WriteCommand> clo = new CommandClosure<>() {
                                         /** {@inheritDoc} */
                                         @Override
@@ -152,9 +150,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         UUID tblId = UUID.randomUUID();
 
+        var mvPartStorage = new TestConcurrentHashMapMvPartitionStorage(0);
+
         partitionListener = new PartitionListener(
                 tblId,
-                new VersionedRowStore(new TestConcurrentHashMapMvPartitionStorage(0), txManager)
+                mvPartStorage,
+                txManager,
+                new ConcurrentHashMap<>()
         );
     }
 
