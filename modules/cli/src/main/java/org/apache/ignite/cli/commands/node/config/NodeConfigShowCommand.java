@@ -28,6 +28,7 @@ import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
 /**
  * Command that shows configuration from the cluster.
@@ -44,7 +45,7 @@ public class NodeConfigShowCommand extends BaseCommand implements Callable<Integ
     /**
      * Configuration selector option.
      */
-    @Option(names = {"--selector"}, description = "Configuration path selector")
+    @Parameters(arity = "0..1", description = "Configuration path selector")
     private String selector;
 
     @Inject

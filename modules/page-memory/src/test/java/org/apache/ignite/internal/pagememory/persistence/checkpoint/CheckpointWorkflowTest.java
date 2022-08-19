@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.MARKER_STORED_TO_DISK;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SNAPSHOT_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.newReadWriteLock;
@@ -32,6 +32,8 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.BEFORE_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_MARK_CHECKPOINT_BEGIN;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -39,6 +41,8 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -57,6 +61,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -99,9 +104,9 @@ public class CheckpointWorkflowTest {
 
         workflow = new CheckpointWorkflow(
                 "test",
-                mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
-                List.of(dataRegion0, dataRegion1)
+                List.of(dataRegion0, dataRegion1),
+                1
         );
 
         workflow.start();
@@ -170,8 +175,6 @@ public class CheckpointWorkflowTest {
 
     @Test
     void testMarkCheckpointBegin() throws Exception {
-        CheckpointMarkersStorage markersStorage = mock(CheckpointMarkersStorage.class);
-
         CheckpointReadWriteLock readWriteLock = newReadWriteLock(log);
 
         List<FullPageId> dirtyPages = List.of(of(0, 0, 1), of(0, 0, 2), of(0, 0, 3));
@@ -182,9 +185,9 @@ public class CheckpointWorkflowTest {
 
         workflow = new CheckpointWorkflow(
                 "test",
-                markersStorage,
                 readWriteLock,
-                List.of(dataRegion)
+                List.of(dataRegion),
+                1
         );
 
         workflow.start();
@@ -209,19 +212,21 @@ public class CheckpointWorkflowTest {
 
         CheckpointMetricsTracker tracker = mock(CheckpointMetricsTracker.class);
 
+        Runnable onReleaseWriteLock = mock(Runnable.class);
+
         workflow.addCheckpointListener(new TestCheckpointListener(events) {
             /** {@inheritDoc} */
             @Override
-            public void beforeCheckpointBegin(CheckpointProgress progress) throws IgniteInternalCheckedException {
-                super.beforeCheckpointBegin(progress);
+            public void beforeCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) throws IgniteInternalCheckedException {
+                super.beforeCheckpointBegin(progress, exec);
+
+                assertNull(exec);
 
                 assertSame(progressImpl, progress);
 
                 assertEquals(readWriteLock.getReadHoldCount(), 1);
 
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), empty());
-
-                verify(markersStorage, never()).onCheckpointBegin(checkpointId);
 
                 verify(tracker, never()).onWriteLockWaitStart();
                 verify(tracker, never()).onMarkCheckpointBeginStart();
@@ -232,20 +237,22 @@ public class CheckpointWorkflowTest {
 
                 verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
                 verify(progressImpl, never()).initCounters(anyInt());
+
+                verify(onReleaseWriteLock, never()).run();
             }
 
             /** {@inheritDoc} */
             @Override
-            public void onMarkCheckpointBegin(CheckpointProgress progress) throws IgniteInternalCheckedException {
-                super.onMarkCheckpointBegin(progress);
+            public void onMarkCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) throws IgniteInternalCheckedException {
+                super.onMarkCheckpointBegin(progress, exec);
+
+                assertNull(exec);
 
                 assertSame(progressImpl, progress);
 
                 assertTrue(readWriteLock.isWriteLockHeldByCurrentThread());
 
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), equalTo(List.of(LOCK_TAKEN)));
-
-                verify(markersStorage, never()).onCheckpointBegin(checkpointId);
 
                 verify(tracker, times(1)).onWriteLockWaitStart();
                 verify(tracker, times(1)).onMarkCheckpointBeginStart();
@@ -256,6 +263,8 @@ public class CheckpointWorkflowTest {
 
                 verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
                 verify(progressImpl, never()).initCounters(anyInt());
+
+                verify(onReleaseWriteLock, never()).run();
             }
 
             /** {@inheritDoc} */
@@ -273,8 +282,6 @@ public class CheckpointWorkflowTest {
 
                 assertThat(pagesCountArgumentCaptor.getAllValues(), equalTo(List.of(3)));
 
-                verify(markersStorage, never()).onCheckpointBegin(checkpointId);
-
                 verify(tracker, times(1)).onWriteLockWaitStart();
                 verify(tracker, times(1)).onMarkCheckpointBeginStart();
                 verify(tracker, times(1)).onMarkCheckpointBeginEnd();
@@ -284,10 +291,18 @@ public class CheckpointWorkflowTest {
 
                 verify(progressImpl, never()).pagesToWrite(any(CheckpointDirtyPages.class));
                 verify(progressImpl, never()).initCounters(anyInt());
+
+                verify(onReleaseWriteLock, times(1)).run();
             }
         }, dataRegion);
 
-        Checkpoint checkpoint = workflow.markCheckpointBegin(coarseCurrentTimeMillis(), progressImpl, tracker);
+        Checkpoint checkpoint = workflow.markCheckpointBegin(
+                coarseCurrentTimeMillis(),
+                progressImpl,
+                tracker,
+                () -> {},
+                onReleaseWriteLock
+        );
 
         verify(tracker, times(1)).onWriteLockWaitStart();
         verify(tracker, times(1)).onMarkCheckpointBeginStart();
@@ -311,16 +326,14 @@ public class CheckpointWorkflowTest {
 
         assertThat(
                 checkpointStateArgumentCaptor.getAllValues(),
-                equalTo(List.of(LOCK_TAKEN, PAGES_SNAPSHOT_TAKEN, LOCK_RELEASED, MARKER_STORED_TO_DISK, PAGES_SORTED))
+                equalTo(List.of(LOCK_TAKEN, PAGES_SNAPSHOT_TAKEN, LOCK_RELEASED, PAGES_SORTED))
         );
 
-        verify(markersStorage, times(1)).onCheckpointBegin(checkpointId);
+        verify(onReleaseWriteLock, times(1)).run();
     }
 
     @Test
     void testMarkCheckpointEnd() throws Exception {
-        CheckpointMarkersStorage markersStorage = mock(CheckpointMarkersStorage.class);
-
         CheckpointReadWriteLock readWriteLock = newReadWriteLock(log);
 
         PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
@@ -329,9 +342,9 @@ public class CheckpointWorkflowTest {
 
         workflow = new CheckpointWorkflow(
                 "test",
-                markersStorage,
                 readWriteLock,
-                List.of(dataRegion)
+                List.of(dataRegion),
+                1
         );
 
         workflow.start();
@@ -343,8 +356,6 @@ public class CheckpointWorkflowTest {
         CheckpointProgressImpl progressImpl = mock(CheckpointProgressImpl.class);
 
         doNothing().when(progressImpl).transitTo(checkpointStateArgumentCaptor.capture());
-
-        CheckpointDirtyPages checkpointDirtyPages = mock(CheckpointDirtyPages.class);
 
         UUID checkpointId = UUID.randomUUID();
 
@@ -363,8 +374,6 @@ public class CheckpointWorkflowTest {
                 assertEquals(0, readWriteLock.getReadHoldCount());
 
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), empty());
-
-                verify(markersStorage, times(1)).onCheckpointEnd(checkpointId);
 
                 verify(progressImpl, times(1)).pagesToWrite(isNull());
                 verify(progressImpl, times(1)).clearCounters();
@@ -395,8 +404,6 @@ public class CheckpointWorkflowTest {
         workflow.removeCheckpointListener(checkpointListener);
 
         assertDoesNotThrow(() -> workflow.markCheckpointEnd(new Checkpoint(EMPTY, progressImpl)));
-
-        verify(markersStorage, times(1)).onCheckpointEnd(checkpointId);
     }
 
     @Test
@@ -417,9 +424,9 @@ public class CheckpointWorkflowTest {
 
         workflow = new CheckpointWorkflow(
                 "test",
-                mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
-                List.of()
+                List.of(),
+                1
         );
 
         workflow.start();
@@ -468,9 +475,9 @@ public class CheckpointWorkflowTest {
 
         workflow = new CheckpointWorkflow(
                 "test",
-                mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
-                List.of()
+                List.of(),
+                1
         );
 
         workflow.start();
@@ -490,6 +497,79 @@ public class CheckpointWorkflowTest {
                 toListDirtyPageIds(dirtyPagesView),
                 equalTo(IntStream.range(0, count).mapToObj(i -> dirtyPages0[count - i - 1]).collect(toList()))
         );
+    }
+
+    @Test
+    void testAwaitPendingTasksOfListenerCallback() {
+        workflow = new CheckpointWorkflow(
+                "test",
+                newReadWriteLock(log),
+                List.of(),
+                2
+        );
+
+        workflow.start();
+
+        CompletableFuture<?> startTaskBeforeCheckpointBeginFuture = new CompletableFuture<>();
+        CompletableFuture<?> finishTaskBeforeCheckpointBeginFuture = new CompletableFuture<>();
+
+        CompletableFuture<?> startTaskOnMarkCheckpointBeginFuture = new CompletableFuture<>();
+        CompletableFuture<?> finishTaskOnMarkCheckpointBeginFuture = new CompletableFuture<>();
+
+        workflow.addCheckpointListener(new CheckpointListener() {
+            /** {@inheritDoc} */
+            @Override
+            public void beforeCheckpointBegin(CheckpointProgress progress, @Nullable Executor executor) {
+                assertNotNull(executor);
+
+                executor.execute(() -> {
+                    startTaskBeforeCheckpointBeginFuture.complete(null);
+
+                    await(finishTaskBeforeCheckpointBeginFuture, 1, SECONDS);
+                });
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public void onMarkCheckpointBegin(CheckpointProgress progress, @Nullable Executor executor) {
+                assertNotNull(executor);
+
+                executor.execute(() -> {
+                    startTaskOnMarkCheckpointBeginFuture.complete(null);
+
+                    await(finishTaskOnMarkCheckpointBeginFuture, 1, SECONDS);
+                });
+            }
+        }, null);
+
+        Runnable updateHeartbeat = mock(Runnable.class);
+
+        CompletableFuture<Checkpoint> markCheckpointBeginFuture = runAsync(() -> workflow.markCheckpointBegin(
+                coarseCurrentTimeMillis(),
+                mock(CheckpointProgressImpl.class),
+                mock(CheckpointMetricsTracker.class),
+                updateHeartbeat,
+                () -> {}
+        ));
+
+        await(startTaskBeforeCheckpointBeginFuture, 1, SECONDS);
+
+        assertFalse(markCheckpointBeginFuture.isDone());
+        assertFalse(startTaskOnMarkCheckpointBeginFuture.isDone());
+        verify(updateHeartbeat, times(1)).run();
+
+        finishTaskBeforeCheckpointBeginFuture.complete(null);
+
+        await(startTaskOnMarkCheckpointBeginFuture, 1, SECONDS);
+
+        assertFalse(markCheckpointBeginFuture.isDone());
+        verify(updateHeartbeat, times(3)).run();
+
+        finishTaskOnMarkCheckpointBeginFuture.complete(null);
+
+        await(markCheckpointBeginFuture, 1, SECONDS);
+
+        verify(updateHeartbeat, times(5)).run();
     }
 
     private static PersistentPageMemory newPageMemory(Collection<FullPageId> pageIds) {
@@ -543,7 +623,7 @@ public class CheckpointWorkflowTest {
 
         /** {@inheritDoc} */
         @Override
-        public void onMarkCheckpointBegin(CheckpointProgress progress) throws IgniteInternalCheckedException {
+        public void onMarkCheckpointBegin(CheckpointProgress progress, @Nullable Executor executor) throws IgniteInternalCheckedException {
             events.add(ON_MARK_CHECKPOINT_BEGIN);
         }
 
@@ -555,7 +635,7 @@ public class CheckpointWorkflowTest {
 
         /** {@inheritDoc} */
         @Override
-        public void beforeCheckpointBegin(CheckpointProgress progress) throws IgniteInternalCheckedException {
+        public void beforeCheckpointBegin(CheckpointProgress progress, @Nullable Executor executor) throws IgniteInternalCheckedException {
             events.add(BEFORE_CHECKPOINT_BEGIN);
         }
 

@@ -78,8 +78,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
     private final int minSizeForDataPage;
 
     /** Page list cache limit. */
-    @Nullable
-    private final AtomicLong pageListCacheLimit;
+    private final @Nullable AtomicLong pageListCacheLimit;
 
     /** Page eviction tracker. */
     private final PageEvictionTracker evictionTracker;

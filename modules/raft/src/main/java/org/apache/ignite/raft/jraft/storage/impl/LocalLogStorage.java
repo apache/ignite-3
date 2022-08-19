@@ -69,7 +69,7 @@ public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
         this.writeLock.lock();
         try {
             if (initialized) {
-                LOG.warn("RocksDBLogStorage init() already.");
+                LOG.warn("LocalLogStorage init() was already called.");
                 return true;
             }
             this.initialized = true;

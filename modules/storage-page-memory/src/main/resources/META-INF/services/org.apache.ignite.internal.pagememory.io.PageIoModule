@@ -14,5 +14,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-org.apache.ignite.internal.storage.pagememory.PageMemoryStorageIoModule
-org.apache.ignite.internal.storage.pagememory.mv.PageMemoryMvStorageIoModule
+org.apache.ignite.internal.storage.pagememory.mv.MvPageIoModule
+org.apache.ignite.internal.storage.pagememory.index.IndexPageIoModule

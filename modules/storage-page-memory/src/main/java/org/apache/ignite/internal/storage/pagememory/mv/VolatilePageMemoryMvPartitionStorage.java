@@ -28,9 +28,7 @@ import org.apache.ignite.internal.storage.StorageException;
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for in-memory case.
  */
 public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPartitionStorage {
-    /**
-     * Last applied index value.
-     */
+    /** Last applied index value. */
     private volatile long lastAppliedIndex;
 
     /**
@@ -39,7 +37,6 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      * @param partId Partition id.
      * @param tableView Table configuration.
      * @param pageMemory Page memory.
-     * @param versionChainFreeList Free list for {@link VersionChain}.
      * @param rowVersionFreeList Free list for {@link RowVersion}.
      * @param versionChainTree Table tree for {@link VersionChain}.
      */
@@ -47,11 +44,10 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
             int partId,
             TableView tableView,
             VolatilePageMemory pageMemory,
-            VersionChainFreeList versionChainFreeList,
             RowVersionFreeList rowVersionFreeList,
             VersionChainTree versionChainTree
     ) {
-        super(partId, tableView, pageMemory, versionChainFreeList, rowVersionFreeList, versionChainTree);
+        super(partId, tableView, pageMemory, rowVersionFreeList, versionChainTree);
     }
 
     /** {@inheritDoc} */

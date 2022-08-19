@@ -27,8 +27,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -38,10 +43,9 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -60,7 +64,7 @@ import org.rocksdb.WriteOptions;
 /**
  * Table storage implementation based on {@link RocksDB} instance.
  */
-class RocksDbTableStorage implements TableStorage, MvTableStorage {
+class RocksDbTableStorage implements MvTableStorage {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbTableStorage.class);
 
@@ -97,16 +101,21 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
     /** Partition storages. */
     private volatile AtomicReferenceArray<RocksDbMvPartitionStorage> partitions;
 
+    /** Map with flush futures by sequence number at the time of the {@link #awaitFlush(boolean)} call. */
+    private final ConcurrentMap<Long, CompletableFuture<Void>> flushFuturesBySequenceNumber = new ConcurrentHashMap<>();
+
+    /** Latest known sequence number for persisted data. Not volatile, protected by explicit synchronization. */
+    private long latestPersistedSequenceNumber;
+
+    /** Mutex for {@link #latestPersistedSequenceNumber} modifications. */
+    private final Object latestPersistedSequenceNumberMux = new Object();
+
     /**
      * Instance of the latest scheduled flush closure.
      *
      * @see #scheduleFlush()
      */
     private volatile Runnable latestFlushClosure;
-
-    /** Flag indicating if the storage has been stopped. */
-    @Deprecated
-    private volatile boolean stopped = false;
 
     //TODO Use it instead of the "stopped" flag.
     /** Busy lock to stop synchronously. */
@@ -212,6 +221,11 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
                         throw new StorageException("Unidentified column family [name=" + cf.name() + ", table=" + tableCfg.name() + ']');
                 }
             }
+
+            // Pointless synchronization, but without it there would be a warning in the code.
+            synchronized (latestPersistedSequenceNumberMux) {
+                latestPersistedSequenceNumber = db.getLatestSequenceNumber();
+            }
         } catch (RocksDBException e) {
             throw new StorageException("Failed to initialize RocksDB instance", e);
         }
@@ -224,9 +238,62 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
     }
 
     /**
+     * Returns a future to wait next flush operation from the current point in time. Uses {@link RocksDB#getLatestSequenceNumber()} to
+     * achieve this.
+     *
+     * @param schedule {@code true} if {@link RocksDB#flush(FlushOptions)} should be explicitly triggerred in the near future.
+     *
+     * @see #scheduleFlush()
+     */
+    public CompletableFuture<Void> awaitFlush(boolean schedule) {
+        CompletableFuture<Void> future;
+
+        long dbSequenceNumber = db.getLatestSequenceNumber();
+
+        synchronized (latestPersistedSequenceNumberMux) {
+            if (dbSequenceNumber <= latestPersistedSequenceNumber) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            future = flushFuturesBySequenceNumber.computeIfAbsent(dbSequenceNumber, l -> new CompletableFuture<>());
+        }
+
+        if (schedule) {
+            scheduleFlush();
+        }
+
+        return future;
+    }
+
+    /**
+     * Completes all futures in {@link #flushFuturesBySequenceNumber} up to a given sequence number.
+     */
+    void completeFutures(long sequenceNumber) {
+        synchronized (latestPersistedSequenceNumberMux) {
+            if (sequenceNumber <= latestPersistedSequenceNumber) {
+                return;
+            }
+
+            latestPersistedSequenceNumber = sequenceNumber;
+        }
+
+        Set<Entry<Long, CompletableFuture<Void>>> entries = flushFuturesBySequenceNumber.entrySet();
+
+        for (Iterator<Entry<Long, CompletableFuture<Void>>> iterator = entries.iterator(); iterator.hasNext(); ) {
+            Entry<Long, CompletableFuture<Void>> entry = iterator.next();
+
+            if (sequenceNumber >= entry.getKey()) {
+                entry.getValue().complete(null);
+
+                iterator.remove();
+            }
+        }
+    }
+
+    /**
      * Schedules a flush of the table. If run several times within a small amount of time, only the last scheduled flush will be executed.
      */
-    public void scheduleFlush() {
+    void scheduleFlush() {
         Runnable newClosure = new Runnable() {
             @Override
             public void run() {
@@ -235,7 +302,9 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
                 }
 
                 try {
-                    db.flush(flushOptions);
+                    // Explicit list of CF handles is mandatory!
+                    // Default flush is buggy and only invokes listener methods for a single random CF.
+                    db.flush(flushOptions, List.of(metaCfHandle(), partitionCfHandle()));
                 } catch (RocksDBException e) {
                     LOG.error("Error occurred during the explicit flush for table '{}'", e, tableCfg.name());
                 }
@@ -253,13 +322,15 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
     /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
-        stopped = true;
-
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
 
         busyLock.block();
+
+        for (CompletableFuture<Void> future : flushFuturesBySequenceNumber.values()) {
+            future.cancel(false);
+        }
 
         List<AutoCloseable> resources = new ArrayList<>();
 
@@ -292,25 +363,6 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         stop();
 
         IgniteUtils.deleteIfExists(tablePath);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public PartitionStorage getOrCreatePartition(int partId) throws StorageException {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Nullable
-    @Override
-    public PartitionStorage getPartition(int partId) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void dropPartition(int partId) throws StorageException {
-        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -351,7 +403,7 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
         mvPartition.destroy();
 
         // Wait for the data to actually be removed from the disk and close the storage.
-        return mvPartition.flush()
+        return awaitFlush(false)
                 .whenComplete((v, e) -> {
                     partitions.set(partitionId, null);
 
@@ -363,17 +415,18 @@ class RocksDbTableStorage implements TableStorage, MvTableStorage {
                 });
     }
 
+    /** {@inheritDoc} */
     @Override
-    public void createIndex(String indexName) {
+    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, String indexName) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
     @Override
-    @Nullable
-    public SortedIndexStorage getSortedIndex(int partitionId, String indexName) {
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, String indexName) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> destroyIndex(String indexName) {
         throw new UnsupportedOperationException("Not implemented yet");

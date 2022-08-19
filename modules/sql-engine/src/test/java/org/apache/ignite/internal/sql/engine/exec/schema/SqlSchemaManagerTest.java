@@ -50,6 +50,7 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.BeforeEach;
@@ -90,6 +91,9 @@ public class SqlSchemaManagerTest {
 
     private TestRevisionRegister testRevisionRegister;
 
+    /** Busy lock for stop synchronisation. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
     @BeforeEach
     public void setup() throws NodeStoppingException {
         Mockito.reset(tableManager);
@@ -99,7 +103,8 @@ public class SqlSchemaManagerTest {
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 tableManager,
                 schemaManager,
-                testRevisionRegister
+                testRevisionRegister,
+                busyLock
         );
 
         testRevisionRegister.moveForward();

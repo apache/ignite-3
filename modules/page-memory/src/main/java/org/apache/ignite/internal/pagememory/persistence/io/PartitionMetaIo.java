@@ -33,15 +33,9 @@ import org.apache.ignite.lang.IgniteStringBuilder;
 public class PartitionMetaIo extends PageIo {
     private static final int LAST_APPLIED_INDEX_OFF = COMMON_HEADER_END;
 
-    private static final int TREE_ROOT_PAGE_ID_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
+    private static final int VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
 
-    private static final int REUSE_LIST_ROOT_PAGE_ID_OFF = TREE_ROOT_PAGE_ID_OFF + Long.BYTES;
-
-    private static final int VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF = REUSE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
-
-    private static final int VERSION_CHAIN_FREE_LIST_ROOT_PAGE_ID_OFF = VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF + Long.BYTES;
-
-    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = VERSION_CHAIN_FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
+    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF + Long.BYTES;
 
     private static final int PAGE_COUNT_OFF = ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
 
@@ -66,10 +60,7 @@ public class PartitionMetaIo extends PageIo {
         super.initNewPage(pageAddr, pageId, pageSize);
 
         setLastAppliedIndex(pageAddr, 0);
-        setTreeRootPageId(pageAddr, 0);
-        setReuseListRootPageId(pageAddr, 0);
         setVersionChainTreeRootPageId(pageAddr, 0);
-        setVersionChainFreeListRootPageId(pageAddr, 0);
         setRowVersionFreeListRootPageId(pageAddr, 0);
         setPageCount(pageAddr, 0);
     }
@@ -96,52 +87,6 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
-     * Sets tree root page ID.
-     *
-     * @param pageAddr Page address.
-     * @param pageId Tree root page ID.
-     */
-    // TODO: IGNITE-17466 Delete it
-    public void setTreeRootPageId(long pageAddr, long pageId) {
-        assertPageType(pageAddr);
-
-        putLong(pageAddr, TREE_ROOT_PAGE_ID_OFF, pageId);
-    }
-
-    /**
-     * Returns tree root page ID.
-     *
-     * @param pageAddr Page address.
-     */
-    // TODO: IGNITE-17466 Delete it
-    public long getTreeRootPageId(long pageAddr) {
-        return getLong(pageAddr, TREE_ROOT_PAGE_ID_OFF);
-    }
-
-    /**
-     * Sets reuse list root page ID.
-     *
-     * @param pageAddr Page address.
-     * @param pageId Reuse list root page ID.
-     */
-    // TODO: IGNITE-17466 Delete it
-    public void setReuseListRootPageId(long pageAddr, long pageId) {
-        assertPageType(pageAddr);
-
-        putLong(pageAddr, REUSE_LIST_ROOT_PAGE_ID_OFF, pageId);
-    }
-
-    /**
-     * Returns reuse list root page ID.
-     *
-     * @param pageAddr Page address.
-     */
-    // TODO: IGNITE-17466 Delete it
-    public long getReuseListRootPageId(long pageAddr) {
-        return getLong(pageAddr, REUSE_LIST_ROOT_PAGE_ID_OFF);
-    }
-
-    /**
      * Sets version chain tree root page ID.
      *
      * @param pageAddr Page address.
@@ -160,27 +105,6 @@ public class PartitionMetaIo extends PageIo {
      */
     public long getVersionChainTreeRootPageId(long pageAddr) {
         return getLong(pageAddr, VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF);
-    }
-
-    /**
-     * Sets version chain free list root page ID.
-     *
-     * @param pageAddr Page address.
-     * @param pageId Version chain free list root page ID.
-     */
-    public void setVersionChainFreeListRootPageId(long pageAddr, long pageId) {
-        assertPageType(pageAddr);
-
-        putLong(pageAddr, VERSION_CHAIN_FREE_LIST_ROOT_PAGE_ID_OFF, pageId);
-    }
-
-    /**
-     * Returns version chain free list root page ID.
-     *
-     * @param pageAddr Page address.
-     */
-    public long getVersionChainFreeListRootPageId(long pageAddr) {
-        return getLong(pageAddr, VERSION_CHAIN_FREE_LIST_ROOT_PAGE_ID_OFF);
     }
 
     /**
@@ -230,10 +154,7 @@ public class PartitionMetaIo extends PageIo {
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
         sb.app("TablePartitionMeta [").nl()
                 .app("lastAppliedIndex=").app(getLastAppliedIndex(addr)).nl()
-                .app(", treeRootPageId=").appendHex(getTreeRootPageId(addr)).nl()
-                .app(", reuseListRootPageId=").appendHex(getReuseListRootPageId(addr)).nl()
                 .app(", versionChainTreeRootPageId=").appendHex(getVersionChainTreeRootPageId(addr)).nl()
-                .app(", versionChainFreeListRootPageId=").appendHex(getVersionChainFreeListRootPageId(addr)).nl()
                 .app(", rowVersionFreeListRootPageId=").appendHex(getRowVersionFreeListRootPageId(addr)).nl()
                 .app(", pageCount=").app(getPageCount(addr)).nl()
                 .app(']');
