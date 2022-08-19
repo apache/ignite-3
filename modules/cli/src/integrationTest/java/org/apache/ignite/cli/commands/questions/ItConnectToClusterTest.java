@@ -58,6 +58,7 @@ class ItConnectToClusterTest extends CliCommandTestInitializedIntegrationBase {
     private Terminal terminal;
     private Path input;
 
+    @Override
     @BeforeEach
     public void setUp(TestInfo testInfo) throws Exception {
         super.setUp(testInfo);

@@ -435,8 +435,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(descriptor));
                 });
-
             });
+
         } finally {
             busyLock.leaveBusy();
         }
@@ -780,6 +780,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<?> createTableLocally(long causalityToken, String name, UUID tblId, int partitions) {
+        LOG.trace("Creating local table: name={}, id={}, token={}", name, tblId, causalityToken);
+
         TableConfiguration tableCfg = tablesCfg.tables().get(name);
 
         MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createMvTable(tableCfg);

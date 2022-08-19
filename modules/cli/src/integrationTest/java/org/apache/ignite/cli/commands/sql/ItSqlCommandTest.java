@@ -33,6 +33,7 @@ import org.junit.jupiter.api.TestInfo;
 class ItSqlCommandTest extends CliCommandTestInitializedIntegrationBase {
 
     @BeforeEach
+    @Override
     public void setUp(TestInfo testInfo) throws Exception {
         super.setUp(testInfo);
         createAndPopulateTable();

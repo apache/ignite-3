@@ -400,6 +400,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     private CompletableFuture<?> createIndexLocally(long causalityToken, UUID tableId, TableIndexView tableIndexView) {
         assert tableIndexView != null;
 
+        LOG.trace("Creating local index: name={}, id={}, tableId={}, token={}",
+                tableIndexView.name(), tableIndexView.id(), tableId, causalityToken);
+
         Index<?> index = createIndex(tableId, tableIndexView);
 
         Index<?> prev = indexById.putIfAbsent(index.id(), index);
