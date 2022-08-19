@@ -346,7 +346,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             String idxName = evt.newValue().name();
             UUID idxId = ((TableIndexView) evt.newValue()).id();
 
-            fireEvent(IndexEvent.CREATE,
+            fireEvent(IndexEvent.DROP,
                     new IndexEventParameters(evt.storageRevision(), idxId, idxName),
                     new NodeStoppingException()
             );
@@ -386,24 +386,33 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            Index<?> index = createIndex(
+            return createIndexLocally(
+                    evt.storageRevision(),
                     //TODO: https://issues.apache.org/jira/browse/IGNITE-17474 Add tableID to index config instead of lookup to parent.
                     evt.config(ExtendedTableConfiguration.class).id().value(), // Parent element is table.
-                    evt.newValue()
-            );
-
-            Index<?> prev = indexById.putIfAbsent(index.id(), index);
-
-            assert prev == null;
-
-            prev = indexByName.putIfAbsent(index.name(), index);
-
-            assert prev == null;
-
-            fireEvent(IndexEvent.CREATE, new IndexEventParameters(evt.storageRevision(), index), null);
+                    evt.newValue());
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    @NotNull
+    private CompletableFuture<?> createIndexLocally(long causalityToken, UUID tableId, TableIndexView tableIndexView) {
+        assert tableIndexView != null;
+        Index<?> index = createIndex(
+                tableId,
+                tableIndexView
+        );
+
+        Index<?> prev = indexById.putIfAbsent(index.id(), index);
+
+        assert prev == null;
+
+        prev = indexByName.putIfAbsent(index.name(), index);
+
+        assert prev == null;
+
+        fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, index), null);
 
         return CompletableFuture.completedFuture(null);
     }

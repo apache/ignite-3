@@ -1037,8 +1037,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (tbl == null) {
                 tblFut.completeExceptionally(new TableNotFoundException(name));
             } else {
-                TableImpl tblImpl = (TableImpl) tbl;
-
                 tablesCfg.tables().change(ch -> {
                     if (ch.get(name) == null) {
                         throw new TableNotFoundException(name);
