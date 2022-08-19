@@ -91,7 +91,7 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
                         .changePartitions(10)
         );
 
-        CLUSTER_NODES.get(0).tables().alterTableAsync(schTbl1.canonicalName(), tblCh -> SchemaConfigurationConverter.addIndex(
+        CLUSTER_NODES.get(0).tables().alterTable(schTbl1.canonicalName(), tblCh -> SchemaConfigurationConverter.addIndex(
                 SchemaBuilders.sortedIndex(tableName + "_JID_IDX").addIndexColumn("JID").done().build(), tblCh)
         );
 
