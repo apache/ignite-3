@@ -110,9 +110,7 @@ public class CallExecutionPipeline<I extends CallInput, T> {
         return 0;
     }
 
-    /**
-     * Builder for {@link CallExecutionPipeline}.
-     */
+    /** Builder for {@link CallExecutionPipeline}. */
     public static class CallExecutionPipelineBuilder<I extends CallInput, T> {
 
         private final Call<I, T> call;
@@ -129,15 +127,6 @@ public class CallExecutionPipeline<I extends CallInput, T> {
 
         public CallExecutionPipelineBuilder(Call<I, T> call) {
             this.call = call;
-        }
-
-        private static PrintWriter wrapOutputStream(OutputStream output) {
-            return new PrintWriter(output, true, getStdoutEncoding());
-        }
-
-        private static Charset getStdoutEncoding() {
-            String encoding = System.getProperty("sun.stdout.encoding");
-            return encoding != null ? Charset.forName(encoding) : Charset.defaultCharset();
         }
 
         public CallExecutionPipelineBuilder<I, T> inputProvider(Supplier<I> inputProvider) {
@@ -180,6 +169,15 @@ public class CallExecutionPipeline<I extends CallInput, T> {
 
         public CallExecutionPipeline<I, T> build() {
             return new CallExecutionPipeline<>(call, output, errOutput, exceptionHandlers, decorator, inputProvider);
+        }
+
+        private static PrintWriter wrapOutputStream(OutputStream output) {
+            return new PrintWriter(output, true, getStdoutEncoding());
+        }
+
+        private static Charset getStdoutEncoding() {
+            String encoding = System.getProperty("sun.stdout.encoding");
+            return encoding != null ? Charset.forName(encoding) : Charset.defaultCharset();
         }
     }
 }

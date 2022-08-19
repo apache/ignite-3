@@ -26,11 +26,13 @@ import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent.ErrorComponentBuilder;
 import org.apache.ignite.cli.core.style.element.UiElements;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.Problem;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Exception handler for {@link IgniteCliApiException}.
@@ -55,23 +57,9 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
                         .header("Node unavailable")
                         .details("Could not connect to node with URL %s", UiElements.url(e.getUrl()));
             } else if (apiCause != null) {
-                errorComponentBuilder
-                        .header(apiCause.getMessage());
+                errorComponentBuilder.header(apiCause.getMessage());
             } else {
-                try {
-                    Problem problem = objectMapper.readValue(cause.getResponseBody(), Problem.class);
-                    if (!problem.getInvalidParams().isEmpty()) {
-                        errorComponentBuilder.details(problem.getInvalidParams().stream()
-                                .map(invalidParam -> "" + invalidParam.getName() + ": " + invalidParam.getReason())
-                                .collect(Collectors.joining(System.lineSeparator())));
-                    }
-                    errorComponentBuilder
-                            .header(problem.getDetail())
-                            .errorCode(problem.getCode())
-                            .traceId(problem.getTraceId());
-                } catch (JsonProcessingException ex) {
-                    throw new RuntimeException(ex);
-                }
+                tryToExtractProblem(errorComponentBuilder, cause);
             }
         } else {
             errorComponentBuilder.header(e.getCause() != e ? e.getCause().getMessage() : e.getMessage());
@@ -84,6 +72,28 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
         err.write(errorComponent.render());
 
         return 1;
+    }
+
+    private static void tryToExtractProblem(ErrorComponentBuilder errorComponentBuilder, ApiException cause) {
+        try {
+            Problem problem = objectMapper.readValue(cause.getResponseBody(), Problem.class);
+            if (!problem.getInvalidParams().isEmpty()) {
+                errorComponentBuilder.details(extractInvalidParams(problem));
+            }
+            errorComponentBuilder
+                    .header(problem.getDetail())
+                    .errorCode(problem.getCode())
+                    .traceId(problem.getTraceId());
+        } catch (JsonProcessingException ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+
+    @NotNull
+    private static String extractInvalidParams(Problem problem) {
+        return problem.getInvalidParams().stream()
+                .map(invalidParam -> "" + invalidParam.getName() + ": " + invalidParam.getReason())
+                .collect(Collectors.joining(System.lineSeparator()));
     }
 
     @Override
