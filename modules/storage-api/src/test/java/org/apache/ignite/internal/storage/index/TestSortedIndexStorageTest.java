@@ -21,7 +21,7 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 
 /**
- * MV sorted index storage test implementation for {@link TestSortedIndexStorage} class.
+ * Class for testing the {@link TestSortedIndexStorage}.
  */
 public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
     @Override

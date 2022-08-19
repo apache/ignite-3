@@ -24,8 +24,11 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,22 +40,41 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
 
     private final Map<Integer, MvPartitionStorage> partitions = new ConcurrentHashMap<>();
 
-    private final Map<String, Indices> sortedIndicesByName = new ConcurrentHashMap<>();
+    private final Map<String, SortedIndices> sortedIndicesByName = new ConcurrentHashMap<>();
+
+    private final Map<String, HashIndices> hashIndicesByName = new ConcurrentHashMap<>();
 
     /**
      * Class for storing Sorted Indices for a particular partition.
      */
-    private static class Indices {
+    private static class SortedIndices {
         private final SortedIndexDescriptor descriptor;
 
         final Map<Integer, SortedIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
 
-        Indices(SortedIndexDescriptor descriptor) {
+        SortedIndices(SortedIndexDescriptor descriptor) {
             this.descriptor = descriptor;
         }
 
         SortedIndexStorage getOrCreateStorage(Integer partitionId) {
             return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestSortedIndexStorage(descriptor));
+        }
+    }
+
+    /**
+     * Class for storing Hash Indices for a particular partition.
+     */
+    private static class HashIndices {
+        private final HashIndexDescriptor descriptor;
+
+        final Map<Integer, HashIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
+
+        HashIndices(HashIndexDescriptor descriptor) {
+            this.descriptor = descriptor;
+        }
+
+        HashIndexStorage getOrCreateStorage(Integer partitionId) {
+            return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestHashIndexStorage(descriptor));
         }
     }
 
@@ -78,34 +100,43 @@ public class TestConcurrentHashMapMvTableStorage implements MvTableStorage {
         partitions.remove(boxedPartitionId);
 
         sortedIndicesByName.values().forEach(indices -> indices.storageByPartitionId.remove(boxedPartitionId));
+        hashIndicesByName.values().forEach(indices -> indices.storageByPartitionId.remove(boxedPartitionId));
 
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public void createIndex(String indexName) {
-        sortedIndicesByName.computeIfAbsent(indexName, name -> {
-            var descriptor = new SortedIndexDescriptor(name, tableConfig.value());
+    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, String indexName) {
+        if (!partitions.containsKey(partitionId)) {
+            throw new StorageException("Partition ID " + partitionId + " does not exist");
+        }
 
-            return new Indices(descriptor);
-        });
+        SortedIndices sortedIndices = sortedIndicesByName.computeIfAbsent(
+                indexName,
+                name -> new SortedIndices(new SortedIndexDescriptor(name, tableConfig.value()))
+        );
+
+        return sortedIndices.getOrCreateStorage(partitionId);
     }
 
     @Override
-    @Nullable
-    public SortedIndexStorage getSortedIndex(int partitionId, String indexName) {
-        Indices indices = sortedIndicesByName.get(indexName);
-
-        if (indices == null || !partitions.containsKey(partitionId)) {
-            return null;
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, String indexName) {
+        if (!partitions.containsKey(partitionId)) {
+            throw new StorageException("Partition ID " + partitionId + " does not exist");
         }
 
-        return indices.getOrCreateStorage(partitionId);
+        HashIndices sortedIndices = hashIndicesByName.computeIfAbsent(
+                indexName,
+                name -> new HashIndices(new HashIndexDescriptor(name, tableConfig.value()))
+        );
+
+        return sortedIndices.getOrCreateStorage(partitionId);
     }
 
     @Override
     public CompletableFuture<Void> destroyIndex(String indexName) {
         sortedIndicesByName.remove(indexName);
+        hashIndicesByName.remove(indexName);
 
         return CompletableFuture.completedFuture(null);
     }

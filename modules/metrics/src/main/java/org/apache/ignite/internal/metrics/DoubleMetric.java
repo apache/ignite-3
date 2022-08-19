@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,17 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index;
+package org.apache.ignite.internal.metrics;
 
 /**
- * Class for extracting indexed column values from an {@link IndexRow}.
+ * Basic interface for double metric.
  */
-public interface IndexRowDeserializer {
+public interface DoubleMetric extends Metric {
     /**
-     * De-serializes column values that were used to create the index.
+     * Value of the metric.
      *
-     * @param indexRow Index row.
-     * @return Values of the indexed columns.
+     * @return Value of the metric.
      */
-    Object[] deserializeColumns(IndexRow indexRow);
+    double value();
+
+    /** {@inheritDoc} */
+    @Override
+    default String getValueAsString() {
+        return Double.toString(value());
+    }
 }

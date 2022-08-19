@@ -49,6 +49,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -388,6 +389,35 @@ public class CheckpointerTest {
     }
 
     @Test
+    void testDoCheckpointNoDirtyPages() throws Exception {
+        CheckpointDirtyPages dirtyPages = spy(EMPTY);
+
+        Compactor compactor = mock(Compactor.class);
+
+        Checkpointer checkpointer = spy(new Checkpointer(
+                log,
+                "test",
+                null,
+                null,
+                createCheckpointWorkflow(dirtyPages),
+                createCheckpointPagesWriterFactory(new PartitionMetaManager(ioRegistry, PAGE_SIZE)),
+                createFilePageStoreManager(Map.of()),
+                compactor,
+                checkpointConfig
+        ));
+
+        assertDoesNotThrow(checkpointer::doCheckpoint);
+
+        verify(dirtyPages, never()).toDirtyPageIdQueue();
+        verify(checkpointer, times(1)).startCheckpointProgress();
+        verify(compactor, never()).addDeltaFiles(anyInt());
+
+        assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 0);
+
+        verify(checkpointer, times(1)).updateLastProgressAfterReleaseWriteLock();
+    }
+
+    @Test
     void testNextCheckpointInterval() throws Exception {
         Checkpointer checkpointer = new Checkpointer(
                 log,
@@ -446,9 +476,11 @@ public class CheckpointerTest {
         )).then(answer -> {
             CheckpointProgressImpl progress = answer.getArgument(1);
 
-            progress.pagesToWrite(dirtyPages);
+            if (dirtyPages.dirtyPagesCount() > 0) {
+                progress.pagesToWrite(dirtyPages);
 
-            progress.initCounters(dirtyPages.dirtyPagesCount());
+                progress.initCounters(dirtyPages.dirtyPagesCount());
+            }
 
             ((Runnable) answer.getArgument(3)).run();
             ((Runnable) answer.getArgument(4)).run();

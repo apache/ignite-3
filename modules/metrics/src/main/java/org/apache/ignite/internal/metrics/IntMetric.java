@@ -15,38 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
-
-import java.nio.ByteBuffer;
+package org.apache.ignite.internal.metrics;
 
 /**
- * Utility class for storages.
+ * Interface for the metrics that holds int primitive.
  */
-public class StorageUtils {
+public interface IntMetric extends Metric {
     /**
-     * Returns byte buffer hash that matches corresponding array hash.
+     * Value of the metric.
      *
-     * @param buf Byte buffer.
+     * @return Value of the metric.
      */
-    public static int hashCode(ByteBuffer buf) {
-        int result = 1;
-        for (int i = buf.position(); i < buf.limit(); i++) {
-            result = 31 * result + buf.get(i);
-        }
-        return result;
-    }
+    int value();
 
-    /**
-     * Converts to an array of bytes.
-     *
-     * @param buf Byte buffer.
-     */
-    // TODO: IGNITE-16350 Get rid of copying byte arrays.
-    public static byte[] toByteArray(ByteBuffer buf) {
-        byte[] arr = new byte[buf.limit()];
-
-        buf.get(arr);
-
-        return arr;
+    /** {@inheritDoc} */
+    @Override
+    default String getValueAsString() {
+        return Integer.toString(value());
     }
 }

@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,23 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index;
+package org.apache.ignite.internal.metrics;
 
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.storage.RowId;
+import java.util.function.LongSupplier;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Temporary API for creating Index rows from a list of column values. All columns must be sorted according to the index columns order,
- * specified by the {@link SortedIndexDescriptor#indexColumns()}.
+ * Implementation based on primitive supplier.
  */
-public interface IndexRowSerializer {
-    /**
-     * Creates an Index row from a list of column values.
-     */
-    IndexRow createIndexRow(Object[] columnValues, RowId rowId);
+public class LongGauge extends AbstractMetric implements LongMetric {
+    /** Value supplier. */
+    private final LongSupplier val;
 
     /**
-     * Creates an Prefix row from a list of column values.
+     * Constructor.
+     *
+     * @param name Name.
+     * @param desc Description.
+     * @param val Supplier.
      */
-    BinaryTuple createIndexRowPrefix(Object[] prefixColumnValues);
+    public LongGauge(String name, @Nullable String desc, LongSupplier val) {
+        super(name, desc);
+
+        this.val = val;
+    }
+
+    /** {@inheritDoc} */
+    @Override public long value() {
+        return val.getAsLong();
+    }
 }

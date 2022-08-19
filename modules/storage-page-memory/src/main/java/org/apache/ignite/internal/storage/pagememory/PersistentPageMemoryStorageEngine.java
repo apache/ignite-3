@@ -141,7 +141,6 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     filePageStoreManager,
                     partitionMetaManager,
                     regions.values(),
-                    storagePath,
                     ioRegistry,
                     pageSize
             );

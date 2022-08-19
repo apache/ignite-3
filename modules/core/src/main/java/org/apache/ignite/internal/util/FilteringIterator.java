@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.util;
+package org.apache.ignite.internal.util;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
