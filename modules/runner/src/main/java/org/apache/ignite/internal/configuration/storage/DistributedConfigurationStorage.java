@@ -192,11 +192,22 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Data> readDataOnRecovery() throws StorageException {
-        return registerFuture(vaultMgr.get(MetaStorageManager.APPLIED_REV)
-                .thenCombineAsync(vaultMgr.get(CONFIGURATION_REVISIONS_KEY), this::readAllOnStart0, threadPool));
+        CompletableFuture<Data> future = vaultMgr.get(MetaStorageManager.APPLIED_REV)
+                .thenCombine(vaultMgr.get(CONFIGURATION_REVISIONS_KEY), this::resolveRevision)
+                .thenApplyAsync(this::readDataOnRecovery0, threadPool);
+
+        return registerFuture(future);
     }
 
-    private Data readAllOnStart0(@Nullable VaultEntry appliedRevEntry, @Nullable VaultEntry revisionsEntry) {
+    /**
+     * Resolves configuration revision based on the saved in the Vault revision of the metastorage and also
+     * previous and current revisions of the configuration.
+     *
+     * @param appliedRevEntry Applied revision entry.
+     * @param revisionsEntry Configuration revisions entry.
+     * @return Configuration revision.
+     */
+    private long resolveRevision(@Nullable VaultEntry appliedRevEntry, @Nullable VaultEntry revisionsEntry) {
         long appliedRevision = appliedRevEntry == null ? 0L : ByteUtils.bytesToLong(appliedRevEntry.value());
 
         long cfgRevision = appliedRevision;
@@ -211,6 +222,10 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
             cfgRevision = curMasterKeyRevision <= appliedRevision ? curMasterKeyRevision : prevMasterKeyRevision;
         }
 
+        return cfgRevision;
+    }
+
+    private Data readDataOnRecovery0(long cfgRevision) {
         var data = new HashMap<String, Serializable>();
 
         try (Cursor<VaultEntry> entries = storedDistributedConfigKeys()) {
