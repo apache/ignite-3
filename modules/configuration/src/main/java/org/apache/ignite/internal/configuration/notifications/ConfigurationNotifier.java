@@ -425,9 +425,14 @@ public class ConfigurationNotifier {
                 // Lazy initialization.
                 Collection<DynamicConfiguration<InnerNode, ?>> newAnyConfigs = null;
 
+                NamedListConfiguration<?, InnerNode, ?> namedListCfg = namedDynamicConfig(config, key);
+
+                // Initialize named list configuration.
+                namedListCfg.touchMembers();
+
                 for (String name : newNamedList.namedListKeys()) {
                     DynamicConfiguration<InnerNode, ?> namedNodeConfig =
-                            (DynamicConfiguration<InnerNode, ?>) namedDynamicConfig(config, key).getConfig(name);
+                            (DynamicConfiguration<InnerNode, ?>) namedListCfg.getConfig(name);
 
                     ctx.addContainer(namedNodeConfig, name);
 
