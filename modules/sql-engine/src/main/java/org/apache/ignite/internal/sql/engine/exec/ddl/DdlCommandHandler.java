@@ -250,7 +250,10 @@ public class DdlCommandHandler {
             idx0.done();
         }
 
-        return indexManager.createIndex(cmd.schemaName(), cmd.indexName(), cmd.tableName(),
+        return indexManager.createIndex(
+                cmd.schemaName(),
+                cmd.indexName(),
+                cmd.tableName(),
                 !cmd.ifIndexNotExists(),
                 tableIndexChange -> convert(idx.build(), tableIndexChange));
     }

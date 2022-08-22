@@ -400,7 +400,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             UUID idxId = ((TableIndexView) evt.newValue()).id();
 
             fireEvent(IndexEvent.DROP,
-                    new IndexEventParameters(evt.storageRevision(), idxId, idxName),
+                    new IndexEventParameters(evt.storageRevision(), idxId),
                     new NodeStoppingException()
             );
 
@@ -411,7 +411,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             Index<?> index = indexById.remove(evt.oldValue().id());
             indexByName.remove(index.name(), index);
 
-            fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), index.id(), index.name()), null);
+            fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), index.id()), null);
         } finally {
             busyLock.leaveBusy();
         }
@@ -431,7 +431,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             UUID idxId = ((TableIndexView) evt.newValue()).id();
 
             fireEvent(IndexEvent.CREATE,
-                    new IndexEventParameters(evt.storageRevision(), idxId, idxName),
+                    new IndexEventParameters(evt.storageRevision(), idxId),
                     new NodeStoppingException()
             );
 
