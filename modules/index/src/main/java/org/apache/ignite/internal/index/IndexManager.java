@@ -273,7 +273,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      *
      * @param schemaName A name of the schema the index belong to.
      * @param indexName A name of the index to drop.
-     * @param failIfNotExist Flag, which force failure, when {@code trues} if index doen't not exists.
+     * @param failIfNotExists Flag, which force failure, when {@code trues} if index doen't not exists.
      * @return A future representing the result of the operation.
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
