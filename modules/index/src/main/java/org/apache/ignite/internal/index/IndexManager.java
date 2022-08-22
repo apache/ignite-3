@@ -129,6 +129,28 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param indexName A name of the index to create.
      * @param tableName A name of the table to create index for.
      * @param indexChange A consumer that suppose to change the configuration in order to provide description of an index.
+     * @param failIfExists Flag indicates whether exception be thrown if index exists or not.
+     * @return {@code True} if index was created successfully, {@code false} otherwise.
+     * @throws IndexAlreadyExistsException If index already exists and
+     */
+    public boolean createIndex(
+            String schemaName,
+            String indexName,
+            String tableName,
+            boolean failIfExists,
+            Consumer<TableIndexChange> indexChange
+    ) {
+        return join(createIndexAsync(schemaName, indexName, tableName, failIfExists, indexChange)) != null;
+    }
+
+    /**
+     * Creates index from provided configuration changer.
+     *
+     * @param schemaName A name of the schema to create index in.
+     * @param indexName A name of the index to create.
+     * @param tableName A name of the table to create index for.
+     * @param failIfExists Flag indicates whether exception be thrown if index exists or not.
+     * @param indexChange A consumer that suppose to change the configuration in order to provide description of an index.
      * @return A future represented the result of creation.
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
@@ -140,6 +162,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             String schemaName,
             String indexName,
             String tableName,
+            boolean failIfExists,
             Consumer<TableIndexChange> indexChange
     ) {
         if (!busyLock.enterBusy()) {
@@ -169,6 +192,11 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
                 tableManager.alterTableAsync(table.name(), tableChange -> tableChange.changeIndices(indexListChange -> {
                     if (indexListChange.get(indexName) != null) {
+                        if (!failIfExists) {
+                            future.complete(null);
+
+                            return;
+                        }
                         var exception = new IndexAlreadyExistsException(indexName);
 
                         LOG.info("Unable to create index [schema={}, table={}, index={}]",
@@ -176,7 +204,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
                         future.completeExceptionally(exception);
 
-                        return;
+                        throw exception;
                     }
 
                     indexListChange.create(indexName, indexChange);

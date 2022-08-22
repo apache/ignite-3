@@ -61,7 +61,6 @@ import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -238,6 +237,7 @@ public class DdlCommandHandler {
     /** Handles create index command. */
     private boolean handleCreateIndex(CreateIndexCommand cmd) {
         // Only sorted idx for now.
+        //TODO: https://issues.apache.org/jira/browse/IGNITE-17563 Pass null ordering for columns.
         SortedIndexDefinitionBuilder idx = SchemaBuilders.sortedIndex(cmd.indexName());
 
         for (Pair<String, Boolean> idxInfo : cmd.columns()) {
@@ -250,36 +250,14 @@ public class DdlCommandHandler {
             idx0.done();
         }
 
-        String fullName = TableDefinitionImpl.canonicalName(
-                IgniteObjectName.quote(cmd.schemaName()),
-                IgniteObjectName.quote(cmd.tableName())
-        );
-
-        AtomicBoolean ret = new AtomicBoolean();
-
-        tableManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
-            if (idxes.get(cmd.indexName()) != null) {
-                if (!cmd.ifIndexNotExists()) {
-                    throw new IndexAlreadyExistsException(cmd.indexName());
-                } else {
-                    ret.set(false);
-
-                    return;
-                }
-            }
-
-            idxes.create(cmd.indexName(), tableIndexChange -> convert(idx.build(), tableIndexChange));
-
-            ret.set(true);
-        }));
-
-        return ret.get();
+        return indexManager.createIndex(cmd.schemaName(), cmd.indexName(), cmd.tableName(),
+                !cmd.ifIndexNotExists(),
+                tableIndexChange -> convert(idx.build(), tableIndexChange));
     }
 
     /** Handles drop index command. */
     private boolean handleDropIndex(DropIndexCommand cmd) {
         return indexManager.dropIndex(cmd.schemaName(), cmd.indexName(), cmd.ifExist());
-
     }
 
     /**
