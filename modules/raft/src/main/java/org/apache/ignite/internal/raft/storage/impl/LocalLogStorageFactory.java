@@ -23,7 +23,7 @@ import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
 
 /**
- * LogStorageFactory that always creates instances of {@link LocalLogStorage}.
+ * LogStorageFactory that creates instances of {@link LocalLogStorage}.
  */
 public class LocalLogStorageFactory implements LogStorageFactory {
     @Override

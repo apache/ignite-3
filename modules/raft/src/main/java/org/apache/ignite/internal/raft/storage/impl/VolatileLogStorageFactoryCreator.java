@@ -112,7 +112,7 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
             Env env = db.getEnv();
             // Setup background flushes pool
             env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.HIGH);
-            // Setup background  compactions pool
+            // Setup background compactions pool
             env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.LOW);
 
             assert (columnFamilyHandles.size() == 1);

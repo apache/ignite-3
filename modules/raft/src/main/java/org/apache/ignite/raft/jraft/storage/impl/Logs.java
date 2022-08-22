@@ -37,7 +37,7 @@ interface Logs extends Lifecycle<LogStorageOptions>, Storage {
     void appendEntry(final LogEntry entry);
 
     /**
-     * Append entries to log, return append success number.
+     * Append entries to log.
      */
     void appendEntries(final List<LogEntry> entries);
 
