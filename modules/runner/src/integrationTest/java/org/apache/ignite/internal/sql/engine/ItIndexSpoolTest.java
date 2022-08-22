@@ -52,7 +52,7 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
         // Remove this, indices must be dropped together with the table.
         CLUSTER_NODES.get(0).tables().tables().stream()
                 .map(Table::name)
-                .forEach(name -> sql("DROP INDEX " + name +"_JID_IDX"));
+                .forEach(name -> sql("DROP INDEX " + name + "_JID_IDX"));
 
         CLUSTER_NODES.get(0).tables().tables().stream()
                 .map(Table::name)

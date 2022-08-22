@@ -70,15 +70,6 @@ public class IgniteSchema extends AbstractSchema {
     }
 
     /**
-     * Returns map of indices in schema by id.
-     *
-     * @return
-     */
-    protected Map<UUID, IgniteIndex> getIndexMap() {
-        return Collections.unmodifiableMap(idxMap);
-    }
-
-    /**
      * Add table.
      *
      * @param tblName Table name.
