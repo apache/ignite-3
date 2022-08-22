@@ -59,6 +59,8 @@ public abstract class PushMetricExporter extends BasicMetricExporter {
             } catch (Throwable th) {
                 LOG.error("Metrics export error. " +
                         "This exporter will be stopped [class=" + getClass() + ",name=" + name() + ']', th);
+
+                throw th;
             }
         }, period, period, TimeUnit.MILLISECONDS);
 
