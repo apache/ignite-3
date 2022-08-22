@@ -32,6 +32,7 @@ import org.apache.ignite.cli.core.flow.FlowInterruptException;
 import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.flow.question.QuestionAnswer;
 import org.apache.ignite.cli.core.flow.question.QuestionAskerFactory;
+import org.apache.ignite.cli.core.repl.context.CommandLineContextProvider;
 
 /**
  * Implementation of {@link FlowBuilder}.
@@ -100,7 +101,12 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
     public FlowBuilder<I, O> toOutput(PrintWriter output, PrintWriter errorOutput) {
         return new FlowBuilderImpl<>(flow.composite(input -> {
             if (input.hasResult()) {
-                output.println(decoratorRegistry.getDecorator(input.type()).decorate(input.value()).toTerminalString());
+                // Workaround for the https://issues.apache.org/jira/browse/IGNITE-17346
+                // This will turn the tailtips off before printing
+                CommandLineContextProvider.print(() -> {
+                    String out = decoratorRegistry.getDecorator(input.type()).decorate(input.value()).toTerminalString();
+                    output.println(out);
+                });
             } else if (input.hasError()) {
                 exceptionHandlers.handleException(ExceptionWriter.fromPrintWriter(errorOutput), input.errorCause());
                 return Flowable.empty();
