@@ -286,7 +286,7 @@ public class IndexManagerTest {
 
         CompletionException completionException = assertThrows(
                 CompletionException.class,
-                () -> indexManager.dropIndexAsync("sName", "nonExisting", false).join()
+                () -> indexManager.dropIndexAsync("sName", "nonExisting", true).join()
         );
 
         assertThat(completionException.getCause(), instanceOf(IndexNotFoundException.class));

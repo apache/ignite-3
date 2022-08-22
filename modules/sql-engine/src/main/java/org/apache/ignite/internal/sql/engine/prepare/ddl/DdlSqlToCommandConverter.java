@@ -420,7 +420,7 @@ public class DdlSqlToCommandConverter {
 
         dropCmd.schemaName(schemaName);
         dropCmd.indexName(indexName);
-        dropCmd.ifExist(sqlCmd.ifExists());
+        dropCmd.ifNotExists(sqlCmd.ifExists());
 
         return dropCmd;
     }

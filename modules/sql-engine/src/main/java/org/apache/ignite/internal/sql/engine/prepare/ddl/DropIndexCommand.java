@@ -25,7 +25,7 @@ public class DropIndexCommand implements DdlCommand {
     private String indexName;
 
     /** If exist flag. */
-    private boolean ifExist;
+    private boolean ifNotExists;
 
     /** Schema name where this new table will be created. */
     private String schemaName;
@@ -45,8 +45,8 @@ public class DropIndexCommand implements DdlCommand {
      *
      * @return Quietly ignore flag.
      */
-    public boolean ifExist() {
-        return ifExist;
+    public boolean ifNotExists() {
+        return ifNotExists;
     }
 
     /**
@@ -54,8 +54,8 @@ public class DropIndexCommand implements DdlCommand {
      *
      * @param ifExist Exists flag.
      */
-    public void ifExist(boolean ifExist) {
-        this.ifExist = ifExist;
+    public void ifNotExists(boolean ifExist) {
+        this.ifNotExists = ifExist;
     }
 
     /**

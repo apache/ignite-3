@@ -257,7 +257,7 @@ public class DdlCommandHandler {
 
     /** Handles drop index command. */
     private boolean handleDropIndex(DropIndexCommand cmd) {
-        return indexManager.dropIndex(cmd.schemaName(), cmd.indexName(), cmd.ifExist());
+        return indexManager.dropIndex(cmd.schemaName(), cmd.indexName(), !cmd.ifNotExists());
     }
 
     /**
