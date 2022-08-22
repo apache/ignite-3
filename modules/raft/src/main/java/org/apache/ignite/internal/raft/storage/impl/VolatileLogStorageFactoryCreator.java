@@ -150,6 +150,8 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
     private static ColumnFamilyOptions createColumnFamilyOptions() {
         var opts = new ColumnFamilyOptions();
 
+        // TODO: IGNITE-17560 - parameterize via configuration
+
         opts.setWriteBufferSize(64 * SizeUnit.MB);
         opts.setMaxWriteBufferNumber(5);
         opts.setMinWriteBufferNumberToMerge(1);
