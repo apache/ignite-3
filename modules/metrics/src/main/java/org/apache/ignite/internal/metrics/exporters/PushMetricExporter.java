@@ -33,7 +33,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
  */
 public abstract class PushMetricExporter extends BasicMetricExporter {
     /** Logger. */
-    protected IgniteLogger LOG = Loggers.forClass(getClass());
+    protected final IgniteLogger LOG = Loggers.forClass(getClass());
 
     /** Default export period in milliseconds. */
     public static final long DFLT_EXPORT_PERIOD = 60_000;
@@ -58,7 +58,7 @@ public abstract class PushMetricExporter extends BasicMetricExporter {
                 report();
             } catch (Throwable th) {
                 LOG.error("Metrics export error. " +
-                        "This exporter will be stopped [spiClass=" + getClass() + ",name=" + IgniteUtils.getSimpleName(getClass()) + ']', th);
+                        "This exporter will be stopped [class=" + getClass() + ",name=" + name() + ']', th);
             }
         }, period, period, TimeUnit.MILLISECONDS);
 
@@ -83,7 +83,11 @@ public abstract class PushMetricExporter extends BasicMetricExporter {
         this.period = period;
     }
 
-    /** @return Period in milliseconds after {@link #report()} ()} method should be called. */
+    /**
+     * Returns export period.
+     *
+     * @return Period in milliseconds after {@link #report()} method should be called.
+     */
     public long getPeriod() {
         return period;
     }

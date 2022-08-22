@@ -41,6 +41,9 @@ public class TestPullMetricExporter extends BasicMetricExporter {
         TestPullMetricExporter.outputStream = outputStream;
     }
 
+    /**
+     * Simulate metric request.
+     */
     public static void requestMetrics() {
         synchronized (obj) {
             obj.notify();

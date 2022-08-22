@@ -838,8 +838,9 @@ public class IgniteUtils {
     public static String getSimpleName(Class<?> cls) {
         String name = cls.getSimpleName();
 
-        if (name == null || name.isEmpty())
+        if (name == null || name.isEmpty()) {
             name = cls.getName().substring(cls.getPackage().getName().length() + 1);
+        }
 
         return name;
     }

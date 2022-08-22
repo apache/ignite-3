@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.metrics;
 
-import java.util.Map;
-
 import java.util.List;
+import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import org.apache.ignite.internal.manager.IgniteComponent;

@@ -26,6 +26,9 @@ import java.util.concurrent.locks.LockSupport;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Integration test for metrics' exporters loading.
+ */
 public class MetricExportersLoadingTest {
 
     @Test
@@ -52,12 +55,12 @@ public class MetricExportersLoadingTest {
 
         src.inc();
 
-        waitForOutput(pushOutputStream,"TestMetricsSource:\nmetric:1");
+        waitForOutput(pushOutputStream, "TestMetricsSource:\nmetric:1");
         assertTrue(pushOutputStream.toString().contains("TestMetricsSource:\nmetric:1"));
 
         TestPullMetricExporter.requestMetrics();
 
-        waitForOutput(pullOutputStream,"TestMetricsSource:\nmetric:1");
+        waitForOutput(pullOutputStream, "TestMetricsSource:\nmetric:1");
         assertTrue(pullOutputStream.toString().contains("TestMetricsSource:\nmetric:1"));
 
         metricManager.stop();

@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal.metrics.exporters;
 
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.AtomicIntMetric;
 import org.apache.ignite.internal.metrics.MetricSetBuilder;

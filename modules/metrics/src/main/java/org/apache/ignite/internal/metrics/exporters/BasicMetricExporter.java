@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.metrics.exporters;
 
 import java.util.Map;
-import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricProvider;
+import org.apache.ignite.internal.metrics.MetricSet;
 
 /**
  * Base class for new metrics exporters implementations.

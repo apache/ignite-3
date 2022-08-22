@@ -23,6 +23,9 @@ import java.nio.charset.StandardCharsets;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 
+/**
+ * Test push metrics exporter.
+ */
 public class TestPushMetricExporter extends PushMetricExporter {
     private static OutputStream outputStream;
 
@@ -38,10 +41,10 @@ public class TestPushMetricExporter extends PushMetricExporter {
     public void report() {
         var report = new StringBuilder();
 
-        for (MetricSet metricSet: metrics().values()) {
+        for (MetricSet metricSet : metrics().values()) {
             report.append(metricSet.name()).append(":\n");
 
-            for (Metric metric: metricSet) {
+            for (Metric metric : metricSet) {
                 report.append(metric.name())
                         .append(":")
                         .append(metric.getValueAsString())
