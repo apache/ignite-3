@@ -81,7 +81,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
             rows = new ArrayList<>();
 
             rows.add(getRow("schema", session.defaultSchema()));
-            rows.add(getRow("timeout", String.valueOf(session.defaultTimeout(TimeUnit.MILLISECONDS))));
+            rows.add(getRow("timeout", String.valueOf(session.defaultQueryTimeout(TimeUnit.MILLISECONDS))));
             rows.add(getRow("pageSize", String.valueOf(session.defaultPageSize())));
 
             var props = ((FakeSession) session).properties();

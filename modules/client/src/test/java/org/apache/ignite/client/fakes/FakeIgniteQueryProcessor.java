@@ -31,7 +31,7 @@ import org.apache.ignite.internal.sql.engine.session.SessionId;
  */
 public class FakeIgniteQueryProcessor implements QueryProcessor {
     @Override
-    public SessionId createSession(PropertiesHolder queryProperties) {
+    public SessionId createSession(long sessionTimeoutMs, PropertiesHolder queryProperties) {
         return new SessionId(UUID.randomUUID());
     }
 

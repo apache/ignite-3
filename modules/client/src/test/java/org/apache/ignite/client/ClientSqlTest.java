@@ -80,7 +80,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
     public void testSessionPropertiesPropagation() {
         Session session = client.sql().sessionBuilder()
                 .defaultSchema("SCHEMA1")
-                .defaultTimeout(123, TimeUnit.SECONDS)
+                .defaultQueryTimeout(123, TimeUnit.SECONDS)
                 .defaultPageSize(234)
                 .property("prop1", "1")
                 .property("prop2", "2")
@@ -102,7 +102,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
     public void testStatementPropertiesOverrideSessionProperties() {
         Session session = client.sql().sessionBuilder()
                 .defaultSchema("SCHEMA1")
-                .defaultTimeout(123, TimeUnit.SECONDS)
+                .defaultQueryTimeout(123, TimeUnit.SECONDS)
                 .defaultPageSize(234)
                 .property("prop1", "1")
                 .property("prop2", "2")

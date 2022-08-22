@@ -43,7 +43,7 @@ public class ClientSql implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public Session createSession() {
-        return new ClientSession(ch, null, null, null, null);
+        return new ClientSession(ch, null, null, null, null, null);
     }
 
     /** {@inheritDoc} */

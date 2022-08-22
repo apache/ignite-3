@@ -340,6 +340,7 @@ public class IgniteImpl implements Ignite {
         );
 
         qryEngine = new SqlQueryProcessor(
+                name,
                 registry,
                 clusterSvc,
                 distributedTblMgr,

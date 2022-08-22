@@ -86,6 +86,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Size of the cache for query plans. */
     public static final int PLAN_CACHE_SIZE = 1024;
 
+    private final List<LifecycleAware> services = new ArrayList<>();
+
     private final ClusterService clusterSrvc;
 
     private final TableManager tableManager;
@@ -96,7 +98,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final DataStorageManager dataStorageManager;
 
-    private final SessionManager sessionManager = new SessionManager(System::currentTimeMillis);
+    private final SessionManager sessionManager;
 
     private final Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier;
 
@@ -105,8 +107,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Event listeners to close. */
     private final List<Pair<TableEvent, EventListener<TableEventParameters>>> evtLsnrs = new ArrayList<>();
-
-    private final List<LifecycleAware> services = new ArrayList<>();
 
     private volatile QueryTaskExecutor taskExecutor;
 
@@ -118,6 +118,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Constructor. */
     public SqlQueryProcessor(
+            String igniteInstanceName,
             Consumer<Function<Long, CompletableFuture<?>>> registry,
             ClusterService clusterSrvc,
             TableManager tableManager,
@@ -131,6 +132,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
+
+        sessionManager = registerService(new SessionManager(igniteInstanceName, System::currentTimeMillis));
     }
 
     /** {@inheritDoc} */
@@ -196,9 +199,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public SessionId createSession(PropertiesHolder queryProperties) {
+    public SessionId createSession(long sessionTimeoutMs, PropertiesHolder queryProperties) {
         return sessionManager.createSession(
-                TimeUnit.MINUTES.toMillis(5),
+                sessionTimeoutMs,
                 queryProperties
         );
     }

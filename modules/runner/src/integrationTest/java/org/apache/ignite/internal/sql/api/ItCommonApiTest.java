@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
-import com.github.benmanes.caffeine.cache.Cache;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
-import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -34,8 +36,8 @@ import org.junit.jupiter.api.Test;
 
 /** Test common SQL API. */
 public class ItCommonApiTest extends AbstractBasicIntegrationTest {
-    protected QueryProcessor queryProcessor() {
-        return ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
+    protected SqlQueryProcessor queryProcessor() {
+        return (SqlQueryProcessor)((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
     }
 
     /**
@@ -54,38 +56,33 @@ public class ItCommonApiTest extends AbstractBasicIntegrationTest {
     /** Check correctness of session expiration. */
     @Test
     public void testSessionExpiration() throws Exception {
-        int timeout = 100;
-        IgniteSql sql = igniteSql();
-        Session ses1 = sql.sessionBuilder().build();
+        long timeout = TimeUnit.SECONDS.toMillis(10); // time from SessionManager.checkPeriod
 
-        SqlQueryProcessor queryProc = (SqlQueryProcessor) queryProcessor();
+        IgniteSql sql = igniteSql();
+
+        var queryProc = queryProcessor();
 
         SessionManager sessionManager = IgniteTestUtils.getFieldValue(queryProc, "sessionManager");
 
-        Cache<Object, org.apache.ignite.internal.sql.engine.session.Session> activeSessions =
+        Map<SessionId, Session> activeSessions =
                 IgniteTestUtils.getFieldValue(sessionManager, "activeSessions");
 
-        for (Map.Entry<Object, org.apache.ignite.internal.sql.engine.session.Session> ent : activeSessions.asMap().entrySet()) {
-            org.apache.ignite.internal.sql.engine.session.Session ses0 = ent.getValue();
-
-            IgniteTestUtils.setFieldValue(ses0, org.apache.ignite.internal.sql.engine.session.Session.class,
-                    "idleTimeoutMs", timeout);
-        }
-
+        Session ses1 = sql.sessionBuilder().defaultSessionTimeout(1, TimeUnit.SECONDS).build();
+        Session ses2 = sql.sessionBuilder().defaultSessionTimeout(1000, TimeUnit.SECONDS).build();
         try {
             ses1.execute(null, "SELECT 1 + 1");
+            ses2.execute(null, "SELECT 2 + 2");
         } catch (Throwable ignore) {
-            // No op.
+            fail();
         }
 
-        Thread.sleep(2 * timeout);
+        //sessions is alive
+        assertEquals(2, activeSessions.size());
 
-        activeSessions.cleanUp();
+        IgniteTestUtils.waitForCondition(() -> activeSessions.size()==1, timeout + 2000);
 
-        Session ses2 = sql.sessionBuilder().build();
-
-        assertThrows(IgniteException.class, () -> ses1.execute(null, "SELECT 1 + 1").close());
-
-        ses2.execute(null, "SELECT 1 + 1").close();
+        // the first session has been expired
+        assertEquals(1, activeSessions.size());
+        assertThrows(IgniteException.class, () -> ses1.execute(null, "SELECT 1 + 1"));
     }
 }

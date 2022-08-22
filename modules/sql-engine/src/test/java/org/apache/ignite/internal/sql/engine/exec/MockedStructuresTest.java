@@ -255,6 +255,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         tblManager = mockManagers();
 
         queryProc = new SqlQueryProcessor(
+                NODE_NAME,
                 revisionUpdater,
                 cs,
                 tblManager,
@@ -280,7 +281,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      */
     @Test
     public void testInnerTxInitiated() throws Exception {
-        SessionId sesId = queryProc.createSession(PropertiesHolder.holderFor(Map.of()));
+        SessionId sesId = queryProc.createSession(0, PropertiesHolder.holderFor(Map.of()));
 
         InternalTransaction tx = mock(InternalTransaction.class);
 

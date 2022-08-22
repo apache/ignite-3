@@ -220,7 +220,15 @@ public interface Session extends AutoCloseable {
      * @param timeUnit Timeunit to convert timeout to.
      * @return Default query timeout in the given timeunit.
      */
-    long defaultTimeout(TimeUnit timeUnit);
+    long defaultQueryTimeout(TimeUnit timeUnit);
+
+    /**
+     * Return default session timeout.
+     *
+     * @param timeUnit Timeunit to convert timeout to.
+     * @return Default session timeout in the given timeunit.
+     */
+    long defaultSessionTimeout(TimeUnit timeUnit);
 
     /**
      * Returns session default schema.
@@ -281,7 +289,7 @@ public interface Session extends AutoCloseable {
          * @param timeUnit Timeunit to convert timeout to.
          * @return Default query timeout in the given timeunit.
          */
-        long defaultTimeout(TimeUnit timeUnit);
+        long defaultQueryTimeout(TimeUnit timeUnit);
 
         /**
          * Sets default query timeout.
@@ -290,7 +298,24 @@ public interface Session extends AutoCloseable {
          * @param timeUnit Timeunit.
          * @return {@code this} for chaining.
          */
-        SessionBuilder defaultTimeout(long timeout, TimeUnit timeUnit);
+        SessionBuilder defaultQueryTimeout(long timeout, TimeUnit timeUnit);
+
+        /**
+         * Return default session timeout.
+         *
+         * @param timeUnit Timeunit to convert timeout to.
+         * @return Default session timeout in the given timeunit.
+         */
+        long defaultSessionTimeout(TimeUnit timeUnit);
+
+        /**
+         * Sets default session timeout.
+         *
+         * @param timeout Session timeout value.
+         * @param timeUnit Timeunit.
+         * @return {@code this} for chaining.
+         */
+        SessionBuilder defaultSessionTimeout(long timeout, TimeUnit timeUnit);
 
         /**
          * Returns session default schema.

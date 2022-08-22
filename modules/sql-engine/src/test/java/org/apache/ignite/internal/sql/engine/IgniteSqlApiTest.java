@@ -101,7 +101,7 @@ public class IgniteSqlApiTest {
 
         // Create session with params.
         Session sessionWithParams = igniteSql.sessionBuilder()
-                .defaultTimeout(10_000, TimeUnit.MILLISECONDS) // Set default timeout.
+                .defaultQueryTimeout(10_000, TimeUnit.MILLISECONDS) // Set default timeout.
                 .property("memoryQuota", 10 * Constants.MiB) // Set default quota.
                 .build();
 
@@ -410,7 +410,7 @@ public class IgniteSqlApiTest {
         SessionBuilder sessionBuilder = Mockito.mock(SessionBuilder.class);
 
         Mockito.when(sessionBuilder.defaultSchema(Mockito.anyString())).thenAnswer(Answers.RETURNS_SELF);
-        Mockito.when(sessionBuilder.defaultTimeout(Mockito.anyLong(), Mockito.any(TimeUnit.class))).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(sessionBuilder.defaultQueryTimeout(Mockito.anyLong(), Mockito.any(TimeUnit.class))).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(sessionBuilder.property(Mockito.anyString(), Mockito.any())).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(sessionBuilder.build()).thenReturn(session);
 
