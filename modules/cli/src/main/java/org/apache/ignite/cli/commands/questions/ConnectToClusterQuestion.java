@@ -86,9 +86,11 @@ public class ConnectToClusterQuestion {
         if (lastConnectedUrl != null) {
             question = "Do you want to connect to the last connected node " + lastConnectedUrl + " ? [Y/n]";
             clusterUrl = lastConnectedUrl;
-        } else {
+        } else if (defaultUrl != null) {
             question = "Do you want to connect to the default node " + defaultUrl + " ? [Y/n]";
             clusterUrl = defaultUrl;
+        } else {
+            return;
         }
 
         Flows.acceptQuestion(question, () -> new ConnectCallInput(clusterUrl))
