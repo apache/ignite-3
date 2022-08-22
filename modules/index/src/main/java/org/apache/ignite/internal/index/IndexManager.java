@@ -396,7 +396,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      */
     private CompletableFuture<?> onIndexDrop(ConfigurationNotificationEvent<TableIndexView> evt) {
         if (!busyLock.enterBusy()) {
-            String idxName = evt.newValue().name();
             UUID idxId = ((TableIndexView) evt.newValue()).id();
 
             fireEvent(IndexEvent.DROP,
@@ -427,7 +426,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      */
     private CompletableFuture<?> onIndexCreate(ConfigurationNotificationEvent<TableIndexView> evt) {
         if (!busyLock.enterBusy()) {
-            String idxName = evt.newValue().name();
             UUID idxId = ((TableIndexView) evt.newValue()).id();
 
             fireEvent(IndexEvent.CREATE,
