@@ -97,7 +97,7 @@ class IgniteExceptionHandlerTest {
                         Problem.builder()
                                 .status(400)
                                 .title("Bad Request")
-                                .detail("Validation did not pass for keys: key1, key2")
+                                .detail("Validation did not pass for keys: [key1, Some issue1], [key2, Some issue2]")
                                 .code(humanReadableCode)
                                 .traceId(traceId)
                                 .invalidParams(invalidParams))

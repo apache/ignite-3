@@ -58,6 +58,6 @@ public class ConfigurationValidationException extends RuntimeException {
 
     private static String createMessageFromIssues(List<ValidationIssue> issues) {
         return "Validation did not pass for keys: "
-                + issues.stream().map(ValidationIssue::key).collect(Collectors.joining(", "));
+                + issues.stream().map(issue -> "[" + issue.key() + ", " + issue.message() + "]").collect(Collectors.joining(", "));
     }
 }

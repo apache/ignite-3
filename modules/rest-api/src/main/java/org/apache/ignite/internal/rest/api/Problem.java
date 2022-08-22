@@ -157,6 +157,7 @@ public class Problem {
                 + ", type='" + type + '\''
                 + ", detail='" + detail + '\''
                 + ", node='" + node + '\''
+                + ", invalidParams='" + invalidParams + '\''
                 + ", traceId=" + traceId
                 + '}';
     }
