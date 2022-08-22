@@ -71,7 +71,6 @@ public class SessionManager implements LifecycleAware {
                         blockingSectionEnd();
                     }
 
-
                     boolean removed = activeSessions.values().removeIf(Session::expired);
 
                     if (removed) {

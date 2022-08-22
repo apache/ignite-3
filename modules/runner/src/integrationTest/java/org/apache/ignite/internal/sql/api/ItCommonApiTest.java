@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -37,7 +38,7 @@ import org.junit.jupiter.api.Test;
 /** Test common SQL API. */
 public class ItCommonApiTest extends AbstractBasicIntegrationTest {
     protected SqlQueryProcessor queryProcessor() {
-        return (SqlQueryProcessor)((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
+        return (SqlQueryProcessor) ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
     }
 
     /**
@@ -49,7 +50,8 @@ public class ItCommonApiTest extends AbstractBasicIntegrationTest {
         return CLUSTER_NODES.get(0).sql();
     }
 
-    @Override protected int nodes() {
+    @Override
+    protected int nodes() {
         return 1;
     }
 
@@ -79,7 +81,7 @@ public class ItCommonApiTest extends AbstractBasicIntegrationTest {
         //sessions is alive
         assertEquals(2, activeSessions.size());
 
-        IgniteTestUtils.waitForCondition(() -> activeSessions.size()==1, timeout + 2000);
+        waitForCondition(() -> activeSessions.size() == 1, timeout + 2000);
 
         // the first session has been expired
         assertEquals(1, activeSessions.size());

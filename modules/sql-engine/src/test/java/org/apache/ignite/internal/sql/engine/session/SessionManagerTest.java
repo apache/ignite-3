@@ -1,10 +1,15 @@
 package org.apache.ignite.internal.sql.engine.session;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 import java.util.UUID;
-import javax.validation.constraints.AssertTrue;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.property.Property;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -74,7 +79,7 @@ class SessionManagerTest {
         Session session = sessionMgr.session(sessionId);
         assertFalse(session.expired());
 
-        Thread.sleep(idleTimeout+10);
+        Thread.sleep(idleTimeout + 10);
         assertTrue(session.expired());
         assertEquals(1, activeSessions.size());
 

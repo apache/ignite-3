@@ -281,7 +281,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      */
     @Test
     public void testInnerTxInitiated() throws Exception {
-        SessionId sesId = queryProc.createSession(0, PropertiesHolder.holderFor(Map.of()));
+        SessionId sesId = queryProc.createSession(1000, PropertiesHolder.holderFor(Map.of()));
 
         InternalTransaction tx = mock(InternalTransaction.class);
 
