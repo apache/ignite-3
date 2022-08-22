@@ -139,7 +139,7 @@ public abstract class ConfigurationControllerBaseTest {
 
         var problem = getProblem(thrown);
         assertEquals(400, problem.status());
-        assertThat(problem.detail(), containsString("Validation did not pass for keys: root.foo"));
+        assertThat(problem.detail(), containsString("Validation did not pass for keys: [root.foo, Error word]"));
         assertThat(problem.invalidParams(), hasSize(1));
 
         InvalidParam invalidParam = problem.invalidParams().stream().findFirst().get();
