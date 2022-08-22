@@ -115,8 +115,8 @@ public class IgniteCliRunner {
 
         var parsedArgs = new Args(
                 pr.matchedPositionalValue(0, null),
-                pr.matchedOptionValue("--config", null),
-                pr.matchedOptionValue("--configStr", null),
+                pr.matchedOptionValue("--config-path", null),
+                pr.matchedOptionValue("--config-string", null),
                 pr.matchedOptionValue("--work-dir", null)
         );
 
