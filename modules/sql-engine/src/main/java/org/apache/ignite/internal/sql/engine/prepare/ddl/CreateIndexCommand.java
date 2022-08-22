@@ -31,7 +31,7 @@ public class CreateIndexCommand implements DdlCommand {
     protected boolean ifTableNotExists;
 
     /** Schema name where this new table will be created. */
-    private String commanCurrentSchema;
+    private String commandCurrentSchema;
 
     /** Idx name. */
     private String indexName;
@@ -87,10 +87,10 @@ public class CreateIndexCommand implements DdlCommand {
     }
 
     public String schemaName() {
-        return commanCurrentSchema;
+        return commandCurrentSchema;
     }
 
     public void schemaName(String schemaName) {
-        this.commanCurrentSchema = schemaName;
+        this.commandCurrentSchema = schemaName;
     }
 }

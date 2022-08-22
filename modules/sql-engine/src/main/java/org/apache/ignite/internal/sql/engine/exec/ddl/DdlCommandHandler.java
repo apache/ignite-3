@@ -37,6 +37,7 @@ import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultChange;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultChange;
 import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AbstractTableDdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
@@ -71,6 +72,8 @@ import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.
 public class DdlCommandHandler {
     private final TableManager tableManager;
 
+    private final IndexManager indexManager;
+
     private final DataStorageManager dataStorageManager;
 
     /**
@@ -78,9 +81,11 @@ public class DdlCommandHandler {
      */
     public DdlCommandHandler(
             TableManager tableManager,
+            IndexManager indexManager,
             DataStorageManager dataStorageManager
     ) {
         this.tableManager = tableManager;
+        this.indexManager = indexManager;
         this.dataStorageManager = dataStorageManager;
     }
 
@@ -273,7 +278,8 @@ public class DdlCommandHandler {
 
     /** Handles drop index command. */
     private boolean handleDropIndex(DropIndexCommand cmd) {
-        throw new UnsupportedOperationException("DROP INDEX command not supported for now.");
+        return indexManager.dropIndex(cmd.schemaName(), cmd.indexName(), cmd.ifExist());
+
     }
 
     /**

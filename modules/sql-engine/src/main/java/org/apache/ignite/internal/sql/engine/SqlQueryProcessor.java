@@ -181,6 +181,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 msgSrvc,
                 sqlSchemaManager,
                 tableManager,
+                indexManager,
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
                 mailboxRegistry,

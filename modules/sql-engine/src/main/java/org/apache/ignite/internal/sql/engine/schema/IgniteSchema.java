@@ -70,6 +70,15 @@ public class IgniteSchema extends AbstractSchema {
     }
 
     /**
+     * Returns map of indices in schema by id.
+     *
+     * @return
+     */
+    protected Map<UUID, IgniteIndex> getIndexMap() {
+        return Collections.unmodifiableMap(idxMap);
+    }
+
+    /**
      * Add table.
      *
      * @param tblName Table name.
@@ -85,7 +94,11 @@ public class IgniteSchema extends AbstractSchema {
      * @param tblName Table name.
      */
     public void removeTable(String tblName) {
-        tblMap.remove(tblName);
+        Table rmv = tblMap.remove(tblName);
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
+        // Decouple tables and indices.
+        idxMap.values().removeIf(idx -> idx.table() == rmv);
     }
 
     /**

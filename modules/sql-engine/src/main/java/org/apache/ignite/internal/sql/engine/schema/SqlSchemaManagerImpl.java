@@ -235,7 +235,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                         .thenCombine(
                                 igniteTableFuture,
                                 (v, igniteTable) -> inBusyLock(busyLock, () -> {
-                                            schema.addTable(objectLocalName(schemaName, table.name()), igniteTable);
+                                            schema.addTable(objectSimpleName(schemaName, table.name()), igniteTable);
 
                                             return null;
                                         }
@@ -283,7 +283,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                 IgniteSchema schema = res.computeIfAbsent(schemaName, IgniteSchema::new);
 
-                String calciteTableName = objectLocalName(schemaName, tableName);
+                String calciteTableName = objectSimpleName(schemaName, tableName);
 
                 InternalIgniteTable table = (InternalIgniteTable) schema.getTable(calciteTableName);
 
@@ -404,7 +404,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /**
      * Cut schema name from object canonical name, if found.
      */
-    private static String objectLocalName(String schemaName, String canonicalName) {
+    private static String objectSimpleName(String schemaName, String canonicalName) {
         return canonicalName.substring(schemaName.length() + 1);
     }
 

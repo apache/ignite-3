@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Table;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -226,13 +228,32 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      *
      * @param schemaName A name of the schema the index belong to.
      * @param indexName A name of the index to drop.
+     * @param ifExists  If index exists flag.
+     * @return {@code True} if index was removed, {@code false} otherwise.
+     * @throws IndexNotFoundException If index doesn't exist and {@code ifExists} param was {@code false}.
+     */
+    public boolean dropIndex(
+            String schemaName,
+            String indexName,
+            boolean ifExists
+    ) {
+        return join(dropIndexAsync(schemaName, indexName, ifExists));
+    }
+
+    /**
+     * Drops the index with a given name asynchronously.
+     *
+     * @param schemaName A name of the schema the index belong to.
+     * @param indexName A name of the index to drop.
+     * @param ifExists If index exists flag.
      * @return A future representing the result of the operation.
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
     // For now it is impossible to locate the index neither by id nor name.
-    public CompletableFuture<Void> dropIndexAsync(
+    public CompletableFuture<Boolean> dropIndexAsync(
             String schemaName,
-            String indexName
+            String indexName,
+            boolean ifExists
     ) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
@@ -241,15 +262,20 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         LOG.debug("Going to drop index [schema={}, index={}]", schemaName, indexName);
 
         try {
-            CompletableFuture<Void> future = new CompletableFuture<>();
+            validateName(indexName);
 
             String canonicalName = canonicalName(schemaName, indexName);
 
             Index<?> index = indexByName.get(canonicalName);
 
             if (index == null) {
+                if (ifExists)
+                    return CompletableFuture.completedFuture(false);
+
                 return CompletableFuture.failedFuture(new IndexNotFoundException(canonicalName));
             }
+
+            CompletableFuture<Boolean> future = new CompletableFuture<>();
 
             tableManager.tableAsyncInternal(index.tableId(), false).thenAccept((table) -> {
                 if (table == null) {
@@ -285,7 +311,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     } else if (!future.isDone()) {
                         LOG.info("Index dropped [schema={}, index={}]", schemaName, indexName);
 
-                        future.complete(null);
+                        future.complete(true);
                     }
                 });
             });
@@ -459,6 +485,40 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 indexedColumns,
                 collations
         );
+    }
+
+    /**
+     * Waits for future result and return, or unwraps {@link CompletionException} to {@link IgniteException} if failed.
+     *
+     * @param future Completable future.
+     * @return Future result.
+     */
+    private <T> T join(CompletableFuture<T> future) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+
+        try {
+            return future.join();
+        } catch (CompletionException ex) {
+            throw convertThrowable(ex.getCause());
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Convert to public throwable.
+     *
+     * @param th Throwable.
+     * @return Public throwable.
+     */
+    private RuntimeException convertThrowable(Throwable th) {
+        if (th instanceof RuntimeException) {
+            return (RuntimeException) th;
+        }
+
+        return new IgniteException(th);
     }
 
     private class ConfigurationListener implements ConfigurationNamedListListener<TableIndexView> {

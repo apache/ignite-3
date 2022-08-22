@@ -825,6 +825,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param table Table.
      */
     private void completeApiCreateFuture(TableImpl table) {
+        LOG.trace("Finish creating table: name={}, id={}", table.name(), table.tableId());
+
         CompletableFuture<Table> tblFut = tableCreateFuts.get(table.tableId());
 
         if (tblFut != null) {
@@ -1135,8 +1137,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             } else {
                 tablesCfg.tables()
                         .change(change -> {
-                            if (change.get(name) == null) {
+                            TableView tableCfg = change.get(name);
+
+                            if (tableCfg == null) {
                                 throw new TableNotFoundException(name);
+                            }
+
+                            List<String> indicesNames = tableCfg.indices().namedListKeys();
+
+                            //TODO: https://issues.apache.org/jira/browse/IGNITE-17562
+                            // Let's drop orphaned indices instantly.
+                            if (!indicesNames.isEmpty()) {
+                                // TODO: https://issues.apache.org/jira/browse/IGNITE-17474 Implement cascade drop for indices.
+                                throw new IgniteException("Can't drop table with indices.");
                             }
 
                             change.delete(name);
