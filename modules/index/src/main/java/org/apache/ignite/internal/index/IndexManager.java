@@ -456,7 +456,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         LOG.trace("Creating local index: name={}, id={}, tableId={}, token={}",
                 tableIndexView.name(), tableIndexView.id(), tableId, causalityToken);
 
-        Index<?> index = createIndex(tableId, tableIndexView);
+        Index<?> index = newIndex(tableId, tableIndexView);
 
         Index<?> prev = indexById.putIfAbsent(index.id(), index);
 
@@ -471,7 +471,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         return CompletableFuture.completedFuture(null);
     }
 
-    private Index<?> createIndex(UUID tableId, TableIndexView indexView) {
+    private Index<?> newIndex(UUID tableId, TableIndexView indexView) {
         if (indexView instanceof SortedIndexView) {
             return new SortedIndexImpl(
                     indexView.id(),
