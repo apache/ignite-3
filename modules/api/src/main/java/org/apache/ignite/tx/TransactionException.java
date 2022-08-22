@@ -38,5 +38,4 @@ public class TransactionException extends IgniteException {
     public TransactionException(Throwable cause) {
         super(cause);
     }
-
 }
