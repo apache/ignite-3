@@ -204,7 +204,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
                         future.completeExceptionally(exception);
 
-                        throw exception;
+                        return;
                     }
 
                     indexListChange.create(indexName, indexChange);
@@ -256,16 +256,16 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      *
      * @param schemaName A name of the schema the index belong to.
      * @param indexName A name of the index to drop.
-     * @param ifExists  If index exists flag.
+     * @param failIfNotExist Flag, which force failure, when {@code trues} if index doen't not exists.
      * @return {@code True} if index was removed, {@code false} otherwise.
-     * @throws IndexNotFoundException If index doesn't exist and {@code ifExists} param was {@code false}.
+     * @throws IndexNotFoundException If index doesn't exist and {@code failIfNotExist} param was {@code true}.
      */
     public boolean dropIndex(
             String schemaName,
             String indexName,
-            boolean ifExists
+            boolean failIfNotExist
     ) {
-        return join(dropIndexAsync(schemaName, indexName, ifExists));
+        return join(dropIndexAsync(schemaName, indexName, failIfNotExist));
     }
 
     /**
@@ -273,7 +273,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      *
      * @param schemaName A name of the schema the index belong to.
      * @param indexName A name of the index to drop.
-     * @param ifExists If index exists flag.
+     * @param failIfNotExist Flag, which force failure, when {@code trues} if index doen't not exists.
      * @return A future representing the result of the operation.
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
@@ -281,7 +281,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     public CompletableFuture<Boolean> dropIndexAsync(
             String schemaName,
             String indexName,
-            boolean ifExists
+            boolean failIfNotExists
     ) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
@@ -297,10 +297,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             Index<?> index = indexByName.get(canonicalName);
 
             if (index == null) {
-                if (ifExists)
-                    return CompletableFuture.completedFuture(false);
-
-                return CompletableFuture.failedFuture(new IndexNotFoundException(canonicalName));
+                return  failIfNotExists
+                        ? CompletableFuture.failedFuture(new IndexNotFoundException(canonicalName))
+                        : CompletableFuture.completedFuture(false);
             }
 
             CompletableFuture<Boolean> future = new CompletableFuture<>();
