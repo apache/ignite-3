@@ -94,8 +94,8 @@ public class ConnectToClusterQuestion {
         Flows.acceptQuestion(question, () -> new ConnectCallInput(clusterUrl))
                 .then(Flows.fromCall(connectCall))
                 .toOutput(CommandLineContextProvider.getContext())
-                .ifThen(s -> !Objects.equals(lastConnectedUrl, defaultUrl) && session.isConnectedToNode(),
-                        defaultUrlQuestion(lastConnectedUrl).toOutput(CommandLineContextProvider.getContext()).build())
+                .ifThen(s -> !Objects.equals(clusterUrl, defaultUrl) && session.isConnectedToNode(),
+                        defaultUrlQuestion(clusterUrl).toOutput(CommandLineContextProvider.getContext()).build())
                 .build().start(Flowable.empty());
     }
 
