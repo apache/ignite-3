@@ -103,6 +103,13 @@ public class ReplExecutor {
                 TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
                         TailTipWidgets.TipType.COMPLETER);
                 widgets.enable();
+                // Workaround for the https://issues.apache.org/jira/browse/IGNITE-17346
+                // Turn off tailtip widgets before printing to the output
+                CommandLineContextProvider.setPrintWrapper(printer -> {
+                    widgets.disable();
+                    printer.run();
+                    widgets.enable();
+                });
                 // Workaround for jline issue where TailTipWidgets will produce NPE when passed a bracket
                 registry.setScriptDescription(cmdLine -> null);
             }

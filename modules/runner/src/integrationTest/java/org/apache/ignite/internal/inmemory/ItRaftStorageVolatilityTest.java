@@ -35,9 +35,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetChange;
 import org.apache.ignite.internal.AbstractClusterIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageChange;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.schema.definition.TableDefinition;
 import org.junit.jupiter.api.Test;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -205,5 +211,33 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
         List<List<Object>> tuples = executeSql("SELECT k, v FROM " + TABLE_NAME);
 
         assertThat(tuples, equalTo(List.of(List.of(1, 101))));
+    }
+
+    @Test
+    void logSpillsOutToDisk() {
+        createTableWithMaxOneInMemoryEntryAllowed("PERSON");
+
+        executeSql("INSERT INTO PERSON(ID, NAME) VALUES (1, 'JOHN')");
+        executeSql("INSERT INTO PERSON(ID, NAME) VALUES (2, 'JANE')");
+    }
+
+    private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
+        TableDefinition tableDef = SchemaBuilders.tableBuilder("PUBLIC", tableName).columns(
+                SchemaBuilders.column("ID", ColumnType.INT32).build(),
+                SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build()
+        ).withPrimaryKey("ID").build();
+
+        node(0).tables().createTable(tableDef.canonicalName(), tableChange -> {
+            SchemaConfigurationConverter.convert(tableDef, tableChange)
+                    .changePartitions(1)
+                    .changeDataStorage(storageChange -> {
+                        storageChange.convert(VolatilePageMemoryDataStorageChange.class);
+                    })
+                    .changeVolatileRaft(raftChange -> {
+                        raftChange.changeLogStorage(budgetChange -> {
+                            budgetChange.convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1);
+                        });
+                    });
+        });
     }
 }

@@ -41,7 +41,6 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.configuration.schema.SchemaConfiguration;
 import org.apache.ignite.internal.configuration.schema.SchemaView;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
@@ -53,6 +52,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
+import org.apache.ignite.lang.IgniteTriConsumer;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -238,47 +238,46 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @return Schema descriptor.
      */
     private SchemaDescriptor tableSchema(UUID tblId, String tableName, int schemaVer) {
-        SchemaRegistry registry = registriesVv.latest().get(tblId);
-
-        assert registry != null : IgniteStringFormatter.format("Registry for the table not found [tblId={}]", tblId);
-
         ExtendedTableConfiguration tblCfg = ((ExtendedTableConfiguration) tablesCfg.tables().get(tableName));
 
-        if (schemaVer <= registry.lastSchemaVersion()) {
+        if (checkSchemaVersion(tblId, schemaVer)) {
             return getSchemaDescriptorLocally(schemaVer, tblCfg);
         }
 
         CompletableFuture<SchemaDescriptor> fut = new CompletableFuture<>();
 
-        var clo = new EventListener<SchemaEventParameters>() {
-            @Override
-            public CompletableFuture<Boolean> notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable exception) {
-                if (tblId.equals(parameters.tableId()) && schemaVer <= parameters.schemaDescriptor().version()) {
-                    fut.complete(getSchemaDescriptorLocally(schemaVer, tblCfg));
-
-                    return completedFuture(true);
-                }
-
-                return completedFuture(false);
-            }
-
-            @Override
-            public void remove(@NotNull Throwable exception) {
-                fut.completeExceptionally(exception);
+        IgniteTriConsumer<Long, Map<UUID, SchemaRegistryImpl>, Throwable> schemaListener = (token, regs, e) -> {
+            if (schemaVer <= regs.get(tblId).lastSchemaVersion()) {
+                fut.complete(getSchemaDescriptorLocally(schemaVer, tblCfg));
             }
         };
 
-        listen(SchemaEvent.CREATE, clo);
+        registriesVv.whenComplete(schemaListener);
 
-        if (schemaVer <= registry.lastSchemaVersion()) {
-            fut.complete(getSchemaDescriptorLocally(schemaVer, tblCfg));
+        // This check is needed for the case when we have registered schemaListener,
+        // but registriesVv has already been completed, so listener would be triggered only for the next versioned value update.
+        if (checkSchemaVersion(tblId, schemaVer)) {
+            registriesVv.removeWhenComplete(schemaListener);
+
+            return getSchemaDescriptorLocally(schemaVer, tblCfg);
         }
 
-        if (!isSchemaExists(tblId, schemaVer) && fut.complete(null)) {
-            removeListener(SchemaEvent.CREATE, clo);
-        }
+        return fut.whenComplete((unused, throwable) -> registriesVv.removeWhenComplete(schemaListener)).join();
+    }
 
-        return fut.join();
+    /**
+     * Checks that the provided schema version is less or equal than the latest version from the schema registry.
+     *
+     * @param tblId Unique table id.
+     * @param schemaVer Schema version for the table.
+     * @return True, if the schema version is less or equal than the latest version from the schema registry, false otherwise.
+     */
+    private boolean checkSchemaVersion(UUID tblId, int schemaVer) {
+        SchemaRegistry registry = registriesVv.latest().get(tblId);
+
+        assert registry != null : IgniteStringFormatter.format("Registry for the table not found [tblId={}]", tblId);
+
+        return schemaVer <= registry.lastSchemaVersion();
     }
 
     /**
