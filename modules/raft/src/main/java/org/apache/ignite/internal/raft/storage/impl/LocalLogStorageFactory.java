@@ -14,13 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.storage.impl;
 
+package org.apache.ignite.internal.raft.storage.impl;
+
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
+import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
 
-class VolatileLogStorageTest extends BaseLogStorageTest {
+/**
+ * LogStorageFactory that creates instances of {@link LocalLogStorage}.
+ */
+public class LocalLogStorageFactory implements LogStorageFactory {
     @Override
-    protected LogStorage newLogStorage() {
-        return new VolatileLogStorage(new UnlimitedBudget(), new OnHeapLogs(), new OnHeapLogs());
+    public void start() {
+        // no-op
+    }
+
+    @Override
+    public LogStorage createLogStorage(String uri, RaftOptions raftOptions) {
+        return new LocalLogStorage(raftOptions);
+    }
+
+    @Override
+    public void close() throws Exception {
+        // no-op
     }
 }

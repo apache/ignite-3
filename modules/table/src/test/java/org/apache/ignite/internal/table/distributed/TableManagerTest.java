@@ -88,6 +88,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -768,7 +769,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
                 msm,
-                sm = new SchemaManager(revisionUpdater, tblsCfg)
+                sm = new SchemaManager(revisionUpdater, tblsCfg),
+                budgetView -> new LocalLogStorageFactory()
         );
 
         sm.start();

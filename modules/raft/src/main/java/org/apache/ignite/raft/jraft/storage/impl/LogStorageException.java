@@ -14,13 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.storage.impl;
 
-import org.apache.ignite.raft.jraft.storage.LogStorage;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
-class VolatileLogStorageTest extends BaseLogStorageTest {
-    @Override
-    protected LogStorage newLogStorage() {
-        return new VolatileLogStorage(new UnlimitedBudget(), new OnHeapLogs(), new OnHeapLogs());
+/**
+ * Thrown if something wrong happens in the log storage.
+ */
+class LogStorageException extends IgniteInternalException {
+    public LogStorageException(String msg, @Nullable Throwable cause) {
+        super(msg, cause);
     }
 }
