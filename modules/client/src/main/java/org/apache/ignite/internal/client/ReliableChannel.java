@@ -720,6 +720,10 @@ public final class ReliableChannel implements AutoCloseable {
                     // No op.
                 }
 
+                if (serverNodeId != null) {
+                    nodeChannels.remove(serverNodeId, this);
+                }
+
                 ch = null;
             }
         }
