@@ -68,8 +68,7 @@ public class ClientSqlExecuteRequest {
 
         return session
                 .executeAsync(tx, statement, arguments)
-                .thenCompose(asyncResultSet -> writeResultSetAsync(out, resources, asyncResultSet))
-                .whenComplete((res, err) -> session.closeAsync());
+                .thenCompose(asyncResultSet -> writeResultSetAsync(out, resources, asyncResultSet));
     }
 
     private static CompletionStage<Void> writeResultSetAsync(
