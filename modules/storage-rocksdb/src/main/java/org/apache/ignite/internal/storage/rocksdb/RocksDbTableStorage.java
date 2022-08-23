@@ -105,6 +105,9 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** Column Family handle for Hash Index data. */
     private volatile ColumnFamily hashIndexCf;
 
+    /** List of all existing Column Family handles. */
+    private volatile List<ColumnFamilyHandle> allCfHandles;
+
     /** Partition storages. */
     private volatile AtomicReferenceArray<RocksDbMvPartitionStorage> partitions;
 
@@ -241,6 +244,8 @@ public class RocksDbTableStorage implements MvTableStorage {
             assert partitionCf != null;
             assert hashIndexCf != null;
 
+            allCfHandles = cfHandles;
+
             // Pointless synchronization, but without it there would be a warning in the code.
             synchronized (latestPersistedSequenceNumberMux) {
                 latestPersistedSequenceNumber = db.getLatestSequenceNumber();
@@ -323,7 +328,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                 try {
                     // Explicit list of CF handles is mandatory!
                     // Default flush is buggy and only invokes listener methods for a single random CF.
-                    db.flush(flushOptions, List.of(metaCfHandle(), partitionCfHandle()));
+                    db.flush(flushOptions, allCfHandles);
                 } catch (RocksDBException e) {
                     LOG.error("Error occurred during the explicit flush for table '{}'", e, tableCfg.name());
                 }

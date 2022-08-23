@@ -26,7 +26,6 @@ import java.nio.ByteOrder;
 import java.util.UUID;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
-import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -165,29 +164,12 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
     public void destroy() {
         byte[] rangeEnd = rangeEnd(constantPrefix);
 
+        assert rangeEnd != null;
+
         try (WriteOptions writeOptions = new WriteOptions().setDisableWAL(true)) {
-            // If we can't construct the range end prefix (nearly impossible case), we need to fallback to manually removing the data,
-            // since 'deleteRange' doesn't work without the upper bound.
-            if (rangeEnd == null) {
-                slowRemoveAll(writeOptions);
-            } else {
-                indexCf.db().deleteRange(indexCf.handle(), writeOptions, constantPrefix, rangeEnd);
-            }
+            indexCf.db().deleteRange(indexCf.handle(), writeOptions, constantPrefix, rangeEnd);
         } catch (RocksDBException e) {
             throw new StorageException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
-        }
-    }
-
-    private void slowRemoveAll(WriteOptions writeOptions) throws RocksDBException {
-        try (
-                var readOptions = new ReadOptions();
-                RocksIterator it = indexCf.newIterator(readOptions)
-        ) {
-            it.seek(constantPrefix);
-
-            // Not using a WriteBatch, because it may become very large and dropping an index should be performed without any other
-            // workload anyway.
-            RocksUtils.forEach(it, (key, value) -> indexCf.db().delete(indexCf.handle(), writeOptions, key));
         }
     }
 
