@@ -25,6 +25,7 @@ import org.apache.ignite.internal.metrics.MetricProvider;
  *
  * <p>Push exporters push metrics to the external endpoint periodically.
  * Push exporters should implement {@link PushMetricExporter} according to its documentation.
+ *
  * <p>Pull exporters is the endpoint by itself (HTTP, JMX and etc.), which response with the metric data for request.
  * Pull exporters should extend {@link BasicMetricExporter}.
  */

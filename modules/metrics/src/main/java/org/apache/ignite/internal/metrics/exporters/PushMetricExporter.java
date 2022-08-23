@@ -33,7 +33,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
  */
 public abstract class PushMetricExporter extends BasicMetricExporter {
     /** Logger. */
-    protected final IgniteLogger LOG = Loggers.forClass(getClass());
+    protected final IgniteLogger log = Loggers.forClass(getClass());
 
     /** Default export period in milliseconds. */
     public static final long DFLT_EXPORT_PERIOD = 60_000;
@@ -51,14 +51,14 @@ public abstract class PushMetricExporter extends BasicMetricExporter {
     @Override
     public void start() {
         scheduler =
-                Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("metrics-exporter", LOG));
+                Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("metrics-exporter", log));
 
         fut = scheduler.scheduleWithFixedDelay(() -> {
             try {
                 report();
             } catch (Throwable th) {
-                LOG.error("Metrics export error. " +
-                        "This exporter will be stopped [class=" + getClass() + ",name=" + name() + ']', th);
+                log.error("Metrics export error. "
+                        + "This exporter will be stopped [class=" + getClass() + ",name=" + name() + ']', th);
 
                 throw th;
             }
