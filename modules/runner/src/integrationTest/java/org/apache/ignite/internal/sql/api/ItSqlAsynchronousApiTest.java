@@ -318,8 +318,6 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
 
-        assertTrue(waitForCondition(() -> states.values().stream().noneMatch(e -> e.equals(TxState.PENDING)), 5_000));
-
         states.forEach((k, v) -> assertNotSame(v, TxState.PENDING));
     }
 
