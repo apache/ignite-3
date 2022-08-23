@@ -95,4 +95,9 @@ public class TestHashIndexStorage implements HashIndexStorage {
             }
         });
     }
+
+    @Override
+    public void destroy() {
+        index.clear();
+    }
 }

@@ -26,6 +26,7 @@ import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.HashIndexView;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
@@ -88,20 +89,20 @@ public class HashIndexDescriptor {
     /**
      * Creates an Index Descriptor from a given Table Configuration.
      *
-     * @param name index name.
-     * @param tableConfig table configuration.
+     * @param indexId Index ID.
+     * @param tableConfig Table configuration.
      */
-    public HashIndexDescriptor(String name, TableView tableConfig) {
-        TableIndexView indexConfig = tableConfig.indices().get(name);
+    public HashIndexDescriptor(UUID indexId, TableView tableConfig) {
+        TableIndexView indexConfig = ConfigurationUtil.getByInternalId(tableConfig.indices(), indexId);
 
         if (indexConfig == null) {
-            throw new StorageException(String.format("Index configuration for \"%s\" could not be found", name));
+            throw new StorageException(String.format("Index configuration for \"%s\" could not be found", indexId));
         }
 
         if (!(indexConfig instanceof HashIndexView)) {
             throw new StorageException(String.format(
                     "Index \"%s\" is not configured as a Hash Index. Actual type: %s",
-                    name, indexConfig.type()
+                    indexId, indexConfig.type()
             ));
         }
 

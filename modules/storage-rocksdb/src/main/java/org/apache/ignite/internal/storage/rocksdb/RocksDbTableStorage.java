@@ -31,6 +31,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -107,8 +108,8 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** Partition storages. */
     private volatile AtomicReferenceArray<RocksDbMvPartitionStorage> partitions;
 
-    /** Hash Index storages by their names. */
-    private final ConcurrentMap<String, HashIndexStorage> hashIndices = new ConcurrentHashMap<>();
+    /** Hash Index storages by their IDs. */
+    private final ConcurrentMap<UUID, HashIndexStorage> hashIndices = new ConcurrentHashMap<>();
 
     /** Map with flush futures by sequence number at the time of the {@link #awaitFlush(boolean)} call. */
     private final ConcurrentMap<Long, CompletableFuture<Void>> flushFuturesBySequenceNumber = new ConcurrentHashMap<>();
@@ -412,7 +413,9 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException {
-        RocksDbMvPartitionStorage mvPartition = getMvPartition(partitionId);
+        checkPartitionId(partitionId);
+
+        RocksDbMvPartitionStorage mvPartition = partitions.getAndSet(partitionId, null);
 
         if (mvPartition == null) {
             return CompletableFuture.completedFuture(null);
@@ -423,8 +426,6 @@ public class RocksDbTableStorage implements MvTableStorage {
         // Wait for the data to actually be removed from the disk and close the storage.
         return awaitFlush(false)
                 .whenComplete((v, e) -> {
-                    partitions.set(partitionId, null);
-
                     try {
                         mvPartition.close();
                     } catch (Exception ex) {
@@ -435,14 +436,14 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, String indexName) {
+    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, String indexName) {
-        return hashIndices.computeIfAbsent(indexName, name -> {
-            var indexDescriptor = new HashIndexDescriptor(name, tableCfg.value());
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
+        return hashIndices.computeIfAbsent(indexId, id -> {
+            var indexDescriptor = new HashIndexDescriptor(id, tableCfg.value());
 
             return new RocksDbHashIndexStorage(indexDescriptor, hashIndexCf, getOrCreateMvPartition(partitionId));
         });
@@ -450,8 +451,16 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> destroyIndex(String indexName) {
-        throw new UnsupportedOperationException("Not implemented yet");
+    public CompletableFuture<Void> destroyIndex(UUID indexId) {
+        HashIndexStorage storage = hashIndices.remove(indexId);
+
+        if (storage == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        storage.destroy();
+
+        return awaitFlush(false);
     }
 
     /** {@inheritDoc} */

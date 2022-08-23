@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.engine;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -64,12 +65,12 @@ public interface MvTableStorage {
      * (see {@link #configuration()}).
      *
      * @param partitionId Partition ID for which this index has been configured.
-     * @param indexName Index name.
+     * @param indexId Index ID.
      * @return Sorted Index storage.
      * @throws StorageException If the given partition does not exist, or if the given index does not exist or is not configured as
      *         a sorted index.
      */
-    SortedIndexStorage getOrCreateSortedIndex(int partitionId, String indexName);
+    SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId);
 
     /**
      * Returns an already created Hash Index with the given name or creates a new one if it does not exist.
@@ -78,21 +79,21 @@ public interface MvTableStorage {
      * (see {@link #configuration()}).
      *
      * @param partitionId Partition ID for which this index has been configured.
-     * @param indexName Index name.
+     * @param indexId Index ID.
      * @return Hash Index storage.
      * @throws StorageException If the given partition does not exist, or the given index does not exist or is not configured as a
      *         hash index.
      */
-    HashIndexStorage getOrCreateHashIndex(int partitionId, String indexName);
+    HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId);
 
     /**
      * Destroys the index under the given name and all data in it.
      *
      * <p>This method is a no-op if the index under the given name does not exist.
      *
-     * @param indexName Index name.
+     * @param indexId Index ID.
      */
-    CompletableFuture<Void> destroyIndex(String indexName);
+    CompletableFuture<Void> destroyIndex(UUID indexId);
 
     /**
      * Returns {@code true} if this storage is volatile (i.e. stores its data in memory), or {@code false} if it's persistent.

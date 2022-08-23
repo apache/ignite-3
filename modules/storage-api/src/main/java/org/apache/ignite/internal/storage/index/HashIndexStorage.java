@@ -57,4 +57,9 @@ public interface HashIndexStorage {
      * {@link org.apache.ignite.internal.storage.MvPartitionStorage#runConsistently} closure.
      */
     void remove(IndexRow row);
+
+    /**
+     * Removes all data from this index.
+     */
+    void destroy();
 }

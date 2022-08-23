@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -98,13 +99,15 @@ public abstract class AbstractHashIndexStorageTest {
                 .withColumns(INT_COLUMN_NAME, STR_COLUMN_NAME)
                 .build();
 
-        CompletableFuture<Void> createIndexFuture = tableStorage.configuration().change(cfg ->
-                cfg.changeIndices(idxList ->
+        CompletableFuture<Void> createIndexFuture = tableStorage.configuration()
+                .change(cfg -> cfg.changeIndices(idxList ->
                         idxList.create(indexDefinition.name(), idx -> convert(indexDefinition, idx))));
 
         assertThat(createIndexFuture, willCompleteSuccessfully());
 
-        return tableStorage.getOrCreateHashIndex(TEST_PARTITION, indexDefinition.name());
+        TableIndexView indexConfig = tableStorage.configuration().indices().get(indexDefinition.name()).value();
+
+        return tableStorage.getOrCreateHashIndex(TEST_PARTITION, indexConfig.id());
     }
 
     /**
@@ -195,6 +198,23 @@ public abstract class AbstractHashIndexStorageTest {
         assertThat(getAll(row), is(empty()));
 
         assertDoesNotThrow(() -> remove(row));
+    }
+
+    @Test
+    void testDestroy() {
+        IndexRow row1 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
+        IndexRow row2 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
+        IndexRow row3 = serializer.serializeRow(new Object[]{ 2, "bar" }, new RowId(TEST_PARTITION));
+
+        put(row1);
+        put(row2);
+        put(row3);
+
+        indexStorage.destroy();
+
+        assertThat(getAll(row1), is(empty()));
+        assertThat(getAll(row2), is(empty()));
+        assertThat(getAll(row3), is(empty()));
     }
 
     private Collection<RowId> getAll(IndexRow row) {

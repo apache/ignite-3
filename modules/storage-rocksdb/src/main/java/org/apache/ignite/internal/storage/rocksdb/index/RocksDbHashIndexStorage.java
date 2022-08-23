@@ -26,6 +26,7 @@ import java.nio.ByteOrder;
 import java.util.UUID;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -41,6 +42,7 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
 import org.rocksdb.WriteBatchWithIndex;
+import org.rocksdb.WriteOptions;
 
 /**
  * {@link HashIndexStorage} implementation based on RocksDB.
@@ -69,6 +71,11 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
     private final RocksDbMvPartitionStorage partitionStorage;
 
     /**
+     * Constant prefix of every index key.
+     */
+    private final byte[] constantPrefix;
+
+    /**
      * Creates a new Hash Index storage.
      *
      * @param descriptor Index descriptor.
@@ -83,6 +90,15 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
         this.descriptor = descriptor;
         this.indexCf = indexCf;
         this.partitionStorage = partitionStorage;
+
+        UUID indexId = descriptor.id();
+
+        this.constantPrefix = ByteBuffer.allocate(2 * Long.BYTES + Short.BYTES)
+                .order(ByteOrder.BIG_ENDIAN)
+                .putLong(indexId.getMostSignificantBits())
+                .putLong(indexId.getLeastSignificantBits())
+                .putShort((short) partitionStorage.partitionId())
+                .array();
     }
 
     @Override
@@ -145,20 +161,46 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
         }
     }
 
+    @Override
+    public void destroy() {
+        byte[] rangeEnd = rangeEnd(constantPrefix);
+
+        try (WriteOptions writeOptions = new WriteOptions().setDisableWAL(true)) {
+            // If we can't construct the range end prefix (nearly impossible case), we need to fallback to manually removing the data,
+            // since 'deleteRange' doesn't work without the upper bound.
+            if (rangeEnd == null) {
+                slowRemoveAll(writeOptions);
+            } else {
+                indexCf.db().deleteRange(indexCf.handle(), writeOptions, constantPrefix, rangeEnd);
+            }
+        } catch (RocksDBException e) {
+            throw new StorageException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
+        }
+    }
+
+    private void slowRemoveAll(WriteOptions writeOptions) throws RocksDBException {
+        try (
+                var readOptions = new ReadOptions();
+                RocksIterator it = indexCf.newIterator(readOptions)
+        ) {
+            it.seek(constantPrefix);
+
+            // Not using a WriteBatch, because it may become very large and dropping an index should be performed without any other
+            // workload anyway.
+            RocksUtils.forEach(it, (key, value) -> indexCf.db().delete(indexCf.handle(), writeOptions, key));
+        }
+    }
+
     private byte[] rocksPrefix(BinaryTuple prefix) {
         return rocksPrefix(prefix, 0).array();
     }
 
     private ByteBuffer rocksPrefix(BinaryTuple prefix, int extraLength) {
-        UUID indexId = descriptor.id();
-
         ByteBuffer keyBytes = prefix.byteBuffer();
 
         return ByteBuffer.allocate(FIXED_PREFIX_LENGTH + keyBytes.remaining() + extraLength)
                 .order(ByteOrder.BIG_ENDIAN)
-                .putLong(indexId.getMostSignificantBits())
-                .putLong(indexId.getLeastSignificantBits())
-                .putShort((short) partitionStorage.partitionId())
+                .put(constantPrefix)
                 .putInt(HashUtils.hash32(keyBytes))
                 .put(keyBytes);
     }
