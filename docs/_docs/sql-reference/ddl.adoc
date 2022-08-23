@@ -253,16 +253,20 @@ Creates a new index.
 ----
 CREATE INDEX [IF NOT EXISTS] name ON tableName
 [USING { HASH | TREE }]
-(column_name [ASC | DESC]
+((tableColumn [, tableColumn]...) [ASC | DESC]
 [NULLS {FIRST | LAST}]);
 ----
 
 Parameters:
 
+
 * `name` - name of the index.
 * `tableName` - name of the table to create the index on.
-* `USING` - specifies whether the command creates a B+ Tree index or a hash index. Possible values: `HASH`, `TREE`.
-* `column_name` - specifies whether column names will be sorted in ascending or descending order. Possible values: `ASC`, `DESC`.
+* `IF NOT EXISTS` - create the index only if an index with the same name does not exist.
+* `USING` - specifies whether the command creates a sorted index or a hash index. Possible values: `HASH`, `TREE`.
+* `column_name` - specifies the column of the table to index.
+* ASC - specifies that the column should be sorted in an ascending order.
+* DESC - specifies that the column should be sorted in a descending order
 * `NULLS` - specifies whether null values will be at the start or at the end of the index. Possible values: `FIRST`, `LAST`.
 
 
@@ -273,7 +277,7 @@ Create index Persons for Person table:
 
 [source,sql]
 ----
-CREATE INDEX IF NOT EXISTS Persons ON Person
+CREATE INDEX IF NOT EXISTS Persons ON Person (column1)
 ----
 
 == DROP INDEX
@@ -292,7 +296,7 @@ Parameters:
 
 Examples:
 
-Drop Person table if the one exists:
+Drop index if the one exists:
 
 [source,sql]
 ----
