@@ -264,7 +264,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
     /**
      * Creates a builder object filled with current context attributes.
      *
-     * @return PRefilled builder.
+     * @return Prefilled builder.
      */
     public Builder toBuilder() {
         return builder()

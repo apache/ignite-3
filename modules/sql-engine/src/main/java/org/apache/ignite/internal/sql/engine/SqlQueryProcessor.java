@@ -356,7 +356,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     context.maybeUnwrap(QueryValidator.class)
                             .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
 
-                    // Transaction DDL is not supported as well as RO transactions, hence
+                    // Transactional DDL is not supported as well as RO transactions, hence
                     // only DML requiring RW transaction is covered
                     boolean implicitTxRequired = plan.type() == Type.DML && outerTx == null;
                     InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;

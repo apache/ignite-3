@@ -314,7 +314,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         checkDml(2 * ROW_COUNT, ses, "DELETE FROM TEST WHERE VAL0 >= 0");
 
-        assertEquals(ROW_COUNT + 1 + 1 + 1 + 1 + 1, txManagerInternal.finished() - txPrevCnt);
+        assertEquals(ROW_COUNT + 1 + 1 + 1 + 1, txManagerInternal.finished() - txPrevCnt);
 
         var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
 
