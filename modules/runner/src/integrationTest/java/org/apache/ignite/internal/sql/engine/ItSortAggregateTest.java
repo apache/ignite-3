@@ -71,13 +71,13 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
         );
 
         CLUSTER_NODES.get(0).tables().alterTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.addIndex(SchemaBuilders.sortedIndex("IDX")
+                SchemaConfigurationConverter.addIndex(SchemaBuilders.sortedIndex(schTbl1.name() + "IDX")
                         .addIndexColumn("GRP0").done()
                         .addIndexColumn("GRP1").done()
                         .build(), tblCh)
         );
         CLUSTER_NODES.get(0).tables().alterTable(schTbl2.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.addIndex(SchemaBuilders.sortedIndex("IDX")
+                SchemaConfigurationConverter.addIndex(SchemaBuilders.sortedIndex(schTbl2.name() + "IDX")
                         .addIndexColumn("COL0").desc().done()
                         .build(), tblCh)
         );
