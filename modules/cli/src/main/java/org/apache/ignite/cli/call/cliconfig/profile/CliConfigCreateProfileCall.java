@@ -47,7 +47,7 @@ public class CliConfigCreateProfileCall implements Call<CliConfigCreateProfileCa
         Profile newProfile = configManager.createProfile(profileName);
 
         if (copyFrom != null) {
-            newProfile.setProperties(copyFrom);
+            newProfile.setProperties(copyFrom.getAll());
         }
 
         if (input.isActivate()) {

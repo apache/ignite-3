@@ -48,18 +48,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
     /** {@inheritDoc} */
     @Override
-    protected VolatilePageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException {
-        TableTree tableTree = createTableTree(partId, tableCfg.value());
-
-        return new VolatilePageMemoryPartitionStorage(
-                partId,
-                dataRegion.tableFreeList(),
-                tableTree
-        );
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public VolatilePageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException {
         VersionChainTree versionChainTree = createVersionChainTree(partitionId, tableCfg.value());
 
@@ -67,7 +55,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                 partitionId,
                 tableCfg.value(),
                 dataRegion.pageMemory(),
-                dataRegion.versionChainFreeList(),
                 dataRegion.rowVersionFreeList(),
                 versionChainTree
         );
@@ -86,37 +73,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     }
 
     /**
-     * Returns new {@link TableTree} instance for partition.
-     *
-     * @param partId Partition ID.
-     * @param tableView Table configuration.
-     * @throws StorageException If failed.
-     */
-    TableTree createTableTree(int partId, TableView tableView) throws StorageException {
-        int grpId = tableView.tableId();
-
-        try {
-            return new TableTree(
-                    grpId,
-                    tableView.name(),
-                    partId,
-                    dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
-                    new AtomicLong(),
-                    dataRegion.pageMemory().allocatePage(grpId, partId, FLAG_AUX),
-                    dataRegion.tableFreeList(),
-                    true
-            );
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(
-                    String.format("Error creating TableTree [tableName=%s, partitionId=%s]", tableView.name(), partId),
-                    e
-            );
-        }
-    }
-
-    /**
-     * Returns new {@link TableTree} instance for partition.
+     * Returns new {@link VersionChainTree} instance for partition.
      *
      * @param partId Partition ID.
      * @param tableView Table configuration.
@@ -134,7 +91,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
                     dataRegion.pageMemory().allocatePage(grpId, partId, FLAG_AUX),
-                    dataRegion.versionChainFreeList(),
+                    dataRegion.rowVersionFreeList(),
                     true
             );
         } catch (IgniteInternalCheckedException e) {

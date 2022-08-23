@@ -67,7 +67,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@MicronautTest
+@MicronautTest(rebuildContext = true)
 public class IntegrationTestBase extends BaseIgniteAbstractTest {
     public static final int DEFAULT_NODES_COUNT = 3;
 

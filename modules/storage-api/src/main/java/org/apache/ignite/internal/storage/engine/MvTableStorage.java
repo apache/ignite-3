@@ -21,6 +21,9 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Table storage that contains meta, partitions and SQL indexes.
@@ -31,8 +34,8 @@ public interface MvTableStorage {
      *
      * @param partitionId Partition id.
      * @return Partition storage.
-     * @throws IllegalArgumentException If partition id is out of bounds.
-     * @throws StorageException         If an error has occurred during the partition creation.
+     * @throws IllegalArgumentException If partition id is out of configured bounds.
+     * @throws StorageException If an error has occurred during the partition creation.
      */
     MvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException;
 
@@ -40,20 +43,56 @@ public interface MvTableStorage {
      * Returns the partition storage or {@code null} if the requested storage doesn't exist.
      *
      * @param partitionId Partition id.
-     * @return Partition storage or {@code null}.
-     * @throws IllegalArgumentException If partition id is out of bounds.
-     * @throws NullPointerException If partition doesn't exist.
+     * @return Partition storage or {@code null} if it does not exist.
+     * @throws IllegalArgumentException If partition id is out of configured bounds.
      */
-    MvPartitionStorage getMvPartition(int partitionId);
+    @Nullable MvPartitionStorage getMvPartition(int partitionId);
 
     /**
-     * Destroys a partition if it exists.
+     * Destroys a partition and all associated indices.
      *
      * @param partitionId Partition id.
      * @throws IllegalArgumentException If partition id is out of bounds.
-     * @throws StorageException         If an error has occurred during the partition destruction.
+     * @throws StorageException If an error has occurred during the partition destruction.
      */
-    CompletableFuture<?> destroyPartition(int partitionId) throws StorageException;
+    CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException;
+
+    /**
+     * Returns an already created Sorted Index with the given name or creates a new one if it does not exist.
+     *
+     * <p>In order for an index to be created, it should be already configured under the same name in the Table Configuration
+     * (see {@link #configuration()}).
+     *
+     * @param partitionId Partition ID for which this index has been configured.
+     * @param indexName Index name.
+     * @return Sorted Index storage.
+     * @throws StorageException If the given partition does not exist, or if the given index does not exist or is not configured as
+     *         a sorted index.
+     */
+    SortedIndexStorage getOrCreateSortedIndex(int partitionId, String indexName);
+
+    /**
+     * Returns an already created Hash Index with the given name or creates a new one if it does not exist.
+     *
+     * <p>In order for an index to be created, it should be already configured under the same name in the Table Configuration
+     * (see {@link #configuration()}).
+     *
+     * @param partitionId Partition ID for which this index has been configured.
+     * @param indexName Index name.
+     * @return Hash Index storage.
+     * @throws StorageException If the given partition does not exist, or the given index does not exist or is not configured as a
+     *         hash index.
+     */
+    HashIndexStorage getOrCreateHashIndex(int partitionId, String indexName);
+
+    /**
+     * Destroys the index under the given name and all data in it.
+     *
+     * <p>This method is a no-op if the index under the given name does not exist.
+     *
+     * @param indexName Index name.
+     */
+    CompletableFuture<Void> destroyIndex(String indexName);
 
     /**
      * Returns {@code true} if this storage is volatile (i.e. stores its data in memory), or {@code false} if it's persistent.

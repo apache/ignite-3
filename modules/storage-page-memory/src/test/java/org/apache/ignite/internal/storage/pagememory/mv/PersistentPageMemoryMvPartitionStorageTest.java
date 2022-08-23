@@ -23,10 +23,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.Loggers;
@@ -45,7 +47,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPartitionStorageTest {
-    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    @InjectConfiguration(
+            value = "mock.checkpoint.checkpointDelayMillis = 0",
+            polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class
+    )
     private PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration(
@@ -57,6 +62,8 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
                     ConstantValueDefaultConfigurationSchema.class,
                     FunctionCallDefaultConfigurationSchema.class,
                     NullValueDefaultConfigurationSchema.class,
+                    UnlimitedBudgetConfigurationSchema.class,
+                    EntryCountBudgetConfigurationSchema.class
             }
     )
     private TableConfiguration tableCfg;
@@ -86,10 +93,10 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
                 ((PersistentPageMemoryDataStorageView) tableCfg.dataStorage().value()).dataRegion()
         );
 
-        table = engine.createTable(tableCfg);
+        table = engine.createMvTable(tableCfg);
         table.start();
 
-        storage = table.createMvPartitionStorage(partitionId());
+        storage = table.createMvPartitionStorage(PARTITION_ID);
     }
 
     @AfterEach

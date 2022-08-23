@@ -17,50 +17,85 @@
 
 package org.apache.ignite.internal.storage.index.impl;
 
-import java.util.stream.IntStream;
+import static java.util.stream.Collectors.toUnmodifiableList;
+
+import java.util.List;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.storage.index.IndexRowSerializer;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 
 /**
- * {@link IndexRowSerializer} implementation that uses {@link BinaryTuple} as the index keys serialization mechanism.
+ * Class for converting an array of objects into a {@link BinaryTuple} and vice-versa using a given index schema.
  */
-class BinaryTupleRowSerializer implements IndexRowSerializer {
-    private final BinaryTupleSchema schema;
+public class BinaryTupleRowSerializer {
+    private static class ColumnDescriptor {
+        final NativeType type;
 
-    BinaryTupleRowSerializer(BinaryTupleSchema schema) {
-        this.schema = schema;
+        final boolean nullable;
+
+        ColumnDescriptor(NativeType type, boolean nullable) {
+            this.type = type;
+            this.nullable = nullable;
+        }
     }
 
-    @Override
-    public IndexRow createIndexRow(Object[] columnValues, RowId rowId) {
-        if (columnValues.length != schema.elementCount()) {
+    private final List<ColumnDescriptor> schema;
+
+    /**
+     * Creates a new instance for a Sorted Index.
+     */
+    public BinaryTupleRowSerializer(SortedIndexDescriptor descriptor) {
+        this.schema = descriptor.indexColumns().stream()
+                .map(colDesc -> new ColumnDescriptor(colDesc.type(), colDesc.nullable()))
+                .collect(toUnmodifiableList());
+    }
+
+    /**
+     * Creates a new instance for a Hash Index.
+     */
+    public BinaryTupleRowSerializer(HashIndexDescriptor descriptor) {
+        this.schema = descriptor.indexColumns().stream()
+                .map(colDesc -> new ColumnDescriptor(colDesc.type(), colDesc.nullable()))
+                .collect(toUnmodifiableList());
+    }
+
+    /**
+     * Creates an {@link IndexRow} from the given index columns and a Row ID.
+     */
+    public IndexRow serializeRow(Object[] columnValues, RowId rowId) {
+        if (columnValues.length != schema.size()) {
             throw new IllegalArgumentException(String.format(
                     "Incorrect number of column values passed. Expected %d, got %d",
-                    schema.elementCount(),
+                    schema.size(),
                     columnValues.length
             ));
         }
 
-        return new IndexRowImpl(createIndexRowPrefix(columnValues), rowId);
+        return new IndexRowImpl(serializeRowPrefix(columnValues), rowId);
     }
 
-    @Override
-    public BinaryTuple createIndexRowPrefix(Object[] prefixColumnValues) {
-        if (prefixColumnValues.length > schema.elementCount()) {
+    /**
+     * Creates a prefix of an {@link IndexRow} using the provided columns.
+     */
+    public BinaryTuple serializeRowPrefix(Object[] prefixColumnValues) {
+        if (prefixColumnValues.length > schema.size()) {
             throw new IllegalArgumentException(String.format(
                     "Incorrect number of column values passed. Expected not more than %d, got %d",
-                    schema.elementCount(),
+                    schema.size(),
                     prefixColumnValues.length
             ));
         }
 
-        Element[] prefixElements = IntStream.range(0, prefixColumnValues.length)
-                .mapToObj(schema::element)
+        Element[] prefixElements = schema.stream()
+                .limit(prefixColumnValues.length)
+                .map(columnDescriptor -> new Element(columnDescriptor.type, columnDescriptor.nullable))
                 .toArray(Element[]::new);
 
         BinaryTupleSchema prefixSchema = BinaryTupleSchema.create(prefixElements);
@@ -72,5 +107,24 @@ class BinaryTupleRowSerializer implements IndexRowSerializer {
         }
 
         return new BinaryTuple(prefixSchema, builder.build());
+    }
+
+    /**
+     * Converts a byte representation of index columns back into Java objects.
+     */
+    public Object[] deserializeColumns(IndexRow indexRow) {
+        BinaryTuple tuple = indexRow.indexColumns();
+
+        assert tuple.count() == schema.size();
+
+        var result = new Object[schema.size()];
+
+        for (int i = 0; i < result.length; i++) {
+            NativeTypeSpec typeSpec = schema.get(i).type.spec();
+
+            result[i] = typeSpec.objectValue(tuple, i);
+        }
+
+        return result;
     }
 }

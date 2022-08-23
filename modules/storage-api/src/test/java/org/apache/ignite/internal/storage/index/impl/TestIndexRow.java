@@ -31,7 +31,6 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.impl.TestRowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -49,9 +48,12 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
 
     private final SortedIndexStorage indexStorage;
 
+    private final BinaryTupleRowSerializer serializer;
+
     /** Constructor. */
-    public TestIndexRow(SortedIndexStorage storage, IndexRow row, Object[] columns) {
+    public TestIndexRow(SortedIndexStorage storage, BinaryTupleRowSerializer serializer, IndexRow row, Object[] columns) {
         this.indexStorage = storage;
+        this.serializer = serializer;
         this.row = row;
         this.columns = columns;
     }
@@ -67,18 +69,20 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
                 .map(type -> generateRandomValue(random, type))
                 .toArray();
 
-        var rowId = new TestRowId(0);
+        var rowId = new RowId(0);
 
-        IndexRow row = indexStorage.indexRowSerializer().createIndexRow(columns, rowId);
+        var serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
 
-        return new TestIndexRow(indexStorage, row, columns);
+        IndexRow row = serializer.serializeRow(columns, rowId);
+
+        return new TestIndexRow(indexStorage, serializer, row, columns);
     }
 
     /**
      * Creates an Index Key prefix of the given length.
      */
     public BinaryTuple prefix(int length) {
-        return indexStorage.indexRowSerializer().createIndexRowPrefix(Arrays.copyOf(columns, length));
+        return serializer.serializeRowPrefix(Arrays.copyOf(columns, length));
     }
 
     @Override

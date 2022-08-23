@@ -17,7 +17,7 @@
 
 package org.apache.ignite.cli.config.ini;
 
-import java.util.Map;
+import org.apache.ignite.cli.config.Config;
 import org.apache.ignite.cli.config.Profile;
 
 /**
@@ -25,48 +25,22 @@ import org.apache.ignite.cli.config.Profile;
  */
 public class IniProfile implements Profile {
     private final IniSection section;
-    private final Runnable saveAction;
+    private final IniConfig config;
 
     public IniProfile(IniSection section, Runnable saveAction) {
         this.section = section;
-        this.saveAction = saveAction;
+        this.config = new IniConfig(section, saveAction);
     }
 
+    /** {@inheritDoc} */
     @Override
     public String getName() {
         return section.getName();
     }
 
+    /** {@inheritDoc} */
     @Override
-    public Map<String, String> getAll() {
-        return section.getAll();
-    }
-
-    @Override
-    public String getProperty(String key) {
-        return section.getProperty(key);
-    }
-
-    @Override
-    public String getProperty(String key, String defaultValue) {
-        return section.getProperty(key, defaultValue);
-    }
-
-    @Override
-    public void setProperty(String key, String value) {
-        section.setProperty(key, value);
-        saveAction.run();
-    }
-
-    @Override
-    public void setProperties(Map<String, String> values) {
-        section.setProperties(values);
-        saveAction.run();
-    }
-
-    @Override
-    public void setProperties(Profile copyFrom) {
-        section.setProperties(copyFrom);
-        saveAction.run();
+    public Config getConfig() {
+        return config;
     }
 }

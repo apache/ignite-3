@@ -95,7 +95,7 @@ public class JraftServerImpl implements RaftServer {
     private IgniteRpcServer rpcServer;
 
     /** Started groups. */
-    private ConcurrentMap<String, RaftGroupService> groups = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, RaftGroupService> groups = new ConcurrentHashMap<>();
 
     /** Lock storage with predefined monitor objects,
      * needed to prevent concurrent start of the same raft group. */
@@ -254,7 +254,8 @@ public class JraftServerImpl implements RaftServer {
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-        assert groups.isEmpty() : IgniteStringFormatter.format("Raft groups are still running {}", groups.keySet());
+        assert groups.isEmpty() : IgniteStringFormatter.format("Raft groups {} are still running on the node {}", groups.keySet(),
+                service.topologyService().localMember().name());
 
         rpcServer.shutdown();
 

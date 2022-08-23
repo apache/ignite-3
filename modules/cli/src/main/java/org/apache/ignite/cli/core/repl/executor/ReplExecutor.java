@@ -17,7 +17,6 @@
 
 package org.apache.ignite.cli.core.repl.executor;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -96,7 +95,7 @@ public class ReplExecutor {
                     ? new AggregateCompleter(registry.completer(), repl.getCompleter())
                     : registry.completer());
             if (repl.getHistoryFileName() != null) {
-                reader.variable(LineReader.HISTORY_FILE, new File(StateFolderProvider.getStateFolder(), repl.getHistoryFileName()));
+                reader.variable(LineReader.HISTORY_FILE, StateFolderProvider.getStateFile(repl.getHistoryFileName()));
             }
 
             RegistryCommandExecutor executor = new RegistryCommandExecutor(registry, parser);
@@ -104,11 +103,20 @@ public class ReplExecutor {
                 TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
                         TailTipWidgets.TipType.COMPLETER);
                 widgets.enable();
+                // Workaround for the https://issues.apache.org/jira/browse/IGNITE-17346
+                // Turn off tailtip widgets before printing to the output
+                CommandLineContextProvider.setPrintWrapper(printer -> {
+                    widgets.disable();
+                    printer.run();
+                    widgets.enable();
+                });
                 // Workaround for jline issue where TailTipWidgets will produce NPE when passed a bracket
                 registry.setScriptDescription(cmdLine -> null);
             }
 
             QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader));
+
+            repl.onStart();
 
             while (!interrupted.get()) {
                 try {

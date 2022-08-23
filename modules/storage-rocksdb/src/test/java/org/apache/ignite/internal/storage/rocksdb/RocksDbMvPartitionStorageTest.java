@@ -25,10 +25,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.nio.file.Path;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
@@ -44,7 +46,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Storage test implementation for {@link RocksDbPartitionStorage}.
+ * Storage test implementation for {@link RocksDbMvPartitionStorage}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
@@ -66,6 +68,8 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
                             ConstantValueDefaultConfigurationSchema.class,
                             FunctionCallDefaultConfigurationSchema.class,
                             NullValueDefaultConfigurationSchema.class,
+                            UnlimitedBudgetConfigurationSchema.class,
+                            EntryCountBudgetConfigurationSchema.class
                     }
             ) TableConfiguration tableCfg
     ) throws Exception {
@@ -73,7 +77,10 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
 
         assertThat(((RocksDbDataStorageView) tableCfg.dataStorage().value()).dataRegion(), equalTo(DEFAULT_DATA_REGION_NAME));
 
-        engineConfig.defaultRegion().change(c -> c.changeSize(16 * 1024).changeWriteBufferSize(16 * 1024)).get(1, SECONDS);
+        engineConfig.change(cfg -> cfg
+                .changeFlushDelayMillis(0)
+                .changeDefaultRegion(c -> c.changeSize(16 * 1024).changeWriteBufferSize(16 * 1024))
+        ).get(1, SECONDS);
 
         engine = new RocksDbStorageEngine(engineConfig, workDir);
 

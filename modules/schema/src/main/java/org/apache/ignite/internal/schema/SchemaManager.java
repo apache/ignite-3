@@ -20,6 +20,8 @@ package org.apache.ignite.internal.schema;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,7 +41,6 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.configuration.schema.SchemaConfiguration;
 import org.apache.ignite.internal.configuration.schema.SchemaView;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
@@ -51,6 +52,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
+import org.apache.ignite.lang.IgniteTriConsumer;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -107,22 +109,30 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @return A future.
      */
     private CompletableFuture<?> onSchemaCreate(ConfigurationNotificationEvent<SchemaView> schemasCtx) {
-        long causalityToken = schemasCtx.storageRevision();
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
+        }
 
-        ExtendedTableConfiguration tblCfg = schemasCtx.config(ExtendedTableConfiguration.class);
+        try {
+            long causalityToken = schemasCtx.storageRevision();
 
-        UUID tblId = tblCfg.id().value();
+            ExtendedTableConfiguration tblCfg = schemasCtx.config(ExtendedTableConfiguration.class);
 
-        String tableName = tblCfg.name().value();
+            UUID tblId = tblCfg.id().value();
 
-        SchemaDescriptor schemaDescriptor = SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()));
+            String tableName = tblCfg.name().value();
 
-        CompletableFuture<?> createSchemaFut = createSchema(causalityToken, tblId, tableName, schemaDescriptor);
+            SchemaDescriptor schemaDescriptor = SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()));
 
-        registriesVv.get(causalityToken)
-                .thenRun(() -> fireEvent(SchemaEvent.CREATE, new SchemaEventParameters(causalityToken, tblId, schemaDescriptor)));
+            CompletableFuture<?> createSchemaFut = createSchema(causalityToken, tblId, tableName, schemaDescriptor);
 
-        return createSchemaFut;
+            registriesVv.get(causalityToken).thenRun(() -> inBusyLock(busyLock,
+                    () -> fireEvent(SchemaEvent.CREATE, new SchemaEventParameters(causalityToken, tblId, schemaDescriptor))));
+
+            return createSchemaFut;
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
@@ -161,27 +171,29 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             String tableName,
             SchemaDescriptor schemaDescriptor
     ) {
-        return registriesVv.update(causalityToken, (registries, e) -> {
+        return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
                 return failedFuture(new IgniteInternalException(IgniteStringFormatter.format(
-                    "Cannot create a schema for the table [tblId={}, ver={}]", tableId, schemaDescriptor.version()), e)
+                        "Cannot create a schema for the table [tblId={}, ver={}]", tableId, schemaDescriptor.version()), e)
                 );
             }
 
-            SchemaRegistryImpl reg = registries.get(tableId);
+            Map<UUID, SchemaRegistryImpl> regs = registries;
+
+            SchemaRegistryImpl reg = regs.get(tableId);
 
             if (reg == null) {
-                registries = new HashMap<>(registries);
+                regs = new HashMap<>(registries);
 
                 SchemaRegistryImpl registry = createSchemaRegistry(tableId, tableName, schemaDescriptor);
 
-                registries.put(tableId, registry);
+                regs.put(tableId, registry);
             } else {
                 reg.onSchemaRegistered(schemaDescriptor);
             }
 
-            return completedFuture(registries);
-        });
+            return completedFuture(regs);
+        }));
     }
 
     /**
@@ -195,7 +207,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     private SchemaRegistryImpl createSchemaRegistry(UUID tableId, String tableName, SchemaDescriptor initialSchema) {
         return new SchemaRegistryImpl(ver -> {
             if (!busyLock.enterBusy()) {
-                throw new IgniteException(new NodeStoppingException());
+                throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
             }
 
             try {
@@ -205,7 +217,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             }
         }, () -> {
             if (!busyLock.enterBusy()) {
-                throw new IgniteException(new NodeStoppingException());
+                throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
             }
 
             try {
@@ -226,47 +238,46 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @return Schema descriptor.
      */
     private SchemaDescriptor tableSchema(UUID tblId, String tableName, int schemaVer) {
-        SchemaRegistry registry = registriesVv.latest().get(tblId);
-
-        assert registry != null : IgniteStringFormatter.format("Registry for the table not found [tblId={}]", tblId);
-
         ExtendedTableConfiguration tblCfg = ((ExtendedTableConfiguration) tablesCfg.tables().get(tableName));
 
-        if (schemaVer <= registry.lastSchemaVersion()) {
+        if (checkSchemaVersion(tblId, schemaVer)) {
             return getSchemaDescriptorLocally(schemaVer, tblCfg);
         }
 
         CompletableFuture<SchemaDescriptor> fut = new CompletableFuture<>();
 
-        var clo = new EventListener<SchemaEventParameters>() {
-            @Override
-            public CompletableFuture<Boolean> notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable exception) {
-                if (tblId.equals(parameters.tableId()) && schemaVer <= parameters.schemaDescriptor().version()) {
-                    fut.complete(getSchemaDescriptorLocally(schemaVer, tblCfg));
-
-                    return completedFuture(true);
-                }
-
-                return completedFuture(false);
-            }
-
-            @Override
-            public void remove(@NotNull Throwable exception) {
-                fut.completeExceptionally(exception);
+        IgniteTriConsumer<Long, Map<UUID, SchemaRegistryImpl>, Throwable> schemaListener = (token, regs, e) -> {
+            if (schemaVer <= regs.get(tblId).lastSchemaVersion()) {
+                fut.complete(getSchemaDescriptorLocally(schemaVer, tblCfg));
             }
         };
 
-        listen(SchemaEvent.CREATE, clo);
+        registriesVv.whenComplete(schemaListener);
 
-        if (schemaVer <= registry.lastSchemaVersion()) {
-            fut.complete(getSchemaDescriptorLocally(schemaVer, tblCfg));
+        // This check is needed for the case when we have registered schemaListener,
+        // but registriesVv has already been completed, so listener would be triggered only for the next versioned value update.
+        if (checkSchemaVersion(tblId, schemaVer)) {
+            registriesVv.removeWhenComplete(schemaListener);
+
+            return getSchemaDescriptorLocally(schemaVer, tblCfg);
         }
 
-        if (!isSchemaExists(tblId, schemaVer) && fut.complete(null)) {
-            removeListener(SchemaEvent.CREATE, clo);
-        }
+        return fut.whenComplete((unused, throwable) -> registriesVv.removeWhenComplete(schemaListener)).join();
+    }
 
-        return fut.join();
+    /**
+     * Checks that the provided schema version is less or equal than the latest version from the schema registry.
+     *
+     * @param tblId Unique table id.
+     * @param schemaVer Schema version for the table.
+     * @return True, if the schema version is less or equal than the latest version from the schema registry, false otherwise.
+     */
+    private boolean checkSchemaVersion(UUID tblId, int schemaVer) {
+        SchemaRegistry registry = registriesVv.latest().get(tblId);
+
+        assert registry != null : IgniteStringFormatter.format("Registry for the table not found [tblId={}]", tblId);
+
+        return schemaVer <= registry.lastSchemaVersion();
     }
 
     /**
@@ -336,11 +347,12 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      */
     public CompletableFuture<SchemaRegistry> schemaRegistry(long causalityToken, @Nullable UUID tableId) {
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
+            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
-            return registriesVv.get(causalityToken).thenApply(regs -> tableId == null ? null : regs.get(tableId));
+            return registriesVv.get(causalityToken)
+                    .thenApply(regs -> inBusyLock(busyLock, () -> tableId == null ? null : regs.get(tableId)));
         } finally {
             busyLock.leaveBusy();
         }
@@ -363,20 +375,18 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param tableId Table id.
      */
     public CompletableFuture<?> dropRegistry(long causalityToken, UUID tableId) {
-        return registriesVv.update(causalityToken, (registries, e) -> {
+        return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
                 return failedFuture(new IgniteInternalException(
-                        IgniteStringFormatter.format("Cannot remove a schema registry for the table [tblId={}]", tableId), e
-                    )
-                );
+                        IgniteStringFormatter.format("Cannot remove a schema registry for the table [tblId={}]", tableId), e));
             }
 
-            registries = new HashMap<>(registries);
+            Map<UUID, SchemaRegistryImpl> regs = new HashMap<>(registries);
 
-            registries.remove(tableId);
+            regs.remove(tableId);
 
-            return completedFuture(registries);
-        });
+            return completedFuture(regs);
+        }));
     }
 
     /** {@inheritDoc} */

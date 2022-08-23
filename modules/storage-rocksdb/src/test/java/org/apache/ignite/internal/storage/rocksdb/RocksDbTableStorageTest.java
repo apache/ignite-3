@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
@@ -36,18 +37,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,17 +70,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class RocksDbTableStorageTest extends BaseMvStoragesTest {
-    private StorageEngine engine;
+    private RocksDbStorageEngine engine;
 
-    private MvTableStorage storage;
+    private RocksDbTableStorage storage;
 
     @BeforeEach
     public void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration RocksDbStorageEngineConfiguration rocksDbEngineConfig,
+            @InjectConfiguration(
+                    value = "mock {flushDelayMillis = 0, defaultRegion {size = 16536, writeBufferSize = 16536}}"
+            ) RocksDbStorageEngineConfiguration rocksDbEngineConfig,
             @InjectConfiguration(
                     name = "table",
-                    value = "mock.partitions = 1024",
+                    value = "mock.partitions = 512",
                     polymorphicExtensions = {
                             HashIndexConfigurationSchema.class,
                             UnknownDataStorageConfigurationSchema.class,
@@ -86,6 +90,8 @@ public class RocksDbTableStorageTest extends BaseMvStoragesTest {
                             ConstantValueDefaultConfigurationSchema.class,
                             FunctionCallDefaultConfigurationSchema.class,
                             NullValueDefaultConfigurationSchema.class,
+                            UnlimitedBudgetConfigurationSchema.class,
+                            EntryCountBudgetConfigurationSchema.class
                     }
             ) TableConfiguration tableCfg
     ) throws Exception {
@@ -94,15 +100,6 @@ public class RocksDbTableStorageTest extends BaseMvStoragesTest {
         assertThat(changeDataStorageFuture, willBe(nullValue(Void.class)));
 
         assertThat(((RocksDbDataStorageView) tableCfg.dataStorage().value()).dataRegion(), equalTo(DEFAULT_DATA_REGION_NAME));
-
-        CompletableFuture<Void> changeEngineFuture = rocksDbEngineConfig.defaultRegion()
-                .change(c -> c.changeSize(16 * 1024).changeWriteBufferSize(16 * 1024));
-
-        assertThat(changeEngineFuture, willBe(nullValue(Void.class)));
-
-        changeEngineFuture = tableCfg.change(cfg -> cfg.changePartitions(512));
-
-        assertThat(changeEngineFuture, willBe(nullValue(Void.class)));
 
         engine = new RocksDbStorageEngine(rocksDbEngineConfig, workDir);
 
@@ -124,7 +121,7 @@ public class RocksDbTableStorageTest extends BaseMvStoragesTest {
     }
 
     /**
-     * Tests that {@link RocksDbTableStorage#getPartition} correctly returns an existing partition.
+     * Tests that {@link RocksDbTableStorage#getMvPartition(int)} correctly returns an existing partition.
      */
     @Test
     void testCreatePartition() {
@@ -182,7 +179,7 @@ public class RocksDbTableStorageTest extends BaseMvStoragesTest {
 
     private List<IgniteBiTuple<TestKey, TestValue>> toList(Cursor<BinaryRow> cursor) throws Exception {
         try (cursor) {
-            return cursor.stream().map(this::unwrap).collect(Collectors.toList());
+            return cursor.stream().map(RocksDbTableStorageTest::unwrap).collect(Collectors.toList());
         }
     }
 
@@ -203,7 +200,12 @@ public class RocksDbTableStorageTest extends BaseMvStoragesTest {
 
         RowId rowId1 = partitionStorage1.runConsistently(() -> partitionStorage1.insert(testData, txId));
 
-        storage.destroyPartition(42);
+        CompletableFuture<Void> destroyFuture = storage.destroyPartition(42);
+
+        // Partition desctuction doesn't enforce flush.
+        storage.scheduleFlush();
+
+        assertThat(destroyFuture, willCompleteSuccessfully());
 
         assertThat(storage.getMvPartition(42), is(nullValue()));
         assertThat(storage.getOrCreateMvPartition(42).read(rowId0, txId), is(nullValue()));
@@ -246,7 +248,7 @@ public class RocksDbTableStorageTest extends BaseMvStoragesTest {
         assertThat(storage.isVolatile(), is(false));
     }
 
-    private IgniteBiTuple<TestKey, TestValue> unwrap(BinaryRow binaryRow) {
+    private static @Nullable IgniteBiTuple<TestKey, TestValue> unwrap(@Nullable BinaryRow binaryRow) {
         if (binaryRow == null) {
             return null;
         }

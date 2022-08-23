@@ -51,6 +51,15 @@ public class IniFile {
         return content.get(name);
     }
 
+    /**
+     * Returns properties stored outside any section.
+     *
+     * @return top-level section
+     */
+    public IniSection getTopLevelSection() {
+        return getSection(IniParser.NO_SECTION);
+    }
+
     public Collection<IniSection> getSections() {
         return content.values();
     }
@@ -68,17 +77,29 @@ public class IniFile {
 
     private void store(OutputStream outputStream) throws IOException {
         BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8));
+
+        // Write top-level properties first
+        IniSection topLevelSection = getTopLevelSection();
+        if (topLevelSection != null) {
+            writeSection(bufferedWriter, topLevelSection);
+        }
         for (IniSection section : getSections()) {
-            bufferedWriter.write("[" + section.getName() + "]");
-            bufferedWriter.newLine();
-            for (Map.Entry<String, String> sectionEntry : section.getAll().entrySet()) {
-                bufferedWriter.write(sectionEntry.getKey() + " = ");
-                bufferedWriter.write(sectionEntry.getValue());
+            if (section != topLevelSection) {
+                bufferedWriter.write("[" + section.getName() + "]");
                 bufferedWriter.newLine();
+                writeSection(bufferedWriter, section);
             }
-            bufferedWriter.newLine();
         }
         bufferedWriter.flush();
+    }
+
+    private void writeSection(BufferedWriter bufferedWriter, IniSection section) throws IOException {
+        for (Map.Entry<String, String> sectionEntry : section.getAll().entrySet()) {
+            bufferedWriter.write(sectionEntry.getKey() + " = ");
+            bufferedWriter.write(sectionEntry.getValue());
+            bufferedWriter.newLine();
+        }
+        bufferedWriter.newLine();
     }
 
     /**

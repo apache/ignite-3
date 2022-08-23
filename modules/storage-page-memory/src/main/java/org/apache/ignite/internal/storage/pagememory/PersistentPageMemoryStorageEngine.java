@@ -42,7 +42,6 @@ import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
@@ -101,6 +100,13 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
         this.longJvmPauseDetector = longJvmPauseDetector;
     }
 
+    /**
+     * Returns a storage engine configuration.
+     */
+    public PersistentPageMemoryStorageEngineConfiguration configuration() {
+        return engineConfig;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
@@ -135,7 +141,6 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     filePageStoreManager,
                     partitionMetaManager,
                     regions.values(),
-                    storagePath,
                     ioRegistry,
                     pageSize
             );
@@ -181,20 +186,14 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public PersistentPageMemoryTableStorage createTable(TableConfiguration tableCfg) throws StorageException {
+    public PersistentPageMemoryTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
         TableView tableView = tableCfg.value();
 
         assert tableView.dataStorage().name().equals(ENGINE_NAME) : tableView.dataStorage().name();
 
         PersistentPageMemoryDataStorageView dataStorageView = (PersistentPageMemoryDataStorageView) tableView.dataStorage();
 
-        return new PersistentPageMemoryTableStorage(tableCfg, regions.get(dataStorageView.dataRegion()));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public MvTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
-        return createTable(tableCfg);
+        return new PersistentPageMemoryTableStorage(this, tableCfg, regions.get(dataStorageView.dataRegion()));
     }
 
     /**

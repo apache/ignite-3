@@ -469,6 +469,12 @@
                 <version>${project.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-metrics</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
             <!-- 3rd party dependencies -->
             <dependency>
                 <groupId>org.jetbrains</groupId>
@@ -941,6 +947,12 @@
             <dependency>
                 <groupId>org.mock-server</groupId>
                 <artifactId>mockserver-netty</artifactId>
+                <version>${mock-server.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.mock-server</groupId>
+                <artifactId>mockserver-junit-jupiter</artifactId>
                 <version>${mock-server.version}</version>
             </dependency>
         </dependencies>

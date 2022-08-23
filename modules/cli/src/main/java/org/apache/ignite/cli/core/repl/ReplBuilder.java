@@ -49,6 +49,8 @@ public class ReplBuilder {
 
     private boolean tailTipWidgetsEnabled;
 
+    private Runnable onStart = () -> {};
+
     /**
      * Build methods.
      *
@@ -64,7 +66,8 @@ public class ReplBuilder {
                 provider,
                 completer,
                 historyFileName,
-                tailTipWidgetsEnabled
+                tailTipWidgetsEnabled,
+                onStart
         );
     }
 
@@ -124,6 +127,11 @@ public class ReplBuilder {
 
     public ReplBuilder withCallExecutionPipelineProvider(CallExecutionPipelineProvider provider) {
         this.provider = provider;
+        return this;
+    }
+
+    public ReplBuilder withOnStart(Runnable onStart) {
+        this.onStart = onStart;
         return this;
     }
 

@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.internal.utils.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -85,7 +86,7 @@ import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
-import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -116,6 +117,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
+import org.apache.ignite.lang.IgniteTriConsumer;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -182,6 +184,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Set of futures that should complete before completion of {@link #tablesByIdVv}, after completion this set is cleared. */
     private final Set<CompletableFuture<?>> beforeTablesVvComplete = new ConcurrentHashSet<>();
 
+    /**
+     * {@link TableImpl} is created during update of tablesByIdVv, we store reference to it in case of updating of tablesByIdVv fails,
+     * so we can stop resources associated with the table.
+     */
+    private final Map<UUID, TableImpl> tablesToStopInCaseOfError = new ConcurrentHashMap<>();
+
     /** Resolver that resolves a network address to node id. */
     private final Function<NetworkAddress, String> netAddrResolver;
 
@@ -196,6 +204,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Schema manager. */
     private final SchemaManager schemaManager;
+
+    private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
     /** Executor for scheduling retries of a rebalance. */
     private final ScheduledExecutorService rebalanceScheduler;
@@ -218,6 +228,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param txManager Transaction manager.
      * @param dataStorageMgr Data storage manager.
      * @param schemaManager Schema manager.
+     * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for volatile
+     *                                         tables.
      */
     public TableManager(
             Consumer<Function<Long, CompletableFuture<?>>> registry,
@@ -228,7 +240,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             TxManager txManager,
             DataStorageManager dataStorageMgr,
             MetaStorageManager metaStorageMgr,
-            SchemaManager schemaManager
+            SchemaManager schemaManager,
+            LogStorageFactoryCreator volatileLogStorageFactoryCreator
     ) {
         this.tablesCfg = tablesCfg;
         this.raftMgr = raftMgr;
@@ -237,6 +250,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.dataStorageMgr = dataStorageMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.schemaManager = schemaManager;
+        this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
 
         netAddrResolver = addr -> {
             ClusterNode node = topologyService.getByAddress(addr);
@@ -257,13 +271,42 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             beforeTablesVvComplete.clear();
 
-            return CompletableFuture.allOf(futures.toArray(new CompletableFuture[] {}))
+            return CompletableFuture.allOf(futures.toArray(new CompletableFuture[]{}))
                     .orTimeout(TABLES_COMPLETE_TIMEOUT, TimeUnit.SECONDS)
                     .whenComplete((v, e) -> {
-                        if (e != null) {
-                            tablesByIdVv.completeExceptionally(token, e);
-                        } else {
+                        if (!busyLock.enterBusy()) {
+                            if (e != null) {
+                                LOG.warn("Error occurred while updating tables and stopping components.", e);
+                                // Stop of the components has been started, so we do nothing and resources of tablesByIdVv will be
+                                // freed in the logic of TableManager stop. We cannot complete tablesByIdVv exceptionally because
+                                // we will lose a context of tables.
+                            }
+                            return;
+                        }
+                        try {
+                            if (e != null) {
+                                LOG.warn("Error occurred while updating tables.", e);
+                                if (e instanceof CompletionException) {
+                                    Throwable th = e.getCause();
+                                    // Case when stopping of the previous component has been started and related futures completed
+                                    // exceptionally
+                                    if (th instanceof NodeStoppingException || (th.getCause() != null
+                                            && th.getCause() instanceof NodeStoppingException)) {
+                                        // Stop of the components has been started so we do nothing and resources will be freed in the
+                                        // logic of TableManager stop
+                                        return;
+                                    }
+                                }
+                                // TODO: https://issues.apache.org/jira/browse/IGNITE-17515
+                                tablesByIdVv.completeExceptionally(token, e);
+                            }
+
+                            //Normal scenario, when all related futures for tablesByIdVv are completed and we can complete tablesByIdVv
                             tablesByIdVv.complete(token);
+
+                            tablesToStopInCaseOfError.clear();
+                        } finally {
+                            busyLock.leaveBusy();
                         }
                     });
         });
@@ -442,7 +485,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return failedFuture(new NodeStoppingException());
         }
 
-
         try {
             updateAssignmentInternal(assignmentsCtx);
         } finally {
@@ -513,7 +555,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             .supplyAsync(
                                     () -> internalTbl.storage().getOrCreateMvPartition(partId), ioExecutor)
                             .thenComposeAsync((partitionStorage) -> {
-                                RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, partitionStorage,
+                                RaftGroupOptions groupOptions = groupOptionsForPartition(internalTbl, tblCfg, partitionStorage,
                                         newPartAssignment);
 
                                 try {
@@ -566,6 +608,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private RaftGroupOptions groupOptionsForPartition(
             InternalTable internalTbl,
+            ExtendedTableConfiguration tableConfig,
             MvPartitionStorage partitionStorage,
             List<ClusterNode> peers
     ) {
@@ -573,7 +616,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         if (internalTbl.storage().isVolatile()) {
             raftGroupOptions = RaftGroupOptions.forVolatileStores()
-                    .setLogStorageFactory(new VolatileLogStorageFactory())
+                    .setLogStorageFactory(volatileLogStorageFactoryCreator.factory(tableConfig.volatileRaft().logStorage().value()))
                     .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage());
         } else {
             raftGroupOptions = RaftGroupOptions.forPersistentStores();
@@ -600,6 +643,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         Map<UUID, TableImpl> tables = tablesByIdVv.latest();
 
+        cleanUpTablesResources(tables);
+
+        cleanUpTablesResources(tablesToStopInCaseOfError);
+
+        tablesToStopInCaseOfError.clear();
+
+        shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Stops resources that are related to provided tables.
+     *
+     * @param tables Tables to stop.
+     */
+    private void cleanUpTablesResources(Map<UUID, TableImpl> tables) {
         for (TableImpl table : tables.values()) {
             try {
                 for (int p = 0; p < table.internalTable().partitions(); p++) {
@@ -612,9 +671,26 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 LOG.info("Unable to stop table [name={}]", e, table.name());
             }
         }
+    }
 
-        shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);
+    /**
+     * Gets a list of the current table assignments.
+     *
+     * <p>Returns a list where on the i-th place resides a node id that considered as a leader for
+     * the i-th partition on the moment of invocation.
+     *
+     * @param tableId Unique id of a table.
+     * @return List of the current assignments.
+     */
+    public List<String> assignments(UUID tableId) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+        try {
+            return table(tableId).internalTable().assignments();
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
@@ -638,7 +714,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         var table = new TableImpl(internalTable);
 
-        tablesByIdVv.update(causalityToken, (previous, e) -> {
+        tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
                 return failedFuture(e);
             }
@@ -648,16 +724,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             val.put(tblId, table);
 
             return completedFuture(val);
-        });
+        }));
 
         CompletableFuture<?> schemaFut = schemaManager.schemaRegistry(causalityToken, tblId)
-                .thenAccept(table::schemaView)
-                .thenCompose(v -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table)));
+                .thenAccept(schema -> inBusyLock(busyLock, () -> table.schemaView(schema)))
+                .thenCompose(
+                        v -> inBusyLock(busyLock, () -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table)))
+                );
 
         beforeTablesVvComplete.add(schemaFut);
 
+        tablesToStopInCaseOfError.put(tblId, table);
+
         // TODO should be reworked in IGNITE-16763
-        return tablesByIdVv.get(causalityToken).thenRun(() -> completeApiCreateFuture(table));
+        return tablesByIdVv.get(causalityToken).thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
     }
 
     /**
@@ -691,7 +771,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 raftMgr.stopRaftGroup(partitionRaftGroupName(tblId, p));
             }
 
-            tablesByIdVv.update(causalityToken, (previousVal, e) -> {
+            tablesByIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
                 if (e != null) {
                     return failedFuture(e);
                 }
@@ -701,7 +781,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 map.remove(tblId);
 
                 return completedFuture(map);
-            });
+            }));
 
             TableImpl table = tablesByIdVv.latest().get(tblId);
 
@@ -711,7 +791,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             table.internalTable().storage().destroy();
 
             CompletableFuture<?> fut = schemaManager.dropRegistry(causalityToken, table.tableId())
-                    .thenCompose(v -> fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table)));
+                    .thenCompose(
+                            v -> inBusyLock(busyLock, () -> fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table)))
+                    );
 
             beforeTablesVvComplete.add(fut);
         } catch (Exception e) {
@@ -1063,8 +1145,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private CompletableFuture<List<Table>> tablesAsyncInternal() {
         // TODO: IGNITE-16288 directTableIds should use async configuration API
-        return CompletableFuture.supplyAsync(this::directTableIds)
-                .thenCompose(tableIds -> {
+        return CompletableFuture.supplyAsync(() -> inBusyLock(busyLock, this::directTableIds))
+                .thenCompose(tableIds -> inBusyLock(busyLock, () -> {
                     var tableFuts = new CompletableFuture[tableIds.size()];
 
                     var i = 0;
@@ -1073,7 +1155,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         tableFuts[i++] = tableAsyncInternal(tblId, false);
                     }
 
-                    return allOf(tableFuts).thenApply(unused -> {
+                    return allOf(tableFuts).thenApply(unused -> inBusyLock(busyLock, () -> {
                         var tables = new ArrayList<Table>(tableIds.size());
 
                         try {
@@ -1089,8 +1171,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }
 
                         return tables;
-                    });
-                });
+                    }));
+                }));
     }
 
     /**
@@ -1207,7 +1289,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param checkConfiguration {@code True} when the method checks a configuration before trying to get a table, {@code false} otherwise.
      * @return Future representing pending completion of the operation.
      */
-    private CompletableFuture<TableImpl> tableAsyncInternal(UUID id, boolean checkConfiguration) {
+    public CompletableFuture<TableImpl> tableAsyncInternal(UUID id, boolean checkConfiguration) {
         if (checkConfiguration && !isTableConfigured(id)) {
             return CompletableFuture.completedFuture(null);
         }
@@ -1220,37 +1302,31 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
 
-        EventListener<TableEventParameters> clo = new EventListener<>() {
-            @Override
-            public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                if (!id.equals(parameters.tableId())) {
-                    return completedFuture(false);
+        IgniteTriConsumer<Long, Map<UUID, TableImpl>, Throwable> tablesListener = (token, tables, th) -> {
+            if (th == null) {
+                TableImpl table = tables.get(id);
+
+                if (table != null) {
+                    getTblFut.complete(table);
                 }
-
-                if (e == null) {
-                    tablesByIdVv.get(parameters.causalityToken()).thenRun(() -> getTblFut.complete(parameters.table()));
-                } else {
-                    getTblFut.completeExceptionally(e);
-                }
-
-                return completedFuture(true);
-            }
-
-            @Override
-            public void remove(@NotNull Throwable e) {
-                getTblFut.completeExceptionally(e);
+            } else {
+                getTblFut.completeExceptionally(th);
             }
         };
 
-        listen(TableEvent.CREATE, clo);
+        tablesByIdVv.whenComplete(tablesListener);
 
+        // This check is needed for the case when we have registered tablesListener,
+        // but tablesByIdVv has already been completed, so listener would be triggered only for the next versioned value update.
         tbl = tablesByIdVv.latest().get(id);
 
-        if (tbl != null && getTblFut.complete(tbl) || !isTableConfigured(id) && getTblFut.complete(null)) {
-            removeListener(TableEvent.CREATE, clo, null);
+        if (tbl != null) {
+            tablesByIdVv.removeWhenComplete(tablesListener);
+
+            return CompletableFuture.completedFuture(tbl);
         }
 
-        return getTblFut;
+        return getTblFut.whenComplete((unused, throwable) -> tablesByIdVv.removeWhenComplete(tablesListener));
     }
 
     /**
@@ -1368,7 +1444,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (raftMgr.shouldHaveRaftGroupLocally(deltaPeers)) {
                             MvPartitionStorage partitionStorage = tbl.internalTable().storage().getOrCreateMvPartition(part);
 
-                            RaftGroupOptions groupOptions = groupOptionsForPartition(tbl.internalTable(), partitionStorage, assignments);
+                            RaftGroupOptions groupOptions = groupOptionsForPartition(
+                                    tbl.internalTable(),
+                                    tblCfg,
+                                    partitionStorage,
+                                    assignments
+                            );
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
                                     tblId,

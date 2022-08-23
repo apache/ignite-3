@@ -27,6 +27,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import picocli.CommandLine;
+import picocli.CommandLine.Model.ArgGroupSpec;
 
 /**
  * The main entry point for run new Ignite node from CLI toolchain.
@@ -66,12 +67,25 @@ public class IgniteCliRunner {
     public static CompletableFuture<Ignite> start(String... args) {
         CommandSpec spec = CommandSpec.create();
 
-        spec.addOption(
-                OptionSpec
-                        .builder("--config")
-                        .paramLabel("configPath")
-                        .type(Path.class)
-                        .description("Path to node configuration file in HOCON format.")
+        OptionSpec configPath = OptionSpec
+                .builder("--config-path")
+                .paramLabel("configPath")
+                .type(Path.class)
+                .description("Path to node configuration file in HOCON format.")
+                .build();
+
+        OptionSpec configStr = OptionSpec
+                .builder("--config-string")
+                .paramLabel("configStr")
+                .type(String.class)
+                .description("Configuration in HOCON format.")
+                .build();
+
+        spec.addArgGroup(
+                ArgGroupSpec
+                        .builder()
+                        .addArg(configPath)
+                        .addArg(configStr)
                         .build()
         );
 
@@ -102,13 +116,14 @@ public class IgniteCliRunner {
         var parsedArgs = new Args(
                 pr.matchedPositionalValue(0, null),
                 pr.matchedOptionValue("--config", null),
+                pr.matchedOptionValue("--configStr", null),
                 pr.matchedOptionValue("--work-dir", null)
         );
 
         if (parsedArgs.config != null) {
             return IgnitionManager.start(parsedArgs.nodeName, parsedArgs.config.toAbsolutePath(), parsedArgs.nodeWorkDir, null);
         } else {
-            return IgnitionManager.start(parsedArgs.nodeName, null, parsedArgs.nodeWorkDir);
+            return IgnitionManager.start(parsedArgs.nodeName, parsedArgs.configStr, parsedArgs.nodeWorkDir);
         }
     }
 
@@ -122,6 +137,9 @@ public class IgniteCliRunner {
         /** Path to config file. */
         private final Path config;
 
+        /** Config string. */
+        private final String configStr;
+
         /** Path to node work directory. */
         private final Path nodeWorkDir;
 
@@ -131,9 +149,10 @@ public class IgniteCliRunner {
          * @param nodeName Name of the node.
          * @param config   Path to config file.
          */
-        private Args(String nodeName, Path config, Path nodeWorkDir) {
+        private Args(String nodeName, Path config, String configStr, Path nodeWorkDir) {
             this.nodeName = nodeName;
             this.config = config;
+            this.configStr = configStr;
             this.nodeWorkDir = nodeWorkDir;
         }
     }

@@ -17,22 +17,26 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.StorageException;
 
 /**
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for in-memory case.
  */
 public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPartitionStorage {
+    /** Last applied index value. */
+    private volatile long lastAppliedIndex;
+
     /**
      * Constructor.
      *
      * @param partId Partition id.
      * @param tableView Table configuration.
      * @param pageMemory Page memory.
-     * @param versionChainFreeList Free list for {@link VersionChain}.
      * @param rowVersionFreeList Free list for {@link RowVersion}.
      * @param versionChainTree Table tree for {@link VersionChain}.
      */
@@ -40,10 +44,39 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
             int partId,
             TableView tableView,
             VolatilePageMemory pageMemory,
-            VersionChainFreeList versionChainFreeList,
             RowVersionFreeList rowVersionFreeList,
             VersionChainTree versionChainTree
     ) {
-        super(partId, tableView, pageMemory, versionChainFreeList, rowVersionFreeList, versionChainTree);
+        super(partId, tableView, pageMemory, rowVersionFreeList, versionChainTree);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
+        return closure.execute();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> flush() {
+        return CompletableFuture.completedFuture(null);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long lastAppliedIndex() {
+        return lastAppliedIndex;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
+        this.lastAppliedIndex = lastAppliedIndex;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long persistedIndex() {
+        return lastAppliedIndex;
     }
 }
