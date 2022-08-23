@@ -52,7 +52,7 @@ public class HashUtils {
     }
 
     /**
-     * Generates 32-bit hash from the byte array with a seed of zero.
+     * Generates 32-bit hash from the ByteBuffer with a seed of zero.
      *
      * @param data The input byte array.
      * @return The 32-bit hash.

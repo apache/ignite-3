@@ -198,7 +198,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     /**
-     * Returns the partition ID of that this storage is responsible for.
+     * Returns the partition ID of the partition that this storage is responsible for.
      */
     public int partitionId() {
         return partitionId;
