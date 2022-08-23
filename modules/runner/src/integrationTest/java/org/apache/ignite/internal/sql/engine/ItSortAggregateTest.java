@@ -71,14 +71,15 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
         );
 
         CLUSTER_NODES.get(0).tables().alterTable(schTbl1.canonicalName(), tblCh ->
-                List.of(SchemaBuilders.sortedIndex("IDX")
-                                .addIndexColumn("GRP0").done()
-                                .addIndexColumn("GRP1").done()
-                                .build(),
-                        SchemaBuilders.sortedIndex("IDX")
-                                .addIndexColumn("COL0").desc().done()
-                                .build()
-                ).forEach(idxDef -> SchemaConfigurationConverter.addIndex(idxDef, tblCh))
+                SchemaConfigurationConverter.addIndex(SchemaBuilders.sortedIndex("IDX")
+                        .addIndexColumn("GRP0").done()
+                        .addIndexColumn("GRP1").done()
+                        .build(), tblCh)
+        );
+        CLUSTER_NODES.get(0).tables().alterTable(schTbl2.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.addIndex(SchemaBuilders.sortedIndex("IDX")
+                        .addIndexColumn("COL0").desc().done()
+                        .build(), tblCh)
         );
 
         RecordView<Tuple> view = table.recordView();
