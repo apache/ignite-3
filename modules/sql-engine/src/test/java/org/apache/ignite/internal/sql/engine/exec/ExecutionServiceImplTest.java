@@ -77,8 +77,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
-import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -353,9 +351,6 @@ public class ExecutionServiceImplTest {
 
         when(schemaManagerMock.tableById(any(), anyInt())).thenReturn(table);
 
-        TxManager txManager = mock(TxManager.class);
-        when(txManager.begin()).thenReturn(mock(InternalTransaction.class));
-
         var executionService = new ExecutionServiceImpl<>(
                 nodeId,
                 messageService,
@@ -365,8 +360,7 @@ public class ExecutionServiceImplTest {
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
                 exchangeService,
-                ctx -> node.implementor(ctx, mailboxRegistry, exchangeService),
-                txManager
+                ctx -> node.implementor(ctx, mailboxRegistry, exchangeService)
         );
 
         taskExecutor.start();

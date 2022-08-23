@@ -55,6 +55,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
@@ -183,8 +184,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 ArrayRowHandler.INSTANCE,
                 mailboxRegistry,
                 exchangeService,
-                dataStorageManager,
-                txManager
+                dataStorageManager
         ));
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);
@@ -313,7 +313,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         InternalTransaction outerTx = context.unwrap(InternalTransaction.class);
 
-        final BaseQueryContext ctx = BaseQueryContext.builder()
+        BaseQueryContext ctx = BaseQueryContext.builder()
                 .cancel(new QueryCancel())
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
@@ -356,11 +356,19 @@ public class SqlQueryProcessor implements QueryProcessor {
                     context.maybeUnwrap(QueryValidator.class)
                             .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
 
-                    var dataCursor = executionSrvc.executePlan(plan, ctx);
+                    // Transaction DDL is not supported as well as RO transactions, hence
+                    // only DML requiring RW transaction is covered
+                    boolean implicitTxRequired = plan.type() == Type.DML && outerTx == null;
+                    InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;
+
+                    BaseQueryContext enrichedContext = implicitTxRequired ? ctx.toBuilder().transaction(implicitTx).build() : ctx;
+
+                    var dataCursor = executionSrvc.executePlan(plan, enrichedContext);
 
                     return new AsyncSqlCursorImpl<>(
                             SqlQueryType.mapPlanTypeToSqlType(plan.type()),
                             plan.metadata(),
+                            implicitTx,
                             new AsyncCursor<List<Object>>() {
                                 @Override
                                 public CompletionStage<BatchedResult<List<Object>>> requestNextAsync(int rows) {
@@ -428,6 +436,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                         return new AsyncSqlCursorImpl<>(
                                 SqlQueryType.mapPlanTypeToSqlType(plan.type()),
                                 plan.metadata(),
+                                null,
                                 executionSrvc.executePlan(plan, ctx)
                         );
                     });

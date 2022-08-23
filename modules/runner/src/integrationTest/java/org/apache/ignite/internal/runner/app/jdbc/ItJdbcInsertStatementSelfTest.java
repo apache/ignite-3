@@ -206,8 +206,7 @@ public class ItJdbcInsertStatementSelfTest extends ItJdbcAbstractStatementSelfTe
 
         assertTrue(resultSet.next());
 
-        // Bulk insertion of duplicated keys is rolled out.
-        assertEquals(1, resultSet.getInt(1));
+        assertEquals(3, resultSet.getInt(1));
 
         doCheck();
     }

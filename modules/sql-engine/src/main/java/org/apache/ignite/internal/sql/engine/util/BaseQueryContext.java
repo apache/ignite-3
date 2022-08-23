@@ -159,9 +159,9 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private final Object[] parameters;
 
-    private CalciteCatalogReader catalogReader;
+    private final InternalTransaction tx;
 
-    private InternalTransaction tx;
+    private CalciteCatalogReader catalogReader;
 
     /**
      * Private constructor, used by a builder.
@@ -259,6 +259,21 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     public QueryCancel cancel() {
         return cancel;
+    }
+
+    /**
+     * Creates a builder object filled with current context attributes.
+     *
+     * @return PRefilled builder.
+     */
+    public Builder toBuilder() {
+        return builder()
+                .queryId(queryId)
+                .frameworkConfig(cfg)
+                .logger(log)
+                .cancel(cancel)
+                .parameters(parameters)
+                .transaction(tx);
     }
 
     /**

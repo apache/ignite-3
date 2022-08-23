@@ -118,7 +118,7 @@ public class SessionBuilderImpl implements SessionBuilder {
     /** {@inheritDoc} */
     @Override
     public Session build() {
-        var propsHolder = PropertiesHolder.holderFor(
+        var propsHolder = PropertiesHolder.fromMap(
                 Map.of(
                         QueryProperty.QUERY_TIMEOUT, timeout,
                         QueryProperty.DEFAULT_SCHEMA, schema

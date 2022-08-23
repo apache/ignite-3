@@ -26,9 +26,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -83,6 +85,56 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
                 .returns(222, 222, 1, 300, null)
                 .returns(111, 333, 0, 100, "")
                 .returns(444, 444, 2, 200, null)
+                .check();
+    }
+
+    @Test
+    public void batchWithConflictShouldBeRejectedEntirely() {
+        sql("CREATE TABLE test (id int primary key, val int)");
+
+        sql("INSERT INTO test values (1, 1)");
+
+        assertQuery("SELECT count(*) FROM test")
+                .returns(1L)
+                .check();
+
+        assertThrows(
+                IgniteException.class,
+                () -> sql("INSERT INTO test VALUES (0, 0), (1, 1), (2, 2)")
+        );
+
+        assertQuery("SELECT count(*) FROM test")
+                .returns(1L)
+                .check();
+    }
+
+    /**
+     * Test ensures that big insert although being split to several chunks will share the same implicit transaction.
+     */
+    @Test
+    public void bigBatchSpanTheSameTransaction() {
+        List<Integer> values = new ArrayList<>(AbstractNode.MODIFY_BATCH_SIZE * 2);
+
+        // need to generate batch big enough to be split on several chunks
+        for (int i = 0; i < AbstractNode.MODIFY_BATCH_SIZE * 1.5; i++) {
+            values.add(i);
+        }
+
+        values.add(values.get(0)); // add conflict entry from the first chunk
+
+        sql("CREATE TABLE test (id int primary key, val int default 1)");
+
+        String insertStatement = "INSERT INTO test (id) VALUES " + values.stream()
+                .map(Object::toString)
+                .collect(Collectors.joining("), (", "(", ")"));
+
+        assertThrows(
+                IgniteException.class,
+                () -> sql(insertStatement)
+        );
+
+        assertQuery("SELECT count(*) FROM test")
+                .returns(0L)
                 .check();
     }
 
