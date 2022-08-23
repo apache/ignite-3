@@ -24,7 +24,6 @@ import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.sql.async.AsyncResultSet;
 
 /**
  * Client SQL cursor next page request.
@@ -44,9 +43,9 @@ public class ClientSqlCursorNextPageRequest {
             throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
 
-        AsyncResultSet asyncResultSet = resources.get(resourceId).get(AsyncResultSet.class);
+        var resultSet = resources.get(resourceId).get(ClientSqlResultSet.class);
 
-        return asyncResultSet.fetchNextPage()
+        return resultSet.resultSet().fetchNextPage()
                 .thenCompose(r -> {
                     packCurrentPage(out, r);
                     out.packBoolean(r.hasMorePages());
@@ -58,7 +57,7 @@ public class ClientSqlCursorNextPageRequest {
                             // Ignore: either resource already removed, or registry is closing.
                         }
 
-                        return r.closeAsync();
+                        return resultSet.closeAsync();
                     } else {
                         return CompletableFuture.completedFuture(null);
                     }

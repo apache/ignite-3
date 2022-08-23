@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.client.sql.ClientSqlRow;
@@ -205,7 +206,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public CompletionStage<Void> closeAsync() {
-        return null;
+        return CompletableFuture.completedFuture(null);
     }
 
     @NotNull

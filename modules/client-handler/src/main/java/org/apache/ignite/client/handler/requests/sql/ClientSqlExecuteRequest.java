@@ -68,18 +68,23 @@ public class ClientSqlExecuteRequest {
 
         return session
                 .executeAsync(tx, statement, arguments)
-                .thenCompose(asyncResultSet -> writeResultSetAsync(out, resources, asyncResultSet));
+                .thenCompose(asyncResultSet -> writeResultSetAsync(out, resources, asyncResultSet, session));
     }
 
     private static CompletionStage<Void> writeResultSetAsync(
             ClientMessagePacker out,
             ClientResourceRegistry resources,
-            AsyncResultSet asyncResultSet) {
-        if (asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages()) {
+            AsyncResultSet asyncResultSet,
+            Session session) {
+        boolean hasResource = asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages();
+
+        if (hasResource) {
             try {
+                var clientResultSet = new ClientSqlResultSet(asyncResultSet, session);
+
                 ClientResource resource = new ClientResource(
-                        asyncResultSet,
-                        () -> asyncResultSet.closeAsync().toCompletableFuture().join());
+                        clientResultSet,
+                        () -> clientResultSet.closeAsync().join());
 
                 out.packLong(resources.put(resource));
             } catch (IgniteInternalCheckedException e) {
@@ -103,11 +108,13 @@ public class ClientSqlExecuteRequest {
         // Pack first page.
         if (asyncResultSet.hasRowSet()) {
             packCurrentPage(out, asyncResultSet);
-        } else {
-            return asyncResultSet.closeAsync();
-        }
 
-        return CompletableFuture.completedFuture(null);
+            return hasResource
+                    ? CompletableFuture.completedFuture(null)
+                    : asyncResultSet.closeAsync().thenCompose(res -> session.closeAsync());
+        } else {
+            return asyncResultSet.closeAsync().thenCompose(res -> session.closeAsync());
+        }
     }
 
     private static Statement readStatement(ClientMessageUnpacker in, IgniteSql sql) {
