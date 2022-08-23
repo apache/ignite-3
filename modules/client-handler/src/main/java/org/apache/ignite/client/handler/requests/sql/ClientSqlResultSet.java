@@ -17,10 +17,9 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.async.AsyncResultSet;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Client result set wrapper.
