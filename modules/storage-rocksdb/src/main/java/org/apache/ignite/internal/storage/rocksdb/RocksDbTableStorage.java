@@ -244,7 +244,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             assert partitionCf != null;
             assert hashIndexCf != null;
 
-            allCfHandles = cfHandles;
+            allCfHandles = List.copyOf(cfHandles);
 
             // Pointless synchronization, but without it there would be a warning in the code.
             synchronized (latestPersistedSequenceNumberMux) {
