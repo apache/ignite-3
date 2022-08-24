@@ -133,7 +133,9 @@ public class HeapLockManager implements LockManager {
         // TODO: tmp
         LockState state = lockState(lock.lockKey());
 
-        state.tryRelease(lock.txId());
+        if (state.tryRelease(lock.txId())) {
+            locks.remove(lock.lockKey(), state);
+        }
 
 //        switch (lock.lockMode()) {
 //            case EXCLUSIVE:
@@ -399,25 +401,39 @@ public class HeapLockManager implements LockManager {
                     for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
                         WaiterImpl tmp = entry.getValue();
 
-                        if (tmp.upgraded) {
-                            // Fail upgraded waiters because of write.
-                            assert !tmp.locked;
+                        if (!lockModes.isEmpty() && lockModes.stream().anyMatch(m -> !tmp.lockMode.isCompatible(m))/*!tmp.isForRead()*/) {
+//                            if (tmp.upgraded) {
+//                                // Fail upgraded waiters because of write.
+//                                assert !tmp.locked;
+//
+//                                // Downgrade to acquired read lock.
+//                                tmp.upgraded = false;
+//                                tmp.lockMode = tmp.prevLockMode;//tmp.forRead = true;
+//                                tmp.prevLockMode = null;
+//                                tmp.locked = true;
+//
+//                                toFail.add(tmp);
+//                            }
 
-                            // Downgrade to acquired read lock.
-                            tmp.upgraded = false;
-                            tmp.lockMode = tmp.prevLockMode;//tmp.forRead = true;
-                            tmp.prevLockMode = null;
-                            tmp.locked = true;
-
-                            toFail.add(tmp);
-                        } else if (lockModes.stream().anyMatch(m -> !tmp.lockMode.isCompatible(m))/*!tmp.isForRead()*/) {
                             break;
                         } else {
-                            lockModes.add(tmp.lockMode);
+                            if (tmp.upgraded) {
+                                // Fail upgraded waiters because of write.
+                                assert !tmp.locked;
 
-                            tmp.lock();
+                                // Downgrade to acquired read lock.
+                                tmp.upgraded = false;
+                                tmp.prevLockMode = null;
+                                tmp.locked = true;
 
-                            locked.add(tmp);
+                                locked.add(tmp);
+                            } else {
+                                lockModes.add(tmp.lockMode);
+
+                                tmp.lock();
+
+                                locked.add(tmp);
+                            }
                         }
                     }
 //                }

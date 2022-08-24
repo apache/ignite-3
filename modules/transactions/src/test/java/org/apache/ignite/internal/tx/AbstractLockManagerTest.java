@@ -50,7 +50,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
     protected abstract LockManager newInstance();
 
-    @Test
+//    @Test
     public void test1() throws LockException {
         UUID txId0 = Timestamp.nextVersion().toUuid();
         UUID txId1 = Timestamp.nextVersion().toUuid();
@@ -179,7 +179,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         assertTrue(lockManager.waiter(key, txId3).locked());
     }
 
-//    @Test
+    @Test//
     public void testSingleKeyReadWriteConflict() throws LockException {
         UUID txId0 = Timestamp.nextVersion().toUuid();
         UUID txId1 = Timestamp.nextVersion().toUuid();
@@ -351,7 +351,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         assertFalse(fut2.isDone());
     }
 
-//    @Test
+    @Test//
     public void testSingleKeyMultithreadedRead() throws InterruptedException {
         LongAdder readLocks = new LongAdder();
         LongAdder writeLocks = new LongAdder();
@@ -363,7 +363,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         assertTrue(failedLocks.sum() == 0);
     }
 
-//    @Test
+    @Test//
     public void testSingleKeyMultithreadedWrite() throws InterruptedException {
         LongAdder readLocks = new LongAdder();
         LongAdder writeLocks = new LongAdder();
@@ -374,7 +374,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         assertTrue(readLocks.sum() == 0);
     }
 
-//    @Test
+    @Test//
     public void testSingleKeyMultithreadedRandom() throws InterruptedException {
         LongAdder readLocks = new LongAdder();
         LongAdder writeLocks = new LongAdder();
@@ -459,7 +459,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         assertTrue(lockManager.queue(key).size() == 1);
     }
 
-//    @Test
+    @Test//
     public void testReenter() throws LockException {
         UUID txId = Timestamp.nextVersion().toUuid();
         LockKey key = new LockKey("test");
