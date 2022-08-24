@@ -25,7 +25,7 @@ During the build time, the [Open API spec]() is generated from all API definitio
 
 ## Example of REST Endpoint
 
-- API definition [ClusterManagementApi](../rest-api/src/main/java/org/apache/ignite/internal/rest/api/cluster)
+- API definition [ClusterManagementApi](../rest-api/src/main/java/org/apache/ignite/internal/rest/api/cluster/ClusterManagementApi.java)
 - API implementation [ClusterManagementController](../cluster-management/src/main/java/org/apache/ignite/internal/cluster/management/rest/ClusterManagementController.java)
 - `RestFactory` implementation [ClusterManagementRestFactory](../cluster-management/src/main/java/org/apache/ignite/internal/cluster/management/rest/ClusterManagementRestFactory.java)
 - `ExceptionHandler` implementation [ClusterNotInitializedExceptionHandler](../cluster-management/src/main/java/org/apache/ignite/internal/cluster/management/rest/exception/handler/ClusterNotInitializedExceptionHandler.java)
