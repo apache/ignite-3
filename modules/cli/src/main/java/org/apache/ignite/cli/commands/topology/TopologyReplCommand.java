@@ -17,22 +17,13 @@
 
 package org.apache.ignite.cli.commands.topology;
 
-import jakarta.inject.Singleton;
-import java.util.concurrent.Callable;
 import org.apache.ignite.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
 
 /**
  * Command that prints ignite cluster topology in REPL mode.
  */
-@Command(name = "topology", description = "Prints topology information.",
+@Command(name = "topology", description = "Prints topology information",
         subcommands = {PhysicalTopologyReplCommand.class, LogicalTopologyReplCommand.class })
-@Singleton
-public class TopologyReplCommand extends BaseCommand implements Callable<Integer> {
-
-    /** {@inheritDoc} */
-    @Override
-    public Integer call() {
-        return 0;
-    }
+public class TopologyReplCommand extends BaseCommand {
 }

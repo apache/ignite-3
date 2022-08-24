@@ -61,6 +61,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.rest.RestComponent;
@@ -202,6 +203,9 @@ public class IgniteImpl implements Ignite {
     /** Metric manager. */
     private final MetricManager metricManager;
 
+    /** Creator for volatile {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} instances. */
+    private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
+
     /**
      * The Constructor.
      *
@@ -323,6 +327,8 @@ public class IgniteImpl implements Ignite {
             clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
         );
 
+        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
+
         distributedTblMgr = new TableManager(
                 registry,
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
@@ -332,7 +338,8 @@ public class IgniteImpl implements Ignite {
                 txManager,
                 dataStorageMgr,
                 metaStorageMgr,
-                schemaManager
+                schemaManager,
+                volatileLogStorageFactoryCreator
         );
 
         indexManager = new IndexManager(
@@ -459,6 +466,7 @@ public class IgniteImpl implements Ignite {
                                     baselineMgr,
                                     dataStorageMgr,
                                     schemaManager,
+                                    volatileLogStorageFactoryCreator,
                                     distributedTblMgr,
                                     indexManager,
                                     qryEngine,

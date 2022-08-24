@@ -15,30 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.core.style.element;
 
-import static org.apache.ignite.cli.core.style.AnsiStringSupport.ansi;
 import static org.apache.ignite.cli.core.style.AnsiStringSupport.fg;
 
-import org.apache.ignite.cli.call.node.status.NodeStatus;
-import org.apache.ignite.cli.call.node.status.State;
-import org.apache.ignite.cli.core.decorator.Decorator;
-import org.apache.ignite.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.cli.core.style.AnsiStringSupport.Color;
+import org.apache.ignite.cli.core.style.AnsiStringSupport.Style;
 
 /**
- * Decorator for {@link NodeStatus}.
+ * Defines all UI Elements that are used in the CLI.
  */
-public class NodeStatusDecorator implements Decorator<NodeStatus, TerminalOutput> {
+public class UiElements {
+    public static UiElement url(String content) {
+        return new MarkedUiElement(content, Style.UNDERLINE);
+    }
 
-    @Override
-    public TerminalOutput decorate(NodeStatus data) {
-        Color c = data.state().equals(State.STARTED) ? Color.GREEN : Color.YELLOW;
+    public static UiElement command(String content) {
+        return new MarkedUiElement(content, Style.BOLD);
+    }
 
-        return () -> ansi(
-                "[name: %s, state: %s]",
-                data.name(),
-                fg(c).mark(data.state().name().toLowerCase())
-        );
+    public static UiElement option(String content) {
+        return new MarkedUiElement(content, fg(Color.YELLOW));
+    }
+
+    public static UiElement done() {
+        return new MarkedUiElement("Done", fg(Color.GREEN).with(Style.BOLD));
+    }
+
+    public static UiElement yesNo() {
+        return new MarkedUiElement("[Y/n]", fg(Color.GRAY));
     }
 }

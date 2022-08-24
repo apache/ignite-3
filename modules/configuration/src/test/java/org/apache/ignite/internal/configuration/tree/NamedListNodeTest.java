@@ -140,7 +140,7 @@ public class NamedListNodeTest {
         String x0Id = ((NamedListNode<?>) a.second().value()).internalId("X").toString();
         String z0Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z0").toString();
 
-        CompletableFuture<Map<String, ? extends Serializable>> storageValues = storage.readAll().thenApply(Data::values);
+        CompletableFuture<Map<String, ? extends Serializable>> storageValues = storage.readDataOnRecovery().thenApply(Data::values);
 
         assertThat(
                 storageValues,
@@ -165,7 +165,7 @@ public class NamedListNodeTest {
 
         String z5Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z5").toString();
 
-        storageValues = storage.readAll().thenApply(Data::values);
+        storageValues = storage.readDataOnRecovery().thenApply(Data::values);
 
         assertThat(
                 storageValues,
@@ -192,7 +192,7 @@ public class NamedListNodeTest {
 
         String z2Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z2").toString();
 
-        storageValues = storage.readAll().thenApply(Data::values);
+        storageValues = storage.readDataOnRecovery().thenApply(Data::values);
 
         assertThat(
                 storageValues,
@@ -223,7 +223,7 @@ public class NamedListNodeTest {
 
         String z3Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z3").toString();
 
-        storageValues = storage.readAll().thenApply(Data::values);
+        storageValues = storage.readDataOnRecovery().thenApply(Data::values);
 
         assertThat(
                 storageValues,
@@ -255,7 +255,7 @@ public class NamedListNodeTest {
         // Delete keys from the middle. Indexes of Z3 should be updated to 1.
         x.third().change(xb -> xb.delete("Z2").delete("Z5")).get();
 
-        storageValues = storage.readAll().thenApply(Data::values);
+        storageValues = storage.readDataOnRecovery().thenApply(Data::values);
 
         assertThat(
                 storageValues,
@@ -279,7 +279,7 @@ public class NamedListNodeTest {
         // Delete keys from the middle. Indexes of Z3 should be updated to 1.
         x.third().change(xb -> xb.rename("Z0", "Z1")).get();
 
-        storageValues = storage.readAll().thenApply(Data::values);
+        storageValues = storage.readDataOnRecovery().thenApply(Data::values);
 
         assertThat(
                 storageValues,
@@ -303,7 +303,7 @@ public class NamedListNodeTest {
         // Delete values on several layers simultaneously. Storage must be empty after that.
         a.second().change(b -> b.delete("X")).get();
 
-        assertThat(storage.readAll().thenApply(Data::values), willBe(anEmptyMap()));
+        assertThat(storage.readDataOnRecovery().thenApply(Data::values), willBe(anEmptyMap()));
     }
 
     /** Tests exceptions described in methods signatures. */

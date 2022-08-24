@@ -20,14 +20,15 @@ package org.apache.ignite.cli.commands.cluster.status;
 import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_DESC;
 import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
 import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_OPTION;
+import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_CLUSTER_URL_MESSAGE;
 
 import jakarta.inject.Inject;
 import org.apache.ignite.cli.call.cluster.status.ClusterStatusCall;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.ClusterStatusDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StatusCallInput;
 import org.apache.ignite.cli.core.repl.Session;
+import org.apache.ignite.cli.decorators.ClusterStatusDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -36,9 +37,7 @@ import picocli.CommandLine.Option;
  */
 @Command(name = "status", description = "Prints status of the cluster")
 public class ClusterStatusReplCommand extends BaseCommand implements Runnable {
-    /**
-     * Cluster endpoint URL option.
-     */
+    /** Cluster endpoint URL option. */
     @Option(names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String clusterUrl;
 
@@ -58,8 +57,7 @@ public class ClusterStatusReplCommand extends BaseCommand implements Runnable {
         } else if (session.isConnectedToNode()) {
             inputUrl = session.nodeUrl();
         } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '"
-                    + CLUSTER_URL_OPTION + "' option.");
+            spec.commandLine().getErr().println(CONNECT_OR_USE_CLUSTER_URL_MESSAGE.render());
             return;
         }
 

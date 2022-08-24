@@ -25,11 +25,11 @@ import java.sql.SQLException;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.sql.SqlQueryCall;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.SqlQueryResultDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.exception.handler.SqlExceptionHandler;
+import org.apache.ignite.cli.decorators.SqlQueryResultDecorator;
 import org.apache.ignite.cli.deprecated.IgniteCliException;
 import org.apache.ignite.cli.sql.SqlManager;
 import picocli.CommandLine.ArgGroup;
@@ -40,9 +40,8 @@ import picocli.CommandLine.Parameters;
 /**
  * Command for sql execution.
  */
-@Command(name = "sql", description = "Executes SQL query.")
+@Command(name = "sql", description = "Executes SQL query")
 public class SqlCommand extends BaseCommand implements Callable<Integer> {
-
     @Option(names = {"-u", "--jdbc-url"}, required = true,
             descriptionKey = "ignite.jdbc-url", description = "JDBC url to ignite cluster")
     private String jdbc;
@@ -51,10 +50,10 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
     private ExecOptions execOptions;
 
     private static class ExecOptions {
-        @Parameters(index = "0", description = "SQL query to execute.")
+        @Parameters(index = "0", description = "SQL query to execute")
         private String command;
 
-        @Option(names = {"-f", "--script-file"}, description = "Path to file with SQL commands to execute.")
+        @Option(names = {"-f", "--script-file"}, description = "Path to file with SQL commands to execute")
         private File file;
     }
 
@@ -62,7 +61,7 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
         try {
             return String.join("\n", Files.readAllLines(file.toPath(), StandardCharsets.UTF_8));
         } catch (IOException e) {
-            throw new IgniteCliException("File with command not found.");
+            throw new IgniteCliException("File with command not found");
         }
     }
 
@@ -83,5 +82,4 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
             return new SqlExceptionHandler().handle(ExceptionWriter.fromPrintWriter(spec.commandLine().getErr()), e);
         }
     }
-
 }

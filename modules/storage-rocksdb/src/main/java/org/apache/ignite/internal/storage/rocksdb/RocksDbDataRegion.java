@@ -87,7 +87,7 @@ public class RocksDbDataRegion {
     }
 
     /**
-     * Returns write buffer manager associated withthe region.
+     * Returns write buffer manager associated with the region.
      */
     public WriteBufferManager writeBufferManager() {
         return writeBufferManager;

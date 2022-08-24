@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import java.util.UUID;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 
@@ -25,7 +26,7 @@ import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
  */
 public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
     @Override
-    protected SortedIndexStorage createIndexStorage(String name, TableView tableCfg) {
-        return new TestSortedIndexStorage(new SortedIndexDescriptor(name, tableCfg));
+    protected SortedIndexStorage createIndexStorage(UUID indexId, TableView tableCfg) {
+        return new TestSortedIndexStorage(new SortedIndexDescriptor(indexId, tableCfg));
     }
 }

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,21 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.internal.raft.storage.impl;
 
-import org.apache.ignite.cli.core.decorator.Decorator;
-import org.apache.ignite.cli.core.decorator.TerminalOutput;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.storage.LogStorage;
+import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
 
 /**
- * Default decorator that calls toString method.
- *
- * @param <I> Input type.
+ * LogStorageFactory that creates instances of {@link LocalLogStorage}.
  */
-public class DefaultDecorator<I> implements Decorator<I, TerminalOutput> {
-
-    /** {@inheritDoc} */
+public class LocalLogStorageFactory implements LogStorageFactory {
     @Override
-    public TerminalOutput decorate(I data) {
-        return data::toString;
+    public void start() {
+        // no-op
+    }
+
+    @Override
+    public LogStorage createLogStorage(String uri, RaftOptions raftOptions) {
+        return new LocalLogStorage(raftOptions);
+    }
+
+    @Override
+    public void close() throws Exception {
+        // no-op
     }
 }

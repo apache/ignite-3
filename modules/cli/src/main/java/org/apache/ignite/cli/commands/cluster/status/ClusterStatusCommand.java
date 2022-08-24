@@ -22,9 +22,9 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cluster.status.ClusterStatusCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.cluster.ClusterUrlOptions;
-import org.apache.ignite.cli.commands.decorators.ClusterStatusDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StatusCallInput;
+import org.apache.ignite.cli.decorators.ClusterStatusDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -35,9 +35,7 @@ import picocli.CommandLine.Mixin;
         aliases = "cluster show", //TODO: https://issues.apache.org/jira/browse/IGNITE-17102
         description = "Prints status of the cluster")
 public class ClusterStatusCommand extends BaseCommand implements Callable<Integer> {
-    /**
-     * Cluster endpoint URL option.
-     */
+    /** Cluster endpoint URL option. */
     @Mixin
     private ClusterUrlOptions clusterUrl;
 

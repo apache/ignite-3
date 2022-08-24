@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.decorators;
 
 import org.apache.ignite.cli.call.cliconfig.profile.ProfileList;
 import org.apache.ignite.cli.call.cluster.status.ClusterStatus;
@@ -30,7 +30,6 @@ import org.apache.ignite.cli.sql.table.Table;
  * Default set of {@link org.apache.ignite.cli.core.decorator.Decorator}.
  */
 public class DefaultDecoratorRegistry extends DecoratorRegistry {
-
     /**
      * Constructor.
      */

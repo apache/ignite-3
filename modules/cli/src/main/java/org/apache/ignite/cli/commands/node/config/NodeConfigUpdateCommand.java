@@ -31,18 +31,13 @@ import picocli.CommandLine.Parameters;
 /**
  * Command that updates node configuration.
  */
-@Command(name = "update",
-        description = "Updates node configuration")
+@Command(name = "update", description = "Updates node configuration")
 public class NodeConfigUpdateCommand extends BaseCommand implements Callable<Integer> {
-    /**
-     * Node URL option.
-     */
+    /** Node URL option. */
     @Mixin
     private NodeUrlOptions nodeUrl;
 
-    /**
-     * Configuration that will be updated.
-     */
+    /** Configuration that will be updated. */
     @Parameters(index = "0")
     private String config;
 

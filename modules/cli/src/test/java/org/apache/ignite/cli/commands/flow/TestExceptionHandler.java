@@ -15,24 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.commands.flow;
 
-import java.util.stream.Collectors;
-import org.apache.ignite.cli.config.Profile;
-import org.apache.ignite.cli.core.decorator.Decorator;
-import org.apache.ignite.cli.core.decorator.TerminalOutput;
+import jdk.jshell.spi.ExecutionControl.RunException;
+import org.apache.ignite.cli.core.exception.ExceptionHandler;
+import org.apache.ignite.cli.core.exception.ExceptionWriter;
 
-/**
- * Decorator for printing {@link Profile}.
- */
-public class ProfileDecorator implements Decorator<Profile, TerminalOutput> {
+class TestExceptionHandler implements ExceptionHandler<RunException> {
     @Override
-    public TerminalOutput decorate(Profile data) {
-        return () -> {
-            String prefix = "[" + data.getName() + "]" + System.lineSeparator();
-            return data.getAll().entrySet().stream()
-                    .map(entry -> entry.getKey() + "=" + entry.getValue())
-                    .collect(Collectors.joining(System.lineSeparator(), prefix, ""));
-        };
+    public int handle(ExceptionWriter err, RunException e) {
+        err.write(e.getMessage());
+
+        return 0;
+    }
+
+    @Override
+    public Class<RunException> applicableException() {
+        return RunException.class;
     }
 }

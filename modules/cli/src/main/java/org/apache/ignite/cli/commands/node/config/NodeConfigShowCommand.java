@@ -22,9 +22,9 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.JsonDecorator;
 import org.apache.ignite.cli.commands.node.NodeUrlOptions;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.cli.decorators.JsonDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
@@ -34,15 +34,11 @@ import picocli.CommandLine.Parameters;
  */
 @Command(name = "show", description = "Shows node configuration")
 public class NodeConfigShowCommand extends BaseCommand implements Callable<Integer> {
-    /**
-     * Node URL option.
-     */
+    /** Node URL option. */
     @Mixin
     private NodeUrlOptions nodeUrl;
 
-    /**
-     * Configuration selector option.
-     */
+    /** Configuration selector option. */
     @Parameters(arity = "0..1", description = "Configuration path selector")
     private String selector;
 

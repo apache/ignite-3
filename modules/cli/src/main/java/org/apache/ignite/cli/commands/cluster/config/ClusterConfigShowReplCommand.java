@@ -26,12 +26,9 @@ import org.apache.ignite.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.cli.core.exception.ExceptionWriter;
-import org.apache.ignite.cli.core.exception.IgniteCliApiException;
-import org.apache.ignite.cli.core.exception.handler.IgniteCliApiExceptionHandler;
+import org.apache.ignite.cli.core.exception.handler.ShowConfigExceptionHandler;
 import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.flow.builder.Flows;
-import org.apache.ignite.rest.client.invoker.ApiException;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -62,30 +59,15 @@ public class ClusterConfigShowReplCommand extends BaseCommand implements Runnabl
     @Override
     public void run() {
         question.askQuestionIfNotConnected(clusterUrl)
+                .exceptionHandler(new ShowConfigExceptionHandler())
                 .map(this::configShowCallInput)
                 .then(Flows.fromCall(call))
                 .toOutput(spec.commandLine().getOut(), spec.commandLine().getErr())
-                .exceptionHandler(new ShowConfigReplExceptionHandler())
                 .build()
                 .start(Flowable.empty());
     }
 
     private ClusterConfigShowCallInput configShowCallInput(String clusterUrl) {
         return ClusterConfigShowCallInput.builder().selector(selector).clusterUrl(clusterUrl).build();
-    }
-
-    private static class ShowConfigReplExceptionHandler extends IgniteCliApiExceptionHandler {
-        @Override
-        public int handle(ExceptionWriter err, IgniteCliApiException e) {
-            if (e.getCause() instanceof ApiException) {
-                ApiException apiException = (ApiException) e.getCause();
-                if (apiException.getCode() == 500) { //TODO: https://issues.apache.org/jira/browse/IGNITE-17091
-                    err.write("Cannot show cluster config, probably you have not initialized the cluster. "
-                            + "Try to run 'cluster init' command.");
-                    return 1;
-                }
-            }
-            return super.handle(err, e);
-        }
     }
 }

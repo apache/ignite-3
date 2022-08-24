@@ -25,9 +25,9 @@ import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cliconfig.CliConfigShowCall;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.ProfileDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
+import org.apache.ignite.cli.decorators.ProfileDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 

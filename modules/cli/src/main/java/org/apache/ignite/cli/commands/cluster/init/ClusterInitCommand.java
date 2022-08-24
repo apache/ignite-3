@@ -35,9 +35,7 @@ import picocli.CommandLine.Option;
  */
 @Command(name = "init", description = "Initializes an Ignite cluster")
 public class ClusterInitCommand extends BaseCommand implements Callable<Integer> {
-    /**
-     * Cluster endpoint URL option.
-     */
+    /** Cluster endpoint URL option. */
     @Mixin
     private ClusterUrlOptions clusterUrl;
 

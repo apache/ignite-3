@@ -18,9 +18,9 @@ package org.apache.ignite.raft.jraft.storage.impl;
 
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 
-public class VolatileLogStorageTest extends BaseLogStorageTest {
+class VolatileLogStorageTest extends BaseLogStorageTest {
     @Override
     protected LogStorage newLogStorage() {
-        return new VolatileLogStorage(new UnlimitedBudget());
+        return new VolatileLogStorage(new UnlimitedBudget(), new OnHeapLogs(), new OnHeapLogs());
     }
 }

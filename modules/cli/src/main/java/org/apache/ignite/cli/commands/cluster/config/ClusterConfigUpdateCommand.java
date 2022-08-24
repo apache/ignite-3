@@ -33,15 +33,11 @@ import picocli.CommandLine.Parameters;
  */
 @Command(name = "update", description = "Updates cluster configuration")
 public class ClusterConfigUpdateCommand extends BaseCommand implements Callable<Integer> {
-    /**
-     * Cluster endpoint URL option.
-     */
+    /** Cluster endpoint URL option. */
     @Mixin
     private ClusterUrlOptions clusterUrl;
 
-    /**
-     * Configuration that will be updated.
-     */
+    /** Configuration that will be updated. */
     @Parameters(index = "0")
     private String config;
 

@@ -30,6 +30,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.util.Cursor;
 
 /**
  * Test-only implementation of a {@link HashIndexStorage}.
@@ -52,8 +53,10 @@ public class TestHashIndexStorage implements HashIndexStorage {
     }
 
     @Override
-    public Collection<RowId> get(BinaryTuple key) {
-        return index.getOrDefault(key.byteBuffer(), Set.of());
+    public Cursor<RowId> get(BinaryTuple key) {
+        Collection<RowId> rowIds = index.getOrDefault(key.byteBuffer(), Set.of());
+
+        return Cursor.fromIterator(rowIds.iterator());
     }
 
     @Override
@@ -91,5 +94,10 @@ public class TestHashIndexStorage implements HashIndexStorage {
                 return v;
             }
         });
+    }
+
+    @Override
+    public void destroy() {
+        index.clear();
     }
 }

@@ -21,11 +21,10 @@ import org.apache.ignite.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
 
 /**
- * Node config command in REPL.
+ * Cluster config command in REPL.
  */
 @Command(name = "config",
         subcommands = {ClusterConfigShowReplCommand.class, ClusterConfigUpdateReplCommand.class},
         description = "Cluster config operations")
 public class ClusterConfigReplCommand extends BaseCommand {
-
 }

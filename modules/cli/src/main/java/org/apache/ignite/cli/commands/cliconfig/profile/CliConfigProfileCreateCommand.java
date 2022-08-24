@@ -32,13 +32,13 @@ import picocli.CommandLine.Parameters;
  */
 @Command(name = "create", description = "Creates profile")
 public class CliConfigProfileCreateCommand extends BaseCommand implements Callable<Integer> {
-    @Parameters(arity = "1", description = "Name of new profile.")
+    @Parameters(arity = "1", description = "Name of new profile")
     private String profileName;
 
-    @Option(names = {"--copy-from", "-c"}, description = "Profile whose content will be copied to new one.")
+    @Option(names = {"--copy-from", "-c"}, description = "Profile whose content will be copied to new one")
     private String copyFrom;
 
-    @Option(names = {"--activate", "-a"}, description = "Activate new profile as current or not.")
+    @Option(names = {"--activate", "-a"}, description = "Activate new profile as current or not")
     private boolean activate;
 
     @Inject

@@ -31,7 +31,6 @@ import org.apache.ignite.cli.core.call.EmptyCallInput;
  */
 @Command(name = "show", description = "Shows current profile")
 public class CliConfigProfileShowCommand extends BaseCommand implements Callable<Integer> {
-
     @Inject
     private CliConfigProfileShowCall call;
 

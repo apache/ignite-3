@@ -21,7 +21,7 @@ import org.apache.ignite.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
 
 /**
- * Node config command.
+ * Cluster config command.
  */
 @Command(name = "config",
         subcommands = {ClusterConfigShowCommand.class, ClusterConfigUpdateCommand.class},

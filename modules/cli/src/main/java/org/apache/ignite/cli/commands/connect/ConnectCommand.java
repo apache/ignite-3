@@ -33,9 +33,7 @@ import picocli.CommandLine.Parameters;
  */
 @Command(name = "connect", description = "Connects to Ignite 3 node")
 public class ConnectCommand extends BaseCommand implements Runnable {
-    /**
-     * Node URL option.
-     */
+    /** Node URL option. */
     @Parameters(description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String nodeUrl;
 
@@ -52,5 +50,4 @@ public class ConnectCommand extends BaseCommand implements Runnable {
                 .build()
                 .runPipeline();
     }
-
 }

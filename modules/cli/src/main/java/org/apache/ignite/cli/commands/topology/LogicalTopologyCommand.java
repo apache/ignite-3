@@ -23,8 +23,8 @@ import org.apache.ignite.cli.call.cluster.topology.LogicalTopologyCall;
 import org.apache.ignite.cli.call.cluster.topology.TopologyCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.cluster.ClusterUrlOptions;
-import org.apache.ignite.cli.commands.decorators.TopologyDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.cli.decorators.TopologyDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -33,9 +33,7 @@ import picocli.CommandLine.Mixin;
  */
 @Command(name = "logical")
 public class LogicalTopologyCommand extends BaseCommand implements Callable<Integer> {
-    /**
-     * Cluster endpoint URL option.
-     */
+    /** Cluster endpoint URL option. */
     @Mixin
     private ClusterUrlOptions clusterUrl;
 

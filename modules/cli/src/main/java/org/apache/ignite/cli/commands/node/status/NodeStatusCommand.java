@@ -21,22 +21,19 @@ import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.node.status.NodeStatusCall;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.NodeStatusDecorator;
 import org.apache.ignite.cli.commands.node.NodeUrlOptions;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StatusCallInput;
+import org.apache.ignite.cli.decorators.NodeStatusDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
 /**
  * Display the node status.
  */
-@Command(name = "status",
-        description = "Prints status of the node")
+@Command(name = "status", description = "Prints status of the node")
 public class NodeStatusCommand extends BaseCommand implements Callable<Integer> {
-    /**
-     * Node URL option.
-     */
+    /** Node URL option. */
     @Mixin
     private NodeUrlOptions nodeUrl;
 
