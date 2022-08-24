@@ -6,7 +6,7 @@ This module defines [RestComponent](src/main/java/org/apache/ignite/internal/res
 - creating a micronaut context at runtime and injecting all needed beans into the context
 - starting the micronaut server at the configured port range
 
-During the build time, the [Open API spec]() is generated from all API definitions that are included in
+During the build time, the [Open API spec](https://spec.openapis.org/oas/v3.1.0) is generated from all API definitions that are included in
 `@OpenAPIInclude` annotation. The spec is located in `ignite-rest/openapi`.
 
 ## How to create a new REST Endpoint
