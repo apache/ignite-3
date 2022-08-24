@@ -28,7 +28,6 @@ import org.apache.ignite.cli.core.decorator.TerminalOutput;
  * Pretty json decorator.
  */
 public class JsonDecorator implements Decorator<JsonString, TerminalOutput> {
-
     /** {@inheritDoc} */
     @Override
     public TerminalOutput decorate(JsonString json) {

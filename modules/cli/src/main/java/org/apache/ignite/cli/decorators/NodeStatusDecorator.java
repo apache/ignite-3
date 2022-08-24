@@ -30,7 +30,6 @@ import org.apache.ignite.cli.core.style.AnsiStringSupport.Color;
  * Decorator for {@link NodeStatus}.
  */
 public class NodeStatusDecorator implements Decorator<NodeStatus, TerminalOutput> {
-
     @Override
     public TerminalOutput decorate(NodeStatus data) {
         Color c = data.state().equals(State.STARTED) ? Color.GREEN : Color.YELLOW;

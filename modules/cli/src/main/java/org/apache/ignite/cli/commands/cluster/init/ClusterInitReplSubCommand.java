@@ -39,10 +39,7 @@ import picocli.CommandLine.Option;
  */
 @Command(name = "init", description = "Initializes an Ignite cluster")
 public class ClusterInitReplSubCommand extends BaseCommand implements Runnable {
-
-    /**
-     * Cluster endpoint URL option.
-     */
+    /** Cluster endpoint URL option. */
     @Option(
             names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY,
             defaultValue = "http://localhost:10300"

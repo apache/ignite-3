@@ -39,10 +39,7 @@ import picocli.CommandLine.Option;
         description = "Prints status of the node")
 @Singleton
 public class NodeStatusSubCommand extends BaseCommand implements Callable<Integer> {
-
-    /**
-     * Node URL option.
-     */
+    /** Node URL option. */
     @SuppressWarnings("PMD.UnusedPrivateField")
     @Option(names = {NODE_URL_OPTION}, description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String nodeUrl;

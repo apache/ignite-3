@@ -66,13 +66,14 @@ public class NodeCommandSpec {
     @Command(name = "start", description = "Starts an Ignite node locally")
     @Singleton
     public static class StartNodeCommandSpec extends BaseCommand implements Callable<Integer> {
-
         /** Consistent id, which will be used by new node. */
         @Parameters(paramLabel = "name", description = "Name of the new node")
         public String nodeName;
+
         /** Loader for Ignite distributive paths. */
         @Inject
         private CliPathsConfigLoader cliPathsCfgLdr;
+
         /** Node manager. */
         @Inject
         private NodeManager nodeMgr;

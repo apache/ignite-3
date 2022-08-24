@@ -242,9 +242,21 @@ public class ErrorGroup {
         return errorMessage(traceId, groupName, code, c);
     }
 
-    public static String extractCauseMessage(String message) {
-        Matcher m = EXCEPTION_MESSAGE_PATTERN.matcher(message);
-        return (m.matches()) ? m.group(8) : message;
+    /**
+     * Returns a message extracted from the given {@code errorMessage} if this {@code errorMessage} matches
+     * {@link #EXCEPTION_MESSAGE_PATTERN}. If {@code errorMessage} does not match the pattern or {@code null} then returns the original
+     * {@code errorMessage}.
+     *
+     * @param errorMessage Message that is returned by {@link Throwable#getMessage()}
+     * @return Extracted message.
+     */
+    public static String extractCauseMessage(String errorMessage) {
+        if (errorMessage == null) {
+            return null;
+        }
+
+        Matcher m = EXCEPTION_MESSAGE_PATTERN.matcher(errorMessage);
+        return (m.matches()) ? m.group(8) : errorMessage;
     }
 
     /** {@inheritDoc} */

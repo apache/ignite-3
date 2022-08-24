@@ -38,16 +38,11 @@ import picocli.CommandLine.Parameters;
 @Command(name = "show",
         description = "Shows node configuration")
 public class NodeConfigShowSubCommand extends BaseCommand implements Callable<Integer> {
-
-    /**
-     * Configuration selector option.
-     */
+    /** Configuration selector option. */
     @Parameters(arity = "0..1", description = "Configuration path selector")
     private String selector;
 
-    /**
-     * Node URL option.
-     */
+    /** Node URL option. */
     @Option(names = {NODE_URL_OPTION}, description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String nodeUrl;
 

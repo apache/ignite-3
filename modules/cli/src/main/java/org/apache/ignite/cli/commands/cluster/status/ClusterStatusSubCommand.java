@@ -40,10 +40,7 @@ import picocli.CommandLine.Option;
         description = "Prints status of the cluster")
 @Singleton
 public class ClusterStatusSubCommand extends BaseCommand implements Callable<Integer> {
-
-    /**
-     * Cluster endpoint URL option.
-     */
+    /** Cluster endpoint URL option. */
     @SuppressWarnings("PMD.UnusedPrivateField")
     @Option(names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String clusterUrl;

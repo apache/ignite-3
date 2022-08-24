@@ -39,16 +39,11 @@ import picocli.CommandLine.Parameters;
 @Command(name = "show",
         description = "Shows cluster configuration")
 public class ClusterConfigShowReplSubCommand extends BaseCommand implements Runnable {
-
-    /**
-     * Configuration selector option.
-     */
+    /** Configuration selector option. */
     @Parameters(arity = "0..1", description = "Configuration path selector")
     private String selector;
 
-    /**
-     * Cluster endpoint URL option.
-     */
+    /** Cluster endpoint URL option. */
     @Option(names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String clusterUrl;
 

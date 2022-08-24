@@ -26,7 +26,6 @@ import org.apache.ignite.cli.core.style.element.UiString;
  * UI component that represents a message.
  */
 public class MessageUiComponent implements UiComponent {
-
     private final String message;
 
     private final UiElement[] messageUiElements;

@@ -32,7 +32,6 @@ import org.apache.ignite.rest.client.model.InitCommand;
  */
 @Singleton
 public class ClusterInitCall implements Call<ClusterInitCallInput, String> {
-
     /** {@inheritDoc} */
     @Override
     public DefaultCallOutput<String> execute(ClusterInitCallInput input) {

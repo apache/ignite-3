@@ -32,7 +32,6 @@ import org.apache.ignite.cli.core.style.element.UiElements;
  */
 @Singleton
 public class DisconnectCall implements Call<EmptyCallInput, String> {
-
     @Inject
     private final Session session;
 

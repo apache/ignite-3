@@ -25,7 +25,6 @@ import org.apache.ignite.cli.core.style.element.UiElements;
 import org.junit.jupiter.api.Test;
 
 class ErrorUiComponentTest {
-
     @Test
     void rendersHeader() {
         // Given

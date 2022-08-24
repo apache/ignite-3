@@ -39,7 +39,6 @@ import picocli.CommandLine.Option;
 })
 @Singleton
 public class CliConfigSubCommand extends BaseCommand implements Callable<Integer> {
-
     @Option(names = {"--profile", "-p"})
     private String profileName;
 

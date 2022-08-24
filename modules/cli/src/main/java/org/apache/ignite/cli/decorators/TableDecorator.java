@@ -26,7 +26,6 @@ import org.apache.ignite.cli.sql.table.Table;
  * Implementation of {@link Decorator} for {@link Table}.
  */
 public class TableDecorator implements Decorator<Table, TerminalOutput> {
-
     /**
      * Transform {@link Table} to {@link TerminalOutput}.
      *

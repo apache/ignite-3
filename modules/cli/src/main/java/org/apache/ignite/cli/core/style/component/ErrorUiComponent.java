@@ -30,7 +30,6 @@ import org.apache.ignite.cli.core.style.element.UiString;
  * UI component that represent any error message.
  */
 public class ErrorUiComponent implements UiComponent {
-
     private final String header;
 
     private final UiElement[] headerUiElements;

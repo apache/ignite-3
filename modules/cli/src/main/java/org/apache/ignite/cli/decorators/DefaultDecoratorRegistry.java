@@ -29,7 +29,6 @@ import org.apache.ignite.cli.sql.table.Table;
  * Default set of {@link org.apache.ignite.cli.core.decorator.Decorator}.
  */
 public class DefaultDecoratorRegistry extends DecoratorRegistry {
-
     /**
      * Constructor.
      */

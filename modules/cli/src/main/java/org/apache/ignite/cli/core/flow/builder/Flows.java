@@ -36,9 +36,7 @@ import org.apache.ignite.cli.core.style.component.QuestionUiComponent;
  * Helper class for operating and creating {@link Flow} and {@link FlowBuilder}.
  */
 public final class Flows {
-
     private Flows() {
-
     }
 
     /**

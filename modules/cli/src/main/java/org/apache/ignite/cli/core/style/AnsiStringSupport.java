@@ -43,6 +43,7 @@ public final class AnsiStringSupport {
      */
     public static class Fg implements Marker {
         private final Color color;
+
         private Style style;
 
         private Fg(Color color) {
@@ -65,8 +66,7 @@ public final class AnsiStringSupport {
 
     /** Represents the text style. */
     public enum Style implements Marker {
-        BOLD("bold"),
-        UNDERLINE("underline");
+        BOLD("bold"), UNDERLINE("underline");
 
         private final String value;
 

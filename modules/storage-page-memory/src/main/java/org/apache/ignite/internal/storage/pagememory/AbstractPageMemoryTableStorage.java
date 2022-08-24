@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -142,18 +143,18 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, String indexName) {
+    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, String indexName) {
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> destroyIndex(String indexName) {
+    public CompletableFuture<Void> destroyIndex(UUID indexId) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 

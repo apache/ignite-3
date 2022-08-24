@@ -26,7 +26,6 @@ import org.apache.ignite.cli.sql.table.Table;
  * Composite object of sql query result.
  */
 public class SqlQueryResult {
-
     private final Table<String> table;
 
     private final String message;
