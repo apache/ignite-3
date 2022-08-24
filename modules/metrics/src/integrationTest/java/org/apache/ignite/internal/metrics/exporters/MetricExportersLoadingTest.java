@@ -40,32 +40,30 @@ public class MetricExportersLoadingTest {
 
         metricManager.enable(src.name());
 
-        OutputStream pullOutputStream = new ByteArrayOutputStream();
-        TestPullMetricExporter.setOutputStream(pullOutputStream);
+        try (OutputStream pullOutputStream = new ByteArrayOutputStream();
+                OutputStream pushOutputStream = new ByteArrayOutputStream()) {
+            TestPullMetricExporter.setOutputStream(pullOutputStream);
 
-        OutputStream pushOutputStream = new ByteArrayOutputStream();
-        TestPushMetricExporter.setOutputStream(pushOutputStream);
+            TestPushMetricExporter.setOutputStream(pushOutputStream);
 
-        assertEquals(0, pullOutputStream.toString().length());
+            assertEquals(0, pullOutputStream.toString().length());
 
-        assertEquals(0, pushOutputStream.toString().length());
+            assertEquals(0, pushOutputStream.toString().length());
 
-        metricManager.start();
+            metricManager.start();
 
-        src.inc();
+            src.inc();
 
-        waitForOutput(pushOutputStream, "TestMetricsSource:\nmetric:1");
-        assertTrue(pushOutputStream.toString().contains("TestMetricsSource:\nmetric:1"));
+            waitForOutput(pushOutputStream, "TestMetricsSource:\nmetric:1");
+            assertTrue(pushOutputStream.toString().contains("TestMetricsSource:\nmetric:1"));
 
-        TestPullMetricExporter.requestMetrics();
+            TestPullMetricExporter.requestMetrics();
 
-        waitForOutput(pullOutputStream, "TestMetricsSource:\nmetric:1");
-        assertTrue(pullOutputStream.toString().contains("TestMetricsSource:\nmetric:1"));
+            waitForOutput(pullOutputStream, "TestMetricsSource:\nmetric:1");
+            assertTrue(pullOutputStream.toString().contains("TestMetricsSource:\nmetric:1"));
 
-        metricManager.stop();
-
-        pushOutputStream.close();
-        pullOutputStream.close();
+            metricManager.stop();
+        }
     }
 
     private void waitForOutput(OutputStream outputStream, String content) {
