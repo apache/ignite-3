@@ -14,7 +14,7 @@ needed to generate a valid [Open API spec](todo) from these interfaces.
 ## Error handling
 
 Ignite 3 implements the [problem/json](todo) in all endpoints. That's why
-problem definition and common problem handling are defined in this module. Here is how it is working:
+problem definition and common problem handling are defined in this module. Here is how it works:
 
 - `IgniteException` is thrown in any Ignite component
 - REST Controller might not handle this exception 
