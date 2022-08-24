@@ -16,7 +16,7 @@ During the build time, the [Open API spec]() is generated from all API definitio
 - implement an API interface in the module that is responsible for the API scope
 - define micronaut factory that is responsible for the creation of beans that are needed for your Controller
 - for extending the exception handling mechanism, implement micronaut's `ExceptionHandler` and include it in the micronaut factory
-- create the instance of the RestFactory in IgniteImpl constructor and put the factory to the RestComponent's constructor
+- create the instance of the RestFactory in the IgniteImpl constructor and put the factory to the RestComponent's constructor
 
 > The class that implements the API should be a valid micronaut controller.
 > Module with the API implementation should configure `micronaut-inject-java` annotation processor.
