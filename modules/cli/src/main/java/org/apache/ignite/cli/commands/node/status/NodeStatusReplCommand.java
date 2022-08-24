@@ -17,17 +17,13 @@
 
 package org.apache.ignite.cli.commands.node.status;
 
-import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_NODE_URL_MESSAGE;
-
 import jakarta.inject.Inject;
-import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.node.status.NodeStatusCall;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.node.NodeUrlMixin;
-import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.call.StatusCallInput;
-import org.apache.ignite.cli.core.repl.Session;
-import org.apache.ignite.cli.decorators.NodeStatusDecorator;
+import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.cli.core.call.UrlCallInput;
+import org.apache.ignite.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -35,37 +31,23 @@ import picocli.CommandLine.Mixin;
  * Display the node status in REPL.
  */
 @Command(name = "status", description = "Prints status of the node")
-public class NodeStatusReplCommand extends BaseCommand implements Callable<Integer> {
+public class NodeStatusReplCommand extends BaseCommand implements Runnable {
     /** Node URL option. */
     @Mixin
     private NodeUrlMixin nodeUrl;
 
     @Inject
-    private NodeStatusCall nodeStatusCall;
+    private NodeStatusCall call;
 
     @Inject
-    private Session session;
+    private ConnectToClusterQuestion question;
 
     /** {@inheritDoc} */
     @Override
-    public Integer call() {
-        String inputUrl;
-
-        if (nodeUrl.getNodeUrl() != null) {
-            inputUrl = nodeUrl.getNodeUrl();
-        } else if (session.isConnectedToNode()) {
-            inputUrl = session.nodeUrl();
-        } else {
-            spec.commandLine().getErr().println(CONNECT_OR_USE_NODE_URL_MESSAGE.render());
-            return 2;
-        }
-
-        return CallExecutionPipeline.builder(nodeStatusCall)
-                .inputProvider(() -> new StatusCallInput(inputUrl))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .decorator(new NodeStatusDecorator())
-                .build()
-                .runPipeline();
+    public void run() {
+        question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
+                .map(UrlCallInput::new)
+                .then(Flows.fromCall(call))
+                .startWithPrint();
     }
 }

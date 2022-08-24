@@ -73,7 +73,7 @@ public final class Flows {
      * @return {@link FlowBuilder} which started from constant flow.
      */
     public static <T> FlowBuilder<Void, T> from(T value) {
-        return new FlowBuilderImpl<>(mono(unused -> value));
+        return from(unused -> value);
     }
 
     /**
@@ -137,7 +137,7 @@ public final class Flows {
                         List.of(new AcceptedQuestionAnswer<>((a, i) -> null),
                                 new InterruptQuestionAnswer<>())
                 )
-                .then(Flows.mono(unused -> onAccept.get()));
+                .then(mono(unused -> onAccept.get()));
     }
 
     /**

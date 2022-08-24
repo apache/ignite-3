@@ -20,10 +20,10 @@ package org.apache.ignite.cli.commands.topology;
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cluster.topology.LogicalTopologyCall;
-import org.apache.ignite.cli.call.cluster.topology.TopologyCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.cli.core.call.UrlCallInput;
 import org.apache.ignite.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.cli.decorators.TopologyDecorator;
 import picocli.CommandLine.Command;
@@ -45,13 +45,13 @@ public class LogicalTopologyCommand extends BaseCommand implements Callable<Inte
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> TopologyCallInput.builder().clusterUrl(clusterUrl.getClusterUrl()).build())
+                .inputProvider(() -> new UrlCallInput(clusterUrl.getClusterUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
+                .decorator(new TopologyDecorator())
                 .exceptionHandler(new ClusterNotInitializedExceptionHandler(
                         "Cannot show logical topology", "ignite cluster init"
                 ))
-                .decorator(new TopologyDecorator())
                 .build()
                 .runPipeline();
     }

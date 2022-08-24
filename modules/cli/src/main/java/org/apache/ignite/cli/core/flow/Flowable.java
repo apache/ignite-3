@@ -111,7 +111,7 @@ public interface Flowable<T> {
     }
 
     /**
-     * New empty coll output.
+     * New empty call output.
      *
      * @return Empty call output.
      */

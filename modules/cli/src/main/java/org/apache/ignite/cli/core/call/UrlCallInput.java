@@ -17,18 +17,25 @@
 
 package org.apache.ignite.cli.core.call;
 
-/**
- * Input for status call.
- */
-public class StatusCallInput implements CallInput {
-    private final String clusterUrl;
+/** Input for executing commands with URL arguments. */
+public class UrlCallInput implements CallInput {
+    private final String url;
 
-    public StatusCallInput(String clusterUrl) {
-        this.clusterUrl = clusterUrl;
+    /**
+     * Constructor with specified URL.
+     *
+     * @param url URL input
+     */
+    public UrlCallInput(String url) {
+        this.url = url;
     }
 
-    public String getClusterUrl() {
-        return clusterUrl;
+    /**
+     * Argument getter.
+     *
+     * @return URL argument
+     */
+    public String getUrl() {
+        return url;
     }
-
 }
