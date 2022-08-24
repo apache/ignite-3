@@ -1,6 +1,6 @@
 # ignite-rest-api
 
-This module defines REST API's that might be provided by Ignite 3. Also, common
+This module defines REST APIs that might be provided by Ignite 3. Also, common
 DTOs and error handlers are defined.
 
 ## API definition
