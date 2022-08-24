@@ -20,16 +20,17 @@ package org.apache.ignite.cli.commands.node.status;
 import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
 import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_DESC;
 import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_OPTION;
+import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_NODE_URL_MESSAGE;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.node.status.NodeStatusCall;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.NodeStatusDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StatusCallInput;
 import org.apache.ignite.cli.core.repl.Session;
+import org.apache.ignite.cli.decorators.NodeStatusDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -37,13 +38,10 @@ import picocli.CommandLine.Option;
  * Display the node status in REPL.
  */
 @Command(name = "status",
-        description = "Prints status of the node.")
+        description = "Prints status of the node")
 @Singleton
 public class NodeStatusReplSubCommand extends BaseCommand implements Callable<Integer> {
-
-    /**
-     * Node URL option.
-     */
+    /** Node URL option. */
     @SuppressWarnings("PMD.UnusedPrivateField")
     @Option(names = {NODE_URL_OPTION}, description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String nodeUrl;
@@ -64,8 +62,7 @@ public class NodeStatusReplSubCommand extends BaseCommand implements Callable<In
         } else if (session.isConnectedToNode()) {
             inputUrl = session.nodeUrl();
         } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '"
-                    + NODE_URL_OPTION + "' option.");
+            spec.commandLine().getErr().println(CONNECT_OR_USE_NODE_URL_MESSAGE.render());
             return 2;
         }
 

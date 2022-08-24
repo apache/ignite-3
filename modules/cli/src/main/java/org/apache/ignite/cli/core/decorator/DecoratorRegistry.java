@@ -19,7 +19,7 @@ package org.apache.ignite.cli.core.decorator;
 
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.ignite.cli.commands.decorators.DefaultDecorator;
+import org.apache.ignite.cli.decorators.DefaultDecorator;
 
 /**
  * Registry for {@link Decorator}.

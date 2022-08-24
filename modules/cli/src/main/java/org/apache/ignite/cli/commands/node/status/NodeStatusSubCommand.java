@@ -26,9 +26,9 @@ import jakarta.inject.Singleton;
 import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.node.status.NodeStatusCall;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.NodeStatusDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StatusCallInput;
+import org.apache.ignite.cli.decorators.NodeStatusDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -36,13 +36,10 @@ import picocli.CommandLine.Option;
  * Display the node status.
  */
 @Command(name = "status",
-        description = "Prints status of the node.")
+        description = "Prints status of the node")
 @Singleton
 public class NodeStatusSubCommand extends BaseCommand implements Callable<Integer> {
-
-    /**
-     * Node URL option.
-     */
+    /** Node URL option. */
     @SuppressWarnings("PMD.UnusedPrivateField")
     @Option(names = {NODE_URL_OPTION}, description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String nodeUrl;

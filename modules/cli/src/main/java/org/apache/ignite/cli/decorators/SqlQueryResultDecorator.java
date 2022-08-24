@@ -15,31 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.decorators;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.ignite.cli.call.configuration.JsonString;
 import org.apache.ignite.cli.core.decorator.Decorator;
 import org.apache.ignite.cli.core.decorator.TerminalOutput;
+import org.apache.ignite.cli.sql.SqlQueryResult;
 
 /**
- * Pretty json decorator.
+ * Composite decorator for {@link SqlQueryResult}.
  */
-public class JsonDecorator implements Decorator<JsonString, TerminalOutput> {
+public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, TerminalOutput> {
+    private final TableDecorator tableDecorator = new TableDecorator();
 
-    /** {@inheritDoc} */
+    private final DefaultDecorator<String> messageDecorator = new DefaultDecorator<>();
+
     @Override
-    public TerminalOutput decorate(JsonString json) {
-        ObjectMapper mapper = new ObjectMapper();
-        return () -> {
-            try {
-                return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(mapper.readValue(json.getValue(), JsonNode.class));
-            } catch (JsonProcessingException e) {
-                return json.getValue(); // no-op
-            }
-
-        };
+    public TerminalOutput decorate(SqlQueryResult data) {
+        return data.getResult(tableDecorator, messageDecorator);
     }
 }

@@ -21,7 +21,6 @@ import java.io.PrintWriter;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import org.apache.ignite.cli.commands.decorators.DefaultDecoratorRegistry;
 import org.apache.ignite.cli.core.decorator.DecoratorRegistry;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionHandlers;
@@ -33,6 +32,7 @@ import org.apache.ignite.cli.core.flow.Flowable;
 import org.apache.ignite.cli.core.flow.question.QuestionAnswer;
 import org.apache.ignite.cli.core.flow.question.QuestionAskerFactory;
 import org.apache.ignite.cli.core.repl.context.CommandLineContextProvider;
+import org.apache.ignite.cli.decorators.DefaultDecoratorRegistry;
 
 /**
  * Implementation of {@link FlowBuilder}.

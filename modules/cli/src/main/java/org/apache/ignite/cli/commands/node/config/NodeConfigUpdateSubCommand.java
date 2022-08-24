@@ -36,18 +36,14 @@ import picocli.CommandLine.Parameters;
  * Command that updates node configuration.
  */
 @Command(name = "update",
-        description = "Updates node configuration.")
+        description = "Updates node configuration")
 @Singleton
 public class NodeConfigUpdateSubCommand extends BaseCommand implements Callable<Integer> {
-    /**
-     * Node URL option.
-     */
+    /** Node URL option. */
     @Option(names = {NODE_URL_OPTION}, description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String nodeUrl;
 
-    /**
-     * Configuration that will be updated.
-     */
+    /** Configuration that will be updated. */
     @Parameters(index = "0")
     private String config;
 

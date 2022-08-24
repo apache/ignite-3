@@ -28,7 +28,7 @@ import picocli.CommandLine.Command;
 /**
  * Connects to the Ignite 3 node.
  */
-@Command(name = "disconnect", description = "Disconnect from Ignite 3 node.")
+@Command(name = "disconnect", description = "Disconnect from Ignite 3 node")
 @Singleton
 public class DisconnectCommand extends BaseCommand implements Runnable {
     @Inject

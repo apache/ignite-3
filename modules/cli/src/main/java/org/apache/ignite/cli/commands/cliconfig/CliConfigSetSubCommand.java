@@ -36,7 +36,7 @@ public class CliConfigSetSubCommand extends BaseCommand implements Callable<Inte
     @Parameters(arity = "1..*")
     private Map<String, String> parameters;
 
-    @Option(names = {"--profile", "-p"}, description = "Set property in specified profile.")
+    @Option(names = {"--profile", "-p"}, description = "Set property in specified profile")
     private String profileName;
 
     @Inject

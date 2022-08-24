@@ -32,6 +32,6 @@ import picocli.CommandLine.Command;
                 ClusterInitSubCommand.class,
                 ClusterStatusSubCommand.class,
                 TopologyCommand.class},
-        description = "Manages an Ignite cluster.")
+        description = "Manages an Ignite cluster")
 public class ClusterCommand {
 }

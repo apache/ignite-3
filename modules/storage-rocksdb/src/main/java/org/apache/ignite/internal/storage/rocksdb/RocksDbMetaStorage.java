@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -43,13 +44,7 @@ class RocksDbMetaStorage {
     /**
      * Name of the key that is out of range of the partition ID key prefix, used as an exclusive bound.
      */
-    private static final byte[] PARTITION_ID_PREFIX_END;
-
-    static {
-        PARTITION_ID_PREFIX_END = PARTITION_ID_PREFIX.clone();
-
-        PARTITION_ID_PREFIX_END[PARTITION_ID_PREFIX_END.length - 1] += 1;
-    }
+    private static final byte[] PARTITION_ID_PREFIX_END = RocksUtils.rangeEnd(PARTITION_ID_PREFIX);
 
     private final ColumnFamily metaColumnFamily;
 
@@ -79,23 +74,20 @@ class RocksDbMetaStorage {
         ) {
             it.seek(PARTITION_ID_PREFIX);
 
-            RocksUtils.forEach(it, (key, value) -> data.add(value));
+            RocksUtils.forEach(it, (key, value) -> data.add(key));
         } catch (RocksDBException e) {
             throw new StorageException("Error when reading a list of partition IDs from the meta Column Family", e);
         }
 
         return data.build()
-                .mapToInt(RocksDbMetaStorage::bytesToUnsignedShort)
+                .mapToInt(bytes -> {
+                    // Bytes are stored in BE order
+                    int higherByte = bytes[PARTITION_ID_PREFIX.length] & 0xFF;
+                    int lowerByte = bytes[PARTITION_ID_PREFIX.length + 1] & 0xFF;
+
+                    return (higherByte << 8) | lowerByte;
+                })
                 .toArray();
-    }
-
-    /**
-     * Converts a byte array (in big endian format) into an unsigned short (represented as an {@code int}).
-     */
-    private static int bytesToUnsignedShort(byte[] array) {
-        assert array.length == 2 : array.length;
-
-        return array[0] << 8 | array[1];
     }
 
     /**
@@ -104,12 +96,8 @@ class RocksDbMetaStorage {
      * @param partitionId partition ID
      */
     void putPartitionId(int partitionId) {
-        byte[] partitionIdKey = partitionIdKey(partitionId);
-
-        byte[] partitionIdBytes = Arrays.copyOfRange(partitionIdKey, PARTITION_ID_PREFIX.length, partitionIdKey.length);
-
         try {
-            metaColumnFamily.put(partitionIdKey, partitionIdBytes);
+            metaColumnFamily.put(partitionIdKey(partitionId), BYTE_EMPTY_ARRAY);
         } catch (RocksDBException e) {
             throw new StorageException("Unable to save partition " + partitionId + " in the meta Column Family", e);
         }

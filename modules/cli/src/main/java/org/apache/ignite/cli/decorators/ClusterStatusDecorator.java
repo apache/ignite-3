@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.decorators;
 
 import static org.apache.ignite.cli.core.style.AnsiStringSupport.ansi;
 import static org.apache.ignite.cli.core.style.AnsiStringSupport.fg;
@@ -29,7 +29,6 @@ import org.apache.ignite.cli.core.style.AnsiStringSupport.Color;
  * Decorator for {@link ClusterStatus}.
  */
 public class ClusterStatusDecorator implements Decorator<ClusterStatus, TerminalOutput> {
-
     @Override
     public TerminalOutput decorate(ClusterStatus data) {
         return data.isInitialized()

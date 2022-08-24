@@ -20,6 +20,7 @@ package org.apache.ignite.cli.core.exception.handler;
 import org.apache.ignite.cli.config.ProfileNotFoundException;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
 
 /**
  * Handler for {@link ProfileNotFoundException}.
@@ -27,7 +28,10 @@ import org.apache.ignite.cli.core.exception.ExceptionWriter;
 public class ProfileNotFoundExceptionHandler implements ExceptionHandler<ProfileNotFoundException> {
     @Override
     public int handle(ExceptionWriter err, ProfileNotFoundException e) {
-        err.write(e.getMessage());
+        err.write(
+                ErrorUiComponent.fromHeader(e.getMessage()).render()
+        );
+
         return 1;
     }
 

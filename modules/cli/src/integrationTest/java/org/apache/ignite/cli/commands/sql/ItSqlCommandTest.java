@@ -78,7 +78,8 @@ class ItSqlCommandTest extends CliCommandTestInitializedIntegrationBase {
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-17090
-                () -> assertErrOutputIs("SQL query parsing error: Sql query execution failed." + System.lineSeparator())
+                () -> assertErrOutputIs("SQL query parsing error" + System.lineSeparator()
+                        + "Sql query execution failed." + System.lineSeparator())
         );
     }
 }

@@ -20,12 +20,14 @@ package org.apache.ignite.internal.storage.index;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.IndexColumnView;
 import org.apache.ignite.configuration.schemas.table.SortedIndexView;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
@@ -91,29 +93,29 @@ public class SortedIndexDescriptor {
         }
     }
 
-    private final String name;
+    private final UUID id;
 
     private final List<ColumnDescriptor> columns;
 
     /**
      * Creates an Index Descriptor from a given Table Configuration.
      *
-     * @param name index name.
+     * @param indexId index ID.
      * @param tableConfig table configuration.
      */
-    public SortedIndexDescriptor(String name, TableView tableConfig) {
-        this.name = name;
+    public SortedIndexDescriptor(UUID indexId, TableView tableConfig) {
+        this.id = indexId;
 
-        TableIndexView indexConfig = tableConfig.indices().get(name);
+        TableIndexView indexConfig = ConfigurationUtil.getByInternalId(tableConfig.indices(), indexId);
 
         if (indexConfig == null) {
-            throw new StorageException(String.format("Index configuration for \"%s\" could not be found", name));
+            throw new StorageException(String.format("Index configuration for \"%s\" could not be found", indexId));
         }
 
         if (!(indexConfig instanceof SortedIndexView)) {
             throw new StorageException(String.format(
                     "Index \"%s\" is not configured as a Sorted Index. Actual type: %s",
-                    name, indexConfig.type()
+                    indexId, indexConfig.type()
             ));
         }
 
@@ -133,10 +135,10 @@ public class SortedIndexDescriptor {
     }
 
     /**
-     * Returns this index' name.
+     * Returns this index' ID.
      */
-    public String name() {
-        return name;
+    public UUID id() {
+        return id;
     }
 
     /**
