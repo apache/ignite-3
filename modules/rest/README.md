@@ -2,9 +2,9 @@
 
 This module defines [RestComponent](src/main/java/org/apache/ignite/internal/rest/RestComponent.java) that is responsible for:
 
-- at compile time it aggregates all REST API definitions by `@OpenAPIInclude` annotation
-- at runtime, it creates a micronaut context, injects all needed beans into the context
-- starts the micronaut server at the configured port range
+- aggregating all REST API definitions by `@OpenAPIInclude` annotation at compile time
+- creating a micronaut context at runtime and injecting all needed beans into the context
+- starting the micronaut server at the configured port range
 
 During the build time, the [Open API spec]() is generated from all API definitions that are included in
 `@OpenAPIInclude` annotation. The spec is located in `ignite-rest/openapi`.
