@@ -23,7 +23,6 @@ import java.util.Map;
  * Read-only metrics registry.
  */
 public class MetricProvider {
-
     /** Metrics registry. */
     private MetricRegistry metricRegistry;
 

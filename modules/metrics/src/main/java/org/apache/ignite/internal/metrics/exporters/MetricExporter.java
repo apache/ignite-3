@@ -30,7 +30,6 @@ import org.apache.ignite.internal.metrics.MetricProvider;
  * Pull exporters should extend {@link BasicMetricExporter}.
  */
 public interface MetricExporter {
-
     /**
      * Initialize metric exporter with the provider of available metrics.
      *

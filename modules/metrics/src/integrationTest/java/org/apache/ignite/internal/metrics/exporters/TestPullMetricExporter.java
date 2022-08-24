@@ -30,7 +30,6 @@ import org.apache.ignite.internal.metrics.MetricSet;
  * instead of the complex TCP/IP etc. endpoints.
  */
 public class TestPullMetricExporter extends BasicMetricExporter {
-
     private static OutputStream outputStream;
 
     private static final Object obj = new Object();
@@ -95,6 +94,5 @@ public class TestPullMetricExporter extends BasicMetricExporter {
                 throw new RuntimeException(e);
             }
         }
-
     }
 }

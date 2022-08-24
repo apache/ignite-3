@@ -30,7 +30,6 @@ import org.junit.jupiter.api.Test;
  * Integration test for metrics' exporters loading.
  */
 public class MetricExportersLoadingTest {
-
     @Test
     public void test() throws Exception {
         MetricManager metricManager = new MetricManager();
@@ -74,5 +73,4 @@ public class MetricExportersLoadingTest {
             LockSupport.parkNanos(100_000_000);
         }
     }
-
 }

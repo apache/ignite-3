@@ -58,7 +58,6 @@ public class TestPushMetricExporter extends PushMetricExporter {
     }
 
     private void write(String report) {
-
         try {
             outputStream.write(report.getBytes(StandardCharsets.UTF_8));
 
@@ -66,6 +65,5 @@ public class TestPushMetricExporter extends PushMetricExporter {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
     }
 }
