@@ -63,8 +63,7 @@ class ItSqlCommandTest extends CliCommandTestInitializedIntegrationBase {
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-17090
-                () -> assertErrOutputIs(CLIENT_CONNECTION_FAILED_MESSAGE + System.lineSeparator())
+                () -> assertOutputContains(CLIENT_CONNECTION_FAILED_MESSAGE + System.lineSeparator())
         );
     }
 
@@ -76,9 +75,7 @@ class ItSqlCommandTest extends CliCommandTestInitializedIntegrationBase {
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-17090
-                () -> assertErrOutputIs("SQL query parsing error" + System.lineSeparator()
-                        + "Sql query execution failed." + System.lineSeparator())
+                () -> assertErrOutputContains("Failed to parse query: Encountered \"\" at line 1, column 6")
         );
     }
 }
