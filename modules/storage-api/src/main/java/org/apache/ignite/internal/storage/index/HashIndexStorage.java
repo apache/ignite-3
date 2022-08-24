@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import java.util.Collection;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.util.Cursor;
 
 /**
  * Storage for a Hash Index.
@@ -36,12 +36,15 @@ public interface HashIndexStorage {
     HashIndexDescriptor indexDescriptor();
 
     /**
-     * Returns a collection of {@code RowId}s that correspond to the given index key.
+     * Returns a cursor over {@code RowId}s associated with the given index key.
      */
-    Collection<RowId> get(BinaryTuple key);
+    Cursor<RowId> get(BinaryTuple key);
 
     /**
      * Adds the given index row to the index.
+     *
+     * <p>Usage note: this method <b>must</b> always be called inside the corresponding partition's
+     * {@link org.apache.ignite.internal.storage.MvPartitionStorage#runConsistently} closure.
      */
     void put(IndexRow row);
 
@@ -49,6 +52,14 @@ public interface HashIndexStorage {
      * Removes the given row from the index.
      *
      * <p>Removing a non-existent row is a no-op.
+     *
+     * <p>Usage note: this method <b>must</b> always be called inside the corresponding partition's
+     * {@link org.apache.ignite.internal.storage.MvPartitionStorage#runConsistently} closure.
      */
     void remove(IndexRow row);
+
+    /**
+     * Removes all data from this index.
+     */
+    void destroy();
 }
