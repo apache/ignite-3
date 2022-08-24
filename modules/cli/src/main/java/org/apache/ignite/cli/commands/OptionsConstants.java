@@ -23,28 +23,18 @@ import org.apache.ignite.cli.config.ConfigConstants;
  * Constants to use in {@code Option} annotations for commands.
  */
 public class OptionsConstants {
-    /**
-     * Cluster endpoint URL option name.
-     */
+    /** Cluster endpoint URL option name. */
     public static final String CLUSTER_URL_OPTION = "--cluster-endpoint-url";
 
-    /**
-     * Cluster endpoint URL option description.
-     */
-    public static final String CLUSTER_URL_DESC = "URL of cluster endpoint.";
+    /** Cluster endpoint URL option description. */
+    public static final String CLUSTER_URL_DESC = "URL of cluster endpoint";
 
-    /**
-     * Cluster endpoint URL option description key.
-     */
+    /** Cluster endpoint URL option description key. */
     public static final String CLUSTER_URL_KEY = ConfigConstants.CLUSTER_URL;
 
-    /**
-     * Node URL option name.
-     */
+    /** Node URL option name. */
     public static final String NODE_URL_OPTION = "--node-url";
 
-    /**
-     * Node URL option description.
-     */
-    public static final String NODE_URL_DESC = "URL of ignite node.";
+    /** Node URL option description. */
+    public static final String NODE_URL_DESC = "URL of ignite node";
 }

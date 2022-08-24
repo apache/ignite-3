@@ -26,8 +26,8 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.JsonDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.cli.decorators.JsonDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -36,18 +36,13 @@ import picocli.CommandLine.Parameters;
  * Command that shows configuration from the cluster.
  */
 @Command(name = "show",
-        description = "Shows node configuration.")
+        description = "Shows node configuration")
 public class NodeConfigShowSubCommand extends BaseCommand implements Callable<Integer> {
-
-    /**
-     * Configuration selector option.
-     */
+    /** Configuration selector option. */
     @Parameters(arity = "0..1", description = "Configuration path selector")
     private String selector;
 
-    /**
-     * Node URL option.
-     */
+    /** Node URL option. */
     @Option(names = {NODE_URL_OPTION}, description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String nodeUrl;
 

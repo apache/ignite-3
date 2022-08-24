@@ -20,6 +20,7 @@ package org.apache.ignite.cli.commands.topology;
 import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_DESC;
 import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
 import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_OPTION;
+import static org.apache.ignite.cli.core.style.component.CommonMessages.CONNECT_OR_USE_NODE_URL_MESSAGE;
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
@@ -27,9 +28,9 @@ import org.apache.ignite.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.cli.call.cluster.topology.TopologyCallInput;
 import org.apache.ignite.cli.call.cluster.topology.TopologyCallInput.TopologyCallInputBuilder;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.TopologyDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.repl.Session;
+import org.apache.ignite.cli.decorators.TopologyDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -38,9 +39,7 @@ import picocli.CommandLine.Option;
  */
 @Command(name = "physical")
 public class PhysicalTopologyReplSubCommand extends BaseCommand implements Callable<Integer> {
-    /**
-     * Cluster endpoint URL option.
-     */
+    /** Cluster endpoint URL option. */
     @Option(names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String clusterUrl;
 
@@ -57,11 +56,10 @@ public class PhysicalTopologyReplSubCommand extends BaseCommand implements Calla
 
         if (clusterUrl != null) {
             inputBuilder.clusterUrl(clusterUrl);
-        } else if (session.isConnectedToNode())  {
+        } else if (session.isConnectedToNode()) {
             inputBuilder.clusterUrl(session.nodeUrl());
         } else {
-            spec.commandLine().getErr().println("You are not connected to node. Run 'connect' command or use '"
-                    + CLUSTER_URL_OPTION + "' option.");
+            spec.commandLine().getErr().println(CONNECT_OR_USE_NODE_URL_MESSAGE.render());
             return 2;
         }
 

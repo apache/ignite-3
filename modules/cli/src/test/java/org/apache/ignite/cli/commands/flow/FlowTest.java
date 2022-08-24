@@ -17,10 +17,16 @@
 
 package org.apache.ignite.cli.commands.flow;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.emptyString;
+import static org.hamcrest.Matchers.equalTo;
+
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -36,6 +42,7 @@ import org.jline.terminal.impl.DumbTerminal;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -90,6 +97,70 @@ class FlowTest {
         bindAnswers("yes", "no");
         Flowable<Integer> call = createFlow().start(Flowable.empty());
         Assertions.assertEquals(1, call.value());
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17519")
+    void printsToOutput() throws IOException {
+        // Given
+        bindAnswers("no"); // we don't care about answer in this test
+
+        StringWriter out = new StringWriter();
+        PrintWriter output = new PrintWriter(out);
+        StringWriter errOut = new StringWriter();
+        PrintWriter errOutput = new PrintWriter(errOut);
+
+        // When build flow
+        Flow<Object, String> build = Flows.question("Do you like this?",
+                        List.of(new QuestionAnswer<>("yes"::equals, (a, i) -> 1),
+                                new QuestionAnswer<>("no"::equals, (a, i) -> 2))
+                )
+                .map(String::valueOf)
+                .exceptionHandler(new TestExceptionHandler())
+                .then(Flows.fromCall(new ThrowingStrCall(), StrCallInput::new))
+                .toOutput(output, errOutput)
+                .build();
+
+        // Then the output is empty
+        assertThat(errOut.toString(), emptyString());
+
+        // When start flow
+        build.start(Flowable.empty());
+
+        // Then output equals to the message from the exception because we use TestExceptionHandler
+        assertThat(errOut.toString(), equalTo("Ooops!")); // BUT there is the message taken from default exception handler
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17519")
+    void printsToOutputThatWorks() throws IOException {
+        // Given
+        bindAnswers("no"); // we don't care about answer in this test
+
+        StringWriter out = new StringWriter();
+        PrintWriter output = new PrintWriter(out);
+        StringWriter errOut = new StringWriter();
+        PrintWriter errOutput = new PrintWriter(errOut);
+
+        // When build flow
+        Flow<Object, String> build = Flows.question("Do you like this?",
+                        List.of(new QuestionAnswer<>("yes"::equals, (a, i) -> 1),
+                                new QuestionAnswer<>("no"::equals, (a, i) -> 2))
+                )
+                .map(String::valueOf)
+                .toOutput(output, errOutput)
+                .then(Flows.fromCall(new ThrowingStrCall(), StrCallInput::new))
+                .exceptionHandler(new TestExceptionHandler())
+                .build();
+
+        // Then the output is empty
+        assertThat(errOut.toString(), emptyString());
+
+        // When start flow
+        build.start(Flowable.empty());
+
+        // Then output equals to the message from the exception because we use TestExceptionHandler
+        assertThat(errOut.toString(), equalTo("Ooops!")); // BUT it is empty
     }
 
     private static Flow<Object, Integer> createFlow() {

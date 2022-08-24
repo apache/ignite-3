@@ -26,8 +26,8 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.cli.call.cluster.topology.TopologyCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.TopologyDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite.cli.decorators.TopologyDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -36,9 +36,7 @@ import picocli.CommandLine.Option;
  */
 @Command(name = "physical")
 public class PhysicalTopologySubCommand extends BaseCommand implements Callable<Integer> {
-    /**
-     * Cluster endpoint URL option.
-     */
+    /** Cluster endpoint URL option. */
     @Option(names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String clusterUrl;
 

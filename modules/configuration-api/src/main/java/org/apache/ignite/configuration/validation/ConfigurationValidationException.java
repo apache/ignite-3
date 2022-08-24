@@ -18,6 +18,7 @@
 package org.apache.ignite.configuration.validation;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Configuration validation exception.
@@ -41,7 +42,7 @@ public class ConfigurationValidationException extends RuntimeException {
      * @param issues List of issues occurred during validation.
      */
     public ConfigurationValidationException(List<ValidationIssue> issues) {
-        super(issues.toString());
+        super(createMessageFromIssues(issues));
 
         this.issues = issues;
     }
@@ -53,5 +54,10 @@ public class ConfigurationValidationException extends RuntimeException {
      */
     public List<ValidationIssue> getIssues() {
         return issues;
+    }
+
+    private static String createMessageFromIssues(List<ValidationIssue> issues) {
+        return "Validation did not pass for keys: "
+                + issues.stream().map(issue -> "[" + issue.key() + ", " + issue.message() + "]").collect(Collectors.joining(", "));
     }
 }

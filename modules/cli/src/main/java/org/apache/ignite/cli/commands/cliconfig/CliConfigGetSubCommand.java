@@ -35,7 +35,7 @@ public class CliConfigGetSubCommand extends BaseCommand implements Callable<Inte
     @Parameters
     private String key;
 
-    @Option(names = {"--profile", "-p"}, description = "Get property from specified profile.")
+    @Option(names = {"--profile", "-p"}, description = "Get property from specified profile")
     private String profileName;
 
     @Inject

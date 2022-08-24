@@ -15,26 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.core.style.element;
 
-import com.jakewharton.fliptables.FlipTableConverters;
-import org.apache.ignite.cli.core.decorator.Decorator;
-import org.apache.ignite.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.cli.sql.table.Table;
+import org.apache.ignite.cli.core.style.AnsiStringSupport.Marker;
 
 /**
- * Implementation of {@link Decorator} for {@link Table}.
+ * IU element that is marked with provided ANSI marker.
  */
-public class TableDecorator implements Decorator<Table, TerminalOutput> {
+public class MarkedUiElement implements UiElement {
+    private final String content;
 
-    /**
-     * Transform {@link Table} to {@link TerminalOutput}.
-     *
-     * @param table incoming {@link Table}.
-     * @return User friendly interpretation of {@link Table} in {@link TerminalOutput}.
-     */
+    private final Marker marker;
+
+    MarkedUiElement(String content, Marker marker) {
+        this.content = content;
+        this.marker = marker;
+    }
+
     @Override
-    public TerminalOutput decorate(Table table) {
-        return () -> FlipTableConverters.fromObjects(table.header(), table.content());
+    public String represent() {
+        return marker.mark(content);
+    }
+
+    @Override
+    public String toString() {
+        return represent();
     }
 }

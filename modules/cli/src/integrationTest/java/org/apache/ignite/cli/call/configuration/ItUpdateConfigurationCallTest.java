@@ -54,7 +54,7 @@ public class ItUpdateConfigurationCallTest extends CallInitializedIntegrationTes
         // Then
         assertThat(output.hasError()).isFalse();
         // And
-        assertThat(output.body()).contains("Cluster configuration was updated successfully.");
+        assertThat(output.body()).contains("Cluster configuration was updated successfully");
         // And buffer size is updated
         String updatedConfigurationProperty = readConfigurationProperty("rocksDb.defaultRegion.writeBufferSize");
         assertThat(updatedConfigurationProperty).isEqualTo("1024");

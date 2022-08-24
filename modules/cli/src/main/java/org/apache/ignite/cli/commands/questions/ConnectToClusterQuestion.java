@@ -30,6 +30,8 @@ import org.apache.ignite.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.cli.core.flow.builder.Flows;
 import org.apache.ignite.cli.core.repl.Session;
 import org.apache.ignite.cli.core.repl.context.CommandLineContextProvider;
+import org.apache.ignite.cli.core.style.component.QuestionUiComponent;
+import org.apache.ignite.cli.core.style.element.UiElements;
 
 
 /**
@@ -37,7 +39,6 @@ import org.apache.ignite.cli.core.repl.context.CommandLineContextProvider;
  */
 @Singleton
 public class ConnectToClusterQuestion {
-
     @Inject
     private ConnectCall connectCall;
 
@@ -59,11 +60,14 @@ public class ConnectToClusterQuestion {
      */
     public FlowBuilder<Void, String> askQuestionIfNotConnected(String clusterUrl) {
         String defaultUrl = configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
-        String question = "You are not connected to node. Do you want to connect to the default node "
-                + defaultUrl + " ? [Y/n] ";
+
+        QuestionUiComponent questionUiComponent = QuestionUiComponent.fromQuestion(
+                "You are not connected to node. Do you want to connect to the default node %s? %s ",
+                UiElements.url(defaultUrl), UiElements.yesNo()
+        );
 
         return Flows.from(clusterUrlOrSessionNode(clusterUrl))
-                .ifThen(Objects::isNull, Flows.<String, ConnectCallInput>acceptQuestion(question,
+                .ifThen(Objects::isNull, Flows.<String, ConnectCallInput>acceptQuestion(questionUiComponent,
                                 () -> new ConnectCallInput(defaultUrl))
                         .then(Flows.fromCall(connectCall))
                         .toOutput(CommandLineContextProvider.getContext())
@@ -81,13 +85,17 @@ public class ConnectToClusterQuestion {
     public void askQuestionOnReplStart() {
         String defaultUrl = configManagerProvider.get().getCurrentProperty(ConfigConstants.CLUSTER_URL);
         String lastConnectedUrl = stateConfigProvider.get().getProperty(ConfigConstants.LAST_CONNECTED_URL);
-        String question;
+        QuestionUiComponent question;
         String clusterUrl;
         if (lastConnectedUrl != null) {
-            question = "Do you want to connect to the last connected node " + lastConnectedUrl + " ? [Y/n]";
+            question = QuestionUiComponent.fromQuestion(
+                    "Do you want to connect to the last connected node %s? %s ", UiElements.url(lastConnectedUrl), UiElements.yesNo()
+            );
             clusterUrl = lastConnectedUrl;
         } else {
-            question = "Do you want to connect to the default node " + defaultUrl + " ? [Y/n]";
+            question = QuestionUiComponent.fromQuestion(
+                    "Do you want to connect to the default node %s? %s ", UiElements.url(defaultUrl), UiElements.yesNo()
+            );
             clusterUrl = defaultUrl;
         }
 
@@ -100,8 +108,9 @@ public class ConnectToClusterQuestion {
     }
 
     private FlowBuilder<String, String> defaultUrlQuestion(String lastConnectedUrl) {
-        return Flows.acceptQuestion("Would you like to use " + lastConnectedUrl + " as the default URL? [Y/n]",
-                () -> {
+        return Flows.acceptQuestion(QuestionUiComponent.fromQuestion(
+                "Would you like to use %s as the default URL? %s ", UiElements.url(lastConnectedUrl), UiElements.yesNo()
+                ), () -> {
                     configManagerProvider.get().setProperty(ConfigConstants.CLUSTER_URL, lastConnectedUrl);
                     return "Config saved";
                 }

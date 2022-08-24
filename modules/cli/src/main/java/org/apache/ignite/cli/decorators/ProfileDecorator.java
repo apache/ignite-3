@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.decorators;
 
 import java.util.stream.Collectors;
 import org.apache.ignite.cli.config.Profile;

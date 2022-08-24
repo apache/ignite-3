@@ -37,18 +37,14 @@ import picocli.CommandLine.Parameters;
  * Command that updates cluster configuration in REPL mode.
  */
 @Command(name = "update",
-        description = "Updates cluster configuration.")
+        description = "Updates cluster configuration")
 @Singleton
 public class ClusterConfigUpdateReplSubCommand extends BaseCommand implements Runnable {
-    /**
-     * Cluster endpoint URL option.
-     */
+    /** Cluster endpoint URL option. */
     @Option(names = {CLUSTER_URL_OPTION}, description = CLUSTER_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String clusterUrl;
 
-    /**
-     * Configuration that will be updated.
-     */
+    /** Configuration that will be updated. */
     @Parameters(index = "0")
     private String config;
 

@@ -15,23 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.commands.flow;
 
-import org.apache.ignite.cli.core.decorator.Decorator;
-import org.apache.ignite.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.cli.sql.SqlQueryResult;
+import org.apache.ignite.cli.core.call.Call;
+import org.apache.ignite.cli.core.call.CallOutput;
+import org.apache.ignite.cli.core.call.DefaultCallOutput;
 
-/**
- * Composite decorator for {@link SqlQueryResult}.
- */
-public class SqlQueryResultDecorator implements Decorator<SqlQueryResult, TerminalOutput> {
-
-    private final TableDecorator tableDecorator = new TableDecorator();
-
-    private final DefaultDecorator<String> messageDecorator = new DefaultDecorator<>();
-
+class ThrowingStrCall implements Call<StrCallInput, String> {
     @Override
-    public TerminalOutput decorate(SqlQueryResult data) {
-        return data.getResult(tableDecorator, messageDecorator);
+    public CallOutput<String> execute(StrCallInput input) {
+        return DefaultCallOutput.failure(new RuntimeException("Ooops!"));
     }
 }

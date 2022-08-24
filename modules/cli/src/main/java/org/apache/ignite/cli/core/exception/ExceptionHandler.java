@@ -17,6 +17,7 @@
 
 package org.apache.ignite.cli.core.exception;
 
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
@@ -32,7 +33,14 @@ public interface ExceptionHandler<T extends Throwable> {
         @Override
         public int handle(ExceptionWriter err, Throwable e) {
             LOG.error("Unhandled exception", e);
-            err.write("Internal error!");
+            err.write(
+                    ErrorUiComponent.builder()
+                            .header("Unknown error")
+                            .details(e.getMessage())
+                            .build()
+                            .render()
+            );
+
             return 1;
         }
 

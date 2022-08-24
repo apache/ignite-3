@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.decorators;
+package org.apache.ignite.cli.commands.flow;
 
-import org.apache.ignite.cli.core.decorator.Decorator;
-import org.apache.ignite.cli.core.decorator.TerminalOutput;
+import jdk.jshell.spi.ExecutionControl.RunException;
+import org.apache.ignite.cli.core.exception.ExceptionHandler;
+import org.apache.ignite.cli.core.exception.ExceptionWriter;
 
-/**
- * Default decorator that calls toString method.
- *
- * @param <I> Input type.
- */
-public class DefaultDecorator<I> implements Decorator<I, TerminalOutput> {
-
-    /** {@inheritDoc} */
+class TestExceptionHandler implements ExceptionHandler<RunException> {
     @Override
-    public TerminalOutput decorate(I data) {
-        return data::toString;
+    public int handle(ExceptionWriter err, RunException e) {
+        err.write(e.getMessage());
+
+        return 0;
+    }
+
+    @Override
+    public Class<RunException> applicableException() {
+        return RunException.class;
     }
 }
