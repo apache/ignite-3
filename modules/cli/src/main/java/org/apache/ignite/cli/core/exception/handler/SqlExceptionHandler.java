@@ -25,6 +25,7 @@ import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
 import org.apache.ignite.cli.core.style.component.ErrorUiComponent.ErrorComponentBuilder;
+import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -67,6 +68,15 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     }
 
     private ErrorComponentBuilder connectionErrUiComponent(IgniteException e) {
+        if (e.getCause() instanceof IgniteClientConnectionException) {
+            IgniteClientConnectionException clientConnectionException = (IgniteClientConnectionException) e.getCause();
+            return ErrorUiComponent.builder()
+                    .header(CLIENT_CONNECTION_FAILED_MESSAGE)
+                    .errorCode(clientConnectionException.codeAsString())
+                    .traceId(clientConnectionException.traceId())
+                    .details(ErrorGroup.extractCauseMessage(clientConnectionException.getMessage()));
+        }
+
         return ErrorUiComponent.builder()
                 .header(CLIENT_CONNECTION_FAILED_MESSAGE)
                 .errorCode(e.codeAsString())
