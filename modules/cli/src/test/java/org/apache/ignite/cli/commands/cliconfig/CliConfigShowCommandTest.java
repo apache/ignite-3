@@ -33,7 +33,8 @@ class CliConfigShowCommandTest extends CliConfigCommandTestBase {
     void noKey() {
         execute();
 
-        String expectedResult = "server=127.0.0.1" + System.lineSeparator()
+        String expectedResult = "[database]" + System.lineSeparator()
+                + "server=127.0.0.1" + System.lineSeparator()
                 + "port=8080" + System.lineSeparator()
                 + "file=\"apache.ignite\"" + System.lineSeparator();
 
@@ -48,7 +49,8 @@ class CliConfigShowCommandTest extends CliConfigCommandTestBase {
     public void testWithProfile() {
         execute("--profile owner");
 
-        String expectedResult = "name=John Smith" + System.lineSeparator()
+        String expectedResult = "[owner]" + System.lineSeparator()
+                + "name=John Smith" + System.lineSeparator()
                 + "organization=Apache Ignite" + System.lineSeparator();
 
         assertAll(
