@@ -182,6 +182,7 @@ public class ClientTableCommon {
         }
 
         // TODO: IGNITE-17297 - use BinaryTupleBuilder.create().
+        // TODO: The given tuple may already have a BinaryTuple underneath - we should be able to do a simple copy.
         // var tupleWriter = BinaryTupleBuilder.create()
         if (part != TuplePart.VAL) {
             for (var col : schema.keyColumns().columns()) {
@@ -321,7 +322,7 @@ public class ClientTableCommon {
 
         var tuple = Tuple.create(cnt);
 
-        // TODO: IGNITE-17297 use BinaryTupleReader
+        // TODO: IGNITE-17297 BinaryTuple to Tuple adapter?
         for (int i = 0; i < cnt; i++) {
             if (unpacker.tryUnpackNoValue()) {
                 continue;
