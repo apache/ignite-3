@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.HASH_INDEX_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.META_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.PARTITION_CF_NAME;
-import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.columnFamilyType;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -31,6 +31,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -45,8 +46,11 @@ import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.ColumnFamilyType;
+import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -64,7 +68,7 @@ import org.rocksdb.WriteOptions;
 /**
  * Table storage implementation based on {@link RocksDB} instance.
  */
-class RocksDbTableStorage implements MvTableStorage {
+public class RocksDbTableStorage implements MvTableStorage {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbTableStorage.class);
 
@@ -98,8 +102,17 @@ class RocksDbTableStorage implements MvTableStorage {
     /** Column Family handle for partition data. */
     private volatile ColumnFamily partitionCf;
 
+    /** Column Family handle for Hash Index data. */
+    private volatile ColumnFamily hashIndexCf;
+
+    /** List of all existing Column Family handles. */
+    private volatile List<ColumnFamilyHandle> allCfHandles;
+
     /** Partition storages. */
     private volatile AtomicReferenceArray<RocksDbMvPartitionStorage> partitions;
+
+    /** Hash Index storages by their IDs. */
+    private final ConcurrentMap<UUID, HashIndexStorage> hashIndices = new ConcurrentHashMap<>();
 
     /** Map with flush futures by sequence number at the time of the {@link #awaitFlush(boolean)} call. */
     private final ConcurrentMap<Long, CompletableFuture<Void>> flushFuturesBySequenceNumber = new ConcurrentHashMap<>();
@@ -206,7 +219,7 @@ class RocksDbTableStorage implements MvTableStorage {
             for (ColumnFamilyHandle cfHandle : cfHandles) {
                 ColumnFamily cf = ColumnFamily.wrap(db, cfHandle);
 
-                switch (columnFamilyType(cf.name())) {
+                switch (ColumnFamilyType.fromCfName(cf.name())) {
                     case META:
                         meta = new RocksDbMetaStorage(cf);
 
@@ -217,10 +230,21 @@ class RocksDbTableStorage implements MvTableStorage {
 
                         break;
 
+                    case HASH_INDEX:
+                        hashIndexCf = cf;
+
+                        break;
+
                     default:
                         throw new StorageException("Unidentified column family [name=" + cf.name() + ", table=" + tableCfg.name() + ']');
                 }
             }
+
+            assert meta != null;
+            assert partitionCf != null;
+            assert hashIndexCf != null;
+
+            allCfHandles = List.copyOf(cfHandles);
 
             // Pointless synchronization, but without it there would be a warning in the code.
             synchronized (latestPersistedSequenceNumberMux) {
@@ -304,7 +328,7 @@ class RocksDbTableStorage implements MvTableStorage {
                 try {
                     // Explicit list of CF handles is mandatory!
                     // Default flush is buggy and only invokes listener methods for a single random CF.
-                    db.flush(flushOptions, List.of(metaCfHandle(), partitionCfHandle()));
+                    db.flush(flushOptions, allCfHandles);
                 } catch (RocksDBException e) {
                     LOG.error("Error occurred during the explicit flush for table '{}'", e, tableCfg.name());
                 }
@@ -394,7 +418,9 @@ class RocksDbTableStorage implements MvTableStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException {
-        RocksDbMvPartitionStorage mvPartition = getMvPartition(partitionId);
+        checkPartitionId(partitionId);
+
+        RocksDbMvPartitionStorage mvPartition = partitions.getAndSet(partitionId, null);
 
         if (mvPartition == null) {
             return CompletableFuture.completedFuture(null);
@@ -405,8 +431,6 @@ class RocksDbTableStorage implements MvTableStorage {
         // Wait for the data to actually be removed from the disk and close the storage.
         return awaitFlush(false)
                 .whenComplete((v, e) -> {
-                    partitions.set(partitionId, null);
-
                     try {
                         mvPartition.close();
                     } catch (Exception ex) {
@@ -417,19 +441,31 @@ class RocksDbTableStorage implements MvTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, String indexName) {
+    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, String indexName) {
-        throw new UnsupportedOperationException("Not implemented yet");
+    public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
+        return hashIndices.computeIfAbsent(indexId, id -> {
+            var indexDescriptor = new HashIndexDescriptor(id, tableCfg.value());
+
+            return new RocksDbHashIndexStorage(indexDescriptor, hashIndexCf, getOrCreateMvPartition(partitionId));
+        });
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> destroyIndex(String indexName) {
-        throw new UnsupportedOperationException("Not implemented yet");
+    public CompletableFuture<Void> destroyIndex(UUID indexId) {
+        HashIndexStorage storage = hashIndices.remove(indexId);
+
+        if (storage == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        storage.destroy();
+
+        return awaitFlush(false);
     }
 
     /** {@inheritDoc} */
@@ -471,7 +507,7 @@ class RocksDbTableStorage implements MvTableStorage {
 
             // even if the database is new (no existing Column Families), we return the names of mandatory column families, that
             // will be created automatically.
-            return existingNames.isEmpty() ? List.of(META_CF_NAME, PARTITION_CF_NAME) : existingNames;
+            return existingNames.isEmpty() ? List.of(META_CF_NAME, PARTITION_CF_NAME, HASH_INDEX_CF_NAME) : existingNames;
         } catch (RocksDBException e) {
             throw new StorageException(
                     "Failed to read list of column families names for the RocksDB instance located at path " + absolutePathStr, e
@@ -494,10 +530,19 @@ class RocksDbTableStorage implements MvTableStorage {
      * Creates a Column Family descriptor for the given Family type (encoded in its name).
      */
     private ColumnFamilyDescriptor cfDescriptorFromName(String cfName) {
-        switch (columnFamilyType(cfName)) {
+        switch (ColumnFamilyType.fromCfName(cfName)) {
             case META:
             case PARTITION:
-                return new ColumnFamilyDescriptor(cfName.getBytes(UTF_8), new ColumnFamilyOptions());
+                return new ColumnFamilyDescriptor(
+                        cfName.getBytes(UTF_8),
+                        new ColumnFamilyOptions()
+                );
+
+            case HASH_INDEX:
+                return new ColumnFamilyDescriptor(
+                        cfName.getBytes(UTF_8),
+                        new ColumnFamilyOptions().useFixedLengthPrefixExtractor(RocksDbHashIndexStorage.FIXED_PREFIX_LENGTH)
+                );
 
             default:
                 throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + tableCfg.name() + ']');

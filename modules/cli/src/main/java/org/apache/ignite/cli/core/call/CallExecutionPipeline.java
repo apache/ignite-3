@@ -36,34 +36,22 @@ import org.apache.ignite.cli.decorators.DefaultDecorator;
  * @param <T> Call output's body type.
  */
 public class CallExecutionPipeline<I extends CallInput, T> {
-    /**
-     * Call to execute.
-     */
+    /** Call to execute. */
     private final Call<I, T> call;
 
-    /**
-     * Writer for execution output.
-     */
+    /** Writer for execution output. */
     private final PrintWriter output;
 
-    /**
-     * Writer for error execution output.
-     */
+    /** Writer for error execution output. */
     private final PrintWriter errOutput;
 
-    /**
-     * Decorator that decorates call's output.
-     */
+    /** Decorator that decorates call's output. */
     private final Decorator<T, TerminalOutput> decorator;
 
-    /**
-     * Handlers for any exceptions.
-     */
+    /** Handlers for any exceptions. */
     private final ExceptionHandlers exceptionHandlers;
 
-    /**
-     * Provider for call's input.
-     */
+    /** Provider for call's input. */
     private final Supplier<I> inputProvider;
 
     private CallExecutionPipeline(Call<I, T> call,

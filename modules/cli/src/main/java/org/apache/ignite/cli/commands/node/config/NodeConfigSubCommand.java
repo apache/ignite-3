@@ -26,5 +26,4 @@ import picocli.CommandLine.Command;
         subcommands = {NodeConfigShowSubCommand.class, NodeConfigUpdateSubCommand.class},
         description = "Node config operations")
 public class NodeConfigSubCommand {
-
 }

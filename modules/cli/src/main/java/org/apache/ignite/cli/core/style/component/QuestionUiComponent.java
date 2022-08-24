@@ -26,7 +26,6 @@ import org.apache.ignite.cli.core.style.element.UiString;
  * UI component that represents a question.
  */
 public class QuestionUiComponent implements UiComponent {
-
     private final String question;
 
     private final UiElement[] questionUiElements;

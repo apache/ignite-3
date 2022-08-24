@@ -30,7 +30,6 @@ import picocli.CommandLine.Mixin;
         subcommands = {NodeConfigSubCommand.class, NodeStatusSubCommand.class},
         description = "Node operations")
 public class NodeCommand {
-
     @Mixin
     NodeCommandSpec nodeCommandSpec;
 }

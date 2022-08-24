@@ -27,7 +27,6 @@ import org.apache.ignite.rest.client.model.ClusterNode;
  * Implementation of {@link Decorator} for the list of {@link ClusterNode}.
  */
 public class TopologyDecorator implements Decorator<List<ClusterNode>, TerminalOutput> {
-
     /**
      * Transform list of {@link ClusterNode} to {@link TerminalOutput}.
      *

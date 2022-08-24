@@ -35,27 +35,32 @@ class ColumnFamilyUtils {
     static final String PARTITION_CF_NAME = "cf-part";
 
     /**
+     * Name of the Column Family that stores hash index data.
+     */
+    static final String HASH_INDEX_CF_NAME = "cf-hash";
+
+    /**
      * Utility enum to describe a type of the column family - meta or partition.
      */
     enum ColumnFamilyType {
-        META, PARTITION, UNKNOWN
-    }
+        META, PARTITION, HASH_INDEX, UNKNOWN;
 
-    /**
-     * Determines column family type by its name.
-     *
-     * @param cfName Column family name.
-     * @return Column family type.
-     */
-    static ColumnFamilyType columnFamilyType(String cfName) {
-        if (META_CF_NAME.equals(cfName)) {
-            return ColumnFamilyType.META;
+        /**
+         * Determines column family type by its name.
+         *
+         * @param cfName Column family name.
+         * @return Column family type.
+         */
+        static ColumnFamilyType fromCfName(String cfName) {
+            if (META_CF_NAME.equals(cfName)) {
+                return META;
+            } else if (PARTITION_CF_NAME.equals(cfName)) {
+                return PARTITION;
+            } else if (HASH_INDEX_CF_NAME.equals(cfName)) {
+                return HASH_INDEX;
+            } else {
+                return UNKNOWN;
+            }
         }
-
-        if (PARTITION_CF_NAME.equals(cfName)) {
-            return ColumnFamilyType.PARTITION;
-        }
-
-        return ColumnFamilyType.UNKNOWN;
     }
 }

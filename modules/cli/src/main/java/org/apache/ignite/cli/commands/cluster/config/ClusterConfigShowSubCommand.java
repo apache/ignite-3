@@ -39,10 +39,7 @@ import picocli.CommandLine.Parameters;
 @Command(name = "show",
         description = "Shows cluster configuration")
 public class ClusterConfigShowSubCommand extends BaseCommand implements Callable<Integer> {
-
-    /**
-     * Configuration selector option.
-     */
+    /** Configuration selector option. */
     @Parameters(arity = "0..1", description = "Configuration path selector")
     private String selector;
 

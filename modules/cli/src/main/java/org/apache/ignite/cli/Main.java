@@ -38,12 +38,6 @@ import org.apache.ignite.cli.core.repl.Repl;
 import org.apache.ignite.cli.core.repl.SessionDefaultValueProvider;
 import org.apache.ignite.cli.core.repl.executor.ReplExecutorProvider;
 import org.apache.ignite.cli.core.repl.prompt.PromptProvider;
-import org.apache.ignite.lang.ErrorGroups.Client;
-import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.ErrorGroups.Index;
-import org.apache.ignite.lang.ErrorGroups.MetaStorage;
-import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.lang.ErrorGroups.Table;
 import org.fusesource.jansi.AnsiConsole;
 import picocli.CommandLine;
 import picocli.CommandLine.Help.Ansi;
@@ -59,9 +53,6 @@ public class Main {
      * @param args ignore.
      */
     public static void main(String[] args) {
-        // todo: workaround for https://issues.apache.org/jira/browse/IGNITE-17539
-        loadErrorGroups();
-
         initJavaLoggerProps();
 
         int exitCode = 0;
@@ -84,19 +75,6 @@ public class Main {
             AnsiConsole.systemUninstall();
         }
         System.exit(exitCode);
-    }
-
-    private static void loadErrorGroups() {
-        String ignore = Common.COMMON_ERR_GROUP.toString()
-                + Table.TABLE_ERR_GROUP
-                + Sql.SQL_ERR_GROUP
-                + Client.CLIENT_ERR_GROUP
-                + Index.INDEX_ERR_GROUP
-                + MetaStorage.META_STORAGE_ERR_GROUP;
-        if (ignore.isBlank()) {
-            // just to force jvm load this class
-            throw new RuntimeException("This exception never will be thrown");
-        }
     }
 
     private static boolean isatty() {

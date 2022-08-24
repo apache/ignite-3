@@ -29,7 +29,6 @@ import picocli.CommandLine.Command;
 @Command(name = "version", description = "Prints CLI version")
 @Singleton
 public class VersionCommand extends BaseCommand implements Runnable {
-
     @Inject
     private VersionProvider versionProvider;
 

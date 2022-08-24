@@ -42,7 +42,6 @@ import org.apache.ignite.rest.client.invoker.Configuration;
  */
 @Singleton
 public class ConnectCall implements Call<ConnectCallInput, String> {
-
     private final Session session;
 
     private final StateConfigProvider stateConfigProvider;

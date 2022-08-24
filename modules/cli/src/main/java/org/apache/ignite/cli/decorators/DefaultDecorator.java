@@ -26,7 +26,6 @@ import org.apache.ignite.cli.core.decorator.TerminalOutput;
  * @param <I> Input type.
  */
 public class DefaultDecorator<I> implements Decorator<I, TerminalOutput> {
-
     /** {@inheritDoc} */
     @Override
     public TerminalOutput decorate(I data) {

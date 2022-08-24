@@ -30,7 +30,6 @@ import picocli.CommandLine;
  */
 @CommandLine.Command(name = "show", description = "Show current default profile")
 public class CliConfigShowProfileCommand extends BaseCommand implements Callable<Integer> {
-
     @Inject
     private CliConfigShowProfileCall call;
 

@@ -39,7 +39,6 @@ import org.apache.ignite.cli.core.style.element.UiElements;
  */
 @Singleton
 public class ConnectToClusterQuestion {
-
     @Inject
     private ConnectCall connectCall;
 

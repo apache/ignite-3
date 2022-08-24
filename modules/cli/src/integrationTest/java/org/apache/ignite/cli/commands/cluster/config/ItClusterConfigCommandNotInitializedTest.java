@@ -27,7 +27,6 @@ import org.junit.jupiter.api.Test;
  * Tests for {@link ClusterConfigSubCommand} for the cluster that is not initialized.
  */
 class ItClusterConfigCommandNotInitializedTest extends CliCommandTestNotInitializedIntegrationBase {
-
     @Test
     @DisplayName("Should print error message when run cluster config show on not initialized cluster")
     void printStatus() {

@@ -29,7 +29,6 @@ import org.apache.ignite.cli.core.style.AnsiStringSupport.Color;
  * Decorator for {@link ClusterStatus}.
  */
 public class ClusterStatusDecorator implements Decorator<ClusterStatus, TerminalOutput> {
-
     @Override
     public TerminalOutput decorate(ClusterStatus data) {
         return data.isInitialized()
