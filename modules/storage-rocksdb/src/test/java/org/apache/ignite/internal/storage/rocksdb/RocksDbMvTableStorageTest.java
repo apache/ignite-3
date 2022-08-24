@@ -45,7 +45,6 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -152,23 +151,5 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     @Test
     void storageAdvertisesItIsPersistent() {
         assertThat(tableStorage.isVolatile(), is(false));
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17318")
-    @Override
-    public void testCreateSortedIndex() {
-        super.testCreateSortedIndex();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17318")
-    @Override
-    public void testDestroyIndex() {
-        super.testDestroyIndex();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17318")
-    @Override
-    public void testMisconfiguredIndices() {
-        super.testMisconfiguredIndices();
     }
 }

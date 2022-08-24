@@ -29,7 +29,9 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.InvalidTypeException;
@@ -39,6 +41,7 @@ import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 
 /**
@@ -58,22 +61,34 @@ public class BinaryTupleRowSerializer {
 
     private final List<ColumnDescriptor> schema;
 
+    private final BinaryTupleSchema tupleSchema;
+
     /**
      * Creates a new instance for a Sorted Index.
      */
     public BinaryTupleRowSerializer(SortedIndexDescriptor descriptor) {
-        this.schema = descriptor.indexColumns().stream()
+        this(descriptor.indexColumns().stream()
                 .map(colDesc -> new ColumnDescriptor(colDesc.type(), colDesc.nullable()))
-                .collect(toUnmodifiableList());
+                .collect(toUnmodifiableList()));
     }
 
     /**
      * Creates a new instance for a Hash Index.
      */
     public BinaryTupleRowSerializer(HashIndexDescriptor descriptor) {
-        this.schema = descriptor.indexColumns().stream()
+        this(descriptor.indexColumns().stream()
                 .map(colDesc -> new ColumnDescriptor(colDesc.type(), colDesc.nullable()))
-                .collect(toUnmodifiableList());
+                .collect(toUnmodifiableList()));
+    }
+
+    private BinaryTupleRowSerializer(List<ColumnDescriptor> schema) {
+        this.schema = schema;
+
+        Element[] elements = schema.stream()
+                .map(columnDescriptor -> new Element(columnDescriptor.type, columnDescriptor.nullable))
+                .toArray(Element[]::new);
+
+        tupleSchema = BinaryTupleSchema.create(elements);
     }
 
     /**
@@ -88,13 +103,21 @@ public class BinaryTupleRowSerializer {
             ));
         }
 
-        return new IndexRowImpl(serializeRowPrefix(columnValues), rowId);
+        var builder = new BinaryTupleBuilder(tupleSchema.elementCount(), tupleSchema.hasNullableElements());
+
+        for (Object value : columnValues) {
+            appendValue(builder, value);
+        }
+
+        var tuple = new BinaryTuple(tupleSchema, builder.build());
+
+        return new IndexRowImpl(tuple, rowId);
     }
 
     /**
      * Creates a prefix of an {@link IndexRow} using the provided columns.
      */
-    public BinaryTuple serializeRowPrefix(Object[] prefixColumnValues) {
+    public BinaryTuplePrefix serializeRowPrefix(Object[] prefixColumnValues) {
         if (prefixColumnValues.length > schema.size()) {
             throw new IllegalArgumentException(String.format(
                     "Incorrect number of column values passed. Expected not more than %d, got %d",
@@ -103,21 +126,13 @@ public class BinaryTupleRowSerializer {
             ));
         }
 
-        Element[] prefixElements = schema.stream()
-                .limit(prefixColumnValues.length)
-                .map(columnDescriptor -> new Element(columnDescriptor.type, columnDescriptor.nullable))
-                .toArray(Element[]::new);
-
-        BinaryTupleSchema prefixSchema = BinaryTupleSchema.create(prefixElements);
-
-        BinaryTupleBuilder builder = BinaryTupleBuilder.create(
-                prefixSchema.elementCount(), prefixSchema.hasNullableElements());
+        var builder = new BinaryTuplePrefixBuilder(prefixColumnValues.length, schema.size());
 
         for (Object value : prefixColumnValues) {
-            appendValue(builder, prefixSchema, value);
+            appendValue(builder, value);
         }
 
-        return new BinaryTuple(prefixSchema, builder.build());
+        return new BinaryTuplePrefix(tupleSchema, builder.build());
     }
 
     /**
@@ -143,12 +158,11 @@ public class BinaryTupleRowSerializer {
      * Append a value for the current element.
      *
      * @param builder Builder.
-     * @param schema Tuple schema.
      * @param value Element value.
      * @return Builder for chaining.
      */
-    private static BinaryTupleBuilder appendValue(BinaryTupleBuilder builder, BinaryTupleSchema schema, Object value) {
-        Element element = schema.element(builder.elementIndex());
+    private BinaryTupleBuilder appendValue(BinaryTupleBuilder builder, Object value) {
+        Element element = tupleSchema.element(builder.elementIndex());
 
         if (value == null) {
             if (!element.nullable()) {

@@ -80,6 +80,7 @@ public class BinaryTupleParser {
         byte flags = buffer.get(0);
 
         int base = BinaryTupleCommon.HEADER_SIZE;
+
         if ((flags & BinaryTupleCommon.NULLMAP_FLAG) != 0) {
             base += BinaryTupleCommon.nullMapSize(numElements);
         }
@@ -114,7 +115,7 @@ public class BinaryTupleParser {
      * Returns the content of this tuple as a byte buffer.
      */
     public ByteBuffer byteBuffer() {
-        return buffer.slice();
+        return buffer.slice().order(ByteOrder.LITTLE_ENDIAN);
     }
 
     /**

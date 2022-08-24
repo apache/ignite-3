@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
-import static org.apache.ignite.internal.rocksdb.RocksUtils.rangeEnd;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementArray;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 
@@ -109,7 +109,7 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
     public Cursor<RowId> get(BinaryTuple key) {
         byte[] rangeStart = rocksPrefix(key);
 
-        byte[] rangeEnd = rangeEnd(rangeStart);
+        byte[] rangeEnd = incrementArray(rangeStart);
 
         Slice upperBound = rangeEnd == null ? null : new Slice(rangeEnd);
 
@@ -162,7 +162,7 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void destroy() {
-        byte[] rangeEnd = rangeEnd(constantPrefix);
+        byte[] rangeEnd = incrementArray(constantPrefix);
 
         assert rangeEnd != null;
 

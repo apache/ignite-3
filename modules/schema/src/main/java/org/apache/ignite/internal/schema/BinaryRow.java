@@ -94,4 +94,9 @@ public interface BinaryRow {
      * Get byte array of the row.
      */
     byte[] bytes();
+
+    /**
+     * Returns the representation of this row as a Byte Buffer.
+     */
+    ByteBuffer byteBuffer();
 }

@@ -28,6 +28,8 @@ import org.apache.ignite.configuration.schemas.table.SortedIndexView;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
@@ -52,7 +54,28 @@ public class SortedIndexDescriptor {
 
         private final boolean asc;
 
-        ColumnDescriptor(ColumnView tableColumnView, IndexColumnView indexColumnView) {
+        /**
+         * Creates a Column Descriptor.
+         *
+         * @param name Name of the column.
+         * @param type Type of the column.
+         * @param nullable Flag indicating that the column may contain {@code null}s.
+         * @param asc Sort order of the column.
+         */
+        public ColumnDescriptor(String name, NativeType type, boolean nullable, boolean asc) {
+            this.name = name;
+            this.type = type;
+            this.nullable = nullable;
+            this.asc = asc;
+        }
+
+        /**
+         * Creates a Column Descriptor.
+         *
+         * @param tableColumnView Table column configuration.
+         * @param indexColumnView Index column configuration.
+         */
+        public ColumnDescriptor(ColumnView tableColumnView, IndexColumnView indexColumnView) {
             this.name = tableColumnView.name();
             this.type = SchemaDescriptorConverter.convert(SchemaConfigurationConverter.convert(tableColumnView.type()));
             this.nullable = tableColumnView.nullable();
@@ -97,15 +120,31 @@ public class SortedIndexDescriptor {
 
     private final List<ColumnDescriptor> columns;
 
+    private final BinaryTupleSchema binaryTupleSchema;
+
     /**
      * Creates an Index Descriptor from a given Table Configuration.
      *
-     * @param indexId index ID.
-     * @param tableConfig table configuration.
+     * @param indexId Index ID.
+     * @param tableConfig Table configuration.
      */
     public SortedIndexDescriptor(UUID indexId, TableView tableConfig) {
-        this.id = indexId;
+        this(indexId, extractIndexColumnsConfiguration(indexId, tableConfig));
+    }
 
+    /**
+     * Creates an Index Descriptor from a given set of column descriptors.
+     *
+     * @param indexId Index ID.
+     * @param columnDescriptors Column descriptors.
+     */
+    public SortedIndexDescriptor(UUID indexId, List<ColumnDescriptor> columnDescriptors) {
+        this.id = indexId;
+        this.columns = List.copyOf(columnDescriptors);
+        this.binaryTupleSchema = createSchema(columns);
+    }
+
+    private static List<ColumnDescriptor> extractIndexColumnsConfiguration(UUID indexId, TableView tableConfig) {
         TableIndexView indexConfig = ConfigurationUtil.getByInternalId(tableConfig.indices(), indexId);
 
         if (indexConfig == null) {
@@ -121,7 +160,7 @@ public class SortedIndexDescriptor {
 
         NamedListView<? extends IndexColumnView> indexColumns = ((SortedIndexView) indexConfig).columns();
 
-        columns = indexColumns.namedListKeys().stream()
+        return indexColumns.namedListKeys().stream()
                 .map(columnName -> {
                     ColumnView columnView = tableConfig.columns().get(columnName);
 
@@ -132,6 +171,14 @@ public class SortedIndexDescriptor {
                     return new ColumnDescriptor(columnView, indexColumnView);
                 })
                 .collect(toUnmodifiableList());
+    }
+
+    private static BinaryTupleSchema createSchema(List<ColumnDescriptor> columns) {
+        Element[] elements = columns.stream()
+                .map(columnDescriptor -> new Element(columnDescriptor.type(), columnDescriptor.nullable()))
+                .toArray(Element[]::new);
+
+        return BinaryTupleSchema.create(elements);
     }
 
     /**
@@ -146,5 +193,12 @@ public class SortedIndexDescriptor {
      */
     public List<ColumnDescriptor> indexColumns() {
         return columns;
+    }
+
+    /**
+     * Returns a {@code BinaryTupleSchema} that corresponds to the index configuration.
+     */
+    public BinaryTupleSchema binaryTupleSchema() {
+        return binaryTupleSchema;
     }
 }

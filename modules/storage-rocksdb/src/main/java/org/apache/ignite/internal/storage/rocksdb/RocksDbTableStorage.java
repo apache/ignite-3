@@ -21,6 +21,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.HASH_INDEX_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.META_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.PARTITION_CF_NAME;
+import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
+import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexId;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -46,8 +48,10 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.ColumnFamilyType;
+import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -105,6 +109,9 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     /** Hash Index storages by Index IDs. */
     private final ConcurrentMap<UUID, HashIndices> hashIndices = new ConcurrentHashMap<>();
+
+    /** Sorted Index storages by Index IDs. */
+    private final ConcurrentMap<UUID, SortedIndices> sortedIndices = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -215,6 +222,15 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                     case HASH_INDEX:
                         hashIndexCf = cf;
+
+                        break;
+
+                    case SORTED_INDEX:
+                        UUID indexId = sortedIndexId(cf.name());
+
+                        var indexDescriptor = new SortedIndexDescriptor(indexId, tableCfg.value());
+
+                        sortedIndices.put(indexId, new SortedIndices(indexDescriptor, cf));
 
                         break;
 
@@ -378,7 +394,28 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** {@inheritDoc} */
     @Override
     public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        SortedIndices storages = sortedIndices.computeIfAbsent(indexId, id -> {
+            var indexDescriptor = new SortedIndexDescriptor(indexId, tableCfg.value());
+
+            ColumnFamilyDescriptor cfDescriptor = sortedIndexCfDescriptor(indexDescriptor);
+
+            ColumnFamily columnFamily;
+            try {
+                columnFamily = ColumnFamily.create(db, cfDescriptor);
+            } catch (RocksDBException e) {
+                throw new StorageException("Failed to create new RocksDB column family: " + new String(cfDescriptor.getName(), UTF_8), e);
+            }
+
+            return new SortedIndices(indexDescriptor, columnFamily);
+        });
+
+        RocksDbMvPartitionStorage partitionStorage = getMvPartition(partitionId);
+
+        if (partitionStorage == null) {
+            throw new StorageException(String.format("Partition ID %d does not exist", partitionId));
+        }
+
+        return storages.getOrCreateStorage(partitionStorage);
     }
 
     @Override
@@ -392,7 +429,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         RocksDbMvPartitionStorage partitionStorage = getMvPartition(partitionId);
 
         if (partitionStorage == null) {
-            throw new StorageException(String.format("Partition %d has not been created yet", partitionId));
+            throw new StorageException(String.format("Partition ID %d does not exist", partitionId));
         }
 
         return storages.getOrCreateStorage(hashIndexCf, partitionStorage);
@@ -401,15 +438,23 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> destroyIndex(UUID indexId) {
-        HashIndices storages = hashIndices.remove(indexId);
+        HashIndices hashIdx = hashIndices.remove(indexId);
 
-        if (storages == null) {
-            return CompletableFuture.completedFuture(null);
+        if (hashIdx != null) {
+            hashIdx.destroy();
         }
 
-        storages.destroy();
+        SortedIndices sortedIdx = sortedIndices.remove(indexId);
 
-        return awaitFlush(false);
+        if (sortedIdx != null) {
+            sortedIdx.destroy();
+        }
+
+        if (hashIdx == null && sortedIdx == null) {
+            return CompletableFuture.completedFuture(null);
+        } else {
+            return awaitFlush(false);
+        }
     }
 
     /** {@inheritDoc} */
@@ -488,8 +533,26 @@ public class RocksDbTableStorage implements MvTableStorage {
                         new ColumnFamilyOptions().useFixedLengthPrefixExtractor(RocksDbHashIndexStorage.FIXED_PREFIX_LENGTH)
                 );
 
+            case SORTED_INDEX:
+                var indexDescriptor = new SortedIndexDescriptor(sortedIndexId(cfName), tableCfg.value());
+
+                return sortedIndexCfDescriptor(indexDescriptor);
+
             default:
                 throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + tableCfg.name() + ']');
         }
+    }
+
+    /**
+     * Creates a Column Family descriptor for a Sorted Index.
+     */
+    private static ColumnFamilyDescriptor sortedIndexCfDescriptor(SortedIndexDescriptor descriptor) {
+        String cfName = sortedIndexCfName(descriptor.id());
+
+        var comparator = new RocksDbBinaryTupleComparator(descriptor);
+
+        ColumnFamilyOptions options = new ColumnFamilyOptions().setComparator(comparator);
+
+        return new ColumnFamilyDescriptor(cfName.getBytes(UTF_8), options);
     }
 }
