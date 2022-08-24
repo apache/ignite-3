@@ -53,6 +53,8 @@ public interface TopologyApi {
     @Get("logical")
     @Operation(operationId = "logical")
     @ApiResponse(responseCode = "200", description = "Logical topology returned")
+    @ApiResponse(responseCode = "404", description = "Logical topology not found, it means that the cluster is not initialized",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "500", description = "Internal error",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces(MediaType.APPLICATION_JSON)

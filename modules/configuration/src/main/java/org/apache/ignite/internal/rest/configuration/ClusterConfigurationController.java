@@ -21,8 +21,10 @@ import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.annotation.Controller;
 import jakarta.inject.Named;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.ComponentNotStartedException;
 import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.rest.api.configuration.ClusterConfigurationApi;
+import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.internal.rest.exception.handler.IgniteExceptionHandler;
 
 /**
@@ -43,7 +45,11 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
      */
     @Override
     public String getConfiguration() {
-        return super.getConfiguration();
+        try {
+            return super.getConfiguration();
+        } catch (ComponentNotStartedException e) {
+            throw new ClusterNotInitializedException();
+        }
     }
 
     /**
@@ -54,7 +60,11 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
      */
     @Override
     public String getConfigurationByPath(String path) {
-        return super.getConfigurationByPath(path);
+        try {
+            return super.getConfigurationByPath(path);
+        } catch (ComponentNotStartedException e) {
+            throw new ClusterNotInitializedException();
+        }
     }
 
     /**
@@ -64,6 +74,10 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
      */
     @Override
     public CompletableFuture<Void> updateConfiguration(String updatedConfiguration) {
-        return super.updateConfiguration(updatedConfiguration);
+        try {
+            return super.updateConfiguration(updatedConfiguration);
+        } catch (ComponentNotStartedException e) {
+            throw new ClusterNotInitializedException();
+        }
     }
 }

@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.rest.exception;
+package org.apache.ignite.internal.configuration;
 
 /**
- * Exception that is thrown when the cluster is not initialized.
+ * Exception thrown when component is not started.
  */
-public class ClusterNotInitializedException extends RuntimeException {
-    public ClusterNotInitializedException() {
-        super();
+public class ComponentNotStartedException extends RuntimeException {
+    public ComponentNotStartedException() {
     }
 }
