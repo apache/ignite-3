@@ -106,7 +106,7 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
         return 1;
     }
 
-    /** Handles SqlException that holds more information like error code and trace id. */
+    /** Handles IgniteException that has more information like error code and trace id. */
     public int handleIgniteException(ExceptionWriter err, IgniteException e) {
         Function<IgniteException, ErrorComponentBuilder> errorComponentBuilder = sqlExceptionMappers.getOrDefault(
                 e.code(), defaultErrorMapper);
