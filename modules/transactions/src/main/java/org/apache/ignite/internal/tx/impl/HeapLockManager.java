@@ -18,12 +18,15 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.tx.LockMode.EXCLUSIVE;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -68,38 +71,61 @@ public class HeapLockManager implements LockManager {
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
         // TODO: tmp
-        switch (lockMode) {
-            case EXCLUSIVE:
 
-                while (true) {
-                    LockState state = lockState(lockKey);
+        while (true) {
+            LockState state = lockState(lockKey);
 
-                    CompletableFuture<Void> future = state.tryAcquire(txId);
+            CompletableFuture<Void> future = null;
 
-                    if (future == null) {
-                        continue; // Obsolete state.
-                    }
+            try {
+                future = state.tryAcquire(txId, lockMode);
+            } catch (LockException e) {
+                throw new RuntimeException(e);
+            }
 
-                    return future.thenApply(res -> new Lock(lockKey, lockMode, txId));
-                }
+            if (future == null) {
+                continue; // Obsolete state.
+            }
 
-            case SHARED:
-
-                while (true) {
-                    LockState state = lockState(lockKey);
-
-                    CompletableFuture<Void> future = state.tryAcquireShared(txId);
-
-                    if (future == null) {
-                        continue; // Obsolete state.
-                    }
-
-                    return future.thenApply(res -> new Lock(lockKey, lockMode, txId));
-                }
-
-            default:
-                return null;
+            return future.thenApply(res -> new Lock(lockKey, lockMode, txId));
         }
+
+//        switch (lockMode) {
+//            case EXCLUSIVE:
+//
+//                while (true) {
+//                    LockState state = lockState(lockKey);
+//
+//                    CompletableFuture<Void> future = state.tryAcquire(txId);
+//
+//                    if (future == null) {
+//                        continue; // Obsolete state.
+//                    }
+//
+//                    return future.thenApply(res -> new Lock(lockKey, lockMode, txId));
+//                }
+//
+//            case SHARED:
+//
+//                while (true) {
+//                    LockState state = lockState(lockKey);
+//
+//                    CompletableFuture<Void> future = state.tryAcquireShared(txId);
+//
+//                    if (future == null) {
+//                        continue; // Obsolete state.
+//                    }
+//
+//                    return future.thenApply(res -> new Lock(lockKey, lockMode, txId));
+//                }
+//
+//            case INTENTION_SHARED:
+//            case INTENTION_EXCLUSIVE:
+//            case SHARED_AND_INTENTION_EXCLUSIVE:
+//
+//            default:
+//                return null;
+//        }
     }
 
     @Override
@@ -107,25 +133,27 @@ public class HeapLockManager implements LockManager {
         // TODO: tmp
         LockState state = lockState(lock.lockKey());
 
-        switch (lock.lockMode()) {
-            case EXCLUSIVE:
-                if (state.tryRelease(lock.txId())) { // Probably we should clean up empty keys asynchronously.
-                    locks.remove(lock.lockKey(), state);
-                }
+        state.tryRelease(lock.txId());
 
-                break;
-
-            case SHARED:
-                if (state.tryReleaseShared(lock.txId())) {
-                    assert state.markedForRemove;
-
-                    locks.remove(lock.lockKey(), state);
-                }
-                break;
-
-            default:
-                // No-op.
-        }
+//        switch (lock.lockMode()) {
+//            case EXCLUSIVE:
+////                if (state.tryRelease(lock.txId())) { // Probably we should clean up empty keys asynchronously.
+////                    locks.remove(lock.lockKey(), state);
+////                }
+//
+//                break;
+//
+//            case SHARED:
+//                if (state.tryReleaseShared(lock.txId())) {
+//                    assert state.markedForRemove;
+//
+//                    locks.remove(lock.lockKey(), state);
+//                }
+//                break;
+//
+//            default:
+//                // No-op.
+//        }
     }
 
     @Override
@@ -140,7 +168,7 @@ public class HeapLockManager implements LockManager {
                 result.add(
                         new Lock(
                                 entry.getKey(),
-                                waiter.isForRead() ? LockMode.SHARED : LockMode.EXCLUSIVE,
+                                waiter.isForRead() ? LockMode.SHARED : EXCLUSIVE,
                                 txId
                         )
                 );
@@ -185,14 +213,8 @@ public class HeapLockManager implements LockManager {
          */
         private boolean markedForRemove = false;
 
-        /**
-         * Attempts to acquire a lock for the specified {@code key} in exclusive mode.
-         *
-         * @param txId Transaction id.
-         * @return The future or null if state is marked for removal.
-         */
-        public @Nullable CompletableFuture<Void> tryAcquire(UUID txId) {
-            WaiterImpl waiter = new WaiterImpl(txId, false);
+        public @Nullable CompletableFuture<Void>  tryAcquire(UUID txId, LockMode lockMode) throws LockException {
+            WaiterImpl waiter = new WaiterImpl(txId, lockMode);//new WaiterImpl(txId, false);
 
             boolean locked;
 
@@ -205,7 +227,95 @@ public class HeapLockManager implements LockManager {
 
                 // Reenter
                 if (prev != null && prev.locked) {
-                    if (!prev.forRead) { // Allow reenter.
+                    if (/*!prev.forRead*/prev.lockMode.allowReenter(lockMode)) { // Allow reenter.
+                        return CompletableFuture.completedFuture(null);
+                    } else {
+                        waiter.upgraded = true;
+                        waiter.prevLockMode = prev.lockMode;
+
+                        waiters.put(txId, waiter); // Upgrade.
+                    }
+                }
+
+//                WaiterImpl prev = waiters.putIfAbsent(txId, waiter);
+//
+//                // Allow reenter. A write lock implies a read lock.
+//                if (prev != null && prev.locked) {
+//                    return CompletableFuture.completedFuture(null);
+//                }
+
+
+
+
+
+                // Check lock compatibility.
+                Map.Entry<UUID, WaiterImpl> nextEntry = waiters.higherEntry(txId);
+
+                // If we have a younger waiter in a locked state, when refuse to wait for lock.
+                if (nextEntry != null && nextEntry.getValue().locked() && !lockMode.isCompatible(nextEntry.getValue().lockMode)) {
+                    if (prev == null) {
+                        waiters.remove(txId);
+                    } else {
+                        waiters.put(txId, prev); // Restore old lock.
+                    }
+
+                    return failedFuture(new LockException(nextEntry.getValue()));
+                }
+
+                // Lock if oldest.
+                locked = waiters.firstKey().equals(txId);
+
+                if (locked) {
+                    waiter.lock();
+                }
+
+
+
+
+                if (!locked) {
+
+                    Map.Entry<UUID, WaiterImpl> prevEntry = waiters.lowerEntry(txId);
+
+                    // Grant read lock if previous entry is read-locked (by induction).
+                    locked = prevEntry == null || (prevEntry.getValue().lockMode.isCompatible(lockMode) && prevEntry
+                            .getValue().locked());
+
+                }
+
+                if (locked) {
+                    waiter.lock();
+                }
+
+
+
+
+
+            }
+
+            // Notify outside the monitor.
+            if (locked) {
+                waiter.notifyLocked();
+            }
+
+            return waiter.fut;
+
+        }
+
+        public @Nullable CompletableFuture<Void>  tryAcquire1(UUID txId, LockMode lockMode) throws LockException {
+            WaiterImpl waiter = new WaiterImpl(txId, lockMode);//new WaiterImpl(txId, false);
+
+            boolean locked;
+
+            synchronized (waiters) {
+                if (markedForRemove) {
+                    return null;
+                }
+
+                WaiterImpl prev = waiters.putIfAbsent(txId, waiter);
+
+                // Reenter
+                if (prev != null && prev.locked) {
+                    if (/*!prev.forRead*/prev.lockMode.allowReenter(lockMode)) { // Allow reenter.
                         return CompletableFuture.completedFuture(null);
                     } else {
                         waiter.upgraded = true;
@@ -254,6 +364,126 @@ public class HeapLockManager implements LockManager {
             Collection<WaiterImpl> locked = new ArrayList<>();
             Collection<WaiterImpl> toFail = new ArrayList<>();
 
+//            Map.Entry<UUID, WaiterImpl> unlocked;
+            WaiterImpl removed;
+
+            synchronized (waiters) {
+//                Map.Entry<UUID, WaiterImpl> first = waiters.firstEntry();
+                Map.Entry<UUID, WaiterImpl> higherEntry = waiters.higherEntry(txId);
+                Map.Entry<UUID, WaiterImpl> lowerEntry = waiters.lowerEntry(txId);
+
+//                if (first == null || !first.getKey().equals(txId) || !first.getValue().locked()) {
+//                    throw new LockException("Not exclusively locked by " + txId);
+//                }
+
+                removed = waiters.remove(txId);
+                //unlocked = waiters.pollFirstEntry();
+
+                markedForRemove = waiters.isEmpty();
+
+                if (markedForRemove) {
+                    return true;
+                }
+
+                Set<LockMode> lockModes = new HashSet<>();
+
+                // Lock next waiter(s).
+                WaiterImpl first = waiters.firstEntry().getValue();
+
+//                if (waiter.lockMode == EXCLUSIVE && !waiter.upgraded) {
+//                    waiter.lock();
+//
+//                    locked.add(waiter);
+//                } else {
+                    // Grant lock to all adjacent readers.
+                    for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
+                        WaiterImpl tmp = entry.getValue();
+
+                        if (tmp.upgraded) {
+                            // Fail upgraded waiters because of write.
+                            assert !tmp.locked;
+
+                            // Downgrade to acquired read lock.
+                            tmp.upgraded = false;
+                            tmp.lockMode = tmp.prevLockMode;//tmp.forRead = true;
+                            tmp.prevLockMode = null;
+                            tmp.locked = true;
+
+                            toFail.add(tmp);
+                        } else if (lockModes.stream().anyMatch(m -> !tmp.lockMode.isCompatible(m))/*!tmp.isForRead()*/) {
+                            break;
+                        } else {
+                            lockModes.add(tmp.lockMode);
+
+                            tmp.lock();
+
+                            locked.add(tmp);
+                        }
+                    }
+//                }
+            }
+
+            // Notify outside the monitor.
+            for (WaiterImpl waiter : locked) {
+                waiter.notifyLocked();
+            }
+
+            for (WaiterImpl waiter : toFail) {
+                waiter.fut.completeExceptionally(new LockException(removed));
+            }
+
+            return false;
+
+
+
+
+            //qqqqqqqqqqqqqqqqqq
+//            WaiterImpl locked = null;
+//
+//            synchronized (waiters) {
+//                WaiterImpl waiter = waiters.get(txId);
+//
+//                if (waiter == null || !waiter.locked() || !waiter.isForRead()) {
+//                    throw new LockException("Not shared locked by " + txId);
+//                }
+//
+//                Map.Entry<UUID, WaiterImpl> nextEntry = waiters.higherEntry(txId);
+//
+//                waiters.remove(txId);
+//
+//                if (nextEntry == null) {
+//                    return (markedForRemove = waiters.isEmpty());
+//                }
+//
+//                // Lock next exclusive waiter.
+//                WaiterImpl nextWaiter = nextEntry.getValue();
+//
+//                if (!nextWaiter.isForRead() && nextWaiter.txId()
+//                        .equals(waiters.firstEntry().getKey())) {
+//                    nextWaiter.lock();
+//
+//                    locked = nextWaiter;
+//                }
+//            }
+//
+//            if (locked != null) {
+//                locked.notifyLocked();
+//            }
+//
+//            return false;
+
+        }
+
+        /**
+         * Attempts to release a lock for the specified {@code key} in exclusive mode.
+         *
+         * @param txId Transaction id.
+         * @return {@code True} if the queue is empty.
+         */
+        public boolean tryRelease1(UUID txId) throws LockException {
+            Collection<WaiterImpl> locked = new ArrayList<>();
+            Collection<WaiterImpl> toFail = new ArrayList<>();
+
             Map.Entry<UUID, WaiterImpl> unlocked;
 
             synchronized (waiters) {
@@ -274,7 +504,7 @@ public class HeapLockManager implements LockManager {
                 // Lock next waiter(s).
                 WaiterImpl waiter = waiters.firstEntry().getValue();
 
-                if (!waiter.isForRead() && !waiter.upgraded) {
+                if (waiter.lockMode == EXCLUSIVE && !waiter.upgraded) {
                     waiter.lock();
 
                     locked.add(waiter);
@@ -289,7 +519,7 @@ public class HeapLockManager implements LockManager {
 
                             // Downgrade to acquired read lock.
                             tmp.upgraded = false;
-                            tmp.forRead = true;
+                            tmp.lockMode = null;//tmp.forRead = true;
                             tmp.locked = true;
 
                             toFail.add(tmp);
@@ -314,62 +544,6 @@ public class HeapLockManager implements LockManager {
             }
 
             return false;
-        }
-
-        /**
-         * Attempts to acquire a lock for the specified {@code key} in shared mode.
-         *
-         * @param txId Transaction id.
-         * @return The future or null if a state is marked for removal from map.
-         */
-        public @Nullable CompletableFuture<Void> tryAcquireShared(UUID txId) {
-            WaiterImpl waiter = new WaiterImpl(txId, true);
-
-            boolean locked;
-
-            // Grant a lock to the oldest waiter.
-            synchronized (waiters) {
-                if (markedForRemove) {
-                    return null;
-                }
-
-                WaiterImpl prev = waiters.putIfAbsent(txId, waiter);
-
-                // Allow reenter. A write lock implies a read lock.
-                if (prev != null && prev.locked) {
-                    return CompletableFuture.completedFuture(null);
-                }
-
-                // Check lock compatibility.
-                Map.Entry<UUID, WaiterImpl> nextEntry = waiters.higherEntry(txId);
-
-                if (nextEntry != null) {
-                    WaiterImpl nextWaiter = nextEntry.getValue();
-
-                    if (nextWaiter.locked() && !nextWaiter.isForRead()) {
-                        waiters.remove(txId);
-
-                        return failedFuture(new LockException(nextWaiter));
-                    }
-                }
-
-                Map.Entry<UUID, WaiterImpl> prevEntry = waiters.lowerEntry(txId);
-
-                // Grant read lock if previous entry is read-locked (by induction).
-                locked = prevEntry == null || (prevEntry.getValue().isForRead() && prevEntry
-                        .getValue().locked());
-
-                if (locked) {
-                    waiter.lock();
-                }
-            }
-
-            // Notify outside the monitor.
-            if (locked) {
-                waiter.notifyLocked();
-            }
-
-            return waiter.fut;
         }
 
         /**
@@ -415,6 +589,62 @@ public class HeapLockManager implements LockManager {
         }
 
         /**
+         * Attempts to acquire a lock for the specified {@code key} in shared mode.
+         *
+         * @param txId Transaction id.
+         * @return The future or null if a state is marked for removal from map.
+         */
+        public @Nullable CompletableFuture<Void> tryAcquireShared1(UUID txId, LockMode lockMode) {
+            WaiterImpl waiter = new WaiterImpl(txId, lockMode);
+
+            boolean locked;
+
+            // Grant a lock to the oldest waiter.
+            synchronized (waiters) {
+                if (markedForRemove) {
+                    return null;
+                }
+
+                WaiterImpl prev = waiters.putIfAbsent(txId, waiter);
+
+                // Allow reenter. A write lock implies a read lock.
+                if (prev != null && prev.locked && prev.lockMode.allowReenter(lockMode)) {
+                    return CompletableFuture.completedFuture(null);
+                }
+
+                // Check lock compatibility.
+                Map.Entry<UUID, WaiterImpl> nextEntry = waiters.higherEntry(txId);
+
+                if (nextEntry != null) {
+                    WaiterImpl nextWaiter = nextEntry.getValue();
+
+                    if (nextWaiter.locked() && nextWaiter.lockMode == EXCLUSIVE) {
+                        waiters.remove(txId);
+
+                        return failedFuture(new LockException(nextWaiter));
+                    }
+                }
+
+                Map.Entry<UUID, WaiterImpl> prevEntry = waiters.lowerEntry(txId);
+
+                // Grant read lock if previous entry is read-locked (by induction).
+                locked = prevEntry == null || (prevEntry.getValue().isForRead() && prevEntry
+                        .getValue().locked());
+
+                if (locked) {
+                    waiter.lock();
+                }
+            }
+
+            // Notify outside the monitor.
+            if (locked) {
+                waiter.notifyLocked();
+            }
+
+            return waiter.fut;
+        }
+
+        /**
          * Returns a collection of timestamps that is associated with the specified {@code key}.
          *
          * @return The waiters queue.
@@ -455,6 +685,10 @@ public class HeapLockManager implements LockManager {
         /** {@code True} if a read request. */
         private boolean forRead;
 
+        private LockMode prevLockMode;
+
+        private LockMode lockMode;
+
         /** The state. */
         private boolean locked = false;
 
@@ -468,6 +702,12 @@ public class HeapLockManager implements LockManager {
             this.fut = new CompletableFuture<>();
             this.txId = txId;
             this.forRead = forRead;
+        }
+
+        WaiterImpl(UUID txId, LockMode lockMode) {
+            this.fut = new CompletableFuture<>();
+            this.txId = txId;
+            this.lockMode = lockMode;
         }
 
         /** {@inheritDoc} */

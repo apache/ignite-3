@@ -25,5 +25,105 @@ public enum LockMode {
     EXCLUSIVE,
     INTENTION_SHARED,
     INTENTION_EXCLUSIVE,
-    SHARED_AND_INTENTION_EXCLUSIVE
+    SHARED_AND_INTENTION_EXCLUSIVE;
+
+    public boolean isCompatible(LockMode lockMode) {
+        switch (this) {
+            case INTENTION_SHARED:
+                switch (lockMode) {
+                    case INTENTION_SHARED:
+                    case INTENTION_EXCLUSIVE:
+                    case SHARED:
+                    case SHARED_AND_INTENTION_EXCLUSIVE:
+                        return true;
+                    default:
+                        return false;
+
+                }
+            case INTENTION_EXCLUSIVE:
+                switch (lockMode) {
+                    case INTENTION_SHARED:
+                    case INTENTION_EXCLUSIVE:
+                        return true;
+                    default:
+                        return false;
+
+                }
+            case SHARED:
+                switch (lockMode) {
+                    case INTENTION_SHARED:
+                    case SHARED:
+                        return true;
+                    default:
+                        return false;
+
+                }
+            case SHARED_AND_INTENTION_EXCLUSIVE:
+                switch (lockMode) {
+                    case INTENTION_SHARED:
+                        return true;
+                    default:
+                        return false;
+
+                }
+            default:
+                return false;
+        }
+    }
+
+    public boolean allowReenter(LockMode lockMode) {
+        switch (this) {
+            case INTENTION_SHARED:
+                switch (lockMode) {
+                    case INTENTION_SHARED:
+                        return true;
+                    default:
+                        return false;
+
+                }
+            case INTENTION_EXCLUSIVE:
+                switch (lockMode) {
+                    case INTENTION_SHARED:
+                    case INTENTION_EXCLUSIVE:
+                        return true;
+                    default:
+                        return false;
+
+                }
+            case SHARED:
+                switch (lockMode) {
+                    case INTENTION_SHARED:
+                    case SHARED:
+                        return true;
+                    default:
+                        return false;
+
+                }
+            case SHARED_AND_INTENTION_EXCLUSIVE:
+                switch (lockMode) {
+                    case INTENTION_SHARED:
+                    case INTENTION_EXCLUSIVE:
+                    case SHARED:
+                    case SHARED_AND_INTENTION_EXCLUSIVE:
+                        return true;
+                    default:
+                        return false;
+
+                }
+            case EXCLUSIVE:
+                switch (lockMode) {
+                    case INTENTION_SHARED:
+                    case INTENTION_EXCLUSIVE:
+                    case SHARED:
+                    case SHARED_AND_INTENTION_EXCLUSIVE:
+                    case EXCLUSIVE:
+                        return true;
+                    default:
+                        return false;
+
+                }
+            default:
+                return false;
+        }
+    }
 }
