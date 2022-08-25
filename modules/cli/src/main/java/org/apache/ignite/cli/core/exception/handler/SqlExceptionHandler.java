@@ -47,11 +47,9 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     public static final String CLIENT_CONNECTION_FAILED_MESSAGE = "Connection failed";
 
     public static final String CONNECTION_BROKE_MESSAGE = "Connection error";
+    public static final String UNRECOGNIZED_ERROR_MESSAGE = "Unrecognized error while processing SQL query ";
 
     private final Map<Integer, Function<IgniteException, ErrorComponentBuilder>> sqlExceptionMappers = new HashMap<>();
-
-    private final Function<IgniteException, ErrorComponentBuilder> defaultErrorMapper =
-            (e) -> ErrorUiComponent.builder().header("Unrecognized error while process SQL query" + e.getMessage());
 
     /** Default constructor. */
     public SqlExceptionHandler() {
@@ -60,25 +58,24 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     }
 
     private ErrorComponentBuilder invalidQueryErrUiComponent(IgniteException e) {
-        return ErrorUiComponent.builder()
-                .header(PARSING_ERROR_MESSAGE)
-                .errorCode(e.codeAsString())
-                .traceId(e.traceId())
-                .details(ErrorGroup.extractCauseMessage(e.getMessage()));
+        return fromExWithHeader(e, PARSING_ERROR_MESSAGE);
+    }
+
+    private ErrorComponentBuilder unrecognizedErrComponent(IgniteException e) {
+        return fromExWithHeader(e, UNRECOGNIZED_ERROR_MESSAGE + e.getMessage());
     }
 
     private ErrorComponentBuilder connectionErrUiComponent(IgniteException e) {
         if (e.getCause() instanceof IgniteClientConnectionException) {
-            IgniteClientConnectionException clientConnectionException = (IgniteClientConnectionException) e.getCause();
-            return ErrorUiComponent.builder()
-                    .header(CLIENT_CONNECTION_FAILED_MESSAGE)
-                    .errorCode(clientConnectionException.codeAsString())
-                    .traceId(clientConnectionException.traceId())
-                    .details(ErrorGroup.extractCauseMessage(clientConnectionException.getMessage()));
+            return fromExWithHeader((IgniteClientConnectionException) e.getCause(), CLIENT_CONNECTION_FAILED_MESSAGE);
         }
 
+        return fromExWithHeader(e, CLIENT_CONNECTION_FAILED_MESSAGE);
+    }
+
+    private static ErrorComponentBuilder fromExWithHeader(IgniteException e, String header) {
         return ErrorUiComponent.builder()
-                .header(CLIENT_CONNECTION_FAILED_MESSAGE)
+                .header(header)
                 .errorCode(e.codeAsString())
                 .traceId(e.traceId())
                 .details(ErrorGroup.extractCauseMessage(e.getMessage()));
@@ -118,7 +115,7 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
 
     /** Handles IgniteException that has more information like error code and trace id. */
     public int handleIgniteException(ExceptionWriter err, IgniteException e) {
-        var errorComponentBuilder = sqlExceptionMappers.getOrDefault(e.code(), defaultErrorMapper);
+        var errorComponentBuilder = sqlExceptionMappers.getOrDefault(e.code(), this::unrecognizedErrComponent);
 
         String renderedError = errorComponentBuilder.apply(e).build().render();
         err.write(renderedError);

@@ -118,7 +118,7 @@ class ItSqlCommandTest extends CliCommandTestInitializedIntegrationBase {
 
     @Test
     @DisplayName("Should display readable error when create table without PK")
-    void createTableWithoutPK() {
+    void createTableWithoutPk() {
         execute("sql", "create table mytable(i int)", "--jdbc-url", JDBC_URL);
 
         assertAll(
