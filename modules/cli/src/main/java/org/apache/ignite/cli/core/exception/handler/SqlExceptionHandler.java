@@ -62,7 +62,7 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     }
 
     private ErrorComponentBuilder unrecognizedErrComponent(IgniteException e) {
-        return fromExWithHeader(e, UNRECOGNIZED_ERROR_MESSAGE + e.getMessage());
+        return fromExWithHeader(e, UNRECOGNIZED_ERROR_MESSAGE);
     }
 
     private ErrorComponentBuilder connectionErrUiComponent(IgniteException e) {
