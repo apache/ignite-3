@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.metastorage.client.Operations.remove;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.raft.jraft.core.NodeImpl.LEADER_STEPPED_DOWN;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -193,14 +194,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         try {
             assert status != null;
 
-            RaftError raftError = status.getRaftError();
-
-            if (raftError == RaftError.EPERM && "Leader stepped down.".equals(status.getErrorMsg())) {
+            if (status.equals(LEADER_STEPPED_DOWN)) {
                 // Leader stepped down, so we are expecting RebalanceRaftGroupEventsListener.onLeaderElected to be called on a new leader.
                 LOG.info("Leader stepped down during rebalance [partId={}]", partId);
 
                 return;
             }
+
+            RaftError raftError = status.getRaftError();
 
             assert raftError == RaftError.ECATCHUP : "According to the JRaft protocol, " + RaftError.ECATCHUP
                     + " is expected, got " + raftError;

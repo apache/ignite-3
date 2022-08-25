@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.raft.jraft.core.NodeImpl.LEADER_STEPPED_DOWN;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -37,7 +38,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
-import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -81,7 +81,7 @@ class RebalanceRaftGroupEventsListenerTest {
         // Execute reset method with null status
         resetMethod.invoke(confCtx, new Object[]{null});
 
-        Status defaultStatus = new Status(RaftError.EPERM, "Leader stepped down.");
+        Status defaultStatus = LEADER_STEPPED_DOWN;
 
         // onReconfigurationError should not be called with null status but rather with a default status.
         verify(spy, times(1)).onReconfigurationError(eq(defaultStatus), any(), anyLong());
