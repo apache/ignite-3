@@ -92,18 +92,20 @@ public class ConnectToClusterQuestion {
                     "Do you want to connect to the last connected node %s? %s ", UiElements.url(lastConnectedUrl), UiElements.yesNo()
             );
             clusterUrl = lastConnectedUrl;
-        } else {
+        } else if (defaultUrl != null) {
             question = QuestionUiComponent.fromQuestion(
                     "Do you want to connect to the default node %s? %s ", UiElements.url(defaultUrl), UiElements.yesNo()
             );
             clusterUrl = defaultUrl;
+        } else {
+            return;
         }
 
         Flows.acceptQuestion(question, () -> new ConnectCallInput(clusterUrl))
                 .then(Flows.fromCall(connectCall))
                 .toOutput(CommandLineContextProvider.getContext())
-                .ifThen(s -> !Objects.equals(lastConnectedUrl, defaultUrl) && session.isConnectedToNode(),
-                        defaultUrlQuestion(lastConnectedUrl).toOutput(CommandLineContextProvider.getContext()).build())
+                .ifThen(s -> !Objects.equals(clusterUrl, defaultUrl) && session.isConnectedToNode(),
+                        defaultUrlQuestion(clusterUrl).toOutput(CommandLineContextProvider.getContext()).build())
                 .build().start(Flowable.empty());
     }
 

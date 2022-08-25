@@ -17,12 +17,13 @@
 
 package org.apache.ignite.cli.commands.connect;
 
+import static org.apache.ignite.cli.commands.OptionsConstants.CLUSTER_URL_KEY;
+import static org.apache.ignite.cli.commands.OptionsConstants.NODE_URL_DESC;
+
 import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
 import org.apache.ignite.cli.call.connect.ConnectCall;
 import org.apache.ignite.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.config.ConfigConstants;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
@@ -30,14 +31,10 @@ import picocli.CommandLine.Parameters;
 /**
  * Connects to the Ignite 3 node.
  */
-@Command(name = "connect", description = "Connect to Ignite 3 node")
-@Singleton
+@Command(name = "connect", description = "Connects to Ignite 3 node")
 public class ConnectCommand extends BaseCommand implements Runnable {
-    /** Cluster url option. */
-    @Parameters(
-            description = "Ignite node url",
-            descriptionKey = ConfigConstants.CLUSTER_URL
-    )
+    /** Node URL option. */
+    @Parameters(description = NODE_URL_DESC, descriptionKey = CLUSTER_URL_KEY)
     private String nodeUrl;
 
     @Inject

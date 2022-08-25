@@ -24,7 +24,6 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Path;
@@ -64,7 +63,6 @@ public class NodeCommandSpec {
      * Starts Ignite node command.
      */
     @Command(name = "start", description = "Starts an Ignite node locally")
-    @Singleton
     public static class StartNodeCommandSpec extends BaseCommand implements Callable<Integer> {
         /** Consistent id, which will be used by new node. */
         @Parameters(paramLabel = "name", description = "Name of the new node")

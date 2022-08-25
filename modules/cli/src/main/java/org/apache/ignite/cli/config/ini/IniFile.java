@@ -25,7 +25,6 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import org.apache.ignite.cli.config.ConfigStoringException;
 
@@ -33,7 +32,10 @@ import org.apache.ignite.cli.config.ConfigStoringException;
  * Representation of INI file.
  */
 public class IniFile {
-    private final Map<String, IniSection> content = new LinkedHashMap<>();
+    private final Map<String, IniSection> content;
+
+    private final IniSection topLevelSection;
+
     private final File file;
 
     /**
@@ -43,7 +45,8 @@ public class IniFile {
      * @throws IOException in case when provided INI file can't be parsed.
      */
     public IniFile(File file) throws IOException {
-        content.putAll(new IniParser().parse(file));
+        content = new IniParser().parse(file);
+        topLevelSection = content.remove(IniParser.NO_SECTION);
         this.file = file;
     }
 
@@ -57,7 +60,11 @@ public class IniFile {
      * @return top-level section
      */
     public IniSection getTopLevelSection() {
-        return getSection(IniParser.NO_SECTION);
+        return topLevelSection;
+    }
+
+    public Collection<String> getSectionNames() {
+        return content.keySet();
     }
 
     public Collection<IniSection> getSections() {

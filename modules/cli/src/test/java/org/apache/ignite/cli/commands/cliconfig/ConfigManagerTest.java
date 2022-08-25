@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 class ConfigManagerTest {
     @Test
     public void testSaveLoadConfig() {
-        File tempFile = TestConfigManagerHelper.createSectionWithInternalPart();
+        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfile();
         IniConfigManager configManager = new IniConfigManager(tempFile);
 
         configManager.setProperty("ignite.cluster-endpoint-url", "test");
@@ -36,8 +36,8 @@ class ConfigManagerTest {
     }
 
     @Test
-    public void testLoadConfigWithoutInternalSection() {
-        File tempFile = TestConfigManagerHelper.createSectionWithoutInternalPart();
+    public void testLoadConfigWithoutDefaultProfile() {
+        File tempFile = TestConfigManagerHelper.createSectionWithoutDefaultProfile();
         IniConfigManager configManager = new IniConfigManager(tempFile);
 
 
@@ -55,7 +55,7 @@ class ConfigManagerTest {
 
     @Test
     public void testRemoveConfigFileOnRuntime() {
-        File tempFile = TestConfigManagerHelper.createSectionWithInternalPart();
+        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfile();
         IniConfigManager configManager = new IniConfigManager(tempFile);
 
         assertThat(configManager.getCurrentProfile().getName()).isEqualTo("database");
