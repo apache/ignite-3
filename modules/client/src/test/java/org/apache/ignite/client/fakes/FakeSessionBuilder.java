@@ -58,14 +58,14 @@ public class FakeSessionBuilder implements SessionBuilder {
     }
 
     @Override
-    public long defaultSessionTimeout(TimeUnit timeUnit) {
+    public long defaultIdleSessionTimeout(TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
         return timeUnit.convert(defaultSessionTimeoutMs == null ? 0 : defaultSessionTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     @Override
-    public SessionBuilder defaultSessionTimeout(long timeout, TimeUnit timeUnit) {
+    public SessionBuilder defaultIdleSessionTimeout(long timeout, TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
         defaultSessionTimeoutMs = TimeUnit.MILLISECONDS.convert(timeout, timeUnit);

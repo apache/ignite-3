@@ -88,7 +88,7 @@ public class Session implements AsyncCloseable {
         return sessionId;
     }
 
-    /** Idle timeout. */
+    /** Returns the duration in millis after which the session will be considered expired if no one touched it in the middle. */
     public long getIdleTimeoutMs() {
         return idleTimeoutMs;
     }

@@ -215,7 +215,7 @@ public interface Session extends AutoCloseable {
     CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments);
 
     /**
-     * Return default query timeout.
+     * Return default query timeout which bound query execution time. In case a query take more time it's will be interrupted.
      *
      * @param timeUnit Timeunit to convert timeout to.
      * @return Default query timeout in the given timeunit.
@@ -223,12 +223,12 @@ public interface Session extends AutoCloseable {
     long defaultQueryTimeout(TimeUnit timeUnit);
 
     /**
-     * Return default session timeout.
+     * Return default idle session timeout. The duration after which the session will be considered expired if no one use it.
      *
      * @param timeUnit Timeunit to convert timeout to.
      * @return Default session timeout in the given timeunit.
      */
-    long defaultSessionTimeout(TimeUnit timeUnit);
+    long defaultIdleSessionTimeout(TimeUnit timeUnit);
 
     /**
      * Returns session default schema.
@@ -301,21 +301,20 @@ public interface Session extends AutoCloseable {
         SessionBuilder defaultQueryTimeout(long timeout, TimeUnit timeUnit);
 
         /**
-         * Return default session timeout.
+         * Return default idle session timeout. The duration after which the session will be considered expired if no one use it.
          *
          * @param timeUnit Timeunit to convert timeout to.
          * @return Default session timeout in the given timeunit.
          */
-        long defaultSessionTimeout(TimeUnit timeUnit);
+        long defaultIdleSessionTimeout(TimeUnit timeUnit);
 
         /**
-         * Sets default session timeout.
-         *
+         * Sets default idle session timeout. The duration after which the session will be considered expired if no one use it.
          * @param timeout Session timeout value.
          * @param timeUnit Timeunit.
          * @return {@code this} for chaining.
          */
-        SessionBuilder defaultSessionTimeout(long timeout, TimeUnit timeUnit);
+        SessionBuilder defaultIdleSessionTimeout(long timeout, TimeUnit timeUnit);
 
         /**
          * Returns session default schema.

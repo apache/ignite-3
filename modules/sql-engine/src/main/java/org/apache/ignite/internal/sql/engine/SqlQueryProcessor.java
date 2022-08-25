@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -85,6 +86,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Size of the cache for query plans. */
     public static final int PLAN_CACHE_SIZE = 1024;
 
+    /** Session expiration check period in milliseconds. */
+    public static final long SESSION_EXPIRE_CHECK_PERIOD = TimeUnit.SECONDS.toMillis(1);
+
     private final List<LifecycleAware> services = new ArrayList<>();
 
     private final ClusterService clusterSrvc;
@@ -97,8 +101,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final DataStorageManager dataStorageManager;
 
-    private final SessionManager sessionManager;
-
     private final Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier;
 
     /** Busy lock for stop synchronisation. */
@@ -106,6 +108,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Event listeners to close. */
     private final List<Pair<TableEvent, EventListener<TableEventParameters>>> evtLsnrs = new ArrayList<>();
+
+    private volatile SessionManager sessionManager;
 
     private volatile QueryTaskExecutor taskExecutor;
 
@@ -117,7 +121,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Constructor. */
     public SqlQueryProcessor(
-            String igniteInstanceName,
             Consumer<Function<Long, CompletableFuture<?>>> registry,
             ClusterService clusterSrvc,
             TableManager tableManager,
@@ -131,14 +134,14 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
-
-        sessionManager = registerService(new SessionManager(igniteInstanceName, System::currentTimeMillis));
     }
 
     /** {@inheritDoc} */
     @Override
     public synchronized void start() {
         var nodeName = clusterSrvc.topologyService().localMember().name();
+
+        sessionManager = registerService(new SessionManager(nodeName, SESSION_EXPIRE_CHECK_PERIOD, System::currentTimeMillis));
 
         taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());

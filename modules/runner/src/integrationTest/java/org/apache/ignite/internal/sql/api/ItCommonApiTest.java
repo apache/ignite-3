@@ -17,22 +17,18 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
-import org.apache.ignite.internal.sql.engine.session.SessionManager;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
 
 /** Test common SQL API. */
@@ -58,33 +54,43 @@ public class ItCommonApiTest extends AbstractBasicIntegrationTest {
     /** Check correctness of session expiration. */
     @Test
     public void testSessionExpiration() throws Exception {
-        long timeout = TimeUnit.SECONDS.toMillis(10); // time from SessionManager.checkPeriod
+        long timeout = TimeUnit.SECONDS.toMillis(2); // time from SessionManager.checkPeriod * 2
 
         IgniteSql sql = igniteSql();
 
-        var queryProc = queryProcessor();
+        sql("CREATE TABLE TST(id INTEGER PRIMARY KEY, val INTEGER)");
+        sql("INSERT INTO TST VALUES (1,1), (2,2), (3,3), (4,4)");
 
-        SessionManager sessionManager = IgniteTestUtils.getFieldValue(queryProc, "sessionManager");
+        Session ses1 = sql.sessionBuilder().defaultPageSize(1).defaultIdleSessionTimeout(1, TimeUnit.MILLISECONDS).build();
+        Session ses2 = sql.sessionBuilder().defaultPageSize(1).defaultIdleSessionTimeout(100, TimeUnit.SECONDS).build();
 
-        Map<SessionId, Session> activeSessions =
-                IgniteTestUtils.getFieldValue(sessionManager, "activeSessions");
+        ResultSet rs1 = ses1.execute(null, "SELECT id FROM TST");
+        ResultSet rs2 = ses2.execute(null, "SELECT id FROM TST");
 
-        Session ses1 = sql.sessionBuilder().defaultSessionTimeout(1, TimeUnit.SECONDS).build();
-        Session ses2 = sql.sessionBuilder().defaultSessionTimeout(1000, TimeUnit.SECONDS).build();
-        try {
-            ses1.execute(null, "SELECT 1 + 1");
-            ses2.execute(null, "SELECT 2 + 2");
-        } catch (Throwable ignore) {
-            fail();
+        // waiting for run session cleanup thread
+        Thread.sleep(timeout);
+
+        // first session should be expired for the moment
+        SqlException ex = assertThrows(SqlException.class, () -> ses1.execute(null, "SELECT 1 + 1"));
+        assertTrue(ex.getMessage().contains("IGN-SQL-2"));
+
+        // already started query should fail due to session has been expired
+        ex = assertThrows(CursorClosedException.class, () -> {
+            while (rs1.hasNext()) {
+                rs1.next();
+            }
+        });
+
+        rs1.close();
+
+        assertTrue(ex.getMessage().contains("IGN-SQL-9"));
+
+        // second session could proceed with execution
+        while (rs2.hasNext()) {
+            rs2.next();
         }
 
-        //sessions is alive
-        assertEquals(2, activeSessions.size());
-
-        waitForCondition(() -> activeSessions.size() == 1, timeout + 2000);
-
-        // the first session has been expired
-        assertEquals(1, activeSessions.size());
-        assertThrows(IgniteException.class, () -> ses1.execute(null, "SELECT 1 + 1"));
+        // second session could start new query
+        ses2.execute(null, "SELECT 2 + 2").close();
     }
 }

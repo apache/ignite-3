@@ -210,7 +210,6 @@ public class StopCalciteModuleTest {
     @Test
     public void testStopQueryOnNodeStop() throws Exception {
         SqlQueryProcessor qryProc = new SqlQueryProcessor(
-                NODE_NAME,
                 testRevisionRegister,
                 clusterSrvc,
                 tableManager,

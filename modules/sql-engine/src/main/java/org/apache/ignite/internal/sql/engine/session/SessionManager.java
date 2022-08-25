@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.session;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -35,9 +34,6 @@ import org.jetbrains.annotations.Nullable;
  * A manager of a server side sql sessions.
  */
 public class SessionManager implements LifecycleAware {
-    /** Check period in ms. */
-    private static long checkPeriod = TimeUnit.SECONDS.toMillis(10);
-
     private static final IgniteLogger LOG = Loggers.forClass(SessionManager.class);
 
     /** Active sessions. */
@@ -50,14 +46,14 @@ public class SessionManager implements LifecycleAware {
 
     private final AtomicBoolean startedFlag = new AtomicBoolean(false);
 
-
     /**
      * Constructor.
      *
      * @param igniteInstanceName String igniteInstanceName
+     * @param expirationCheckPeriod Time period in milliseconds to check sessions expiration.
      * @param timeProvider A time provider to use for session management.
      */
-    public SessionManager(String igniteInstanceName, CurrentTimeProvider timeProvider) {
+    public SessionManager(String igniteInstanceName, long expirationCheckPeriod, CurrentTimeProvider timeProvider) {
         this.timeProvider = timeProvider;
 
         expirationWorker = new IgniteWorker(LOG, igniteInstanceName, "session_cleanup-thread", null) {
@@ -66,16 +62,14 @@ public class SessionManager implements LifecycleAware {
                 while (!isCancelled()) {
                     blockingSectionBegin();
                     try {
-                        Thread.sleep(checkPeriod);
+                        Thread.sleep(expirationCheckPeriod);
                     } finally {
                         blockingSectionEnd();
                     }
 
-                    boolean removed = activeSessions.values().removeIf(Session::expired);
+                    activeSessions.values().stream().filter(Session::expired).forEach((s) -> destroySession(s));
 
-                    if (removed) {
-                        LOG.debug("Expired SQL sessions has been cleaned up. Active sessions [count={}]", activeSessions.size());
-                    }
+                    LOG.debug("Expired SQL sessions has been cleaned up. Active sessions [count={}]", activeSessions.size());
                 }
             }
         };
@@ -84,8 +78,8 @@ public class SessionManager implements LifecycleAware {
     /**
      * Creates a new session.
      *
-     * @param idleTimeoutMs Duration in milliseconds after which the session will be considered expired if no action have been
-     *                     performed on behalf of this session during this period.
+     * @param idleTimeoutMs Duration in milliseconds after which the session will be considered expired if no action have been performed on
+     * behalf of this session during this period.
      * @param queryProperties Properties to keep within the session.
      * @return A new session.
      */
@@ -120,19 +114,32 @@ public class SessionManager implements LifecycleAware {
         var session = activeSessions.get(sessionId);
 
         if (session != null && !session.touch()) {
-            activeSessions.remove(session);
+            destroySession(session);
             session = null;
         }
 
         return session;
     }
 
+    /**
+     * Destroy a given session
+     *
+     * @param session Session which should be destroyed
+     */
+    private void destroySession(Session session) {
+        activeSessions.remove(session.sessionId());
+        session.closeAsync();
+    }
+
     private SessionId nextSessionId() {
         return new SessionId(UUID.randomUUID());
     }
 
+    /**
+     * Initialize the service by starting session expiration thread.
+     */
     @Override
-    public synchronized void start() {
+    public void start() {
         if (startedFlag.compareAndSet(false, true)) {
             IgniteThread expirationThread = new IgniteThread(expirationWorker);
 
@@ -141,8 +148,9 @@ public class SessionManager implements LifecycleAware {
         }
     }
 
+    /** Stop the service by stopping session expiration thread. */
     @Override
-    public void stop() throws Exception {
+    public void stop() {
         expirationWorker.cancel();
     }
 }

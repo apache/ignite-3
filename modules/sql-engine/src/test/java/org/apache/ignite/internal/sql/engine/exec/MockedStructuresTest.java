@@ -255,7 +255,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         tblManager = mockManagers();
 
         queryProc = new SqlQueryProcessor(
-                NODE_NAME,
                 revisionUpdater,
                 cs,
                 tblManager,

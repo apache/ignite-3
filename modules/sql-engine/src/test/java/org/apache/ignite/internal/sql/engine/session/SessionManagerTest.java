@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.session;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -27,47 +26,33 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
-import org.apache.ignite.internal.sql.engine.property.Property;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * SessionManager tests.
+ */
 class SessionManagerTest {
 
     private SessionManager sessionMgr;
-    private Map<SessionId, Session> activeSessions;
+    private AtomicLong clock = new AtomicLong(System.currentTimeMillis());
 
     @BeforeEach
     void beforeEach() {
-        sessionMgr = new SessionManager("test", System::currentTimeMillis);
-        activeSessions = IgniteTestUtils.getFieldValue(sessionMgr, "activeSessions");
+        sessionMgr = new SessionManager("test", 20, () -> clock.get());
     }
 
     @AfterEach
-    void afterEach() throws Exception {
+    void afterEach() {
         sessionMgr.stop();
     }
 
     @Test
-    void createSession() {
-        assertEquals(0, activeSessions.size());
-
-        SessionId sessionId1 = sessionMgr.createSession(1000, null);
-        assertNotNull(sessionId1);
-
-        SessionId sessionId2 = sessionMgr.createSession(1000, null);
-        assertNotNull(sessionId2);
-
-        assertNotEquals(sessionId1, sessionId2);
-        assertEquals(2, activeSessions.size());
-    }
-
-    @Test
     void sessionGet() {
-        PropertiesHolder propHldr = createPropertyHolder();
+        PropertiesHolder propHldr = PropertiesHolder.holderFor(Map.of());
 
         SessionId sessionId = sessionMgr.createSession(12345, propHldr);
 
@@ -81,70 +66,52 @@ class SessionManagerTest {
     }
 
     @Test
-    void touchSessionDuringGet() throws InterruptedException {
+    void expirationThreadTests() throws InterruptedException {
         long idleTimeout = 20;
 
         SessionId sessionId = sessionMgr.createSession(idleTimeout, null);
 
         long time = System.currentTimeMillis();
+        clock.set(time);
+
         for (int i = 0; i < 10; i++) {
-            sessionMgr.session(sessionId);
+            Session session = sessionMgr.session(sessionId);
             Thread.sleep(5);
+            clock.set(System.currentTimeMillis());
         }
         assertTrue(System.currentTimeMillis() - time > idleTimeout);
 
         Session session = sessionMgr.session(sessionId);
         assertFalse(session.expired());
-
-        Thread.sleep(idleTimeout + 10);
+        clock.addAndGet(idleTimeout+1);
         assertTrue(session.expired());
-        assertEquals(1, activeSessions.size());
 
-        // touch session don't change already expire state.
-        sessionMgr.session(sessionId);
-        assertTrue(session.expired());
-        assertEquals(1, activeSessions.size());
-
+        assertNull(sessionMgr.session(sessionId));
     }
 
     @Test
     void sessionExpiration() throws InterruptedException {
-        IgniteTestUtils.setFieldValue(sessionMgr, "checkPeriod", 100L);
-        sessionMgr.start();
-
-        SessionId sessionId = sessionMgr.createSession(10, null);
+        clock.set(1);
+        SessionId sessionId = sessionMgr.createSession(2, null);
 
         Session session = sessionMgr.session(sessionId);
-        assertFalse((session.expired()));
-        assertEquals(1, activeSessions.size());
+        assertFalse(session.expired());
 
-        Thread.sleep(150);
-        assertEquals(0, activeSessions.size());
+        //period is small to expire session
+        clock.set(2);
+        assertFalse(session.expired());
+
+        //period is enough to session expired, but we touch session and prolong times live
+        clock.set(4);
+        assertNotNull(sessionMgr.session(sessionId));
+        assertFalse(session.expired());
+
+        clock.set(7);
+        assertTrue(session.expired());
         assertNull(sessionMgr.session(sessionId));
+        // touch session don't change already expire state.
+        assertTrue(session.expired());
+
     }
 
-
-    private PropertiesHolder createPropertyHolder() {
-        return new PropertiesHolder() {
-            @Override
-            public <T> @Nullable T get(Property<T> prop) {
-                return null;
-            }
-
-            @Override
-            public <T> @Nullable T getOrDefault(Property<T> prop, @Nullable T defaultValue) {
-                return null;
-            }
-
-            @Override
-            public int size() {
-                return 0;
-            }
-
-            @Override
-            public Map<Property<?>, Object> toMap() {
-                return null;
-            }
-        };
-    }
 }
