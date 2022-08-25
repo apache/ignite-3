@@ -201,17 +201,18 @@ public class ClientTableCommon {
         // TODO: The given tuple may already have a BinaryTuple underneath - we should be able to do a simple copy.
 
         // TODO IGNITE-17297: BinaryTupleBuilder should write directly to the ByteBuf (separate ticket?).
-        var tupleWriter = BinaryTupleBuilder.create(columnCount(schema, part), true);
+        // TODO IGNITE-17297: Detect nulls efficiently - how? Probably don't bother here?
+        var builder = BinaryTupleBuilder.create(columnCount(schema, part), true);
 
         if (part != TuplePart.VAL) {
             for (var col : schema.keyColumns().columns()) {
-                writeColumnValue(packer, tuple, col);
+                writeColumnValue(builder, tuple, col);
             }
         }
 
         if (part != TuplePart.KEY) {
             for (var col : schema.valueColumns().columns()) {
-                writeColumnValue(packer, tuple, col);
+                writeColumnValue(builder, tuple, col);
             }
         }
     }
@@ -577,6 +578,90 @@ public class ClientTableCommon {
 
             case TIMESTAMP:
                 packer.packTimestamp((Instant) val);
+                break;
+
+            default:
+                throw new IgniteException(PROTOCOL_ERR, "Data type not supported: " + col.type());
+        }
+    }
+
+    private static void writeColumnValue(BinaryTupleBuilder builder, Tuple tuple, Column col) {
+        var val = tuple.valueOrDefault(col.name(), NO_VALUE);
+
+        if (val == null) {
+            builder.appendNull();
+            return;
+        }
+
+        if (val == NO_VALUE) {
+            // TODO IGNITE-17297: Handle missing (not set) value differently.
+            builder.appendNull();
+            return;
+        }
+
+        switch (col.type().spec()) {
+            case INT8:
+                builder.appendByte((byte) val);
+                break;
+
+            case INT16:
+                builder.appendShort((short) val);
+                break;
+
+            case INT32:
+                builder.appendInt((int) val);
+                break;
+
+            case INT64:
+                builder.appendLong((long) val);
+                break;
+
+            case FLOAT:
+                builder.appendFloat((float) val);
+                break;
+
+            case DOUBLE:
+                builder.appendDouble((double) val);
+                break;
+
+            case DECIMAL:
+                builder.appendDecimal((BigDecimal) val);
+                break;
+
+            case NUMBER:
+                builder.appendNumber((BigInteger) val);
+                break;
+
+            case UUID:
+                builder.appendUuid((UUID) val);
+                break;
+
+            case STRING:
+                builder.appendString((String) val);
+                break;
+
+            case BYTES:
+                builder.appendBytes((byte[]) val);
+                break;
+
+            case BITMASK:
+                builder.appendBitmask((BitSet) val);
+                break;
+
+            case DATE:
+                builder.appendDate((LocalDate) val);
+                break;
+
+            case TIME:
+                builder.appendTime((LocalTime) val);
+                break;
+
+            case DATETIME:
+                builder.appendDateTime((LocalDateTime) val);
+                break;
+
+            case TIMESTAMP:
+                builder.appendTimestamp((Instant) val);
                 break;
 
             default:
