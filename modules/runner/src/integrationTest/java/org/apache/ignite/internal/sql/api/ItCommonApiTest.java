@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_CLOSED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -72,7 +74,7 @@ public class ItCommonApiTest extends AbstractBasicIntegrationTest {
 
         // first session should be expired for the moment
         SqlException ex = assertThrows(SqlException.class, () -> ses1.execute(null, "SELECT 1 + 1"));
-        assertTrue(ex.getMessage().contains("IGN-SQL-2"));
+        assertEquals(SESSION_NOT_FOUND_ERR, ex.code());
 
         // already started query should fail due to session has been expired
         ex = assertThrows(CursorClosedException.class, () -> {
@@ -83,7 +85,7 @@ public class ItCommonApiTest extends AbstractBasicIntegrationTest {
 
         rs1.close();
 
-        assertTrue(ex.getMessage().contains("IGN-SQL-9"));
+        assertEquals(CURSOR_CLOSED_ERR, ex.code());
 
         // second session could proceed with execution
         while (rs2.hasNext()) {
