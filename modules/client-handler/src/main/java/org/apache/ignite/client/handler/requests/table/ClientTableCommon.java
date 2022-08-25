@@ -28,8 +28,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.UUID;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientDataType;
@@ -199,7 +201,8 @@ public class ClientTableCommon {
         // TODO: The given tuple may already have a BinaryTuple underneath - we should be able to do a simple copy.
 
         // TODO IGNITE-17297: BinaryTupleBuilder should write directly to the ByteBuf (separate ticket?).
-        // var tupleWriter = BinaryTupleBuilder.create()
+        var tupleWriter = BinaryTupleBuilder.create(columnCount(schema, part), true);
+
         if (part != TuplePart.VAL) {
             for (var col : schema.keyColumns().columns()) {
                 writeColumnValue(packer, tuple, col);
@@ -579,5 +582,41 @@ public class ClientTableCommon {
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Data type not supported: " + col.type());
         }
+    }
+
+    private static int columnCount(SchemaDescriptor schema, TuplePart part){
+        switch (part) {
+            case KEY: return schema.keyColumns().length();
+            case VAL: return schema.valueColumns().length();
+            default: return schema.length();
+        }
+    }
+
+    private static Iterable<Column> columnIterable(SchemaDescriptor schema, TuplePart part) {
+        return () -> columnIterator(schema, part);
+    }
+
+    private static Iterator<Column> columnIterator(SchemaDescriptor schema, TuplePart part) {
+        if (part == TuplePart.KEY) {
+            return Arrays.stream(schema.keyColumns().columns()).iterator();
+        }
+
+        if (part == TuplePart.VAL) {
+            return Arrays.stream(schema.valueColumns().columns()).iterator();
+        }
+
+        return new Iterator<>() {
+            private int idx;
+
+            @Override
+            public boolean hasNext() {
+                return idx < schema.length();
+            }
+
+            @Override
+            public Column next() {
+                return schema.column(idx++);
+            }
+        };
     }
 }
