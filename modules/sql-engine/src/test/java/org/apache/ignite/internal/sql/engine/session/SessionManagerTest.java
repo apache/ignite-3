@@ -83,7 +83,7 @@ class SessionManagerTest {
 
         Session session = sessionMgr.session(sessionId);
         assertFalse(session.expired());
-        clock.addAndGet(idleTimeout+1);
+        clock.addAndGet(idleTimeout + 1);
         assertTrue(session.expired());
 
         assertNull(sessionMgr.session(sessionId));

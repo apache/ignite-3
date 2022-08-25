@@ -310,6 +310,7 @@ public interface Session extends AutoCloseable {
 
         /**
          * Sets default idle session timeout. The duration after which the session will be considered expired if no one use it.
+         *
          * @param timeout Session timeout value.
          * @param timeUnit Timeunit.
          * @return {@code this} for chaining.

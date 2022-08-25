@@ -79,7 +79,7 @@ public class SessionManager implements LifecycleAware {
      * Creates a new session.
      *
      * @param idleTimeoutMs Duration in milliseconds after which the session will be considered expired if no action have been performed on
-     * behalf of this session during this period.
+     *                      behalf of this session during this period.
      * @param queryProperties Properties to keep within the session.
      * @return A new session.
      */
@@ -122,7 +122,7 @@ public class SessionManager implements LifecycleAware {
     }
 
     /**
-     * Destroy a given session
+     * Destroy a given session.
      *
      * @param session Session which should be destroyed
      */
