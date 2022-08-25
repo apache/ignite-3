@@ -13,15 +13,15 @@ needed to generate a valid [Open API spec](https://spec.openapis.org/oas/v3.1.0)
 
 ## Error handling
 
-Ignite 3 implements the [problem/json](https://www.rfc-editor.org/rfc/rfc7807.html) in all endpoints. That's why
+Ignite 3 implements the [application/problem+json](https://www.rfc-editor.org/rfc/rfc7807.html) in all endpoints. That's why
 problem definition and common problem handling are defined in this module. Here is how it works:
 
-- `IgniteException` is thrown in any Ignite component
+- [`IgniteException`](../api/src/main/java/org/apache/ignite/lang/IgniteException.java) is thrown in any Ignite component
 - REST Controller might not handle this exception 
 - [`IgniteExceptionHandler`](src/main/java/org/apache/ignite/internal/rest/exception/handler/IgniteExceptionHandler.java) 
 is invoked by micronaut infrastructure
 - [`IgniteExceptionHandler`](src/main/java/org/apache/ignite/internal/rest/exception/handler/IgniteExceptionHandler.java)  handles 
-[`IgniteException`](../api/src/main/java/org/apache/ignite/lang/IgniteException.java) and returns a valid `problem/json`
+[`IgniteException`](../api/src/main/java/org/apache/ignite/lang/IgniteException.java) and returns a valid `application/problem+json`
 
 > Make sure that [`IgniteExceptionHandler`](src/main/java/org/apache/ignite/internal/rest/exception/handler/IgniteExceptionHandler.java)
 > has been loaded into micronaut context otherwise this class won't be invoked.
