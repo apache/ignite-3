@@ -37,6 +37,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.schema.BinaryTupleBuilder;
+import org.apache.ignite.internal.schema.BinaryTupleContainer;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaAware;
@@ -179,6 +180,16 @@ public class ClientTableCommon {
 
         if (!skipHeader) {
             packer.packInt(schema.version());
+        }
+
+        if (tuple instanceof BinaryTupleContainer) {
+            var binTuple = ((BinaryTupleContainer) tuple).binaryTuple();
+
+            if (binTuple != null) {
+                var buf = binTuple.byteBuffer();
+
+                // TODO: Write correct part of the tuple directly.
+            }
         }
 
         // TODO: IGNITE-17297 - use BinaryTupleBuilder.create().
