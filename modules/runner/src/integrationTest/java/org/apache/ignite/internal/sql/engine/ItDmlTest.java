@@ -132,10 +132,12 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
                 .map(Object::toString)
                 .collect(Collectors.joining("), (", "(", ")"));
 
-        assertThrows(
-                IgniteException.class,
+        SqlException sqlException = assertThrows(
+                SqlException.class,
                 () -> sql(insertStatement)
         );
+
+        assertEquals(Sql.DUPLICATE_KEYS_ERR, sqlException.code());
 
         assertQuery("SELECT count(*) FROM test")
                 .returns(0L)
