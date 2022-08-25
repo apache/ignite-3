@@ -301,7 +301,10 @@ public interface Session extends AutoCloseable {
         SessionBuilder defaultQueryTimeout(long timeout, TimeUnit timeUnit);
 
         /**
-         * Return default idle session timeout. The duration after which the session will be considered expired if no one use it.
+         * Return the idle timeout.
+         *
+         * <p>The maximum idle time (that is, time when no requests are performed on behalf the session) in milliseconds, after which this
+         * session will be considered expired.
          *
          * @param timeUnit Timeunit to convert timeout to.
          * @return Default session timeout in the given timeunit.

@@ -41,7 +41,7 @@ public class SessionManager implements LifecycleAware {
 
     private final CurrentTimeProvider timeProvider;
 
-    /** session expiration worker. */
+    /** Session expiration worker. */
     private final IgniteWorker expirationWorker;
 
     private final AtomicBoolean startedFlag = new AtomicBoolean(false);
@@ -49,7 +49,7 @@ public class SessionManager implements LifecycleAware {
     /**
      * Constructor.
      *
-     * @param igniteInstanceName String igniteInstanceName
+     * @param igniteInstanceName The name of the current node.
      * @param expirationCheckPeriod Time period in milliseconds to check sessions expiration.
      * @param timeProvider A time provider to use for session management.
      */

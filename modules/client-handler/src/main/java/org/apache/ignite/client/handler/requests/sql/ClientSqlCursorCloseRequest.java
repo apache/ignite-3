@@ -36,7 +36,7 @@ public class ClientSqlCursorCloseRequest {
             throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
 
-        var asyncResultSet = resources.remove(resourceId).get(ClientSqlResultSet.class);
+        ClientSqlResultSet asyncResultSet = resources.remove(resourceId).get(ClientSqlResultSet.class);
 
         return asyncResultSet.closeAsync();
     }

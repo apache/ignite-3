@@ -79,7 +79,7 @@ public class SessionImpl implements Session {
      *
      * @param qryProc Query processor.
      * @param pageSize Query fetch page size.
-     * @param sessionTimeoutMs Session timeout in milliseconds
+     * @param sessionTimeoutMs Session timeout in milliseconds.
      * @param props Session's properties.
      */
     SessionImpl(

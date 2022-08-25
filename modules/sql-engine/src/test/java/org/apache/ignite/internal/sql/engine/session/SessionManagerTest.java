@@ -26,8 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,34 +62,10 @@ class SessionManagerTest {
         Session session = sessionMgr.session(sessionId);
         assertNotNull(session);
         assertSame(propHldr, session.queryProperties());
-        assertEquals(12345, session.getIdleTimeoutMs());
+        assertEquals(12345, session.idleTimeoutMs());
 
         SessionId unknownSessionId = new SessionId(UUID.randomUUID());
         assertNull(sessionMgr.session(unknownSessionId));
-    }
-
-    @Test
-    void expirationThreadTests() throws InterruptedException {
-        long idleTimeout = 20;
-
-        SessionId sessionId = sessionMgr.createSession(idleTimeout, null);
-
-        long time = System.currentTimeMillis();
-        clock.set(time);
-
-        for (int i = 0; i < 10; i++) {
-            Session session = sessionMgr.session(sessionId);
-            Thread.sleep(5);
-            clock.set(System.currentTimeMillis());
-        }
-        assertTrue(System.currentTimeMillis() - time > idleTimeout);
-
-        Session session = sessionMgr.session(sessionId);
-        assertFalse(session.expired());
-        clock.addAndGet(idleTimeout + 1);
-        assertTrue(session.expired());
-
-        assertNull(sessionMgr.session(sessionId));
     }
 
     @Test
@@ -111,7 +90,59 @@ class SessionManagerTest {
         assertNull(sessionMgr.session(sessionId));
         // touch session don't change already expire state.
         assertTrue(session.expired());
-
     }
 
+    @Test
+    void expirationThreadTests() throws InterruptedException {
+        long idleTimeout = 20;
+
+        SessionManager sesMgr = new SessionManager("test", 20, System::currentTimeMillis);
+        sesMgr.start();
+
+        SessionId sessionId1 = sesMgr.createSession(idleTimeout, null);
+        SessionId sessionId2 = sesMgr.createSession(idleTimeout, null);
+
+        AtomicBoolean signal1 = new AtomicBoolean(false);
+        AtomicBoolean signal2 = new AtomicBoolean(false);
+
+        Session session1 = sesMgr.session(sessionId1);
+        session1.registerResource(() -> {
+                    signal1.set(true);
+                    return CompletableFuture.completedFuture(null);
+                }
+        );
+
+        Session session2 = sesMgr.session(sessionId2);
+        session2.registerResource(() -> {
+                    signal2.set(true);
+                    return CompletableFuture.completedFuture(null);
+                }
+        );
+
+        // waiting for expiration first session meanwhile touch second session.
+        IgniteTestUtils.waitForCondition(
+                () -> {
+                    sesMgr.session(sessionId2);
+                    return signal1.get();
+                },
+                10,
+                50);
+
+        // The first session should be expired.
+        assertNull(sesMgr.session(sessionId1));
+        assertTrue(session1.expired());
+        // The second session is alive due to it has been touched.
+        assertNotNull(sesMgr.session(sessionId2));
+        assertFalse(session2.expired());
+
+        IgniteTestUtils.waitForCondition(
+                () -> signal2.get(),
+                10,
+                50);
+
+        assertNull(sesMgr.session(sessionId2));
+        assertTrue(session2.expired());
+
+        sesMgr.stop();
+    }
 }
