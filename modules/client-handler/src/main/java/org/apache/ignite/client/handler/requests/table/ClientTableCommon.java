@@ -198,7 +198,7 @@ public class ClientTableCommon {
         // TODO: IGNITE-17297 - use BinaryTupleBuilder.create().
         // TODO: The given tuple may already have a BinaryTuple underneath - we should be able to do a simple copy.
 
-        // TODO IGNITE-17297: BinaryTupleBuilder should write directly to the ByteBuf.
+        // TODO IGNITE-17297: BinaryTupleBuilder should write directly to the ByteBuf (separate ticket?).
         // var tupleWriter = BinaryTupleBuilder.create()
         if (part != TuplePart.VAL) {
             for (var col : schema.keyColumns().columns()) {
