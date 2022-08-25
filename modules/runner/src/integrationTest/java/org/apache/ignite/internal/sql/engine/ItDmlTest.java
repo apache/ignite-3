@@ -34,7 +34,9 @@ import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -98,10 +100,12 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
                 .returns(1L)
                 .check();
 
-        assertThrows(
-                IgniteException.class,
+        var sqlException = assertThrows(
+                SqlException.class,
                 () -> sql("INSERT INTO test VALUES (0, 0), (1, 1), (2, 2)")
         );
+
+        assertEquals(Sql.DUPLICATE_KEYS_ERR, sqlException.code());
 
         assertQuery("SELECT count(*) FROM test")
                 .returns(1L)
