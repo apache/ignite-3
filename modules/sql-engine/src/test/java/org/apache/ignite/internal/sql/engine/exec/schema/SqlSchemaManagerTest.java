@@ -301,7 +301,7 @@ public class SqlSchemaManagerTest {
 
         assertEquals(igniteTable.id(), igniteIndex.table().id());
         assertSame(igniteTable, schemaIndex.table());
-        assertSame(((IgniteTableImpl)igniteTable), schemaIndex.table());
+        assertSame(((IgniteTableImpl) igniteTable), schemaIndex.table());
         assertSame(schemaIndex, igniteTable.indexes().get("I"));
 
         sqlSchemaManager.onIndexDropped("TEST_SCHEMA", indexId, testRevisionRegister.actualToken() + 1);
