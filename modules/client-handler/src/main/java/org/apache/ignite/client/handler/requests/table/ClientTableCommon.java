@@ -186,9 +186,12 @@ public class ClientTableCommon {
             var binTuple = ((BinaryTupleContainer) tuple).binaryTuple();
 
             if (binTuple != null) {
+                // TODO IGNITE-17297: Write correct part of the tuple directly.
                 var buf = binTuple.byteBuffer();
+                packer.packBinaryHeader(buf.limit() - buf.position()); // TODO IGNITE-17297: ???
+                packer.writePayload(buf);
 
-                // TODO: Write correct part of the tuple directly.
+                return;
             }
         }
 

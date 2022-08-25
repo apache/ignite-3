@@ -25,6 +25,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -463,6 +464,20 @@ public class ClientMessagePacker implements AutoCloseable {
      * @param src the data to add.
      */
     public void writePayload(byte[] src) {
+        assert !closed : "Packer is closed";
+
+        buf.writeBytes(src);
+    }
+
+    /**
+     * Writes a byte buffer to the output.
+     *
+     * <p>This method is used with {@link #packRawStringHeader(int)} or {@link #packBinaryHeader(int)}
+     * methods.
+     *
+     * @param src the data to add.
+     */
+    public void writePayload(ByteBuffer src) {
         assert !closed : "Packer is closed";
 
         buf.writeBytes(src);
