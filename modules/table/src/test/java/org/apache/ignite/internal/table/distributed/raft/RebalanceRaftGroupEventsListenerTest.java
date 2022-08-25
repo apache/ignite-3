@@ -53,7 +53,7 @@ class RebalanceRaftGroupEventsListenerTest {
     void testOnReconfigurationErrorCalledFromResetWithNullStatus() throws Exception {
         IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-        RaftGroupEventsListener spy = Mockito.spy(new RebalanceRaftGroupEventsListener(null, null, null, 0, busyLock, null, null));
+        RaftGroupEventsListener spy = Mockito.spy(new RebalanceRaftGroupEventsListener(null, null, null, 0, busyLock, null, null, null));
 
         NodeImpl node = Mockito.mock(NodeImpl.class);
 
