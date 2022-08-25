@@ -423,10 +423,15 @@ public class HeapLockManager implements LockManager {
 
                                 // Downgrade to acquired read lock.
                                 tmp.upgraded = false;
+                                tmp.lockMode = tmp.prevLockMode;//tmp.forRead = true;
                                 tmp.prevLockMode = null;
                                 tmp.locked = true;
 
-                                locked.add(tmp);
+//                                if (removed.txId.compareTo(tmp.txId) > 0) {
+//                                    toFail.add(tmp);
+//                                } else {
+                                    locked.add(tmp);
+//                                }
                             } else {
                                 lockModes.add(tmp.lockMode);
 
