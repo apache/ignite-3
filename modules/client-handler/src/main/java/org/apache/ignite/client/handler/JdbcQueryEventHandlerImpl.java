@@ -277,11 +277,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     private StringWriter getWriterWithStackTrace(Throwable t) {
         String message = null;
         if (t instanceof CompletionException) {
-            if (t.getCause() instanceof IgniteException
-                    || t.getCause() instanceof CalciteContextException
-                    || t.getCause() instanceof QueryValidationException) {
-                message = t.getCause().getMessage();
-            }
+            message = t.getCause().getMessage();
         }
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
