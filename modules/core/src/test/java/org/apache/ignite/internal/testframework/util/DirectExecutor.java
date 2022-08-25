@@ -28,7 +28,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.jetbrains.annotations.NotNull;
 
 /** Executor service that executes tasks within the thread task was submitted in. */
 public class DirectExecutor implements ExecutorService {
@@ -39,7 +38,6 @@ public class DirectExecutor implements ExecutorService {
         isShutdown.set(true);
     }
 
-    @NotNull
     @Override
     public List<Runnable> shutdownNow() {
         return Collections.emptyList();
@@ -56,13 +54,12 @@ public class DirectExecutor implements ExecutorService {
     }
 
     @Override
-    public boolean awaitTermination(long timeout, @NotNull TimeUnit unit) throws InterruptedException {
+    public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
         return true;
     }
 
-    @NotNull
     @Override
-    public <T> Future<T> submit(@NotNull Callable<T> task) {
+    public <T> Future<T> submit(Callable<T> task) {
         T result;
         try {
             result = task.call();
@@ -72,47 +69,41 @@ public class DirectExecutor implements ExecutorService {
         return CompletableFuture.completedFuture(result);
     }
 
-    @NotNull
     @Override
-    public <T> Future<T> submit(@NotNull Runnable task, T result) {
+    public <T> Future<T> submit(Runnable task, T result) {
         task.run();
         return CompletableFuture.completedFuture(result);
     }
 
-    @NotNull
     @Override
-    public Future<?> submit(@NotNull Runnable task) {
+    public Future<?> submit(Runnable task) {
         task.run();
         return CompletableFuture.completedFuture(null);
     }
 
-    @NotNull
     @Override
-    public <T> List<Future<T>> invokeAll(@NotNull Collection<? extends Callable<T>> tasks) throws InterruptedException {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
-
-    @NotNull
-    @Override
-    public <T> List<Future<T>> invokeAll(@NotNull Collection<? extends Callable<T>> tasks, long timeout, @NotNull TimeUnit unit)
-            throws InterruptedException {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
-
-    @NotNull
-    @Override
-    public <T> T invokeAny(@NotNull Collection<? extends Callable<T>> tasks) throws InterruptedException, ExecutionException {
+    public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks) throws InterruptedException {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
     @Override
-    public <T> T invokeAny(@NotNull Collection<? extends Callable<T>> tasks, long timeout, @NotNull TimeUnit unit)
+    public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit) throws InterruptedException {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    public <T> T invokeAny(Collection<? extends Callable<T>> tasks) throws InterruptedException, ExecutionException {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    public <T> T invokeAny(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit)
             throws InterruptedException, ExecutionException, TimeoutException {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
     @Override
-    public void execute(@NotNull Runnable command) {
+    public void execute(Runnable command) {
         command.run();
     }
 }
