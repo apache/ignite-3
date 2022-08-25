@@ -421,17 +421,22 @@ public class HeapLockManager implements LockManager {
                                 // Fail upgraded waiters because of write.
                                 assert !tmp.locked;
 
-                                // Downgrade to acquired read lock.
-                                tmp.upgraded = false;
-                                tmp.lockMode = tmp.prevLockMode;//tmp.forRead = true;
-                                tmp.prevLockMode = null;
-                                tmp.locked = true;
+                                if (removed.lockMode.compareTo(tmp.lockMode) >= 0) {
+                                    // Downgrade to acquired read lock.
+                                    tmp.upgraded = false;
+                                    tmp.lockMode = tmp.prevLockMode;
+                                    tmp.prevLockMode = null;
+                                    tmp.locked = true;
 
-//                                if (removed.txId.compareTo(tmp.txId) > 0) {
-//                                    toFail.add(tmp);
-//                                } else {
+                                    toFail.add(tmp);
+                                } else {
+                                    // Downgrade to acquired read lock.
+                                    tmp.upgraded = false;
+                                    tmp.prevLockMode = null;
+                                    tmp.locked = true;
+
                                     locked.add(tmp);
-//                                }
+                                }
                             } else {
                                 lockModes.add(tmp.lockMode);
 
