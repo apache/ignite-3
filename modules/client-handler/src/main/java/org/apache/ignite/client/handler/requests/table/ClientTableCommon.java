@@ -39,8 +39,10 @@ import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryTupleContainer;
+import org.apache.ignite.internal.schema.BinaryTupleReader;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaAware;
@@ -340,6 +342,10 @@ public class ClientTableCommon {
             SchemaDescriptor schema
     ) {
         var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
+
+        // TODO IGNITE-17297: Avoid array allocation? But we need to release netty buf anyway.
+        var binaryTupleBuf = unpacker.readPayload(unpacker.unpackBinaryHeader());
+        var binaryTupleParser = new BinaryTupleReader(cnt, binaryTupleBuf);
 
         var tuple = Tuple.create(cnt);
 
