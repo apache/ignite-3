@@ -111,8 +111,8 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** Partition storages. */
     private volatile AtomicReferenceArray<RocksDbMvPartitionStorage> partitions;
 
-    /** Hash Index storages by their IDs. */
-    private final ConcurrentMap<UUID, HashIndexStorage> hashIndices = new ConcurrentHashMap<>();
+    /** Hash Index storages by Index IDs. */
+    private final ConcurrentMap<UUID, HashIndices> hashIndices = new ConcurrentHashMap<>();
 
     /** Map with flush futures by sequence number at the time of the {@link #awaitFlush(boolean)} call. */
     private final ConcurrentMap<Long, CompletableFuture<Void>> flushFuturesBySequenceNumber = new ConcurrentHashMap<>();
@@ -447,23 +447,31 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
-        return hashIndices.computeIfAbsent(indexId, id -> {
-            var indexDescriptor = new HashIndexDescriptor(id, tableCfg.value());
+        HashIndices storages = hashIndices.computeIfAbsent(indexId, id -> {
+            var indexDescriptor = new HashIndexDescriptor(indexId, tableCfg.value());
 
-            return new RocksDbHashIndexStorage(indexDescriptor, hashIndexCf, getOrCreateMvPartition(partitionId));
+            return new HashIndices(indexDescriptor);
         });
+
+        RocksDbMvPartitionStorage partitionStorage = getMvPartition(partitionId);
+
+        if (partitionStorage == null) {
+            throw new StorageException(String.format("Partition %d has not been created yet", partitionId));
+        }
+
+        return storages.getOrCreateStorage(hashIndexCf, partitionStorage);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> destroyIndex(UUID indexId) {
-        HashIndexStorage storage = hashIndices.remove(indexId);
+        HashIndices storages = hashIndices.remove(indexId);
 
-        if (storage == null) {
+        if (storages == null) {
             return CompletableFuture.completedFuture(null);
         }
 
-        storage.destroy();
+        storages.destroy();
 
         return awaitFlush(false);
     }
