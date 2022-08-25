@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -189,9 +190,7 @@ public class ClientTableCommon {
 
             if (binTuple != null) {
                 // TODO IGNITE-17297: Write correct part of the tuple directly.
-                var buf = binTuple.byteBuffer();
-                packer.packBinaryHeader(buf.limit() - buf.position()); // TODO IGNITE-17297: ???
-                packer.writePayload(buf);
+                packBinary(packer, binTuple.byteBuffer());
 
                 return;
             }
@@ -215,6 +214,8 @@ public class ClientTableCommon {
                 writeColumnValue(builder, tuple, col);
             }
         }
+
+        packBinary(packer, builder.build());
     }
 
     /**
@@ -703,5 +704,10 @@ public class ClientTableCommon {
                 return schema.column(idx++);
             }
         };
+    }
+
+    private static void packBinary(ClientMessagePacker packer, ByteBuffer buf) {
+        packer.packBinaryHeader(buf.limit() - buf.position()); // TODO IGNITE-17297: ???
+        packer.writePayload(buf);
     }
 }
