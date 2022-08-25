@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -534,6 +535,44 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         assertTrue(fut1.isDone());
 
         lockManager.release(fut0.join());
+        lockManager.release(fut1.join());
+
+        assertTrue(lockManager.queue(key).isEmpty());
+    }
+
+    @Test
+    public void test5() throws Exception {
+        UUID txId0 = Timestamp.nextVersion().toUuid();
+
+        LockKey key = new LockKey("test");
+
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, LockMode.INTENTION_EXCLUSIVE);
+
+        assertEquals(LockMode.INTENTION_EXCLUSIVE, fut0.join().lockMode());
+
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId0, key, LockMode.SHARED);
+
+        assertEquals(LockMode.SHARED_AND_INTENTION_EXCLUSIVE, fut1.join().lockMode());
+
+        lockManager.release(fut1.join());
+
+        assertTrue(lockManager.queue(key).isEmpty());
+    }
+
+    @Test
+    public void test6() throws Exception {
+        UUID txId0 = Timestamp.nextVersion().toUuid();
+
+        LockKey key = new LockKey("test");
+
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, LockMode.SHARED);
+
+        assertEquals(LockMode.SHARED, fut0.join().lockMode());
+
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId0, key, LockMode.INTENTION_EXCLUSIVE);
+
+        assertEquals(LockMode.SHARED_AND_INTENTION_EXCLUSIVE, fut1.join().lockMode());
+
         lockManager.release(fut1.join());
 
         assertTrue(lockManager.queue(key).isEmpty());

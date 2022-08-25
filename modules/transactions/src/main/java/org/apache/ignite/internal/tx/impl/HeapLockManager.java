@@ -19,6 +19,9 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.tx.LockMode.EXCLUSIVE;
+import static org.apache.ignite.internal.tx.LockMode.INTENTION_EXCLUSIVE;
+import static org.apache.ignite.internal.tx.LockMode.SHARED;
+import static org.apache.ignite.internal.tx.LockMode.SHARED_AND_INTENTION_EXCLUSIVE;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -39,6 +42,7 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -75,19 +79,21 @@ public class HeapLockManager implements LockManager {
         while (true) {
             LockState state = lockState(lockKey);
 
-            CompletableFuture<Void> future = null;
+            IgniteBiTuple<CompletableFuture<Void>, LockMode> futureTuple = new IgniteBiTuple<>(null, null);
 
             try {
-                future = state.tryAcquire(txId, lockMode);
+                futureTuple = state.tryAcquire(txId, lockMode);
             } catch (LockException e) {
                 throw new RuntimeException(e);
             }
 
-            if (future == null) {
+            if (futureTuple.get1() == null) {
                 continue; // Obsolete state.
             }
 
-            return future.thenApply(res -> new Lock(lockKey, lockMode, txId));
+            LockMode newLockMode = futureTuple.get2();
+
+            return futureTuple.get1().thenApply(res -> new Lock(lockKey, newLockMode, txId));
         }
 
 //        switch (lockMode) {
@@ -215,14 +221,14 @@ public class HeapLockManager implements LockManager {
          */
         private boolean markedForRemove = false;
 
-        public @Nullable CompletableFuture<Void>  tryAcquire(UUID txId, LockMode lockMode) throws LockException {
+        public @Nullable IgniteBiTuple<CompletableFuture<Void>, LockMode>  tryAcquire(UUID txId, LockMode lockMode) throws LockException {
             WaiterImpl waiter = new WaiterImpl(txId, lockMode);//new WaiterImpl(txId, false);
 
             boolean locked;
 
             synchronized (waiters) {
                 if (markedForRemove) {
-                    return null;
+                    return new IgniteBiTuple(null, lockMode);
                 }
 
                 WaiterImpl prev = waiters.putIfAbsent(txId, waiter);
@@ -230,10 +236,18 @@ public class HeapLockManager implements LockManager {
                 // Reenter
                 if (prev != null && prev.locked) {
                     if (/*!prev.forRead*/prev.lockMode.allowReenter(lockMode)) { // Allow reenter.
-                        return CompletableFuture.completedFuture(null);
+                        return new IgniteBiTuple(CompletableFuture.completedFuture(null), lockMode);
                     } else {
                         waiter.upgraded = true;
+
+                        if (prev.lockMode == INTENTION_EXCLUSIVE && lockMode == SHARED
+                                || prev.lockMode == SHARED && lockMode == INTENTION_EXCLUSIVE) {
+                            lockMode = SHARED_AND_INTENTION_EXCLUSIVE;
+                        }
+
                         waiter.prevLockMode = prev.lockMode;
+
+                        waiter.lockMode = lockMode;
 
                         waiters.put(txId, waiter); // Upgrade.
                     }
@@ -254,14 +268,16 @@ public class HeapLockManager implements LockManager {
                 Map.Entry<UUID, WaiterImpl> nextEntry = waiters.higherEntry(txId);
 
                 // If we have a younger waiter in a locked state, when refuse to wait for lock.
-                if (nextEntry != null && nextEntry.getValue().locked() && !lockMode.isCompatible(nextEntry.getValue().lockMode)) {
+                if (nextEntry != null
+                        && nextEntry.getValue().locked()
+                        && !lockMode.isCompatible(nextEntry.getValue().lockMode)) {
                     if (prev == null) {
                         waiters.remove(txId);
                     } else {
                         waiters.put(txId, prev); // Restore old lock.
                     }
 
-                    return failedFuture(new LockException(nextEntry.getValue()));
+                    return new IgniteBiTuple(failedFuture(new LockException(nextEntry.getValue())), lockMode);
                 }
 
                 // Lock if oldest.
@@ -282,16 +298,10 @@ public class HeapLockManager implements LockManager {
                     locked = prevEntry == null || (prevEntry.getValue().lockMode.isCompatible(lockMode) && prevEntry
                             .getValue().locked());
 
+                    if (locked) {
+                        waiter.lock();
+                    }
                 }
-
-                if (locked) {
-                    waiter.lock();
-                }
-
-
-
-
-
             }
 
             // Notify outside the monitor.
@@ -299,7 +309,7 @@ public class HeapLockManager implements LockManager {
                 waiter.notifyLocked();
             }
 
-            return waiter.fut;
+            return new IgniteBiTuple(waiter.fut, lockMode);
 
         }
 
