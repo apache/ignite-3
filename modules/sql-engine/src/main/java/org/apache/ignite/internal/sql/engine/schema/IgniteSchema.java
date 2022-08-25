@@ -125,4 +125,14 @@ public class IgniteSchema extends AbstractSchema {
 
         return true;
     }
+
+    /**
+     * Gets index by id.
+     *
+     * @param indexId Index id.
+     * @return Index.
+     */
+    public IgniteIndex index(UUID indexId) {
+        return idxMap.get(indexId);
+    }
 }

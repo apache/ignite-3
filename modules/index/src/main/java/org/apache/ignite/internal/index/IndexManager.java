@@ -31,6 +31,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.HashIndexView;
@@ -396,7 +397,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      */
     private CompletableFuture<?> onIndexDrop(ConfigurationNotificationEvent<TableIndexView> evt) {
         if (!busyLock.enterBusy()) {
-            UUID idxId = ((TableIndexView) evt.newValue()).id();
+            UUID idxId = evt.oldValue().id();
 
             fireEvent(IndexEvent.DROP,
                     new IndexEventParameters(evt.storageRevision(), idxId),
@@ -408,6 +409,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         try {
             Index<?> index = indexById.remove(evt.oldValue().id());
+
             indexByName.remove(index.name(), index);
 
             fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), index.id()), null);
@@ -426,7 +428,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      */
     private CompletableFuture<?> onIndexCreate(ConfigurationNotificationEvent<TableIndexView> evt) {
         if (!busyLock.enterBusy()) {
-            UUID idxId = ((TableIndexView) evt.newValue()).id();
+            UUID idxId = evt.newValue().id();
 
             fireEvent(IndexEvent.CREATE,
                     new IndexEventParameters(evt.storageRevision(), idxId),
@@ -520,30 +522,16 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      */
     private <T> T join(CompletableFuture<T> future) {
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
+            throw new IgniteInternalException(Common.NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
             return future.join();
         } catch (CompletionException ex) {
-            throw convertThrowable(ex.getCause());
+            throw IgniteException.wrap(ex.getCause());
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    /**
-     * Convert to public throwable.
-     *
-     * @param th Throwable.
-     * @return Public throwable.
-     */
-    private RuntimeException convertThrowable(Throwable th) {
-        if (th instanceof RuntimeException) {
-            return (RuntimeException) th;
-        }
-
-        return new IgniteException(th);
     }
 
     private class ConfigurationListener implements ConfigurationNamedListListener<TableIndexView> {
