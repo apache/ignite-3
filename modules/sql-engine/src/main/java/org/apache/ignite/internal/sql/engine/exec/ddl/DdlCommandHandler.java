@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convertDefaultToConfiguration;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -25,7 +27,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -89,7 +93,7 @@ public class DdlCommandHandler {
     }
 
     /** Handles ddl commands. */
-    public boolean handle(DdlCommand cmd) throws IgniteInternalCheckedException {
+    public CompletableFuture<Boolean> handle(DdlCommand cmd) {
         validateCommand(cmd);
 
         if (cmd instanceof CreateTableCommand) {
@@ -105,9 +109,9 @@ public class DdlCommandHandler {
         } else if (cmd instanceof DropIndexCommand) {
             return handleDropIndex((DropIndexCommand) cmd);
         } else {
-            throw new IgniteInternalCheckedException("Unsupported DDL operation ["
+            return failedFuture(new IgniteInternalCheckedException("Unsupported DDL operation ["
                     + "cmdName=" + (cmd == null ? null : cmd.getClass().getSimpleName()) + "; "
-                    + "cmd=\"" + cmd + "\"]");
+                    + "cmd=\"" + cmd + "\"]"));
         }
     }
 
@@ -123,7 +127,7 @@ public class DdlCommandHandler {
     }
 
     /** Handles create table command. */
-    private boolean handleCreateTable(CreateTableCommand cmd) {
+    private CompletableFuture<Boolean> handleCreateTable(CreateTableCommand cmd) {
         Consumer<TableChange> tblChanger = tableChange -> {
             tableChange.changeColumns(columnsChange -> {
                 for (var col : cmd.columns()) {
@@ -159,41 +163,39 @@ public class DdlCommandHandler {
         );
 
         try {
-            tableManager.createTable(fullName, tblChanger);
-
-            return true;
+            return tableManager.createTableAsync(fullName, tblChanger)
+                    .thenApply(t -> Boolean.TRUE);
         } catch (TableAlreadyExistsException ex) {
             if (!cmd.ifTableExists()) {
-                throw ex;
+                return CompletableFuture.failedFuture(ex);
             } else {
-                return false;
+                return completedFuture(Boolean.FALSE);
             }
         }
     }
 
     /** Handles drop table command. */
-    private boolean handleDropTable(DropTableCommand cmd) {
+    private CompletableFuture<Boolean> handleDropTable(DropTableCommand cmd) {
         String fullName = TableDefinitionImpl.canonicalName(
                 IgniteObjectName.quote(cmd.schemaName()),
                 IgniteObjectName.quote(cmd.tableName())
         );
         try {
-            tableManager.dropTable(fullName);
-
-            return true;
+            return tableManager.dropTableAsync(fullName)
+                    .thenApply(v -> Boolean.TRUE);
         } catch (TableNotFoundException ex) {
             if (!cmd.ifTableExists()) {
-                throw ex;
+                return CompletableFuture.failedFuture(ex);
             } else {
-                return false;
+                return completedFuture(Boolean.FALSE);
             }
         }
     }
 
     /** Handles add column command. */
-    private boolean handleAlterAddColumn(AlterTableAddCommand cmd) {
+    private CompletableFuture<Boolean> handleAlterAddColumn(AlterTableAddCommand cmd) {
         if (nullOrEmpty(cmd.columns())) {
-            return false;
+            return completedFuture(Boolean.FALSE);
         }
 
         String fullName = TableDefinitionImpl.canonicalName(
@@ -202,20 +204,20 @@ public class DdlCommandHandler {
         );
 
         try {
-            return addColumnInternal(fullName, cmd.columns(), cmd.ifColumnNotExists());
+            return addColumnInternal(fullName, cmd.columns(), !cmd.ifColumnNotExists());
         } catch (TableNotFoundException ex) {
             if (!cmd.ifTableExists()) {
-                throw ex;
+                return CompletableFuture.failedFuture(ex);
             } else {
-                return false;
+                return completedFuture(Boolean.FALSE);
             }
         }
     }
 
     /** Handles drop column command. */
-    private boolean handleAlterDropColumn(AlterTableDropCommand cmd) {
+    private CompletableFuture<Boolean> handleAlterDropColumn(AlterTableDropCommand cmd) {
         if (nullOrEmpty(cmd.columns())) {
-            return false;
+            return completedFuture(Boolean.FALSE);
         }
 
         String fullName = TableDefinitionImpl.canonicalName(
@@ -227,15 +229,15 @@ public class DdlCommandHandler {
             return dropColumnInternal(fullName, cmd.columns(), cmd.ifColumnExists());
         } catch (TableNotFoundException ex) {
             if (!cmd.ifTableExists()) {
-                throw ex;
+                return CompletableFuture.failedFuture(ex);
             } else {
-                return false;
+                return completedFuture(Boolean.FALSE);
             }
         }
     }
 
     /** Handles create index command. */
-    private boolean handleCreateIndex(CreateIndexCommand cmd) {
+    private CompletableFuture<Boolean> handleCreateIndex(CreateIndexCommand cmd) {
         // Only sorted idx for now.
         //TODO: https://issues.apache.org/jira/browse/IGNITE-17563 Pass null ordering for columns.
         SortedIndexDefinitionBuilder idx = SchemaBuilders.sortedIndex(cmd.indexName());
@@ -250,17 +252,18 @@ public class DdlCommandHandler {
             idx0.done();
         }
 
-        return indexManager.createIndex(
+        return indexManager.createIndexAsync(
                 cmd.schemaName(),
                 cmd.indexName(),
                 cmd.tableName(),
                 !cmd.ifIndexNotExists(),
-                tableIndexChange -> convert(idx.build(), tableIndexChange));
+                tableIndexChange -> convert(idx.build(), tableIndexChange))
+                .thenApply(Objects::nonNull);
     }
 
     /** Handles drop index command. */
-    private boolean handleDropIndex(DropIndexCommand cmd) {
-        return indexManager.dropIndex(cmd.schemaName(), cmd.indexName(), !cmd.ifNotExists());
+    private CompletableFuture<Boolean> handleDropIndex(DropIndexCommand cmd) {
+        return indexManager.dropIndexAsync(cmd.schemaName(), cmd.indexName(), !cmd.ifNotExists());
     }
 
     /**
@@ -268,20 +271,21 @@ public class DdlCommandHandler {
      *
      * @param fullName Table with schema name.
      * @param colsDef  Columns defenitions.
-     * @param colNotExist Flag indicates exceptionally behavior in case of already existing column.
+     * @param failIfExists Flag indicates exceptionally behavior in case of already existing column.
      *
      * @return {@code true} if the full columns set is applied successfully. Otherwise, returns {@code false}.
      */
-    private boolean addColumnInternal(String fullName, List<ColumnDefinition> colsDef, boolean colNotExist) {
+    private CompletableFuture<Boolean> addColumnInternal(String fullName, List<ColumnDefinition> colsDef, boolean failIfExists) {
         AtomicBoolean ret = new AtomicBoolean(true);
-        tableManager.alterTable(
+
+        return tableManager.alterTableAsync(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
                     Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
 
                     List<ColumnDefinition> colsDef0;
 
-                    if (!colNotExist) {
+                    if (failIfExists) {
                         colsDef.stream()
                                 .filter(k -> colNamesToOrders.containsKey(k.name()))
                                 .findAny()
@@ -305,9 +309,8 @@ public class DdlCommandHandler {
                     for (ColumnDefinition col : colsDef0) {
                         cols.create(col.name(), colChg -> convertColumnDefinition(col, colChg));
                     }
-                }));
-
-        return ret.get();
+                }))
+                .thenApply(v -> ret.get());
     }
 
     private void convertColumnDefinition(ColumnDefinition definition, ColumnChange columnChange) {
@@ -349,13 +352,13 @@ public class DdlCommandHandler {
      *
      * @param fullName Table with schema name.
      * @param colNames Columns definitions.
-     * @param colExist Flag indicates exceptionally behavior in case of already existing column.
+     * @param failIfNotExists Flag indicates exceptionally behavior in case of already existing column.
      * @return {@code true} if the full columns set is applied successfully. Otherwise, returns {@code false}.
      */
-    private boolean dropColumnInternal(String fullName, Set<String> colNames, boolean colExist) {
+    private CompletableFuture<Boolean> dropColumnInternal(String fullName, Set<String> colNames, boolean failIfNotExists) {
         AtomicBoolean ret = new AtomicBoolean(true);
 
-        tableManager.alterTable(
+        return tableManager.alterTableAsync(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
                     PrimaryKeyView priKey = chng.primaryKey();
@@ -370,7 +373,7 @@ public class DdlCommandHandler {
                         if (!colNamesToOrders.containsKey(colName)) {
                             ret.set(false);
 
-                            if (!colExist) {
+                            if (!failIfNotExists) {
                                 throw new ColumnNotFoundException(colName, fullName);
                             }
                         } else {
@@ -384,9 +387,8 @@ public class DdlCommandHandler {
                     }
 
                     colNames0.forEach(k -> cols.delete(colNamesToOrders.get(k)));
-                }));
-
-        return ret.get();
+                }))
+                .thenApply(v -> ret.get());
     }
 
     /** Map column name to order. */

@@ -128,27 +128,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param schemaName A name of the schema to create index in.
      * @param indexName A name of the index to create.
      * @param tableName A name of the table to create index for.
-     * @param indexChange A consumer that suppose to change the configuration in order to provide description of an index.
-     * @param failIfExists Flag indicates whether exception be thrown if index exists or not.
-     * @return {@code True} if index was created successfully, {@code false} otherwise.
-     * @throws IndexAlreadyExistsException If index already exists and
-     */
-    public boolean createIndex(
-            String schemaName,
-            String indexName,
-            String tableName,
-            boolean failIfExists,
-            Consumer<TableIndexChange> indexChange
-    ) {
-        return join(createIndexAsync(schemaName, indexName, tableName, failIfExists, indexChange)) != null;
-    }
-
-    /**
-     * Creates index from provided configuration changer.
-     *
-     * @param schemaName A name of the schema to create index in.
-     * @param indexName A name of the index to create.
-     * @param tableName A name of the table to create index for.
      * @param failIfExists Flag indicates whether exception be thrown if index exists or not.
      * @param indexChange A consumer that suppose to change the configuration in order to provide description of an index.
      * @return A future represented the result of creation.
@@ -249,23 +228,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    /**
-     * Drops the index with a given name.
-     *
-     * @param schemaName A name of the schema the index belong to.
-     * @param indexName A name of the index to drop.
-     * @param failIfNotExist Flag, which force failure, when {@code trues} if index doen't not exists.
-     * @return {@code True} if index was removed, {@code false} otherwise.
-     * @throws IndexNotFoundException If index doesn't exist and {@code failIfNotExist} param was {@code true}.
-     */
-    public boolean dropIndex(
-            String schemaName,
-            String indexName,
-            boolean failIfNotExist
-    ) {
-        return join(dropIndexAsync(schemaName, indexName, failIfNotExist));
     }
 
     /**

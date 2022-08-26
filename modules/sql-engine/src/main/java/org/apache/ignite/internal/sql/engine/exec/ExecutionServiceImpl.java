@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -32,6 +32,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -249,14 +250,18 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private AsyncCursor<List<Object>> executeDdl(DdlPlan plan) {
-        try {
-            boolean ret = ddlCmdHnd.handle(plan.command());
+        CompletableFuture<Iterator<List<Object>>> res = ddlCmdHnd.handle(plan.command())
+                .handle((v, err) -> {
+                    if (err == null) {
+                        return List.of(List.of((Object) v)).iterator();
+                    }
 
-            return new AsyncWrapper<>(Collections.singletonList(Collections.<Object>singletonList(ret)).iterator());
-        } catch (IgniteInternalCheckedException e) {
-            throw new IgniteInternalException("Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
-                    + ", err=" + e.getMessage() + ']', e);
-        }
+                    throw new IgniteInternalException(
+                            "Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
+                                    + ", err=" + err.getMessage() + ']', err);
+                });
+
+        return new AsyncWrapper<>(res, ForkJoinPool.commonPool());
     }
 
     private AsyncCursor<List<Object>> executeExplain(ExplainPlan plan) {
