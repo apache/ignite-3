@@ -442,13 +442,8 @@ components:
     Problem:
       required:
       - code
-      - detail
-      - invalidParams
-      - node
       - status
       - title
-      - traceId
-      - type
       type: object
       properties:
         title:

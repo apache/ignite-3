@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.UUID;
+import javax.annotation.Nullable;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.Builder;
 
@@ -60,11 +61,11 @@ public class Problem {
             @JsonProperty("title") String title,
             @JsonProperty("status") int status,
             @JsonProperty("code") String code,
-            @JsonProperty("type") String type,
-            @JsonProperty("detail") String detail,
-            @JsonProperty("node") String node,
-            @JsonProperty("traceId") UUID traceId,
-            @JsonProperty("invalidParams") Collection<InvalidParam> invalidParams) {
+            @JsonProperty("type") @Nullable String type,
+            @JsonProperty("detail") @Nullable String detail,
+            @JsonProperty("node") @Nullable String node,
+            @JsonProperty("traceId") @Nullable UUID traceId,
+            @JsonProperty("invalidParams") @Nullable Collection<InvalidParam> invalidParams) {
         this.title = title;
         this.status = status;
         this.code = code;

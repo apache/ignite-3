@@ -24,20 +24,34 @@ import org.apache.ignite.cli.core.style.element.UiElements;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
 /**
- * This exception handler is used only for `cluster config show` command and handles a tricky case with the 500 error on not initialized
- * cluster.
+ * This exception handler is used for cluster commands and handles a case when the cluster is not initialized.
  */
-public class ShowConfigExceptionHandler extends IgniteCliApiExceptionHandler {
+public class ClusterNotInitializedExceptionHandler extends IgniteCliApiExceptionHandler {
+    private final String header;
+
+    private final String command;
+
+    /**
+     * Constructs a new exception handler with corresponding header and command to suggest.
+     *
+     * @param header text to display as a header
+     * @param command command to suggest
+     */
+    public ClusterNotInitializedExceptionHandler(String header, String command) {
+        this.header = header;
+        this.command = command;
+    }
+
     @Override
     public int handle(ExceptionWriter err, IgniteCliApiException e) {
         if (e.getCause() instanceof ApiException) {
             ApiException apiException = (ApiException) e.getCause();
-            if (apiException.getCode() == 500) { //TODO: https://issues.apache.org/jira/browse/IGNITE-17510
+            if (apiException.getCode() == 404) {
                 err.write(
                         ErrorUiComponent.builder()
-                                .header("Cannot show cluster config")
+                                .header(header)
                                 .details("Probably, you have not initialized the cluster, try to run %s command",
-                                        UiElements.command("cluster init"))
+                                        UiElements.command(command))
                                 .build()
                                 .render()
                 );
