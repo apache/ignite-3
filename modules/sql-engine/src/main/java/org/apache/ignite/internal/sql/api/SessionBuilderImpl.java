@@ -74,13 +74,13 @@ public class SessionBuilderImpl implements SessionBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public long defaultIdleSessionTimeout(TimeUnit timeUnit) {
+    public long idleTimeout(TimeUnit timeUnit) {
         return timeUnit.convert(sessionTimeout, TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */
     @Override
-    public SessionBuilder defaultIdleSessionTimeout(long timeout, TimeUnit timeUnit) {
+    public SessionBuilder idleTimeout(long timeout, TimeUnit timeUnit) {
         this.sessionTimeout = timeUnit.toMillis(timeout);
 
         return this;

@@ -74,14 +74,14 @@ public class ClientSessionBuilder implements SessionBuilder {
     }
 
     @Override
-    public long defaultIdleSessionTimeout(TimeUnit timeUnit) {
+    public long idleTimeout(TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
         return timeUnit.convert(defaultSessionTimeoutMs == null ? 0 : defaultSessionTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     @Override
-    public SessionBuilder defaultIdleSessionTimeout(long timeout, TimeUnit timeUnit) {
+    public SessionBuilder idleTimeout(long timeout, TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
         defaultSessionTimeoutMs = timeUnit.toMillis(timeout);

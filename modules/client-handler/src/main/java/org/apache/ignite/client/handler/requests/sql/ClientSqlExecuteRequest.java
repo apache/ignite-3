@@ -141,7 +141,7 @@ public class ClientSqlExecuteRequest {
         }
 
         if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultIdleSessionTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
+            sessionBuilder.idleTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
         }
 
         var propCount = in.unpackMapHeader();

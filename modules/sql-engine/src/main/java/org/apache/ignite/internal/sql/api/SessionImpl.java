@@ -116,7 +116,7 @@ public class SessionImpl implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public long defaultIdleSessionTimeout(TimeUnit timeUnit) {
+    public long idleTimeout(TimeUnit timeUnit) {
         return timeUnit.convert(sessionTimeout, TimeUnit.MILLISECONDS);
     }
 

@@ -199,7 +199,7 @@ public class ClientSession implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public long defaultIdleSessionTimeout(TimeUnit timeUnit) {
+    public long idleTimeout(TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
         return defaultSessionTimeout == null ? 0 : timeUnit.convert(defaultSessionTimeout, TimeUnit.MILLISECONDS);

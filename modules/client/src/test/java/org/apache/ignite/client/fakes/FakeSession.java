@@ -158,7 +158,7 @@ public class FakeSession implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public long defaultIdleSessionTimeout(TimeUnit timeUnit) {
+    public long idleTimeout(TimeUnit timeUnit) {
         return defaultSessionTimeout;
     }
 

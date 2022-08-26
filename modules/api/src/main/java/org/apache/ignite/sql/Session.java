@@ -223,12 +223,15 @@ public interface Session extends AutoCloseable {
     long defaultQueryTimeout(TimeUnit timeUnit);
 
     /**
-     * Return default idle session timeout. The duration after which the session will be considered expired if no one use it.
+     * Return default idle session timeout.
+     *
+     * <p>The maximum idle time (that is, time when no requests are performed on behalf the session) in milliseconds, after which this
+     * session will be considered expired.
      *
      * @param timeUnit Timeunit to convert timeout to.
-     * @return Default session timeout in the given timeunit.
+     * @return Session timeout in the given timeunit.
      */
-    long defaultIdleSessionTimeout(TimeUnit timeUnit);
+    long idleTimeout(TimeUnit timeUnit);
 
     /**
      * Returns session default schema.
@@ -307,18 +310,21 @@ public interface Session extends AutoCloseable {
          * session will be considered expired.
          *
          * @param timeUnit Timeunit to convert timeout to.
-         * @return Default session timeout in the given timeunit.
+         * @return Session timeout in the given timeunit.
          */
-        long defaultIdleSessionTimeout(TimeUnit timeUnit);
+        long idleTimeout(TimeUnit timeUnit);
 
         /**
-         * Sets default idle session timeout. The duration after which the session will be considered expired if no one use it.
+         * Sets idle timeout.
+         *
+         * <p>The maximum idle time (that is, time when no requests are performed on behalf the session) in milliseconds, after which this
+         * session will be considered expired.
          *
          * @param timeout Session timeout value.
          * @param timeUnit Timeunit.
          * @return {@code this} for chaining.
          */
-        SessionBuilder defaultIdleSessionTimeout(long timeout, TimeUnit timeUnit);
+        SessionBuilder idleTimeout(long timeout, TimeUnit timeUnit);
 
         /**
          * Returns session default schema.
