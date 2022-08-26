@@ -459,48 +459,64 @@ public class ClientTableCommon {
                 break;
 
             case INT16:
+                tuple.set(col.name(), reader.shortValue(idx));
                 break;
 
             case INT32:
+                tuple.set(col.name(), reader.intValue(idx));
                 break;
 
             case INT64:
+                tuple.set(col.name(), reader.longValue(idx));
                 break;
 
             case FLOAT:
+                tuple.set(col.name(), reader.floatValue(idx));
                 break;
 
             case DOUBLE:
+                tuple.set(col.name(), reader.doubleValue(idx));
                 break;
 
             case DECIMAL:
+                // TODO IGNITE-17297 - ???
+                tuple.set(col.name(), reader.decimalValue(idx, 0));
                 break;
 
             case UUID:
+                tuple.set(col.name(), reader.uuidValue(idx));
                 break;
 
             case STRING:
+                tuple.set(col.name(), reader.stringValue(idx));
                 break;
 
             case BYTES:
+                tuple.set(col.name(), reader.bytesValue(idx));
                 break;
 
             case BITMASK:
+                tuple.set(col.name(), reader.bitmaskValue(idx));
                 break;
 
             case NUMBER:
+                tuple.set(col.name(), reader.numberValue(idx));
                 break;
 
             case DATE:
+                tuple.set(col.name(), reader.dateValue(idx));
                 break;
 
             case TIME:
+                tuple.set(col.name(), reader.timeValue(idx));
                 break;
 
             case DATETIME:
+                tuple.set(col.name(), reader.dateTimeValue(idx));
                 break;
 
             case TIMESTAMP:
+                tuple.set(col.name(), reader.timestampValue(idx));
                 break;
 
             default:
