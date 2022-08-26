@@ -97,7 +97,7 @@ public interface MvPartitionStorage extends AutoCloseable {
 
         // "timestamp" part consists of two sections:
         // - a 48-bits number of milliseconds since the beginning of the epoch
-        // - a 16-bit counter
+        // - a 16-bits counter
         return new HybridTimestamp(ts >>> 16, (int) ts & 0xFFFF);
     }
 
