@@ -579,6 +579,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         List<List<ClusterNode>> assignmentsLatest = ByteUtils.fromBytes(directProxy(tblCfg.assignments()).value());
 
+        TableImpl table = tablesByIdVv.latest().get(tblId);
+        InternalTable internalTable = table.internalTable();
+
+        TopologyService topologyService = raftMgr.topologyService();
+        ClusterNode localMember = topologyService.localMember();
+
+        MvTableStorage storage = internalTable.storage();
+        boolean isInMemory = storage.isVolatile();
+
         // TODO: IGNITE-15554 Add logic for assignment recalculation in case of partitions or replicas changes
         // TODO: Until IGNITE-15554 is implemented it's safe to iterate over partitions and replicas cause there will
         // TODO: be exact same amount of partitions and replicas for both old and new assignments
@@ -595,15 +604,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 if (e != null) {
                     return failedFuture(e);
                 }
-
-                TableImpl table = tablesById.get(tblId);
-
-                InternalTable internalTable = table.internalTable();
-                TopologyService topologyService = raftMgr.topologyService();
-                ClusterNode localMember = topologyService.localMember();
-
-                MvTableStorage storage = internalTable.storage();
-                boolean isInMemory = storage.isVolatile();
 
                 InternalTable internalTbl = tablesById.get(tblId).internalTable();
 
