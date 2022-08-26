@@ -68,6 +68,7 @@ public class ClusterConfigShowCallInput implements CallInput {
      */
     public static class ShowConfigurationCallInputBuilder {
         private String selector;
+
         private String clusterUrl;
 
         public ShowConfigurationCallInputBuilder selector(String selector) {

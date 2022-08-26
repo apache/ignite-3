@@ -28,8 +28,9 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
@@ -47,7 +48,7 @@ import org.apache.ignite.raft.jraft.util.Utils;
  * Snapshot storage based on local file storage.
  */
 public class LocalSnapshotStorage implements SnapshotStorage {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(LocalSnapshotStorage.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LocalSnapshotStorage.class);
 
     private static final String TEMP_PATH = "temp";
     private final ConcurrentMap<Long, AtomicInteger> refMap = new ConcurrentHashMap<>();
@@ -186,6 +187,8 @@ public class LocalSnapshotStorage implements SnapshotStorage {
 
     void close(final LocalSnapshotWriter writer, final boolean keepDataOnError) throws IOException {
         int ret = writer.getCode();
+        IOException ioe = null;
+
         // noinspection ConstantConditions
         do {
             if (ret != 0) {
@@ -200,6 +203,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
             catch (final IOException e) {
                 LOG.error("Fail to sync writer {}.", writer.getPath());
                 ret = RaftError.EIO.getNumber();
+                ioe = e;
                 break;
             }
             final long oldIndex = getLastSnapshotIndex();
@@ -215,12 +219,14 @@ public class LocalSnapshotStorage implements SnapshotStorage {
             if (!destroySnapshot(newPath)) {
                 LOG.warn("Delete new snapshot path failed, path is {}.", newPath);
                 ret = RaftError.EIO.getNumber();
+                ioe = new IOException("Fail to delete new snapshot path: " + newPath);
                 break;
             }
             LOG.info("Renaming {} to {}.", tempPath, newPath);
             if (!new File(tempPath).renameTo(new File(newPath))) {
                 LOG.error("Renamed temp snapshot failed, from path {} to path {}.", tempPath, newPath);
                 ret = RaftError.EIO.getNumber();
+                ioe = new IOException("Fail to rename temp snapshot from: " + tempPath + " to: " + newPath);
                 break;
             }
             ref(newIndex);
@@ -235,12 +241,18 @@ public class LocalSnapshotStorage implements SnapshotStorage {
             unref(oldIndex);
         }
         while (false);
-        if (ret != 0 && !keepDataOnError) {
-            destroySnapshot(writer.getPath());
+
+        if (ret != 0) {
+            LOG.warn("Close snapshot writer {} with exit code: {}.", writer.getPath(), ret);
+            if (!keepDataOnError) {
+                destroySnapshot(writer.getPath());
+            }
         }
-        if (ret == RaftError.EIO.getNumber()) {
-            throw new IOException();
+
+        if (ioe != null) {
+            throw ioe;
         }
+
     }
 
     @Override

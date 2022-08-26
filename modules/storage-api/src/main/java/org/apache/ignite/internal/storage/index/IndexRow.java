@@ -17,26 +17,26 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import org.apache.ignite.internal.storage.PartitionStorage;
-import org.apache.ignite.internal.storage.SearchRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 
 /**
- * Represents an Index Row - a set of indexed columns and Primary Key columns (for key uniqueness).
+ * Represents an Index Row - a set of indexed columns and a corresponding Row ID.
  */
 public interface IndexRow {
     /**
-     * Returns the serialized presentation of this row as a byte array.
+     * Returns the serialized presentation of indexed columns as a {@link BinaryTuple} in
+     * <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-92%3A+Binary+Tuple+Format">IEP-92</a> format.
      *
-     * @return Serialized byte array value.
+     * @return Binary tuple representation of indexed columns.
      */
-    byte[] rowBytes();
+    BinaryTuple indexColumns();
 
     /**
-     * Returns the Primary Key that is a part of this row.
+     * Returns a Row ID.
      *
-     * <p>This is a convenience method for easier extraction of the Primary Key to use it for accessing the {@link PartitionStorage}.
-     *
-     * @return Primary key of the associated {@link PartitionStorage}.
+     * @return Row ID of the associated {@link MvPartitionStorage}.
      */
-    SearchRow primaryKey();
+    RowId rowId();
 }

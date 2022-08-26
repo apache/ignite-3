@@ -22,7 +22,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.Status;
@@ -47,7 +48,7 @@ import org.apache.ignite.raft.jraft.util.internal.ThrowUtil;
  * Abstract RPC client service based.
  */
 public abstract class AbstractClientService implements ClientService, TopologyEventHandler {
-    protected static final IgniteLogger LOG = IgniteLogger.forClass(AbstractClientService.class);
+    protected static final IgniteLogger LOG = Loggers.forClass(AbstractClientService.class);
 
     protected volatile RpcClient rpcClient;
     protected ExecutorService rpcExecutor;
@@ -72,7 +73,11 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     }
 
     @Override public void onAppeared(ClusterNode member) {
-        // No-op. TODO asch https://issues.apache.org/jira/browse/IGNITE-14843
+        // TODO https://issues.apache.org/jira/browse/IGNITE-14837
+        // Perhaps, We can remove checking for dead nodes and replace it with SWIM node alive event
+        // and start replicator when the event is received.
+
+        // No-op.
     }
 
     @Override public void onDisappeared(ClusterNode member) {

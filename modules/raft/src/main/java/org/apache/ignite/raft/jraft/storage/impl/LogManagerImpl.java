@@ -28,7 +28,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -65,7 +66,7 @@ import org.apache.ignite.raft.jraft.util.Utils;
 public class LogManagerImpl implements LogManager {
     private static final int APPEND_LOG_RETRY_TIMES = 50;
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(LogManagerImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LogManagerImpl.class);
 
     /** Raft group id. */
     String groupId;
@@ -207,7 +208,7 @@ public class LogManagerImpl implements LogManager {
     private void stopDiskThread() {
         if (this.diskQueue == null)
             return; // Was not started.
-        
+
         this.shutDownLatch = new CountDownLatch(1);
         Utils.runInThread(nodeOptions.getCommonExecutor(), () -> this.diskQueue.publishEvent((event, sequence) -> {
             event.reset();

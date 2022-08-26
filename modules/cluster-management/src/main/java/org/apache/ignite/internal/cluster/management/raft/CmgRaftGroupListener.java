@@ -34,8 +34,9 @@ import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTo
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
@@ -49,7 +50,7 @@ import org.jetbrains.annotations.TestOnly;
  * {@link RaftGroupListener} implementation for the CMG.
  */
 public class CmgRaftGroupListener implements RaftGroupListener {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(CmgRaftGroupListener.class);
+    private static final IgniteLogger LOG = Loggers.forClass(CmgRaftGroupListener.class);
 
     private final RaftStorageManager storage;
 
@@ -135,7 +136,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     private void addNodeToLogicalTopology(JoinReadyCommand command) {
         storage.putLogicalTopologyNode(command.node());
 
-        LOG.info("Node {} has been added to the logical topology", command.node().name());
+        LOG.info("Node added to the logical topology [node={}]", command.node().name());
     }
 
     private void removeNodesFromLogicalTopology(NodesLeaveCommand command) {
@@ -144,7 +145,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         storage.removeLogicalTopologyNodes(nodes);
 
         if (LOG.isInfoEnabled()) {
-            LOG.info("Nodes {} have been removed from the logical topology", nodes.stream().map(ClusterNode::name).collect(toList()));
+            LOG.info("Nodes removed from the logical topology [nodes={}]", nodes.stream().map(ClusterNode::name).collect(toList()));
         }
     }
 
@@ -161,7 +162,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
             return true;
         } catch (IgniteInternalException e) {
-            LOG.error("Failed to restore snapshot at " + path, e);
+            LOG.debug("Failed to restore snapshot [path={}]", path, e);
 
             return false;
         }

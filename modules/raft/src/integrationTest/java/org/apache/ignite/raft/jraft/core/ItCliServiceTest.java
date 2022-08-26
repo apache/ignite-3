@@ -43,9 +43,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -75,7 +76,7 @@ public class ItCliServiceTest {
     /**
      * The logger.
      */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ItCliServiceTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ItCliServiceTest.class);
 
     private static final int LEARNER_PORT_STEP = 100;
 

@@ -30,6 +30,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
@@ -171,7 +172,7 @@ public class IgniteComputeImpl implements IgniteCompute {
         return tables.tableImplAsync(tableName)
                 .thenApply(table -> {
                     if (table == null) {
-                        throw new IgniteInternalException(String.format("Did not find a table by name '%s'", tableName));
+                        throw new TableNotFoundException(tableName);
                     }
                     return table;
                 });

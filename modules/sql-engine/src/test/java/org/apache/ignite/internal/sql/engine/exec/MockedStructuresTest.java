@@ -22,7 +22,10 @@ import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageCo
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.startsWith;
@@ -34,9 +37,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -44,11 +50,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
@@ -58,11 +68,16 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapDataStorageModule;
@@ -73,14 +88,15 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -93,6 +109,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -154,10 +171,14 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
                     SortedIndexConfigurationSchema.class,
-                    PartialIndexConfigurationSchema.class,
                     UnknownDataStorageConfigurationSchema.class,
                     RocksDbDataStorageConfigurationSchema.class,
-                    TestConcurrentHashMapDataStorageConfigurationSchema.class
+                    TestConcurrentHashMapDataStorageConfigurationSchema.class,
+                    ConstantValueDefaultConfigurationSchema.class,
+                    FunctionCallDefaultConfigurationSchema.class,
+                    NullValueDefaultConfigurationSchema.class,
+                    UnlimitedBudgetConfigurationSchema.class,
+                    EntryCountBudgetConfigurationSchema.class
             }
     )
     private TablesConfiguration tblsCfg;
@@ -180,6 +201,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     private ConfigurationRegistry configRegistry;
 
     DataStorageManager dataStorageManager;
+
+    SchemaManager schemaManager;
 
     /** Returns current method name. */
     private static String getCurrentMethodName() {
@@ -234,12 +257,17 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         dataStorageManager.start();
 
+        schemaManager = new SchemaManager(revisionUpdater, tblsCfg);
+
+        schemaManager.start();
+
         tblManager = mockManagers();
 
         queryProc = new SqlQueryProcessor(
                 revisionUpdater,
                 cs,
                 tblManager,
+                schemaManager,
                 dataStorageManager,
                 () -> dataStorageModules.collectSchemasFields(List.of(
                         RocksDbDataStorageConfigurationSchema.class,
@@ -254,6 +282,28 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         rocksDbEngineConfig.regions()
                 .change(c -> c.create("test_region", rocksDbDataRegionChange -> {}))
                 .get(1, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Checks inner transactions are initialized correctly.
+     */
+    @Test
+    public void testInnerTxInitiated() throws Exception {
+        SessionId sesId = queryProc.createSession(PropertiesHolder.holderFor(Map.of()));
+
+        InternalTransaction tx = mock(InternalTransaction.class);
+
+        when(tm.begin()).thenReturn(tx);
+
+        String sql = "CREATE TABLE TEST (c1 int PRIMARY KEY, c2 varbinary(255))";
+
+        CompletableFuture<AsyncSqlCursor<List<Object>>> f = queryProc.querySingleAsync(sesId, QueryContext.of(), sql);
+
+        AsyncSqlCursor<List<Object>> asyncRes = f.get();
+
+        asyncRes.closeAsync();
+
+        verify(tm, never()).begin();
     }
 
     /**
@@ -283,10 +333,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         assertThrows(TableAlreadyExistsException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql2)));
 
         // todo: correct exception need to be thrown https://issues.apache.org/jira/browse/IGNITE-16084
-        assertThrows(IgniteInternalException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
+        assertThrows(SqlException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
                 "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,replicas=1")));
 
-        assertThrows(IgniteInternalException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
+        assertThrows(SqlException.class, () -> awaitFirst(finalQueryProc.queryAsync("PUBLIC",
                 "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas__wrong=1")));
 
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))",
@@ -572,7 +622,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ))
         );
 
-        assertThat(exception.getMessage(), startsWith("Unsuspected table option type"));
+        assertThat(exception.getMessage(), containsString("Unsuspected table option type"));
 
         exception = assertThrows(
                 IgniteException.class,
@@ -582,7 +632,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ))
         );
 
-        assertThat(exception.getMessage(), startsWith("Unexpected table option"));
+        assertThat(exception.getMessage(), containsString("Unexpected table option"));
 
         exception = assertThrows(
                 IgniteException.class,
@@ -592,7 +642,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ))
         );
 
-        assertThat(exception.getMessage(), startsWith("Table option validation failed"));
+        assertThat(exception.getMessage(), containsString("Table option validation failed"));
     }
 
     @Test
@@ -620,6 +670,34 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Tests that schema that is not applied yet is accessible after some time.
+     *
+     * @throws Exception If test has failed.
+     */
+    @Test
+    public void testSchemaForTheFutureUpdate() throws Exception {
+        String curMethodName = getCurrentMethodName();
+
+        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE TABLE %s "
+                + "(c1 int PRIMARY KEY, c2 decimal(10), c3 varchar, c4 varchar, c5 varchar)", curMethodName)));
+
+        SchemaRegistry schemaRegistry = (((TableImpl) tblManager.tables().get(0)).schemaView());
+
+        runAsync(() -> {
+            Thread.sleep(3000);
+            awaitFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName)));
+        });
+
+        int lastSchemaVersion = schemaRegistry.lastSchemaVersion();
+
+        //Ensure that we can get schema for the future update
+        assertTrue(waitForCondition(
+                () -> schemaRegistry.schema(lastSchemaVersion + 1).version() == lastSchemaVersion + 1,
+                5000
+        ));
+    }
+
     // todo copy-paste from TableManagerTest will be removed after https://issues.apache.org/jira/browse/IGNITE-16050
 
     /**
@@ -628,7 +706,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      * @return Table manager.
      */
     private TableManager mockManagers() throws NodeStoppingException {
-        when(rm.prepareRaftGroup(any(), any(), any())).thenAnswer(mock -> {
+        when(rm.prepareRaftGroup(any(), any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
@@ -636,7 +714,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             return completedFuture(raftGrpSrvcMock);
         });
 
-        when(rm.updateRaftGroup(any(), any(), any(), any(), any())).thenAnswer(mock -> {
+        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
@@ -685,8 +763,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     }
 
     private TableManager createTableManager() {
-        SchemaManager sm = new SchemaManager(revisionUpdater, tblsCfg);
-
         TableManager tableManager = new TableManager(
                 revisionUpdater,
                 tblsCfg,
@@ -696,10 +772,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 tm,
                 dataStorageManager,
                 msm,
-                sm
+                schemaManager,
+                view -> new LocalLogStorageFactory()
         );
 
-        sm.start();
         tableManager.start();
 
         return tableManager;

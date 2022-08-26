@@ -19,6 +19,9 @@ package org.apache.ignite.internal.metastorage;
 
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_EXECUTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.DEPLOYING_WATCH_ERR;
 import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
 
 import java.util.Collection;
@@ -42,19 +45,20 @@ import org.apache.ignite.internal.metastorage.client.Operation;
 import org.apache.ignite.internal.metastorage.client.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.client.StatementResult;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
+import org.apache.ignite.internal.metastorage.common.MetaStorageException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
 import org.apache.ignite.internal.metastorage.watch.KeyCriterion;
 import org.apache.ignite.internal.metastorage.watch.WatchAggregator;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -177,7 +181,8 @@ public class MetaStorageManager implements IgniteComponent {
             CompletableFuture<RaftGroupService> raftServiceFuture = raftMgr.prepareRaftGroup(
                     METASTORAGE_RAFT_GROUP_NAME,
                     metastorageNodes,
-                    () -> new MetaStorageListener(storage)
+                    () -> new MetaStorageListener(storage),
+                    RaftGroupOptions.defaults()
             );
 
             return raftServiceFuture.thenApply(service -> new MetaStorageServiceImpl(service, thisNode.id()));
@@ -664,12 +669,25 @@ public class MetaStorageManager implements IgniteComponent {
      * @see MetaStorageService#range(ByteArray, ByteArray)
      */
     public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo) throws NodeStoppingException {
+        return range(keyFrom, keyTo, false);
+    }
+
+    /**
+     * Retrieves entries for the given key range in lexicographic order.
+     *
+     * @see MetaStorageService#range(ByteArray, ByteArray, boolean)
+     */
+    public @NotNull Cursor<Entry> range(
+            @NotNull ByteArray keyFrom,
+            @Nullable ByteArray keyTo,
+            boolean includeTombstones
+    ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return new CursorWrapper<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo)));
+            return new CursorWrapper<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, includeTombstones)));
         } finally {
             busyLock.leaveBusy();
         }
@@ -847,7 +865,7 @@ public class MetaStorageManager implements IgniteComponent {
         appliedRevision()
                 .thenCompose(appliedRevision -> {
                     if (revision <= appliedRevision) {
-                        throw new IgniteInternalException(String.format(
+                        throw new MetaStorageException(DEPLOYING_WATCH_ERR, String.format(
                                 "Current revision (%d) must be greater than the revision in the Vault (%d)",
                                 revision, appliedRevision
                         ));
@@ -896,7 +914,7 @@ public class MetaStorageManager implements IgniteComponent {
                     try {
                         cursor.close();
                     } catch (Exception e) {
-                        throw new IgniteInternalException(e);
+                        throw new MetaStorageException(CURSOR_CLOSING_ERR, e);
                     }
                 }).get();
             } finally {
@@ -915,7 +933,7 @@ public class MetaStorageManager implements IgniteComponent {
                 try {
                     return innerIterFut.thenApply(Iterator::hasNext).get();
                 } catch (InterruptedException | ExecutionException e) {
-                    throw new IgniteInternalException(e);
+                    throw new MetaStorageException(CURSOR_EXECUTION_ERR, e);
                 }
             } finally {
                 busyLock.leaveBusy();
@@ -933,7 +951,7 @@ public class MetaStorageManager implements IgniteComponent {
                 try {
                     return innerIterFut.thenApply(Iterator::next).get();
                 } catch (InterruptedException | ExecutionException e) {
-                    throw new IgniteInternalException(e);
+                    throw new MetaStorageException(CURSOR_EXECUTION_ERR, e);
                 }
             } finally {
                 busyLock.leaveBusy();
@@ -942,7 +960,7 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
-     * Dispatches appropriate metastorage watch method according to inferred watch criterion.
+     * Dispatches appropriate meta storage watch method according to inferred watch criterion.
      *
      * @param aggregatedWatch Aggregated watch.
      * @return Future, which will be completed after new watch registration finished.

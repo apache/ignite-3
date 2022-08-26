@@ -33,6 +33,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
@@ -184,9 +186,7 @@ public abstract class AbstractClusterStateStorageTest {
     @Test
     void testGetWithPrefixBorder() throws Exception {
         byte[] key1 = "key1".getBytes(UTF_8);
-        byte[] key2 = key1.clone();
-
-        key2[key2.length - 1] += 1;
+        byte[] key2 = RocksUtils.rangeEnd(key1);
 
         storage.put(key1, "value1".getBytes(UTF_8));
         storage.put(key2, "value2".getBytes(UTF_8));
@@ -268,5 +268,43 @@ public abstract class AbstractClusterStateStorageTest {
 
         assertThat(storage.get(key1), is(value1));
         assertThat(storage.get(key2), is(value2));
+    }
+
+    /**
+     * Tests that writes coming after a snapshot is started do not get reflected in the snapshot.
+     *
+     * @throws Exception If something goes wrong.
+     */
+    @Test
+    void snapshotShouldNotContainWritesAddedAfterItsStart() throws Exception {
+        final int entriesInSnapshot = 100_000;
+
+        for (int i = 0; i < entriesInSnapshot; i++) {
+            putKeyValue(i);
+        }
+
+        Path snapshotDirPath = workDir.resolve("snapshot");
+        Files.createDirectories(snapshotDirPath);
+
+        CompletableFuture<Void> snapshotFuture = storage.snapshot(snapshotDirPath);
+
+        for (int i = entriesInSnapshot; i < entriesInSnapshot + 1000; i++) {
+            putKeyValue(i);
+        }
+
+        snapshotFuture.join();
+
+        storage.restoreSnapshot(snapshotDirPath);
+
+        byte[] keyAddedAfterSnapshotStart = key(entriesInSnapshot);
+        assertThat(storage.get(keyAddedAfterSnapshotStart), is(nullValue()));
+    }
+
+    private void putKeyValue(int n) {
+        storage.put(key(n), ("value" + n).getBytes(UTF_8));
+    }
+
+    private byte[] key(int n) {
+        return ("key" + n).getBytes(UTF_8);
     }
 }

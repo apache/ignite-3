@@ -40,6 +40,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
@@ -47,7 +49,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -56,10 +57,7 @@ import org.apache.ignite.schema.definition.builder.TableDefinitionBuilder;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -69,7 +67,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@MicronautTest
+@MicronautTest(rebuildContext = true)
 public class IntegrationTestBase extends BaseIgniteAbstractTest {
     public static final int DEFAULT_NODES_COUNT = 3;
 
@@ -79,7 +77,10 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
     /** Cluster nodes. */
     protected static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
 
-    private static final IgniteLogger LOG = IgniteLogger.forClass(IntegrationTestBase.class);
+    /** Futures that is going to be completed when all nodes are started and the cluster is inintialized. */
+    private static List<CompletableFuture<Ignite>> futures = new ArrayList<>();
+
+    private static final IgniteLogger LOG = Loggers.forClass(IntegrationTestBase.class);
 
     /** Base port number. */
     private static final int BASE_PORT = 3344;
@@ -238,11 +239,10 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
      *
      * @param testInfo Test information oject.
      */
-    @BeforeAll
-    void startNodes(TestInfo testInfo) throws ExecutionException, InterruptedException {
+    protected void startNodes(TestInfo testInfo) throws ExecutionException, InterruptedException {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
-        List<CompletableFuture<Ignite>> futures = IntStream.range(0, nodes())
+        futures = IntStream.range(0, nodes())
                 .mapToObj(i -> {
                     String nodeName = testNodeName(testInfo, i);
 
@@ -251,9 +251,9 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
                     return IgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
                 })
                 .collect(toList());
+    }
 
-        String metaStorageNodeName = testNodeName(testInfo, 0);
-
+    protected void initializeCluster(String metaStorageNodeName) {
         IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster");
 
         for (CompletableFuture<Ignite> future : futures) {
@@ -275,8 +275,7 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
     /**
      * After all.
      */
-    @AfterAll
-    void stopNodes(TestInfo testInfo) throws Exception {
+    protected void stopNodes(TestInfo testInfo) throws Exception {
         LOG.info("Start tearDown()");
 
         CLUSTER_NODES.clear();
@@ -325,7 +324,6 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
      * @param testInfo Test information object.
      * @throws Exception If failed.
      */
-    @BeforeEach
     public void setUp(TestInfo testInfo) throws Exception {
         setupBase(testInfo, WORK_DIR);
     }
@@ -338,7 +336,6 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
     @AfterEach
     public void tearDown(TestInfo testInfo) {
         tearDownBase(testInfo);
-        dropAllTables();
     }
 }
 

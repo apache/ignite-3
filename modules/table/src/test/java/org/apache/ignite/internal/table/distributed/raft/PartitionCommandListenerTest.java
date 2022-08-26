@@ -33,6 +33,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -42,7 +43,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
@@ -94,6 +95,9 @@ public class PartitionCommandListenerTest {
     /** Versioned row store. */
     private VersionedRowStore versionedRowStore;
 
+    /** RAFT index. */
+    private AtomicLong raftIndex = new AtomicLong();
+
     /**
      * Initializes a table listener before tests.
      */
@@ -104,7 +108,7 @@ public class PartitionCommandListenerTest {
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(addr);
 
         versionedRowStore = new VersionedRowStore(
-                new TestMvPartitionStorage(List.of(), 0),
+                new TestConcurrentHashMapMvPartitionStorage(0),
                 new TxManagerImpl(clusterService, new HeapLockManager())
         );
 
@@ -328,6 +332,8 @@ public class PartitionCommandListenerTest {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(batchIterator(clo -> {
+            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
+
             doAnswer(invocation -> {
                 MultiRowsResponse resp = invocation.getArgument(0);
 
@@ -373,6 +379,8 @@ public class PartitionCommandListenerTest {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(batchIterator(clo -> {
+            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
+
             doAnswer(invocation -> {
                 assertNull(invocation.getArgument(0));
 
@@ -406,6 +414,8 @@ public class PartitionCommandListenerTest {
         List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
 
         commandListener.onWrite(batchIterator(clo -> {
+            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
+
             doAnswer(invocation -> {
                 MultiRowsResponse resp = invocation.getArgument(0);
 
@@ -494,6 +504,8 @@ public class PartitionCommandListenerTest {
             Row row = getTestRow(i, i);
             txs.add(new IgniteBiTuple<>(row, txId));
 
+            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
+
             when(clo.command()).thenReturn(new UpsertCommand(row, txId));
 
             doAnswer(invocation -> {
@@ -518,6 +530,8 @@ public class PartitionCommandListenerTest {
             UUID txId = Timestamp.nextVersion().toUuid();
             Row row = getTestRow(i, i);
             txs.add(new IgniteBiTuple<>(row, txId));
+
+            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
             when(clo.command()).thenReturn(new DeleteCommand(row, txId));
 
@@ -584,6 +598,8 @@ public class PartitionCommandListenerTest {
             Row row = getTestRow(i, i);
             txs.add(new IgniteBiTuple<>(row, txId));
 
+            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
+
             when(clo.command()).thenReturn(new InsertCommand(row, txId));
 
             doAnswer(mock -> {
@@ -616,6 +632,8 @@ public class PartitionCommandListenerTest {
 
                 txs.add(new IgniteBiTuple<>(row, txId));
             }
+
+            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
             when(clo.command()).thenReturn(new DeleteExactAllCommand(rows, txId));
 
@@ -658,6 +676,8 @@ public class PartitionCommandListenerTest {
             Row row = getTestRow(i, i + 1);
             txs.add(new IgniteBiTuple<>(row, txId));
 
+            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
+
             when(clo.command()).thenReturn(new GetAndReplaceCommand(row, txId));
 
             doAnswer(invocation -> {
@@ -691,6 +711,8 @@ public class PartitionCommandListenerTest {
             UUID txId = Timestamp.nextVersion().toUuid();
             Row row = getTestRow(i, i);
             txs.add(new IgniteBiTuple<>(row, txId));
+
+            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
             when(clo.command()).thenReturn(new GetAndUpsertCommand(row, txId));
 
@@ -726,6 +748,8 @@ public class PartitionCommandListenerTest {
             Row row = getTestRow(i, i);
             txs.add(new IgniteBiTuple<>(row, txId));
 
+            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
+
             when(clo.command()).thenReturn(new GetAndDeleteCommand(row, txId));
 
             doAnswer(invocation -> {
@@ -760,6 +784,8 @@ public class PartitionCommandListenerTest {
             Row row = getTestRow(i, i + 1);
             txs.add(new IgniteBiTuple<>(row, txId));
 
+            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
+
             when(clo.command()).thenReturn(new ReplaceIfExistCommand(row, Timestamp.nextVersion().toUuid()));
 
             doAnswer(invocation -> {
@@ -787,6 +813,8 @@ public class PartitionCommandListenerTest {
             Row row = getTestRow(i, i + 1);
             txs.add(new IgniteBiTuple<>(row, txId));
 
+            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
+
             when(clo.command()).thenReturn(new DeleteExactCommand(row, txId));
 
             doAnswer(invocation -> {
@@ -813,6 +841,8 @@ public class PartitionCommandListenerTest {
             UUID txId = Timestamp.nextVersion().toUuid();
             Row row = getTestRow(i, i);
             txs.add(new IgniteBiTuple<>(row, txId));
+
+            when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
             when(clo.command()).thenReturn(new ReplaceCommand(row, getTestRow(i, i + 1), txId));
 

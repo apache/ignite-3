@@ -17,6 +17,10 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
+
+import java.util.UUID;
+
 /**
  * This exception is thrown when a new column failed to be created, because another column with the same name already exists.
  */
@@ -27,6 +31,18 @@ public class ColumnAlreadyExistsException extends IgniteException {
      * @param name Column name.
      */
     public ColumnAlreadyExistsException(String name) {
-        super(IgniteStringFormatter.format("Column already exists [name={}]", name));
+        super(COLUMN_ALREADY_EXISTS_ERR, "Column already exists [name=" + name + ']');
+    }
+
+    /**
+     * Creates a new exception with the given trace id, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public ColumnAlreadyExistsException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

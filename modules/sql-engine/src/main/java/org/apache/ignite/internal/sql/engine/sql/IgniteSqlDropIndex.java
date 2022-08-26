@@ -62,7 +62,7 @@ public class IgniteSqlDropIndex extends SqlDrop {
         indexName.unparse(writer, leftPrec, rightPrec);
     }
 
-    public SqlIdentifier idxName() {
+    public SqlIdentifier indexName() {
         return indexName;
     }
 

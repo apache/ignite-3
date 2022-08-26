@@ -35,6 +35,7 @@ import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.ModifyRow;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
@@ -63,6 +64,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     private State state = State.UPDATING;
 
+    private InternalTransaction tx;
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -85,6 +88,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         this.table = table;
         this.modifyOp = op;
         this.cols = cols;
+
+        tx = ctx.transaction();
 
         tableView = table.table();
     }
@@ -212,11 +217,10 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         Map<ModifyRow.Operation, Collection<BinaryRowEx>> operations = getOperationsPerAction(rows);
 
-        // TODO: IGNITE-15087 Implement support for transactional SQL
         for (Map.Entry<ModifyRow.Operation, Collection<BinaryRowEx>> op : operations.entrySet()) {
             switch (op.getKey()) {
                 case INSERT_ROW:
-                    Collection<BinaryRow> conflictKeys = tableView.insertAll(op.getValue(), null).join();
+                    Collection<BinaryRow> conflictKeys = tableView.insertAll(op.getValue(), tx).join();
 
                     if (!conflictKeys.isEmpty()) {
                         IgniteTypeFactory typeFactory = context().getTypeFactory();
@@ -235,11 +239,11 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
                     break;
                 case UPDATE_ROW:
-                    tableView.upsertAll(op.getValue(), null).join();
+                    tableView.upsertAll(op.getValue(), tx).join();
 
                     break;
                 case DELETE_ROW:
-                    tableView.deleteAll(op.getValue(), null).join();
+                    tableView.deleteAll(op.getValue(), tx).join();
 
                     break;
                 default:

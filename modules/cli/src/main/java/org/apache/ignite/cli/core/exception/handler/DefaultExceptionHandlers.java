@@ -28,14 +28,14 @@ public class DefaultExceptionHandlers extends ExceptionHandlers {
      * Constructor.
      */
     public DefaultExceptionHandlers() {
+        addExceptionHandler(new FlowInterruptExceptionHandler());
         addExceptionHandler(new SqlExceptionHandler());
-        addExceptionHandler(new ConnectCommandExceptionHandler());
-        addExceptionHandler(new CommandExecutionExceptionHandler());
         addExceptionHandler(new TimeoutExceptionHandler());
-        addExceptionHandler(new IgniteClientExceptionHandler());
         addExceptionHandler(new IgniteCliExceptionHandler());
-        addExceptionHandler(new ConnectExceptionHandler());
-        addExceptionHandler(new ApiExceptionHandler());
+        addExceptionHandler(new IgniteCliApiExceptionHandler());
         addExceptionHandler(new UnknownCommandExceptionHandler());
+        addExceptionHandler(new ConfigStoringExceptionHandler());
+        addExceptionHandler(new ProfileNotFoundExceptionHandler());
+        addExceptionHandler(new SectionAlreadyExistsExceptionHandler());
     }
 }

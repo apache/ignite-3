@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
-import org.apache.ignite.internal.jdbc.proto.event.BatchPreparedStmntRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 
 /**
  * Client jdbc prepared statement sql execute request handler.
@@ -40,7 +40,7 @@ public class ClientJdbcPreparedStmntBatchRequest {
             ClientMessagePacker out,
             JdbcQueryEventHandler handler
     ) {
-        var req = new BatchPreparedStmntRequest();
+        var req = new JdbcBatchPreparedStmntRequest();
 
         req.readBinary(in);
 

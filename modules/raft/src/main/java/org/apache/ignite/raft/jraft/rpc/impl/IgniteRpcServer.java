@@ -22,8 +22,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -60,7 +61,7 @@ import org.jetbrains.annotations.Nullable;
  * TODO https://issues.apache.org/jira/browse/IGNITE-14519 Unsubscribe on shutdown
  */
 public class IgniteRpcServer implements RpcServer<Void> {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(IgniteRpcServer.class);
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteRpcServer.class);
 
     private final ClusterService service;
 
@@ -123,7 +124,9 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
         service.topologyService().addEventHandler(new TopologyEventHandler() {
             @Override public void onAppeared(ClusterNode member) {
-                // TODO asch optimize start replicator https://issues.apache.org/jira/browse/IGNITE-14843
+                // TODO https://issues.apache.org/jira/browse/IGNITE-14837
+                // Perhaps, We can remove checking for dead nodes and replace it with SWIM node alive event
+                // and start replicator when the event is received.
             }
 
             @Override public void onDisappeared(ClusterNode member) {

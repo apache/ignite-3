@@ -16,6 +16,9 @@
  */
 package org.apache.ignite.raft.jraft.util;
 
+import static java.lang.Runtime.getRuntime;
+
+import com.codahale.metrics.MetricRegistry;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -34,22 +37,20 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
-import com.codahale.metrics.MetricRegistry;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.util.concurrent.MpscSingleThreadExecutor;
 import org.jetbrains.annotations.Nullable;
 
-import static java.lang.Runtime.getRuntime;
-
 /**
  * Helper methods for jraft.
  */
 public final class Utils {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(Utils.class);
+    private static final IgniteLogger LOG = Loggers.forClass(Utils.class);
 
     /**
      * The configured number of available processors. The default is {@link Runtime#availableProcessors()}. This can be
@@ -205,7 +206,7 @@ public final class Utils {
             return 0;
         }
         catch (final IOException e) {
-            LOG.error("Fail to close", e);
+            LOG.error("Fail to close {}.", closeable, e);
             return RaftError.EIO.getNumber();
         }
     }

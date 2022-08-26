@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
@@ -43,7 +44,9 @@ import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -82,33 +85,48 @@ public class ItCmgRaftServiceTest {
             raftManager.start();
         }
 
-        void afterNodeStart() throws Exception {
-            assertTrue(waitForCondition(() -> clusterService.topologyService().allMembers().size() == cluster.size(), 1000));
+        void afterNodeStart() {
+            try {
+                assertTrue(waitForCondition(() -> clusterService.topologyService().allMembers().size() == cluster.size(), 1000));
 
-            raftStorage.start();
+                raftStorage.start();
 
-            CompletableFuture<RaftGroupService> raftService = raftManager.prepareRaftGroup(
-                    TEST_GROUP,
-                    List.copyOf(clusterService.topologyService().allMembers()),
-                    () -> new CmgRaftGroupListener(raftStorage)
-            );
+                CompletableFuture<RaftGroupService> raftService = raftManager.prepareRaftGroup(
+                        TEST_GROUP,
+                        List.copyOf(clusterService.topologyService().allMembers()),
+                        () -> new CmgRaftGroupListener(raftStorage),
+                        defaults()
+                );
 
-            assertThat(raftService, willCompleteSuccessfully());
+                assertThat(raftService, willCompleteSuccessfully());
 
-            this.raftService = new CmgRaftService(raftService.get(), clusterService);
+                this.raftService = new CmgRaftService(raftService.join(), clusterService);
+            } catch (InterruptedException | NodeStoppingException e) {
+                throw new RuntimeException(e);
+            }
         }
 
-        void beforeNodeStop() throws Exception {
-            raftManager.stopRaftGroup(TEST_GROUP);
+        void beforeNodeStop() {
+            try {
+                raftManager.stopRaftGroup(TEST_GROUP);
+            } catch (NodeStoppingException e) {
+                throw new RuntimeException(e);
+            }
 
             raftManager.beforeNodeStop();
             clusterService.beforeNodeStop();
         }
 
-        void stop() throws Exception {
-            raftManager.stop();
-            raftStorage.close();
-            clusterService.stop();
+        void stop() {
+            try {
+                IgniteUtils.closeAll(
+                        raftManager::stop,
+                        raftStorage,
+                        clusterService::stop
+                );
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
 
         ClusterNode localMember() {
@@ -119,7 +137,7 @@ public class ItCmgRaftServiceTest {
     private final List<Node> cluster = new ArrayList<>();
 
     @BeforeEach
-    void setUp(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
+    void setUp(@WorkDirectory Path workDir, TestInfo testInfo) {
         var addr1 = new NetworkAddress("localhost", 10000);
         var addr2 = new NetworkAddress("localhost", 10001);
 
@@ -128,24 +146,14 @@ public class ItCmgRaftServiceTest {
         cluster.add(new Node(testInfo, addr1, nodeFinder, workDir.resolve("node1")));
         cluster.add(new Node(testInfo, addr2, nodeFinder, workDir.resolve("node2")));
 
-        for (Node node : cluster) {
-            node.start();
-        }
-
-        for (Node node : cluster) {
-            node.afterNodeStart();
-        }
+        cluster.parallelStream().forEach(Node::start);
+        cluster.parallelStream().forEach(Node::afterNodeStart);
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        for (Node node : cluster) {
-            node.beforeNodeStop();
-        }
-
-        for (Node node : cluster) {
-            node.stop();
-        }
+    void tearDown() {
+        cluster.parallelStream().forEach(Node::beforeNodeStop);
+        cluster.parallelStream().forEach(Node::stop);
     }
 
     /**

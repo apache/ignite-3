@@ -19,23 +19,25 @@ package org.apache.ignite.cli.call.cliconfig;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.apache.ignite.cli.config.Config;
+import org.apache.ignite.cli.config.ConfigManager;
+import org.apache.ignite.cli.config.ConfigManagerProvider;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.call.StringCallInput;
 
 /**
  * Gets CLI configuration parameter.
  */
 @Singleton
-public class CliConfigGetCall implements Call<StringCallInput, String> {
+public class CliConfigGetCall implements Call<CliConfigGetCallInput, String> {
     @Inject
-    private Config config;
+    private ConfigManagerProvider configManagerProvider;
 
     @Override
-    public DefaultCallOutput<String> execute(StringCallInput input) {
-        String key = input.getString();
-        String property = config.getProperty(key, "");
+    public DefaultCallOutput<String> execute(CliConfigGetCallInput input) {
+        ConfigManager configManager = configManagerProvider.get();
+        String key = input.getKey();
+        String profileName = input.getProfileName();
+        String property = configManager.getProperty(key, profileName, "");
         return DefaultCallOutput.success(property);
     }
 }

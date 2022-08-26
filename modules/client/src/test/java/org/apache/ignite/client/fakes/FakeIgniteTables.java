@@ -26,6 +26,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -258,9 +259,10 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                         new Column("id".toUpperCase(), NativeTypes.INT32, false)
                 },
                 new Column[]{
-                        new Column("num".toUpperCase(), NativeTypes.INT8, true, () -> (byte) 42),
-                        new Column("str".toUpperCase(), NativeTypes.STRING, true, () -> "def_str"),
-                        new Column("strNonNull".toUpperCase(), NativeTypes.STRING, false, () -> "def_str2"),
+                        new Column("num".toUpperCase(), NativeTypes.INT8, true, DefaultValueProvider.constantProvider((byte) 42)),
+                        new Column("str".toUpperCase(), NativeTypes.STRING, true, DefaultValueProvider.constantProvider("def_str")),
+                        new Column("strNonNull".toUpperCase(), NativeTypes.STRING,
+                                false, DefaultValueProvider.constantProvider("def_str2")),
                 });
     }
 

@@ -38,7 +38,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -64,14 +63,15 @@ import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -87,7 +87,6 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -191,7 +190,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     ) throws NodeStoppingException {
         Path dir = workDir.resolve(name);
 
-        List<IgniteComponent> res = new ArrayList<>();
+        partialNode = new ArrayList<>();
 
         VaultManager vault = createVault(dir);
 
@@ -279,16 +278,14 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 txManager,
                 dataStorageManager,
                 metaStorageMgr,
-                schemaManager
+                schemaManager,
+                view -> new LocalLogStorageFactory()
         );
-
-        //TODO: Get rid of it after IGNITE-17062.
-        SqlQueryProcessor queryProcessor = new SqlQueryProcessor(registry, clusterSvc, tableManager, dataStorageManager, Map::of);
 
         // Preparing the result map.
 
-        res.add(vault);
-        res.add(nodeCfgMgr);
+        partialNode.add(vault);
+        partialNode.add(nodeCfgMgr);
 
         // Start.
 
@@ -319,14 +316,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterCfgMgr,
                 dataStorageManager,
                 schemaManager,
-                tableManager,
-                queryProcessor
+                tableManager
         );
 
         for (IgniteComponent component : otherComponents) {
             component.start();
 
-            res.add(component);
+            partialNode.add(component);
         }
 
         AtomicLong lastRevision = new AtomicLong();
@@ -367,9 +363,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 + ", acceptableDifference: " + IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100)
         );
 
-        partialNode = res;
-
-        return res;
+        return partialNode;
     }
 
     /**
@@ -875,6 +869,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         stopNode(nodes - 1);
 
         createTableWithData(CLUSTER_NODES.get(0), TABLE_NAME_2, nodes);
+        createTableWithData(CLUSTER_NODES.get(0), TABLE_NAME_2 + "0", nodes);
 
         log.info("Starting the node.");
 
@@ -927,6 +922,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                         log.info("Stopping METASTORAGE");
 
                         stopNode(0);
+
+                        log.info("Starting METASTORAGE");
 
                         startNode(testInfo, 0);
 
@@ -1035,7 +1032,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         Table table = ignite.tables().createTable(
                 scmTbl1.canonicalName(),
-                tbl -> convert(scmTbl1, tbl).changePartitions(10).changeReplicas(replicas).changePartitions(partitions)
+                tbl -> convert(scmTbl1, tbl).changeReplicas(replicas).changePartitions(partitions)
         );
 
         for (int i = 0; i < 100; i++) {

@@ -20,12 +20,11 @@ package org.apache.ignite.cli.call.configuration;
 import jakarta.inject.Singleton;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.exception.CommandExecutionException;
+import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.ClusterConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Updates cluster configuration.
@@ -34,31 +33,22 @@ import org.jetbrains.annotations.NotNull;
 public class ClusterConfigUpdateCall implements Call<ClusterConfigUpdateCallInput, String> {
     /** {@inheritDoc} */
     @Override
-    public DefaultCallOutput<String> execute(ClusterConfigUpdateCallInput clusterConfigUpdateCallInput) {
-        ClusterConfigurationApi client = createApiClient(clusterConfigUpdateCallInput);
+    public DefaultCallOutput<String> execute(ClusterConfigUpdateCallInput input) {
+        ClusterConfigurationApi client = createApiClient(input);
 
         try {
-            return updateClusterConfig(client, clusterConfigUpdateCallInput);
-        } catch (ApiException e) {
-            if (e.getCode() == 400) {
-                return DefaultCallOutput.failure(
-                        new CommandExecutionException(
-                                "cluster config update",
-                                "Got error while updating the cluster configuration. " + System.lineSeparator()
-                                        + "Code:  " + e.getCode() + ", response:  " + e.getResponseBody()
-                        ));
-            }
-            return DefaultCallOutput.failure(new CommandExecutionException("cluster config update", "Ignite api return " + e.getCode()));
+            return updateClusterConfig(client, input);
+        } catch (ApiException | IllegalArgumentException e) {
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getClusterUrl()));
         }
     }
 
     private DefaultCallOutput<String> updateClusterConfig(ClusterConfigurationApi api, ClusterConfigUpdateCallInput input)
             throws ApiException {
         api.updateClusterConfiguration(input.getConfig());
-        return DefaultCallOutput.success("Cluster configuration was updated successfully.");
+        return DefaultCallOutput.success("Cluster configuration was updated successfully");
     }
 
-    @NotNull
     private ClusterConfigurationApi createApiClient(ClusterConfigUpdateCallInput input) {
         ApiClient client = Configuration.getDefaultApiClient();
         client.setBasePath(input.getClusterUrl());

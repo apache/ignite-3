@@ -56,23 +56,35 @@ public class ExceptionHandlers {
     }
 
     /**
-     * Handle method.
+     * Handles an exception.
      *
      * @param errOutput error output.
      * @param e exception instance.
      * @param <T> exception type.
+     * @return exit code.
      */
-    public <T extends Throwable> void handleException(ExceptionWriter errOutput, T e) {
-        processException(errOutput, e instanceof WrappedException ? e.getCause() : e);
+    public <T extends Throwable> int handleException(ExceptionWriter errOutput, T e) {
+        return processException(errOutput, e instanceof WrappedException ? e.getCause() : e);
+    }
+
+    /**
+     * Handles an exception.
+     *
+     * @param e exception instance.
+     * @param <T> exception type.
+     * @return exit code.
+     */
+    public <T extends Throwable> int handleException(T e) {
+        return processException(ExceptionWriter.nullWriter(), e instanceof WrappedException ? e.getCause() : e);
     }
 
     @SuppressWarnings("unchecked")
-    private <T extends Throwable> void processException(ExceptionWriter errOutput, T e) {
+    private <T extends Throwable> int processException(ExceptionWriter errOutput, T e) {
         ExceptionHandler<T> exceptionHandler = (ExceptionHandler<T>) map.get(e.getClass());
         if (exceptionHandler != null) {
-            exceptionHandler.handle(errOutput, e);
+            return exceptionHandler.handle(errOutput, e);
         } else {
-            defaultHandler.handle(errOutput, e);
+            return defaultHandler.handle(errOutput, e);
         }
     }
 

@@ -20,44 +20,51 @@ package org.apache.ignite.cli.core.exception.handler;
 import java.sql.SQLException;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Exception handler for {@link SQLException}.
  */
 public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
-    private static final IgniteLogger log = IgniteLogger.forClass(SqlExceptionHandler.class);
+    private static final IgniteLogger LOG = Loggers.forClass(SqlExceptionHandler.class);
 
-    public static final String PARSING_ERROR_MESSAGE = "SQL query parsing error: %s";
+    public static final String PARSING_ERROR_MESSAGE = "SQL query parsing error";
 
-    public static final String INVALID_PARAMETER_MESSAGE = "Invalid parameter value.";
+    public static final String INVALID_PARAMETER_MESSAGE = "Invalid parameter value";
 
-    public static final String CLIENT_CONNECTION_FAILED_MESSAGE = "Connection failed.";
+    public static final String CLIENT_CONNECTION_FAILED_MESSAGE = "Connection failed";
 
-    public static final String CONNECTION_BROKE_MESSAGE = "Connection error.";
+    public static final String CONNECTION_BROKE_MESSAGE = "Connection error";
 
     @Override
-    public void handle(ExceptionWriter err, SQLException e) {
+    public int handle(ExceptionWriter err, SQLException e) {
+        var errorComponentBuilder = ErrorUiComponent.builder();
+
         switch (e.getSQLState()) {
             case SqlStateCode.CONNECTION_FAILURE:
             case SqlStateCode.CONNECTION_CLOSED:
             case SqlStateCode.CONNECTION_REJECTED:
-                err.write(CONNECTION_BROKE_MESSAGE);
+                errorComponentBuilder.header(CONNECTION_BROKE_MESSAGE);
                 break;
             case SqlStateCode.PARSING_EXCEPTION:
-                err.write(String.format(PARSING_ERROR_MESSAGE, e.getMessage()));
+                errorComponentBuilder.header(PARSING_ERROR_MESSAGE).details(e.getMessage());
                 break;
             case SqlStateCode.INVALID_PARAMETER_VALUE:
-                err.write(INVALID_PARAMETER_MESSAGE);
+                errorComponentBuilder.header(INVALID_PARAMETER_MESSAGE);
                 break;
             case SqlStateCode.CLIENT_CONNECTION_FAILED:
-                err.write(CLIENT_CONNECTION_FAILED_MESSAGE);
+                errorComponentBuilder.header(CLIENT_CONNECTION_FAILED_MESSAGE);
                 break;
             default:
-                log.error("Unrecognized error ", e);
-                err.write("Unrecognized error while process SQL query.");
+                LOG.error("Unrecognized error", e);
+                errorComponentBuilder.header("Unrecognized error while process SQL query");
         }
+
+        err.write(errorComponentBuilder.build().render());
+        return 1;
     }
 
     @Override

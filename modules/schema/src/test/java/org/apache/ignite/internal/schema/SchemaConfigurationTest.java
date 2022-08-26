@@ -46,7 +46,7 @@ public class SchemaConfigurationTest {
                 .columns(
                         // Declaring columns in user order.
                         SchemaBuilders.column("id", ColumnType.INT64).build(),
-                        SchemaBuilders.column("label", ColumnType.stringOf(2)).withDefaultValueExpression("AI").build(),
+                        SchemaBuilders.column("label", ColumnType.stringOf(2)).withDefaultValue("AI").build(),
                         SchemaBuilders.column("name", ColumnType.string()).build(),
                         SchemaBuilders.column("data", ColumnType.blobOf(255)).asNullable(true).build(),
                         SchemaBuilders.column("affId", ColumnType.INT32).build()
@@ -67,15 +67,6 @@ public class SchemaConfigurationTest {
                                 .addIndexColumn("id").desc().done()
                                 .addIndexColumn("name").asc().done()
                                 .withHints(Map.of("INLINE_SIZE", "42", "INLINE_STRATEGY", "INLINE_HASH")) // In-line key-hash as well.
-                                .build()
-                )
-
-                .withIndex(
-                        SchemaBuilders.partialIndex("idx_2_partial")
-                                .addIndexColumn("id").desc().done()
-                                .addIndexColumn("name").asc().done()
-                                .withExpression("id > 0")
-                                .withHints(Map.of("INLINE_COLUMNS", "id"))
                                 .build()
                 )
 

@@ -71,7 +71,7 @@ namespace Apache.Ignite.Tests.Table
 
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await pocoView.UpsertAsync(null, new object()));
 
-            Assert.AreEqual("Missed key column: KEY", ex!.Message);
+            StringAssert.Contains("Missed key column: KEY", ex!.Message);
         }
 
         [Test]

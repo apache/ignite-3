@@ -38,6 +38,7 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlIntervalTypeNameSpec",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType",
       "org.apache.calcite.sql.ddl.SqlDdlNodes",
     ]
 
@@ -50,6 +51,8 @@ data: {
       "INDEX"
       "ENGINE"
 #     "KEY_TYPE" // already presented in Calcite
+      "TREE"
+      "HASH"
     ]
 
     # List of non-reserved keywords to add;
@@ -170,7 +173,7 @@ data: {
 #     "CURSOR"
       "CYCLE"
       "DATA"
-#     "DATE"
+      "DATE"
       "DAY"
       "DEALLOCATE"
       "DEC"
@@ -249,6 +252,7 @@ data: {
       "GROUPS"
 #     "HANDLER" # not a keyword in Calcite
 #     "HAVING"
+      "HASH"
       "HOLD"
       "HOUR"
       "IDENTITY"
@@ -393,6 +397,7 @@ data: {
       "PRIVILEGES"
       "PROCEDURE"
       "PUBLIC"
+      "QUARTER"
 #     "RANGE"
       "RANK"
       "READ"
@@ -495,6 +500,7 @@ data: {
       "TRANSLATE_REGEX"
       "TRANSLATION"
       "TREAT"
+      "TREE"
       "TRIGGER"
       "TRIM"
       "TRIM_ARRAY"
@@ -526,6 +532,7 @@ data: {
       "VERSIONING"
 #     "VERSIONS" # not a keyword in Calcite
       "VIEW"
+      "WEEK"
 #     "WHEN"
       "WHENEVER"
 #     "WHERE"

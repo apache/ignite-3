@@ -20,7 +20,7 @@ package org.apache.ignite.cli.call.configuration;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.cli.call.CallIntegrationTestBase;
+import org.apache.ignite.cli.call.CallInitializedIntegrationTestBase;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link NodeConfigUpdateCall}.
  */
-public class ItUpdateConfigurationCallTest extends CallIntegrationTestBase {
+public class ItUpdateConfigurationCallTest extends CallInitializedIntegrationTestBase {
 
     @Inject
     ClusterConfigUpdateCall updateCall;
@@ -54,7 +54,7 @@ public class ItUpdateConfigurationCallTest extends CallIntegrationTestBase {
         // Then
         assertThat(output.hasError()).isFalse();
         // And
-        assertThat(output.body()).contains("Cluster configuration was updated successfully.");
+        assertThat(output.body()).contains("Cluster configuration was updated successfully");
         // And buffer size is updated
         String updatedConfigurationProperty = readConfigurationProperty("rocksDb.defaultRegion.writeBufferSize");
         assertThat(updatedConfigurationProperty).isEqualTo("1024");
@@ -73,6 +73,6 @@ public class ItUpdateConfigurationCallTest extends CallIntegrationTestBase {
 
     private String readConfigurationProperty(String selector) {
         var input = ClusterConfigShowCallInput.builder().clusterUrl(NODE_URL).selector(selector).build();
-        return readCall.execute(input).body();
+        return readCall.execute(input).body().getValue();
     }
 }

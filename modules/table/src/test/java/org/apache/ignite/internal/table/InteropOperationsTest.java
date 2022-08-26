@@ -38,13 +38,14 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshallerTest;
-import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -118,12 +119,19 @@ public class InteropOperationsTest {
         TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager());
         txManager.start();
 
-        INT_TABLE = new DummyInternalTableImpl(new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager), txManager);
+        AtomicLong raftIndex = new AtomicLong();
+
+        INT_TABLE = new DummyInternalTableImpl(
+                new VersionedRowStore(new TestConcurrentHashMapMvPartitionStorage(0), txManager),
+                txManager,
+                raftIndex
+        );
+
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(SCHEMA);
 
         List<PartitionListener> partitionListeners = List.of(INT_TABLE.getPartitionListener());
 
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners);
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager, partitionListeners, pl -> raftIndex);
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
         TABLE = new TableImpl(INT_TABLE, schemaRegistry);

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -30,7 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -190,7 +189,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Transaction tx = client().transactions().begin();
         kvView.put(tx, -100, "1");
 
-        IgniteClientException ex = assertThrows(IgniteClientException.class, () -> kvView.get(null, -100));
+        var ex = assertThrows(IgniteException.class, () -> kvView.get(null, -100));
         assertThat(ex.getMessage(), containsString("TimeoutException"));
 
         tx.rollback();
@@ -202,7 +201,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         tx.commit();
 
         TransactionException ex = assertThrows(TransactionException.class, tx::rollback);
-        assertEquals("Transaction is already committed.", ex.getMessage());
+        assertThat(ex.getMessage(), containsString("Transaction is already committed"));
     }
 
     @Test
@@ -211,7 +210,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         tx.rollback();
 
         TransactionException ex = assertThrows(TransactionException.class, tx::commit);
-        assertEquals("Transaction is already rolled back.", ex.getMessage());
+        assertThat(ex.getMessage(), containsString("Transaction is already rolled back"));
     }
 
     @Test
@@ -236,12 +235,12 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             }
         };
 
-        var ex = assertThrows(IgniteClientException.class, () -> kvView().put(tx, 1, "1"));
+        var ex = assertThrows(IgniteException.class, () -> kvView().put(tx, 1, "1"));
 
         String expected = "Unsupported transaction implementation: "
                 + "'class org.apache.ignite.internal.runner.app.client.ItThinClientTransactionsTest";
 
-        assertThat(ex.getMessage(), startsWith(expected));
+        assertThat(ex.getMessage(), containsString(expected));
     }
 
     @Test
@@ -251,9 +250,9 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         try (IgniteClient client2 = IgniteClient.builder().addresses(getNodeAddress()).build()) {
             RecordView<Tuple> recordView = client2.tables().tables().get(0).recordView();
 
-            IgniteClientException ex = assertThrows(IgniteClientException.class, () -> recordView.upsert(tx, Tuple.create()));
+            var ex = assertThrows(IgniteException.class, () -> recordView.upsert(tx, Tuple.create()));
 
-            assertEquals("Transaction context has been lost due to connection errors.", ex.getMessage());
+            assertThat(ex.getMessage(), containsString("Transaction context has been lost due to connection errors"));
         }
     }
 

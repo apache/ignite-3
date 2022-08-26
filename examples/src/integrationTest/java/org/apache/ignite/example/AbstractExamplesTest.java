@@ -49,7 +49,7 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
     public void startNode() throws Exception {
         CompletableFuture<Ignite> igniteFuture = IgnitionManager.start(
                 TEST_NODE_NAME,
-                Path.of("config", "ignite-config.json"),
+                Path.of("config", "ignite-config.conf"),
                 workDir,
                 null
         );

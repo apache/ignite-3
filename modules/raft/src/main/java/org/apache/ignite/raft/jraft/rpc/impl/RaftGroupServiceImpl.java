@@ -51,10 +51,11 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
@@ -77,7 +78,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class RaftGroupServiceImpl implements RaftGroupService {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RaftGroupServiceImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RaftGroupServiceImpl.class);
 
     /** */
     private volatile long timeout;
@@ -175,9 +176,17 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             return CompletableFuture.completedFuture(service);
 
         return service.refreshLeader().handle((unused, throwable) -> {
-            if (throwable != null)
-                LOG.error("Failed to refresh a leader [groupId={}]", throwable, groupId);
-
+            if (throwable != null) {
+                if (throwable.getCause() instanceof TimeoutException) {
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Failed to refresh a leader [groupId={}]", groupId);
+                    }
+                } else {
+                    if (LOG.isWarnEnabled()) {
+                        LOG.warn("Failed to refresh a leader [groupId={}]", throwable, groupId);
+                    }
+                }
+            }
             return service;
         });
     }
@@ -371,6 +380,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .newPeersList(peersToChange).build();
 
         CompletableFuture<ChangePeersAsyncResponse> fut = new CompletableFuture<>();
+
+        LOG.info("Sending changePeersAsync request for group={} to peers={} with leader term={}",
+                groupId, peers, term);
 
         sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
 
@@ -567,6 +579,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 if (err != null) {
                     if (recoverable(err)) {
                         executor.schedule(() -> {
+                            LOG.warn("Recoverable error during the request type={} occurred (will be retried on the randomly selected node): ",
+                                    err, req.getClass().getSimpleName());
+
                             sendWithRetry(randomNode(), req, stopTime, fut);
 
                             return null;

@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.rest.configuration;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -33,7 +36,8 @@ import jakarta.inject.Inject;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.configuration.rest.presentation.TestRootConfiguration;
-import org.apache.ignite.internal.rest.api.ErrorResult;
+import org.apache.ignite.internal.rest.api.InvalidParam;
+import org.apache.ignite.internal.rest.api.Problem;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -101,9 +105,9 @@ public abstract class ConfigurationControllerBaseTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
 
-        var errorResult = getErrorResult(thrown);
-        assertEquals("CONFIG_PATH_UNRECOGNIZED", errorResult.type());
-        assertEquals("Configuration value 'no-such-root' has not been found", errorResult.message());
+        var problem = getProblem(thrown);
+        assertEquals(400, problem.status());
+        assertThat(problem.detail(), containsString("Configuration value 'no-such-root' has not been found"));
     }
 
     @Test
@@ -117,9 +121,9 @@ public abstract class ConfigurationControllerBaseTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
 
-        var errorResult = getErrorResult(thrown);
-        assertEquals("INVALID_CONFIG_FORMAT", errorResult.type());
-        assertEquals("'root.subCfg' configuration doesn't have the 'no-such-bar' sub-configuration", errorResult.message());
+        var problem = getProblem(thrown);
+        assertEquals(400, problem.status());
+        assertThat(problem.detail(), containsString("'root.subCfg' configuration doesn't have the 'no-such-bar' sub-configuration"));
     }
 
     @Test
@@ -133,13 +137,18 @@ public abstract class ConfigurationControllerBaseTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
 
-        var errorResult = getErrorResult(thrown);
-        assertEquals("VALIDATION_EXCEPTION", errorResult.type());
-        assertEquals("Error word", errorResult.message());
+        var problem = getProblem(thrown);
+        assertEquals(400, problem.status());
+        assertThat(problem.detail(), containsString("Validation did not pass for keys: [root.foo, Error word]"));
+        assertThat(problem.invalidParams(), hasSize(1));
+
+        InvalidParam invalidParam = problem.invalidParams().stream().findFirst().get();
+        assertEquals("root.foo", invalidParam.name());
+        assertEquals("Error word", invalidParam.reason());
     }
 
     @NotNull
-    private ErrorResult getErrorResult(HttpClientResponseException exception) {
-        return exception.getResponse().getBody(ErrorResult.class).orElseThrow();
+    private Problem getProblem(HttpClientResponseException exception) {
+        return exception.getResponse().getBody(Problem.class).orElseThrow();
     }
 }

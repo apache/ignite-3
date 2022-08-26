@@ -40,7 +40,7 @@ namespace Apache.Ignite.Tests.Compute
 
         private const string NodeNameJob = ItThinClientComputeTest + "$NodeNameJob";
 
-        private const string ErrorJob = ItThinClientComputeTest + "$ErrorJob";
+        private const string ErrorJob = ItThinClientComputeTest + "$IgniteExceptionJob";
 
         private const string EchoJob = ItThinClientComputeTest + "$EchoJob";
 
@@ -136,7 +136,7 @@ namespace Apache.Ignite.Tests.Compute
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
                 await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), ErrorJob, "unused"));
 
-            Assert.AreEqual("class org.apache.ignite.tx.TransactionException: Custom job error", ex!.Message);
+            StringAssert.Contains("Custom job error", ex!.Message);
         }
 
         [Test]
@@ -147,7 +147,7 @@ namespace Apache.Ignite.Tests.Compute
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
                 await Client.Compute.ExecuteAsync<string>(new[] { unknownNode }, EchoJob, "unused"));
 
-            Assert.AreEqual("Specified node is not present in the cluster: y", ex!.Message);
+            StringAssert.Contains("Specified node is not present in the cluster: y", ex!.Message);
         }
 
         // TODO: Support all types (IGNITE-15431).

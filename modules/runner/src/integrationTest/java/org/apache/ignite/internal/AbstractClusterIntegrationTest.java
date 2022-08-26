@@ -18,6 +18,7 @@
 package org.apache.ignite.internal;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -30,11 +31,12 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,7 +50,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractTest {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(AbstractClusterIntegrationTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(AbstractClusterIntegrationTest.class);
 
     /** Base port number. */
     private static final int BASE_PORT = 3344;
@@ -68,7 +70,7 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
 
     /** Work directory. */
     @WorkDirectory
-    private static Path WORK_DIR;
+    protected static Path WORK_DIR;
 
     /**
      * Before all.
@@ -89,7 +91,7 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
                 })
                 .collect(toList());
 
-        String metaStorageNodeName = testNodeName(testInfo, 0);
+        String metaStorageNodeName = testNodeName(testInfo, nodes() - 1);
 
         IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster");
 
@@ -152,5 +154,11 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
 
     protected final IgniteImpl node(int index) {
         return (IgniteImpl) clusterNodes.get(index);
+    }
+
+    protected List<List<Object>> executeSql(String sql, Object... args) {
+        return getAllFromCursor(
+                node(0).queryEngine().queryAsync("PUBLIC", sql, args).get(0).join()
+        );
     }
 }

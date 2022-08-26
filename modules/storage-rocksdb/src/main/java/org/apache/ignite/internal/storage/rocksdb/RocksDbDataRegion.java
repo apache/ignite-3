@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.Ro
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfigurationSchema.ROCKSDB_LRU_CACHE;
 
 import java.util.Locale;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionView;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -33,7 +32,7 @@ import org.rocksdb.WriteBufferManager;
 /**
  * Data region implementation for {@link RocksDbStorageEngine}. Based on a {@link Cache}.
  */
-public class RocksDbDataRegion implements IgniteComponent {
+public class RocksDbDataRegion {
     /** Region configuration. */
     private final RocksDbDataRegionConfiguration cfg;
 
@@ -52,8 +51,9 @@ public class RocksDbDataRegion implements IgniteComponent {
         this.cfg = cfg;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Start the rocksDb data region.
+     */
     public void start() {
         RocksDbDataRegionView dataRegionView = cfg.value();
 
@@ -79,14 +79,15 @@ public class RocksDbDataRegion implements IgniteComponent {
         writeBufferManager = new WriteBufferManager(writeBufferSize, cache);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Starts the rocksDb data region.
+     */
     public void stop() throws Exception {
         IgniteUtils.closeAll(writeBufferManager, cache);
     }
 
     /**
-     * Returns write buffer manager associated withthe region.
+     * Returns write buffer manager associated with the region.
      */
     public WriteBufferManager writeBufferManager() {
         return writeBufferManager;

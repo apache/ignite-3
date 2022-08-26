@@ -111,16 +111,16 @@ public class ConcurrentMapClusterStateStorage implements ClusterStateStorage {
 
     @Override
     public CompletableFuture<Void> snapshot(Path snapshotPath) {
+        var keys = new ArrayList<byte[]>(map.size());
+        var values = new ArrayList<byte[]>(map.size());
+
+        map.forEach((k, v) -> {
+            keys.add(k.bytes());
+            values.add(v);
+        });
+
         return CompletableFuture.runAsync(() -> {
             try (var out = new ObjectOutputStream(Files.newOutputStream(snapshotPath.resolve(SNAPSHOT_FILE)))) {
-                var keys = new ArrayList<byte[]>(map.size());
-                var values = new ArrayList<byte[]>(map.size());
-
-                map.forEach((k, v) -> {
-                    keys.add(k.bytes());
-                    values.add(v);
-                });
-
                 out.writeObject(keys);
                 out.writeObject(values);
             } catch (Exception e) {

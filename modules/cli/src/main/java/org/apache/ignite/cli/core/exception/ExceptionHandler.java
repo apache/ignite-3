@@ -17,8 +17,9 @@
 
 package org.apache.ignite.cli.core.exception;
 
-
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * General interface of exception handler.
@@ -26,13 +27,21 @@ import org.apache.ignite.lang.IgniteLogger;
  * @param <T> exception type.
  */
 public interface ExceptionHandler<T extends Throwable> {
-    IgniteLogger logger = IgniteLogger.forClass(ExceptionHandler.class);
+    IgniteLogger LOG = Loggers.forClass(ExceptionHandler.class);
 
     ExceptionHandler<Throwable> DEFAULT = new ExceptionHandler<>() {
         @Override
-        public void handle(ExceptionWriter err, Throwable e) {
-            logger.error("Unhandled exception ", e);
-            err.write("Internal error!");
+        public int handle(ExceptionWriter err, Throwable e) {
+            LOG.error("Unhandled exception", e);
+            err.write(
+                    ErrorUiComponent.builder()
+                            .header("Unknown error")
+                            .details(e.getMessage())
+                            .build()
+                            .render()
+            );
+
+            return 1;
         }
 
         @Override
@@ -42,12 +51,13 @@ public interface ExceptionHandler<T extends Throwable> {
     };
 
     /**
-     * Handler method.
+     * Handles an exception.
      *
      * @param err writer instance for any error messages.
      * @param e exception instance.
+     * @return exit code.
      */
-    void handle(ExceptionWriter err, T e);
+    int handle(ExceptionWriter err, T e);
 
     /**
      * Exception class getter.

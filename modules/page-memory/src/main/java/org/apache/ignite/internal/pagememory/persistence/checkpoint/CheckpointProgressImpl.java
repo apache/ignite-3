@@ -65,6 +65,9 @@ class CheckpointProgressImpl implements CheckpointProgress {
     /** Counter for evicted checkpoint pages. */
     private final AtomicInteger evictedPagesCntr = new AtomicInteger();
 
+    /** Sorted dirty pages to be written on the checkpoint. */
+    private volatile @Nullable CheckpointDirtyPages pageToWrite;
+
     /**
      * Constructor.
      *
@@ -178,10 +181,10 @@ class CheckpointProgressImpl implements CheckpointProgress {
     /**
      * Initialize all counters before checkpoint.
      *
-     * @param pagesSize Number of dirty pages in current checkpoint at the beginning of checkpoint.
+     * @param checkpointPages Number of dirty pages in current checkpoint at the beginning of checkpoint.
      */
-    public void initCounters(int pagesSize) {
-        currCheckpointPagesCnt = pagesSize;
+    public void initCounters(int checkpointPages) {
+        currCheckpointPagesCnt = checkpointPages;
 
         writtenPagesCntr.set(0);
         syncedPagesCntr.set(0);
@@ -253,5 +256,20 @@ class CheckpointProgressImpl implements CheckpointProgress {
                 future.complete(null);
             }
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable CheckpointDirtyPages pagesToWrite() {
+        return pageToWrite;
+    }
+
+    /**
+     * Sets the sorted dirty pages to be written on the checkpoint.
+     *
+     * @param pageToWrite Dirty pages.
+     */
+    void pagesToWrite(@Nullable CheckpointDirtyPages pageToWrite) {
+        this.pageToWrite = pageToWrite;
     }
 }

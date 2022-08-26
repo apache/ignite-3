@@ -26,10 +26,13 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
@@ -58,7 +61,7 @@ public class RaftServerImpl implements RaftServer {
     private static final int QUEUE_SIZE = 1000;
 
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RaftServerImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RaftServerImpl.class);
 
     private final RaftMessagesFactory clientMsgFactory;
 
@@ -69,6 +72,8 @@ public class RaftServerImpl implements RaftServer {
     private final BlockingQueue<CommandClosureEx<ReadCommand>> readQueue;
 
     private final BlockingQueue<CommandClosureEx<WriteCommand>> writeQueue;
+
+    private final AtomicLong raftIndex = new AtomicLong();
 
     private volatile Thread readWorker;
 
@@ -173,7 +178,7 @@ public class RaftServerImpl implements RaftServer {
     /** {@inheritDoc} */
     @Override
     public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr,
-            List<Peer> initialConf) {
+            List<Peer> initialConf, RaftGroupOptions groupOptions) {
         if (listeners.containsKey(groupId)) {
             return false;
         }
@@ -185,8 +190,14 @@ public class RaftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public boolean startRaftGroup(String groupId, RaftGroupEventsListener evLsnr, RaftGroupListener lsnr, List<Peer> initialConf) {
-        return startRaftGroup(groupId, lsnr, initialConf);
+    public boolean startRaftGroup(
+            String groupId,
+            RaftGroupEventsListener evLsnr,
+            RaftGroupListener lsnr,
+            List<Peer> initialConf,
+            RaftGroupOptions groupOptions
+    ) {
+        return startRaftGroup(groupId, lsnr, initialConf, groupOptions);
     }
 
     /** {@inheritDoc} */
@@ -224,17 +235,28 @@ public class RaftServerImpl implements RaftServer {
             BlockingQueue<CommandClosureEx<T>> queue,
             RaftGroupListener lsnr
     ) {
+        long commandIndex = req.command() instanceof ReadCommand ? 0 : raftIndex.incrementAndGet();
+
         if (!queue.offer(new CommandClosureEx<>() {
+            /** {@inheritDoc} */
             @Override
             public RaftGroupListener listener() {
                 return lsnr;
             }
 
+            /** {@inheritDoc} */
+            @Override
+            public long index() {
+                return commandIndex;
+            }
+
+            /** {@inheritDoc} */
             @Override
             public T command() {
                 return (T) req.command();
             }
 
+            /** {@inheritDoc} */
             @Override
             public void result(Serializable res) {
                 NetworkMessage msg;

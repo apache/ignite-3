@@ -20,7 +20,7 @@ package org.apache.ignite.cli.commands.sql;
 import static org.apache.ignite.cli.core.exception.handler.SqlExceptionHandler.CLIENT_CONNECTION_FAILED_MESSAGE;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.apache.ignite.cli.commands.CliCommandTestIntegrationBase;
+import org.apache.ignite.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -30,7 +30,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Tests for {@link SqlCommand}.
  */
-class ItSqlCommandTest extends CliCommandTestIntegrationBase {
+class ItSqlCommandTest extends CliCommandTestInitializedIntegrationBase {
 
     @BeforeEach
     public void setUp(TestInfo testInfo) throws Exception {
@@ -46,7 +46,7 @@ class ItSqlCommandTest extends CliCommandTestIntegrationBase {
     @Test
     @DisplayName("Should execute select * from table and display table when jdbc-url is correct")
     void selectFromTable() {
-        execute("sql", "--execute", "select * from person", "--jdbc-url", JDBC_URL);
+        execute("sql", "select * from person", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -58,12 +58,11 @@ class ItSqlCommandTest extends CliCommandTestIntegrationBase {
     @Test
     @DisplayName("Should display readable error when wrong jdbc is given")
     void wrongJdbcUrl() {
-        execute("sql", "--execute", "select * from person", "--jdbc-url", "jdbc:ignite:thin://no-such-host.com:10800");
+        execute("sql", "select * from person", "--jdbc-url", "jdbc:ignite:thin://no-such-host.com:10800");
 
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                this::assertErrOutputIsNotEmpty,
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-17090
                 () -> assertErrOutputIs(CLIENT_CONNECTION_FAILED_MESSAGE + System.lineSeparator())
         );
@@ -72,14 +71,14 @@ class ItSqlCommandTest extends CliCommandTestIntegrationBase {
     @Test
     @DisplayName("Should display readable error when wrong query is given")
     void incorrectQueryTest() {
-        execute("sql", "--execute", "select", "--jdbc-url", JDBC_URL);
+        execute("sql", "select", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                this::assertErrOutputIsNotEmpty,
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-17090
-                () -> assertErrOutputIs("SQL query parsing error: Sql query execution failed." + System.lineSeparator())
+                () -> assertErrOutputIs("SQL query parsing error" + System.lineSeparator()
+                        + "Sql query execution failed." + System.lineSeparator())
         );
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -37,9 +38,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
@@ -63,8 +66,8 @@ import org.apache.ignite.internal.table.distributed.command.scan.ScanInitCommand
 import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBatchCommand;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
@@ -73,7 +76,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -82,7 +85,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class InternalTableImpl implements InternalTable {
     /** Log. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(InternalTableImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(InternalTableImpl.class);
 
     /** IgniteUuid generator. */
     private static final IgniteUuidGenerator UUID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
@@ -109,7 +112,7 @@ public class InternalTableImpl implements InternalTable {
     private final TxManager txManager;
 
     /** Storage for table data. */
-    private final TableStorage tableStorage;
+    private final MvTableStorage tableStorage;
 
     /** Mutex for the partition map update. */
     public Object updatePartMapMux = new Object();
@@ -132,7 +135,7 @@ public class InternalTableImpl implements InternalTable {
             Function<NetworkAddress, String> netAddrResolver,
             Function<NetworkAddress, ClusterNode> clusterNodeResolver,
             TxManager txManager,
-            TableStorage tableStorage
+            MvTableStorage tableStorage
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -146,7 +149,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull TableStorage storage() {
+    public MvTableStorage storage() {
         return tableStorage;
     }
 
@@ -158,7 +161,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull UUID tableId() {
+    public UUID tableId() {
         return tableId;
     }
 
@@ -186,6 +189,11 @@ public class InternalTableImpl implements InternalTable {
             Function<CompletableFuture<R>[], CompletableFuture<T>> reducer
     ) {
         final boolean implicit = tx == null;
+
+        if (!implicit && tx.state() != null && tx.state() != TxState.PENDING) {
+            return failedFuture(new TransactionException(
+                    "The operation is attempted for completed transaction"));
+        }
 
         final InternalTransaction tx0 = implicit ? txManager.begin() : tx;
 
@@ -357,7 +365,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
+    public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
         if (p < 0 || p >= partitions) {
             throw new IllegalArgumentException(
                     IgniteStringFormatter.format(
@@ -390,7 +398,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull List<String> assignments() {
+    public List<String> assignments() {
         awaitLeaderInitialization();
 
         return partitionMap.int2ObjectEntrySet().stream()
@@ -649,7 +657,7 @@ public class InternalTableImpl implements InternalTable {
 
                 if (closeCursor) {
                     scanInitOp.thenRun(() -> raftGrpSvc.run(new ScanCloseCommand(scanId))).exceptionally(closeT -> {
-                        LOG.warn("Unable to close scan.", closeT);
+                        LOG.warn("Unable to close scan", closeT);
 
                         return null;
                     });

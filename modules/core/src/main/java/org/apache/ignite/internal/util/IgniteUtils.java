@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.util;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -44,11 +46,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringBuilder;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -288,6 +293,27 @@ public class IgniteUtils {
         }
 
         return sb.toString();
+    }
+
+    /**
+     * Returns byte array represented by given hex string.
+     *
+     * @param s String containing a hex representation of bytes.
+     * @return A byte array.
+     */
+    public static byte[] fromHexString(String s) {
+        var len = s.length();
+
+        assert (len & 1) == 0 : "length should be even";
+
+        var data = new byte[len / 2];
+
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i + 1), 16));
+        }
+
+        return data;
     }
 
     /**
@@ -610,12 +636,12 @@ public class IgniteUtils {
      * @deprecated Calls to this method should never be committed to master.
      */
     public static void dumpStack(IgniteLogger log, String msg, Object... params) {
-        String reason = "Dumping stack.";
+        String reason = "Dumping stack";
 
         var err = new Exception(IgniteStringFormatter.format(msg, params));
 
         if (log != null) {
-            log.error(reason, err);
+            log.warn(reason, err);
         } else {
             System.err.println("[" + LocalDateTime.now().format(SHORT_DATE_FMT) + "] (err) " + reason);
 
@@ -648,13 +674,13 @@ public class IgniteUtils {
             // or something wrong happened. Anyway, let's try to be over-diagnosing
             if (log != null) {
                 if (e instanceof AtomicMoveNotSupportedException) {
-                    log.warn("Atomic move not supported. falling back to non-atomic move, error: {}.", e.getMessage());
+                    log.info("Atomic move not supported. Falling back to non-atomic move [reason={}]", e.getMessage());
                 } else {
-                    log.warn("Unable to move atomically, falling back to non-atomic move, error: {}.", e.getMessage());
+                    log.info("Unable to move atomically. Falling back to non-atomic move [reason={}]", e.getMessage());
                 }
 
                 if (targetPath.toFile().exists() && log.isInfoEnabled()) {
-                    log.info("The target file {} was already existing.", targetPath);
+                    log.info("The target file already exists [path={}]", targetPath);
                 }
             }
 
@@ -664,10 +690,10 @@ public class IgniteUtils {
                 e1.addSuppressed(e);
 
                 if (log != null) {
-                    log.warn("Unable to move {} to {}. Attempting to delete {} and abandoning.",
+                    log.warn("Unable to move file. Going to delete source [sourcePath={}, targetPath={}]",
                             sourcePath,
-                            targetPath,
-                            sourcePath);
+                            targetPath
+                    );
                 }
 
                 try {
@@ -676,7 +702,7 @@ public class IgniteUtils {
                     e2.addSuppressed(e1);
 
                     if (log != null) {
-                        log.warn("Unable to delete {}, good bye then!", sourcePath);
+                        log.warn("Unable to delete file [path={}]", sourcePath);
                     }
 
                     throw e2;
@@ -761,9 +787,45 @@ public class IgniteUtils {
                 worker.join();
             } catch (Exception e) {
                 if (log != null && log.isWarnEnabled()) {
-                    log.warn("Failed to cancel ignite worker [" + worker.toString() + "]: " + e.getMessage());
+                    log.debug("Unable to cancel ignite worker [worker={}, reason={}]", worker.toString(), e.getMessage());
                 }
             }
+        }
+    }
+
+    /**
+     * Method that runs the provided {@code fn} in {@code busyLock}.
+     *
+     * @param busyLock Component's busy lock
+     * @param fn Function to run
+     * @param <T> Type of returned value from {@code fn}
+     * @return Result of the provided function
+     */
+    public static <T> T inBusyLock(IgniteSpinBusyLock busyLock, Supplier<T> fn) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+        try {
+            return fn.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Method that runs the provided {@code fn} in {@code busyLock}.
+     *
+     * @param busyLock Component's busy lock
+     * @param fn Runnable to run
+     */
+    public static void inBusyLock(IgniteSpinBusyLock busyLock, Runnable fn) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+        try {
+            fn.run();
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 }

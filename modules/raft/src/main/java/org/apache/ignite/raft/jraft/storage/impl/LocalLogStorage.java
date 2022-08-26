@@ -23,7 +23,8 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
@@ -32,14 +33,15 @@ import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
+import org.apache.ignite.raft.jraft.storage.VolatileStorage;
 import org.apache.ignite.raft.jraft.util.Describer;
 import org.apache.ignite.raft.jraft.util.Requires;
 
 /**
  * Stores log in heap.
  */
-public class LocalLogStorage implements LogStorage, Describer {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(LocalLogStorage.class);
+public class LocalLogStorage implements LogStorage, Describer, VolatileStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(LocalLogStorage.class);
 
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
     private final Lock readLock = this.readWriteLock.readLock();
@@ -56,7 +58,7 @@ public class LocalLogStorage implements LogStorage, Describer {
 
     private volatile boolean initialized = false;
 
-    public LocalLogStorage(final String path, final RaftOptions raftOptions) {
+    public LocalLogStorage(final RaftOptions raftOptions) {
         super();
     }
 
@@ -67,7 +69,7 @@ public class LocalLogStorage implements LogStorage, Describer {
         this.writeLock.lock();
         try {
             if (initialized) {
-                LOG.warn("RocksDBLogStorage init() already.");
+                LOG.warn("LocalLogStorage init() was already called.");
                 return true;
             }
             this.initialized = true;

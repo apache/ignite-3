@@ -21,20 +21,51 @@ import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.Arrays;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
+import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.pagememory.DataRegion;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.storage.StorageException;
 
 /**
- * Implementation of {@link AbstractPageMemoryDataRegion} for persistent case.
+ * Implementation of {@link DataRegion} for persistent case.
  */
-class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion {
+class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory> {
+    /**
+     * Threshold to calculate limit for pages list on-heap caches.
+     *
+     * <p>In general, this is a reservation of pages in PageMemory for converting page list caches from on-heap to off-heap.
+     *
+     * <p>Note: When a checkpoint is triggered, we need some amount of page memory to store pages list on-heap cache.
+     * If a checkpoint is triggered by "too many dirty pages" reason and pages list cache is rather big, we can get {@code
+     * IgniteOutOfMemoryException}. To prevent this, we can limit the total amount of cached page list buckets, assuming that checkpoint
+     * will be triggered if no more then 3/4 of pages will be marked as dirty (there will be at least 1/4 of clean pages) and each cached
+     * page list bucket can be stored to up to 2 pages (this value is not static, but depends on PagesCache.MAX_SIZE, so if
+     * PagesCache.MAX_SIZE > PagesListNodeIo#getCapacity it can take more than 2 pages). Also some amount of page memory is needed to store
+     * page list metadata.
+     */
+    private static final double PAGE_LIST_CACHE_LIMIT_THRESHOLD = 0.1;
+
+    private final PersistentPageMemoryDataRegionConfiguration cfg;
+
+    private final PageIoRegistry ioRegistry;
+
+    private final int pageSize;
+
     private final FilePageStoreManager filePageStoreManager;
 
+    private final PartitionMetaManager partitionMetaManager;
+
     private final CheckpointManager checkpointManager;
+
+    private volatile PersistentPageMemory pageMemory;
+
+    private volatile AtomicLong pageListCacheLimit;
 
     /**
      * Constructor.
@@ -42,47 +73,67 @@ class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion {
      * @param cfg Data region configuration.
      * @param ioRegistry IO registry.
      * @param filePageStoreManager File page store manager.
+     * @param partitionMetaManager Partition meta information manager.
      * @param checkpointManager Checkpoint manager.
      * @param pageSize Page size in bytes.
      */
     public PersistentPageMemoryDataRegion(
-            PageMemoryDataRegionConfiguration cfg,
+            PersistentPageMemoryDataRegionConfiguration cfg,
             PageIoRegistry ioRegistry,
             FilePageStoreManager filePageStoreManager,
+            PartitionMetaManager partitionMetaManager,
             CheckpointManager checkpointManager,
             int pageSize
     ) {
-        super(cfg, ioRegistry, pageSize);
+        this.cfg = cfg;
+        this.ioRegistry = ioRegistry;
+        this.pageSize = pageSize;
 
         this.filePageStoreManager = filePageStoreManager;
+        this.partitionMetaManager = partitionMetaManager;
         this.checkpointManager = checkpointManager;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Starts a persistent data region.
+     */
     public void start() {
-        PageMemoryDataRegionView dataRegionConfigView = cfg.value();
+        PersistentPageMemoryDataRegionView dataRegionConfigView = cfg.value();
 
-        assert persistent() : dataRegionConfigView.name();
-
-        PageMemoryImpl pageMemoryImpl = new PageMemoryImpl(
+        PersistentPageMemory pageMemory = new PersistentPageMemory(
                 cfg,
                 ioRegistry,
                 calculateSegmentSizes(dataRegionConfigView, Runtime.getRuntime().availableProcessors()),
                 calculateCheckpointBufferSize(dataRegionConfigView),
                 filePageStoreManager,
                 null,
-                (fullPageId, buf, tag) -> {
-                    // Write page to disk.
-                    filePageStoreManager.write(fullPageId.groupId(), fullPageId.pageId(), buf, tag, true);
-                },
+                (pageMemory0, fullPageId, buf) -> checkpointManager.writePageToDeltaFilePageStore(pageMemory0, fullPageId, buf, true),
                 checkpointManager.checkpointTimeoutLock(),
                 pageSize
         );
 
-        pageMemoryImpl.start();
+        pageMemory.start();
 
-        pageMemory = pageMemoryImpl;
+        pageListCacheLimit = new AtomicLong((long) (pageMemory.totalPages() * PAGE_LIST_CACHE_LIMIT_THRESHOLD));
+
+        this.pageMemory = pageMemory;
+    }
+
+    /**
+     * Stops a persistent data region.
+     */
+    public void stop() throws Exception {
+        if (pageMemory != null) {
+            pageMemory.stop(true);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public PersistentPageMemory pageMemory() {
+        checkDataRegionStarted();
+
+        return pageMemory;
     }
 
     /**
@@ -93,10 +144,26 @@ class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion {
     }
 
     /**
+     * Returns partition meta information manager.
+     */
+    public PartitionMetaManager partitionMetaManager() {
+        return partitionMetaManager;
+    }
+
+    /**
      * Returns checkpoint manager.
      */
     public CheckpointManager checkpointManager() {
         return checkpointManager;
+    }
+
+    /**
+     * Returns page list cache limit.
+     */
+    public AtomicLong pageListCacheLimit() {
+        checkDataRegionStarted();
+
+        return pageListCacheLimit;
     }
 
     /**
@@ -106,10 +173,10 @@ class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion {
      * @param concurrencyLevel Number of concurrent segments in Ignite internal page mapping tables, must be greater than 0.
      */
     // TODO: IGNITE-16350 Add more and more detailed description
-    static long[] calculateSegmentSizes(PageMemoryDataRegionView dataRegionConfigView, int concurrencyLevel) {
+    static long[] calculateSegmentSizes(PersistentPageMemoryDataRegionView dataRegionConfigView, int concurrencyLevel) {
         assert concurrencyLevel > 0 : concurrencyLevel;
 
-        long maxSize = dataRegionConfigView.maxSize();
+        long maxSize = dataRegionConfigView.size();
 
         long fragmentSize = Math.max(maxSize / concurrencyLevel, MiB);
 
@@ -126,8 +193,8 @@ class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion {
      * @param dataRegionConfigView Data region configuration.
      */
     // TODO: IGNITE-16350 Add more and more detailed description
-    static long calculateCheckpointBufferSize(PageMemoryDataRegionView dataRegionConfigView) {
-        long maxSize = dataRegionConfigView.maxSize();
+    static long calculateCheckpointBufferSize(PersistentPageMemoryDataRegionView dataRegionConfigView) {
+        long maxSize = dataRegionConfigView.size();
 
         if (maxSize < GiB) {
             return Math.min(GiB / 4L, maxSize);
@@ -138,5 +205,16 @@ class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion {
         }
 
         return 2L * GiB;
+    }
+
+    /**
+     * Checks that the data region has started.
+     *
+     * @throws StorageException If the data region did not start.
+     */
+    private void checkDataRegionStarted() {
+        if (pageMemory == null) {
+            throw new StorageException("Data region not started");
+        }
     }
 }

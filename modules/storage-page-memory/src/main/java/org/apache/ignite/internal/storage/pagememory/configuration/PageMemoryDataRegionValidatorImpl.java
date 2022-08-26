@@ -17,11 +17,17 @@
 
 package org.apache.ignite.internal.storage.pagememory.configuration;
 
+import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineView;
+import org.apache.ignite.internal.configuration.tree.InnerNode;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageView;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageView;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineView;
 
 /**
  * Implementing a validator for {@link PageMemoryDataRegionName}.
@@ -33,22 +39,55 @@ public class PageMemoryDataRegionValidatorImpl implements Validator<PageMemoryDa
     /** {@inheritDoc} */
     @Override
     public void validate(PageMemoryDataRegionName annotation, ValidationContext<String> ctx) {
-        String dataRegion = ctx.getNewValue();
+        String dataRegionName = ctx.getNewValue();
 
-        PageMemoryStorageEngineView engineConfig = ctx.getNewRoot(PageMemoryStorageEngineConfiguration.KEY);
+        Object newOwner = ctx.getNewOwner();
 
-        assert engineConfig != null;
+        if (newOwner instanceof InnerNode) {
+            newOwner = ((InnerNode) newOwner).specificNode();
+        }
 
-        if (!contains(engineConfig, dataRegion)) {
-            ctx.addIssue(new ValidationIssue(String.format(
-                    "Unable to find data region '%s' in configuration '%s'",
-                    dataRegion,
-                    PageMemoryStorageEngineConfiguration.KEY
-            )));
+        if (newOwner instanceof VolatilePageMemoryDataStorageView) {
+            VolatilePageMemoryStorageEngineView engineConfig = ctx.getNewRoot(VolatilePageMemoryStorageEngineConfiguration.KEY);
+
+            assert engineConfig != null;
+
+            if (!contains(engineConfig, dataRegionName)) {
+                ctx.addIssue(unableToFindDataRegionIssue(
+                        ctx.currentKey(),
+                        dataRegionName,
+                        VolatilePageMemoryStorageEngineConfiguration.KEY)
+                );
+            }
+        } else if (newOwner instanceof PersistentPageMemoryDataStorageView) {
+            PersistentPageMemoryStorageEngineView engineConfig = ctx.getNewRoot(PersistentPageMemoryStorageEngineConfiguration.KEY);
+
+            assert engineConfig != null;
+
+            if (!contains(engineConfig, dataRegionName)) {
+                ctx.addIssue(unableToFindDataRegionIssue(
+                        ctx.currentKey(),
+                        dataRegionName,
+                        PersistentPageMemoryStorageEngineConfiguration.KEY)
+                );
+            }
+        } else {
+            ctx.addIssue(new ValidationIssue(ctx.currentKey(), String.format("Unknown data storage '%s'", newOwner)));
         }
     }
 
-    private static boolean contains(PageMemoryStorageEngineView engineConfig, String dataRegion) {
-        return engineConfig.defaultRegion().name().equals(dataRegion) || engineConfig.regions().get(dataRegion) != null;
+    private static boolean contains(VolatilePageMemoryStorageEngineView engineConfig, String dataRegionName) {
+        return engineConfig.defaultRegion().name().equals(dataRegionName) || engineConfig.regions().get(dataRegionName) != null;
+    }
+
+    private static boolean contains(PersistentPageMemoryStorageEngineView engineConfig, String dataRegionName) {
+        return engineConfig.defaultRegion().name().equals(dataRegionName) || engineConfig.regions().get(dataRegionName) != null;
+    }
+
+    private static ValidationIssue unableToFindDataRegionIssue(String validationKey, String dataRegionName, RootKey<?, ?> rootKey) {
+        return new ValidationIssue(
+                validationKey,
+                String.format("Unable to find data region '%s' in configuration '%s'", dataRegionName, rootKey)
+        );
     }
 }

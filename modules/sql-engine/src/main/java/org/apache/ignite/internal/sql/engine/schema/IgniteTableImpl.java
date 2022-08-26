@@ -50,6 +50,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
@@ -60,7 +61,7 @@ import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.storage.PartitionStorage;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
 
@@ -252,13 +253,13 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             for (int i = 0; i < desc.columnsCount(); i++) {
                 ColumnDescriptor colDesc = desc.columnDescriptor(i);
 
-                handler.set(i, res, row.value(colDesc.physicalIndex()));
+                handler.set(i, res, TypeUtils.toInternal(ectx, row.value(colDesc.physicalIndex())));
             }
         } else {
             for (int i = 0, j = requiredColumns.nextSetBit(0); j != -1; j = requiredColumns.nextSetBit(j + 1), i++) {
                 ColumnDescriptor colDesc = desc.columnDescriptor(j);
 
-                handler.set(i, res, row.value(colDesc.physicalIndex()));
+                handler.set(i, res, TypeUtils.toInternal(ectx, row.value(colDesc.physicalIndex())));
             }
         }
 
@@ -317,7 +318,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             if (colDesc.key() && Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(colDesc.name())) {
                 val = colDesc.defaultValue();
             } else {
-                val = hnd.get(colDesc.logicalIndex(), row);
+                val = replaceDefault(hnd.get(colDesc.logicalIndex(), row), colDesc);
             }
 
             val = TypeUtils.fromInternal(ectx, val, NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
@@ -456,6 +457,10 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         return ColocationGroup.forAssignments(assignments);
     }
 
+    private Object replaceDefault(Object val, ColumnDescriptor desc) {
+        return val == RexImpTable.DEFAULT_VALUE_PLACEHOLDER ? desc.defaultValue() : val;
+    }
+
     private class StatisticsImpl implements Statistic {
         private static final int STATS_CLI_UPDATE_THRESHOLD = 200;
 
@@ -472,7 +477,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
                 long size = 0L;
 
                 for (int p = 0; p < parts; ++p) {
-                    @Nullable PartitionStorage part = table.storage().getPartition(p);
+                    @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
 
                     if (part != null) {
                         size += part.rowsCount();

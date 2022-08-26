@@ -53,7 +53,7 @@ public class IgniteCliRunnerTest {
         Path configPath = Path.of(IgniteCliRunnerTest.class.getResource("/ignite-config.json").toURI());
 
         CompletableFuture<Ignite> ign = IgniteCliRunner.start(
-                "--config", configPath.toAbsolutePath().toString(),
+                "--config-path", configPath.toAbsolutePath().toString(),
                 "--work-dir", workDir.resolve("node").toAbsolutePath().toString(),
                 NODE_NAME
         );

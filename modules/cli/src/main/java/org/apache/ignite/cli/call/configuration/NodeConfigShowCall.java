@@ -20,7 +20,7 @@ package org.apache.ignite.cli.call.configuration;
 import jakarta.inject.Singleton;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.exception.CommandExecutionException;
+import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -30,24 +30,24 @@ import org.apache.ignite.rest.client.invoker.Configuration;
  * Shows node configuration from ignite cluster.
  */
 @Singleton
-public class NodeConfigShowCall implements Call<NodeConfigShowCallInput, String> {
+public class NodeConfigShowCall implements Call<NodeConfigShowCallInput, JsonString> {
 
     /** {@inheritDoc} */
     @Override
-    public DefaultCallOutput<String> execute(NodeConfigShowCallInput readConfigurationInput) {
-        NodeConfigurationApi client = createApiClient(readConfigurationInput);
+    public DefaultCallOutput<JsonString> execute(NodeConfigShowCallInput input) {
+        NodeConfigurationApi client = createApiClient(input);
 
         try {
-            return DefaultCallOutput.success(readNodeConfig(client, readConfigurationInput));
-        } catch (ApiException e) {
-            return DefaultCallOutput.failure(e);
-        } catch (IllegalArgumentException e) {
-            return DefaultCallOutput.failure(new CommandExecutionException("node config show", e.getMessage()));
+            return DefaultCallOutput.success(readNodeConfig(client, input));
+        } catch (ApiException | IllegalArgumentException e) {
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getNodeUrl()));
         }
     }
 
-    private String readNodeConfig(NodeConfigurationApi api, NodeConfigShowCallInput input) throws ApiException {
-        return input.getSelector() != null ? api.getNodeConfigurationByPath(input.getSelector()) : api.getNodeConfiguration();
+    private JsonString readNodeConfig(NodeConfigurationApi api, NodeConfigShowCallInput input) throws ApiException {
+        return JsonString.fromString(input.getSelector() != null
+                ? api.getNodeConfigurationByPath(input.getSelector())
+                : api.getNodeConfiguration());
     }
 
     private NodeConfigurationApi createApiClient(NodeConfigShowCallInput input) {

@@ -38,6 +38,7 @@ import java.util.logging.Logger;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.jul.NoOpHandler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,6 +50,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 class ItClusterCommandTest extends AbstractCliIntegrationTest {
+    private static final String TOPOLOGY_SNAPSHOT_LOG_RECORD_PREFIX = "Topology snapshot [nodes=";
+
     private static final Node FIRST_NODE = new Node(0, 10100, 10300);
 
     private static final Node SECOND_NODE = new Node(1, 11100, 11300);
@@ -88,8 +91,15 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
         return new NoOpHandler() {
             @Override
             public void publish(LogRecord record) {
-                if (record.getMessage().contains("Topology snapshot [nodes=" + NODES.size() + "]")) {
-                    physicalTopologyIsFull.countDown();
+                var msg = record.getMessage();
+
+                if (msg.startsWith(TOPOLOGY_SNAPSHOT_LOG_RECORD_PREFIX)) {
+                    var ids = msg.substring(TOPOLOGY_SNAPSHOT_LOG_RECORD_PREFIX.length(), msg.lastIndexOf(']'))
+                            .split(",");
+
+                    if (ids.length == NODES.size()) {
+                        physicalTopologyIsFull.countDown();
+                    }
                 }
             }
         };
@@ -152,7 +162,7 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
 
     /**
      * Starts a cluster of 4 nodes and executes init command on it. First node is used to issue the command via REST endpoint,
-     * second will host the meta-storage RAFT group, third will host the Cluster Management RAFT Group (CMG), fourth
+     * second will host the Meta Storage, third will host the Cluster Management Group (CMG), fourth
      * will be just a node.
      *
      * @param testInfo test info (used to derive node names)
@@ -161,7 +171,7 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
     void initClusterWithNodesOfDifferentRoles(TestInfo testInfo) {
         int exitCode = cmd(ctx).execute(
                 "cluster", "init",
-                "--node-endpoint", FIRST_NODE.restHostPort(),
+                "--cluster-endpoint-url", FIRST_NODE.restHostPort(),
                 "--meta-storage-node", SECOND_NODE.nodeName(testInfo),
                 "--cmg-node", THIRD_NODE.nodeName(testInfo),
                 "--cluster-name", "ignite-cluster"
@@ -171,7 +181,7 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
                 String.format("Wrong exit code; std is '%s', stderr is '%s'", out.toString(UTF_8), err.toString(UTF_8)),
                 exitCode, is(0)
         );
-        assertThat(out.toString(UTF_8), is("Cluster was initialized successfully." + NL));
+        assertThat(out.toString(UTF_8), is("Cluster was initialized successfully" + NL));
 
         // TODO: when IGNITE-16526 is implemented, also check that the logical topology contains all 4 nodes
     }
@@ -196,7 +206,7 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
         }
 
         String restHostPort() {
-            return "localhost:" + restPort;
+            return "http://localhost:" + restPort;
         }
     }
 }

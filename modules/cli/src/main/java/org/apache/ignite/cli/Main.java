@@ -28,7 +28,8 @@ import java.util.HashMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.cli.commands.TopLevelCliCommand;
 import org.apache.ignite.cli.commands.TopLevelCliReplCommand;
-import org.apache.ignite.cli.config.Config;
+import org.apache.ignite.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.cli.config.ConfigDefaultValueProvider;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
 import org.apache.ignite.cli.core.exception.handler.DefaultExceptionHandlers;
@@ -54,11 +55,12 @@ public class Main {
     public static void main(String[] args) {
         initJavaLoggerProps();
 
+        int exitCode = 0;
         try (MicronautFactory micronautFactory = new MicronautFactory()) {
             AnsiConsole.systemInstall();
             if (args.length != 0 || !isatty()) { // do not enter REPL if input or output is redirected
                 try {
-                    executeCommand(args, micronautFactory);
+                    exitCode = executeCommand(args, micronautFactory);
                 } catch (Exception e) {
                     System.err.println("Error occurred during command execution");
                 }
@@ -72,6 +74,7 @@ public class Main {
         } finally {
             AnsiConsole.systemUninstall();
         }
+        System.exit(exitCode);
     }
 
     private static boolean isatty() {
@@ -90,6 +93,8 @@ public class Main {
         VersionProvider versionProvider = micronautFactory.create(VersionProvider.class);
         System.out.println(banner(versionProvider));
 
+        ConnectToClusterQuestion question = micronautFactory.create(ConnectToClusterQuestion.class);
+
         replExecutorProvider.get().execute(Repl.builder()
                 .withPromptProvider(micronautFactory.create(PromptProvider.class))
                 .withAliases(aliases)
@@ -103,17 +108,17 @@ public class Main {
                                 .exceptionHandlers(new DefaultExceptionHandlers())
                                 .exceptionHandlers(exceptionHandlers)
                                 .build())
+                .withOnStart(question::askQuestionOnReplStart)
                 .withHistoryFileName("history")
                 .withTailTipWidgets()
                 .build());
     }
 
-    private static void executeCommand(String[] args, MicronautFactory micronautFactory) throws Exception {
+    private static int executeCommand(String[] args, MicronautFactory micronautFactory) throws Exception {
         CommandLine cmd = new CommandLine(TopLevelCliCommand.class, micronautFactory);
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
-        Config config = micronautFactory.create(Config.class);
-        cmd.setDefaultValueProvider(new CommandLine.PropertiesDefaultProvider(config.getProperties()));
-        cmd.execute(args);
+        cmd.setDefaultValueProvider(micronautFactory.create(ConfigDefaultValueProvider.class));
+        return cmd.execute(args);
     }
 
     private static final String[] BANNER = new String[]{

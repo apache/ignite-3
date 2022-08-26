@@ -19,7 +19,8 @@ package org.apache.ignite.raft.jraft.storage.snapshot.local;
 import java.io.File;
 import java.io.IOException;
 import java.util.Set;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -35,7 +36,7 @@ import org.apache.ignite.raft.jraft.util.Utils;
  * Snapshot reader on local file system.
  */
 public class LocalSnapshotReader extends SnapshotReader {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(LocalSnapshotReader.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LocalSnapshotReader.class);
 
     /** Generated reader id */
     private long readerId;
@@ -81,7 +82,7 @@ public class LocalSnapshotReader extends SnapshotReader {
             return this.metaTable.loadFromFile(metaPath);
         }
         catch (final IOException e) {
-            LOG.error("Fail to load snapshot meta {}.", metaPath);
+            LOG.error("Fail to load snapshot meta {}.", metaPath, e);
             setError(RaftError.EIO, "Fail to load snapshot meta from path %s", metaPath);
             return false;
         }
@@ -129,7 +130,7 @@ public class LocalSnapshotReader extends SnapshotReader {
             }
         }
 
-        return String.format(REMOTE_SNAPSHOT_URI_SCHEME + "%s/%d", this.addr.toString(), this.readerId);
+        return String.format(REMOTE_SNAPSHOT_URI_SCHEME + "%s/%d", this.addr, this.readerId);
     }
 
     private void destroyReaderInFileService() {

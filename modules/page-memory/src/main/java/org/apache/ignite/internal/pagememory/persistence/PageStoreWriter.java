@@ -29,10 +29,10 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 // TODO: IGNITE-15818 Maybe refactor.
 public interface PageStoreWriter {
     /**
-     * Callback for write page. {@link PageMemoryImpl} will copy page content to buffer before call.
+     * Callback for write page. {@link PersistentPageMemory} will copy page content to buffer before call.
      *
      * @param fullPageId Page ID to get byte buffer for. The page ID must be present in the collection returned by the {@link
-     * PageMemoryImpl#beginCheckpoint(CompletableFuture)} method call.
+     * PersistentPageMemory#beginCheckpoint(CompletableFuture)} method call.
      * @param buf Temporary buffer to write changes into.
      * @param tag {@code Partition generation} if data was read.
      * @throws IgniteInternalCheckedException If write page failed.

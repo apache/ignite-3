@@ -18,8 +18,8 @@
 package org.apache.ignite.client;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.endsWith;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.lang.IgniteException;
@@ -33,13 +33,13 @@ public class ConnectionTest extends AbstractClientTest {
     @Test
     public void testEmptyNodeAddress() {
         var ex = assertThrows(IgniteException.class, () -> testConnection(""));
-        assertEquals("Failed to parse Ignite server address (Address is empty): ", ex.getMessage());
+        assertThat(ex.getMessage(), containsString("Failed to parse Ignite server address (Address is empty): "));
     }
 
     @Test
     public void testNullNodeAddresses() {
         var ex = assertThrows(IgniteException.class, () -> testConnection(null, null));
-        assertEquals("Failed to parse Ignite server address (Address is empty): null", ex.getMessage());
+        assertThat(ex.getMessage(), containsString("Failed to parse Ignite server address (Address is empty): null"));
     }
 
     @Test

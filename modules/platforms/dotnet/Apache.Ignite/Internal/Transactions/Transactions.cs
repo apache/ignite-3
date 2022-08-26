@@ -41,15 +41,15 @@ namespace Apache.Ignite.Internal.Transactions
         /// <inheritdoc/>
         public async Task<ITransaction> BeginAsync()
         {
-            // Get a specific connection.
             // Transaction and all corresponding operations must be performed using the same connection.
-            var socket = await _socket.GetSocketAsync().ConfigureAwait(false);
+            var (resBuf, socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.TxBegin).ConfigureAwait(false);
 
-            using var resBuf = await socket.DoOutInOpAsync(ClientOp.TxBegin).ConfigureAwait(false);
+            using (resBuf)
+            {
+                var txId = resBuf.GetReader().ReadInt64();
 
-            var txId = resBuf.GetReader().ReadInt64();
-
-            return new Transaction(txId, socket, _socket);
+                return new Transaction(txId, socket, _socket);
+            }
         }
     }
 }

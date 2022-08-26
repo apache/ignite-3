@@ -24,11 +24,16 @@ import static org.hamcrest.Matchers.is;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
@@ -69,11 +74,16 @@ public class RocksDbStorageEngineTest {
                     name = "table",
                     polymorphicExtensions = {
                             HashIndexConfigurationSchema.class,
-                            RocksDbDataStorageConfigurationSchema.class
+                            RocksDbDataStorageConfigurationSchema.class,
+                            ConstantValueDefaultConfigurationSchema.class,
+                            FunctionCallDefaultConfigurationSchema.class,
+                            NullValueDefaultConfigurationSchema.class,
+                            UnlimitedBudgetConfigurationSchema.class,
+                            EntryCountBudgetConfigurationSchema.class
                     }
             ) TableConfiguration tableCfg
     ) {
-        TableStorage table = engine.createTable(tableCfg);
+        MvTableStorage table = engine.createMvTable(tableCfg);
 
         table.start();
 
@@ -82,7 +92,7 @@ public class RocksDbStorageEngineTest {
 
             assertThat(dataStorageConfig.dataRegion().value(), is(DEFAULT_DATA_REGION_NAME));
 
-            table.getOrCreatePartition(1);
+            table.getOrCreateMvPartition(1);
         } finally {
             table.stop();
         }
@@ -95,7 +105,12 @@ public class RocksDbStorageEngineTest {
                     name = "table",
                     polymorphicExtensions = {
                             HashIndexConfigurationSchema.class,
-                            RocksDbDataStorageConfigurationSchema.class
+                            RocksDbDataStorageConfigurationSchema.class,
+                            ConstantValueDefaultConfigurationSchema.class,
+                            FunctionCallDefaultConfigurationSchema.class,
+                            NullValueDefaultConfigurationSchema.class,
+                            UnlimitedBudgetConfigurationSchema.class,
+                            EntryCountBudgetConfigurationSchema.class
                     }
             ) TableConfiguration tableCfg
     ) {
@@ -106,7 +121,7 @@ public class RocksDbStorageEngineTest {
 
         assertThat(engineConfigChangeFuture, willCompleteSuccessfully());
 
-        TableStorage table = engine.createTable(tableCfg);
+        MvTableStorage table = engine.createMvTable(tableCfg);
 
         table.start();
 
@@ -115,7 +130,7 @@ public class RocksDbStorageEngineTest {
 
             assertThat(dataStorageConfig.dataRegion().value(), is(customRegionName));
 
-            table.getOrCreatePartition(1);
+            table.getOrCreateMvPartition(1);
         } finally {
             table.stop();
         }

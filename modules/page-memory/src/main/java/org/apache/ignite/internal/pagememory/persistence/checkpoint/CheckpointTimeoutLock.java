@@ -25,23 +25,22 @@ import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
-import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 
 /**
  * Checkpoint lock for outer usage which should be used to protect data during writing to memory. It contains complex logic for the correct
  * taking of inside checkpoint lock(timeout, force checkpoint, etc.).
  */
-public class CheckpointTimeoutLock implements IgniteComponent {
+public class CheckpointTimeoutLock {
     /** Ignite logger. */
     protected final IgniteLogger log;
 
     /**
-     * {@link PageMemoryImpl#safeToUpdate() Safe update check} for all page memories, should return {@code false} if there are many dirty
-     * pages and a checkpoint is needed.
+     * {@link PersistentPageMemory#safeToUpdate() Safe update check} for all page memories, should return {@code false} if there are many
+     * dirty pages and a checkpoint is needed.
      */
     private final BooleanSupplier safeToUpdateAllPageMemories;
 
@@ -63,7 +62,7 @@ public class CheckpointTimeoutLock implements IgniteComponent {
      * @param log Logger.
      * @param checkpointReadWriteLock Checkpoint read-write lock.
      * @param checkpointReadLockTimeout Timeout for checkpoint read lock acquisition in milliseconds.
-     * @param safeToUpdateAllPageMemories {@link PageMemoryImpl#safeToUpdate() Safe update check} for all page memories, should return
+     * @param safeToUpdateAllPageMemories {@link PersistentPageMemory#safeToUpdate() Safe update check} for all page memories, should return
      *      {@code false} if there are many dirty pages and a checkpoint is needed.
      * @param checkpointer Service for triggering the checkpoint.
      */
@@ -81,14 +80,16 @@ public class CheckpointTimeoutLock implements IgniteComponent {
         this.checkpointer = checkpointer;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Starts a checkpoint lock.
+     */
     public void start() {
         stop = false;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Stops a checkpoint lock.
+     */
     public void stop() {
         checkpointReadWriteLock.writeLock();
 
@@ -169,7 +170,7 @@ public class CheckpointTimeoutLock implements IgniteComponent {
                         }
                     }
                 } catch (CheckpointReadLockTimeoutException e) {
-                    log.error(e.getMessage(), e);
+                    log.debug(e.getMessage(), e);
 
                     throw e;
 

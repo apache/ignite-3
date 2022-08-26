@@ -17,6 +17,9 @@
 
 package org.apache.ignite.lang;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+
+import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,7 +33,7 @@ public class NodeStoppingException extends IgniteInternalCheckedException {
      * Creates an empty node stopping exception.
      */
     public NodeStoppingException() {
-        super("Operation has been cancelled (node is stopping).");
+        super(NODE_STOPPING_ERR, "Operation has been cancelled (node is stopping).");
     }
 
     /**
@@ -39,7 +42,7 @@ public class NodeStoppingException extends IgniteInternalCheckedException {
      * @param msg Error message.
      */
     public NodeStoppingException(String msg) {
-        super(msg);
+        super(NODE_STOPPING_ERR, msg);
     }
 
     /**
@@ -48,7 +51,7 @@ public class NodeStoppingException extends IgniteInternalCheckedException {
      * @param cause Non-null throwable cause.
      */
     public NodeStoppingException(Throwable cause) {
-        this(cause.getMessage(), cause);
+        super(NODE_STOPPING_ERR, cause);
     }
 
     /**
@@ -59,7 +62,7 @@ public class NodeStoppingException extends IgniteInternalCheckedException {
      * @param writableStackTrace Whether or not the stack trace should be writable.
      */
     public NodeStoppingException(String msg, @Nullable Throwable cause, boolean writableStackTrace) {
-        super(msg, cause, writableStackTrace);
+        super(UUID.randomUUID(), NODE_STOPPING_ERR, msg, cause, writableStackTrace);
     }
 
     /**
@@ -69,6 +72,6 @@ public class NodeStoppingException extends IgniteInternalCheckedException {
      * @param cause Optional nested exception (can be {@code null}).
      */
     public NodeStoppingException(String msg, @Nullable Throwable cause) {
-        super(msg, cause);
+        super(NODE_STOPPING_ERR, msg, cause);
     }
 }

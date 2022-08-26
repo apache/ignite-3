@@ -21,10 +21,12 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfigurationSchema;
 
 /**
- * Annotation for checking the existence of a data region in {@link PageMemoryStorageEngineConfigurationSchema}.
+ * Annotation for checking the existence of a data region in {@link VolatilePageMemoryStorageEngineConfigurationSchema} and {@link
+ * PersistentPageMemoryStorageEngineConfigurationSchema}.
  */
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)

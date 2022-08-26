@@ -26,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.compute.ClientCompute;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
@@ -35,6 +34,8 @@ import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
 import org.apache.ignite.internal.jdbc.proto.ClientMessage;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -87,7 +88,13 @@ public class TcpIgniteClient implements IgniteClient {
 
         this.cfg = cfg;
 
-        ch = new ReliableChannel(chFactory, cfg);
+        var loggerFactory = cfg.loggerFactory() == null
+                ? (LoggerFactory) System::getLogger
+                : cfg.loggerFactory();
+
+        var log = Loggers.forClass(TcpIgniteClient.class, loggerFactory);
+
+        ch = new ReliableChannel(chFactory, cfg, log);
         tables = new ClientTables(ch);
         transactions = new ClientTransactions(ch);
         compute = new ClientCompute(ch, tables);
@@ -109,7 +116,7 @@ public class TcpIgniteClient implements IgniteClient {
      * @param cfg Thin client configuration.
      * @return Future representing pending completion of the operation.
      */
-    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) throws IgniteClientException {
+    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) {
         var client = new TcpIgniteClient(cfg);
 
         return client.initAsync().thenApply(x -> client);
@@ -191,14 +198,11 @@ public class TcpIgniteClient implements IgniteClient {
      * Sends ClientMessage request to server side asynchronously and returns result future.
      *
      * @param opCode Operation code.
-     * @param req ClientMessage request.
-     * @param res ClientMessage result.
+     * @param writer Payload writer.
+     * @param reader Payload reader.
      * @return Response future.
      */
-    public <T extends ClientMessage> CompletableFuture<T> sendRequestAsync(int opCode, ClientMessage req, T res) {
-        return ch.serviceAsync(opCode, w -> req.writeBinary(w.out()), p -> {
-            res.readBinary(p.in());
-            return res;
-        });
+    public <T extends ClientMessage> CompletableFuture<T> sendRequestAsync(int opCode, PayloadWriter writer, PayloadReader<T> reader) {
+        return ch.serviceAsync(opCode, writer, reader);
     }
 }

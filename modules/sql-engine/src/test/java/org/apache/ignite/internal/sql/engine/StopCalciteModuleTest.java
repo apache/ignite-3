@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -25,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -44,22 +46,30 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -68,7 +78,6 @@ import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -88,7 +97,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class StopCalciteModuleTest {
     /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(StopCalciteModuleTest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(StopCalciteModuleTest.class);
 
     private static final int ROWS = 5;
 
@@ -99,6 +108,9 @@ public class StopCalciteModuleTest {
 
     @Mock
     TableManager tableManager;
+
+    @Mock
+    SchemaManager schemaManager;
 
     @Mock
     DataStorageManager dataStorageManager;
@@ -116,7 +128,15 @@ public class StopCalciteModuleTest {
 
     TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
 
-    @InjectConfiguration(polymorphicExtensions = {HashIndexConfigurationSchema.class, UnknownDataStorageConfigurationSchema.class})
+    @InjectConfiguration(polymorphicExtensions = {
+            HashIndexConfigurationSchema.class,
+            UnknownDataStorageConfigurationSchema.class,
+            ConstantValueDefaultConfigurationSchema.class,
+            FunctionCallDefaultConfigurationSchema.class,
+            NullValueDefaultConfigurationSchema.class,
+            UnlimitedBudgetConfigurationSchema.class,
+            EntryCountBudgetConfigurationSchema.class
+    })
     TablesConfiguration tablesConfig;
 
     /**
@@ -141,6 +161,8 @@ public class StopCalciteModuleTest {
         schemaReg = new SchemaRegistryImpl((v) -> schemaDesc, () -> INITIAL_SCHEMA_VERSION, schemaDesc);
 
         when(tbl.name()).thenReturn("PUBLIC.TEST");
+
+        when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaReg));
 
         // Mock create table (notify on register listener).
         doAnswer(invocation -> {
@@ -195,13 +217,14 @@ public class StopCalciteModuleTest {
                 testRevisionRegister,
                 clusterSrvc,
                 tableManager,
+                schemaManager,
                 dataStorageManager,
                 Map::of
         );
 
         when(tbl.tableId()).thenReturn(UUID.randomUUID());
 
-        when(tbl.storage()).thenReturn(mock(TableStorage.class));
+        when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
         when(tbl.storage().configuration()).thenReturn(mock(TableConfiguration.class));
         when(tbl.storage().configuration().partitions()).thenReturn(mock(ConfigurationValue.class));
         when(tbl.storage().configuration().partitions().value()).thenReturn(1);

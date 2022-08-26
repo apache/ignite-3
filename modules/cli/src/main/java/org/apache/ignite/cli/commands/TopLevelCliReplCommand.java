@@ -17,14 +17,12 @@
 
 package org.apache.ignite.cli.commands;
 
-import jakarta.inject.Singleton;
-import org.apache.ignite.cli.commands.cliconfig.CliCommand;
-import org.apache.ignite.cli.commands.configuration.cluster.ClusterReplCommand;
-import org.apache.ignite.cli.commands.configuration.node.NodeReplCommand;
+import org.apache.ignite.cli.commands.cliconfig.CliReplCommand;
+import org.apache.ignite.cli.commands.cluster.ClusterReplCommand;
 import org.apache.ignite.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.cli.commands.connect.DisconnectCommand;
-import org.apache.ignite.cli.commands.sql.SqlCommand;
-import org.apache.ignite.cli.commands.status.StatusReplCommand;
+import org.apache.ignite.cli.commands.node.NodeReplCommand;
+import org.apache.ignite.cli.commands.sql.SqlReplCommand;
 import org.apache.ignite.cli.commands.version.VersionCommand;
 import org.apache.ignite.cli.deprecated.spec.BootstrapIgniteCommandSpec;
 import picocli.CommandLine;
@@ -36,18 +34,16 @@ import picocli.shell.jline3.PicocliCommands;
 @CommandLine.Command(name = "",
         footer = {"", "Press Ctrl-D to exit."},
         subcommands = {
-                SqlCommand.class,
+                SqlReplCommand.class,
                 PicocliCommands.ClearScreen.class,
                 CommandLine.HelpCommand.class,
                 VersionCommand.class,
-                StatusReplCommand.class,
-                CliCommand.class,
+                CliReplCommand.class,
                 BootstrapIgniteCommandSpec.class,
                 ConnectCommand.class,
                 DisconnectCommand.class,
                 NodeReplCommand.class,
                 ClusterReplCommand.class
         })
-@Singleton
 public class TopLevelCliReplCommand {
 }

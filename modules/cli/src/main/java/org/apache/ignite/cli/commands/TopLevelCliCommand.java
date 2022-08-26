@@ -17,13 +17,11 @@
 
 package org.apache.ignite.cli.commands;
 
-import jakarta.inject.Singleton;
 import org.apache.ignite.cli.VersionProvider;
 import org.apache.ignite.cli.commands.cliconfig.CliCommand;
-import org.apache.ignite.cli.commands.configuration.cluster.ClusterCommand;
-import org.apache.ignite.cli.commands.configuration.node.NodeCommand;
+import org.apache.ignite.cli.commands.cluster.ClusterCommand;
+import org.apache.ignite.cli.commands.node.NodeCommand;
 import org.apache.ignite.cli.commands.sql.SqlCommand;
-import org.apache.ignite.cli.commands.status.StatusCommand;
 import org.apache.ignite.cli.deprecated.spec.BootstrapIgniteCommandSpec;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -41,20 +39,13 @@ import picocli.CommandLine.Option;
         subcommands = {
                 SqlCommand.class,
                 CommandLine.HelpCommand.class,
-                StatusCommand.class,
                 CliCommand.class,
                 BootstrapIgniteCommandSpec.class,
                 NodeCommand.class,
                 ClusterCommand.class
         })
-@Singleton
 public class TopLevelCliCommand extends BaseCommand {
     @SuppressWarnings("PMD.UnusedPrivateField")
     @Option(names = {"--version"}, versionHelp = true, description = "Print version information and exit")
     private boolean versionRequested;
-
-    @Override
-    public void run() {
-
-    }
 }

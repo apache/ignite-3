@@ -20,7 +20,7 @@ package org.apache.ignite.cli.call.configuration;
 import jakarta.inject.Singleton;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.exception.CommandExecutionException;
+import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.ClusterConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -30,24 +30,24 @@ import org.apache.ignite.rest.client.invoker.Configuration;
  * Shows cluster configuration.
  */
 @Singleton
-public class ClusterConfigShowCall implements Call<ClusterConfigShowCallInput, String> {
+public class ClusterConfigShowCall implements Call<ClusterConfigShowCallInput, JsonString> {
 
     /** {@inheritDoc} */
     @Override
-    public DefaultCallOutput<String> execute(ClusterConfigShowCallInput clusterConfigShowCallInput) {
-        ClusterConfigurationApi client = createApiClient(clusterConfigShowCallInput);
+    public DefaultCallOutput<JsonString> execute(ClusterConfigShowCallInput input) {
+        ClusterConfigurationApi client = createApiClient(input);
 
         try {
-            return DefaultCallOutput.success(readClusterConfig(client, clusterConfigShowCallInput));
-        } catch (ApiException e) {
-            return DefaultCallOutput.failure(e);
-        } catch (IllegalArgumentException e) {
-            return DefaultCallOutput.failure(new CommandExecutionException("cluster config show", e.getMessage()));
+            return DefaultCallOutput.success(readClusterConfig(client, input));
+        } catch (ApiException | IllegalArgumentException e) {
+            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getClusterUrl()));
         }
     }
 
-    private String readClusterConfig(ClusterConfigurationApi api, ClusterConfigShowCallInput input) throws ApiException {
-        return input.getSelector() != null ? api.getClusterConfigurationByPath(input.getSelector()) : api.getClusterConfiguration();
+    private JsonString readClusterConfig(ClusterConfigurationApi api, ClusterConfigShowCallInput input) throws ApiException {
+        return JsonString.fromString(input.getSelector() != null
+                ? api.getClusterConfigurationByPath(input.getSelector())
+                : api.getClusterConfiguration());
     }
 
     private ClusterConfigurationApi createApiClient(ClusterConfigShowCallInput input) {

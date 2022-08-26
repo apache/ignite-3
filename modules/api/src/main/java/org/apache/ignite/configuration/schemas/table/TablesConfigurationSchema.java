@@ -29,6 +29,10 @@ import org.apache.ignite.configuration.schemas.store.ExistingDataStorage;
 @SuppressWarnings("PMD.UnusedPrivateField")
 @ConfigurationRoot(rootName = "table", type = ConfigurationType.DISTRIBUTED)
 public class TablesConfigurationSchema {
+    /** Global integer id counter. Used as an auto-increment counter to generate integer identifiers for table. */
+    @Value(hasDefault = true)
+    public int globalIdCounter = 0;
+
     /** List of configured tables. */
     @NamedConfigValue
     @TableValidator
@@ -37,6 +41,6 @@ public class TablesConfigurationSchema {
     /** Default data storage for tables. */
     @ExistingDataStorage
     @Value(hasDefault = true)
-    // TODO: IGNITE-17197 Set "pagememory" after the ticket is resolved.
+    // TODO: IGNITE-17197 Set "aimem" after the ticket is resolved.
     public String defaultDataStorage = "rocksdb";
 }

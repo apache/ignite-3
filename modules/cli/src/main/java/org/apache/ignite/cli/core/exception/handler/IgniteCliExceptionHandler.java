@@ -19,6 +19,7 @@ package org.apache.ignite.cli.core.exception.handler;
 
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
 import org.apache.ignite.cli.deprecated.IgniteCliException;
 
 /**
@@ -26,8 +27,12 @@ import org.apache.ignite.cli.deprecated.IgniteCliException;
  */
 public class IgniteCliExceptionHandler implements ExceptionHandler<IgniteCliException> {
     @Override
-    public void handle(ExceptionWriter err, IgniteCliException e) {
-        err.write(e.getMessage());
+    public int handle(ExceptionWriter err, IgniteCliException e) {
+        err.write(
+                ErrorUiComponent.fromHeader(e.getMessage()).render()
+        );
+
+        return 1;
     }
 
     @Override

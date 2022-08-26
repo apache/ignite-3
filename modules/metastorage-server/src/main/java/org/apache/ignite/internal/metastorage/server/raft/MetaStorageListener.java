@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
+import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CLOSING_STORAGE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -28,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.metastorage.common.ConditionType;
+import org.apache.ignite.internal.metastorage.common.MetaStorageException;
 import org.apache.ignite.internal.metastorage.common.StatementInfo;
 import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
 import org.apache.ignite.internal.metastorage.common.UpdateInfo;
@@ -75,7 +80,6 @@ import org.apache.ignite.internal.metastorage.server.Update;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
@@ -250,15 +254,16 @@ public class MetaStorageListener implements RaftGroupListener {
                 IgniteUuid cursorId = rangeCmd.getCursorId();
 
                 Cursor<Entry> cursor = (rangeCmd.revUpperBound() != -1)
-                        ? storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.revUpperBound()) :
-                        storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo());
+                        ? storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.revUpperBound(), rangeCmd.includeTombstones()) :
+                        storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.includeTombstones());
 
                 cursors.put(
                         cursorId,
                         new CursorMeta(
                                 cursor,
                                 CursorType.RANGE,
-                                rangeCmd.requesterNodeId()
+                                rangeCmd.requesterNodeId(),
+                                rangeCmd.batchSize()
                         )
                 );
 
@@ -276,9 +281,21 @@ public class MetaStorageListener implements RaftGroupListener {
 
                 try {
                     if (cursorDesc.type() == CursorType.RANGE) {
-                        Entry e = (Entry) cursorDesc.cursor().next();
+                        int batchSize = requireNonNull(cursorDesc.batchSize());
 
-                        clo.result(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
+                        List<SingleEntryResponse> resp = new ArrayList<>(batchSize);
+
+                        for (int i = 0; i < batchSize; i++) {
+                            if (cursorDesc.cursor().hasNext()) {
+                                Entry e = (Entry) cursorDesc.cursor().next();
+
+                                resp.add(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
+                            } else {
+                                break;
+                            }
+                        }
+
+                        clo.result(new MultipleEntryResponse(resp));
                     } else if (cursorDesc.type() == CursorType.WATCH) {
                         WatchEvent evt = (WatchEvent) cursorDesc.cursor().next();
 
@@ -313,7 +330,7 @@ public class MetaStorageListener implements RaftGroupListener {
                 try {
                     cursorDesc.cursor().close();
                 } catch (Exception e) {
-                    throw new IgniteInternalException(e);
+                    throw new MetaStorageException(CURSOR_CLOSING_ERR, e);
                 }
 
                 clo.result(null);
@@ -330,7 +347,8 @@ public class MetaStorageListener implements RaftGroupListener {
                         new CursorMeta(
                                 cursor,
                                 CursorType.WATCH,
-                                watchCmd.requesterNodeId()
+                                watchCmd.requesterNodeId(),
+                                null
                         )
                 );
 
@@ -347,7 +365,8 @@ public class MetaStorageListener implements RaftGroupListener {
                         new CursorMeta(
                                 cursor,
                                 CursorType.WATCH,
-                                watchCmd.requesterNodeId()
+                                watchCmd.requesterNodeId(),
+                                null
                         )
                 );
 
@@ -364,7 +383,7 @@ public class MetaStorageListener implements RaftGroupListener {
                         try {
                             cursorDesc.cursor().close();
                         } catch (Exception e) {
-                            throw new IgniteInternalException(e);
+                            throw new MetaStorageException(CURSOR_CLOSING_ERR, e);
                         }
 
                         cursorsIter.remove();
@@ -400,7 +419,7 @@ public class MetaStorageListener implements RaftGroupListener {
         try {
             storage.close();
         } catch (Exception e) {
-            throw new IgniteInternalException("Failed to close storage: " + e.getMessage(), e);
+            throw new MetaStorageException(CLOSING_STORAGE_ERR, "Failed to close storage: " + e.getMessage(), e);
         }
     }
 
@@ -512,20 +531,26 @@ public class MetaStorageListener implements RaftGroupListener {
         /** Id of the node that creates cursor. */
         private final String requesterNodeId;
 
+        /** Maximum size of the batch that is sent in single response message. */
+        private final @Nullable Integer batchSize;
+
         /**
          * The constructor.
          *
          * @param cursor          Cursor.
          * @param type            Cursor type.
          * @param requesterNodeId Id of the node that creates cursor.
+         * @param batchSize       Batch size.
          */
         CursorMeta(Cursor<?> cursor,
                 CursorType type,
-                String requesterNodeId
+                String requesterNodeId,
+                @Nullable Integer batchSize
         ) {
             this.cursor = cursor;
             this.type = type;
             this.requesterNodeId = requesterNodeId;
+            this.batchSize = batchSize;
         }
 
         /**
@@ -547,6 +572,13 @@ public class MetaStorageListener implements RaftGroupListener {
          */
         public String requesterNodeId() {
             return requesterNodeId;
+        }
+
+        /**
+         * Returns maximum size of the batch that is sent in single response message.
+         */
+        public @Nullable Integer batchSize() {
+            return batchSize;
         }
     }
 

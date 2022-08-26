@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal
 {
     using System;
-    using System.Buffers;
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
@@ -241,7 +240,7 @@ namespace Apache.Ignite.Internal
 
         private static async ValueTask CheckMagicBytesAsync(NetworkStream stream)
         {
-            var responseMagic = ArrayPool<byte>.Shared.Rent(ProtoCommon.MagicBytes.Length);
+            var responseMagic = ByteArrayPool.Rent(ProtoCommon.MagicBytes.Length);
 
             try
             {
@@ -258,7 +257,7 @@ namespace Apache.Ignite.Internal
             }
             finally
             {
-                ArrayPool<byte>.Shared.Return(responseMagic);
+                ByteArrayPool.Return(responseMagic);
             }
         }
 
@@ -293,16 +292,18 @@ namespace Apache.Ignite.Internal
 
         private static IgniteClientException? ReadError(ref MessagePackReader reader)
         {
-            var errorCode = (ClientErrorCode)reader.ReadInt32();
-
-            if (errorCode != ClientErrorCode.Success)
+            if (reader.TryReadNil())
             {
-                var errorMessage = reader.ReadString();
-
-                return new IgniteClientException(errorMessage, null, errorCode);
+                return null;
             }
 
-            return null;
+            // TODO: IGNITE-17390 .NET: Thin 3.0: Unified exception handling - reconstruct correct exception.
+            Guid traceId = reader.TryReadNil() ? Guid.NewGuid() : reader.ReadGuid();
+            int code = reader.TryReadNil() ? 65537 : reader.ReadInt32();
+            string className = reader.ReadString();
+            string? message = reader.ReadString();
+
+            return new IgniteClientException($"{className}: {message} ({code}, {traceId})", null, code);
         }
 
         private static async ValueTask<PooledBuffer> ReadResponseAsync(
@@ -312,7 +313,7 @@ namespace Apache.Ignite.Internal
         {
             var size = await ReadMessageSizeAsync(stream, messageSizeBytes, cancellationToken).ConfigureAwait(false);
 
-            var bytes = ArrayPool<byte>.Shared.Rent(size);
+            var bytes = ByteArrayPool.Rent(size);
 
             try
             {
@@ -322,7 +323,7 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception)
             {
-                ArrayPool<byte>.Shared.Return(bytes);
+                ByteArrayPool.Return(bytes);
 
                 throw;
             }

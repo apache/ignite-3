@@ -18,6 +18,8 @@
 package org.apache.ignite.client;
 
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,9 +30,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.temporal.ChronoUnit;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -127,7 +131,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals(1.5f, res.zfloat);
         assertEquals(1.6, res.zdouble);
         assertEquals(localDate, res.zdate);
-        assertEquals(localTime.withNano(truncateNanosToMicros(localTime.getNano())), res.ztime);
+        assertEquals(localTime.truncatedTo(ChronoUnit.SECONDS), res.ztime);
         assertEquals(instant.with(NANO_OF_SECOND, truncateNanosToMicros(instant.getNano())), res.ztimestamp);
         assertEquals("foo", res.zstring);
         assertArrayEquals(new byte[]{1, 2}, res.zbytes);
@@ -180,7 +184,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals(1.17f, res.floatValue("zfloat"));
         assertEquals(1.18, res.doubleValue("zdouble"));
         assertEquals(localDate, res.dateValue("zdate"));
-        assertEquals(localTime.withNano(truncateNanosToMicros(localTime.getNano())), res.timeValue("ztime"));
+        assertEquals(localTime.truncatedTo(ChronoUnit.SECONDS), res.timeValue("ztime"));
         assertEquals(instant.with(NANO_OF_SECOND, truncateNanosToMicros(instant.getNano())), res.timestampValue("ztimestamp"));
         assertEquals("119", res.stringValue("zstring"));
         assertEquals(120, ((byte[]) res.value("zbytes"))[0]);
@@ -194,9 +198,9 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     public void testMissingKeyColumnThrowsException() {
         RecordView<NamePojo> recordView = defaultTable().recordView(NamePojo.class);
 
-        IgniteClientException e = assertThrows(IgniteClientException.class, () -> recordView.get(null, new NamePojo()));
+        IgniteException e = assertThrows(IgniteException.class, () -> recordView.get(null, new NamePojo()));
 
-        assertEquals("No field found for column ID", e.getMessage());
+        assertThat(e.getMessage(), containsString("No field found for column ID"));
     }
 
     @Test
@@ -521,7 +525,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         pojo.id = 1;
         pojo.strNonNull = null;
 
-        var ex = assertThrows(IgniteClientException.class, () -> pojoView.upsert(null, pojo));
+        var ex = assertThrows(IgniteException.class, () -> pojoView.upsert(null, pojo));
 
         assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
     }

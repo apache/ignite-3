@@ -19,8 +19,6 @@ package org.apache.ignite.internal.rocksdb;
 
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 
 /**
@@ -55,11 +53,7 @@ public abstract class RocksIteratorAdapter<T> implements Cursor<T> {
         if (!isValid) {
             // check the status first. This operation is guaranteed to throw if an internal error has occurred during
             // the iteration. Otherwise we've exhausted the data range.
-            try {
-                it.status();
-            } catch (RocksDBException e) {
-                throw new IgniteInternalException(e);
-            }
+            RocksUtils.checkIterator(it);
         }
 
         return isValid;

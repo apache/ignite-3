@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Tests
 {
     using System;
-    using System.Buffers;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
@@ -26,6 +25,8 @@ namespace Apache.Ignite.Tests
     using System.Net.Sockets;
     using System.Threading;
     using System.Threading.Tasks;
+    using Ignite.Sql;
+    using Internal.Buffers;
     using Internal.Network;
     using Internal.Proto;
     using MessagePack;
@@ -46,24 +47,33 @@ namespace Apache.Ignite.Tests
 
         private readonly Func<int, bool> _shouldDropConnection;
 
-        private readonly ConcurrentQueue<ClientOp> _ops = new();
+        private readonly ConcurrentQueue<ClientOp>? _ops;
 
-        public FakeServer(Func<int, bool>? shouldDropConnection = null, string nodeName = "fake-server")
+        public FakeServer(
+            Func<int, bool>? shouldDropConnection = null,
+            string nodeName = "fake-server",
+            bool disableOpsTracking = false)
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
             _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            _listener.NoDelay = true;
 
             _listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
             _listener.Listen(backlog: 1);
 
             Node = new ClusterNode("id-" + nodeName, nodeName, (IPEndPoint)_listener.LocalEndPoint);
 
+            if (!disableOpsTracking)
+            {
+                _ops = new();
+            }
+
             Task.Run(ListenLoop);
         }
 
         public IClusterNode Node { get; }
 
-        internal IList<ClientOp> ClientOps => _ops.ToList();
+        internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
         {
@@ -80,18 +90,21 @@ namespace Apache.Ignite.Tests
         public void Dispose()
         {
             _cts.Cancel();
-            _listener.Disconnect(true);
+            _listener.Disconnect(false);
             _listener.Dispose();
             _cts.Dispose();
         }
 
-        private static int ReceiveMessageSize(Socket handler) =>
-            IPAddress.NetworkToHostOrder(BitConverter.ToInt32(ReceiveBytes(handler, 4)));
+        private static int ReceiveMessageSize(Socket handler)
+        {
+            using var buf = ReceiveBytes(handler, 4);
+            return IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buf.AsMemory().Span));
+        }
 
-        private static byte[] ReceiveBytes(Socket socket, int size)
+        private static PooledBuffer ReceiveBytes(Socket socket, int size)
         {
             int received = 0;
-            var buf = new byte[size];
+            var buf = ByteArrayPool.Rent(size);
 
             while (received < size)
             {
@@ -105,7 +118,138 @@ namespace Apache.Ignite.Tests
                 received += res;
             }
 
-            return buf;
+            return new PooledBuffer(buf, 0, size);
+        }
+
+        private static void Send(Socket socket, long requestId, PooledArrayBufferWriter writer, bool isError = false)
+            => Send(socket, requestId, writer.GetWrittenMemory().Slice(PooledArrayBufferWriter.ReservedPrefixSize), isError);
+
+        private static void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, bool isError = false)
+        {
+            using var header = new PooledArrayBufferWriter();
+            var writer = new MessagePackWriter(header);
+
+            writer.Write(0); // Message type.
+            writer.Write(requestId);
+
+            if (!isError)
+            {
+                writer.WriteNil(); // Success.
+            }
+
+            writer.Flush();
+
+            var headerMem = header.GetWrittenMemory().Slice(PooledArrayBufferWriter.ReservedPrefixSize);
+            var size = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(headerMem.Length + payload.Length));
+            socket.Send(size);
+
+            socket.Send(headerMem.Span);
+
+            if (!payload.IsEmpty)
+            {
+                socket.Send(payload.Span);
+            }
+        }
+
+        private static void SqlCursorNextPage(Socket handler, long requestId)
+        {
+            using var arrayBufferWriter = new PooledArrayBufferWriter();
+            var writer = new MessagePackWriter(arrayBufferWriter);
+
+            writer.WriteArrayHeader(500); // Page size.
+            for (int i = 0; i < 500; i++)
+            {
+                writer.Write(i + 512); // Row of one.
+            }
+
+            writer.Write(false); // Has next.
+            writer.Flush();
+
+            Send(handler, requestId, arrayBufferWriter);
+        }
+
+        private static void SqlExec(Socket handler, long requestId, MessagePackReader reader)
+        {
+            var props = new Dictionary<string, object?>();
+
+            // ReSharper disable RedundantCast (does not build on older SDKs)
+            props["txId"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
+            props["schema"] = reader.TryReadNil() ? null : reader.ReadString();
+            props["pageSize"] = reader.TryReadNil() ? (int?)null : reader.ReadInt32();
+            props["timeoutMs"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
+
+            // ReSharper restore RedundantCast
+            var propCount = reader.ReadMapHeader();
+
+            for (int i = 0; i < propCount; i++)
+            {
+                props[reader.ReadString()] = reader.ReadObjectWithType();
+            }
+
+            var sql = reader.ReadString();
+            props["sql"] = sql;
+            props["prepared"] = reader.ReadBoolean();
+
+            using var arrayBufferWriter = new PooledArrayBufferWriter();
+            var writer = new MessagePackWriter(arrayBufferWriter);
+
+            writer.Write(1); // ResourceId.
+
+            if (sql == "SELECT PROPS")
+            {
+                writer.Write(true); // HasRowSet.
+                writer.Write(false); // hasMore.
+                writer.Write(false); // WasApplied.
+                writer.Write(0); // AffectedRows.
+
+                writer.WriteArrayHeader(2); // Meta.
+
+                writer.Write("NAME"); // Column name.
+                writer.Write(false); // Nullable.
+                writer.Write((int)SqlColumnType.String);
+                writer.Write(0); // Scale.
+                writer.Write(0); // Precision.
+                writer.Write(false); // No origin.
+
+                writer.Write("VAL"); // Column name.
+                writer.Write(false); // Nullable.
+                writer.Write((int)SqlColumnType.String);
+                writer.Write(0); // Scale.
+                writer.Write(0); // Precision.
+                writer.Write(false); // No origin.
+
+                writer.WriteArrayHeader(props.Count);
+                foreach (var (key, val) in props)
+                {
+                    writer.Write(key);
+                    writer.Write(val?.ToString() ?? string.Empty);
+                }
+            }
+            else
+            {
+                writer.Write(true); // HasRowSet.
+                writer.Write(true); // hasMore.
+                writer.Write(false); // WasApplied.
+                writer.Write(0); // AffectedRows.
+
+                writer.WriteArrayHeader(1); // Meta.
+                writer.Write("ID"); // Column name.
+                writer.Write(false); // Nullable.
+                writer.Write((int)SqlColumnType.Int32);
+                writer.Write(0); // Scale.
+                writer.Write(0); // Precision.
+                writer.Write(false); // No origin.
+
+                writer.WriteArrayHeader(512); // Page size.
+                for (int i = 0; i < 512; i++)
+                {
+                    writer.Write(i); // Row of one.
+                }
+            }
+
+            writer.Flush();
+
+            Send(handler, requestId, arrayBufferWriter);
         }
 
         private void ListenLoop()
@@ -115,17 +259,25 @@ namespace Apache.Ignite.Tests
             while (!_cts.IsCancellationRequested)
             {
                 using Socket handler = _listener.Accept();
+                handler.NoDelay = true;
 
                 // Read handshake.
-                ReceiveBytes(handler, 4); // Magic.
+                using var magic = ReceiveBytes(handler, 4);
                 var msgSize = ReceiveMessageSize(handler);
-                ReceiveBytes(handler, msgSize);
+                using var handshake = ReceiveBytes(handler, msgSize);
 
                 // Write handshake response.
                 handler.Send(ProtoCommon.MagicBytes);
 
-                var handshakeBufferWriter = new ArrayBufferWriter<byte>();
-                var handshakeWriter = new MessagePackWriter(handshakeBufferWriter);
+                using var handshakeBufferWriter = new PooledArrayBufferWriter();
+                var handshakeWriter = handshakeBufferWriter.GetMessageWriter();
+
+                // Version.
+                handshakeWriter.Write(3);
+                handshakeWriter.Write(0);
+                handshakeWriter.Write(0);
+
+                handshakeWriter.WriteNil(); // Success
                 handshakeWriter.Write(0); // Idle timeout.
                 handshakeWriter.Write(Node.Id); // Node id.
                 handshakeWriter.Write(Node.Name); // Node name (consistent id).
@@ -133,51 +285,47 @@ namespace Apache.Ignite.Tests
                 handshakeWriter.WriteMapHeader(0); // Extensions.
                 handshakeWriter.Flush();
 
-                handler.Send(new byte[] { 0, 0, 0, (byte)(4 + handshakeBufferWriter.WrittenCount) }); // Size.
-                handler.Send(new byte[] { 3, 0, 0, 0 }); // Version and success flag.
+                var handshakeMem = handshakeBufferWriter.GetWrittenMemory().Slice(PooledArrayBufferWriter.ReservedPrefixSize);
+                handler.Send(new byte[] { 0, 0, 0, (byte)handshakeMem.Length }); // Size.
 
-                handler.Send(handshakeBufferWriter.WrittenSpan);
+                handler.Send(handshakeMem.Span);
 
                 while (!_cts.IsCancellationRequested)
                 {
                     msgSize = ReceiveMessageSize(handler);
-                    var msg = ReceiveBytes(handler, msgSize);
+                    using var msg = ReceiveBytes(handler, msgSize);
 
                     if (_shouldDropConnection(++requestCount))
                     {
                         break;
                     }
 
-                    // Assume fixint8.
-                    var opCode = (ClientOp)msg[0];
-                    var requestId = msg[1];
+                    var reader = new MessagePackReader(msg.AsMemory());
+                    var opCode = (ClientOp)reader.ReadInt32();
+                    var requestId = reader.ReadInt64();
 
-                    _ops.Enqueue(opCode);
+                    _ops?.Enqueue(opCode);
 
                     if (opCode == ClientOp.TablesGet)
                     {
-                        handler.Send(new byte[] { 0, 0, 0, 4 }); // Size.
-                        handler.Send(new byte[] { 0, requestId, 0, 128 }); // Empty map.
+                        // Empty map.
+                        Send(handler, requestId, new byte[] { 128 }.AsMemory());
 
                         continue;
                     }
 
                     if (opCode == ClientOp.TableGet)
                     {
-                        var reader = new MessagePackReader(msg.AsMemory()[2..]);
                         var tableName = reader.ReadString();
 
                         if (tableName == ExistingTableName)
                         {
-                            handler.Send(new byte[] { 0, 0, 0, 21 }); // Size.
-                            handler.Send(new byte[] { 0, requestId, 0 });
-
-                            var arrayBufferWriter = new ArrayBufferWriter<byte>();
+                            using var arrayBufferWriter = new PooledArrayBufferWriter();
                             var writer = new MessagePackWriter(arrayBufferWriter);
                             writer.Write(Guid.Empty);
                             writer.Flush();
 
-                            handler.Send(arrayBufferWriter.WrittenSpan);
+                            Send(handler, requestId, arrayBufferWriter);
 
                             continue;
                         }
@@ -185,54 +333,66 @@ namespace Apache.Ignite.Tests
 
                     if (opCode == ClientOp.SchemasGet)
                     {
-                        handler.Send(new byte[] { 0, 0, 0, 6 }); // Size.
-                        handler.Send(new byte[] { 0, requestId, 0 });
-
-                        var arrayBufferWriter = new ArrayBufferWriter<byte>();
+                        using var arrayBufferWriter = new PooledArrayBufferWriter();
                         var writer = new MessagePackWriter(arrayBufferWriter);
                         writer.WriteMapHeader(1);
                         writer.Write(1); // Version.
                         writer.WriteArrayHeader(0); // Columns.
                         writer.Flush();
 
-                        handler.Send(arrayBufferWriter.WrittenSpan);
+                        Send(handler, requestId, arrayBufferWriter);
 
                         continue;
                     }
 
                     if (opCode == ClientOp.TupleUpsert)
                     {
-                        handler.Send(new byte[] { 0, 0, 0, 3 }); // Size.
-                        handler.Send(new byte[] { 0, requestId, 0 }); // No payload.
+                        Send(handler, requestId, ReadOnlyMemory<byte>.Empty);
 
                         continue;
                     }
 
                     if (opCode == ClientOp.TxBegin)
                     {
-                        handler.Send(new byte[] { 0, 0, 0, 4 }); // Size.
-                        handler.Send(new byte[] { 0, requestId, 0, 0 }); // Tx id.
+                        Send(handler, requestId, new byte[] { 0 }.AsMemory());
 
                         continue;
                     }
 
                     if (opCode == ClientOp.ComputeExecute)
                     {
-                        var arrayBufferWriter = new ArrayBufferWriter<byte>();
+                        using var arrayBufferWriter = new PooledArrayBufferWriter();
                         var writer = new MessagePackWriter(arrayBufferWriter);
-                        writer.Write(Node.Name);
+                        writer.WriteObjectWithType(Node.Name);
                         writer.Flush();
 
-                        handler.Send(new byte[] { 0, 0, 0, (byte)(4 + arrayBufferWriter.WrittenCount) }); // Size.
-                        handler.Send(new byte[] { 0, requestId, 0, (byte)ClientDataType.String });
-                        handler.Send(arrayBufferWriter.WrittenSpan);
+                        Send(handler, requestId, arrayBufferWriter);
 
                         continue;
                     }
 
+                    if (opCode == ClientOp.SqlExec)
+                    {
+                        SqlExec(handler, requestId, reader);
+                        continue;
+                    }
+
+                    if (opCode == ClientOp.SqlCursorNextPage)
+                    {
+                        SqlCursorNextPage(handler, requestId);
+                        continue;
+                    }
+
                     // Fake error message for any other op code.
-                    handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
-                    handler.Send(new byte[] { 0, requestId, 1, 160 | 4, (byte)Err[0], (byte)Err[1], (byte)Err[2], (byte)Err[3] });
+                    using var errWriter = new PooledArrayBufferWriter();
+                    var w = new MessagePackWriter(errWriter);
+                    w.Write(Guid.Empty);
+                    w.Write(65537);
+                    w.Write("ErrCls: ");
+                    w.Write(Err);
+                    w.WriteNil(); // Stack trace.
+                    w.Flush();
+                    Send(handler, requestId, errWriter, isError: true);
                 }
 
                 handler.Disconnect(true);

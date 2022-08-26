@@ -31,12 +31,10 @@ public class Timestamps {
     /**
      * Reads a {@link Timestamp} value from memory.
      *
-     * @param pageAddr address where page data starts
-     * @param offset   offset to the timestamp value relative to pageAddr
-     * @return the timestamp
+     * @param pageAddr Address where page data starts.
+     * @param offset Offset to the timestamp value relative to pageAddr.
      */
-    @Nullable
-    static Timestamp readTimestamp(long pageAddr, int offset) {
+    static @Nullable Timestamp readTimestamp(long pageAddr, int offset) {
         long nodeId = getLong(pageAddr, offset);
         long localTimestamp = getLong(pageAddr, offset + Long.BYTES);
 
@@ -51,10 +49,10 @@ public class Timestamps {
     /**
      * Writes a {@link Timestamp} to memory starting at the given address + offset.
      *
-     * @param addr      memory address
-     * @param offset    offset added to the address
-     * @param timestamp the timestamp to write
-     * @return number of bytes written
+     * @param addr Memory address.
+     * @param offset Offset added to the address.
+     * @param timestamp The timestamp to write.
+     * @return Number of bytes written.
      */
     public static int writeTimestampToMemory(long addr, int offset, @Nullable Timestamp timestamp) {
         Timestamp timestampForStorage = RowVersion.timestampForStorage(timestamp);
@@ -68,17 +66,13 @@ public class Timestamps {
     /**
      * Writes a {@link Timestamp} to a buffer.
      *
-     * @param buffer buffer to which to write
-     * @param timestamp the timestamp to write
+     * @param buffer Buffer to which to write.
+     * @param timestamp The timestamp to write.
      */
     public static void writeTimestampToBuffer(ByteBuffer buffer, @Nullable Timestamp timestamp) {
         Timestamp timestampForStorage = RowVersion.timestampForStorage(timestamp);
 
         buffer.putLong(timestampForStorage.getNodeId());
         buffer.putLong(timestampForStorage.getTimestamp());
-    }
-
-    private Timestamps() {
-        // prevent instantiation
     }
 }

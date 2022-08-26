@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.compute;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
+
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -26,11 +28,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
-import org.apache.ignite.internal.client.proto.ClientErrorCode;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -38,6 +38,8 @@ import org.apache.ignite.internal.client.table.ClientRecordSerializer;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -183,6 +185,10 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private ClusterNode randomNode(Set<ClusterNode> nodes) {
+        if (nodes.size() == 1) {
+            return nodes.iterator().next();
+        }
+
         int nodesToSkip = ThreadLocalRandom.current().nextInt(nodes.size());
 
         Iterator<ClusterNode> iterator = nodes.iterator();
@@ -246,7 +252,7 @@ public class ClientCompute implements IgniteCompute {
 
         return tables.tableAsync(tableName).thenApply(t -> {
             if (t == null) {
-                throw new IgniteClientException("Table '" + tableName + "' does not exist.");
+                throw new TableNotFoundException(tableName);
             }
 
             ClientTable clientTable = (ClientTable) t;
@@ -261,21 +267,19 @@ public class ClientCompute implements IgniteCompute {
             err = err.getCause();
         }
 
-        if (err instanceof IgniteClientException) {
-            IgniteClientException clientEx = (IgniteClientException) err;
+        if (err instanceof IgniteException) {
+            IgniteException clientEx = (IgniteException) err;
 
-            if (clientEx.errorCode() == ClientErrorCode.TABLE_ID_DOES_NOT_EXIST) {
+            if (clientEx.code() == TABLE_ID_NOT_FOUND_ERR) {
                 // Table was dropped - remove from cache.
                 tableCache.remove(tableName);
 
                 return (R) MISSING_TABLE_TOKEN;
             }
-
-            throw new IgniteClientException(clientEx.getMessage(), clientEx.errorCode(), clientEx);
         }
 
         if (err != null) {
-            throw new IgniteClientException(err.getMessage(), err);
+            throw new CompletionException(err);
         }
 
         return res;

@@ -63,12 +63,16 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -79,9 +83,12 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -131,11 +138,13 @@ import org.mockito.quality.Strictness;
 
 /**
  * Tests scenarios for table manager.
- * TODO: to change storage from "rocksdb" to "pagememory" https://issues.apache.org/jira/browse/IGNITE-17197
+ * TODO: to change storage from "rocksdb" to "aimem" https://issues.apache.org/jira/browse/IGNITE-17197
  */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest extends IgniteAbstractTest {
+    private static final IgniteLogger LOG = Loggers.forClass(TableManagerTest.class);
+
     /** The name of the table which is preconfigured. */
     private static final String PRECONFIGURED_TABLE_NAME = "t1";
 
@@ -205,9 +214,13 @@ public class TableManagerTest extends IgniteAbstractTest {
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
                     SortedIndexConfigurationSchema.class,
-                    PartialIndexConfigurationSchema.class,
                     UnknownDataStorageConfigurationSchema.class,
-                    RocksDbDataStorageConfigurationSchema.class
+                    RocksDbDataStorageConfigurationSchema.class,
+                    ConstantValueDefaultConfigurationSchema.class,
+                    FunctionCallDefaultConfigurationSchema.class,
+                    NullValueDefaultConfigurationSchema.class,
+                    UnlimitedBudgetConfigurationSchema.class,
+                    EntryCountBudgetConfigurationSchema.class
             }
     )
     private TablesConfiguration tblsCfg;
@@ -270,7 +283,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testPreconfiguredTable() throws Exception {
-        when(rm.updateRaftGroup(any(), any(), any(), any(), any())).thenAnswer(mock ->
+        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock ->
                 CompletableFuture.completedFuture(mock(RaftGroupService.class)));
 
         TableManager tableManager = createTableManager(tblManagerFut, false);
@@ -446,7 +459,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
-        verify(rm, times(PARTITIONS)).updateRaftGroup(anyString(), any(), any(), any(), any());
+        verify(rm, times(PARTITIONS)).startRaftGroupService(anyString(), any());
 
         TableManager tableManager = tblManagerFut.join();
 
@@ -555,12 +568,12 @@ public class TableManagerTest extends IgniteAbstractTest {
             CompletableFuture<TableManager> tblManagerFut,
             Phaser phaser
     ) throws Exception {
-        when(rm.updateRaftGroup(any(), any(), any(), any(), any())).thenAnswer(mock -> {
+        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
 
-            return CompletableFuture.completedFuture(raftGrpSrvcMock);
+            return completedFuture(raftGrpSrvcMock);
         });
 
         when(ts.getByAddress(any(NetworkAddress.class))).thenReturn(new ClusterNode(
@@ -597,27 +610,22 @@ public class TableManagerTest extends IgniteAbstractTest {
                     && ctx.newValue().get(tableDefinition.canonicalName()) == null;
 
             if (!createTbl && !dropTbl) {
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
 
             if (phaser != null) {
                 phaser.arriveAndAwaitAdvance();
             }
 
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         });
 
         CountDownLatch createTblLatch = new CountDownLatch(1);
 
-        AtomicLong token = new AtomicLong();
-
         tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
-
             createTblLatch.countDown();
 
-            token.set(parameters.causalityToken());
-
-            return true;
+            return completedFuture(true);
         });
 
         CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.canonicalName(),
@@ -626,13 +634,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                         .changePartitions(PARTITIONS)
         );
 
-        assertFalse(tbl2Fut.isDone());
-
         assertTrue(createTblLatch.await(10, TimeUnit.SECONDS));
-
-        assertFalse(tbl2Fut.isDone());
-
-        tableManager.onSqlSchemaReady(token.get());
 
         TableImpl tbl2 = (TableImpl) tbl2Fut.get();
 
@@ -667,7 +669,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         TableManager tableManager = createTableManager(tblManagerFut, false);
 
-        ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
+        ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
         String groupId = "test";
 
@@ -767,18 +769,14 @@ public class TableManagerTest extends IgniteAbstractTest {
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
                 msm,
-                sm = new SchemaManager(revisionUpdater, tblsCfg)
+                sm = new SchemaManager(revisionUpdater, tblsCfg),
+                budgetView -> new LocalLogStorageFactory()
         );
 
         sm.start();
 
-        //TODO: Get rid of it after IGNITE-17062.
         if (!waitingSqlSchema) {
-            tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
-                tableManager.onSqlSchemaReady(parameters.causalityToken());
-
-                return false;
-            });
+            tableManager.listen(TableEvent.CREATE, (parameters, exception) -> completedFuture(false));
         }
 
         tableManager.start();

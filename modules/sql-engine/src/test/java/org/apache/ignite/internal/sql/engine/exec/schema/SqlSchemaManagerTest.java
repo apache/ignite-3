@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.schema;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -40,6 +42,7 @@ import org.apache.calcite.schema.Table;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTableImpl;
@@ -47,6 +50,7 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,14 +79,20 @@ public class SqlSchemaManagerTest {
     private TableManager tableManager;
 
     @Mock
+    private SchemaManager schemaManager;
+
+    @Mock
     private TableImpl table;
 
     @Mock
     SchemaRegistryImpl schemaRegistry;
 
-    private SqlSchemaManagerImpl schemaManager;
+    private SqlSchemaManagerImpl sqlSchemaManager;
 
     private TestRevisionRegister testRevisionRegister;
+
+    /** Busy lock for stop synchronisation. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     @BeforeEach
     public void setup() throws NodeStoppingException {
@@ -90,9 +100,11 @@ public class SqlSchemaManagerTest {
 
         testRevisionRegister = new TestRevisionRegister();
 
-        schemaManager = new SqlSchemaManagerImpl(
+        sqlSchemaManager = new SqlSchemaManagerImpl(
                 tableManager,
-                testRevisionRegister
+                schemaManager,
+                testRevisionRegister,
+                busyLock
         );
 
         testRevisionRegister.moveForward();
@@ -102,12 +114,10 @@ public class SqlSchemaManagerTest {
     public void testNonExistingTable() throws NodeStoppingException {
         UUID tblId = UUID.randomUUID();
 
-        IgniteInternalException ex = assertThrows(IgniteInternalException.class, () -> schemaManager.tableById(tblId, tableVer));
+        IgniteInternalException ex = assertThrows(IgniteInternalException.class, () -> sqlSchemaManager.tableById(tblId, tableVer));
         assertThat(ex.getMessage(), containsString("Table not found"));
 
         Mockito.verify(tableManager).table(eq(tblId));
-
-        Mockito.verify(tableManager, times(1)).onSqlSchemaReady(anyLong());
 
         Mockito.verifyNoMoreInteractions(tableManager);
     }
@@ -124,20 +134,19 @@ public class SqlSchemaManagerTest {
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
 
-        IgniteTable actTable = schemaManager.tableById(tableId, tableVer);
+        when(schemaManager.schemaRegistry(any())).thenReturn(schemaRegistry);
+
+        IgniteTable actTable = sqlSchemaManager.tableById(tableId, tableVer);
 
         assertEquals(tableId, actTable.id());
 
         Mockito.verify(tableManager).table(eq(tableId));
-
-        Mockito.verify(tableManager, times(1)).onSqlSchemaReady(anyLong());
 
         Mockito.verifyNoMoreInteractions(tableManager);
     }
 
     @Test
     public void testTableEventIsProcessedRequiredVersionIsSame() {
-        when(table.schemaView()).thenReturn(schemaRegistry);
         when(table.name()).thenReturn("TEST_SCHEMA.T");
 
         InternalTable mock = mock(InternalTable.class);
@@ -147,21 +156,20 @@ public class SqlSchemaManagerTest {
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
 
-        schemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
+        when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaRegistry));
+
+        sqlSchemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
-        IgniteTable actTable = schemaManager.tableById(tableId, tableVer);
+        IgniteTable actTable = sqlSchemaManager.tableById(tableId, tableVer);
 
         assertEquals(tableId, actTable.id());
-
-        Mockito.verify(tableManager, times(2)).onSqlSchemaReady(anyLong());
 
         Mockito.verifyNoMoreInteractions(tableManager);
     }
 
     @Test
     public void testTableEventIsProcessedRequiredVersionIsLess() {
-        when(table.schemaView()).thenReturn(schemaRegistry);
         when(table.name()).thenReturn("TEST_SCHEMA.T");
 
         InternalTable mock = mock(InternalTable.class);
@@ -171,14 +179,14 @@ public class SqlSchemaManagerTest {
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
 
-        schemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
+        when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaRegistry));
+
+        sqlSchemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
-        IgniteTable actTable = schemaManager.tableById(tableId, tableVer - 1);
+        IgniteTable actTable = sqlSchemaManager.tableById(tableId, tableVer - 1);
 
         assertEquals(tableId, actTable.id());
-
-        Mockito.verify(tableManager, times(2)).onSqlSchemaReady(anyLong());
 
         Mockito.verifyNoMoreInteractions(tableManager);
     }
@@ -194,28 +202,28 @@ public class SqlSchemaManagerTest {
         when(table.internalTable()).thenReturn(mock);
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(tableVer - 1);
+        when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaRegistry));
+        when(schemaManager.schemaRegistry(any())).thenReturn(schemaRegistry);
 
-        schemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
         when(tableManager.table(eq(tableId))).thenReturn(table);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(tableVer);
 
-        IgniteTable actTable = schemaManager.tableById(tableId, tableVer);
+        IgniteTable actTable = sqlSchemaManager.tableById(tableId, tableVer);
         assertEquals(tableId, actTable.id());
 
-        IgniteInternalException ex = assertThrows(IgniteInternalException.class, () -> schemaManager.tableById(tableId, tableVer + 1));
+        IgniteInternalException ex = assertThrows(IgniteInternalException.class, () -> sqlSchemaManager.tableById(tableId, tableVer + 1));
         assertThat(ex.getMessage(), containsString("Table version not found"));
 
         Mockito.verify(tableManager, times(2)).table(eq(tableId));
-        Mockito.verify(tableManager, times(2)).onSqlSchemaReady(anyLong());
 
         Mockito.verifyNoMoreInteractions(tableManager);
     }
 
     @Test
     public void testOnTableDroppedHandler() {
-        when(table.schemaView()).thenReturn(schemaRegistry);
         when(table.name()).thenReturn("TEST_SCHEMA.T");
 
         InternalTable mock = mock(InternalTable.class);
@@ -225,19 +233,21 @@ public class SqlSchemaManagerTest {
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
 
-        schemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
+        when(schemaManager.schemaRegistry(anyLong(), any())).thenReturn(completedFuture(schemaRegistry));
+
+        sqlSchemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
-        Table schemaTable = schemaManager.schema("TEST_SCHEMA").getTable("T");
+        Table schemaTable = sqlSchemaManager.schema("TEST_SCHEMA").getTable("T");
 
         assertNotNull(schemaTable);
         IgniteTableImpl igniteTable = assertInstanceOf(IgniteTableImpl.class, schemaTable);
         assertEquals(tableId, igniteTable.table().tableId());
 
-        schemaManager.onTableDropped("TEST_SCHEMA", table.name(), testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onTableDropped("TEST_SCHEMA", table.name(), testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
-        assertNull(schemaManager.schema("TEST_SCHEMA").getTable("T"));
+        assertNull(sqlSchemaManager.schema("TEST_SCHEMA").getTable("T"));
     }
 
     /**

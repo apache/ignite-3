@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.metastorage.client.Operations.remove;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.raft.jraft.core.NodeImpl.LEADER_STEPPED_DOWN;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,6 +40,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.If;
@@ -47,7 +50,6 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
@@ -61,7 +63,7 @@ import org.apache.ignite.raft.jraft.error.RaftError;
  */
 public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener {
     /** Ignite logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(RebalanceRaftGroupEventsListener.class);
+    private static final IgniteLogger LOG = Loggers.forClass(RebalanceRaftGroupEventsListener.class);
 
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
@@ -140,11 +142,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     if (!pendingEntry.empty()) {
                         List<ClusterNode> pendingNodes = (List<ClusterNode>) ByteUtils.fromBytes(pendingEntry.value());
 
+                        LOG.info("New leader elected. Going to reconfigure peers [group={}, partition={}, table={}, peers={}]",
+                                partId, partNum, tblConfiguration.name().value(), pendingNodes);
+
                         movePartitionFn.apply(clusterNodesToPeers(pendingNodes), term).join();
                     }
                 } catch (InterruptedException | ExecutionException e) {
                     // TODO: IGNITE-14693
-                    LOG.error("Couldn't start rebalance for partition {} of table {} on new elected leader for term {}",
+                    LOG.warn("Unable to start rebalance [partition={}, table={}, term={}]",
                             e, partNum, tblConfiguration.name().value(), term);
                 } finally {
                     busyLock.leaveBusy();
@@ -187,21 +192,26 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         }
 
         try {
-            if (status == null) {
-                // leader stepped down, so we are expecting RebalanceRaftGroupEventsListener.onLeaderElected to be called on a new leader.
-                LOG.info("Leader stepped down during the current rebalance for the partId = {}.", partId);
+            assert status != null;
+
+            if (status.equals(LEADER_STEPPED_DOWN)) {
+                // Leader stepped down, so we are expecting RebalanceRaftGroupEventsListener.onLeaderElected to be called on a new leader.
+                LOG.info("Leader stepped down during rebalance [partId={}]", partId);
 
                 return;
             }
 
-            assert status.getRaftError() == RaftError.ECATCHUP : "According to the JRaft protocol, RaftError.ECATCHUP is expected.";
+            RaftError raftError = status.getRaftError();
 
-            LOG.warn("Error occurred during the current rebalance for partId = {}.", partId);
+            assert raftError == RaftError.ECATCHUP : "According to the JRaft protocol, " + RaftError.ECATCHUP
+                    + " is expected, got " + raftError;
+
+            LOG.debug("Error occurred during rebalance [partId={}]", partId);
 
             if (rebalanceAttempts.incrementAndGet() < REBALANCE_RETRY_THRESHOLD) {
                 scheduleChangePeers(peers, term);
             } else {
-                LOG.error("The number of retries of the rebalance for the partId = {} exceeded the threshold = {}.", partId,
+                LOG.info("Number of retries for rebalance exceeded the threshold [partId={}, threshold={}]", partId,
                         REBALANCE_RETRY_THRESHOLD);
 
                 // TODO: currently we just retry intent to change peers according to the rebalance infinitely, until new leader is elected,
@@ -225,7 +235,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 return;
             }
 
-            LOG.info("Started {} attempt to retry the current rebalance for the partId = {}.", rebalanceAttempts.get(), partId);
+            LOG.info("Going to retry rebalance [attemptNo={}, partId={}]", rebalanceAttempts.get(), partId);
 
             try {
                 movePartitionFn.apply(peerIdsToPeers(peers), term).join();
@@ -269,22 +279,36 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                                 remove(plannedPartAssignmentsKey(partId)))
                                 .yield(true),
                         ops().yield(false))).get().getAsBoolean()) {
+                    LOG.info("Planned key changed while trying to update rebalance information. Going to retry"
+                                    + " [key={}, partition={}, table={}, appliedPeers={}]",
+                            plannedPartAssignmentsKey(partId), partNum, tblConfiguration.name(), appliedPeers);
+
                     doOnNewPeersConfigurationApplied(peers);
                 }
+
+                LOG.info("Rebalance finished. Going to schedule next rebalance [partition={}, table={}, appliedPeers={}, plannedPeers={}]",
+                        partNum, tblConfiguration.name().value(), appliedPeers, ByteUtils.fromBytes(plannedEntry.value()));
             } else {
                 if (!metaStorageMgr.invoke(If.iif(
                         notExists(plannedPartAssignmentsKey(partId)),
                         ops(put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(appliedPeers)),
                                 remove(pendingPartAssignmentsKey(partId))).yield(true),
                         ops().yield(false))).get().getAsBoolean()) {
+                    LOG.info("Planned key changed while trying to update rebalance information. Going to retry"
+                                    + " [key={}, partition={}, table={}, appliedPeers={}]",
+                            plannedPartAssignmentsKey(partId), partNum, tblConfiguration.name(), appliedPeers);
+
                     doOnNewPeersConfigurationApplied(peers);
                 }
+
+                LOG.info("Rebalance finished [partition={}, table={}, appliedPeers={}]",
+                        partNum, tblConfiguration.name().value(), appliedPeers);
             }
 
             rebalanceAttempts.set(0);
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
-            LOG.error("Couldn't commit new partition configuration to metastore for table = {}, partition = {}",
+            LOG.warn("Unable to commit partition configuration to metastore [table = {}, partition = {}]",
                     e, tblConfiguration.name(), partNum);
         }
     }

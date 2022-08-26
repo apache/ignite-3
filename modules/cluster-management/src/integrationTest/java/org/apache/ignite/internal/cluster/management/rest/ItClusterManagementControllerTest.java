@@ -34,47 +34,26 @@ import io.micronaut.http.HttpStatus;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
-import io.micronaut.runtime.server.EmbeddedServer;
-import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.io.IOException;
-import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.cluster.management.MockNode;
-import org.apache.ignite.internal.rest.api.ErrorResult;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
+import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Cluster management REST test.
  */
-@MicronautTest
-@ExtendWith(WorkDirectoryExtension.class)
-public class ItClusterManagementControllerTest {
-
-    private static final int PORT_BASE = 10000;
-
-    private static final List<MockNode> cluster = new ArrayList<>();
-
-    static ClusterService clusterService;
-
-    @WorkDirectory
-    private static Path workDir;
+public class ItClusterManagementControllerTest extends RestTestBase {
 
     @Inject
-    private EmbeddedServer server;
-
-    @Inject
-    @Client("/management/v1/cluster/init/")
+    @Client("/management/v1/cluster")
     private HttpClient client;
 
     @BeforeAll
@@ -92,6 +71,7 @@ public class ItClusterManagementControllerTest {
         }
 
         clusterService = cluster.get(0).clusterService();
+        clusterManager = cluster.get(0).clusterManager();
     }
 
     @AfterAll
@@ -107,7 +87,7 @@ public class ItClusterManagementControllerTest {
 
     @Test
     void testControllerLoaded() {
-        assertNotNull(server.getApplicationContext().getBean(ClusterManagementController.class));
+        assertNotNull(server.getApplicationContext().getBean(ClusterManagementApi.class));
     }
 
     @Test
@@ -118,30 +98,51 @@ public class ItClusterManagementControllerTest {
         // When
         var thrown = assertThrows(
                 HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(HttpRequest.POST("", givenInvalidBody))
+                () -> client.toBlocking().exchange(HttpRequest.POST("init", givenInvalidBody))
         );
 
         // Then
         assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
         // And
-        var errorResult = getErrorResult(thrown);
-        assertEquals("INVALID_ARGUMENT", errorResult.type());
+        var problem = getProblem(thrown);
+        assertEquals(400, problem.status());
+        assertEquals("Node \"nodename\" is not present in the physical topology", problem.detail());
     }
 
     @Test
     void testInitAlreadyInitializedWithAnotherNodes() {
+        // Given cluster is not initialized
+        HttpClientResponseException thrownBeforeInit = assertThrows(HttpClientResponseException.class,
+                () -> client.toBlocking().retrieve("state", ClusterStateDto.class));
+
+        // Then status is 404: there is no "state"
+        assertThat(thrownBeforeInit.getStatus(), is(equalTo(HttpStatus.NOT_FOUND)));
+        assertThat(
+                getProblem(thrownBeforeInit).detail(),
+                is(equalTo("Cluster not initialized. Call /management/v1/cluster/init in order to initialize cluster"))
+        );
+
         // Given cluster initialized
         String givenFirstRequestBody =
                 "{\"metaStorageNodes\": [\"" + cluster.get(0).clusterService().localConfiguration().getName() + "\"], \"cmgNodes\": [], "
                         + "\"clusterName\": \"cluster\"}";
 
         // When
-        HttpResponse<Object> response = client.toBlocking().exchange(HttpRequest.POST("", givenFirstRequestBody));
+        HttpResponse<Object> response = client.toBlocking().exchange(HttpRequest.POST("init", givenFirstRequestBody));
 
         // Then
         assertThat(response.getStatus(), is(equalTo((HttpStatus.OK))));
         // And
         assertThat(cluster.get(0).startFuture(), willCompleteSuccessfully());
+
+        // When get cluster state
+        ClusterStateDto state =
+                client.toBlocking().retrieve("state", ClusterStateDto.class);
+
+        // Then cluster state is valid
+        assertThat(state.msNodes(), is(equalTo(List.of(cluster.get(0).clusterService().localConfiguration().getName()))));
+        assertThat(state.cmgNodes(), is(equalTo(List.of(cluster.get(0).clusterService().localConfiguration().getName()))));
+        assertThat(state.clusterTag().clusterName(), is(equalTo("cluster")));
 
         // Given second request with different node name
         String givenSecondRequestBody =
@@ -151,25 +152,20 @@ public class ItClusterManagementControllerTest {
         // When
         var thrown = assertThrows(
                 HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(HttpRequest.POST("", givenSecondRequestBody))
+                () -> client.toBlocking().exchange(HttpRequest.POST("init", givenSecondRequestBody))
         );
 
         // Then
         assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.INTERNAL_SERVER_ERROR))));
         // And
-        var errorResult = getErrorResult(thrown);
-        assertEquals("SERVER_ERROR", errorResult.type());
-
+        var problem = getProblem(thrown);
+        assertEquals(500, problem.status());
     }
 
     @Factory
     @Bean
     @Replaces(ClusterManagementRestFactory.class)
     public ClusterManagementRestFactory clusterManagementRestFactory() {
-        return new ClusterManagementRestFactory(clusterService);
-    }
-
-    private ErrorResult getErrorResult(HttpClientResponseException exception) {
-        return exception.getResponse().getBody(ErrorResult.class).orElseThrow();
+        return new ClusterManagementRestFactory(clusterService, clusterManager);
     }
 }

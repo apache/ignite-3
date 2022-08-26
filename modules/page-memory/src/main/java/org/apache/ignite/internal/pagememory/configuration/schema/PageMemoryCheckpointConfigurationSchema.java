@@ -19,21 +19,13 @@ package org.apache.ignite.internal.pagememory.configuration.schema;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.OneOf;
 import org.apache.ignite.configuration.validation.Range;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWriteOrder;
 
 /**
  * Checkpoint configuration schema for persistent page memory.
  */
 @Config
 public class PageMemoryCheckpointConfigurationSchema {
-    /** See description of {@link CheckpointWriteOrder#RANDOM}. */
-    public static final String RANDOM_WRITE_ORDER = "RANDOM";
-
-    /** See description of {@link CheckpointWriteOrder#SEQUENTIAL}. */
-    public static final String SEQUENTIAL_WRITE_ORDER = "SEQUENTIAL";
-
     /** Checkpoint frequency in milliseconds. */
     @Range(min = 0)
     @Value(hasDefault = true)
@@ -44,21 +36,20 @@ public class PageMemoryCheckpointConfigurationSchema {
     @Value(hasDefault = true)
     public int frequencyDeviation = 40;
 
+    /** Delay before executing a checkpoint triggered by RAFT. */
+    @Range(min = 0)
+    @Value(hasDefault = true)
+    public int checkpointDelayMillis = 200;
+
     /** Number of checkpoint threads. */
     @Range(min = 1)
     @Value(hasDefault = true)
-    public int threads = 4;
+    public int checkpointThreads = 4;
 
-    /** Checkpoint write order. */
-    @OneOf({RANDOM_WRITE_ORDER, SEQUENTIAL_WRITE_ORDER})
+    /** Number of threads to compact delta files. */
+    @Range(min = 1)
     @Value(hasDefault = true)
-    public String writeOrder = SEQUENTIAL_WRITE_ORDER;
-
-    /**
-     * Starting from this number of dirty pages in checkpoint, they will be sorted in parallel in case of {@link #SEQUENTIAL_WRITE_ORDER}.
-     */
-    @Value(hasDefault = true)
-    public int parallelSortThreshold = 512 * 1024;
+    public int compactionThreads = 4;
 
     /** Timeout for checkpoint read lock acquisition in milliseconds. */
     @Range(min = 0)

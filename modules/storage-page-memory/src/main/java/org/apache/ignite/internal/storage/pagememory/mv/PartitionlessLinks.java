@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.link;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.tag;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getShort;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
@@ -26,8 +30,8 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 
 /**
- * Handling of <em>partitionless links</em>, that is, page memory links from which partition ID is removed.
- * They are used to spare storage space in cases when we know the partition ID from the context.
+ * Handling of <em>partitionless links</em>, that is, page memory links from which partition ID is removed. They are used to spare storage
+ * space in cases when we know the partition ID from the context.
  *
  * @see PageIdUtils#link(long, int)
  */
@@ -38,108 +42,55 @@ public class PartitionlessLinks {
     public static final int PARTITIONLESS_LINK_SIZE_BYTES = 6;
 
     /**
-     * Converts a full link to partitionless link by removing the partition ID from it.
+     * Reads a partitionless link from the memory.
      *
-     * @param link full link
-     * @return partitionless link
-     * @see PageIdUtils#link(long, int)
+     * @param pageAddr Page address.
+     * @param offset Data offset.
+     * @return Partitionless link.
      */
-    public static long removePartitionIdFromLink(long link) {
-        return ((link >> PageIdUtils.PART_ID_SIZE) & 0x0000FFFF00000000L)
-                | (link & 0xFFFFFFFFL);
-    }
+    public static long readPartitionlessLink(int partitionId, long pageAddr, int offset) {
+        int tag = getShort(pageAddr, offset) & 0xFFFF;
+        int pageIdx = getInt(pageAddr, offset + Short.BYTES);
 
-    /**
-     * Converts a partitionless link to a full link by inserting partition ID at the corresponding position.
-     *
-     * @param partitionlessLink link without partition
-     * @param partitionId       partition ID to insert
-     * @return full link
-     * @see PageIdUtils#link(long, int)
-     */
-    public static long addPartitionIdToPartititionlessLink(long partitionlessLink, int partitionId) {
-        return (partitionlessLink << PageIdUtils.PART_ID_SIZE) & 0xFFFF000000000000L
-                | ((((long) partitionId) << PageIdUtils.PAGE_IDX_SIZE) & 0xFFFF00000000L)
-                | (partitionlessLink & PageIdUtils.PAGE_IDX_MASK);
-    }
+        // Links to metapages are impossible. For the sake of simplicity, NULL_LINK is returned in this case.
+        if (pageIdx == 0) {
+            assert tag == 0 : tag;
 
-    /**
-     * Returns high 16 bits of the 6 bytes representing a partitionless link.
-     *
-     * @param partitionlessLink link without partition info
-     * @return high 16 bits
-     * @see #assemble(short, int)
-     */
-    public static short high16Bits(long partitionlessLink) {
-        return (short) (partitionlessLink >> Integer.SIZE);
-    }
+            return RowVersion.NULL_LINK;
+        }
 
-    /**
-     * Returns low 32 bits of the 6 bytes representing a partitionless link.
-     *
-     * @param partitionlessLink link without partition info
-     * @return low 32 bits
-     * @see #assemble(short, int)
-     */
-    public static int low32Bits(long partitionlessLink) {
-        return (int) (partitionlessLink & PageIdUtils.PAGE_IDX_MASK);
-    }
+        byte flags = (byte) tag;
+        int itemId = tag >>> 8;
 
-    /**
-     * Assembles a partitionless link from high 16 bits and 32 low bits of its representation.
-     *
-     * @param high16    high 16 bits
-     * @param low32     low 32 bits
-     * @return reconstructed partitionless link
-     * @see #high16Bits(long)
-     * @see #low32Bits(long)
-     */
-    public static long assemble(short high16, int low32) {
-        return ((((long) high16) & 0xFFFF) << 32)
-                | (((long) low32) & 0xFFFFFFFFL);
-    }
+        long pageId = pageId(partitionId, flags, pageIdx);
 
-    static long readFromMemory(long pageAddr, int offset) {
-        short nextLinkHigh16 = getShort(pageAddr, offset);
-        int nextLinkLow32 = getInt(pageAddr, offset + Short.BYTES);
-
-        return assemble(nextLinkHigh16, nextLinkLow32);
-    }
-
-    static long readFromBuffer(ByteBuffer buffer) {
-        short nextLinkHigh16 = buffer.getShort();
-        int nextLinkLow32 = buffer.getInt();
-
-        return assemble(nextLinkHigh16, nextLinkLow32);
+        return link(pageId, itemId);
     }
 
     /**
      * Writes a partitionless link to memory: first high 2 bytes, then low 4 bytes.
      *
-     * @param addr              address in memory where to start
-     * @param partitionlessLink the link to write
-     * @return number of bytes written (equal to {@link #PARTITIONLESS_LINK_SIZE_BYTES})
+     * @param addr Address in memory where to start.
+     * @param link The link to write.
+     * @return Number of bytes written (equal to {@link #PARTITIONLESS_LINK_SIZE_BYTES}).
      */
-    public static long writeToMemory(long addr, long partitionlessLink) {
-        putShort(addr, 0, PartitionlessLinks.high16Bits(partitionlessLink));
-        addr += Short.BYTES;
-        putInt(addr, 0, PartitionlessLinks.low32Bits(partitionlessLink));
+    public static long writePartitionlessLink(long addr, long link) {
+        putShort(addr, 0, (short) tag(link));
 
-        return PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
+        putInt(addr + Short.BYTES, 0, pageIndex(link));
+
+        return PARTITIONLESS_LINK_SIZE_BYTES;
     }
 
     /**
      * Writes a partitionless link to a buffer: first high 2 bytes, then low 4 bytes.
      *
-     * @param buffer            where to write
-     * @param partitionlessLink the link to write
+     * @param buffer Buffer to write into.
+     * @param link The link to write.
      */
-    public static void writeToBuffer(ByteBuffer buffer, long partitionlessLink) {
-        buffer.putShort(PartitionlessLinks.high16Bits(partitionlessLink));
-        buffer.putInt(PartitionlessLinks.low32Bits(partitionlessLink));
-    }
+    public static void writeToBuffer(ByteBuffer buffer, long link) {
+        buffer.putShort((short) tag(link));
 
-    private PartitionlessLinks() {
-        // prevent instantiation
+        buffer.putInt(pageIndex(link));
     }
 }

@@ -28,10 +28,11 @@ import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,10 +44,10 @@ import org.jetbrains.annotations.Nullable;
  * token. If the local token and the received token match, the node will be added to the logical topology and the token will be invalidated.
  */
 class ValidationManager implements AutoCloseable {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(CmgRaftGroupListener.class);
+    private static final IgniteLogger LOG = Loggers.forClass(CmgRaftGroupListener.class);
 
     private final ScheduledExecutorService executor =
-            Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("node-validator"));
+            Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("node-validator", LOG));
 
     private final RaftStorageManager storage;
 
@@ -174,7 +175,7 @@ class ValidationManager implements AutoCloseable {
     private void scheduleValidatedNodeRemoval(String nodeId) {
         // TODO: delay should be configurable, see https://issues.apache.org/jira/browse/IGNITE-16785
         Future<?> future = executor.schedule(() -> {
-            LOG.info("Removing node {} from the list of validated nodes since no JoinReady requests have been received", nodeId);
+            LOG.info("Removing node from the list of validated nodes since no JoinReady requests have been received [node={}]", nodeId);
 
             cleanupFutures.remove(nodeId);
 

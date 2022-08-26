@@ -30,4 +30,5 @@ public class StatusCallInput implements CallInput {
     public String getClusterUrl() {
         return clusterUrl;
     }
+
 }

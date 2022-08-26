@@ -40,8 +40,13 @@ import org.apache.ignite.configuration.schemas.store.DataStorageView;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageChange;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageView;
+import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.EntryCountBudgetConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -74,7 +79,12 @@ public class DataStorageManagerTest {
             HashIndexConfigurationSchema.class,
             UnknownDataStorageConfigurationSchema.class,
             FirstDataStorageConfigurationSchema.class,
-            SecondDataStorageConfigurationSchema.class
+            SecondDataStorageConfigurationSchema.class,
+            ConstantValueDefaultConfigurationSchema.class,
+            FunctionCallDefaultConfigurationSchema.class,
+            NullValueDefaultConfigurationSchema.class,
+            UnlimitedBudgetConfigurationSchema.class,
+            EntryCountBudgetConfigurationSchema.class
     })
     private TablesConfiguration tablesConfig;
 
@@ -87,9 +97,9 @@ public class DataStorageManagerTest {
                 dataStorageModules.createStorageEngines("test", mock(ConfigurationRegistry.class), workDir, null)
         );
 
-        // Checks that the current default is "pagememory" even if we have one engine and it's not "pagememory".
+        // Checks that the current default is "aimem" even if we have one engine and it's not "aimem".
         // TODO: IGNITE-17197 Uncomment after the ticket is resolved.
-        // assertThat("pagememory", equalTo(dataStorageManager.defaultDataStorage()));
+        // assertThat("aimem", equalTo(dataStorageManager.defaultDataStorage()));
     }
 
     @Test
@@ -105,7 +115,7 @@ public class DataStorageManagerTest {
         );
 
         // TODO: IGNITE-17197 Uncomment after the ticket is resolved.
-        // assertThat("pagememory", equalTo(dataStorageManager.defaultDataStorage()));
+        // assertThat("aimem", equalTo(dataStorageManager.defaultDataStorage()));
 
         tablesConfig.defaultDataStorage().update(FIRST).get(1, TimeUnit.SECONDS);
         assertThat(FIRST, equalTo(dataStorageManager.defaultDataStorage()));

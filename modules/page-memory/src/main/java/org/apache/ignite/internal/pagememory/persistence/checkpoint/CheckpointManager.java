@@ -17,20 +17,27 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import java.nio.file.Path;
+import java.nio.ByteBuffer;
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
-import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.pagememory.DataRegion;
+import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
+import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
+import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,21 +57,24 @@ import org.jetbrains.annotations.Nullable;
  *     <li>Synchronizing collected pages with disk using {@link FilePageStoreManager}.</li>
  * </ul>
  */
-public class CheckpointManager implements IgniteComponent {
+public class CheckpointManager {
     /** Checkpoint worker. */
     private final Checkpointer checkpointer;
 
     /** Main checkpoint steps. */
     private final CheckpointWorkflow checkpointWorkflow;
 
-    /** Checkpoint markers storage which mark the start and end of each checkpoint. */
-    private final CheckpointMarkersStorage checkpointMarkersStorage;
-
     /** Timeout checkpoint lock which should be used while write to memory happened. */
     private final CheckpointTimeoutLock checkpointTimeoutLock;
 
     /** Checkpoint page writer factory. */
     private final CheckpointPagesWriterFactory checkpointPagesWriterFactory;
+
+    /** File page store manager. */
+    private final FilePageStoreManager filePageStoreManager;
+
+    /** Delta file compactor. */
+    private final Compactor compactor;
 
     /**
      * Constructor.
@@ -74,8 +84,9 @@ public class CheckpointManager implements IgniteComponent {
      * @param workerListener Listener for life-cycle checkpoint worker events.
      * @param longJvmPauseDetector Long JVM pause detector.
      * @param filePageStoreManager File page store manager.
+     * @param partitionMetaManager Partition meta information manager.
      * @param dataRegions Data regions.
-     * @param storagePath Storage path.
+     * @param ioRegistry Page IO registry.
      * @param pageSize Page size in bytes.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -85,48 +96,62 @@ public class CheckpointManager implements IgniteComponent {
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             PageMemoryCheckpointConfiguration checkpointConfig,
             FilePageStoreManager filePageStoreManager,
-            Collection<? extends PageMemoryDataRegion> dataRegions,
-            Path storagePath,
+            PartitionMetaManager partitionMetaManager,
+            Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
+            PageIoRegistry ioRegistry,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) throws IgniteInternalCheckedException {
+        this.filePageStoreManager = filePageStoreManager;
+
         PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
 
         long logReadLockThresholdTimeout = checkpointConfigView.logReadLockThresholdTimeout();
 
         ReentrantReadWriteLockWithTracking reentrantReadWriteLockWithTracking = logReadLockThresholdTimeout > 0
-                ? new ReentrantReadWriteLockWithTracking(IgniteLogger.forClass(CheckpointReadWriteLock.class), logReadLockThresholdTimeout)
+                ? new ReentrantReadWriteLockWithTracking(Loggers.forClass(CheckpointReadWriteLock.class), logReadLockThresholdTimeout)
                 : new ReentrantReadWriteLockWithTracking();
 
         CheckpointReadWriteLock checkpointReadWriteLock = new CheckpointReadWriteLock(reentrantReadWriteLockWithTracking);
 
-        checkpointMarkersStorage = new CheckpointMarkersStorage(storagePath);
-
         checkpointWorkflow = new CheckpointWorkflow(
-                checkpointConfig,
-                checkpointMarkersStorage,
+                igniteInstanceName,
                 checkpointReadWriteLock,
-                dataRegions
+                dataRegions,
+                checkpointConfigView.checkpointThreads()
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
-                IgniteLogger.forClass(CheckpointPagesWriterFactory.class),
-                (fullPage, buf, tag) -> filePageStoreManager.write(fullPage.groupId(), fullPage.pageId(), buf, tag, true),
+                Loggers.forClass(CheckpointPagesWriterFactory.class),
+                (pageMemory, fullPageId, pageBuf) -> writePageToDeltaFilePageStore(pageMemory, fullPageId, pageBuf, true),
+                ioRegistry,
+                partitionMetaManager,
+                pageSize
+        );
+
+        compactor = new Compactor(
+                Loggers.forClass(Compactor.class),
+                igniteInstanceName,
+                workerListener,
+                checkpointConfig.compactionThreads(),
+                filePageStoreManager,
                 pageSize
         );
 
         checkpointer = new Checkpointer(
-                IgniteLogger.forClass(Checkpoint.class),
+                Loggers.forClass(Checkpoint.class),
                 igniteInstanceName,
                 workerListener,
                 longJvmPauseDetector,
                 checkpointWorkflow,
                 checkpointPagesWriterFactory,
+                filePageStoreManager,
+                compactor,
                 checkpointConfig
         );
 
         checkpointTimeoutLock = new CheckpointTimeoutLock(
-                IgniteLogger.forClass(CheckpointTimeoutLock.class),
+                Loggers.forClass(CheckpointTimeoutLock.class),
                 checkpointReadWriteLock,
                 checkpointConfigView.readLockTimeout(),
                 () -> safeToUpdateAllPageMemories(dataRegions),
@@ -134,23 +159,28 @@ public class CheckpointManager implements IgniteComponent {
         );
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Starts a checkpoint manger.
+     */
     public void start() {
         checkpointWorkflow.start();
 
         checkpointer.start();
 
         checkpointTimeoutLock.start();
+
+        compactor.start();
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Stops a checkpoint manger.
+     */
     public void stop() throws Exception {
         IgniteUtils.closeAll(
                 checkpointTimeoutLock::stop,
                 checkpointer::stop,
-                checkpointWorkflow::stop
+                checkpointWorkflow::stop,
+                compactor::stop
         );
     }
 
@@ -167,7 +197,7 @@ public class CheckpointManager implements IgniteComponent {
      * @param listener Listener.
      * @param dataRegion Persistent data region for which listener is corresponded to, {@code null} for all regions.
      */
-    public void addCheckpointListener(CheckpointListener listener, PageMemoryDataRegion dataRegion) {
+    public void addCheckpointListener(CheckpointListener listener, @Nullable DataRegion<PersistentPageMemory> dataRegion) {
         checkpointWorkflow.addCheckpointListener(listener, dataRegion);
     }
 
@@ -191,18 +221,97 @@ public class CheckpointManager implements IgniteComponent {
     }
 
     /**
-     * Returns {@link true} if it is safe for all {@link PageMemoryDataRegion data regions} to update their {@link PageMemory}.
+     * Schedules a checkpoint in the future.
+     *
+     * @param delayMillis Delay in milliseconds from the curent moment.
+     * @param reason Checkpoint reason.
+     * @return Triggered checkpoint progress.
+     */
+    public CheckpointProgress scheduleCheckpoint(long delayMillis, String reason) {
+        return checkpointer.scheduleCheckpoint(delayMillis, reason);
+    }
+
+    /**
+     * Returns the progress of the last checkpoint, or the current checkpoint if in progress, {@code null} if no checkpoint has occurred.
+     */
+    public @Nullable CheckpointProgress lastCheckpointProgress() {
+        return checkpointer.lastCheckpointProgress();
+    }
+
+    /**
+     * Returns {@link true} if it is safe for all {@link DataRegion data regions} to update their {@link PageMemory}.
      *
      * @param dataRegions Data regions.
-     * @see PageMemoryImpl#safeToUpdate()
+     * @see PersistentPageMemory#safeToUpdate()
      */
-    static boolean safeToUpdateAllPageMemories(Collection<? extends PageMemoryDataRegion> dataRegions) {
-        for (PageMemoryDataRegion dataRegion : dataRegions) {
-            if (dataRegion.persistent() && !((PageMemoryImpl) dataRegion.pageMemory()).safeToUpdate()) {
+    static boolean safeToUpdateAllPageMemories(Collection<? extends DataRegion<PersistentPageMemory>> dataRegions) {
+        for (DataRegion<PersistentPageMemory> dataRegion : dataRegions) {
+            if (!dataRegion.pageMemory().safeToUpdate()) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /**
+     * Writes a page to delta file page store.
+     *
+     * <p>Must be used at breakpoint and page replacement.
+     *
+     * @param pageMemory Page memory.
+     * @param pageId Page ID.
+     * @param pageBuf Page buffer to write from.
+     * @param calculateCrc If {@code false} crc calculation will be forcibly skipped.
+     * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
+     */
+    public void writePageToDeltaFilePageStore(
+            PersistentPageMemory pageMemory,
+            FullPageId pageId,
+            ByteBuffer pageBuf,
+            boolean calculateCrc
+    ) throws IgniteInternalCheckedException {
+        FilePageStore filePageStore = filePageStoreManager.getStore(pageId.groupId(), pageId.partitionId());
+
+        CheckpointProgress lastCheckpointProgress = lastCheckpointProgress();
+
+        assert lastCheckpointProgress != null : "Checkpoint has not happened yet";
+        assert lastCheckpointProgress.inProgress() : "Checkpoint must be in progress";
+
+        CheckpointDirtyPages pagesToWrite = lastCheckpointProgress.pagesToWrite();
+
+        assert pagesToWrite != null : "Dirty pages must be sorted out";
+
+        CompletableFuture<DeltaFilePageStoreIo> deltaFilePageStoreFuture = filePageStore.getOrCreateNewDeltaFile(
+                index -> filePageStoreManager.tmpDeltaFilePageStorePath(pageId.groupId(), pageId.partitionId(), index),
+                () -> pageIndexesForDeltaFilePageStore(pagesToWrite.getPartitionView(pageMemory, pageId.groupId(), pageId.partitionId()))
+        );
+
+        deltaFilePageStoreFuture.join().write(pageId.pageId(), pageBuf, calculateCrc);
+    }
+
+    /**
+     * Returns the indexes of the dirty pages to be written to the delta file page store.
+     *
+     * @param partitionDirtyPages Dirty pages of the partition.
+     */
+    static int[] pageIndexesForDeltaFilePageStore(CheckpointDirtyPagesView partitionDirtyPages) {
+        // +1 since the first page (pageIdx == 0) will always be PartitionMetaIo.
+        int[] pageIndexes = new int[partitionDirtyPages.size() + 1];
+
+        for (int i = 0; i < partitionDirtyPages.size(); i++) {
+            pageIndexes[i + 1] = partitionDirtyPages.get(i).pageIdx();
+        }
+
+        return pageIndexes;
+    }
+
+    /**
+     * Adds the number of delta files to compact.
+     *
+     * @param count Number of delta files.
+     */
+    public void addDeltaFileCountForCompaction(int count) {
+        compactor.addDeltaFiles(count);
     }
 }

@@ -199,7 +199,6 @@ public interface MetaStorageService {
      * @see Condition
      * @see Operation
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-14269: will be replaced by conditional multi update.
     @NotNull
     CompletableFuture<Boolean> invoke(@NotNull Condition condition,
             @NotNull Operation success, @NotNull Operation failure);
@@ -253,6 +252,23 @@ public interface MetaStorageService {
     Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound);
 
     /**
+     * Retrieves entries for the given key range in lexicographic order. Entries will be filtered out by upper bound of given revision
+     * number.
+     *
+     * @param keyFrom           Start key of range (inclusive). Couldn't be {@code null}.
+     * @param keyTo             End key of range (exclusive). Could be {@code null}.
+     * @param revUpperBound     The upper bound for entry revision. {@code -1} means latest revision.
+     * @param includeTombstones Whether to include tombstone entries.
+     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @throws OperationTimeoutException If the operation is timed out.
+     * @throws CompactedException        If the desired revisions are removed from the storage due to a compaction.
+     * @see ByteArray
+     * @see Entry
+     */
+    @NotNull
+    Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound, boolean includeTombstones);
+
+    /**
      * Retrieves entries for the given key range in lexicographic order. Short cut for {@link #range(ByteArray, ByteArray, long)} where
      * {@code revUpperBound == -1}.
      *
@@ -266,6 +282,22 @@ public interface MetaStorageService {
      */
     @NotNull
     Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo);
+
+    /**
+     * Retrieves entries for the given key range in lexicographic order. Short cut for
+     * {@link #range(ByteArray, ByteArray, long, boolean)} where {@code revUpperBound == -1}.
+     *
+     * @param keyFrom           Start key of range (inclusive). Couldn't be {@code null}.
+     * @param keyTo             End key of range (exclusive). Could be {@code null}.
+     * @param includeTombstones Whether to include tombstone entries.
+     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @throws OperationTimeoutException If the operation is timed out.
+     * @throws CompactedException        If the desired revisions are removed from the storage due to a compaction.
+     * @see ByteArray
+     * @see Entry
+     */
+    @NotNull
+    Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones);
 
     /**
      * Subscribes on meta storage updates matching the parameters.

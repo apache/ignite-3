@@ -20,20 +20,20 @@ package org.apache.ignite.cli.commands.configuration;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.apache.ignite.cli.commands.CliCommandTestIntegrationBase;
+import org.apache.ignite.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for cluster/node config commands.
  */
-class ItConfigCommandTest extends CliCommandTestIntegrationBase {
+class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
 
     @Test
-    @DisplayName("Should read config when valid cluster-url is given")
+    @DisplayName("Should read config when valid cluster-endpoint-url is given")
     void readDefaultConfig() {
         // When read cluster config with valid url
-        execute("cluster", "config", "show", "--cluster-url", NODE_URL);
+        execute("cluster", "config", "show", "--cluster-endpoint-url", NODE_URL);
 
         // Then
         assertAll(
@@ -44,10 +44,10 @@ class ItConfigCommandTest extends CliCommandTestIntegrationBase {
     }
 
     @Test
-    @DisplayName("Should update config with hocon format when valid cluster-url is given")
+    @DisplayName("Should update config with hocon format when valid cluster-endpoint-url is given")
     void addConfigKeyValue() {
         // When update default data storage to rocksdb
-        execute("cluster", "config", "update", "--cluster-url", NODE_URL, "{table: {defaultDataStorage: rocksdb}}");
+        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL, "{table: {defaultDataStorage: rocksdb}}");
 
         // Then
         assertAll(
@@ -57,7 +57,7 @@ class ItConfigCommandTest extends CliCommandTestIntegrationBase {
         );
 
         // When read the updated cluster configuration
-        execute("cluster", "config", "show", "--cluster-url", NODE_URL);
+        execute("cluster", "config", "show", "--cluster-endpoint-url", NODE_URL);
 
         // Then
         assertAll(
@@ -68,10 +68,10 @@ class ItConfigCommandTest extends CliCommandTestIntegrationBase {
     }
 
     @Test
-    @DisplayName("Should update config with key-value format when valid cluster-url is given")
+    @DisplayName("Should update config with key-value format when valid cluster-endpoint-url is given")
     void updateConfigWithSpecifiedPath() {
         // When update default data storage to rocksdb
-        execute("cluster", "config", "update", "--cluster-url", NODE_URL, "table.defaultDataStorage=rocksdb");
+        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL, "table.defaultDataStorage=rocksdb");
 
         // Then
         assertAll(
@@ -81,7 +81,7 @@ class ItConfigCommandTest extends CliCommandTestIntegrationBase {
         );
 
         // When read the updated cluster configuration
-        execute("cluster", "config", "show", "--cluster-url", NODE_URL);
+        execute("cluster", "config", "show", "--cluster-endpoint-url", NODE_URL);
 
         // Then
         assertAll(

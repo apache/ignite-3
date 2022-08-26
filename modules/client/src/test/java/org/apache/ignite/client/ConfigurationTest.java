@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.startsWith;
@@ -40,9 +41,9 @@ public class ConfigurationTest extends AbstractClientTest {
     public void testClientValidatesAddresses() {
         IgniteClient.Builder builder = IgniteClient.builder();
 
-        var ex = assertThrows(IgniteClientException.class, builder::build);
+        var ex = assertThrows(IgniteException.class, builder::build);
 
-        assertEquals("Empty addresses", ex.getMessage());
+        assertThat(ex.getMessage(), containsString("Empty addresses"));
     }
 
     @Test
@@ -52,9 +53,9 @@ public class ConfigurationTest extends AbstractClientTest {
 
         var ex = assertThrows(IgniteException.class, builder::build);
 
-        assertEquals(
-                "Failed to parse Ignite server address (port range contains invalid port 70000): 127.0.0.1:70000",
-                ex.getMessage());
+        assertThat(
+                ex.getMessage(),
+                containsString("Failed to parse Ignite server address (port range contains invalid port 70000): 127.0.0.1:70000"));
     }
 
     @Test
@@ -86,7 +87,7 @@ public class ConfigurationTest extends AbstractClientTest {
                 .addressFinder(() -> new String[]{addr})
                 .build();
 
-        // Builder can be reused and it won't affect already created clients.
+        // Builder can be reused, and it won't affect already created clients.
         IgniteClient client2 = builder
                 .connectTimeout(2345)
                 .reconnectThrottlingPeriod(1234)

@@ -42,7 +42,7 @@ namespace Apache.Ignite.Tests
             using var client = await server.ConnectClientAsync();
 
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTableAsync("t"));
-            Assert.AreEqual(FakeServer.Err, ex!.Message);
+            Assert.AreEqual("ErrCls: : Err! (65537, 00000000-0000-0000-0000-000000000000)", ex!.Message);
         }
 
         [Test]
@@ -75,6 +75,28 @@ namespace Apache.Ignite.Tests
 
             // Reconnect by FailoverSocket logic.
             await client.Tables.GetTablesAsync();
+        }
+
+        [Test]
+        public async Task TestFakeServerExecutesSql()
+        {
+            using var server = new FakeServer(disableOpsTracking: true);
+            using var client = await server.ConnectClientAsync(new());
+
+            for (int i = 0; i < 100; i++)
+            {
+                await using var res = await client.Sql.ExecuteAsync(null, "select 1");
+                var count = 0;
+
+                await foreach (var row in res)
+                {
+                    Assert.AreEqual(count, row[0]);
+                    count++;
+                }
+
+                Assert.IsTrue(res.HasRowSet);
+                Assert.AreEqual(1012, count);
+            }
         }
     }
 }

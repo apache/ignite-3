@@ -122,6 +122,15 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
         return (T) members.get(value.keyByInternalId(internalId));
     }
 
+    /**
+     * Returns all internal ids of the elements from the list.
+     */
+    public List<UUID> internalIds() {
+        NamedListView<VIEWT> value = value();
+
+        return List.copyOf(((NamedListNode<?>) value).internalIds());
+    }
+
     /** {@inheritDoc} */
     @Override
     protected synchronized void beforeRefreshValue(

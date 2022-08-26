@@ -95,6 +95,15 @@ namespace Apache.Ignite.Internal.Proto
         ClusterGetNodes = 48,
 
         /** Execute compute job. */
-        ComputeExecuteColocated = 49
+        ComputeExecuteColocated = 49,
+
+        /** Execute SQL query. */
+        SqlExec = 50,
+
+        /** Get next page. */
+        SqlCursorNextPage = 51,
+
+        /** Close cursor. */
+        SqlCursorClose = 52
     }
 }

@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionException;
-import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
@@ -91,6 +91,71 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(2, columns.size());
         assertEquals("NUM", columns.get(0).name());
         assertEquals("STR", columns.get(1).name());
+    }
+
+    @Test
+    void testTxCorrectness() {
+        Session ses = client().sql().createSession();
+
+        // Create table.
+        ses.execute(null, "CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR)");
+
+        // Async
+        Transaction tx = client().transactions().begin();
+
+        ses.executeAsync(tx, "INSERT INTO testExecuteDdlDml VALUES (?, ?)",
+                Integer.MAX_VALUE, "hello " + Integer.MAX_VALUE).join();
+
+        tx.rollback();
+
+        tx = client().transactions().begin();
+
+        ses.executeAsync(tx, "INSERT INTO testExecuteDdlDml VALUES (?, ?)",
+                100, "hello " + Integer.MAX_VALUE).join();
+
+        tx.commit();
+
+        // Sync
+        tx = client().transactions().begin();
+
+        ses.executeAsync(tx, "INSERT INTO testExecuteDdlDml VALUES (?, ?)",
+                Integer.MAX_VALUE, "hello " + Integer.MAX_VALUE).join();
+
+        tx.rollback();
+
+        tx = client().transactions().begin();
+
+        ses.execute(tx, "INSERT INTO testExecuteDdlDml VALUES (?, ?)",
+                200, "hello " + Integer.MAX_VALUE);
+
+        tx.commit();
+
+        // Outdated tx.
+        Transaction tx0 = tx;
+
+        assertThrows(CompletionException.class, () -> {
+            ses.executeAsync(tx0, "INSERT INTO testExecuteDdlDml VALUES (?, ?)",
+                Integer.MAX_VALUE, "hello " + Integer.MAX_VALUE).join();
+        });
+
+        assertThrows(IgniteException.class, () -> {
+            ses.execute(tx0, "INSERT INTO testExecuteDdlDml VALUES (?, ?)",
+                    Integer.MAX_VALUE, "hello " + Integer.MAX_VALUE);
+        });
+
+        for (int i = 0; i < 10; i++) {
+            ses.execute(null, "INSERT INTO testExecuteDdlDml VALUES (?, ?)", i, "hello " + i);
+        }
+
+        ResultSet selectRes = ses.execute(null, "SELECT * FROM testExecuteDdlDml ORDER BY ID");
+
+        var rows = new ArrayList<SqlRow>();
+        selectRes.forEachRemaining(rows::add);
+
+        assertEquals(1 + 1 + 10, rows.size());
+
+        // Delete table.
+        ses.execute(null, "DROP TABLE testExecuteDdlDml");
     }
 
     @Test
@@ -208,9 +273,8 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(String.class, columns.get(0).valueClass());
         assertEquals(SqlColumnType.STRING, columns.get(0).type());
 
-        // TODO IGNITE-17203
-        // assertEquals(-1, columns.get(0).scale());
-        // assertEquals(-1, columns.get(0).precision());
+        assertEquals(ColumnMetadata.UNDEFINED_SCALE, columns.get(0).scale());
+        assertEquals(2 << 15, columns.get(0).precision());
 
         assertEquals("ID", columns.get(1).name());
         assertEquals("ID", columns.get(1).origin().columnName());
@@ -246,7 +310,6 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    @Disabled("IGNITE-16952")
     void testFetchNextPage() {
         Session session = client().sql().createSession();
 
@@ -262,19 +325,19 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         assertEquals(4, asyncResultSet.currentPageSize());
         assertTrue(asyncResultSet.hasMorePages());
-        assertEquals(1, asyncResultSet.currentPage().iterator().next().intValue(0));
+        assertEquals(0, asyncResultSet.currentPage().iterator().next().intValue(0));
 
         asyncResultSet.fetchNextPage().toCompletableFuture().join();
 
         assertEquals(4, asyncResultSet.currentPageSize());
         assertTrue(asyncResultSet.hasMorePages());
-        assertEquals(5, asyncResultSet.currentPage().iterator().next().intValue(0));
+        assertEquals(4, asyncResultSet.currentPage().iterator().next().intValue(0));
 
         asyncResultSet.fetchNextPage().toCompletableFuture().join();
 
         assertEquals(2, asyncResultSet.currentPageSize());
         assertFalse(asyncResultSet.hasMorePages());
-        assertEquals(9, asyncResultSet.currentPage().iterator().next().intValue(0));
+        assertEquals(8, asyncResultSet.currentPage().iterator().next().intValue(0));
     }
 
     @Test
@@ -283,7 +346,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 CompletionException.class,
                 () -> client().sql().createSession().executeAsync(null, "select x from bad").join());
 
-        IgniteClientException clientEx = (IgniteClientException) ex.getCause();
+        var clientEx = (IgniteException) ex.getCause();
 
         assertThat(clientEx.getMessage(), Matchers.containsString("Object 'BAD' not found"));
     }

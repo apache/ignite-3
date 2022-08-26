@@ -25,7 +25,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.Scheduler;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -49,7 +50,7 @@ import org.apache.ignite.raft.jraft.util.Utils;
  * Copy session.
  */
 public class CopySession implements Session {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(CopySession.class);
+    private static final IgniteLogger LOG = Loggers.forClass(CopySession.class);
 
     private final Lock lock = new ReentrantLock();
     private final Status st = Status.OK();
@@ -240,7 +241,7 @@ public class CopySession implements Session {
                     response.data().writeTo(this.outputStream);
                 }
                 catch (final IOException e) {
-                    LOG.error("Fail to write into file {}", this.destPath);
+                    LOG.error("Fail to write into file {}", this.destPath, e);
                     this.st.setError(RaftError.EIO, RaftError.EIO.name());
                     onFinished();
                     return;

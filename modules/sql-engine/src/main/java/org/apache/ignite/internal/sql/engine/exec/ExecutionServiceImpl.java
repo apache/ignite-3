@@ -36,6 +36,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
@@ -65,9 +67,9 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
@@ -77,7 +79,7 @@ import org.jetbrains.annotations.Nullable;
  * ExecutionServiceImpl. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEventHandler {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ExecutionServiceImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ExecutionServiceImpl.class);
 
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
@@ -125,6 +127,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSrvc,
             DataStorageManager dataStorageManager
+
     ) {
         return new ExecutionServiceImpl<>(
                 topSrvc.localMember().id(),
@@ -179,7 +182,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     ) {
         DistributedQueryManager queryManager;
 
-        DistributedQueryManager old = queryManagerMap.put(ctx.queryId(), queryManager = new DistributedQueryManager(ctx));
+        InternalTransaction tx = ctx.transaction();
+
+        DistributedQueryManager old = queryManagerMap.put(ctx.queryId(), queryManager = new DistributedQueryManager(ctx, tx));
 
         assert old == null;
 
@@ -351,6 +356,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private volatile Long rootFragmentId = null;
 
+        private InternalTransaction transaction;
+
+        private DistributedQueryManager(BaseQueryContext ctx, InternalTransaction transaction) {
+            this(ctx);
+
+            this.transaction = transaction;
+        }
+
         private DistributedQueryManager(BaseQueryContext ctx) {
             this.ctx = ctx;
 
@@ -423,7 +436,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private void onNodeLeft(String nodeId) {
             remoteFragmentInitCompletion.entrySet().stream().filter(e -> nodeId.equals(e.getKey().nodeId()))
-                    .forEach(e -> e.getValue().completeExceptionally(new IgniteInternalException("asddd")));
+                    .forEach(e -> e.getValue()
+                            .completeExceptionally(new IgniteInternalException("Node left the cluster [nodeId=" + nodeId + "]")));
         }
 
         private void executeFragment(FragmentPlan plan, ExecutionContext<RowT> ectx) {
@@ -480,7 +494,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     initiatorNodeId,
                     desc,
                     handler,
-                    Commons.parametersMap(ctx.parameters())
+                    Commons.parametersMap(ctx.parameters()),
+                    transaction
             );
         }
 
@@ -492,7 +507,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 executeFragment(plan, createContext(initiatorNode, desc));
             } catch (Throwable ex) {
-                LOG.error("Failed to start query fragment", ex);
+                LOG.debug("Unable to start query fragment", ex);
 
                 try {
                     msgSrvc.send(
@@ -504,7 +519,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                     .build()
                     );
                 } catch (Exception e) {
-                    LOG.error("Error occurred during send error message", e);
+                    LOG.info("Unable to send error message", e);
 
                     close(true);
                 }

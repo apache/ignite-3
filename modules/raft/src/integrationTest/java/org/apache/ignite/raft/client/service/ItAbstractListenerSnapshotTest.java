@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.client.service;
 
+import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -31,6 +32,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -58,6 +61,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener> {
+    private static final IgniteLogger LOG = Loggers.forClass(ItAbstractListenerSnapshotTest.class);
+
     /** Starting server port. */
     private static final int PORT = 5003;
 
@@ -95,7 +100,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      */
     @BeforeEach
     public void beforeTest() {
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
+        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
     }
 
     /**
@@ -386,7 +391,8 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         server.startRaftGroup(
                 raftGroupId(),
                 createListener(service, listenerPersistencePath),
-                INITIAL_CONF
+                INITIAL_CONF,
+                defaults()
         );
 
         return server;
