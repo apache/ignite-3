@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -348,7 +347,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
                                 + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
                                 + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
 
-        assertTrue(ex.getCause().getMessage().contains("Failed to MERGE some keys due to keys conflict"));
+        assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
     }
 
     @Test
