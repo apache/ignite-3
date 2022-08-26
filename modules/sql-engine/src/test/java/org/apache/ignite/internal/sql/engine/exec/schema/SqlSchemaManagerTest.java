@@ -353,8 +353,8 @@ public class SqlSchemaManagerTest {
             assertNull(schema1.unwrap(IgniteSchema.class).index(indexId));
             assertNotNull(schema2.unwrap(IgniteSchema.class).index(indexId));
 
-            assertNull(((InternalIgniteTable)schema1.getTable("T")).getIndex("I"));
-            assertNotNull(((InternalIgniteTable)schema2.getTable("T")).getIndex("I"));
+            assertNull(((InternalIgniteTable) schema1.getTable("T")).getIndex("I"));
+            assertNotNull(((InternalIgniteTable) schema2.getTable("T")).getIndex("I"));
         }
         {
             sqlSchemaManager.onIndexDropped("TEST_SCHEMA", indexId, testRevisionRegister.actualToken() + 1);
@@ -370,8 +370,8 @@ public class SqlSchemaManagerTest {
             assertNotNull(schema1.unwrap(IgniteSchema.class).index(indexId));
             assertNull(schema2.unwrap(IgniteSchema.class).index(indexId));
 
-            assertNotNull(((InternalIgniteTable)schema1.getTable("T")).getIndex("I"));
-            assertNull(((InternalIgniteTable)schema2.getTable("T")).getIndex("I"));
+            assertNull(((InternalIgniteTable) schema2.getTable("T")).getIndex("I"));
+            assertNotNull(((InternalIgniteTable) schema1.getTable("T")).getIndex("I"));
         }
 
         verifyNoMoreInteractions(tableManager);

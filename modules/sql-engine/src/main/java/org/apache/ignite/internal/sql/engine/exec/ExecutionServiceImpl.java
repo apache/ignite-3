@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -30,6 +31,7 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
@@ -70,6 +72,7 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -250,18 +253,32 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private AsyncCursor<List<Object>> executeDdl(DdlPlan plan) {
-        CompletableFuture<Iterator<List<Object>>> res = ddlCmdHnd.handle(plan.command())
-                .handle((v, err) -> {
-                    if (err == null) {
-                        return List.of(List.of((Object) v)).iterator();
-                    }
+            CompletableFuture<Iterator<List<Object>>> ret = ddlCmdHnd.handle(plan.command())
+                    .thenApply(v -> Collections.singletonList(Collections.<Object>singletonList(v)).iterator())
+                    .handle((v, th) -> {
+                        if (th == null) {
+                            return v;
+                        }
 
-                    throw new IgniteInternalException(
-                            "Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
-                                    + ", err=" + err.getMessage() + ']', err);
-                });
+                        throw convertDdlException(th);
+                    });
 
-        return new AsyncWrapper<>(res, ForkJoinPool.commonPool());
+            ret.join();
+
+            return new AsyncWrapper<>(ret, ForkJoinPool.commonPool());
+    }
+
+    private static RuntimeException convertDdlException(Throwable e) {
+        if (e instanceof CompletionException) {
+            e = e.getCause();
+        }
+
+        if (e instanceof IgniteInternalCheckedException) {
+            return new IgniteInternalException("Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
+                    + ", err=" + e.getMessage() + ']', e);
+        }
+
+        return (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteException(e);
     }
 
     private AsyncCursor<List<Object>> executeExplain(ExplainPlan plan) {

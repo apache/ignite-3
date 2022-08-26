@@ -1024,6 +1024,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
                 });
             }
+        }).exceptionally(th -> {
+            tblFut.completeExceptionally(th);
+
+            return null;
         });
 
         return tblFut;
@@ -1173,16 +1177,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     return allOf(tableFuts).thenApply(unused -> inBusyLock(busyLock, () -> {
                         var tables = new ArrayList<Table>(tableIds.size());
 
-                        try {
-                            for (var fut : tableFuts) {
-                                var table = fut.get();
+                        for (var fut : tableFuts) {
+                            var table = fut.join();
 
-                                if (table != null) {
-                                    tables.add((Table) table);
-                                }
+                            if (table != null) {
+                                tables.add((Table) table);
                             }
-                        } catch (Throwable t) {
-                            throw new CompletionException(t);
                         }
 
                         return tables;

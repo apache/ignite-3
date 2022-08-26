@@ -30,7 +30,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
@@ -70,6 +72,7 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
+import org.jetbrains.annotations.NotNull;
 
 /** DDL commands handler. */
 public class DdlCommandHandler {
@@ -162,16 +165,9 @@ public class DdlCommandHandler {
                 IgniteObjectName.quote(cmd.tableName())
         );
 
-        try {
-            return tableManager.createTableAsync(fullName, tblChanger)
-                    .thenApply(t -> Boolean.TRUE);
-        } catch (TableAlreadyExistsException ex) {
-            if (!cmd.ifTableExists()) {
-                return CompletableFuture.failedFuture(ex);
-            } else {
-                return completedFuture(Boolean.FALSE);
-            }
-        }
+        return tableManager.createTableAsync(fullName, tblChanger)
+                .thenApply(Objects::nonNull)
+                .handle(handleTableModificationResult(cmd.ifTableExists()));
     }
 
     /** Handles drop table command. */
@@ -180,16 +176,9 @@ public class DdlCommandHandler {
                 IgniteObjectName.quote(cmd.schemaName()),
                 IgniteObjectName.quote(cmd.tableName())
         );
-        try {
-            return tableManager.dropTableAsync(fullName)
-                    .thenApply(v -> Boolean.TRUE);
-        } catch (TableNotFoundException ex) {
-            if (!cmd.ifTableExists()) {
-                return CompletableFuture.failedFuture(ex);
-            } else {
-                return completedFuture(Boolean.FALSE);
-            }
-        }
+
+        return tableManager.dropTableAsync(fullName)
+                .handle(handleTableModificationResult(cmd.ifTableExists()));
     }
 
     /** Handles add column command. */
@@ -203,15 +192,8 @@ public class DdlCommandHandler {
                 IgniteObjectName.quote(cmd.tableName())
         );
 
-        try {
-            return addColumnInternal(fullName, cmd.columns(), !cmd.ifColumnNotExists());
-        } catch (TableNotFoundException ex) {
-            if (!cmd.ifTableExists()) {
-                return CompletableFuture.failedFuture(ex);
-            } else {
-                return completedFuture(Boolean.FALSE);
-            }
-        }
+        return addColumnInternal(fullName, cmd.columns(), !cmd.ifColumnNotExists())
+                .handle(handleTableModificationResult(cmd.ifTableExists()));
     }
 
     /** Handles drop column command. */
@@ -225,15 +207,24 @@ public class DdlCommandHandler {
                 IgniteObjectName.quote(cmd.tableName())
         );
 
-        try {
-            return dropColumnInternal(fullName, cmd.columns(), cmd.ifColumnExists());
-        } catch (TableNotFoundException ex) {
-            if (!cmd.ifTableExists()) {
-                return CompletableFuture.failedFuture(ex);
-            } else {
-                return completedFuture(Boolean.FALSE);
+        return dropColumnInternal(fullName, cmd.columns(), cmd.ifColumnExists())
+                .handle(handleTableModificationResult(cmd.ifTableExists()));
+    }
+
+    @NotNull
+    private static BiFunction<Object, Throwable, Boolean> handleTableModificationResult(boolean ignoreTableExistenceErrors) {
+        return (val, err) -> {
+            if (err == null) {
+                return Boolean.TRUE;
+            } else if (ignoreTableExistenceErrors) {
+                Throwable err0 = err instanceof CompletionException ? err.getCause() : err;
+
+                if (err0 instanceof TableAlreadyExistsException || err0 instanceof TableNotFoundException)
+                    return Boolean.FALSE;
             }
-        }
+
+            throw (err instanceof RuntimeException) ? (RuntimeException) err : new CompletionException(err);
+        };
     }
 
     /** Handles create index command. */
