@@ -118,6 +118,7 @@ public class ClientTupleSerializer {
      * @param keyOnly Key only.
      */
     public static void writeTupleRaw(@NotNull Tuple tuple, ClientSchema schema, PayloadOutputChannel out, boolean keyOnly) {
+        // TODO IGNITE-17297: Why not reuse logic from ClientTableCommon?
         var columns = schema.columns();
         var count = keyOnly ? schema.keyColumnCount() : columns.length;
 
