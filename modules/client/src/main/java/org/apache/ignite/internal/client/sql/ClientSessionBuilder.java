@@ -39,8 +39,11 @@ public class ClientSessionBuilder implements SessionBuilder {
     /** Default schema. */
     private String defaultSchema;
 
-    /** Default timeout. */
-    private Long defaultTimeoutMs;
+    /** Default query timeout. */
+    private Long defaultQueryTimeoutMs;
+
+    /** Default session timeout. */
+    private Long defaultSessionTimeoutMs;
 
     /** Page size. */
     private Integer pageSize;
@@ -55,17 +58,33 @@ public class ClientSessionBuilder implements SessionBuilder {
     }
 
     @Override
-    public long defaultTimeout(TimeUnit timeUnit) {
+    public long defaultQueryTimeout(TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
-        return timeUnit.convert(defaultTimeoutMs == null ? 0 : defaultTimeoutMs, TimeUnit.MILLISECONDS);
+        return timeUnit.convert(defaultQueryTimeoutMs == null ? 0 : defaultQueryTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     @Override
-    public SessionBuilder defaultTimeout(long timeout, TimeUnit timeUnit) {
+    public SessionBuilder defaultQueryTimeout(long timeout, TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
-        defaultTimeoutMs = TimeUnit.MILLISECONDS.convert(timeout, timeUnit);
+        defaultQueryTimeoutMs = TimeUnit.MILLISECONDS.convert(timeout, timeUnit);
+
+        return this;
+    }
+
+    @Override
+    public long idleTimeout(TimeUnit timeUnit) {
+        Objects.requireNonNull(timeUnit);
+
+        return timeUnit.convert(defaultSessionTimeoutMs == null ? 0 : defaultSessionTimeoutMs, TimeUnit.MILLISECONDS);
+    }
+
+    @Override
+    public SessionBuilder idleTimeout(long timeout, TimeUnit timeUnit) {
+        Objects.requireNonNull(timeUnit);
+
+        defaultSessionTimeoutMs = timeUnit.toMillis(timeout);
 
         return this;
     }
@@ -108,6 +127,6 @@ public class ClientSessionBuilder implements SessionBuilder {
 
     @Override
     public Session build() {
-        return new ClientSession(ch, pageSize, defaultSchema, defaultTimeoutMs, new HashMap<>(properties));
+        return new ClientSession(ch, pageSize, defaultSchema, defaultQueryTimeoutMs, defaultSessionTimeoutMs, new HashMap<>(properties));
     }
 }

@@ -90,6 +90,11 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Size of the cache for query plans. */
     public static final int PLAN_CACHE_SIZE = 1024;
 
+    /** Session expiration check period in milliseconds. */
+    public static final long SESSION_EXPIRE_CHECK_PERIOD = TimeUnit.SECONDS.toMillis(1);
+
+    private final List<LifecycleAware> services = new ArrayList<>();
+
     private final ClusterService clusterSrvc;
 
     private final TableManager tableManager;
@@ -102,8 +107,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final DataStorageManager dataStorageManager;
 
-    private final SessionManager sessionManager = new SessionManager(System::currentTimeMillis);
-
     private final Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier;
 
     /** Busy lock for stop synchronisation. */
@@ -112,7 +115,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Event listeners to close. */
     private final List<Pair<Event, EventListener>> evtLsnrs = new ArrayList<>();
 
-    private final List<LifecycleAware> services = new ArrayList<>();
+    private volatile SessionManager sessionManager;
 
     private volatile QueryTaskExecutor taskExecutor;
 
@@ -145,6 +148,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     @Override
     public synchronized void start() {
         var nodeName = clusterSrvc.topologyService().localMember().name();
+
+        sessionManager = registerService(new SessionManager(nodeName, SESSION_EXPIRE_CHECK_PERIOD, System::currentTimeMillis));
 
         taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
@@ -208,9 +213,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public SessionId createSession(PropertiesHolder queryProperties) {
+    public SessionId createSession(long sessionTimeoutMs, PropertiesHolder queryProperties) {
         return sessionManager.createSession(
-                TimeUnit.MINUTES.toMillis(5),
+                sessionTimeoutMs,
                 queryProperties
         );
     }
