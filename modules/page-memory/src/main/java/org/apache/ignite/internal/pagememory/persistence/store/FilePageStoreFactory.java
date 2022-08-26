@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
-import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader.readHeader;
+import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.LATEST_FILE_PAGE_STORE_VERSION;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -31,9 +32,6 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * Factory for creating {@link FilePageStore}.
  */
 class FilePageStoreFactory {
-    /** Latest file page store version. */
-    private final int latestVersion = FilePageStore.VERSION_1;
-
     private final FileIoFactory fileIoFactory;
 
     private final int pageSize;
@@ -52,49 +50,88 @@ class FilePageStoreFactory {
     /**
      * Creates instance of {@link FilePageStore}.
      *
-     * <p>If the file exists, an attempt will be made to read its {@link FilePageStoreHeader header} and create the {@link FilePageStore}.
+     * <p>Page stores are created based on their headers, for a file page stores with no header, the latest version is generated for delta
+     * file page store files, headers must be present.
      *
-     * @param filePath File page store path.
-     * @param headerBuffer Buffer for reading {@link FilePageStoreHeader header} from {@code filePath}.
-     * @return File page store.
+     * @param headerBuffer Buffer for reading headers.
+     * @param filePageStorePath File page store path (for example the path to the partition file).
+     * @param deltaFilePaths Paths to existing delta files page stores of the file page storage.
      * @throws IgniteInternalCheckedException if failed
      */
-    public FilePageStore createPageStore(Path filePath, ByteBuffer headerBuffer) throws IgniteInternalCheckedException {
+    public FilePageStore createPageStore(
+            ByteBuffer headerBuffer,
+            Path filePageStorePath,
+            Path... deltaFilePaths
+    ) throws IgniteInternalCheckedException {
         assert headerBuffer.remaining() == pageSize : headerBuffer.remaining();
 
-        if (!Files.exists(filePath)) {
-            return createPageStore(filePath, new FilePageStoreHeader(latestVersion, pageSize));
+        if (!Files.exists(filePageStorePath)) {
+            assert deltaFilePaths.length == 0 : Arrays.toString(deltaFilePaths);
+
+            return createFilePageStore(filePageStorePath, new FilePageStoreHeader(LATEST_FILE_PAGE_STORE_VERSION, pageSize));
         }
 
-        try (FileIo fileIo = fileIoFactory.create(filePath)) {
-            FilePageStoreHeader header = readHeader(fileIo, headerBuffer);
+        try (FileIo fileIo = fileIoFactory.create(filePageStorePath)) {
+            FilePageStoreHeader header = FilePageStoreHeader.readHeader(fileIo, headerBuffer);
 
             if (header == null) {
-                header = new FilePageStoreHeader(latestVersion, pageSize);
+                header = new FilePageStoreHeader(LATEST_FILE_PAGE_STORE_VERSION, pageSize);
             }
 
-            return createPageStore(filePath, header);
+            if (deltaFilePaths.length == 0) {
+                return createFilePageStore(filePageStorePath, header);
+            }
+
+            DeltaFilePageStoreIo[] deltaFileIos = new DeltaFilePageStoreIo[deltaFilePaths.length];
+
+            for (int i = 0; i < deltaFilePaths.length; i++) {
+                Path deltaFilePath = deltaFilePaths[i];
+
+                assert Files.exists(deltaFilePath) : deltaFilePath;
+
+                try (FileIo deltaFileIo = fileIoFactory.create(deltaFilePath)) {
+                    DeltaFilePageStoreIoHeader deltaFileHeader = DeltaFilePageStoreIoHeader.readHeader(deltaFileIo, headerBuffer.rewind());
+
+                    assert deltaFileHeader != null : deltaFileHeader;
+
+                    deltaFileIos[i] = createDeltaFilePageStoreIo(deltaFilePath, deltaFileHeader);
+                } catch (IOException e) {
+                    throw new IgniteInternalCheckedException("Error while creating delta file page store [file=" + deltaFilePath + "]", e);
+                }
+            }
+
+            return createFilePageStore(filePageStorePath, header, deltaFileIos);
         } catch (IOException e) {
-            throw new IgniteInternalCheckedException("Error while creating file page store [file=" + filePath + "]", e);
+            throw new IgniteInternalCheckedException("Error while creating file page store [file=" + filePageStorePath + "]", e);
         }
     }
 
-    private FilePageStore createPageStore(
+    private FilePageStore createFilePageStore(
             Path filePath,
-            FilePageStoreHeader header
+            FilePageStoreHeader header,
+            DeltaFilePageStoreIo... deltaFileIos
     ) throws IgniteInternalCheckedException {
         if (header.version() == FilePageStore.VERSION_1) {
-            return new FilePageStore(
-                    header.version(),
-                    header.pageSize(),
-                    header.headerSize(),
-                    filePath,
-                    fileIoFactory
-            );
+            return new FilePageStore(new FilePageStoreIo(fileIoFactory, filePath, header), deltaFileIos);
         }
 
         throw new IgniteInternalCheckedException(String.format(
                 "Unknown version of file page store [version=%s, file=%s]",
+                header.version(),
+                filePath
+        ));
+    }
+
+    private DeltaFilePageStoreIo createDeltaFilePageStoreIo(
+            Path filePath,
+            DeltaFilePageStoreIoHeader header
+    ) throws IgniteInternalCheckedException {
+        if (header.version() == FilePageStore.DELTA_FILE_VERSION_1) {
+            return new DeltaFilePageStoreIo(fileIoFactory, filePath, header);
+        }
+
+        throw new IgniteInternalCheckedException(String.format(
+                "Unknown version of delta file page store [version=%s, file=%s]",
                 header.version(),
                 filePath
         ));

@@ -15,12 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.pagememory.persistence;
 
+import java.nio.ByteBuffer;
+import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * The exception is used to complete result stage of {@link AsyncCursor#requestNextAsync(int)} invocation when invoked on a closed cursor.
+ * Interface which allows writing dirty page.
  */
-public class ClosedCursorException extends IgniteInternalCheckedException {
+public interface WriteDirtyPage {
+    /**
+     * Writes the page to the page store.
+     *
+     * @param pageMemory Page memory.
+     * @param fullPageId Full page id.
+     * @param buffer Byte buffer to write from.
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    void write(PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer buffer) throws IgniteInternalCheckedException;
 }

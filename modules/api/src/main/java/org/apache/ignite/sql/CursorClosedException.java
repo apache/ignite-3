@@ -15,36 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.session;
+package org.apache.ignite.sql;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_CLOSED_ERR;
 
-import org.apache.ignite.sql.SqlException;
+import java.util.UUID;
 
 /**
- * Exception is thrown when someone tries to perform action on behalf of a session that has already expired or never exists.
+ * Exception is thrown when query cursor data fetch attempt is performed on a closed cursor.
  */
-public class SessionNotFoundException extends SqlException {
-    private final SessionId sessionId;
-
+public class CursorClosedException extends SqlException {
     /**
-     * Constructor.
+     * Creates a new exception instance.
      *
-     * @param sessionId A session id.
      */
-    public SessionNotFoundException(SessionId sessionId) {
-        super(SESSION_NOT_FOUND_ERR, format("Session not found [{}]", sessionId));
-
-        this.sessionId = sessionId;
+    public CursorClosedException() {
+        super(CURSOR_CLOSED_ERR);
     }
 
     /**
-     * Returns a sessionId of session which was not found.
+     * Creates a new exception with the given trace id, error code, detail message and cause.
      *
-     * @return A session id.
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
      */
-    public SessionId sessionId() {
-        return sessionId;
+    public CursorClosedException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

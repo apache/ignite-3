@@ -22,16 +22,24 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.cause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.Streams;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
@@ -40,7 +48,9 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlBatchException;
@@ -60,7 +70,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
     /**
      * Clear tables after each test.
      *
-     * @param testInfo Test information oject.
+     * @param testInfo Test information object.
      * @throws Exception If failed.
      */
     @AfterEach
@@ -159,9 +169,19 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
 
+        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
+
+        int txPrevCnt = txManagerInternal.finished();
+
         for (int i = 0; i < ROW_COUNT; ++i) {
             checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", i, i);
         }
+
+        assertEquals(ROW_COUNT, txManagerInternal.finished() - txPrevCnt);
+
+        var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
+
+        states.forEach((k, v) -> assertNotSame(v, TxState.PENDING));
 
         checkDml(ROW_COUNT, ses, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
@@ -183,6 +203,8 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
 
         Set<Integer> set = Streams.stream(rs).map(r -> r.intValue(0)).collect(Collectors.toSet());
 
+        rs.close();
+
         for (int i = 0; i < ROW_COUNT; ++i) {
             assertTrue(set.remove(i), "Results invalid: " + rs);
         }
@@ -191,9 +213,14 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void errors() {
+    public void errors() throws InterruptedException {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
         IgniteSql sql = igniteSql();
-        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
+        Session ses = sql.sessionBuilder().defaultPageSize(2).build();
 
         // Parse error.
         assertThrowsWithCause(
@@ -211,7 +238,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
 
         // Planning error.
         assertThrowsWithCause(
-                () -> ses.execute(null, "CREATE TABLE TEST (VAL INT)"),
+                () -> ses.execute(null, "CREATE TABLE TEST2 (VAL INT)"),
                 SqlException.class,
                 "Table without PRIMARY KEY is not supported"
         );
@@ -222,6 +249,20 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
                 IgniteException.class,
                 "/ by zero"
         );
+
+        // No result set error.
+        {
+            ResultSet rs = ses.execute(null, "CREATE TABLE TEST3 (ID INT PRIMARY KEY)");
+            assertThrowsWithCause(rs::next, NoRowSetExpectedException.class, "Query has no result set");
+        }
+
+        // Cursor closed error.
+        {
+            ResultSet rs = ses.execute(null, "SELECT * FROM TEST");
+            Thread.sleep(300); // ResultSetImpl fetches next page in background, wait to it to complete to avoid flakiness.
+            rs.close();
+            assertThrowsWithCause(() -> rs.forEachRemaining(Object::hashCode), CursorClosedException.class);
+        }
     }
 
     @Test
@@ -306,7 +347,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         assertThrowsWithCause(() -> ses.execute(null, sql), expectedException, msg);
     }
 
-    private static void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args) {
+    protected static void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args) {
         ResultSet res = ses.execute(
                 null,
                 sql,

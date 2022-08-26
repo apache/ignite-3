@@ -175,6 +175,8 @@ public class BallotBox implements Lifecycle<BallotBoxOptions>, Describer {
                 return false;
             }
             this.pendingIndex = newPendingIndex;
+            //TODO Fix it properly: https://issues.apache.org/jira/browse/IGNITE-17445
+            this.lastCommittedIndex = newPendingIndex - 1;
             this.closureQueue.resetFirstIndex(newPendingIndex);
             return true;
         }

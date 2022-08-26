@@ -148,7 +148,9 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         List<Row> rows = new ArrayList<>(binaryRows.size());
 
         for (BinaryRow r : binaryRows) {
-            rows.add(resolveInternal(r, curSchema));
+            if (r != null) {
+                rows.add(resolveInternal(r, curSchema));
+            }
         }
 
         return rows;

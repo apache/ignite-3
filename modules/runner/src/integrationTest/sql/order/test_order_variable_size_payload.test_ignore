@@ -1,8 +1,8 @@
 # name: test/sql/order/test_order_variable_size_payload.test
 # description: Test ORDER BY keyword (variable size sorting/payload columns)
 # group: [order]
-# Ignore https://issues.apache.org/jira/browse/IGNITE-14636
-# Ignore https://issues.apache.org/jira/browse/IGNITE-14555
+# Ignore https://issues.apache.org/jira/browse/IGNITE-17437
+# Ignore https://issues.apache.org/jira/browse/IGNITE-17268
 
 # payload string that is longer than the 8MB initial string size - this tests whether RowChunk dynamically increases block capacity
 statement ok

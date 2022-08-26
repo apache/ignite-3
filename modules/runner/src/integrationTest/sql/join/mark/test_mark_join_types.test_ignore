@@ -1,7 +1,7 @@
 # name: test/sql/join/mark/test_mark_join_types.test
 # description: Test mark join with different types
 # group: [mark]
-# Ignore https://issues.apache.org/jira/browse/IGNITE-14555
+# Ignore https://issues.apache.org/jira/browse/IGNITE-17268
 
 statement ok
 PRAGMA enable_verification

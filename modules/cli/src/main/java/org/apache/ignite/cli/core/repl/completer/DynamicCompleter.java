@@ -15,24 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.checkpoint;
+package org.apache.ignite.cli.core.repl.completer;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import java.util.List;
 
 /**
- * Interface which allows writing one page to page store.
+ * Dynamic completer returns completions that can be fetched in real time
+ * from Ignite 3 node, file, or cached.
  */
-public interface CheckpointPageWriter {
+public interface DynamicCompleter {
+
     /**
-     * Writes the page to the page store.
-     *
-     * @param fullPageId Full page id.
-     * @param buf Byte buffer to write from.
-     * @return {@link PageStore} which was used to write.
-     * @throws IgniteInternalCheckedException If failed.
+     * Given typed words returns list of candidates that can be autocompleted.
      */
-    PageStore write(FullPageId fullPageId, ByteBuffer buf) throws IgniteInternalCheckedException;
+    List<String> complete(String[] words);
 }

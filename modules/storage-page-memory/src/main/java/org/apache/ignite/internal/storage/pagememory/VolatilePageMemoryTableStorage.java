@@ -24,13 +24,14 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.pagememory.mv.PageMemoryMvPartitionStorage;
+import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
+import org.apache.ignite.internal.storage.pagememory.mv.VolatilePageMemoryMvPartitionStorage;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for in-memory case.
  */
-class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     private VolatilePageMemoryDataRegion dataRegion;
 
     /**
@@ -48,17 +49,31 @@ class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     /** {@inheritDoc} */
     @Override
     protected VolatilePageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException {
-        TableFreeList tableFreeList = dataRegion.tableFreeList();
-
-        TableTree tableTree = createTableTree(tableCfg.value(), partId, tableFreeList);
+        TableTree tableTree = createTableTree(partId, tableCfg.value());
 
         return new VolatilePageMemoryPartitionStorage(
                 partId,
-                tableFreeList,
+                dataRegion.tableFreeList(),
                 tableTree
         );
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public VolatilePageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException {
+        VersionChainTree versionChainTree = createVersionChainTree(partitionId, tableCfg.value());
+
+        return new VolatilePageMemoryMvPartitionStorage(
+                partitionId,
+                tableCfg.value(),
+                dataRegion.pageMemory(),
+                dataRegion.versionChainFreeList(),
+                dataRegion.rowVersionFreeList(),
+                versionChainTree
+        );
+    }
+
+    /** {@inheritDoc} */
     @Override
     public boolean isVolatile() {
         return true;
@@ -70,31 +85,14 @@ class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         stop();
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        return new PageMemoryMvPartitionStorage(
-                partitionId,
-                tableCfg.value(),
-                dataRegion,
-                dataRegion.versionChainFreeList(),
-                dataRegion.rowVersionFreeList()
-        );
-    }
-
     /**
      * Returns new {@link TableTree} instance for partition.
      *
-     * @param tableView Table configuration.
      * @param partId Partition ID.
-     * @param freeList Table free list.
+     * @param tableView Table configuration.
      * @throws StorageException If failed.
      */
-    TableTree createTableTree(
-            TableView tableView,
-            int partId,
-            TableFreeList freeList
-    ) throws StorageException {
+    TableTree createTableTree(int partId, TableView tableView) throws StorageException {
         int grpId = tableView.tableId();
 
         try {
@@ -106,7 +104,37 @@ class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
                     dataRegion.pageMemory().allocatePage(grpId, partId, FLAG_AUX),
-                    freeList,
+                    dataRegion.tableFreeList(),
+                    true
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(
+                    String.format("Error creating TableTree [tableName=%s, partitionId=%s]", tableView.name(), partId),
+                    e
+            );
+        }
+    }
+
+    /**
+     * Returns new {@link TableTree} instance for partition.
+     *
+     * @param partId Partition ID.
+     * @param tableView Table configuration.
+     * @throws StorageException If failed.
+     */
+    VersionChainTree createVersionChainTree(int partId, TableView tableView) throws StorageException {
+        int grpId = tableView.tableId();
+
+        try {
+            return new VersionChainTree(
+                    grpId,
+                    tableView.name(),
+                    partId,
+                    dataRegion.pageMemory(),
+                    PageLockListenerNoOp.INSTANCE,
+                    new AtomicLong(),
+                    dataRegion.pageMemory().allocatePage(grpId, partId, FLAG_AUX),
+                    dataRegion.versionChainFreeList(),
                     true
             );
         } catch (IgniteInternalCheckedException e) {

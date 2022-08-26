@@ -61,7 +61,7 @@ public interface SortedIndexStorage extends AutoCloseable {
     /**
      * Returns a range of index values between the lower bound (inclusive) and the upper bound (inclusive).
      */
-    // TODO: add options https://issues.apache.org/jira/browse/IGNITE-16059
+    // TODO: add options https://issues.apache.org/jira/browse/IGNITE-17308
     Cursor<IndexRow> range(IndexRowPrefix lowerBound, IndexRowPrefix upperBound);
 
     /**
