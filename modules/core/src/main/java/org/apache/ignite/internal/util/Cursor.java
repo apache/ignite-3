@@ -41,7 +41,7 @@ public interface Cursor<T> extends Iterator<T>, Iterable<T>, AutoCloseable {
      * @return Cursor.
      */
     static <T> Cursor<T> fromIterator(Iterator<? extends T> it) {
-        return new Cursor<T>() {
+        return new Cursor<>() {
             /** {@inheritDoc} */
             @Override
             public void close() throws Exception {

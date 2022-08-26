@@ -20,16 +20,20 @@ package org.apache.ignite.cli.call.cliconfig;
 import org.apache.ignite.cli.core.call.CallInput;
 
 /**
- * Get config property parameters.
+ * Input for {@link CliConfigGetCall}.
  */
 public class CliConfigGetCallInput implements CallInput {
     private final String key;
 
     private final String profileName;
 
-    public CliConfigGetCallInput(String key, String profileName) {
+    private CliConfigGetCallInput(String key, String profileName) {
         this.key = key;
         this.profileName = profileName;
+    }
+
+    public static CliConfigGetCallInputBuilder builder() {
+        return new CliConfigGetCallInputBuilder();
     }
 
     public String getKey() {
@@ -38,5 +42,28 @@ public class CliConfigGetCallInput implements CallInput {
 
     public String getProfileName() {
         return profileName;
+    }
+
+    /**
+     * Builder of {@link CliConfigGetCallInput}.
+     */
+
+    public static class CliConfigGetCallInputBuilder {
+        private String key;
+        private String profileName;
+
+        public CliConfigGetCallInputBuilder key(String key) {
+            this.key = key;
+            return this;
+        }
+
+        public CliConfigGetCallInputBuilder profileName(String profileName) {
+            this.profileName = profileName;
+            return this;
+        }
+
+        public CliConfigGetCallInput build() {
+            return new CliConfigGetCallInput(key, profileName);
+        }
     }
 }

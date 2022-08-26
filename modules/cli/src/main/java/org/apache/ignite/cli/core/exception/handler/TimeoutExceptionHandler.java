@@ -20,6 +20,7 @@ package org.apache.ignite.cli.core.exception.handler;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
+import org.apache.ignite.cli.core.style.component.ErrorUiComponent;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
@@ -32,7 +33,14 @@ public class TimeoutExceptionHandler implements ExceptionHandler<TimeoutExceptio
     @Override
     public int handle(ExceptionWriter err, TimeoutException e) {
         LOG.error("Timeout exception", e);
-        err.write("Command failed with timeout.");
+        err.write(
+                ErrorUiComponent.builder()
+                        .header("The command is running for too long")
+                        .details(e.getMessage())
+                        .build()
+                        .render()
+        );
+
         return 1;
     }
 

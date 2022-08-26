@@ -46,7 +46,7 @@ public class IndexEventParameters extends EventParameters {
      * Constructor.
      *
      * @param revision Causality token.
-     * @param indexId  An index identifier.
+     * @param indexId An index identifier.
      */
     public IndexEventParameters(long revision, UUID indexId) {
         this(revision, indexId, null);
@@ -59,7 +59,7 @@ public class IndexEventParameters extends EventParameters {
      * @param indexId An index identifier.
      * @param index An index instance.
      */
-    private IndexEventParameters(long revision, UUID indexId, @Nullable Index<?> index) {
+    protected IndexEventParameters(long revision, UUID indexId, @Nullable Index<?> index) {
         super(revision);
 
         this.indexId = indexId;

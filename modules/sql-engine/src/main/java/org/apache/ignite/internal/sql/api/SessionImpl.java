@@ -70,6 +70,8 @@ public class SessionImpl implements Session {
 
     private final int pageSize;
 
+    private final long sessionTimeout;
+
     private final PropertiesHolder props;
 
     /**
@@ -77,17 +79,20 @@ public class SessionImpl implements Session {
      *
      * @param qryProc Query processor.
      * @param pageSize Query fetch page size.
+     * @param sessionTimeoutMs Session timeout in milliseconds.
      * @param props Session's properties.
      */
     SessionImpl(
             SessionId sessionId,
             QueryProcessor qryProc,
             int pageSize,
+            long sessionTimeoutMs,
             PropertiesHolder props
     ) {
         this.qryProc = qryProc;
         this.sessionId = sessionId;
         this.pageSize = pageSize;
+        this.sessionTimeout = sessionTimeoutMs;
         this.props = props;
     }
 
@@ -105,8 +110,14 @@ public class SessionImpl implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public long defaultTimeout(TimeUnit timeUnit) {
-        return timeUnit.convert(props.get(QueryProperty.QUERY_TIMEOUT), TimeUnit.NANOSECONDS);
+    public long defaultQueryTimeout(TimeUnit timeUnit) {
+        return timeUnit.convert(props.get(QueryProperty.QUERY_TIMEOUT), TimeUnit.MILLISECONDS);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long idleTimeout(TimeUnit timeUnit) {
+        return timeUnit.convert(sessionTimeout, TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */

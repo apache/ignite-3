@@ -32,11 +32,14 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SessionBuilderImpl implements SessionBuilder {
 
-    public static final long DEFAULT_TIMEOUT = 0;
+    public static final long DEFAULT_QUERY_TIMEOUT = 0;
+    public static final long DEFAULT_SESSION_TIMEOUT = TimeUnit.MINUTES.toMillis(5);
 
     private final QueryProcessor qryProc;
 
-    private long timeout = DEFAULT_TIMEOUT;
+    private long queryTimeout = DEFAULT_QUERY_TIMEOUT;
+
+    private long sessionTimeout = DEFAULT_SESSION_TIMEOUT;
 
     private String schema = Session.DEFAULT_SCHEMA;
 
@@ -57,14 +60,28 @@ public class SessionBuilderImpl implements SessionBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public long defaultTimeout(TimeUnit timeUnit) {
-        return timeUnit.convert(timeout, TimeUnit.NANOSECONDS);
+    public long defaultQueryTimeout(TimeUnit timeUnit) {
+        return timeUnit.convert(queryTimeout, TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */
     @Override
-    public SessionBuilder defaultTimeout(long timeout, TimeUnit timeUnit) {
-        this.timeout = timeUnit.toNanos(timeout);
+    public SessionBuilder defaultQueryTimeout(long timeout, TimeUnit timeUnit) {
+        this.queryTimeout = timeUnit.toMillis(timeout);
+
+        return this;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long idleTimeout(TimeUnit timeUnit) {
+        return timeUnit.convert(sessionTimeout, TimeUnit.MILLISECONDS);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SessionBuilder idleTimeout(long timeout, TimeUnit timeUnit) {
+        this.sessionTimeout = timeUnit.toMillis(timeout);
 
         return this;
     }
@@ -120,17 +137,18 @@ public class SessionBuilderImpl implements SessionBuilder {
     public Session build() {
         var propsHolder = PropertiesHolder.fromMap(
                 Map.of(
-                        QueryProperty.QUERY_TIMEOUT, timeout,
+                        QueryProperty.QUERY_TIMEOUT, queryTimeout,
                         QueryProperty.DEFAULT_SCHEMA, schema
                 )
         );
 
-        var sessionId = qryProc.createSession(propsHolder);
+        var sessionId = qryProc.createSession(sessionTimeout, propsHolder);
 
         return new SessionImpl(
                 sessionId,
                 qryProc,
                 pageSize,
+                sessionTimeout,
                 propsHolder
         );
     }

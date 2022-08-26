@@ -35,6 +35,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -73,6 +74,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(AbstractBasicIntegrationTest.class);
+
+    /** Timeout should be big enough to prevent premature session expiration. */
+    private static final long SESSION_IDLE_TIMEOUT = TimeUnit.SECONDS.toMillis(60);
 
     /** Base port number. */
     private static final int BASE_PORT = 3344;
@@ -292,7 +296,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     protected static List<List<Object>> sql(String sql, Object... args) {
         var queryEngine = ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
 
-        SessionId sessionId = queryEngine.createSession(PropertiesHolder.fromMap(
+        SessionId sessionId = queryEngine.createSession(SESSION_IDLE_TIMEOUT, PropertiesHolder.fromMap(
                 Map.of(QueryProperty.DEFAULT_SCHEMA, "PUBLIC")
         ));
 

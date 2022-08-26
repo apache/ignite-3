@@ -177,6 +177,7 @@ namespace Apache.Ignite.Tests
             props["schema"] = reader.TryReadNil() ? null : reader.ReadString();
             props["pageSize"] = reader.TryReadNil() ? (int?)null : reader.ReadInt32();
             props["timeoutMs"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
+            props["sessionTimeoutMs"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
 
             // ReSharper restore RedundantCast
             var propCount = reader.ReadMapHeader();

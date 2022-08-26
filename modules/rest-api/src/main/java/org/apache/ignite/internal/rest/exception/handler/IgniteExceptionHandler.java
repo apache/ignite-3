@@ -27,10 +27,11 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
-import org.apache.ignite.internal.rest.api.ValidationProblem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
+import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Handles {@link IgniteException} and represents it as an application/problem+json response.
@@ -40,10 +41,12 @@ import org.apache.ignite.lang.IgniteException;
 public class IgniteExceptionHandler implements ExceptionHandler<IgniteException, HttpResponse<? extends Problem>> {
     @Override
     public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteException exception) {
+        String detail = extractDetailMessageOrNull(exception);
+
         if (exception.getCause() instanceof IllegalArgumentException) {
             return HttpProblemResponse.from(
                     Problem.fromHttpCode(HttpCode.BAD_REQUEST)
-                            .detail(exception.getMessage())
+                            .detail(detail)
                             .traceId(exception.traceId())
                             .code(exception.codeAsString())
             );
@@ -51,8 +54,8 @@ public class IgniteExceptionHandler implements ExceptionHandler<IgniteException,
 
         if (exception.getCause() instanceof ConfigurationValidationException) {
             return HttpProblemResponse.from(
-                    ValidationProblem.fromHttpCode(HttpCode.BAD_REQUEST)
-                            .detail(exception.getMessage())
+                    Problem.fromHttpCode(HttpCode.BAD_REQUEST)
+                            .detail(detail)
                             .invalidParams(mapValidationIssuesToRestFormat((ConfigurationValidationException) exception.getCause()))
                             .traceId(exception.traceId())
                             .code(exception.codeAsString())
@@ -61,10 +64,19 @@ public class IgniteExceptionHandler implements ExceptionHandler<IgniteException,
 
         return HttpProblemResponse.from(
                 Problem.fromHttpCode(HttpCode.INTERNAL_ERROR)
-                        .detail(exception.getMessage())
+                        .detail(detail)
                         .traceId(exception.traceId())
                         .code(exception.codeAsString())
         );
+    }
+
+    @Nullable
+    private static String extractDetailMessageOrNull(IgniteException exception) {
+        String detail = ErrorGroup.extractCauseMessage(exception.getMessage());
+        if (detail != null && detail.isBlank()) {
+            detail = null;
+        }
+        return detail;
     }
 
     private List<InvalidParam> mapValidationIssuesToRestFormat(ConfigurationValidationException exception) {

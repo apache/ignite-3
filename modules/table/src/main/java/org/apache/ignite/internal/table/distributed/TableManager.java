@@ -703,6 +703,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<?> createTableLocally(long causalityToken, String name, UUID tblId, int partitions) {
+        LOG.trace("Creating local table: name={}, id={}, token={}", name, tblId, causalityToken);
+
         TableConfiguration tableCfg = tablesCfg.tables().get(name);
 
         MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createMvTable(tableCfg);
@@ -746,6 +748,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param table Table.
      */
     private void completeApiCreateFuture(TableImpl table) {
+        LOG.trace("Finish creating table: name={}, id={}", table.name(), table.tableId());
+
         CompletableFuture<Table> tblFut = tableCreateFuts.get(table.tableId());
 
         if (tblFut != null) {
@@ -985,9 +989,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                                 descriptor.columnMapping(SchemaUtils.columnMapper(
                                                         tblImpl.schemaView().schema(currTableView.schemas().size()),
-                                                        currTableView,
+                                                        currTableView.columns(),
                                                         descriptor,
-                                                        tblCh));
+                                                        tblCh.columns()));
                                             } catch (IllegalArgumentException ex) {
                                                 // Convert unexpected exceptions here,
                                                 // because validation actually happens later,
@@ -1092,8 +1096,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             } else {
                 tablesCfg.tables()
                         .change(change -> {
-                            if (change.get(name) == null) {
+                            TableView tableCfg = change.get(name);
+
+                            if (tableCfg == null) {
                                 throw new TableNotFoundException(name);
+                            }
+
+                            List<String> indicesNames = tableCfg.indices().namedListKeys();
+
+                            //TODO: https://issues.apache.org/jira/browse/IGNITE-17562
+                            // Let's drop orphaned indices instantly.
+                            if (!indicesNames.isEmpty()) {
+                                // TODO: https://issues.apache.org/jira/browse/IGNITE-17474 Implement cascade drop for indices.
+                                throw new IgniteException("Can't drop table with indices.");
                             }
 
                             change.delete(name);

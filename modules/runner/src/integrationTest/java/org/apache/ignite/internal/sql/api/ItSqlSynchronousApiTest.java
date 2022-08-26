@@ -152,6 +152,9 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
 
         // DROP TABLE
         checkDdl(false, ses, "DROP TABLE IF EXISTS NOT_EXISTS_TABLE");
+        //TODO: https://issues.apache.org/jira/browse/IGNITE-17562
+        // Remove this, indices must be dropped together with the table.
+        checkDdl(true, ses, "DROP INDEX TEST_IDX");
         checkDdl(true, ses, "DROP TABLE TEST");
         checkError(
                 TableNotFoundException.class,

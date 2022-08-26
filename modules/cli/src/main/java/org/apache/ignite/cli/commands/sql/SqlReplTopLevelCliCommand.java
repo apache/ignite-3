@@ -26,7 +26,7 @@ import picocli.shell.jline3.PicocliCommands;
  */
 @CommandLine.Command(name = "",
         description = {""},
-        footer = {"", "Press Ctrl-D to exit."},
+        footer = {"", "Press Ctrl-D to exit"},
         subcommands = {
             CommandLine.HelpCommand.class,
             PicocliCommands.ClearScreen.class

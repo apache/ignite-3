@@ -50,7 +50,10 @@ public class ClientSession implements Session {
     private final String defaultSchema;
 
     @Nullable
-    private final Long defaultTimeout;
+    private final Long defaultQueryTimeout;
+
+    @Nullable
+    private final Long defaultSessionTimeout;
 
     @Nullable
     private final Map<String, Object> properties;
@@ -61,7 +64,8 @@ public class ClientSession implements Session {
      * @param ch Channel.
      * @param defaultPageSize Default page size.
      * @param defaultSchema Default schema.
-     * @param defaultTimeout Default timeout.
+     * @param defaultQueryTimeout Default query timeout.
+     * @param defaultSessionTimeout Default session timeout.
      * @param properties Properties.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
@@ -69,12 +73,14 @@ public class ClientSession implements Session {
             ReliableChannel ch,
             @Nullable Integer defaultPageSize,
             @Nullable String defaultSchema,
-            @Nullable Long defaultTimeout,
+            @Nullable Long defaultQueryTimeout,
+            @Nullable Long defaultSessionTimeout,
             @Nullable Map<String, Object> properties) {
         this.ch = ch;
         this.defaultPageSize = defaultPageSize;
         this.defaultSchema = defaultSchema;
-        this.defaultTimeout = defaultTimeout;
+        this.defaultQueryTimeout = defaultQueryTimeout;
+        this.defaultSessionTimeout = defaultSessionTimeout;
         this.properties = properties;
     }
 
@@ -107,7 +113,9 @@ public class ClientSession implements Session {
 
             w.out().packObject(oneOf(clientStatement.defaultSchema(), defaultSchema));
             w.out().packObject(oneOf(clientStatement.pageSizeNullable(), defaultPageSize));
-            w.out().packObject(oneOf(clientStatement.queryTimeoutNullable(), defaultTimeout));
+            w.out().packObject(oneOf(clientStatement.queryTimeoutNullable(), defaultQueryTimeout));
+
+            w.out().packObject(defaultSessionTimeout);
 
             packProperties(w, clientStatement.properties());
 
@@ -183,10 +191,18 @@ public class ClientSession implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public long defaultTimeout(TimeUnit timeUnit) {
+    public long defaultQueryTimeout(TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
-        return defaultTimeout == null ? 0 : timeUnit.convert(defaultTimeout, TimeUnit.MILLISECONDS);
+        return defaultQueryTimeout == null ? 0 : timeUnit.convert(defaultQueryTimeout, TimeUnit.MILLISECONDS);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long idleTimeout(TimeUnit timeUnit) {
+        Objects.requireNonNull(timeUnit);
+
+        return defaultSessionTimeout == null ? 0 : timeUnit.convert(defaultSessionTimeout, TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */

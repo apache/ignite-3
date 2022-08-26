@@ -510,7 +510,6 @@ namespace Apache.Ignite.Tests.Table
             byte.MinValue + 1,
             -1,
             0,
-            1,
             byte.MaxValue - 1,
             byte.MaxValue,
             (long)byte.MaxValue + 1,

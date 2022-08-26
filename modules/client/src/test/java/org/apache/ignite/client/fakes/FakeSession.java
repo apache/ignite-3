@@ -43,7 +43,10 @@ public class FakeSession implements Session {
     private final String defaultSchema;
 
     @Nullable
-    private final Long defaultTimeout;
+    private final Long defaultQueryTimeout;
+
+    @Nullable
+    private final Long defaultSessionTimeout;
 
     @Nullable
     private final Map<String, Object> properties;
@@ -53,18 +56,20 @@ public class FakeSession implements Session {
      *
      * @param defaultPageSize Default page size.
      * @param defaultSchema Default schema.
-     * @param defaultTimeout Default timeout.
+     * @param defaultQueryTimeout Default timeout.
      * @param properties Properties.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public FakeSession(
             @Nullable Integer defaultPageSize,
             @Nullable String defaultSchema,
-            @Nullable Long defaultTimeout,
+            @Nullable Long defaultQueryTimeout,
+            @Nullable Long defaultSessionTimeout,
             @Nullable Map<String, Object> properties) {
         this.defaultPageSize = defaultPageSize;
         this.defaultSchema = defaultSchema;
-        this.defaultTimeout = defaultTimeout;
+        this.defaultQueryTimeout = defaultQueryTimeout;
+        this.defaultSessionTimeout = defaultSessionTimeout;
         this.properties = properties;
     }
 
@@ -147,8 +152,14 @@ public class FakeSession implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public long defaultTimeout(TimeUnit timeUnit) {
-        return defaultTimeout;
+    public long defaultQueryTimeout(TimeUnit timeUnit) {
+        return defaultQueryTimeout;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long idleTimeout(TimeUnit timeUnit) {
+        return defaultSessionTimeout;
     }
 
     /** {@inheritDoc} */

@@ -68,6 +68,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
      * @param testInfo Test information object.
      * @throws Exception If failed.
      */
+    @Override
     @BeforeEach
     public void setUp(TestInfo testInfo) throws Exception {
         super.setUp(testInfo);

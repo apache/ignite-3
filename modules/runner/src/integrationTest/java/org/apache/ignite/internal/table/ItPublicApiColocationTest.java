@@ -44,6 +44,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -129,6 +130,7 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
      * Check colocation by one column for all types.
      * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17557")
     @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
     @MethodSource("twoColumnsParameters")
     public void colocationTwoColumns(NativeTypeSpec t0, NativeTypeSpec t1) throws ExecutionException, InterruptedException {

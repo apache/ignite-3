@@ -197,6 +197,21 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return tableStorage.awaitFlush(true);
     }
 
+    /**
+     * Returns the partition ID of the partition that this storage is responsible for.
+     */
+    public int partitionId() {
+        return partitionId;
+    }
+
+    /**
+     * Returns a WriteBatch that can be used by the affiliated storage implementation (like indices) to maintain consistency when run
+     * inside the {@link #runConsistently} method.
+     */
+    public WriteBatchWithIndex currentWriteBatch() {
+        return requireWriteBatch();
+    }
+
     /** {@inheritDoc} */
     @Override
     public long lastAppliedIndex() {

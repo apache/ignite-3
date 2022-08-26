@@ -229,12 +229,27 @@ public class ErrorGroup {
         String c = (cause != null && cause.getMessage() != null) ? cause.getMessage() : null;
 
         if (c != null) {
-            Matcher m = EXCEPTION_MESSAGE_PATTERN.matcher(c);
-
-            c = (m.matches()) ? m.group(8) : c;
+            c = extractCauseMessage(c);
         }
 
         return errorMessage(traceId, groupName, code, c);
+    }
+
+    /**
+     * Returns a message extracted from the given {@code errorMessage} if this {@code errorMessage} matches
+     * {@link #EXCEPTION_MESSAGE_PATTERN}. If {@code errorMessage} does not match the pattern or {@code null} then returns the original
+     * {@code errorMessage}.
+     *
+     * @param errorMessage Message that is returned by {@link Throwable#getMessage()}
+     * @return Extracted message.
+     */
+    public static String extractCauseMessage(String errorMessage) {
+        if (errorMessage == null) {
+            return null;
+        }
+
+        Matcher m = EXCEPTION_MESSAGE_PATTERN.matcher(errorMessage);
+        return (m.matches()) ? m.group(8) : errorMessage;
     }
 
     /** {@inheritDoc} */

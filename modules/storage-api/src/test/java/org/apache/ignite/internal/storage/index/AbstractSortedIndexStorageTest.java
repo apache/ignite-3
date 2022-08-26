@@ -45,6 +45,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
@@ -55,6 +56,7 @@ import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultConfigur
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableIndexView;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -173,7 +175,7 @@ public abstract class AbstractSortedIndexStorageTest {
     /**
      * Creates a storage instance for testing.
      */
-    protected abstract SortedIndexStorage createIndexStorage(String name, TableView tableCfg);
+    protected abstract SortedIndexStorage createIndexStorage(UUID id, TableView tableCfg);
 
     /**
      * Creates a Sorted Index using the given columns.
@@ -208,7 +210,9 @@ public abstract class AbstractSortedIndexStorageTest {
 
         assertThat(createIndexFuture, willBe(nullValue(Void.class)));
 
-        return createIndexStorage(indexDefinition.name(), tableCfg.value());
+        TableIndexView indexConfig = tableCfg.value().indices().get(indexDefinition.name());
+
+        return createIndexStorage(indexConfig.id(), tableCfg.value());
     }
 
     /**
