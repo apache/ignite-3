@@ -480,7 +480,7 @@ public class ItRebalanceDistributedTest {
             schemaManager = new SchemaManager(registry, tablesCfg);
 
             tableManager = new TableManager(
-                    "",
+                    name,
                     registry,
                     tablesCfg,
                     raftManager,

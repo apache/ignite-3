@@ -605,8 +605,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 MvTableStorage storage = internalTable.storage();
                 boolean isInMemory = storage.isVolatile();
 
-                // for each ass check topology. send msg via raft client and check term (is empty or not) -- full partition restart
-
                 InternalTable internalTbl = tablesById.get(tblId).internalTable();
 
                 // TODO: IGNITE-17197 Remove assert after the ticket is resolved.
@@ -713,9 +711,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         CompletableFuture.allOf(futures).join();
     }
 
+    /**
+     * Calculates the quantity of the data nodes for the partition of the table.
+     *
+     * @param tblId Table id.
+     * @param partId Partition id.
+     * @param partAssignments Partition assignments.
+     * @return A future that will hold the quantity of data nodes.
+     */
     private CompletableFuture<Long> queryDataNodesCount(UUID tblId, int partId, List<ClusterNode> partAssignments) {
         HasDataRequestBuilder requestBuilder = TABLE_MESSAGES_FACTORY.hasDataRequest().tableId(tblId).partitionId(partId);
 
+        //noinspection unchecked
         CompletableFuture<Boolean>[] requestFutures = partAssignments.stream().map(node -> {
             HasDataRequest request = requestBuilder.build();
 
@@ -726,9 +733,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }).exceptionally(unused -> false);
         }).toArray(CompletableFuture[]::new);
 
-        return CompletableFuture.allOf(requestFutures).thenApply(unused -> {
-            return Arrays.stream(requestFutures).filter(CompletableFuture::join).count();
-        });
+        return CompletableFuture.allOf(requestFutures)
+                .thenApply(unused -> Arrays.stream(requestFutures).filter(CompletableFuture::join).count());
     }
 
     private RaftGroupOptions groupOptionsForPartition(

@@ -532,6 +532,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             /**
              * Constructor.
              *
+             * @param nodeId Node id.
              * @param cursor Watch event cursor.
              * @param lsnr   The listener which receives and handles watch updates.
              */

@@ -764,7 +764,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut, boolean waitingSqlSchema) {
         TableManager tableManager = new TableManager(
-                "",
+                "test",
                 revisionUpdater,
                 tblsCfg,
                 rm,

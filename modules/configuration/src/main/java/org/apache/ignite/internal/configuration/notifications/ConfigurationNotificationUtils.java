@@ -22,11 +22,9 @@ import static java.util.Collections.emptyIterator;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.internal.configuration.ConfigurationNode;
@@ -66,8 +64,7 @@ class ConfigurationNotificationUtils {
      * @return Dynamic configuration of the child node or {@code null} if the child node does not exist.
      */
     static @Nullable DynamicConfiguration<InnerNode, ?> dynamicConfig(DynamicConfiguration<InnerNode, ?> dynamicConfig, String nodeName) {
-        Map<String, ConfigurationProperty<?>> members = dynamicConfig.members();
-        return (DynamicConfiguration<InnerNode, ?>) members.get(nodeName);
+        return (DynamicConfiguration<InnerNode, ?>) dynamicConfig.members().get(nodeName);
     }
 
     /**

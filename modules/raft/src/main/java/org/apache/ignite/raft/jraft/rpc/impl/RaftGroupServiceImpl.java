@@ -580,8 +580,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 if (err != null) {
                     if (recoverable(err)) {
                         executor.schedule(() -> {
-//                            LOG.warn("Recoverable error during the request type={} occurred (will be retried on the randomly selected node): ",
-//                                    err, req.getClass().getSimpleName());
+                            LOG.warn("Recoverable error during the request type={} occurred (will be retried on the randomly selected node): ",
+                                    err, req.getClass().getSimpleName());
 
                             sendWithRetry(randomNode(peer), req, stopTime, fut);
 
@@ -608,7 +608,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
                             if (resp0.errorCode() == (RaftError.ENOENT.getNumber())) {
                                 // If changing peers or requesting a leader and something is not found
-                                // probably target peer is doing rebalancing, try another peer
+                                // probably target peer is doing rebalancing, try another peer.
                                 if (req instanceof GetLeaderRequest || req instanceof ChangePeersAsyncRequest) {
                                     targetPeer = randomNode(peer);
                                 }
@@ -695,7 +695,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     /**
-     * @return Random node.
+     * Returns a random peer. Tries returning peer different from the peer passed as an argument.
+     * If peer is null, just returns a random peer.
+     *
+     * @param peer Previous peer.
+     * @return Random peer.
      */
     private Peer randomNode(Peer peer) {
         List<Peer> peers0 = peers;
@@ -710,12 +714,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         int retries = 0;
 
-        ThreadLocalRandom current = current();
+        ThreadLocalRandom random = current();
 
         int newIdx = 0;
 
         while (retries < 5) {
-            newIdx = current.nextInt(peers0.size());
+            newIdx = random.nextInt(peers0.size());
 
             if (newIdx != lastPeerIndex) {
                 break;
