@@ -17,62 +17,72 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.internal.tx.Timestamp;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Code to work with {@link Timestamp}s.
+ * Code to work with {@link HybridTimestamp}s.
  */
 public class Timestamps {
     /**
-     * Reads a {@link Timestamp} value from memory.
+     * Reads a {@link HybridTimestamp} value from memory.
      *
      * @param pageAddr Address where page data starts.
      * @param offset Offset to the timestamp value relative to pageAddr.
      */
-    static @Nullable Timestamp readTimestamp(long pageAddr, int offset) {
-        long nodeId = getLong(pageAddr, offset);
-        long localTimestamp = getLong(pageAddr, offset + Long.BYTES);
+    static @Nullable HybridTimestamp readTimestamp(long pageAddr, int offset) {
+        long physical = getLong(pageAddr, offset);
+        int logical = getInt(pageAddr, offset + Long.BYTES);
 
-        Timestamp timestamp = new Timestamp(localTimestamp, nodeId);
-        if (timestamp.equals(RowVersion.NULL_TIMESTAMP)) {
-            timestamp = null;
+        if (physical == 0L && logical == 0) {
+            return null;
         }
 
-        return timestamp;
+        return new HybridTimestamp(physical, logical);
     }
 
     /**
-     * Writes a {@link Timestamp} to memory starting at the given address + offset.
+     * Writes a {@link HybridTimestamp} to memory starting at the given address + offset.
      *
      * @param addr Memory address.
      * @param offset Offset added to the address.
      * @param timestamp The timestamp to write.
      * @return Number of bytes written.
      */
-    public static int writeTimestampToMemory(long addr, int offset, @Nullable Timestamp timestamp) {
-        Timestamp timestampForStorage = RowVersion.timestampForStorage(timestamp);
+    public static int writeTimestampToMemory(long addr, int offset, @Nullable HybridTimestamp timestamp) {
+        if (timestamp == null) {
+            putLong(addr, offset, 0L);
 
-        putLong(addr, offset, timestampForStorage.getNodeId());
-        putLong(addr, offset + Long.BYTES, timestampForStorage.getTimestamp());
+            putInt(addr, offset + Long.BYTES, 0);
+        } else {
+            putLong(addr, offset, timestamp.getPhysical());
 
-        return 2 * Long.BYTES;
+            putInt(addr, offset + Long.BYTES, timestamp.getLogical());
+        }
+
+        return HYBRID_TIMESTAMP_SIZE;
     }
 
     /**
-     * Writes a {@link Timestamp} to a buffer.
+     * Writes a {@link HybridTimestamp} to a buffer.
      *
      * @param buffer Buffer to which to write.
      * @param timestamp The timestamp to write.
      */
-    public static void writeTimestampToBuffer(ByteBuffer buffer, @Nullable Timestamp timestamp) {
-        Timestamp timestampForStorage = RowVersion.timestampForStorage(timestamp);
-
-        buffer.putLong(timestampForStorage.getNodeId());
-        buffer.putLong(timestampForStorage.getTimestamp());
+    public static void writeTimestampToBuffer(ByteBuffer buffer, @Nullable HybridTimestamp timestamp) {
+        if (timestamp == null) {
+            buffer.putLong(0L)
+                    .putInt(0);
+        } else {
+            buffer.putLong(timestamp.getPhysical())
+                    .putInt(timestamp.getLogical());
+        }
     }
 }

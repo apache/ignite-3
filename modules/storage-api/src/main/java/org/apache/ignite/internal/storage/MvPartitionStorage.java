@@ -21,6 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
@@ -86,6 +87,21 @@ public interface MvPartitionStorage extends AutoCloseable {
     long persistedIndex();
 
     /**
+     * Converts {@link Timestamp} into {@link HybridTimestamp} with preserving local node time order.
+     *
+     * @deprecated Temporary method to support API compatibility.
+     */
+    @Deprecated
+    private static HybridTimestamp convertTimestamp(Timestamp timestamp) {
+        long ts = timestamp.getTimestamp();
+
+        // "timestamp" part consists of two sections:
+        // - a 48-bits number of milliseconds since the beginning of the epoch
+        // - a 16-bit counter
+        return new HybridTimestamp(ts >>> 16, (int) ts & 0xFFFF);
+    }
+
+    /**
      * Reads either the committed value from the storage or the uncommitted value belonging to given transaction.
      *
      * @param rowId Row id.
@@ -100,12 +116,23 @@ public interface MvPartitionStorage extends AutoCloseable {
     /**
      * Reads the value from the storage as it was at the given timestamp.
      *
+     * @deprecated Use {@link #read(RowId, HybridTimestamp)}
+     */
+    @Nullable
+    @Deprecated
+    default BinaryRow read(RowId rowId, Timestamp timestamp) throws StorageException {
+        return read(rowId, convertTimestamp(timestamp));
+    }
+
+    /**
+     * Reads the value from the storage as it was at the given timestamp.
+     *
      * @param rowId Row id.
      * @param timestamp Timestamp.
      * @return Binary row that corresponds to the key or {@code null} if value is not found.
      */
     @Nullable
-    BinaryRow read(RowId rowId, Timestamp timestamp) throws StorageException;
+    BinaryRow read(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
     /**
      * Creates an uncommitted version, assigning a new row id to it.
@@ -148,13 +175,23 @@ public interface MvPartitionStorage extends AutoCloseable {
     @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
 
     /**
+     * Commits a pending update of the ongoing transaction.
+     *
+     * @deprecated Use {@link #commitWrite(RowId, HybridTimestamp)}
+     */
+    @Deprecated
+    default void commitWrite(RowId rowId, Timestamp timestamp) throws StorageException {
+        commitWrite(rowId, convertTimestamp(timestamp));
+    }
+
+    /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
      *
      * @param rowId Row id.
      * @param timestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
      */
-    void commitWrite(RowId rowId, Timestamp timestamp) throws StorageException;
+    void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
     /**
      * Scans the partition and returns a cursor of values. All filtered values must either be uncommitted in current transaction
@@ -170,13 +207,23 @@ public interface MvPartitionStorage extends AutoCloseable {
     /**
      * Scans the partition and returns a cursor of values at the given timestamp.
      *
+     * @deprecated Use {@link #scan(Predicate, HybridTimestamp)}
+     */
+    @Deprecated
+    default Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, Timestamp timestamp) throws StorageException {
+        return scan(keyFilter, convertTimestamp(timestamp));
+    }
+
+    /**
+     * Scans the partition and returns a cursor of values at the given timestamp.
+     *
      * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
      * @param timestamp Timestamp. Can't be {@code null}.
      * @return Cursor.
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to read data from the storage.
      */
-    Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, Timestamp timestamp) throws StorageException;
+    Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) throws StorageException;
 
     /**
      * Returns rows count belongs to current storage.
@@ -193,7 +240,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      * Iterates over all versions of all entries, except for tombstones.
      *
      * @param consumer Closure to process entries.
-     * @deprecated This method was bord out of desperation and isn't well-designed. Implementation is not polished either. Currently, it's
+     * @deprecated This method was born out of desperation and isn't well-designed. Implementation is not polished either. Currently, it's
      *      only usage is to work-around in-memory PK index rebuild on node restart, which shouldn't even exist in the first place.
      */
     @Deprecated
