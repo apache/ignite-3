@@ -39,7 +39,6 @@ import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryTupleContainer;
 import org.apache.ignite.internal.schema.BinaryTupleReader;
@@ -345,17 +344,18 @@ public class ClientTableCommon {
 
         // TODO IGNITE-17297: Avoid array allocation? But we need to release netty buf anyway.
         var binaryTupleBuf = unpacker.readPayload(unpacker.unpackBinaryHeader());
-        var binaryTupleParser = new BinaryTupleReader(cnt, binaryTupleBuf);
+        var binaryTupleReader = new BinaryTupleReader(cnt, binaryTupleBuf);
 
         var tuple = Tuple.create(cnt);
 
-        // TODO: IGNITE-17297 BinaryTuple to Tuple adapter?
+        // TODO: IGNITE-17297 BinaryTuple to Tuple adapter? Separate ticket?
         for (int i = 0; i < cnt; i++) {
-            if (unpacker.tryUnpackNoValue()) {
-                continue;
-            }
+            // TODO: IGNITE-17297 handle no value (not set)
+            // if (unpacker.tryUnpackNoValue()) {
+            //    continue;
+            // }
 
-            readAndSetColumnValue(unpacker, tuple, schema.column(i));
+            readAndSetColumnValue(binaryTupleReader, tuple, schema.column(i), i);
         }
 
         return tuple;
@@ -449,6 +449,62 @@ public class ClientTableCommon {
             tuple.set(col.name(), val);
         } catch (MessageTypeException e) {
             throw new IgniteException(PROTOCOL_ERR, "Incorrect value type for column '" + col.name() + "': " + e.getMessage(), e);
+        }
+    }
+
+    private static void readAndSetColumnValue(BinaryTupleReader reader, Tuple tuple, Column col, int idx) {
+        switch (col.type().spec()) {
+            case INT8:
+                tuple.set(col.name(), reader.byteValue(idx));
+                break;
+
+            case INT16:
+                break;
+
+            case INT32:
+                break;
+
+            case INT64:
+                break;
+
+            case FLOAT:
+                break;
+
+            case DOUBLE:
+                break;
+
+            case DECIMAL:
+                break;
+
+            case UUID:
+                break;
+
+            case STRING:
+                break;
+
+            case BYTES:
+                break;
+
+            case BITMASK:
+                break;
+
+            case NUMBER:
+                break;
+
+            case DATE:
+                break;
+
+            case TIME:
+                break;
+
+            case DATETIME:
+                break;
+
+            case TIMESTAMP:
+                break;
+
+            default:
+                throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + col.type());
         }
     }
 
