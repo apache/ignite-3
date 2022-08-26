@@ -45,6 +45,8 @@ public class HybridTimestamp implements Comparable<HybridTimestamp>, Serializabl
      */
     public HybridTimestamp(long physical, int logical) {
         assert physical > 0 : physical;
+        // Value -1 is used in "org.apache.ignite.hlc.HybridClock.update" to produce "0" after the increment.
+        // Real usable value cannot be negative.
         assert logical >= -1 : logical;
 
         this.physical = physical;
