@@ -186,35 +186,43 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
      */
     @Test
     public void inMemoryNodeRestartNotLeader(TestInfo testInfo) throws Exception {
+        // Start three nodes, the first one is going to be CMG and MetaStorage leader.
         IgniteImpl ignite = startNode(testInfo, 0);
         startNode(testInfo, 1);
         startNode(testInfo, 2);
 
+        // Create a table with replica on every node.
         createTableWithData(ignite, TABLE_NAME, 3, 1);
 
         String tableName = SCHEMA_PREFIX + TABLE_NAME;
 
         TableImpl table = (TableImpl) ignite.tables().table(tableName);
         String tableId = table.tableId().toString();
+
+        // Find the leader of the table's partition group.
         RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(0);
         IgniteBiTuple<Peer, Long> leaderWithTerm = raftGroupService.refreshAndGetLeaderWithTerm().join();
         NetworkAddress leaderAddress = leaderWithTerm.get1().address();
 
-        var idxToStop = IntStream.range(1, 3)
+        // Find the index of any node that is not a leader of the partition group.
+        int idxToStop = IntStream.range(1, 3)
                 .filter(idx -> !leaderAddress.equals(ignite(idx).node().address()))
                 .findFirst().getAsInt();
 
+        // Restart the node.
         stopNode(idxToStop);
 
         IgniteImpl restartingNode = startNode(testInfo, idxToStop);
 
         Loza loza = restartingNode.raftManager();
 
+        // Check that it restarts.
         assertTrue(IgniteTestUtils.waitForCondition(
                 () -> loza.startedGroups().stream().anyMatch(grpName -> grpName.contains(tableId)),
-                TimeUnit.SECONDS.toMillis(20)
+                TimeUnit.SECONDS.toMillis(10)
         ));
 
+        // Check the data rebalanced correctly.
         checkTableWithData(restartingNode, TABLE_NAME);
     }
 
