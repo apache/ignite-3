@@ -36,6 +36,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
@@ -109,11 +110,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * @param topSrvc Topology service.
      * @param msgSrvc Message service.
      * @param sqlSchemaManager Schema manager.
+     * @param indexManager Index manager.
      * @param tblManager Table manager.
      * @param taskExecutor Task executor.
      * @param handler Row handler.
      * @param mailboxRegistry Mailbox registry.
      * @param exchangeSrvc Exchange service.
+     * @param dataStorageManager Storage manager.
      * @param <RowT> Type of the sql row.
      * @return An execution service.
      */
@@ -122,6 +125,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             MessageService msgSrvc,
             SqlSchemaManager sqlSchemaManager,
             TableManager tblManager,
+            IndexManager indexManager,
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
             MailboxRegistry mailboxRegistry,
@@ -134,7 +138,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 msgSrvc,
                 new MappingServiceImpl(topSrvc),
                 sqlSchemaManager,
-                new DdlCommandHandler(tblManager, dataStorageManager),
+                new DdlCommandHandler(tblManager, indexManager, dataStorageManager),
                 taskExecutor,
                 handler,
                 exchangeSrvc,

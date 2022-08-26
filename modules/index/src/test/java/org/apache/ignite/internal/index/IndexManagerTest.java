@@ -126,7 +126,7 @@ public class IndexManagerTest {
         var indexManager = new IndexManager(tableManagerMock, listener -> {});
 
         try {
-            indexManager.createIndexAsync("sName", "idx", "tName", indexChange -> {
+            indexManager.createIndexAsync("sName", "idx", "tName", true, indexChange -> {
                 var sortedIndexChange = indexChange.convert(SortedIndexChange.class);
 
                 sortedIndexChange.changeColumns(columns -> {
@@ -172,7 +172,7 @@ public class IndexManagerTest {
 
         CompletionException completionException = assertThrows(
                 CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", "idx", "tName", indexChange -> {/* doesn't matter */}).join()
+                () -> indexManager.createIndexAsync("sName", "idx", "tName", true, indexChange -> {/* doesn't matter */}).join()
         );
 
         assertThat(completionException.getCause(), instanceOf(TableNotFoundException.class));
@@ -187,7 +187,7 @@ public class IndexManagerTest {
 
         CompletionException completionException = assertThrows(
                 CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", "", "tName", indexChange -> {/* doesn't matter */}).join()
+                () -> indexManager.createIndexAsync("sName", "", "tName", true, indexChange -> {/* doesn't matter */}).join()
         );
 
         assertThat(completionException.getCause(), instanceOf(IgniteInternalException.class));
@@ -226,7 +226,7 @@ public class IndexManagerTest {
 
         CompletionException completionException = assertThrows(
                 CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", "idx", "tName",
+                () -> indexManager.createIndexAsync("sName", "idx", "tName", true,
                         indexChange -> indexChange.convert(HashIndexChange.class).changeColumnNames()).join()
         );
 
@@ -267,7 +267,7 @@ public class IndexManagerTest {
 
         CompletionException completionException = assertThrows(
                 CompletionException.class,
-                () -> indexManager.createIndexAsync("sName", "idx", "tName",
+                () -> indexManager.createIndexAsync("sName", "idx", "tName", true,
                         indexChange -> indexChange.convert(HashIndexChange.class).changeColumnNames("nonExistingColumn")).join()
         );
 
@@ -286,7 +286,7 @@ public class IndexManagerTest {
 
         CompletionException completionException = assertThrows(
                 CompletionException.class,
-                () -> indexManager.dropIndexAsync("sName", "nonExisting").join()
+                () -> indexManager.dropIndexAsync("sName", "nonExisting", true).join()
         );
 
         assertThat(completionException.getCause(), instanceOf(IndexNotFoundException.class));

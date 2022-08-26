@@ -280,22 +280,24 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                         SchemaBuilders.column("COLUMN0", ColumnType.INT32).build()
                 )
                 .withPrimaryKey("ID")
-                .withIndex(
-                        SchemaBuilders.sortedIndex(SORTED_INDEX_NAME)
-                                .addIndexColumn("COLUMN0").done()
-                                .build()
-                )
-                .withIndex(
-                        SchemaBuilders.hashIndex(HASH_INDEX_NAME)
-                                .withColumns("COLUMN0")
-                                .build()
-                )
                 .build();
 
         CompletableFuture<Void> createTableFuture = tableStorage.configuration()
                 .change(tableChange -> SchemaConfigurationConverter.convert(tableDefinition, tableChange));
 
         assertThat(createTableFuture, willCompleteSuccessfully());
+
+        CompletableFuture<Void> indexCreateFut = tableStorage.configuration().change(tblCh ->
+                List.of(SchemaBuilders.sortedIndex(SORTED_INDEX_NAME)
+                                .addIndexColumn("COLUMN0").done()
+                                .build(),
+                        SchemaBuilders.hashIndex(HASH_INDEX_NAME)
+                                .withColumns("COLUMN0")
+                                .build()
+                ).forEach(idxDef -> SchemaConfigurationConverter.addIndex(idxDef, tblCh))
+        );
+
+        assertThat(indexCreateFut, willCompleteSuccessfully());
     }
 
     private static <T> List<T> getAll(Cursor<T> cursor) {

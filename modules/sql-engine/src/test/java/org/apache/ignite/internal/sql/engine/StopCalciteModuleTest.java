@@ -56,6 +56,7 @@ import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.EventListener;
@@ -108,6 +109,9 @@ public class StopCalciteModuleTest {
 
     @Mock
     TableManager tableManager;
+
+    @Mock
+    IndexManager indexManager;
 
     @Mock
     SchemaManager schemaManager;
@@ -217,6 +221,7 @@ public class StopCalciteModuleTest {
                 testRevisionRegister,
                 clusterSrvc,
                 tableManager,
+                indexManager,
                 schemaManager,
                 dataStorageManager,
                 Map::of
