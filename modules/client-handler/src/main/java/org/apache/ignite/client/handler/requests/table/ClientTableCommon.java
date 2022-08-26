@@ -342,6 +342,8 @@ public class ClientTableCommon {
     ) {
         var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
 
+        var noValueMask = unpacker.unpackBitSet();
+
         // TODO IGNITE-17297: Avoid array allocation? But we need to release netty buf anyway.
         var binaryTupleBuf = unpacker.readPayload(unpacker.unpackBinaryHeader());
         var binaryTupleReader = new BinaryTupleReader(cnt, binaryTupleBuf);
@@ -350,10 +352,9 @@ public class ClientTableCommon {
 
         // TODO: IGNITE-17297 BinaryTuple to Tuple adapter? Separate ticket?
         for (int i = 0; i < cnt; i++) {
-            // TODO: IGNITE-17297 handle no value (not set)
-            // if (unpacker.tryUnpackNoValue()) {
-            //    continue;
-            // }
+            if (noValueMask.get(i)) {
+                continue;
+            }
 
             readAndSetColumnValue(binaryTupleReader, tuple, schema.column(i), i);
         }

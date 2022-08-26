@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static com.sun.tools.doclint.Entity.part;
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -155,6 +157,11 @@ public class ClientTupleSerializer {
         }
 
         var columns = schema.columns();
+        var noValueSet = new BitSet(columns.length);
+        out.out().packBitSet(noValueSet);
+
+        // TODO IGNITE-17297: Separate ticket to extract core BinaryTuple parts into binary-tuple module
+        var builder = BinaryTupleBuilder.create(columnCount(schema, part), true);
 
         for (var i = 0; i < columns.length; i++) {
             var col = columns[i];
