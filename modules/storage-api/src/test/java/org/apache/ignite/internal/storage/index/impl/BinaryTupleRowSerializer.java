@@ -19,13 +19,24 @@ package org.apache.ignite.internal.storage.index.impl;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.BitSet;
 import java.util.List;
+import java.util.UUID;
+
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -100,10 +111,11 @@ public class BinaryTupleRowSerializer {
 
         BinaryTupleSchema prefixSchema = BinaryTupleSchema.create(prefixElements);
 
-        BinaryTupleBuilder builder = BinaryTupleBuilder.create(prefixSchema);
+        BinaryTupleBuilder builder = BinaryTupleBuilder.create(
+                prefixSchema.elementCount(), prefixSchema.hasNullableElements());
 
         for (Object value : prefixColumnValues) {
-            builder.appendValue(prefixSchema, value);
+            appendValue(builder, prefixSchema, value);
         }
 
         return new BinaryTuple(prefixSchema, builder.build());
@@ -126,5 +138,63 @@ public class BinaryTupleRowSerializer {
         }
 
         return result;
+    }
+
+    /**
+     * Append a value for the current element.
+     *
+     * @param builder Builder.
+     * @param schema Tuple schema.
+     * @param value Element value.
+     * @return Builder for chaining.
+     */
+    private static BinaryTupleBuilder appendValue(BinaryTupleBuilder builder, BinaryTupleSchema schema, Object value) {
+        BinaryTupleSchema.Element element = schema.element(builder.elementIndex());
+
+        if (value == null) {
+            if (!element.nullable()) {
+                throw new SchemaMismatchException("NULL value for non-nullable column in binary tuple builder.");
+            }
+            return builder.appendNull();
+        }
+
+        switch (element.typeSpec()) {
+            case INT8:
+                return builder.appendByte((byte) value);
+            case INT16:
+                return builder.appendShort((short) value);
+            case INT32:
+                return builder.appendInt((int) value);
+            case INT64:
+                return builder.appendLong((long) value);
+            case FLOAT:
+                return builder.appendFloat((float) value);
+            case DOUBLE:
+                return builder.appendDouble((double) value);
+            case NUMBER:
+                return builder.appendNumberNotNull((BigInteger) value);
+            case DECIMAL:
+                return builder.appendDecimalNotNull((BigDecimal) value);
+            case UUID:
+                return builder.appendUuidNotNull((UUID) value);
+            case BYTES:
+                return builder.appendBytesNotNull((byte[]) value);
+            case STRING:
+                return builder.appendStringNotNull((String) value);
+            case BITMASK:
+                return builder.appendBitmaskNotNull((BitSet) value);
+            case DATE:
+                return builder.appendDateNotNull((LocalDate) value);
+            case TIME:
+                return builder.appendTimeNotNull((LocalTime) value);
+            case DATETIME:
+                return builder.appendDateTimeNotNull((LocalDateTime) value);
+            case TIMESTAMP:
+                return builder.appendTimestampNotNull((Instant) value);
+            default:
+                break;
+        }
+
+        throw new InvalidTypeException("Unexpected type value: " + element.typeSpec());
     }
 }

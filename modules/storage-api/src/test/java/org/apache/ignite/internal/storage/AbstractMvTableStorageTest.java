@@ -34,8 +34,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -197,7 +197,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 new Element(NativeTypes.INT32, false)
         });
 
-        ByteBuffer buffer = BinaryTupleBuilder.create(schema)
+        ByteBuffer buffer = BinaryTupleBuilder.create(schema.elementCount(), schema.hasNullableElements())
                 .appendInt(1)
                 .appendInt(2)
                 .build();

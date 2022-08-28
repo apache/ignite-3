@@ -551,6 +551,15 @@ public class BinaryTupleBuilder {
     }
 
     /**
+     * Gets the current element index.
+     *
+     * @return Element index.
+     */
+    public int elementIndex() {
+        return elementIndex;
+    }
+
+    /**
      * Finalize tuple building.
      *
      * <p>NOTE: This should be called only once as it messes up with accumulated internal data.

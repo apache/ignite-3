@@ -55,6 +55,33 @@ public class BinaryTupleSchema {
 
             this.nullable = nullable;
         }
+
+        /**
+         * Gets the type spec.
+         *
+         * @return Type spec.
+         */
+        public NativeTypeSpec typeSpec() {
+            return typeSpec;
+        }
+
+        /**
+         * Gets the decimal scale.
+         *
+         * @return Decimal scale.
+         */
+        public int decimalScale() {
+            return decimalScale;
+        }
+
+        /**
+         * Gets the nullable flag.
+         *
+         * @return Nullable flag.
+         */
+        public boolean nullable() {
+            return nullable;
+        }
     }
 
     /** Tuple schema corresponding to a set of row columns going in a contiguous range. */
