@@ -34,6 +34,10 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
+
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.logger.Loggers;
 import org.junit.jupiter.api.Test;
 
@@ -49,7 +53,7 @@ public class BinaryTupleTest {
         // Header: 1 byte with null map flag.
         // NullMap: 1 byte with first bit set.
         // Offset table: 1 zero byte
-        byte[] bytes = { BinaryTupleSchema.NULLMAP_FLAG, 1, 0 };
+        byte[] bytes = { BinaryTupleCommon.NULLMAP_FLAG, 1, 0 };
 
         var reader = new BinaryTupleReader(1, bytes);
         assertEquals(bytes.length, reader.size());
@@ -87,7 +91,7 @@ public class BinaryTupleTest {
         // Header: 1 byte with null map flag.
         // NullMap: 1 byte with no bit set.
         // Offset table: 1 zero byte
-        byte[] bytes2 = { BinaryTupleSchema.NULLMAP_FLAG, 0, 0 };
+        byte[] bytes2 = { BinaryTupleCommon.NULLMAP_FLAG, 0, 0 };
 
         byte[][] bytesArray = { bytes1, bytes2 };
 
