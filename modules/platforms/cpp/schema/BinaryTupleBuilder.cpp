@@ -141,7 +141,7 @@ void BinaryTupleBuilder::putDouble(BytesView bytes) {
     if (size != sizeof(float)) {
         putBytes(BytesView{bytes.data(), size});
     } else {
-        float floatValue = value;
+        float floatValue = static_cast<float>(value);
         putBytes(BytesView{reinterpret_cast<std::byte*>(&floatValue), sizeof(float)});
     }
 }

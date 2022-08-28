@@ -31,7 +31,7 @@ set(SOURCES
 
 add_executable(${TARGET} ${SOURCES})
 
-target_link_libraries(${TARGET} ignite-test-common ignite-client ${GTEST_LIBRARY_DEBUG} ${GTEST_MAIN_LIBRARY_DEBUG})
+target_link_libraries(${TARGET} ignite-test-common ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY})
 
 set(TEST_TARGET IgniteClientTest)
 add_test(NAME ${TEST_TARGET} COMMAND ${TARGET})

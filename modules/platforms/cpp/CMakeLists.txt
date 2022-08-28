@@ -25,6 +25,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 
+include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+conan_basic_setup()
+
+#include(GNUInstallDirs)
 set(INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR}/ignite)
 
 option(ENABLE_ADDRESS_SANITIZER "If address sanitizer is enabled" OFF)
@@ -73,6 +77,8 @@ if (${ENABLE_CLIENT})
 endif()
 
 if (${ENABLE_TESTS})
-    add_subdirectory(test-common)
-    add_subdirectory(client-test)
+	if (${ENABLE_CLIENT})
+		add_subdirectory(test-common)
+    	add_subdirectory(client-test)
+	endif()
 endif()
