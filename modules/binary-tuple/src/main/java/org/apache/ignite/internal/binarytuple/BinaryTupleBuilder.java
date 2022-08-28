@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.binarytuple;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -34,6 +32,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Utility to construct a binary tuple.
