@@ -46,6 +46,9 @@ public class BinaryTupleParser {
         void nextElement(int index, int begin, int end);
     }
 
+    /** UUID size in bytes */
+    private static final int UUID_SIZE = 16;
+
     /** Number of elements in the tuple. */
     private final int numElements;
 
@@ -76,13 +79,13 @@ public class BinaryTupleParser {
 
         byte flags = buffer.get(0);
 
-        int base = BinaryTupleSchema.HEADER_SIZE;
-        if ((flags & BinaryTupleSchema.NULLMAP_FLAG) != 0) {
-            base += BinaryTupleSchema.nullMapSize(numElements);
+        int base = BinaryTupleCommon.HEADER_SIZE;
+        if ((flags & BinaryTupleCommon.NULLMAP_FLAG) != 0) {
+            base += BinaryTupleCommon.nullMapSize(numElements);
         }
 
         entryBase = base;
-        entrySize = 1 << (flags & BinaryTupleSchema.VARSIZE_MASK);
+        entrySize = 1 << (flags & BinaryTupleCommon.VARSIZE_MASK);
         valueBase = base + entrySize * numElements;
     }
 
@@ -104,7 +107,7 @@ public class BinaryTupleParser {
      * Check if the binary tuple contains a null map.
      */
     public boolean hasNullMap() {
-        return entryBase > BinaryTupleSchema.HEADER_SIZE;
+        return entryBase > BinaryTupleCommon.HEADER_SIZE;
     }
 
     /**
@@ -137,8 +140,8 @@ public class BinaryTupleParser {
         }
 
         if (offset == nextOffset && hasNullMap()) {
-            int nullIndex = BinaryTupleSchema.nullOffset(index);
-            byte nullMask = BinaryTupleSchema.nullMask(index);
+            int nullIndex = BinaryTupleCommon.nullOffset(index);
+            byte nullMask = BinaryTupleCommon.nullMask(index);
             if ((buffer.get(nullIndex) & nullMask) != 0) {
                 sink.nextElement(index, 0, 0);
                 return;
@@ -164,8 +167,8 @@ public class BinaryTupleParser {
             }
 
             if (offset == nextOffset && hasNullMap()) {
-                int nullIndex = BinaryTupleSchema.nullOffset(i);
-                byte nullMask = BinaryTupleSchema.nullMask(i);
+                int nullIndex = BinaryTupleCommon.nullOffset(i);
+                byte nullMask = BinaryTupleCommon.nullMask(i);
                 if ((buffer.get(nullIndex) & nullMask) != 0) {
                     sink.nextElement(i, 0, 0);
                     entry += entrySize;
@@ -363,9 +366,9 @@ public class BinaryTupleParser {
      */
     final UUID uuidValue(int begin, int end) {
         int len = end - begin;
-        if (len != NativeTypes.UUID.sizeInBytes()) {
+        if (len != UUID_SIZE) {
             if (len == 0) {
-                return BinaryTupleSchema.DEFAULT_UUID;
+                return BinaryTupleCommon.DEFAULT_UUID;
             }
             throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
@@ -396,7 +399,7 @@ public class BinaryTupleParser {
         int len = end - begin;
         if (len != 3) {
             if (len == 0) {
-                return BinaryTupleSchema.DEFAULT_DATE;
+                return BinaryTupleCommon.DEFAULT_DATE;
             }
             throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
@@ -414,7 +417,7 @@ public class BinaryTupleParser {
         int len = end - begin;
         if (len < 4 || len > 6) {
             if (len == 0) {
-                return BinaryTupleSchema.DEFAULT_TIME;
+                return BinaryTupleCommon.DEFAULT_TIME;
             }
             throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
@@ -432,7 +435,7 @@ public class BinaryTupleParser {
         int len = end - begin;
         if (len < 7 || len > 9) {
             if (len == 0) {
-                return BinaryTupleSchema.DEFAULT_DATE_TIME;
+                return BinaryTupleCommon.DEFAULT_DATE_TIME;
             }
             throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
@@ -450,7 +453,7 @@ public class BinaryTupleParser {
         int len = end - begin;
         if (len != 8 && len != 12) {
             if (len == 0) {
-                return BinaryTupleSchema.DEFAULT_TIMESTAMP;
+                return BinaryTupleCommon.DEFAULT_TIMESTAMP;
             }
             throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
