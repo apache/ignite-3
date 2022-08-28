@@ -131,7 +131,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSrvc,
             DataStorageManager dataStorageManager
-
     ) {
         return new ExecutionServiceImpl<>(
                 topSrvc.localMember().id(),
@@ -149,7 +148,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /**
      * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public ExecutionServiceImpl(
+    ExecutionServiceImpl(
             String localNodeId,
             MessageService msgSrvc,
             MappingService mappingSrvc,
@@ -360,9 +359,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private volatile Long rootFragmentId = null;
 
-        private InternalTransaction transaction;
+        private @Nullable InternalTransaction transaction;
 
-        private DistributedQueryManager(BaseQueryContext ctx, InternalTransaction transaction) {
+        private DistributedQueryManager(
+                BaseQueryContext ctx,
+                @Nullable InternalTransaction transaction
+        ) {
             this(ctx);
 
             this.transaction = transaction;

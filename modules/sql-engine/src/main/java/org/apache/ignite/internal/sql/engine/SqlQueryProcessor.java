@@ -59,6 +59,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
@@ -71,6 +72,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -125,6 +127,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile SqlSchemaManager sqlSchemaManager;
 
+    /** Transaction manager. */
+    private final TxManager txManager;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<Function<Long, CompletableFuture<?>>> registry,
@@ -133,6 +138,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             IndexManager indexManager,
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
+            TxManager txManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier
     ) {
         this.registry = registry;
@@ -141,6 +147,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.indexManager = indexManager;
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
+        this.txManager = txManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
     }
 
@@ -335,7 +342,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         InternalTransaction outerTx = context.unwrap(InternalTransaction.class);
 
-        final BaseQueryContext ctx = BaseQueryContext.builder()
+        BaseQueryContext ctx = BaseQueryContext.builder()
                 .cancel(new QueryCancel())
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
@@ -378,11 +385,19 @@ public class SqlQueryProcessor implements QueryProcessor {
                     context.maybeUnwrap(QueryValidator.class)
                             .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
 
-                    var dataCursor = executionSrvc.executePlan(plan, ctx);
+                    // Transactional DDL is not supported as well as RO transactions, hence
+                    // only DML requiring RW transaction is covered
+                    boolean implicitTxRequired = plan.type() == Type.DML && outerTx == null;
+                    InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;
+
+                    BaseQueryContext enrichedContext = implicitTxRequired ? ctx.toBuilder().transaction(implicitTx).build() : ctx;
+
+                    var dataCursor = executionSrvc.executePlan(plan, enrichedContext);
 
                     return new AsyncSqlCursorImpl<>(
                             SqlQueryType.mapPlanTypeToSqlType(plan.type()),
                             plan.metadata(),
+                            implicitTx,
                             new AsyncCursor<List<Object>>() {
                                 @Override
                                 public CompletionStage<BatchedResult<List<Object>>> requestNextAsync(int rows) {
@@ -450,6 +465,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                         return new AsyncSqlCursorImpl<>(
                                 SqlQueryType.mapPlanTypeToSqlType(plan.type()),
                                 plan.metadata(),
+                                null,
                                 executionSrvc.executePlan(plan, ctx)
                         );
                     });

@@ -359,6 +359,7 @@ public class IgniteImpl implements Ignite {
                 indexManager,
                 schemaManager,
                 dataStorageMgr,
+                txManager,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions())
         );
 

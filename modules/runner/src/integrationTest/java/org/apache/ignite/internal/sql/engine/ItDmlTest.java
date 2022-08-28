@@ -20,19 +20,22 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -83,6 +86,60 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
                 .returns(222, 222, 1, 300, null)
                 .returns(111, 333, 0, 100, "")
                 .returns(444, 444, 2, 200, null)
+                .check();
+    }
+
+    @Test
+    public void batchWithConflictShouldBeRejectedEntirely() {
+        sql("CREATE TABLE test (id int primary key, val int)");
+
+        sql("INSERT INTO test values (1, 1)");
+
+        assertQuery("SELECT count(*) FROM test")
+                .returns(1L)
+                .check();
+
+        var sqlException = assertThrows(
+                SqlException.class,
+                () -> sql("INSERT INTO test VALUES (0, 0), (1, 1), (2, 2)")
+        );
+
+        assertEquals(Sql.DUPLICATE_KEYS_ERR, sqlException.code());
+
+        assertQuery("SELECT count(*) FROM test")
+                .returns(1L)
+                .check();
+    }
+
+    /**
+     * Test ensures that big insert although being split to several chunks will share the same implicit transaction.
+     */
+    @Test
+    public void bigBatchSpanTheSameTransaction() {
+        List<Integer> values = new ArrayList<>(AbstractNode.MODIFY_BATCH_SIZE * 2);
+
+        // need to generate batch big enough to be split on several chunks
+        for (int i = 0; i < AbstractNode.MODIFY_BATCH_SIZE * 1.5; i++) {
+            values.add(i);
+        }
+
+        values.add(values.get(0)); // add conflict entry from the first chunk
+
+        sql("CREATE TABLE test (id int primary key, val int default 1)");
+
+        String insertStatement = "INSERT INTO test (id) VALUES " + values.stream()
+                .map(Object::toString)
+                .collect(Collectors.joining("), (", "(", ")"));
+
+        SqlException sqlException = assertThrows(
+                SqlException.class,
+                () -> sql(insertStatement)
+        );
+
+        assertEquals(Sql.DUPLICATE_KEYS_ERR, sqlException.code());
+
+        assertQuery("SELECT count(*) FROM test")
+                .returns(0L)
                 .check();
     }
 
@@ -290,7 +347,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
                                 + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
                                 + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
 
-        assertTrue(ex.getCause().getMessage().contains("Failed to MERGE some keys due to keys conflict"));
+        assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
     }
 
     @Test

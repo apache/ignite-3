@@ -55,7 +55,7 @@ class SessionManagerTest {
 
     @Test
     void sessionGet() {
-        PropertiesHolder propHldr = PropertiesHolder.holderFor(Map.of());
+        PropertiesHolder propHldr = PropertiesHolder.fromMap(Map.of());
 
         SessionId sessionId = sessionMgr.createSession(12345, propHldr);
 

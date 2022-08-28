@@ -277,6 +277,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 idxManager,
                 schemaManager,
                 dataStorageManager,
+                tm,
                 () -> dataStorageModules.collectSchemasFields(List.of(
                         RocksDbDataStorageConfigurationSchema.class,
                         TestConcurrentHashMapDataStorageConfigurationSchema.class
@@ -297,7 +298,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      */
     @Test
     public void testInnerTxInitiated() throws Exception {
-        SessionId sesId = queryProc.createSession(1000, PropertiesHolder.holderFor(Map.of()));
+        SessionId sesId = queryProc.createSession(1000, PropertiesHolder.fromMap(Map.of()));
 
         InternalTransaction tx = mock(InternalTransaction.class);
 
