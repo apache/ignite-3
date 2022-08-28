@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.binarytuple;
 
-import org.apache.ignite.internal.logger.Loggers;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -31,12 +34,8 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.apache.ignite.internal.logger.Loggers;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for BinaryTuple (IEP-92) support.

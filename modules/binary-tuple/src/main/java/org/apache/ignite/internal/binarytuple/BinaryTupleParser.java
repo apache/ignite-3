@@ -46,7 +46,7 @@ public class BinaryTupleParser {
         void nextElement(int index, int begin, int end);
     }
 
-    /** UUID size in bytes */
+    /** UUID size in bytes. */
     private static final int UUID_SIZE = 16;
 
     /** Number of elements in the tuple. */

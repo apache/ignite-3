@@ -24,6 +24,9 @@ import java.time.LocalTime;
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteInternalException;
 
+/**
+ * Common binary tuple constants and utils.
+ */
 public class BinaryTupleCommon {
     /** Size of a tuple header, in bytes. */
     public static final int HEADER_SIZE = 1;
