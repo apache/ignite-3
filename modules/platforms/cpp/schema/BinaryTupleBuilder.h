@@ -19,6 +19,7 @@
 
 #include "BinaryTupleSchema.h"
 #include "common/Types.h"
+#include "common/Platform.h"
 
 #include <cassert>
 #include <cstring>
@@ -307,7 +308,7 @@ private:
      * @return Required size.
      */
     static SizeT sizeOfDouble(double value) noexcept {
-        float floatValue = value;
+        float floatValue = static_cast<float>(value);
         return floatValue == value ? sizeOfFloat(floatValue) : sizeof(double);
     }
 

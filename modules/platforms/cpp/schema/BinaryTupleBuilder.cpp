@@ -19,6 +19,7 @@
 #include "BinaryTupleParser.h"
 
 #include <stdexcept>
+#include <string>
 
 namespace ignite {
 
@@ -76,7 +77,7 @@ SizeT BinaryTupleBuilder::sizeOf(DATA_TYPE type, BytesView bytes) {
             return sizeOfDouble(BinaryTupleParser::getDouble(bytes));
         case DATA_TYPE::STRING:
         case DATA_TYPE::BINARY:
-            return bytes.size();
+            return static_cast<SizeT>(bytes.size());
 
         case DATA_TYPE::UUID:
         case DATA_TYPE::DATE:

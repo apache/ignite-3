@@ -16,6 +16,7 @@
  */
 
 #include "BinaryTupleParser.h"
+#include "common/Platform.h"
 
 #include <cassert>
 #include <cstring>
@@ -62,8 +63,9 @@ BinaryTupleParser::BinaryTupleParser(IntT numElements, BytesView data)
     static_assert(BYTE_ORDER == LITTLE_ENDIAN);
     memcpy(&offset, nextEntry + tableSize - entrySize, entrySize);
     const std::byte *tupleEnd = valueBase + offset;
-    if (binaryTuple.end() > tupleEnd) {
-        binaryTuple.remove_suffix(binaryTuple.end() - tupleEnd);
+    const std::byte *currentEnd = &(*binaryTuple.end());
+    if (currentEnd > tupleEnd) {
+        binaryTuple.remove_suffix(currentEnd - tupleEnd);
     }
 }
 

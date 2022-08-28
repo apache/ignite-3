@@ -22,7 +22,7 @@ set(TARGET ${PROJECT_NAME})
 include_directories(include src)
 
 enable_testing()
-find_package(gtest REQUIRED)
+find_package(GTest REQUIRED)
 include_directories(${GTEST_INCLUDE_DIR})
 
 set(SOURCES
@@ -33,4 +33,5 @@ add_executable(${TARGET} ${SOURCES})
 
 target_link_libraries(${TARGET} ignite-test-common ignite-client ${GTEST_LIBRARY_DEBUG} ${GTEST_MAIN_LIBRARY_DEBUG})
 
+set(TEST_TARGET IgniteClientTest)
 add_test(NAME ${TEST_TARGET} COMMAND ${TARGET})
