@@ -189,7 +189,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-     public final byte byteValue(int begin, int end) {
+    public final byte byteValue(int begin, int end) {
         switch (end - begin) {
             case 0:
                 return 0;
