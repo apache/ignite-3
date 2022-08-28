@@ -70,7 +70,7 @@ public class BinaryTupleParser {
      * @param numElements Number of tuple elements.
      * @param buffer Buffer with a binary tuple.
      */
-    BinaryTupleParser(int numElements, ByteBuffer buffer) {
+    public BinaryTupleParser(int numElements, ByteBuffer buffer) {
         this.numElements = numElements;
 
         assert buffer.order() == ByteOrder.LITTLE_ENDIAN;
@@ -189,7 +189,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final byte byteValue(int begin, int end) {
+     public final byte byteValue(int begin, int end) {
         switch (end - begin) {
             case 0:
                 return 0;
@@ -207,7 +207,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final short shortValue(int begin, int end) {
+    public final short shortValue(int begin, int end) {
         switch (end - begin) {
             case 0:
                 return 0;
@@ -227,7 +227,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final int intValue(int begin, int end) {
+    public final int intValue(int begin, int end) {
         switch (end - begin) {
             case 0:
                 return 0;
@@ -249,7 +249,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final long longValue(int begin, int end) {
+    public final long longValue(int begin, int end) {
         switch (end - begin) {
             case 0:
                 return 0;
@@ -273,7 +273,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final float floatValue(int begin, int end) {
+    public final float floatValue(int begin, int end) {
         switch (end - begin) {
             case 0:
                 return 0.0F;
@@ -291,7 +291,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final double doubleValue(int begin, int end) {
+    public final double doubleValue(int begin, int end) {
         switch (end - begin) {
             case 0:
                 return 0.0;
@@ -311,7 +311,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final BigInteger numberValue(int begin, int end) {
+    public final BigInteger numberValue(int begin, int end) {
         byte[] bytes;
         int len = end - begin;
         if (buffer.hasArray()) {
@@ -331,7 +331,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final String stringValue(int begin, int end) {
+    public final String stringValue(int begin, int end) {
         byte[] bytes;
         int len = end - begin;
         if (buffer.hasArray()) {
@@ -351,7 +351,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final byte[] bytesValue(int begin, int end) {
+    public final byte[] bytesValue(int begin, int end) {
         byte[] bytes = new byte[end - begin];
         buffer.duplicate().position(begin).limit(end).get(bytes);
         return bytes;
@@ -364,7 +364,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final UUID uuidValue(int begin, int end) {
+    public final UUID uuidValue(int begin, int end) {
         int len = end - begin;
         if (len != UUID_SIZE) {
             if (len == 0) {
@@ -384,7 +384,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final BitSet bitmaskValue(int begin, int end) {
+    public final BitSet bitmaskValue(int begin, int end) {
         return BitSet.valueOf(buffer.duplicate().position(begin).limit(end));
     }
 
@@ -395,7 +395,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final LocalDate dateValue(int begin, int end) {
+    public final LocalDate dateValue(int begin, int end) {
         int len = end - begin;
         if (len != 3) {
             if (len == 0) {
@@ -413,7 +413,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final LocalTime timeValue(int begin, int end) {
+    public final LocalTime timeValue(int begin, int end) {
         int len = end - begin;
         if (len < 4 || len > 6) {
             if (len == 0) {
@@ -431,7 +431,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final LocalDateTime dateTimeValue(int begin, int end) {
+    public final LocalDateTime dateTimeValue(int begin, int end) {
         int len = end - begin;
         if (len < 7 || len > 9) {
             if (len == 0) {
@@ -449,7 +449,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final Instant timestampValue(int begin, int end) {
+    public final Instant timestampValue(int begin, int end) {
         int len = end - begin;
         if (len != 8 && len != 12) {
             if (len == 0) {

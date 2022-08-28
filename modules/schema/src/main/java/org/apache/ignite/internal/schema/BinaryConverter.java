@@ -20,6 +20,9 @@ package org.apache.ignite.internal.schema;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.jetbrains.annotations.Nullable;
@@ -116,7 +119,9 @@ public class BinaryConverter {
         }
 
         // Now compose the tuple.
-        BinaryTupleBuilder builder = BinaryTupleBuilder.create(tupleSchema, hasNulls, estimatedValueSize);
+        BinaryTupleBuilder builder = BinaryTupleBuilder.create(
+                tupleSchema.elementCount(), hasNulls, estimatedValueSize);
+
         for (int elementIndex = 0; elementIndex < tupleSchema.elementCount(); elementIndex++) {
             BinaryTupleSchema.Element elt = tupleSchema.element(elementIndex);
             NativeTypeSpec typeSpec = elt.typeSpec;
