@@ -20,7 +20,6 @@ package org.apache.ignite.internal.schema;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
 import org.apache.ignite.internal.schema.row.Row;

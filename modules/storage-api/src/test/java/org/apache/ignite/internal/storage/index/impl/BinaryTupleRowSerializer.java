@@ -28,7 +28,6 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
-
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;

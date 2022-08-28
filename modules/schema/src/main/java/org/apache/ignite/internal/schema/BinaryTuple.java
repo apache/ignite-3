@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.row.InternalTuple;
 
