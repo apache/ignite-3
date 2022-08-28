@@ -17,41 +17,10 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.UUID;
-import org.apache.ignite.lang.IgniteInternalException;
-
 /**
  * Description of a binary tuple.
  */
 public class BinaryTupleSchema {
-    /** Size of a tuple header, in bytes. */
-    public static final int HEADER_SIZE = 1;
-
-    /** Mask for size of entries in variable-length offset table. */
-    public static final int VARSIZE_MASK = 0b011;
-
-    /** Flag that indicates null map presence. */
-    public static final int NULLMAP_FLAG = 0b100;
-
-    /** Default value for UUID elements. */
-    public static final UUID DEFAULT_UUID = new UUID(0, 0);
-
-    /** Default value for Date elements (Jan 1st 1 BC). */
-    public static final LocalDate DEFAULT_DATE = LocalDate.of(0, 1, 1);
-
-    /** Default value for Time elements (00:00:00). */
-    public static final LocalTime DEFAULT_TIME = LocalTime.of(0, 0);
-
-    /** Default value for DateTime elements (Jan 1st 1 BC, 00:00:00). */
-    public static final LocalDateTime DEFAULT_DATE_TIME = LocalDateTime.of(0, 1, 1, 0, 0);
-
-    /** Default value for Timestamp elements. */
-    public static final Instant DEFAULT_TIMESTAMP = Instant.EPOCH;
-
     /**
      * Tuple element description used for tuple parsing and building.
      *
