@@ -46,7 +46,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -308,10 +310,10 @@ public class TableManagerTest extends IgniteAbstractTest {
 
                 var extConfCh = ((ExtendedTableChange) tableChange);
 
-                ArrayList<List<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
+                ArrayList<Set<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
 
                 for (int part = 0; part < PARTITIONS; part++) {
-                    assignment.add(new ArrayList<>(Collections.singleton(node)));
+                    assignment.add(new HashSet<>(Collections.singleton(node)));
                 }
 
                 extConfCh.changeAssignments(ByteUtils.toBytes(assignment))
