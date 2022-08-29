@@ -121,14 +121,21 @@ public class ClientTupleSerializer {
      * @param keyOnly Key only.
      */
     public static void writeTupleRaw(@NotNull Tuple tuple, ClientSchema schema, PayloadOutputChannel out, boolean keyOnly) {
-        // TODO IGNITE-17297: Why not reuse logic from ClientTableCommon?
         var columns = schema.columns();
         var count = keyOnly ? schema.keyColumnCount() : columns.length;
+
+        // TODO: Binary tuple
+        var builder = BinaryTupleBuilder.create(count, true);
+        var noValueMask = new BitSet(count);
 
         for (var i = 0; i < count; i++) {
             var col = columns[i];
 
             Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
+
+            if (v == NO_VALUE) {
+                noValueMask.set(i);
+            }
 
             out.out().packObject(v);
         }
@@ -160,8 +167,6 @@ public class ClientTupleSerializer {
         var columns = schema.columns();
         var noValueSet = new BitSet(columns.length);
         out.out().packBitSet(noValueSet);
-
-        var builder = BinaryTupleBuilder.create(columnCount(schema, part), true);
 
         for (var i = 0; i < columns.length; i++) {
             var col = columns[i];
