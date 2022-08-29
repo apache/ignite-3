@@ -41,7 +41,7 @@ public final class RowVersion implements Storable {
     private static final int VALUE_SIZE_STORE_SIZE_BYTES = Integer.BYTES;
 
     public static final int TIMESTAMP_OFFSET = 0;
-    public static final int NEXT_LINK_OFFSET = HYBRID_TIMESTAMP_SIZE;
+    public static final int NEXT_LINK_OFFSET = TIMESTAMP_OFFSET + HYBRID_TIMESTAMP_SIZE;
     public static final int VALUE_SIZE_OFFSET = NEXT_LINK_OFFSET + NEXT_LINK_STORE_SIZE_BYTES;
     public static final int VALUE_OFFSET = VALUE_SIZE_OFFSET + VALUE_SIZE_STORE_SIZE_BYTES;
 

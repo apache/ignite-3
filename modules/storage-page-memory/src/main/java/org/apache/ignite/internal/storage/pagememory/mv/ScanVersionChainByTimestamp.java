@@ -54,7 +54,7 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal<HybridTimestamp
     @Override
     public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, HybridTimestamp timestamp) {
         if (lookingForVersion) {
-            HybridTimestamp rowVersionTs = Timestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
+            HybridTimestamp rowVersionTs = HybridTimestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
 
             if (rowTimestampMatches(rowVersionTs, timestamp)) {
                 return readFullyOrStartReadingFragmented(link, pageAddr, payload);

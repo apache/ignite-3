@@ -87,7 +87,7 @@ public interface MvPartitionStorage extends AutoCloseable {
     long persistedIndex();
 
     /**
-     * Converts {@link Timestamp} into {@link HybridTimestamp} with preserving local node time order.
+     * Converts {@link Timestamp} to {@link HybridTimestamp} preserving local node time order.
      *
      * @deprecated Temporary method to support API compatibility.
      */

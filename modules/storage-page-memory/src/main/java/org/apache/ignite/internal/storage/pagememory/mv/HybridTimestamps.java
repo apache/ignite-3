@@ -30,7 +30,17 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Code to work with {@link HybridTimestamp}s.
  */
-public class Timestamps {
+public class HybridTimestamps {
+    /**
+     * Physical time component to store for {@code null} hybrid timestamp values.
+     */
+    private static final long NULL_PHYSICAL_TIME = 0L;
+
+    /**
+     * Logical time component to store for {@code null} hybrid timestamp values.
+     */
+    private static final int NULL_LOGICAL_TIME = 0;
+
     /**
      * Reads a {@link HybridTimestamp} value from memory.
      *
@@ -41,7 +51,7 @@ public class Timestamps {
         long physical = getLong(pageAddr, offset);
         int logical = getInt(pageAddr, offset + Long.BYTES);
 
-        if (physical == 0L && logical == 0) {
+        if (physical == NULL_PHYSICAL_TIME && logical == NULL_LOGICAL_TIME) {
             return null;
         }
 
@@ -58,9 +68,9 @@ public class Timestamps {
      */
     public static int writeTimestampToMemory(long addr, int offset, @Nullable HybridTimestamp timestamp) {
         if (timestamp == null) {
-            putLong(addr, offset, 0L);
+            putLong(addr, offset, NULL_PHYSICAL_TIME);
 
-            putInt(addr, offset + Long.BYTES, 0);
+            putInt(addr, offset + Long.BYTES, NULL_LOGICAL_TIME);
         } else {
             putLong(addr, offset, timestamp.getPhysical());
 
@@ -78,8 +88,8 @@ public class Timestamps {
      */
     public static void writeTimestampToBuffer(ByteBuffer buffer, @Nullable HybridTimestamp timestamp) {
         if (timestamp == null) {
-            buffer.putLong(0L)
-                    .putInt(0);
+            buffer.putLong(NULL_PHYSICAL_TIME)
+                    .putInt(NULL_LOGICAL_TIME);
         } else {
             buffer.putLong(timestamp.getPhysical())
                     .putInt(timestamp.getLogical());
