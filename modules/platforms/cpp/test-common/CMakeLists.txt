@@ -24,6 +24,7 @@ include_directories(include)
 
 set(SOURCES
         src/ignite_node.cpp
+        src/process.cpp
         src/test_utils.cpp
 )
 

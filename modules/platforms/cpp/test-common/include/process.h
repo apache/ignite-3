@@ -17,27 +17,42 @@
 
 #pragma once
 
-#include <cstdio>
-
 #include <string>
 
 namespace ignite
 {
-    /**
-     * Resolve IGNITE_HOME directory. Resolution is performed in several steps:
-     * 1) Check for path provided as argument.
-     * 2) Check for environment variable.
-     * 3) Check for current working directory.
-     * Result of these checks are evaluated based on existence of certain predefined folders inside possible Ignite
-     * home. If they are found, IGNITE_HOME is considered resolved.
-     *
-     * @param path Optional path to check.
-     * @return Resolved Ignite home.
-     */
-    std::string resolveIgniteHome(const std::string& path = "");
+    class Process
+    {
+    public:
+        /**
+         * Destructor.
+         */
+        virtual ~Process() = default;
 
-    /**
-     * Get path to maven executable.
-     */
-    std::string getMavenPath();
+        /**
+         * Make new process instance.
+         *
+         * @param command Command.
+         * @param workDir Working directory.
+         * @return Process.
+         */
+        static std::unique_ptr<Process> make(std::string command, std::string workDir);
+
+        /**
+         * Start process.
+         */
+        virtual bool start() = 0;
+
+        /**
+         * Stop process.
+         */
+        virtual void stop() = 0;
+
+    protected:
+        /**
+         * Constructor.
+         */
+        Process() = default;
+    };
 } // namespace ignite
+

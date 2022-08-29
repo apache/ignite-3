@@ -42,25 +42,11 @@ protected:
 
 TEST_F(ClientTest, TestTest)
 {
-    std::cout << "Hello" << std::endl;
-
     ignite::IgniteNode node;
 
     node.start();
 
-    for (int i = 0; i < 20; ++i)
-    {
-        std::cout << node.getOutput();
-
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
+    std::this_thread::sleep_for(std::chrono::seconds(20));
 
     node.stop();
-
-    for (int i = 0; i < 2; ++i)
-    {
-        std::cout << node.getOutput();
-
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
 }

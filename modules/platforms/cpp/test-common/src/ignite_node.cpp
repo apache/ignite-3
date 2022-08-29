@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-#include <iostream>
+#include <filesystem>
 #include <stdexcept>
 #include <vector>
 #include <utility>
+#include <iostream>
 
 #include "ignite_node.h"
 #include "test_utils.h"
 
 namespace ignite
 {
-    void IgniteNode::start()
+    void IgniteNode::start(bool dryRun)
     {
         std::string home = resolveIgniteHome();
         if (home.empty())
@@ -39,24 +40,44 @@ namespace ignite
         "/bin/bash -c ";
 #endif
 
-        command += getMavenPath() + " " + "exec:java@platform-test-node-runner";
+        command += getMavenPath() + " exec:java@platform-test-node-runner";
 
-        stream = processOpen(command.c_str(), "r");
+        if (dryRun)
+            command += " -Dexec.args=dry-run";
+
+        auto workDir = std::filesystem::path(home) / "modules" / "runner";
+
+        std::cout << "IGNITE_HOME=" << home << std::endl;
+        std::cout << "working dir=" << workDir << std::endl;
+        std::cout << "command=" << command << std::endl;
+
+        process = Process::make(command, workDir.string());
+        if (!process->start())
+        {
+            throw std::runtime_error("Failed to invoke Ignite command: '" + command + "'");
+
+            process.reset();
+        }
     }
 
     void IgniteNode::stop()
     {
-        if (stream)
-            processClose(stream);
+        if (process)
+            process->stop();
     }
 
-    std::string IgniteNode::getOutput(int max)
-    {
-        std::string buffer(max, 0);
-
-        size_t actual = std::fread(buffer.data(), 1, max, stream);
-        buffer.resize(actual);
-
-        return buffer;
-    }
+//    bool IgniteNode::isRunning()
+//    {
+//        return std::feof(stream) == 0 && std::ferror(stream) == 0;
+//    }
+//
+//    std::string IgniteNode::getOutput(int max)
+//    {
+//        std::string buffer(max, 0);
+//
+//        size_t actual = std::fread(buffer.data(), 1, max, stream);
+//        buffer.resize(actual);
+//
+//        return buffer;
+//    }
 } // namespace ignite

@@ -15,46 +15,54 @@
  * limitations under the License.
  */
 
-#ifndef TEST_COMMON_IGNITE_NODE
-#define TEST_COMMON_IGNITE_NODE
+#pragma once
 
-//#include <cstdio>
+#include "process.h"
 
 namespace ignite
 {
     class IgniteNode
     {
     public:
-//        /**
-//         * Constructor.
-//         */
-//        IgniteNode() = default;
+        /**
+         * Constructor.
+         */
+        IgniteNode() = default;
 
-//        /**
-//         * Destructor.
-//         */
-//        ~IgniteNode() = default;
+        /**
+         * Destructor.
+         */
+        ~IgniteNode() = default;
 
         /**
          * Start node.
+         *
+         * @param dryRun Perform a dry run. Mostly used to ensure that code is compiled and all artifacts are downloaded.
          */
-        void start();
+        void start(bool dryRun = false);
 
         /**
          * Stop node.
          */
         void stop();
 
-        /**
-         * Get current node output.
-         *
-         * @param max Max bytes to get.
-         * @return Output.
-         */
-        std::string getOutput(int max = 1024);
+//        /**
+//         * Check whether node is still running.
+//         *
+//         * @return @c true if the node is running.
+//         */
+//        bool isRunning();
+//
+//        /**
+//         * Get current node output.
+//         *
+//         * @param max Max bytes to get.
+//         * @return Output.
+//         */
+//        std::string getOutput(int max = 1024);
+
     private:
-        FILE* stream;
+        /** Underlying process. */
+        std::unique_ptr<Process> process;
     };
 } // namespace ignite
-
-#endif // TEST_COMMON_IGNITE_NODE

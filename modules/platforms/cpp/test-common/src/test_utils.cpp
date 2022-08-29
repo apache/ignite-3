@@ -91,22 +91,4 @@ namespace ignite
         // Currently, we only support systems with "mvn" command in PATH
         return "mvn";
     }
-
-    FILE *processOpen(const char *command, const char *type)
-    {
-#ifdef WIN32
-        return _popen(command, type);
-#else
-        return popen(command, type);
-#endif
-    }
-
-    int processClose(FILE *stream)
-    {
-#ifdef WIN32
-        return _pclose(stream);
-#else
-        return pclose(stream);
-#endif
-    }
 } // namespace ignite
