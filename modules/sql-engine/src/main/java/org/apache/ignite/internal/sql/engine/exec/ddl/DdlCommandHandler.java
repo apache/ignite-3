@@ -219,8 +219,9 @@ public class DdlCommandHandler {
             } else if (ignoreTableExistenceErrors) {
                 Throwable err0 = err instanceof CompletionException ? err.getCause() : err;
 
-                if (err0 instanceof TableAlreadyExistsException || err0 instanceof TableNotFoundException)
+                if (err0 instanceof TableAlreadyExistsException || err0 instanceof TableNotFoundException) {
                     return Boolean.FALSE;
+                }
             }
 
             throw (err instanceof RuntimeException) ? (RuntimeException) err : new CompletionException(err);

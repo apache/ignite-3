@@ -428,7 +428,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 IgniteSchema schema = res.compute(schemaName,
                         (k, v) -> v == null ? new IgniteSchema(schemaName) : IgniteSchema.copy(v));
 
-                return tablesVv.update(causalityToken, (tables, tblEx) -> inBusyLock(busyLock, () -> {
+                return tablesVv.update(
+                        causalityToken,
+                        (tables, tblEx) -> inBusyLock(busyLock, () -> {
                             if (tblEx != null) {
                                 return failedFuture(tblEx);
                             }
@@ -442,34 +444,36 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                                     .schemaRegistry(causalityToken, index.tableId())
                                     .thenApply(reg -> convert(index, reg, table));
 
-                            return indicesVv.update(causalityToken, (indices, idxEx) -> inBusyLock(busyLock, () -> {
-                                                if (idxEx != null) {
-                                                    return failedFuture(idxEx);
-                                                }
+                            return indicesVv.update(
+                                    causalityToken,
+                                    (indices, idxEx) -> inBusyLock(busyLock, () -> {
+                                        if (idxEx != null) {
+                                            return failedFuture(idxEx);
+                                        }
 
-                                                Map<UUID, IgniteIndex> resIdxs = new HashMap<>(indices);
+                                        Map<UUID, IgniteIndex> resIdxs = new HashMap<>(indices);
 
-                                                return igniteIndexFuture
-                                                        .thenApply(igniteIndex -> {
-                                                            resIdxs.put(index.id(), igniteIndex);
+                                        return igniteIndexFuture
+                                                .thenApply(igniteIndex -> {
+                                                    resIdxs.put(index.id(), igniteIndex);
 
-                                                            return resIdxs;
-                                                        });
-                                            })
-                                    )
-                                    .thenCombine(igniteIndexFuture, (v, igniteIndex) -> inBusyLock(busyLock, () -> {
-                                                String tblName = tableNameById(schema, index.tableId());
+                                                    return resIdxs;
+                                                });
+                                    })
+                            ).thenCombine(
+                                    igniteIndexFuture,
+                                    (v, igniteIndex) -> inBusyLock(busyLock, () -> {
+                                        String tblName = tableNameById(schema, index.tableId());
 
-                                                table.addIndex(igniteIndex);
-                                                schema.addTable(tblName, (InternalIgniteTable) table);
-                                                schema.addIndex(index.id(), igniteIndex);
+                                        table.addIndex(igniteIndex);
+                                        schema.addTable(tblName, (InternalIgniteTable) table);
+                                        schema.addIndex(index.id(), igniteIndex);
 
-                                                return v;
-                                            })
-                                    )
-                                    .thenCompose(v -> inBusyLock(busyLock, () -> completedFuture(resTbls)));
-                        }))
-                        .thenCompose(v -> inBusyLock(busyLock, () -> completedFuture(res)));
+                                        return v;
+                                    })
+                            ).thenCompose(v -> inBusyLock(busyLock, () -> completedFuture(resTbls)));
+                        })
+                ).thenCompose(v -> inBusyLock(busyLock, () -> completedFuture(res)));
             }));
 
             return calciteSchemaVv.get(causalityToken);
@@ -515,7 +519,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                 IgniteIndex rmvIndex = schema.removeIndex(indexId);
                 if (rmvIndex != null) {
-                    return tablesVv.update(causalityToken, (tables, tlbEx) -> inBusyLock(busyLock, () -> {
+                    return tablesVv.update(
+                            causalityToken,
+                            (tables, tlbEx) -> inBusyLock(busyLock, () -> {
                                 if (tlbEx != null) {
                                     return failedFuture(tlbEx);
                                 }

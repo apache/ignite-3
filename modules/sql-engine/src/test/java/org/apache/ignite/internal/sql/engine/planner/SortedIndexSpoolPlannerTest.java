@@ -19,19 +19,24 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexFieldAccess;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.ignite.internal.index.ColumnCollation;
+import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.junit.jupiter.api.Test;
@@ -192,5 +197,50 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         assertTrue(((RexLiteral) lowerBound.get(2)).isNull());
         assertTrue(((RexLiteral) lowerBound.get(3)).isNull());
         assertTrue(upperBound.get(1) instanceof RexFieldAccess);
+    }
+
+    /**
+     * Check colocated fields with DESC ordering.
+     */
+    @Test
+    public void testDescFields() throws Exception {
+        IgniteSchema publicSchema = createSchema(
+                createTable("T0", 10, IgniteDistributions.affinity(0, "T0", "hash"),
+                        "ID", Integer.class, "JID", Integer.class, "VAL", String.class)
+                        .addIndex("t0_jid_idx", 1),
+                createTable("T1", 100, IgniteDistributions.affinity(0, "T1", "hash"),
+                        "ID", Integer.class, "JID", Integer.class, "VAL", String.class)
+                        .addIndex(RelCollations.of(TraitUtils.createFieldCollation(1, ColumnCollation.DESC_NULLS_FIRST)), "t1_jid_idx")
+        );
+
+        String sql = "select * "
+                + "from t0 "
+                + "join t1 on t1.jid < t0.jid";
+
+        assertPlan(sql, publicSchema,
+                isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
+                        .and(input(1, isInstanceOf(IgniteSortedIndexSpool.class)
+                                .and(spool -> {
+                                    List<RexNode> lowerBound = spool.indexCondition().lowerBound();
+
+                                    // Condition is LESS_THEN, but we have DESC field and condition should be in lower bound
+                                    // instead of upper bound.
+                                    assertNotNull(lowerBound);
+                                    assertEquals(3, lowerBound.size());
+
+                                    assertTrue(((RexLiteral) lowerBound.get(0)).isNull());
+                                    assertTrue(lowerBound.get(1) instanceof RexFieldAccess);
+                                    assertTrue(((RexLiteral) lowerBound.get(2)).isNull());
+
+                                    List<RexNode> upperBound = spool.indexCondition().upperBound();
+
+                                    assertNull(upperBound);
+
+                                    return true;
+                                })
+                                .and(hasChildThat(isIndexScan("T1", "t1_jid_idx")))
+                        )),
+                "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeToHashIndexSpoolRule"
+        );
     }
 }
