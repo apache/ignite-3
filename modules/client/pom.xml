@@ -79,6 +79,11 @@
             <artifactId>netty-codec</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-binary-tuple</artifactId>
+        </dependency>
+
         <!-- Test dependencies -->
         <dependency>
             <groupId>org.hamcrest</groupId>
