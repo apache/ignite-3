@@ -17,6 +17,23 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static org.apache.ignite.internal.client.proto.ClientDataType.BIGINTEGER;
+import static org.apache.ignite.internal.client.proto.ClientDataType.BITMASK;
+import static org.apache.ignite.internal.client.proto.ClientDataType.BOOLEAN;
+import static org.apache.ignite.internal.client.proto.ClientDataType.BYTES;
+import static org.apache.ignite.internal.client.proto.ClientDataType.DATE;
+import static org.apache.ignite.internal.client.proto.ClientDataType.DATETIME;
+import static org.apache.ignite.internal.client.proto.ClientDataType.DECIMAL;
+import static org.apache.ignite.internal.client.proto.ClientDataType.DOUBLE;
+import static org.apache.ignite.internal.client.proto.ClientDataType.FLOAT;
+import static org.apache.ignite.internal.client.proto.ClientDataType.INT16;
+import static org.apache.ignite.internal.client.proto.ClientDataType.INT32;
+import static org.apache.ignite.internal.client.proto.ClientDataType.INT64;
+import static org.apache.ignite.internal.client.proto.ClientDataType.INT8;
+import static org.apache.ignite.internal.client.proto.ClientDataType.NUMBER;
+import static org.apache.ignite.internal.client.proto.ClientDataType.STRING;
+import static org.apache.ignite.internal.client.proto.ClientDataType.TIME;
+import static org.apache.ignite.internal.client.proto.ClientDataType.TIMESTAMP;
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 
@@ -28,10 +45,12 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
@@ -236,8 +255,13 @@ public class ClientTupleSerializer {
 
         var colCnt = keyOnly ? schema.keyColumnCount() : schema.columns().length;
 
+        // TODO IGNITE-17927 Do not deserialize fields, wrap BinaryTuple as Tuple?
+        var bufSize = in.unpackBinaryHeader();
+        var buf = in.readPayload(bufSize);
+        var binTuple = new BinaryTupleReader(colCnt, buf);
+
         for (var i = 0; i < colCnt; i++) {
-            tuple.setInternal(i, in.unpackObject(schema.columns()[i].type()));
+            readAndSetValue(binTuple, tuple, i, i, schema.columns()[i].type());
         }
 
         return tuple;
@@ -246,14 +270,18 @@ public class ClientTupleSerializer {
     static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in, Tuple keyTuple) {
         var tuple = new ClientTuple(schema);
 
+        var bufSize = in.unpackBinaryHeader();
+        var buf = in.readPayload(bufSize);
+        var binTuple = new BinaryTupleReader(schema.columns().length - schema.keyColumnCount(), buf);
+
         for (var i = 0; i < schema.columns().length; i++) {
             ClientColumn col = schema.columns()[i];
 
-            Object value = i < schema.keyColumnCount()
-                    ? keyTuple.value(col.name())
-                    : in.unpackObject(schema.columns()[i].type());
-
-            tuple.setInternal(i, value);
+            if (i < schema.keyColumnCount()) {
+                tuple.setInternal(i, keyTuple.value(col.name()));
+            } else {
+                readAndSetValue(binTuple, tuple, i - schema.keyColumnCount(), i, col.type());
+            }
         }
 
         return tuple;
@@ -380,6 +408,66 @@ public class ClientTupleSerializer {
             default:
                 // TODO IGNITE-17297 support all types.
                 throw new UnsupportedOperationException("TODO");
+        }
+    }
+
+    private static void readAndSetValue(
+            BinaryTupleReader src,
+            ClientTuple dst,
+            int srcIdx,
+            int dstIdx,
+            int type) {
+        if (src.hasNullValue(srcIdx)) {
+            dst.setInternal(dstIdx, null);
+        }
+
+        switch (type) {
+            case INT8:
+                dst.setInternal(dstIdx, src.byteValue(srcIdx));
+                break;
+
+            case INT16:
+                dst.setInternal(dstIdx, src.shortValue(srcIdx));
+                break;
+
+            case INT32:
+                dst.setInternal(dstIdx, src.intValue(srcIdx));
+                break;
+
+            case INT64:
+                dst.setInternal(dstIdx, src.longValue(srcIdx));
+                break;
+
+            case FLOAT:
+                dst.setInternal(dstIdx, src.floatValue(srcIdx));
+                break;
+
+            case DOUBLE:
+                dst.setInternal(dstIdx, src.doubleValue(srcIdx));
+                break;
+
+            case ClientDataType.UUID:
+                dst.setInternal(dstIdx, src.uuidValue(srcIdx));
+                break;
+
+            case STRING:
+                dst.setInternal(dstIdx, src.stringValue(srcIdx));
+                break;
+
+            case BYTES:
+            case DECIMAL:
+            case BIGINTEGER:
+            case BITMASK:
+            case NUMBER:
+            case DATE:
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+            case BOOLEAN:
+            default:
+                // TODO IGNITE-17297 all types.
+                throw new IgniteException("Unknown client data type: " + type);
+
         }
     }
 }
