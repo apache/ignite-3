@@ -45,6 +45,8 @@ public interface LockManager {
      */
     public void release(Lock lock) throws LockException;
 
+    void downgrade(Lock lock, LockMode lockMode) throws LockException;
+
     /**
      * Retrieves all locks for the specified transaction id.
      *

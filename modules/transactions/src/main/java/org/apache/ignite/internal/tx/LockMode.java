@@ -21,11 +21,11 @@ package org.apache.ignite.internal.tx;
  * Lock mode.
  */
 public enum LockMode {
-    SHARED,
-    EXCLUSIVE,
     INTENTION_SHARED,
     INTENTION_EXCLUSIVE,
-    SHARED_AND_INTENTION_EXCLUSIVE;
+    SHARED,
+    SHARED_AND_INTENTION_EXCLUSIVE,
+    EXCLUSIVE;
 
     public boolean isCompatible(LockMode lockMode) {
         switch (this) {

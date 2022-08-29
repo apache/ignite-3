@@ -17,13 +17,20 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.tx.LockMode.EXCLUSIVE;
+import static org.apache.ignite.internal.tx.LockMode.INTENTION_EXCLUSIVE;
+import static org.apache.ignite.internal.tx.LockMode.INTENTION_SHARED;
+import static org.apache.ignite.internal.tx.LockMode.SHARED;
+import static org.apache.ignite.internal.tx.LockMode.SHARED_AND_INTENTION_EXCLUSIVE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -34,6 +41,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,7 +65,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         LockKey key = new LockKey("test");
 
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, EXCLUSIVE);
 
         assertTrue(fut0.isDone());
 
@@ -78,7 +86,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         LockKey key = new LockKey("test");
 
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, EXCLUSIVE);
 
         assertTrue(fut0.isDone());
 
@@ -86,7 +94,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         assertTrue(txId1.compareTo(txId2) < 0);
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId2, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId2, key, EXCLUSIVE);
 
         assertFalse(fut1.isDone());
 
@@ -117,16 +125,16 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         assertTrue(txId2.compareTo(txId3) < 0);
         LockKey key = new LockKey("test");
 
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, LockMode.SHARED);
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, SHARED);
         assertTrue(fut0.isDone());
 
-        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, key, LockMode.SHARED);
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId2, key, SHARED);
         assertTrue(fut2.isDone());
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, LockMode.SHARED);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, SHARED);
         assertTrue(fut1.isDone());
 
-        CompletableFuture<Lock> fut3 = lockManager.acquire(txId3, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut3 = lockManager.acquire(txId3, key, EXCLUSIVE);
         assertFalse(fut3.isDone());
 
         assertTrue(lockManager.waiter(key, txId0).locked());
@@ -163,10 +171,10 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         LockKey key = new LockKey("test");
 
         // Lock in order
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, LockMode.SHARED);
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, SHARED);
         assertTrue(fut0.isDone());
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, EXCLUSIVE);
         assertFalse(fut1.isDone());
 
         lockManager.release(fut0.join());
@@ -177,11 +185,11 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         assertTrue(lockManager.queue(key).isEmpty());
 
         // Lock not in order
-        fut0 = lockManager.acquire(txId1, key,  LockMode.SHARED);
+        fut0 = lockManager.acquire(txId1, key,  SHARED);
         assertTrue(fut0.isDone());
 
         try {
-            lockManager.acquire(txId0, key, LockMode.EXCLUSIVE).join();
+            lockManager.acquire(txId0, key, EXCLUSIVE).join();
 
             fail();
         } catch (CompletionException e) {
@@ -195,13 +203,13 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         LockKey key = new LockKey("test");
 
         // Lock in order
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId[1], key, LockMode.SHARED);
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId[1], key, SHARED);
         assertTrue(fut0.isDone());
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId[2], key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId[2], key, EXCLUSIVE);
         assertFalse(fut1.isDone());
 
-        CompletableFuture<Lock> fut2 = lockManager.acquire(txId[0], key, LockMode.SHARED);
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId[0], key, SHARED);
         assertTrue(fut2.isDone());
 
         lockManager.release(fut0.join());
@@ -218,13 +226,13 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         LockKey key = new LockKey("test");
 
         // Lock in order
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, LockMode.SHARED);
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, SHARED);
         assertTrue(fut0.isDone());
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId2, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId2, key, EXCLUSIVE);
         assertFalse(fut1.isDone());
 
-        CompletableFuture<Lock> fut2 = lockManager.acquire(txId1, key, LockMode.SHARED);
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId1, key, SHARED);
         assertTrue(fut2.isDone());
 
         assertFalse(lockManager.waiter(key, txId2).locked());
@@ -243,16 +251,16 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId3 = Timestamp.nextVersion().toUuid();
         LockKey key = new LockKey("test");
 
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, LockMode.SHARED);
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, SHARED);
         assertTrue(fut0.isDone());
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, EXCLUSIVE);
         assertFalse(fut1.isDone());
 
-        CompletableFuture<Lock> fut2 = lockManager.acquire(txId3, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId3, key, EXCLUSIVE);
         assertFalse(fut2.isDone());
 
-        CompletableFuture<Lock> fut3 = lockManager.acquire(txId2, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut3 = lockManager.acquire(txId2, key, EXCLUSIVE);
         assertFalse(fut3.isDone());
     }
 
@@ -262,9 +270,9 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId1 = Timestamp.nextVersion().toUuid();
         LockKey key = new LockKey("test");
 
-        lockManager.acquire(txId1, key, LockMode.EXCLUSIVE).join();
+        lockManager.acquire(txId1, key, EXCLUSIVE).join();
 
-        expectConflict(lockManager.acquire(txId0, key, LockMode.EXCLUSIVE));
+        expectConflict(lockManager.acquire(txId0, key, EXCLUSIVE));
     }
 
     @Test
@@ -273,18 +281,61 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId1 = Timestamp.nextVersion().toUuid();
         LockKey key = new LockKey("test");
 
-        lockManager.acquire(txId0, key, LockMode.SHARED).join();
+        lockManager.acquire(txId0, key, SHARED).join();
 
-        lockManager.acquire(txId1, key, LockMode.SHARED).join();
+        lockManager.acquire(txId1, key, SHARED).join();
 
-        CompletableFuture<Lock> fut = lockManager.acquire(txId1, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut = lockManager.acquire(txId1, key, EXCLUSIVE);
         assertFalse(fut.isDone());
 
-        Lock lock0 = lockManager.acquire(txId0, key, LockMode.EXCLUSIVE).join();
+        Lock lock0 = lockManager.acquire(txId0, key, EXCLUSIVE).join();
 
         lockManager.release(lock0);
 
         expectConflict(fut);
+    }
+
+    @Test
+    public void testConflicts() throws Exception {
+        UUID txId0 = Timestamp.nextVersion().toUuid();
+        UUID txId1 = Timestamp.nextVersion().toUuid();
+
+        LockKey key = new LockKey("test");
+
+        List<IgniteBiTuple<LockMode, LockMode>> lockModes = new ArrayList<>();
+
+        lockModes.add(new IgniteBiTuple<>(INTENTION_SHARED, EXCLUSIVE));
+        lockModes.add(new IgniteBiTuple<>(INTENTION_EXCLUSIVE, EXCLUSIVE));
+        lockModes.add(new IgniteBiTuple<>(SHARED, EXCLUSIVE));
+        lockModes.add(new IgniteBiTuple<>(SHARED_AND_INTENTION_EXCLUSIVE, EXCLUSIVE));
+        lockModes.add(new IgniteBiTuple<>(EXCLUSIVE, EXCLUSIVE));
+
+        lockModes.add(new IgniteBiTuple<>(INTENTION_EXCLUSIVE, SHARED_AND_INTENTION_EXCLUSIVE));
+        lockModes.add(new IgniteBiTuple<>(SHARED, SHARED_AND_INTENTION_EXCLUSIVE));
+        lockModes.add(new IgniteBiTuple<>(SHARED_AND_INTENTION_EXCLUSIVE, SHARED_AND_INTENTION_EXCLUSIVE));
+        lockModes.add(new IgniteBiTuple<>(EXCLUSIVE, SHARED_AND_INTENTION_EXCLUSIVE));
+
+        lockModes.add(new IgniteBiTuple<>(INTENTION_EXCLUSIVE, SHARED));
+        lockModes.add(new IgniteBiTuple<>(SHARED_AND_INTENTION_EXCLUSIVE, SHARED));
+        lockModes.add(new IgniteBiTuple<>(EXCLUSIVE, SHARED));
+
+        lockModes.add(new IgniteBiTuple<>(SHARED, INTENTION_EXCLUSIVE));
+        lockModes.add(new IgniteBiTuple<>(SHARED_AND_INTENTION_EXCLUSIVE, INTENTION_EXCLUSIVE));
+        lockModes.add(new IgniteBiTuple<>(EXCLUSIVE, INTENTION_EXCLUSIVE));
+
+        lockModes.add(new IgniteBiTuple<>(EXCLUSIVE, INTENTION_SHARED));
+
+        for (IgniteBiTuple<LockMode, LockMode> lockModePair : lockModes) {
+            CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, lockModePair.get1());
+            CompletableFuture<Lock> fut1 = lockManager.acquire(txId0, key, lockModePair.get2());
+
+            assertTrue(fut0.isDone());
+            expectConflict(fut1);
+
+            lockManager.release(fut0.join());
+
+            assertTrue(lockManager.queue(key).isEmpty());
+        }
     }
 
     @Test
@@ -295,14 +346,14 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         LockKey key = new LockKey("test");
 
         // Lock in order
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, EXCLUSIVE);
         assertTrue(fut0.isDone());
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId2, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId2, key, EXCLUSIVE);
         assertFalse(fut1.isDone());
 
         try {
-            lockManager.acquire(txId0, key, LockMode.EXCLUSIVE).join();
+            lockManager.acquire(txId0, key, EXCLUSIVE).join();
 
             fail();
         } catch (CompletionException e) {
@@ -318,13 +369,13 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         LockKey key = new LockKey("test");
 
         // Lock in order
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, EXCLUSIVE);
         assertTrue(fut0.isDone());
 
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId2, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId2, key, EXCLUSIVE);
         assertFalse(fut1.isDone());
 
-        CompletableFuture<Lock> fut2 = lockManager.acquire(txId1, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut2 = lockManager.acquire(txId1, key, EXCLUSIVE);
         assertFalse(fut2.isDone());
     }
 
@@ -366,11 +417,11 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId1 = Timestamp.nextVersion().toUuid();
         LockKey key = new LockKey("test");
 
-        lockManager.acquire(txId1, key, LockMode.SHARED).join();
+        lockManager.acquire(txId1, key, SHARED).join();
 
-        Lock lock = lockManager.acquire(txId0, key, LockMode.SHARED).join();
+        Lock lock = lockManager.acquire(txId0, key, SHARED).join();
 
-        CompletableFuture<Lock> fut = lockManager.acquire(txId1, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut = lockManager.acquire(txId1, key, EXCLUSIVE);
         assertFalse(fut.isDone());
 
         lockManager.release(lock);
@@ -388,11 +439,11 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId1 = Timestamp.nextVersion().toUuid();
         LockKey key = new LockKey("test");
 
-        lockManager.acquire(txId0, key, LockMode.SHARED).join();
+        lockManager.acquire(txId0, key, SHARED).join();
 
-        lockManager.acquire(txId1, key, LockMode.SHARED).join();
+        lockManager.acquire(txId1, key, SHARED).join();
 
-        expectConflict(lockManager.acquire(txId0, key, LockMode.EXCLUSIVE));
+        expectConflict(lockManager.acquire(txId0, key, EXCLUSIVE));
     }
 
     @Test
@@ -402,14 +453,14 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId2 = Timestamp.nextVersion().toUuid();
         LockKey key = new LockKey("test");
 
-        lockManager.acquire(txId1, key, LockMode.SHARED).join();
+        lockManager.acquire(txId1, key, SHARED).join();
 
-        lockManager.acquire(txId0, key, LockMode.SHARED).join();
+        lockManager.acquire(txId0, key, SHARED).join();
 
-        lockManager.acquire(txId2, key, LockMode.SHARED).join();
+        lockManager.acquire(txId2, key, SHARED).join();
 
         try {
-            lockManager.acquire(txId1, key, LockMode.EXCLUSIVE).join();
+            lockManager.acquire(txId1, key, EXCLUSIVE).join();
         } catch (CompletionException e) {
             // Expected.
         }
@@ -421,11 +472,11 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         UUID txId1 = Timestamp.nextVersion().toUuid();
         LockKey key = new LockKey("test");
 
-        lockManager.acquire(txId1, key, LockMode.SHARED).join();
+        lockManager.acquire(txId1, key, SHARED).join();
 
-        Lock lock = lockManager.acquire(txId0, key, LockMode.SHARED).join();
+        Lock lock = lockManager.acquire(txId0, key, SHARED).join();
 
-        CompletableFuture<Lock> fut = lockManager.acquire(txId1, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut = lockManager.acquire(txId1, key, EXCLUSIVE);
 
         assertFalse(fut.isDone());
 
@@ -437,26 +488,51 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
+    public void testLockUpgrade5() throws Exception {
+        UUID txId0 = Timestamp.nextVersion().toUuid();
+
+        LockKey key = new LockKey("test");
+
+        for (LockMode lockMode : List.of(INTENTION_SHARED, INTENTION_EXCLUSIVE, SHARED_AND_INTENTION_EXCLUSIVE, EXCLUSIVE)) {
+            lockManager.acquire(txId0, key, lockMode);
+
+            assertEquals(lockMode, lockManager.waiter(key, txId0).lockMode());
+        }
+
+        assertTrue(lockManager.queue(key).size() == 1);
+
+        lockManager.release(new Lock(key, EXCLUSIVE, txId0));
+
+        assertTrue(lockManager.queue(key).isEmpty());
+
+
+
+        List<List<LockMode>> lockModes = new ArrayList<>();
+
+        lockModes.add(List.of(INTENTION_EXCLUSIVE, SHARED, SHARED_AND_INTENTION_EXCLUSIVE));
+        lockModes.add(List.of(SHARED, INTENTION_EXCLUSIVE, SHARED_AND_INTENTION_EXCLUSIVE));
+
+        for (List<LockMode> lockModes0 : lockModes) {
+            lockManager.acquire(txId0, key, lockModes0.get(0));
+            lockManager.acquire(txId0, key, lockModes0.get(1));
+
+            assertEquals(lockModes0.get(2), lockManager.waiter(key, txId0).lockMode());
+
+            lockManager.release(new Lock(key, lockModes0.get(1), txId0));
+
+            assertTrue(lockManager.queue(key).isEmpty());
+        }
+    }
+
+    @Test
     public void testReenter() throws LockException {
         UUID txId = Timestamp.nextVersion().toUuid();
         LockKey key = new LockKey("test");
 
-        CompletableFuture<Lock> fut = lockManager.acquire(txId, key, LockMode.EXCLUSIVE);
+        CompletableFuture<Lock> fut = lockManager.acquire(txId, key, EXCLUSIVE);
         assertTrue(fut.isDone());
 
-        fut = lockManager.acquire(txId, key, LockMode.EXCLUSIVE);
-        assertTrue(fut.isDone());
-
-        assertTrue(lockManager.queue(key).size() == 1);
-
-        lockManager.release(fut.join());
-
-        assertTrue(lockManager.queue(key).isEmpty());
-
-        fut = lockManager.acquire(txId, key, LockMode.SHARED);
-        assertTrue(fut.isDone());
-
-        fut = lockManager.acquire(txId, key, LockMode.SHARED);
+        fut = lockManager.acquire(txId, key, EXCLUSIVE);
         assertTrue(fut.isDone());
 
         assertTrue(lockManager.queue(key).size() == 1);
@@ -464,118 +540,232 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         lockManager.release(fut.join());
 
         assertTrue(lockManager.queue(key).isEmpty());
-    }
 
-    @Test
-    public void test1() throws Exception {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
+        fut = lockManager.acquire(txId, key, SHARED);
+        assertTrue(fut.isDone());
 
-        LockKey key = new LockKey("test");
-
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, LockMode.INTENTION_SHARED);
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId0, key, LockMode.INTENTION_EXCLUSIVE);
-        CompletableFuture<Lock> fut2 = lockManager.acquire(txId0, key, LockMode.SHARED_AND_INTENTION_EXCLUSIVE);
-        CompletableFuture<Lock> fut3 = lockManager.acquire(txId0, key, LockMode.EXCLUSIVE);
-
-        assertTrue(fut0.isDone());
-        assertTrue(fut1.isDone());
-        assertTrue(fut2.isDone());
-        assertTrue(fut3.isDone());
+        fut = lockManager.acquire(txId, key, SHARED);
+        assertTrue(fut.isDone());
 
         assertTrue(lockManager.queue(key).size() == 1);
 
-        lockManager.release(fut3.join());
+        lockManager.release(fut.join());
 
         assertTrue(lockManager.queue(key).isEmpty());
     }
 
     @Test
-    public void test2() throws Exception {
+    public void testAcquireReleasedLock() throws Exception {
         UUID txId0 = Timestamp.nextVersion().toUuid();
         UUID txId1 = Timestamp.nextVersion().toUuid();
 
         LockKey key = new LockKey("test");
 
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId1, key, LockMode.INTENTION_SHARED);
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId0, key, LockMode.EXCLUSIVE);
+        List<List<LockMode>> lockModes = new ArrayList<>();
 
-        assertTrue(fut0.isDone());
-        expectConflict(fut1);
+        lockModes.add(List.of(INTENTION_SHARED, EXCLUSIVE));
+        lockModes.add(List.of(INTENTION_EXCLUSIVE, EXCLUSIVE));
+        lockModes.add(List.of(SHARED, EXCLUSIVE));
+        lockModes.add(List.of(SHARED_AND_INTENTION_EXCLUSIVE, EXCLUSIVE));
+        lockModes.add(List.of(EXCLUSIVE, EXCLUSIVE));
+
+        lockModes.add(List.of(INTENTION_EXCLUSIVE, SHARED_AND_INTENTION_EXCLUSIVE));
+        lockModes.add(List.of(SHARED, SHARED_AND_INTENTION_EXCLUSIVE));
+        lockModes.add(List.of(SHARED_AND_INTENTION_EXCLUSIVE, SHARED_AND_INTENTION_EXCLUSIVE));
+        lockModes.add(List.of(EXCLUSIVE, SHARED_AND_INTENTION_EXCLUSIVE));
+
+        lockModes.add(List.of(INTENTION_EXCLUSIVE, SHARED));
+        lockModes.add(List.of(SHARED_AND_INTENTION_EXCLUSIVE, SHARED));
+        lockModes.add(List.of(EXCLUSIVE, SHARED));
+
+        lockModes.add(List.of(SHARED, INTENTION_EXCLUSIVE));
+        lockModes.add(List.of(SHARED_AND_INTENTION_EXCLUSIVE, INTENTION_EXCLUSIVE));
+        lockModes.add(List.of(EXCLUSIVE, INTENTION_EXCLUSIVE));
+
+        lockModes.add(List.of(EXCLUSIVE, INTENTION_SHARED));
+
+        for (List<LockMode> lockModes0 : lockModes) {
+            CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, lockModes0.get(1));
+            CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, lockModes0.get(0));
+
+            assertTrue(fut0.isDone());
+            assertFalse(fut1.isDone());
+
+            lockManager.release(fut0.join());
+
+            assertTrue(fut1.isDone());
+
+            lockManager.release(fut1.join());
+        }
     }
 
     @Test
-    public void test3() throws Exception {
+    public void testCompatibleLockModes() throws Exception {
         UUID txId0 = Timestamp.nextVersion().toUuid();
         UUID txId1 = Timestamp.nextVersion().toUuid();
 
         LockKey key = new LockKey("test");
 
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, LockMode.EXCLUSIVE);
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, LockMode.INTENTION_SHARED);
+        List<List<LockMode>> lockModes = new ArrayList<>();
 
-        assertTrue(fut0.isDone());
-        assertFalse(fut1.isDone());
+        lockModes.add(List.of(INTENTION_SHARED, INTENTION_SHARED));
+        lockModes.add(List.of(INTENTION_SHARED, INTENTION_EXCLUSIVE));
+        lockModes.add(List.of(INTENTION_SHARED, SHARED));
+        lockModes.add(List.of(INTENTION_SHARED, SHARED_AND_INTENTION_EXCLUSIVE));
+
+        lockModes.add(List.of(INTENTION_EXCLUSIVE, INTENTION_SHARED));
+        lockModes.add(List.of(INTENTION_EXCLUSIVE, INTENTION_EXCLUSIVE));
+
+        lockModes.add(List.of(SHARED, INTENTION_SHARED));
+        lockModes.add(List.of(SHARED, SHARED));
+
+        lockModes.add(List.of(SHARED_AND_INTENTION_EXCLUSIVE, INTENTION_SHARED));
+
+        for (List<LockMode> lockModes0 : lockModes) {
+            CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, lockModes0.get(0));
+            CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, lockModes0.get(1));
+
+            assertTrue(fut0.isDone());
+            assertTrue(fut1.isDone());
+
+            lockManager.release(fut0.join());
+            lockManager.release(fut1.join());
+
+            assertTrue(lockManager.queue(key).isEmpty());
+        }
+    }
+
+    @Test
+    public void testPossibleDowngradeLockModes() throws Exception {
+        UUID txId0 = Timestamp.nextVersion().toUuid();
+
+        LockKey key = new LockKey("test");
+
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, EXCLUSIVE);
+
+        assertEquals(EXCLUSIVE, fut0.join().lockMode());
+
+        List<LockMode> lockModes = List.of(SHARED_AND_INTENTION_EXCLUSIVE, SHARED, INTENTION_SHARED);
+
+        LockMode lastLockMode;
+
+        for (LockMode lockMode : lockModes) {
+            Waiter waiter = lockManager.waiter(fut0.join().lockKey(), txId0);
+
+            lastLockMode = waiter.lockMode();
+
+            assertEquals(lastLockMode, waiter.lockMode());
+
+            lockManager.downgrade(fut0.join(), lockMode);
+
+            assertTrue(lockManager.queue(key).size() == 1);
+
+            waiter = lockManager.waiter(fut0.join().lockKey(), txId0);
+
+            assertEquals(lockMode, waiter.lockMode());
+
+            assertTrue(lockManager.queue(key).size() == 1);
+        }
 
         lockManager.release(fut0.join());
 
-        assertTrue(fut1.isDone());
+
+        fut0 = lockManager.acquire(txId0, key, EXCLUSIVE);
+
+        assertEquals(EXCLUSIVE, fut0.join().lockMode());
+
+        lockModes = List.of(SHARED_AND_INTENTION_EXCLUSIVE, INTENTION_EXCLUSIVE, INTENTION_SHARED);
+
+        for (LockMode lockMode : lockModes) {
+            Waiter waiter = lockManager.waiter(fut0.join().lockKey(), txId0);
+
+            lastLockMode = waiter.lockMode();
+
+            assertEquals(lastLockMode, waiter.lockMode());
+
+            lockManager.downgrade(fut0.join(), lockMode);
+
+            assertTrue(lockManager.queue(key).size() == 1);
+
+            waiter = lockManager.waiter(fut0.join().lockKey(), txId0);
+
+            assertEquals(lockMode, waiter.lockMode());
+
+            assertTrue(lockManager.queue(key).size() == 1);
+        }
+
+        lockManager.release(fut0.join());
     }
 
     @Test
-    public void test4() throws Exception {
+    public void testImpossibleDowngradeLockModes1() throws Exception {
+        UUID txId0 = Timestamp.nextVersion().toUuid();
+
+        LockKey key = new LockKey("test");
+
+        List<List<LockMode>> lockModes = new ArrayList<>();
+
+        lockModes.add(List.of(SHARED, INTENTION_EXCLUSIVE));
+        lockModes.add(List.of(INTENTION_EXCLUSIVE, SHARED));
+
+        for (List<LockMode> lockModes0 : lockModes) {
+            CompletableFuture<Lock> fut = lockManager.acquire(txId0, key, lockModes0.get(0));
+
+            try {
+                lockManager.downgrade(fut.join(), lockModes0.get(1));
+
+                fail();
+            } catch (LockException e) {
+
+            }
+
+            assertEquals(1, lockManager.queue(key).size());
+
+            lockManager.release(fut.join());
+        }
+
+    }
+
+    @Test
+    public void testImpossibleDowngradeLockModes2() throws Exception {
+        UUID txId0 = Timestamp.nextVersion().toUuid();
+
+        LockKey key = new LockKey("test");
+
+            CompletableFuture<Lock> fut = lockManager.acquire(txId0, key, INTENTION_SHARED);
+
+            try {
+                lockManager.downgrade(fut.join(), EXCLUSIVE);
+
+                fail();
+            } catch (LockException e) {
+
+            }
+
+            assertEquals(1, lockManager.queue(key).size());
+
+            lockManager.release(fut.join());
+    }
+
+    @Test
+    public void testImpossibleDowngradeLockModes3() throws Exception {
         UUID txId0 = Timestamp.nextVersion().toUuid();
         UUID txId1 = Timestamp.nextVersion().toUuid();
 
         LockKey key = new LockKey("test");
 
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, LockMode.INTENTION_EXCLUSIVE);
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, LockMode.INTENTION_SHARED);
+        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, SHARED);
+        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, SHARED);
 
-        assertTrue(fut0.isDone());
-        assertTrue(fut1.isDone());
+        try {
+            lockManager.downgrade(fut0.join(), INTENTION_EXCLUSIVE);
 
-        lockManager.release(fut0.join());
-        lockManager.release(fut1.join());
+            fail();
+        } catch (LockException e) {
 
-        assertTrue(lockManager.queue(key).isEmpty());
-    }
+        }
 
-    @Test
-    public void test5() throws Exception {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-
-        LockKey key = new LockKey("test");
-
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, LockMode.INTENTION_EXCLUSIVE);
-
-        assertEquals(LockMode.INTENTION_EXCLUSIVE, fut0.join().lockMode());
-
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId0, key, LockMode.SHARED);
-
-        assertEquals(LockMode.SHARED_AND_INTENTION_EXCLUSIVE, fut1.join().lockMode());
-
-        lockManager.release(fut1.join());
-
-        assertTrue(lockManager.queue(key).isEmpty());
-    }
-
-    @Test
-    public void test6() throws Exception {
-        UUID txId0 = Timestamp.nextVersion().toUuid();
-
-        LockKey key = new LockKey("test");
-
-        CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, LockMode.SHARED);
-
-        assertEquals(LockMode.SHARED, fut0.join().lockMode());
-
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId0, key, LockMode.INTENTION_EXCLUSIVE);
-
-        assertEquals(LockMode.SHARED_AND_INTENTION_EXCLUSIVE, fut1.join().lockMode());
-
-        lockManager.release(fut1.join());
-
-        assertTrue(lockManager.queue(key).isEmpty());
+        assertEquals(2, lockManager.queue(key).size());
     }
 
     /**
@@ -622,7 +812,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
                         if (mode == 0 ? false : mode == 1 ? true : r.nextBoolean()) {
                             Lock lock;
                             try {
-                                lock = lockManager.acquire(txId, key, LockMode.EXCLUSIVE).join();
+                                lock = lockManager.acquire(txId, key, EXCLUSIVE).join();
 
                                 writeLocks.increment();
                             } catch (CompletionException e) {
@@ -638,7 +828,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
                         } else {
                             Lock lock;
                             try {
-                                lock = lockManager.acquire(txId, key, LockMode.SHARED).join();
+                                lock = lockManager.acquire(txId, key, SHARED).join();
 
                                 readLocks.increment();
                             } catch (CompletionException e) {
