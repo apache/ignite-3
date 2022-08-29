@@ -42,6 +42,7 @@
         <module>modules/affinity</module>
         <module>modules/api</module>
         <module>modules/baseline</module>
+        <module>modules/binary-tuple</module>
         <module>modules/bytecode</module>
         <module>modules/cli</module>
         <module>modules/cli-common</module>

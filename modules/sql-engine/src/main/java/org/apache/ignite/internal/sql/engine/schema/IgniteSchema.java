@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
@@ -31,14 +32,17 @@ public class IgniteSchema extends AbstractSchema {
 
     private final Map<String, Table> tblMap;
 
+    private final Map<UUID, IgniteIndex> idxMap;
+
     /**
      * Creates a Schema.
      *
      * @param schemaName Schema name.
      */
-    public IgniteSchema(String schemaName, Map<String, Table> tblMap) {
+    public IgniteSchema(String schemaName, Map<String, Table> tblMap, Map<UUID, IgniteIndex> idxMap) {
         this.schemaName = schemaName;
         this.tblMap = tblMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(tblMap);
+        this.idxMap = idxMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(idxMap);
     }
 
     /**
@@ -47,7 +51,7 @@ public class IgniteSchema extends AbstractSchema {
      * @param schemaName Schema name.
      */
     public IgniteSchema(String schemaName) {
-        this(schemaName, null);
+        this(schemaName, null, null);
     }
 
     /**
@@ -81,6 +85,54 @@ public class IgniteSchema extends AbstractSchema {
      * @param tblName Table name.
      */
     public void removeTable(String tblName) {
-        tblMap.remove(tblName);
+        Table rmv = tblMap.remove(tblName);
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
+        // Decouple tables and indices.
+        idxMap.values().removeIf(idx -> idx.table() == rmv);
+    }
+
+    /**
+     * Add index.
+     *
+     * @param indexId Index id.
+     * @param index Index.
+     */
+    public void addIndex(UUID indexId, IgniteIndex index) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
+        // Decouple tables and indices.
+        index.table().addIndex(index);
+
+        idxMap.put(indexId, index);
+    }
+
+    /**
+     * Remove index.
+     *
+     * @param indexId Index id.
+     * @return {@code True} if index was removed or {@code false} otherwise.
+     */
+    public boolean removeIndex(UUID indexId) {
+        IgniteIndex rmv = idxMap.remove(indexId);
+
+        if (rmv == null) {
+            return false;
+        }
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
+        // Decouple tables and indices.
+        rmv.table().removeIndex(rmv.name());
+
+        return true;
+    }
+
+    /**
+     * Gets index by id.
+     *
+     * @param indexId Index id.
+     * @return Index.
+     */
+    public IgniteIndex index(UUID indexId) {
+        return idxMap.get(indexId);
     }
 }

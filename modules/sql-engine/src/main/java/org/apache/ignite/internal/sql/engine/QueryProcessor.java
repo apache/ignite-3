@@ -31,10 +31,11 @@ public interface QueryProcessor extends IgniteComponent {
     /**
      * Creates a session with given properties.
      *
+     * @param sessionTimeoutMs Session timeout in millisecond.
      * @param queryProperties Properties to store within a new session.
      * @return An identifier of a created session.
      */
-    SessionId createSession(PropertiesHolder queryProperties);
+    SessionId createSession(long sessionTimeoutMs, PropertiesHolder queryProperties);
 
     /**
      * Closes the session with given id.

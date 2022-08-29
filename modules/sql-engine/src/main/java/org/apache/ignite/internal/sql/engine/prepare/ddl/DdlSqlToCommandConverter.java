@@ -164,7 +164,7 @@ public class DdlSqlToCommandConverter {
         }
 
         if (ddlNode instanceof IgniteSqlDropIndex) {
-            return convertDropIndex((IgniteSqlDropIndex) ddlNode);
+            return convertDropIndex((IgniteSqlDropIndex) ddlNode, ctx);
         }
 
         throw new IgniteException("Unsupported operation ["
@@ -412,11 +412,15 @@ public class DdlSqlToCommandConverter {
     /**
      * Converts drop index to appropriate wrapper.
      */
-    private DropIndexCommand convertDropIndex(IgniteSqlDropIndex sqlCmd) {
+    private DropIndexCommand convertDropIndex(IgniteSqlDropIndex sqlCmd, PlanningContext ctx) {
         DropIndexCommand dropCmd = new DropIndexCommand();
 
-        dropCmd.indexName(sqlCmd.indexName().getSimple());
-        dropCmd.ifExist(sqlCmd.ifExists());
+        String schemaName = deriveSchemaName(sqlCmd.indexName(), ctx);
+        String indexName = deriveObjectName(sqlCmd.indexName(), ctx, "index name");
+
+        dropCmd.schemaName(schemaName);
+        dropCmd.indexName(indexName);
+        dropCmd.ifNotExists(sqlCmd.ifExists());
 
         return dropCmd;
     }

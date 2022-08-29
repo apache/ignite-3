@@ -17,6 +17,8 @@
 
 package org.apache.ignite.cli.config;
 
+import java.util.Collection;
+
 /**
  * Manager of CLI config.
  */
@@ -29,11 +31,25 @@ public interface ConfigManager {
 
     void setCurrentProfile(String profileName);
 
+    Collection<String> getProfileNames();
+
     default String getCurrentProperty(String key) {
         return getCurrentProfile().getProperty(key);
     }
 
     default void setProperty(String key, String value) {
         getCurrentProfile().setProperty(key, value);
+    }
+
+    default String getProperty(String key, String profileName) {
+        return getConfig(profileName).getProperty(key);
+    }
+
+    default String getProperty(String key, String profileName, String defaultValue) {
+        return getConfig(profileName).getProperty(key, defaultValue);
+    }
+
+    private Profile getConfig(String profileName) {
+        return profileName == null ? getCurrentProfile() : getProfile(profileName);
     }
 }

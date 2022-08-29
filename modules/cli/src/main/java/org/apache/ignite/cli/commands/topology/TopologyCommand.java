@@ -17,7 +17,6 @@
 
 package org.apache.ignite.cli.commands.topology;
 
-import jakarta.inject.Singleton;
 import org.apache.ignite.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
 
@@ -25,7 +24,6 @@ import picocli.CommandLine.Command;
  * Command that prints ignite cluster topology.
  */
 @Command(name = "topology", description = "Prints topology information",
-        subcommands = {PhysicalTopologySubCommand.class, LogicalTopologySubCommand.class })
-@Singleton
+        subcommands = {PhysicalTopologyCommand.class, LogicalTopologyCommand.class })
 public class TopologyCommand extends BaseCommand {
 }

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -39,7 +38,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
-import java.util.stream.StreamSupport;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
@@ -322,7 +321,6 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         Cursor<BinaryRow> cursor = scan(row -> true, txId);
 
         assertTrue(cursor.hasNext());
-        //noinspection ConstantConditions
         assertTrue(cursor.hasNext());
 
         List<TestValue> res = new ArrayList<>();
@@ -330,13 +328,11 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         res.add(value(cursor.next()));
 
         assertTrue(cursor.hasNext());
-        //noinspection ConstantConditions
         assertTrue(cursor.hasNext());
 
         res.add(value(cursor.next()));
 
         assertFalse(cursor.hasNext());
-        //noinspection ConstantConditions
         assertFalse(cursor.hasNext());
 
         assertThrows(NoSuchElementException.class, () -> cursor.next());
@@ -346,10 +342,10 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     private List<TestValue> convert(Cursor<BinaryRow> cursor) throws Exception {
         try (cursor) {
-            return StreamSupport.stream(cursor.spliterator(), false)
+            return cursor.stream()
                     .map(BaseMvStoragesTest::value)
                     .sorted(Comparator.nullsFirst(Comparator.naturalOrder()))
-                    .collect(toList());
+                    .collect(Collectors.toList());
         }
     }
 

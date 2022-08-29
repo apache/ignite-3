@@ -28,8 +28,11 @@ import org.apache.ignite.cli.core.decorator.TerminalOutput;
 public class ProfileDecorator implements Decorator<Profile, TerminalOutput> {
     @Override
     public TerminalOutput decorate(Profile data) {
-        return () -> data.getAll().entrySet().stream()
-                .map(entry -> entry.getKey() + "=" + entry.getValue())
-                .collect(Collectors.joining(System.lineSeparator()));
+        return () -> {
+            String prefix = "[" + data.getName() + "]" + System.lineSeparator();
+            return data.getAll().entrySet().stream()
+                    .map(entry -> entry.getKey() + "=" + entry.getValue())
+                    .collect(Collectors.joining(System.lineSeparator(), prefix, ""));
+        };
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.schema.definition.TableDefinitionImpl.canonicalName;
 
 import java.util.ArrayList;
@@ -26,6 +27,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -50,6 +52,7 @@ import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Table;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -126,6 +129,28 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param indexName A name of the index to create.
      * @param tableName A name of the table to create index for.
      * @param indexChange A consumer that suppose to change the configuration in order to provide description of an index.
+     * @param failIfExists Flag indicates whether exception be thrown if index exists or not.
+     * @return {@code True} if index was created successfully, {@code false} otherwise.
+     * @throws IndexAlreadyExistsException If index already exists and
+     */
+    public boolean createIndex(
+            String schemaName,
+            String indexName,
+            String tableName,
+            boolean failIfExists,
+            Consumer<TableIndexChange> indexChange
+    ) {
+        return join(createIndexAsync(schemaName, indexName, tableName, failIfExists, indexChange)) != null;
+    }
+
+    /**
+     * Creates index from provided configuration changer.
+     *
+     * @param schemaName A name of the schema to create index in.
+     * @param indexName A name of the index to create.
+     * @param tableName A name of the table to create index for.
+     * @param failIfExists Flag indicates whether exception be thrown if index exists or not.
+     * @param indexChange A consumer that suppose to change the configuration in order to provide description of an index.
      * @return A future represented the result of creation.
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
@@ -137,6 +162,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             String schemaName,
             String indexName,
             String tableName,
+            boolean failIfExists,
             Consumer<TableIndexChange> indexChange
     ) {
         if (!busyLock.enterBusy()) {
@@ -166,6 +192,11 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
                 tableManager.alterTableAsync(table.name(), tableChange -> tableChange.changeIndices(indexListChange -> {
                     if (indexListChange.get(indexName) != null) {
+                        if (!failIfExists) {
+                            future.complete(null);
+
+                            return;
+                        }
                         var exception = new IndexAlreadyExistsException(indexName);
 
                         LOG.info("Unable to create index [schema={}, table={}, index={}]",
@@ -225,13 +256,32 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      *
      * @param schemaName A name of the schema the index belong to.
      * @param indexName A name of the index to drop.
+     * @param failIfNotExist Flag, which force failure, when {@code trues} if index doen't not exists.
+     * @return {@code True} if index was removed, {@code false} otherwise.
+     * @throws IndexNotFoundException If index doesn't exist and {@code failIfNotExist} param was {@code true}.
+     */
+    public boolean dropIndex(
+            String schemaName,
+            String indexName,
+            boolean failIfNotExist
+    ) {
+        return join(dropIndexAsync(schemaName, indexName, failIfNotExist));
+    }
+
+    /**
+     * Drops the index with a given name asynchronously.
+     *
+     * @param schemaName A name of the schema the index belong to.
+     * @param indexName A name of the index to drop.
+     * @param failIfNotExists Flag, which force failure, when {@code trues} if index doen't not exists.
      * @return A future representing the result of the operation.
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-17474
     // For now it is impossible to locate the index neither by id nor name.
-    public CompletableFuture<Void> dropIndexAsync(
+    public CompletableFuture<Boolean> dropIndexAsync(
             String schemaName,
-            String indexName
+            String indexName,
+            boolean failIfNotExists
     ) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
@@ -240,15 +290,19 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         LOG.debug("Going to drop index [schema={}, index={}]", schemaName, indexName);
 
         try {
-            CompletableFuture<Void> future = new CompletableFuture<>();
+            validateName(indexName);
 
             String canonicalName = canonicalName(schemaName, indexName);
 
             Index<?> index = indexByName.get(canonicalName);
 
             if (index == null) {
-                return CompletableFuture.failedFuture(new IndexNotFoundException(canonicalName));
+                return  failIfNotExists
+                        ? CompletableFuture.failedFuture(new IndexNotFoundException(canonicalName))
+                        : CompletableFuture.completedFuture(false);
             }
+
+            CompletableFuture<Boolean> future = new CompletableFuture<>();
 
             tableManager.tableAsyncInternal(index.tableId(), false).thenAccept((table) -> {
                 if (table == null) {
@@ -284,7 +338,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     } else if (!future.isDone()) {
                         LOG.info("Index dropped [schema={}, index={}]", schemaName, indexName);
 
-                        future.complete(null);
+                        future.complete(true);
                     }
                 });
             });
@@ -334,18 +388,74 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
     }
 
-    private void onIndexDrop(ConfigurationNotificationEvent<TableIndexView> ctx) {
-        Index<?> index = indexById.remove(ctx.oldValue().id());
-        indexByName.remove(index.name(), index);
+    /**
+     * Callback method is called when index configuration changed and an index was dropped.
+     *
+     * @param evt Index configuration event.
+     * @return A future.
+     */
+    private CompletableFuture<?> onIndexDrop(ConfigurationNotificationEvent<TableIndexView> evt) {
+        if (!busyLock.enterBusy()) {
+            UUID idxId = evt.oldValue().id();
 
-        fireEvent(IndexEvent.DROP, new IndexEventParameters(ctx.storageRevision(), index.id()), null);
+            fireEvent(IndexEvent.DROP,
+                    new IndexEventParameters(evt.storageRevision(), idxId),
+                    new NodeStoppingException()
+            );
+
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            Index<?> index = indexById.remove(evt.oldValue().id());
+
+            indexByName.remove(index.name(), index);
+
+            fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), index.id()), null);
+        } finally {
+            busyLock.leaveBusy();
+        }
+
+        return CompletableFuture.completedFuture(null);
     }
 
-    private void onIndexCreate(ConfigurationNotificationEvent<TableIndexView> ctx) {
-        Index<?> index = createIndex(
-                ctx.config(ExtendedTableConfiguration.class).id().value(),
-                ctx.newValue()
-        );
+    /**
+     * Callback method triggers when index configuration changed and a new index was added.
+     *
+     * @param evt Index configuration changed event.
+     * @return A future.
+     */
+    private CompletableFuture<?> onIndexCreate(ConfigurationNotificationEvent<TableIndexView> evt) {
+        if (!busyLock.enterBusy()) {
+            UUID idxId = evt.newValue().id();
+
+            fireEvent(IndexEvent.CREATE,
+                    new IndexEventParameters(evt.storageRevision(), idxId),
+                    new NodeStoppingException()
+            );
+
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return createIndexLocally(
+                    evt.storageRevision(),
+                    //TODO: https://issues.apache.org/jira/browse/IGNITE-17474 Add tableID to index config instead of lookup to parent.
+                    evt.config(ExtendedTableConfiguration.class).id().value(), // Parent element is table.
+                    evt.newValue());
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    @NotNull
+    private CompletableFuture<?> createIndexLocally(long causalityToken, UUID tableId, TableIndexView tableIndexView) {
+        assert tableIndexView != null;
+
+        LOG.trace("Creating local index: name={}, id={}, tableId={}, token={}",
+                tableIndexView.name(), tableIndexView.id(), tableId, causalityToken);
+
+        Index<?> index = newIndex(tableId, tableIndexView);
 
         Index<?> prev = indexById.putIfAbsent(index.id(), index);
 
@@ -355,10 +465,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         assert prev == null;
 
-        fireEvent(IndexEvent.CREATE, new IndexEventParameters(ctx.storageRevision(), index), null);
+        fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, index), null);
+
+        return CompletableFuture.completedFuture(null);
     }
 
-    private Index<?> createIndex(UUID tableId, TableIndexView indexView) {
+    private Index<?> newIndex(UUID tableId, TableIndexView indexView) {
         if (indexView instanceof SortedIndexView) {
             return new SortedIndexImpl(
                     indexView.id(),
@@ -401,17 +513,31 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         );
     }
 
+    /**
+     * Waits for future result and return, or unwraps {@link CompletionException} to {@link IgniteException} if failed.
+     *
+     * @param future Completable future.
+     * @return Future result.
+     */
+    private <T> T join(CompletableFuture<T> future) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(Common.NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+
+        try {
+            return future.join();
+        } catch (CompletionException ex) {
+            throw IgniteException.wrap(ex.getCause());
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     private class ConfigurationListener implements ConfigurationNamedListListener<TableIndexView> {
         /** {@inheritDoc} */
         @Override
         public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
-            try {
-                onIndexCreate(ctx);
-            } catch (Exception e) {
-                return CompletableFuture.completedFuture(e);
-            }
-
-            return CompletableFuture.completedFuture(null);
+            return onIndexCreate(ctx);
         }
 
         /** {@inheritDoc} */
@@ -427,16 +553,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         /** {@inheritDoc} */
         @Override
         public @NotNull CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
-            if (!busyLock.enterBusy()) {
-                return CompletableFuture.completedFuture(new NodeStoppingException());
-            }
-            try {
-                onIndexDrop(ctx);
-            } finally {
-                busyLock.leaveBusy();
-            }
-
-            return CompletableFuture.completedFuture(null);
+            return onIndexDrop(ctx);
         }
 
         /** {@inheritDoc} */

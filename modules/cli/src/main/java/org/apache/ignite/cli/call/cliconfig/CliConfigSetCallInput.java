@@ -28,9 +28,13 @@ public class CliConfigSetCallInput implements CallInput {
 
     private final String profileName;
 
-    public CliConfigSetCallInput(Map<String, String> parameters, String profileName) {
+    private CliConfigSetCallInput(Map<String, String> parameters, String profileName) {
         this.parameters = parameters;
         this.profileName = profileName;
+    }
+
+    public static CliConfigSetCallInputBuilder builder() {
+        return new CliConfigSetCallInputBuilder();
     }
 
     public Map<String, String> getParameters() {
@@ -39,5 +43,27 @@ public class CliConfigSetCallInput implements CallInput {
 
     public String getProfileName() {
         return profileName;
+    }
+
+    /**
+     * Builder of {@link CliConfigSetCallInput}.
+     */
+    public static class CliConfigSetCallInputBuilder {
+        private Map<String, String> parameters;
+        private String profileName;
+
+        public CliConfigSetCallInputBuilder parameters(Map<String, String> parameters) {
+            this.parameters = parameters;
+            return this;
+        }
+
+        public CliConfigSetCallInputBuilder profileName(String profileName) {
+            this.profileName = profileName;
+            return this;
+        }
+
+        public CliConfigSetCallInput build() {
+            return new CliConfigSetCallInput(parameters, profileName);
+        }
     }
 }
