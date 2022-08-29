@@ -16,22 +16,47 @@
  */
 
 #include <iostream>
-#include <memory>
 #include <stdexcept>
-#include <string>
-#include <array>
+#include <vector>
+#include <utility>
 
 #include "ignite_node.h"
+#include "test_utils.h"
 
 namespace ignite
 {
     void IgniteNode::start()
     {
+        std::string home = resolveIgniteHome();
+        if (home.empty())
+            throw std::runtime_error(
+                    "Can not resolve Ignite home directory. Try setting IGNITE_HOME explicitly");
 
+        std::string command =
+#ifdef WIN32
+        "cmd.exe /c ";
+#else
+        "/bin/bash -c ";
+#endif
+
+        command += getMavenPath() + " " + "exec:java@platform-test-node-runner";
+
+        stream = processOpen(command.c_str(), "r");
     }
 
     void IgniteNode::stop()
     {
+        if (stream)
+            processClose(stream);
+    }
 
+    std::string IgniteNode::getOutput(int max)
+    {
+        std::string buffer(max, 0);
+
+        size_t actual = std::fread(buffer.data(), 1, max, stream);
+        buffer.resize(actual);
+
+        return buffer;
     }
 } // namespace ignite

@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <cstdio>
+
 #include <string>
 
 namespace ignite
@@ -33,4 +35,28 @@ namespace ignite
      * @return Resolved Ignite home.
      */
     std::string resolveIgniteHome(const std::string& path = "");
+
+    /**
+     * Get path to maven executable.
+     */
+    std::string getMavenPath();
+
+    /**
+     * Open process.
+     *
+     * @param command System shell command line instruction.
+     * @param type Mode of the returned process output stream. Can be one of the following:
+     *  "r" - The calling process can read the spawned command's standard output using the returned stream.
+     *  "w" - The calling process can write to the spawned command's standard input using the returned stream.
+     * @return File stream for the process.
+     */
+    FILE* processOpen(const char *command, const char *type);
+
+    /**
+     * Waits for the associated process to terminate and returns the exit status of the command.
+     *
+     * @param stream Return value from the previous call to processOpen().
+     * @return Returns the exit status of the terminating command processor, or -1 if an error occurs.
+     */
+    int processClose(FILE* stream);
 } // namespace ignite

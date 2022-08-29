@@ -15,24 +15,25 @@
  * limitations under the License.
  */
 
-#pragma once
+#ifndef TEST_COMMON_IGNITE_NODE
+#define TEST_COMMON_IGNITE_NODE
 
-#include <cstdio>
+//#include <cstdio>
 
 namespace ignite
 {
     class IgniteNode
     {
     public:
-        /**
-         * Constructor.
-         */
-        IgniteNode() = default;
+//        /**
+//         * Constructor.
+//         */
+//        IgniteNode() = default;
 
-        /**
-         * Destructor.
-         */
-        ~IgniteNode() = default;
+//        /**
+//         * Destructor.
+//         */
+//        ~IgniteNode() = default;
 
         /**
          * Start node.
@@ -44,7 +45,16 @@ namespace ignite
          */
         void stop();
 
+        /**
+         * Get current node output.
+         *
+         * @param max Max bytes to get.
+         * @return Output.
+         */
+        std::string getOutput(int max = 1024);
     private:
-        FILE* file;
+        FILE* stream;
     };
 } // namespace ignite
+
+#endif // TEST_COMMON_IGNITE_NODE

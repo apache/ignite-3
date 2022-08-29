@@ -15,7 +15,12 @@
  * limitations under the License.
  */
 
+#include <thread>
+#include <chrono>
+
 #include <gtest/gtest.h>
+
+#include "ignite_node.h"
 
 class ClientTest : public ::testing::Test {
 protected:
@@ -37,5 +42,25 @@ protected:
 
 TEST_F(ClientTest, TestTest)
 {
-    EXPECT_EQ(1, 1);
+    std::cout << "Hello" << std::endl;
+
+    ignite::IgniteNode node;
+
+    node.start();
+
+    for (int i = 0; i < 20; ++i)
+    {
+        std::cout << node.getOutput();
+
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
+    node.stop();
+
+    for (int i = 0; i < 2; ++i)
+    {
+        std::cout << node.getOutput();
+
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
 }

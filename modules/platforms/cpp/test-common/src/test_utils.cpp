@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
+#include <iostream>
 #include <filesystem>
 #include <functional>
+#include <vector>
 
 #include "test_utils.h"
 
 namespace ignite
 {
-
     /**
      * Checks if the path looks like binary release home directory.
      * Internally checks for presence of core library.
@@ -66,9 +67,13 @@ namespace ignite
         if (!error && std::filesystem::is_directory(path))
             return home.string();
 
-        home = std::filesystem::canonical(std::getenv("IGNITE_HOME"), error);
-        if (!error && std::filesystem::is_directory(home))
-            return home.string();
+        const char *env = std::getenv("IGNITE_HOME");
+        if (env)
+        {
+            home = std::filesystem::canonical(env, error);
+            if (!error && std::filesystem::is_directory(home))
+                return home.string();
+        }
 
         home = std::filesystem::current_path();
         while (!home.empty() && home.has_relative_path())
@@ -79,5 +84,29 @@ namespace ignite
             home = home.parent_path();
         }
         return home.string();
+    }
+
+    std::string getMavenPath()
+    {
+        // Currently, we only support systems with "mvn" command in PATH
+        return "mvn";
+    }
+
+    FILE *processOpen(const char *command, const char *type)
+    {
+#ifdef WIN32
+        return _popen(command, type);
+#else
+        return popen(command, type);
+#endif
+    }
+
+    int processClose(FILE *stream)
+    {
+#ifdef WIN32
+        return _pclose(stream);
+#else
+        return pclose(stream);
+#endif
     }
 } // namespace ignite
