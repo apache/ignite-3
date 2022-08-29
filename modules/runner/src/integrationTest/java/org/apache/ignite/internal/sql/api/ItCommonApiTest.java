@@ -62,14 +62,14 @@ public class ItCommonApiTest extends AbstractBasicIntegrationTest {
         sql("CREATE TABLE TST(id INTEGER PRIMARY KEY, val INTEGER)");
         sql("INSERT INTO TST VALUES (1,1), (2,2), (3,3), (4,4)");
 
-        Session ses1 = sql.sessionBuilder().defaultPageSize(1).idleTimeout(100, TimeUnit.MILLISECONDS).build();
+        Session ses1 = sql.sessionBuilder().defaultPageSize(1).idleTimeout(1, TimeUnit.SECONDS).build();
         Session ses2 = sql.sessionBuilder().defaultPageSize(1).idleTimeout(100, TimeUnit.SECONDS).build();
 
         ResultSet rs1 = ses1.execute(null, "SELECT id FROM TST");
         ResultSet rs2 = ses2.execute(null, "SELECT id FROM TST");
 
         // waiting for run session cleanup thread
-        Thread.sleep(timeout);
+        Thread.sleep(timeout + ses1.idleTimeout(TimeUnit.MILLISECONDS));
 
         // first session should be expired for the moment
         SqlException ex = assertThrows(SqlException.class, () -> ses1.execute(null, "SELECT 1 + 1"));
