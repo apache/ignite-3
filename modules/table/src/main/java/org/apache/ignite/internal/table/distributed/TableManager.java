@@ -516,9 +516,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 for (int i = 0; i < partCnt; i++) {
                     String partId = partitionRaftGroupName(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
-                    futures[i] = updatePendingAssignmentsKeys(
-                            tblCfg.name().value(), partId, baselineMgr.nodes(),
-                            partCnt, newReplicas,
+                    futures[i] = updatePendingAssignmentsKeys(tblCfg.name().value(), partId, baselineMgr.nodes(), newReplicas,
                             replicasCtx.storageRevision(), metaStorageMgr, i);
                 }
 
@@ -1554,7 +1552,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     String partId = partitionRaftGroupName(tblId, part);
 
                     // Assignments of the pending rebalance that we received through the meta storage watch mechanism.
-                    Set<ClusterNode> newPeers = ((Set<ClusterNode>) ByteUtils.fromBytes(pendingAssignmentsWatchEvent.value()));
+                    Set<ClusterNode> newPeers = ByteUtils.fromBytes(pendingAssignmentsWatchEvent.value());
 
                     var pendingAssignments = metaStorageMgr.get(pendingPartAssignmentsKey(partId)).join();
 
@@ -1682,14 +1680,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     String partId = partitionRaftGroupName(tblId, part);
 
-                    var stableAssignments = (Set<ClusterNode>) ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
+                    Set<ClusterNode> stableAssignments = ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
 
                     byte[] pendingFromMetastorage = metaStorageMgr.get(pendingPartAssignmentsKey(partId),
                             stableAssignmentsWatchEvent.revision()).join().value();
 
                     Set<ClusterNode> pendingAssignments = pendingFromMetastorage == null
                             ? Collections.emptySet()
-                            : (Set<ClusterNode>) ByteUtils.fromBytes(pendingFromMetastorage);
+                            : ByteUtils.fromBytes(pendingFromMetastorage);
 
                     try {
                         ClusterNode localMember = raftMgr.topologyService().localMember();

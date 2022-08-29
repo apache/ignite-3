@@ -88,7 +88,6 @@ public class RebalanceUtil {
      * @param tableName Table name.
      * @param partId Unique identifier of a partition.
      * @param baselineNodes Nodes in baseline.
-     * @param partitions Number of partitions in a table.
      * @param replicas Number of replicas for a table.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.
@@ -96,7 +95,7 @@ public class RebalanceUtil {
      */
     public static @NotNull CompletableFuture<Void> updatePendingAssignmentsKeys(
             String tableName, String partId, Collection<ClusterNode> baselineNodes,
-            int partitions, int replicas, long revision, MetaStorageManager metaStorageMgr, int partNum) {
+            int replicas, long revision, MetaStorageManager metaStorageMgr, int partNum) {
         ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
@@ -105,8 +104,9 @@ public class RebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(partId);
 
-        byte[] partAssignmentsBytes = ByteUtils.toBytes(
-                AffinityUtils.calculateAssignments(baselineNodes, partitions, replicas).get(partNum));
+        Set<ClusterNode> partAssignments = AffinityUtils.calculateAssignmentForPartition(baselineNodes, partNum, replicas);
+
+        byte[] partAssignmentsBytes = ByteUtils.toBytes(partAssignments);
 
         //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
         //        if empty(partition.assignments.pending) && partition.assignments.stable != calcPartAssighments():
