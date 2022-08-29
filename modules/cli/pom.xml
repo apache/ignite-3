@@ -259,6 +259,13 @@
                     <scope>test</scope>
                     <type>test-jar</type>
                 </dependency>
+
+                <dependency>
+                    <groupId>org.apache.ignite</groupId>
+                    <artifactId>ignite-schema</artifactId>
+                    <type>test-jar</type>
+                    <scope>test</scope>
+                </dependency>
             </dependencies>
         </profile>
     </profiles>
