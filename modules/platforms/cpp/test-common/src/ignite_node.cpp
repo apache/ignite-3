@@ -17,8 +17,6 @@
 
 #include <filesystem>
 #include <stdexcept>
-#include <vector>
-#include <utility>
 #include <iostream>
 
 #include "ignite_node.h"
@@ -65,19 +63,4 @@ namespace ignite
         if (process)
             process->stop();
     }
-
-//    bool IgniteNode::isRunning()
-//    {
-//        return std::feof(stream) == 0 && std::ferror(stream) == 0;
-//    }
-//
-//    std::string IgniteNode::getOutput(int max)
-//    {
-//        std::string buffer(max, 0);
-//
-//        size_t actual = std::fread(buffer.data(), 1, max, stream);
-//        buffer.resize(actual);
-//
-//        return buffer;
-//    }
 } // namespace ignite

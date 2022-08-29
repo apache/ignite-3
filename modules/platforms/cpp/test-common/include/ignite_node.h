@@ -46,21 +46,6 @@ namespace ignite
          */
         void stop();
 
-//        /**
-//         * Check whether node is still running.
-//         *
-//         * @return @c true if the node is running.
-//         */
-//        bool isRunning();
-//
-//        /**
-//         * Get current node output.
-//         *
-//         * @param max Max bytes to get.
-//         * @return Output.
-//         */
-//        std::string getOutput(int max = 1024);
-
     private:
         /** Underlying process. */
         std::unique_ptr<Process> process;
