@@ -606,7 +606,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                         executor.schedule(() -> {
                             Peer targetPeer = peer;
 
-                            if (resp0.errorCode() == (RaftError.ENOENT.getNumber())) {
+                            if (resp0.errorCode() == RaftError.ENOENT.getNumber()) {
                                 // If changing peers or requesting a leader and something is not found
                                 // probably target peer is doing rebalancing, try another peer.
                                 if (req instanceof GetLeaderRequest || req instanceof ChangePeersAsyncRequest) {
@@ -695,21 +695,21 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     /**
-     * Returns a random peer. Tries returning peer different from the peer passed as an argument.
-     * If peer is null, just returns a random peer.
+     * Returns a random peer. Tries 5 times finding a peer different from the excluded peer.
+     * If excluded peer is null, just returns a random peer.
      *
-     * @param peer Previous peer.
+     * @param excludedPeer Excluded peer.
      * @return Random peer.
      */
-    private Peer randomNode(Peer peer) {
+    private Peer randomNode(Peer excludedPeer) {
         List<Peer> peers0 = peers;
 
         assert peers0 != null && !peers0.isEmpty();
 
         int lastPeerIndex = -1;
 
-        if (peer != null) {
-            lastPeerIndex = peers0.indexOf(peer);
+        if (excludedPeer != null) {
+            lastPeerIndex = peers0.indexOf(excludedPeer);
         }
 
         int retries = 0;

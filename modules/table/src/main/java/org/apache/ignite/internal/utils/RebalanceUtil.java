@@ -22,16 +22,18 @@ import static org.apache.ignite.internal.metastorage.client.CompoundCondition.or
 import static org.apache.ignite.internal.metastorage.client.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.client.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.client.Conditions.value;
+import static org.apache.ignite.internal.metastorage.client.If.iif;
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.internal.metastorage.client.Operations.put;
 import static org.apache.ignite.internal.metastorage.client.Operations.remove;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -118,13 +120,13 @@ public class RebalanceUtil {
         //                remove(partition.assignments.planned)
         //    else:
         //        skip
-        var iif = If.iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(ByteUtils.longToBytes(revision))),
-                If.iif(and(notExists(partAssignmentsPendingKey), value(partAssignmentsStableKey).ne(partAssignmentsBytes)),
+        var iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(ByteUtils.longToBytes(revision))),
+                iif(and(notExists(partAssignmentsPendingKey), value(partAssignmentsStableKey).ne(partAssignmentsBytes)),
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsBytes),
                                 put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
                         ).yield(PENDING_KEY_UPDATED),
-                        If.iif(value(partAssignmentsPendingKey).ne(partAssignmentsBytes),
+                        iif(value(partAssignmentsPendingKey).ne(partAssignmentsBytes),
                                 ops(
                                         put(partAssignmentsPlannedKey, partAssignmentsBytes),
                                         put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
@@ -291,7 +293,7 @@ public class RebalanceUtil {
 
     /**
      * Starts the process of removing peer from raft group if that peer has in-memory storage or if its
-     * storage was cleared.
+     * storage has been cleared.
      *
      * @param partId Partition's raft group id.
      * @param clusterNode Cluster node to be removed from peers.
@@ -305,30 +307,24 @@ public class RebalanceUtil {
                 .thenCompose(retrievedAssignmentsSwitchReduce -> {
                     byte[] prevValue = retrievedAssignmentsSwitchReduce.value();
 
-                    boolean prevValueEmpty = true;
-                    List<ClusterNode> calculatedAssignmentsSwitchReduce;
-
                     if (prevValue != null) {
-                        calculatedAssignmentsSwitchReduce = (List<ClusterNode>) ByteUtils.fromBytes(prevValue);
-                        prevValueEmpty = false;
-                    } else {
-                        calculatedAssignmentsSwitchReduce = new ArrayList<>();
-                    }
+                        Set<ClusterNode> prev = ByteUtils.fromBytes(prevValue);
 
-                    calculatedAssignmentsSwitchReduce.add(clusterNode);
+                        prev.add(clusterNode);
 
-                    byte[] newValue = ByteUtils.toBytes(calculatedAssignmentsSwitchReduce);
-
-                    if (prevValueEmpty) {
                         return metaStorageMgr.invoke(
-                                Conditions.notExists(key),
-                                Operations.put(key, newValue),
+                                revision(key).eq(retrievedAssignmentsSwitchReduce.revision()),
+                                Operations.put(key, ByteUtils.toBytes(prev)),
                                 Operations.noop()
                         );
                     } else {
+                        var newValue = new HashSet<>();
+
+                        newValue.add(clusterNode);
+
                         return metaStorageMgr.invoke(
-                                revision(key).eq(retrievedAssignmentsSwitchReduce.revision()),
-                                Operations.put(key, newValue),
+                                Conditions.notExists(key),
+                                Operations.put(key, ByteUtils.toBytes(newValue)),
                                 Operations.noop()
                         );
                     }
@@ -342,28 +338,29 @@ public class RebalanceUtil {
     }
 
     /**
-     * Handles assignments switch reduce changed.
+     * Handles assignments switch reduce changed updating pending assignments if there is no rebalancing in progress.
+     * If there is rebalancing in progress, then new assignments will be applied when rebalance finishes. 
      *
      * @param metaStorageMgr MetaStorage manager.
      * @param baselineNodes Baseline nodes.
-     * @param partitions Partitions count.
      * @param replicas Replicas count.
      * @param partNum Number of the partition.
-     * @param partId Partition's raft group id..
+     * @param partId Partition's raft group id.
      * @param event Assignments switch reduce change event.
      * @return Completable future that signifies the completion of this operation.
      */
     public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<ClusterNode> baselineNodes,
-            int partitions, int replicas, int partNum, String partId, WatchEvent event) {
+            int replicas, int partNum, String partId, WatchEvent event) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();
 
-        List<ClusterNode> assignments = AffinityUtils.calculateAssignments(baselineNodes, partitions, replicas).get(partNum);
-        List<ClusterNode> switchReduce = (List<ClusterNode>) ByteUtils.fromBytes(eventData);
+        Set<ClusterNode> assignments = AffinityUtils.calculateAssignmentForPartition(baselineNodes, partNum, replicas);
+
+        Set<ClusterNode> switchReduce = ByteUtils.fromBytes(eventData);
 
         ByteArray pendingKey = pendingPartAssignmentsKey(partId);
 
-        List<ClusterNode> pendingAssignments = subtract(assignments, switchReduce);
+        Set<ClusterNode> pendingAssignments = subtract(assignments, switchReduce);
 
         byte[] pendingByteArray = ByteUtils.toBytes(pendingAssignments);
         byte[] assignmentsByteArray = ByteUtils.toBytes(assignments);
@@ -384,27 +381,27 @@ public class RebalanceUtil {
         //     put(changeTriggerKey, revision)
         // }
 
-        If iif = If.iif(
+        If iif = iif(
+                and(
+                        or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
+                        and(notExists(pendingKey), (notExists(stablePartAssignmentsKey(partId))))
+                ),
+                ops(
+                        put(pendingKey, pendingByteArray),
+                        put(stablePartAssignmentsKey(partId), assignmentsByteArray),
+                        put(changeTriggerKey, rev)
+                ).yield(),
+                iif(
                         and(
                                 or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
-                                and(notExists(pendingKey), (notExists(stablePartAssignmentsKey(partId))))
+                                notExists(pendingKey)
                         ),
-                        Operations.ops(
+                        ops(
                                 put(pendingKey, pendingByteArray),
-                                put(stablePartAssignmentsKey(partId), assignmentsByteArray),
                                 put(changeTriggerKey, rev)
                         ).yield(),
-                        If.iif(
-                            and(
-                                    or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
-                                    notExists(pendingKey)
-                            ),
-                            Operations.ops(
-                                    put(pendingKey, pendingByteArray),
-                                    put(changeTriggerKey, rev)
-                            ).yield(),
-                            ops().yield()
-                        )
+                        ops().yield()
+                )
         );
 
         return metaStorageMgr.invoke(iif).thenApply(unused -> null);
@@ -419,20 +416,20 @@ public class RebalanceUtil {
      * @param stableAssignments Byte array that contains serialized list of stable assignments.
      * @return Resolved cluster nodes.
      */
-    public static List<ClusterNode> resolveClusterNodes(List<PeerId> peers, byte[] pendingAssignments, byte[] stableAssignments) {
+    public static Set<ClusterNode> resolveClusterNodes(List<PeerId> peers, byte[] pendingAssignments, byte[] stableAssignments) {
         Map<NetworkAddress, ClusterNode> resolveRegistry = new HashMap<>();
 
         if (pendingAssignments != null) {
-            List<ClusterNode> pending = ByteUtils.fromBytes(pendingAssignments);
+            Set<ClusterNode> pending = ByteUtils.fromBytes(pendingAssignments);
             pending.forEach(n -> resolveRegistry.put(n.address(), n));
         }
 
         if (stableAssignments != null) {
-            List<ClusterNode> stable = ByteUtils.fromBytes(stableAssignments);
+            Set<ClusterNode> stable = ByteUtils.fromBytes(stableAssignments);
             stable.forEach(n -> resolveRegistry.put(n.address(), n));
         }
 
-        List<ClusterNode> resolvedNodes = new ArrayList<>(peers.size());
+        Set<ClusterNode> resolvedNodes = new HashSet<>(peers.size());
 
         for (PeerId p : peers) {
             var addr = NetworkAddress.from(p.getEndpoint().getIp() + ":" + p.getEndpoint().getPort());
@@ -453,44 +450,48 @@ public class RebalanceUtil {
      * @param entry MetaStorage entry.
      * @return List of cluster nodes.
      */
-    public static List<ClusterNode> readClusterNodes(Entry entry) {
+    public static Set<ClusterNode> readClusterNodes(Entry entry) {
         if (entry.empty()) {
-            return Collections.emptyList();
+            return Collections.emptySet();
         }
 
         return ByteUtils.fromBytes(entry.value());
     }
 
     /**
-     * Removes nodes from collection of nodes.
+     * Removes nodes from set of nodes.
      *
-     * @param minuend Collection to remove nodes from.
-     * @param subtrahend Collection of nodes to be removed.
+     * @param minuend Set to remove nodes from.
+     * @param subtrahend Set of nodes to be removed.
      * @return Result of the subtraction.
      */
-    public static List<ClusterNode> subtract(Collection<ClusterNode> minuend, Collection<ClusterNode> subtrahend) {
-        return minuend.stream().filter(v -> !subtrahend.contains(v)).collect(Collectors.toList());
+    public static Set<ClusterNode> subtract(Set<ClusterNode> minuend, Set<ClusterNode> subtrahend) {
+        return minuend.stream().filter(v -> !subtrahend.contains(v)).collect(Collectors.toSet());
     }
 
     /**
-     * Adds nodes to the collection of nodes.
+     * Adds nodes to the set of nodes.
      *
      * @param op1 First operand.
      * @param op2 Second operand.
      * @return Result of the addition.
      */
-    public static List<ClusterNode> union(Collection<ClusterNode> op1, Collection<ClusterNode> op2) {
-        return op2.stream().filter(v -> !op1.contains(v)).collect(Collectors.toCollection(() -> new ArrayList<>(op1)));
+    public static Set<ClusterNode> union(Set<ClusterNode> op1, Set<ClusterNode> op2) {
+        var res = new HashSet<>(op1);
+
+        res.addAll(op2);
+
+        return res;
     }
 
     /**
-     * Returns an intersection of two collections of nodes.
+     * Returns an intersection of two set of nodes.
      *
      * @param op1 First operand.
      * @param op2 Second operand.
      * @return Result of the intersection.
      */
-    public static List<ClusterNode> intersect(Collection<ClusterNode> op1, Collection<ClusterNode> op2) {
-        return op1.stream().filter(op2::contains).collect(Collectors.toList());
+    public static Set<ClusterNode> intersect(Set<ClusterNode> op1, Set<ClusterNode> op2) {
+        return op1.stream().filter(op2::contains).collect(Collectors.toSet());
     }
 }

@@ -51,6 +51,7 @@ import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -97,10 +98,10 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
             }
         }
 
+        IgniteUtils.closeAll(closeables);
+
         CLUSTER_NODES.clear();
         CLUSTER_NODES_NAMES.clear();
-
-        IgniteUtils.closeAll(closeables);
     }
 
     /**
@@ -142,7 +143,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
     private IgniteImpl startNode(TestInfo testInfo, int idx) {
         int port = DEFAULT_NODE_PORT + idx;
         String nodeName = testNodeName(testInfo, port);
-        String cfgString = configurationString(idx, null, null);
+        String cfgString = configurationString(idx);
 
         return startNode(idx, nodeName, cfgString, workDir.resolve(nodeName));
     }
@@ -151,16 +152,15 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
      * Build a configuration string.
      *
      * @param idx Node index.
-     * @param cfg Optional configuration string.
-     * @param predefinedPort Predefined port.
      * @return Configuration string.
      */
-    private static String configurationString(int idx, @Nullable String cfg, @Nullable Integer predefinedPort) {
-        int port = predefinedPort == null ? DEFAULT_NODE_PORT + idx : predefinedPort;
-        int connectPort = predefinedPort == null ? DEFAULT_NODE_PORT : predefinedPort;
-        String connectAddr = "[\"localhost:" + connectPort + "\"]";
+    private static String configurationString(int idx) {
+        int port = DEFAULT_NODE_PORT + idx;
 
-        return cfg == null ? IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr) : cfg;
+        // The address of the first node.
+        @Language("HOCON") String connectAddr = "[localhost\":\"" + DEFAULT_NODE_PORT + "]";
+
+        return IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr);
     }
 
     /**

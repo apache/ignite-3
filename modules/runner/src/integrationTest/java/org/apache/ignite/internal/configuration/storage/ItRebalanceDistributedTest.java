@@ -335,7 +335,7 @@ public class ItRebalanceDistributedTest {
         return nodes.stream().filter(n -> n.address().equals(addr)).findFirst().get();
     }
 
-    private List<ClusterNode> getPartitionClusterNodes(int nodeNum, int partNum) {
+    private Set<ClusterNode> getPartitionClusterNodes(int nodeNum, int partNum) {
         var table = ((ExtendedTableConfiguration) nodes.get(nodeNum).clusterCfgMgr.configurationRegistry()
                 .getConfiguration(TablesConfiguration.KEY).tables().get("PUBLIC.TBL1"));
 
@@ -343,11 +343,11 @@ public class ItRebalanceDistributedTest {
             var assignments = table.assignments().value();
 
             if (assignments != null) {
-                return ((List<List<ClusterNode>>) ByteUtils.fromBytes(assignments)).get(partNum);
+                return ((List<Set<ClusterNode>>) ByteUtils.fromBytes(assignments)).get(partNum);
             }
         }
 
-        return List.of();
+        return Set.of();
     }
 
     private static class Node {

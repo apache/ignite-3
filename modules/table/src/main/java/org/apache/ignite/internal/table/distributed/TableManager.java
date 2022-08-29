@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -132,8 +133,6 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
@@ -156,6 +155,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     // TODO get rid of this in future? IGNITE-17307
     /** Timeout to complete the tablesByIdVv on revision update. */
     private static final long TABLES_COMPLETE_TIMEOUT = 120;
+
+    private static final long QUERY_DATA_NODES_COUNT_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
@@ -390,40 +391,37 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param messagingService Messaging service.
      */
     private void addMessageHandler(MessagingService messagingService) {
-        var messageHandler = new NetworkMessageHandler() {
-            @Override
-            public void onReceived(NetworkMessage message, NetworkAddress senderAddr, @Nullable Long correlationId) {
-                if (message instanceof HasDataRequest) {
-                    // This message queries if a node has any data for a specific partition of a table
-                    assert correlationId != null;
+        messagingService.addMessageHandler(TableMessageGroup.class, (message, senderAddr, correlationId) -> {
+            if (message instanceof HasDataRequest) {
+                // This message queries if a node has any data for a specific partition of a table
+                assert correlationId != null;
 
-                    HasDataRequest msg = (HasDataRequest) message;
+                HasDataRequest msg = (HasDataRequest) message;
 
-                    UUID tableId = msg.tableId();
-                    int partitionId = msg.partitionId();
+                UUID tableId = msg.tableId();
+                int partitionId = msg.partitionId();
 
-                    boolean contains = false;
+                boolean contains = false;
 
-                    TableImpl table = tablesByIdVv.latest().get(tableId);
+                TableImpl table = tablesByIdVv.latest().get(tableId);
 
-                    if (table != null) {
-                        MvTableStorage storage = table.internalTable().storage();
+                if (table != null) {
+                    MvTableStorage storage = table.internalTable().storage();
 
-                        MvPartitionStorage mvPartition = storage.getMvPartition(partitionId);
+                    MvPartitionStorage mvPartition = storage.getMvPartition(partitionId);
 
-                        if (mvPartition != null) {
-                            // If applied index of a storage is greater than 0,
-                            // then there is data
-                            contains = mvPartition.lastAppliedIndex() > 0;
-                        }
+                    // If node's recovery process is incomplete (no partition storage), then we consider this node's
+                    // partition storage empty.
+                    if (mvPartition != null) {
+                        // If applied index of a storage is greater than 0,
+                        // then there is data.
+                        contains = mvPartition.lastAppliedIndex() > 0;
                     }
-
-                    messagingService.respond(senderAddr, TABLE_MESSAGES_FACTORY.hasDataResponse().result(contains).build(), correlationId);
                 }
-            }
-        };
 
-        messagingService.addMessageHandler(TableMessageGroup.class, messageHandler);
+                messagingService.respond(senderAddr, TABLE_MESSAGES_FACTORY.hasDataResponse().result(contains).build(), correlationId);
+            }
+        });
     }
 
     /**
@@ -565,9 +563,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         long causalityToken = assignmentsCtx.storageRevision();
 
-        List<List<ClusterNode>> oldAssignments = assignmentsCtx.oldValue() == null ? null : ByteUtils.fromBytes(assignmentsCtx.oldValue());
+        List<Set<ClusterNode>> oldAssignments = assignmentsCtx.oldValue() == null ? null : ByteUtils.fromBytes(assignmentsCtx.oldValue());
 
-        List<List<ClusterNode>> newAssignments = ByteUtils.fromBytes(assignmentsCtx.newValue());
+        List<Set<ClusterNode>> newAssignments = ByteUtils.fromBytes(assignmentsCtx.newValue());
 
         // Empty assignments might be a valid case if tables are created from within cluster init HOCON
         // configuration, which is not supported now.
@@ -577,7 +575,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
 
-        List<List<ClusterNode>> assignmentsLatest = ByteUtils.fromBytes(directProxy(tblCfg.assignments()).value());
+        List<Set<ClusterNode>> assignmentsLatest = ByteUtils.fromBytes(directProxy(tblCfg.assignments()).value());
 
         TopologyService topologyService = raftMgr.topologyService();
         ClusterNode localMember = topologyService.localMember();
@@ -588,10 +586,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         for (int i = 0; i < partitions; i++) {
             int partId = i;
 
-            List<ClusterNode> oldPartAssignment = oldAssignments == null ? Collections.emptyList() :
+            Set<ClusterNode> oldPartAssignment = oldAssignments == null ? Collections.emptySet() :
                     oldAssignments.get(partId);
 
-            List<ClusterNode> newPartAssignment = newAssignments.get(partId);
+            Set<ClusterNode> newPartAssignment = newAssignments.get(partId);
 
             // Create new raft nodes according to new assignments.
             tablesByIdVv.update(causalityToken, (tablesById, e) -> {
@@ -610,7 +608,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 // start new nodes, only if it is table creation
                 // other cases will be covered by rebalance logic
-                List<ClusterNode> nodes = (oldPartAssignment.isEmpty()) ? newPartAssignment : Collections.emptyList();
+                Set<ClusterNode> nodes = (oldPartAssignment.isEmpty()) ? newPartAssignment : Collections.emptySet();
 
                 String grpId = partitionRaftGroupName(tblId, partId);
 
@@ -625,24 +623,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 CompletableFuture<Boolean> fut;
 
                                 if (isInMemory || !hasData) {
-                                    List<ClusterNode> partAssignments = assignmentsLatest.get(partId);
+                                    Set<ClusterNode> partAssignments = assignmentsLatest.get(partId);
 
                                     fut = queryDataNodesCount(tblId, partId, partAssignments).thenApply(dataNodesCount -> {
                                         boolean fullPartitionRestart = dataNodesCount == 0;
-                                        boolean majorityAvailable = dataNodesCount >= (partAssignments.size() / 2) + 1;
 
                                         if (fullPartitionRestart) {
                                             return true;
                                         }
 
+                                        boolean majorityAvailable = dataNodesCount >= (partAssignments.size() / 2) + 1;
+
                                         if (majorityAvailable) {
-                                            String partitionId = partitionRaftGroupName(tblId, partId);
-                                            RebalanceUtil.startPeerRemoval(partitionId, localMember, metaStorageMgr);
+                                            RebalanceUtil.startPeerRemoval(partitionRaftGroupName(tblId, partId), localMember,
+                                                    metaStorageMgr);
+
                                             return false;
                                         } else {
                                             // No majority and not a full partition restart - need to restart nodes
                                             // with current partition.
                                             String msg = "Unable to start partition " + partId + ". Majority not available.";
+
                                             throw new IgniteInternalException(msg);
                                         }
                                     });
@@ -716,14 +717,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param partAssignments Partition assignments.
      * @return A future that will hold the quantity of data nodes.
      */
-    private CompletableFuture<Long> queryDataNodesCount(UUID tblId, int partId, List<ClusterNode> partAssignments) {
+    private CompletableFuture<Long> queryDataNodesCount(UUID tblId, int partId, Set<ClusterNode> partAssignments) {
         HasDataRequestBuilder requestBuilder = TABLE_MESSAGES_FACTORY.hasDataRequest().tableId(tblId).partitionId(partId);
 
         //noinspection unchecked
         CompletableFuture<Boolean>[] requestFutures = partAssignments.stream().map(node -> {
             HasDataRequest request = requestBuilder.build();
 
-            return raftMgr.messagingService().invoke(node, request, TimeUnit.SECONDS.toMillis(3)).thenApply(response -> {
+            return raftMgr.messagingService().invoke(node, request, QUERY_DATA_NODES_COUNT_TIMEOUT).thenApply(response -> {
                 assert response instanceof HasDataResponse : response;
 
                 return ((HasDataResponse) response).result();
@@ -738,7 +739,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             InternalTable internalTbl,
             ExtendedTableConfiguration tableConfig,
             MvPartitionStorage partitionStorage,
-            List<ClusterNode> peers
+            Set<ClusterNode> peers
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -895,7 +896,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tblId          Table id.
      * @param assignment     Affinity assignment.
      */
-    private void dropTableLocally(long causalityToken, String name, UUID tblId, List<List<ClusterNode>> assignment) {
+    private void dropTableLocally(long causalityToken, String name, UUID tblId, List<Set<ClusterNode>> assignment) {
         try {
             int partitions = assignment.size();
 
@@ -933,10 +934,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    private List<ClusterNode> calculateAssignments(TableConfiguration tableCfg, int partNum) {
-        Integer partitions = tableCfg.partitions().value();
-        Integer replicas = tableCfg.replicas().value();
-        return AffinityUtils.calculateAssignments(baselineMgr.nodes(), partitions, replicas).get(partNum);
+    private Set<ClusterNode> calculateAssignments(TableConfiguration tableCfg, int partNum) {
+        return AffinityUtils.calculateAssignmentForPartition(baselineMgr.nodes(), partNum, tableCfg.value().replicas());
     }
 
     /**
@@ -1015,7 +1014,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         extConfCh.changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
                                         baselineMgr.nodes(),
                                         tableChange.partitions(),
-                                        tableChange.replicas())))
+                                        tableChange.replicas(),
+                                        HashSet::new)))
                                 // Table schema preparation.
                                 .changeSchemas(schemasCh -> schemasCh.create(
                                         String.valueOf(INITIAL_SCHEMA_VERSION),
@@ -1554,7 +1554,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     String partId = partitionRaftGroupName(tblId, part);
 
                     // Assignments of the pending rebalance that we received through the meta storage watch mechanism.
-                    List<ClusterNode> newPeers = ((List<ClusterNode>) ByteUtils.fromBytes(pendingAssignmentsWatchEvent.value()));
+                    Set<ClusterNode> newPeers = ((Set<ClusterNode>) ByteUtils.fromBytes(pendingAssignmentsWatchEvent.value()));
 
                     var pendingAssignments = metaStorageMgr.get(pendingPartAssignmentsKey(partId)).join();
 
@@ -1574,9 +1574,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     byte[] stableAssignments = metaStorageMgr.get(stablePartAssignmentsKey(partId),
                             pendingAssignmentsWatchEvent.revision()).join().value();
 
-                    List<ClusterNode> assignments = stableAssignments == null
+                    Set<ClusterNode> assignments = stableAssignments == null
                             // This is for the case when the first rebalance occurs.
-                            ? ((List<List<ClusterNode>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(part)
+                            ? ((List<Set<ClusterNode>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(part)
                             : ByteUtils.fromBytes(stableAssignments);
 
                     ClusterNode localMember = raftMgr.topologyService().localMember();
@@ -1682,14 +1682,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     String partId = partitionRaftGroupName(tblId, part);
 
-                    var stableAssignments = (List<ClusterNode>) ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
+                    var stableAssignments = (Set<ClusterNode>) ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
 
                     byte[] pendingFromMetastorage = metaStorageMgr.get(pendingPartAssignmentsKey(partId),
                             stableAssignmentsWatchEvent.revision()).join().value();
 
-                    List<ClusterNode> pendingAssignments = pendingFromMetastorage == null
-                            ? Collections.emptyList()
-                            : (List<ClusterNode>) ByteUtils.fromBytes(pendingFromMetastorage);
+                    Set<ClusterNode> pendingAssignments = pendingFromMetastorage == null
+                            ? Collections.emptySet()
+                            : (Set<ClusterNode>) ByteUtils.fromBytes(pendingFromMetastorage);
 
                     try {
                         ClusterNode localMember = raftMgr.topologyService().localMember();
@@ -1720,19 +1720,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 int partitionNumber = extractPartitionNumber(key);
                 UUID tblId = extractTableId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX);
+
                 String partitionId = partitionRaftGroupName(tblId, partitionNumber);
 
                 TableImpl tbl = tablesByIdVv.latest().get(tblId);
-                ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
 
-                Integer partitions = tblCfg.partitions().value();
-                Integer replicas = tblCfg.replicas().value();
+                TableConfiguration tblCfg = tablesCfg.tables().get(tbl.name());
 
                 RebalanceUtil.handleReduceChanged(
                         metaStorageMgr,
                         baselineMgr.nodes(),
-                        partitions,
-                        replicas,
+                        tblCfg.value().replicas(),
                         partitionNumber,
                         partitionId,
                         evt

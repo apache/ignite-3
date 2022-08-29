@@ -130,7 +130,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     private final AtomicInteger rebalanceAttempts =  new AtomicInteger(0);
 
     /** Function that calculates assignments for table's partition. */
-    private final BiFunction<TableConfiguration, Integer, List<ClusterNode>> calculateAssignmentsFn;
+    private final BiFunction<TableConfiguration, Integer, Set<ClusterNode>> calculateAssignmentsFn;
 
     /**
      * Constructs new listener.
@@ -151,7 +151,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             int partNum,
             IgniteSpinBusyLock busyLock,
             BiFunction<List<Peer>, Long, CompletableFuture<Void>> movePartitionFn,
-            BiFunction<TableConfiguration, Integer, List<ClusterNode>> calculateAssignmentsFn,
+            BiFunction<TableConfiguration, Integer, Set<ClusterNode>> calculateAssignmentsFn,
             ScheduledExecutorService rebalanceScheduler) {
         this.metaStorageMgr = metaStorageMgr;
         this.tblConfiguration = tblConfiguration;
@@ -182,7 +182,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     Entry pendingEntry = metaStorageMgr.get(pendingPartAssignmentsKey(partId)).get();
 
                     if (!pendingEntry.empty()) {
-                        List<ClusterNode> pendingNodes = ByteUtils.fromBytes(pendingEntry.value());
+                        Set<ClusterNode> pendingNodes = ByteUtils.fromBytes(pendingEntry.value());
 
                         LOG.info("New leader elected. Going to reconfigure peers [group={}, partition={}, table={}, peers={}]",
                                 partId, partNum, tblConfiguration.name().value(), pendingNodes);
@@ -300,6 +300,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             ByteArray switchReduceKey = switchReduceKey(partId);
             ByteArray switchAppendKey = switchAppendKey(partId);
 
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
             Map<ByteArray, Entry> values = metaStorageMgr.getAll(
                     Set.of(
                             plannedPartAssignmentsKey,
@@ -316,31 +317,31 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Entry switchReduceEntry = values.get(switchReduceKey);
             Entry switchAppendEntry = values.get(switchAppendKey);
 
-            List<ClusterNode> calculatedAssignments = calculateAssignmentsFn.apply(tblConfiguration, partNum);
+            Set<ClusterNode> calculatedAssignments = calculateAssignmentsFn.apply(tblConfiguration, partNum);
 
-            List<ClusterNode> stable = resolveClusterNodes(peers, pendingEntry.value(), stableEntry.value());
+            Set<ClusterNode> stable = resolveClusterNodes(peers, pendingEntry.value(), stableEntry.value());
 
-            List<ClusterNode> retrievedSwitchReduce = readClusterNodes(switchReduceEntry);
-            List<ClusterNode> retrievedSwitchAppend = readClusterNodes(switchAppendEntry);
-            List<ClusterNode> retrievedStable = readClusterNodes(stableEntry);
+            Set<ClusterNode> retrievedSwitchReduce = readClusterNodes(switchReduceEntry);
+            Set<ClusterNode> retrievedSwitchAppend = readClusterNodes(switchAppendEntry);
+            Set<ClusterNode> retrievedStable = readClusterNodes(stableEntry);
 
             // Were reduced
-            List<ClusterNode> reducedNodes = subtract(retrievedSwitchReduce, stable);
+            Set<ClusterNode> reducedNodes = subtract(retrievedSwitchReduce, stable);
 
             // Were added
-            List<ClusterNode> addedNodes = subtract(stable, retrievedStable);
+            Set<ClusterNode> addedNodes = subtract(stable, retrievedStable);
 
             // For further reduction
-            List<ClusterNode> calculatedSwitchReduce = subtract(retrievedSwitchReduce, reducedNodes);
+            Set<ClusterNode> calculatedSwitchReduce = subtract(retrievedSwitchReduce, reducedNodes);
 
             // For further addition
-            List<ClusterNode> calculatedSwitchAppend = union(retrievedSwitchAppend, reducedNodes);
+            Set<ClusterNode> calculatedSwitchAppend = union(retrievedSwitchAppend, reducedNodes);
             calculatedSwitchAppend = subtract(calculatedSwitchAppend, addedNodes);
             calculatedSwitchAppend = intersect(calculatedAssignments, calculatedSwitchAppend);
 
-            var calculatedPendingReduction = subtract(stable, retrievedSwitchReduce);
+            Set<ClusterNode> calculatedPendingReduction = subtract(stable, retrievedSwitchReduce);
 
-            var calculatedPendingAddition = union(stable, reducedNodes);
+            Set<ClusterNode> calculatedPendingAddition = union(stable, reducedNodes);
             calculatedPendingAddition = intersect(calculatedAssignments, calculatedPendingAddition);
 
             // eq(revision(assignments.stable), retrievedAssignmentsStable.revision)
@@ -359,10 +360,12 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             SimpleCondition con4 = switchAppendEntry.empty()
                     ? notExists(switchAppendKey) : revision(switchAppendKey).eq(switchAppendEntry.revision());
 
+            // All conditions combined with AND operator.
             Condition retryPreconditions = and(con1, and(con2, and(con3, con4)));
 
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
             tblConfiguration.change(ch -> {
-                List<List<ClusterNode>> assignments = ByteUtils.fromBytes(((ExtendedTableChange) ch).assignments());
+                List<Set<ClusterNode>> assignments = ByteUtils.fromBytes(((ExtendedTableChange) ch).assignments());
                 assignments.set(partNum, stable);
                 ((ExtendedTableChange) ch).changeAssignments(ByteUtils.toBytes(assignments));
             }).get(10, TimeUnit.SECONDS);
@@ -420,6 +423,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 retryPreconditions = and(retryPreconditions, con5);
             }
 
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
             int res = metaStorageMgr.invoke(If.iif(retryPreconditions, successCase, failCase)).get().getAsInt();
 
             if (res < 0) {
@@ -485,7 +489,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * @param nodes List of cluster nodes to transform.
      * @return List of transformed peers.
      */
-    private static List<Peer> clusterNodesToPeers(List<ClusterNode> nodes) {
+    private static List<Peer> clusterNodesToPeers(Set<ClusterNode> nodes) {
         List<Peer> peers = new ArrayList<>(nodes.size());
 
         for (ClusterNode node : nodes) {

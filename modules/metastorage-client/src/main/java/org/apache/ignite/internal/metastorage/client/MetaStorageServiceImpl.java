@@ -91,16 +91,21 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** Local node id. */
     private final String localNodeId;
 
+    /** Local node name. */
+    private final String localNodeName;
+
     /**
      * Constructor.
      *
      * @param metaStorageRaftGrpSvc Meta storage raft group service.
      * @param localNodeId           Local node id.
+     * @param localNodeName         Local node name.
      */
-    public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc, String localNodeId) {
+    public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc, String localNodeId, String localNodeName) {
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
         this.watchProcessor = new WatchProcessor();
         this.localNodeId = localNodeId;
+        this.localNodeName = localNodeName;
     }
 
     /** {@inheritDoc} */
@@ -268,7 +273,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         watchRes.thenAccept(
                 watchId -> watchProcessor.addWatch(
-                        localNodeId,
                         watchId,
                         new CursorImpl<>(metaStorageRaftGrpSvc, watchRes, MetaStorageServiceImpl::watchResponse),
                         lsnr
@@ -300,7 +304,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         watchRes.thenAccept(
                 watchId -> watchProcessor.addWatch(
-                        localNodeId,
                         watchId,
                         new CursorImpl<>(metaStorageRaftGrpSvc, watchRes, MetaStorageServiceImpl::watchResponse),
                         lsnr
@@ -471,13 +474,12 @@ public class MetaStorageServiceImpl implements MetaStorageService {
          * Starts exclusive thread per watch that implement watch pulling logic and calls {@link WatchListener#onUpdate(WatchEvent)}} or
          * {@link WatchListener#onError(Throwable)}.
          *
-         * @param nodeId  Node id.
          * @param watchId Watch id.
          * @param cursor  Watch Cursor.
          * @param lsnr    The listener which receives and handles watch updates.
          */
-        private void addWatch(String nodeId, IgniteUuid watchId, CursorImpl<WatchEvent> cursor, WatchListener lsnr) {
-            Watcher watcher = new Watcher(nodeId, cursor, lsnr);
+        private void addWatch(IgniteUuid watchId, CursorImpl<WatchEvent> cursor, WatchListener lsnr) {
+            Watcher watcher = new Watcher(cursor, lsnr);
 
             watchers.put(watchId, watcher);
 
@@ -532,12 +534,11 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             /**
              * Constructor.
              *
-             * @param nodeId Node id.
              * @param cursor Watch event cursor.
              * @param lsnr   The listener which receives and handles watch updates.
              */
-            Watcher(String nodeId, Cursor<WatchEvent> cursor, WatchListener lsnr) {
-                setName(nodeId);
+            Watcher(Cursor<WatchEvent> cursor, WatchListener lsnr) {
+                setName("ms-watcher-" + localNodeName);
                 this.cursor = cursor;
                 this.lsnr = lsnr;
             }

@@ -166,6 +166,7 @@ public class MessageImplGenerator {
 
         messageImpl.addMethod(groupTypeMethod);
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17591
         MethodSpec toStringMethod = MethodSpec.methodBuilder("toString")
                 .addAnnotation(Override.class)
                 .addModifiers(Modifier.PUBLIC)
@@ -174,7 +175,6 @@ public class MessageImplGenerator {
                 .build();
 
         messageImpl.addMethod(toStringMethod);
-
 
         // message type constant and getter
         FieldSpec messageTypeField = FieldSpec.builder(short.class, "TYPE")
