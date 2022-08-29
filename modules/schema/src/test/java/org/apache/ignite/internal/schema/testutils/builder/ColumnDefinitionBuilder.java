@@ -15,41 +15,43 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.builder;
+package org.apache.ignite.internal.schema.testutils.builder;
 
-import java.util.List;
 import java.util.Map;
-import org.apache.ignite.schema.definition.index.HashIndexDefinition;
+import org.apache.ignite.schema.definition.ColumnDefinition;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Hash index descriptor builder.
+ * Table column builder.
  */
-public interface HashIndexDefinitionBuilder extends SchemaObjectBuilder {
+public interface ColumnDefinitionBuilder extends SchemaObjectBuilder {
     /**
-     * Sets indexed columns.
+     * Set nullable attribute.
      *
-     * @param columns Indexed columns.
+     * @param nullable If {@code false}, null values will not be allowed for this column.
+     *
      * @return {@code this} for chaining.
      */
-    HashIndexDefinitionBuilder withColumns(String... columns);
+    ColumnDefinitionBuilder asNullable(boolean nullable);
 
     /**
-     * Sets indexed columns.
+     * Sets column default value expression.
      *
-     * @param columns Indexed columns.
+     * @param defValExpr Default value expression.
      * @return {@code this} for chaining.
      */
-    HashIndexDefinitionBuilder withColumns(List<String> columns);
+    ColumnDefinitionBuilder withDefaultValue(@Nullable Object defValExpr);
 
     /** {@inheritDoc} */
     @Override
-    HashIndexDefinitionBuilder withHints(Map<String, String> hints);
+    ColumnDefinitionBuilder withHints(Map<String, String> hints);
 
     /**
-     * Builds hash index.
+     * Builds column.
      *
-     * @return Hash index.
+     * @return Built column.
      */
     @Override
-    HashIndexDefinition build();
+    ColumnDefinition build();
 }
+

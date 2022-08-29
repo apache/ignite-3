@@ -21,12 +21,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.time.LocalDate;
-import org.apache.ignite.schema.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.builder.ColumnDefinitionBuilder;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.DefaultValueDefinition.ConstantValue;
 import org.apache.ignite.schema.definition.DefaultValueDefinition.DefaultValueType;
-import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
 import org.junit.jupiter.api.Test;
 
 /**

@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.schema.definition.TableDefinition;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Stateless schema utils that produces helper methods for schema preparation.
@@ -142,5 +143,14 @@ public class SchemaUtils {
         }
 
         return true;
+    }
+
+    /**
+     * Creates canonical table name.
+     *
+     * @return Table with schema canonical name.
+     */
+    public static String canonicalName(@NotNull String schema, @NotNull String name) {
+        return schema + '.' + name;
     }
 }

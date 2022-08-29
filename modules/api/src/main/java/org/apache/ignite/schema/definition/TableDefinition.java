@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.schema.definition.index.IndexDefinition;
-import org.apache.ignite.schema.modification.TableModificationBuilder;
 
 /**
  * Table schema configuration.
@@ -63,11 +62,4 @@ public interface TableDefinition extends SchemaObject {
      * @return Collection of indexes.
      */
     Collection<IndexDefinition> indices();
-
-    /**
-     * Converts table descriptor to table modification builder.
-     *
-     * @return Table modification builder.
-     */
-    TableModificationBuilder toBuilder();
 }

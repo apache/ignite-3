@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.builder;
+package org.apache.ignite.internal.schema.testutils.builder;
 
 import java.util.Map;
 import org.apache.ignite.internal.schema.definition.ColumnDefinitionImpl;
@@ -23,13 +23,12 @@ import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.DefaultValueDefinition;
-import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Column builder.
  */
-public class ColumnDefinitionBuilderImpl implements ColumnDefinitionBuilder {
+class ColumnDefinitionBuilderImpl implements ColumnDefinitionBuilder {
     /** Column name. */
     private final String colName;
 

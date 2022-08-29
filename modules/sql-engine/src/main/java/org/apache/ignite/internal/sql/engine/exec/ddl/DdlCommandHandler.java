@@ -36,9 +36,11 @@ import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultChange;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultChange;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultChange;
 import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
+import org.apache.ignite.configuration.schemas.table.SortedIndexChange;
 import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.internal.index.IndexManager;
-import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
+import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AbstractTableDdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
@@ -60,12 +62,10 @@ import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
 
 /** DDL commands handler. */
 public class DdlCommandHandler {
@@ -153,7 +153,7 @@ public class DdlCommandHandler {
             }
         };
 
-        String fullName = TableDefinitionImpl.canonicalName(
+        String fullName = SchemaUtils.canonicalName(
                 IgniteObjectName.quote(cmd.schemaName()),
                 IgniteObjectName.quote(cmd.tableName())
         );
@@ -173,7 +173,7 @@ public class DdlCommandHandler {
 
     /** Handles drop table command. */
     private boolean handleDropTable(DropTableCommand cmd) {
-        String fullName = TableDefinitionImpl.canonicalName(
+        String fullName = SchemaUtils.canonicalName(
                 IgniteObjectName.quote(cmd.schemaName()),
                 IgniteObjectName.quote(cmd.tableName())
         );
@@ -196,7 +196,7 @@ public class DdlCommandHandler {
             return false;
         }
 
-        String fullName = TableDefinitionImpl.canonicalName(
+        String fullName = SchemaUtils.canonicalName(
                 IgniteObjectName.quote(cmd.schemaName()),
                 IgniteObjectName.quote(cmd.tableName())
         );
@@ -218,7 +218,7 @@ public class DdlCommandHandler {
             return false;
         }
 
-        String fullName = TableDefinitionImpl.canonicalName(
+        String fullName = SchemaUtils.canonicalName(
                 IgniteObjectName.quote(cmd.schemaName()),
                 IgniteObjectName.quote(cmd.tableName())
         );
@@ -236,31 +236,41 @@ public class DdlCommandHandler {
 
     /** Handles create index command. */
     private boolean handleCreateIndex(CreateIndexCommand cmd) {
-        // Only sorted idx for now.
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-17563 Pass null ordering for columns.
-        SortedIndexDefinitionBuilder idx = SchemaBuilders.sortedIndex(cmd.indexName());
+        Consumer<TableIndexChange> indexChanger = tableIndexChange -> {
+            if ("SORTED".equals(tableIndexChange.type())) {
+                createSortedIndexInternal(cmd, tableIndexChange.convert(SortedIndexChange.class));
 
-        for (Pair<String, Boolean> idxInfo : cmd.columns()) {
-            SortedIndexColumnBuilder idx0 = idx.addIndexColumn(idxInfo.getFirst());
-
-            if (idxInfo.getSecond()) {
-                idx0.desc();
+                return;
             }
 
-            idx0.done();
-        }
+            throw new IgniteInternalException("Unsupported index type." + SchemaUtils.canonicalName(cmd.schemaName(), cmd.indexName()));
+        };
 
         return indexManager.createIndex(
                 cmd.schemaName(),
                 cmd.indexName(),
                 cmd.tableName(),
                 !cmd.ifIndexNotExists(),
-                tableIndexChange -> convert(idx.build(), tableIndexChange));
+                indexChanger);
     }
 
     /** Handles drop index command. */
     private boolean handleDropIndex(DropIndexCommand cmd) {
         return indexManager.dropIndex(cmd.schemaName(), cmd.indexName(), !cmd.ifNotExists());
+    }
+
+    /**
+     * Creates sorted index.
+     *
+     * @param cmd Create index command.
+     * @param indexChange Index configuration changer.
+     */
+    private void createSortedIndexInternal(CreateIndexCommand cmd, SortedIndexChange indexChange) {
+        indexChange.changeColumns(colsInit -> {
+            for (Pair<String, Boolean> col : cmd.columns()) {
+                colsInit.create(col.getFirst(), colInit -> colInit.changeAsc(col.getSecond()));
+            }
+        });
     }
 
     /**

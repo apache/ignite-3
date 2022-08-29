@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.builder;
+package org.apache.ignite.internal.schema.testutils.builder;
 
 import java.util.List;
 import org.apache.ignite.schema.definition.PrimaryKeyDefinition;

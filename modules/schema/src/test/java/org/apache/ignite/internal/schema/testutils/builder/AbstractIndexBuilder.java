@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.builder;
+package org.apache.ignite.internal.schema.testutils.builder;
 
 import java.util.Collections;
 import java.util.Map;
 import org.apache.ignite.internal.util.IgniteObjectName;
-import org.apache.ignite.schema.definition.builder.SchemaObjectBuilder;
 
 /**
  * Index base class.

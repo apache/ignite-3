@@ -23,8 +23,8 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.schema.definition.SchemaValidationUtils;
 import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
-import org.apache.ignite.internal.schema.definition.builder.TableDefinitionBuilderImpl;
 
 /**
  * Table schema configuration validator implementation.
@@ -47,7 +47,7 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
                 assert !tbl.keyColumns().isEmpty();
                 assert !tbl.colocationColumns().isEmpty();
 
-                TableDefinitionBuilderImpl.validateIndices(tbl.indices(), tbl.columns(), tbl.colocationColumns());
+                SchemaValidationUtils.validateIndices(tbl.indices(), tbl.columns(), tbl.colocationColumns());
             } catch (IllegalArgumentException e) {
                 ctx.addIssue(new ValidationIssue(
                         ctx.currentKey(),

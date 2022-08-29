@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.builder;
+package org.apache.ignite.internal.schema.testutils.builder;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,7 +24,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.definition.index.SortedIndexColumnDefinitionImpl;
 import org.apache.ignite.internal.schema.definition.index.SortedIndexDefinitionImpl;
 import org.apache.ignite.internal.util.IgniteObjectName;
-import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.index.SortOrder;
 import org.apache.ignite.schema.definition.index.SortedIndexColumnDefinition;
 import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
@@ -32,8 +31,8 @@ import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
 /**
  * Sorted index builder.
  */
-public class SortedIndexDefinitionBuilderImpl extends AbstractIndexBuilder implements SortedIndexDefinitionBuilder {
-    /** Index columns. */
+class SortedIndexDefinitionBuilderImpl extends AbstractIndexBuilder implements SortedIndexDefinitionBuilder {
+    /** Index columns ordered map. */
     protected final Map<String, SortedIndexColumnBuilderImpl> cols = new LinkedHashMap<>();
 
     /**
@@ -61,7 +60,6 @@ public class SortedIndexDefinitionBuilderImpl extends AbstractIndexBuilder imple
 
     /**
      * Add index column.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
      * @param idxBuilder Index builder.
      */
@@ -83,7 +81,7 @@ public class SortedIndexDefinitionBuilderImpl extends AbstractIndexBuilder imple
      * Get index columns.
      */
     public List<SortedIndexColumnDefinition> columns() {
-        return cols.values().stream().map(c -> new SortedIndexColumnDefinitionImpl(c.name, c.asc)).collect(Collectors.toList());
+        return cols.values().stream().map(c -> new SortedIndexColumnDefinitionImpl(c.name, c.order)).collect(Collectors.toList());
     }
 
     /** {@inheritDoc} */
@@ -105,7 +103,7 @@ public class SortedIndexDefinitionBuilderImpl extends AbstractIndexBuilder imple
         protected String name;
 
         /** Index order flag. */
-        protected SortOrder asc = SortOrder.ASC;
+        private SortOrder order = SortOrder.ASC;
 
         /**
          * Constructor.
@@ -119,7 +117,7 @@ public class SortedIndexDefinitionBuilderImpl extends AbstractIndexBuilder imple
         /** {@inheritDoc} */
         @Override
         public SortedIndexColumnBuilderImpl desc() {
-            asc = SortOrder.DESC;
+            order = SortOrder.DESC;
 
             return this;
         }
@@ -127,7 +125,7 @@ public class SortedIndexDefinitionBuilderImpl extends AbstractIndexBuilder imple
         /** {@inheritDoc} */
         @Override
         public SortedIndexColumnBuilderImpl asc() {
-            asc = SortOrder.ASC;
+            order = SortOrder.ASC;
 
             return this;
         }
