@@ -193,7 +193,7 @@ public class DdlCommandHandler {
                 IgniteObjectName.quote(cmd.tableName())
         );
 
-        return addColumnInternal(fullName, cmd.columns(), !cmd.ifColumnNotExists())
+        return addColumnInternal(fullName, cmd.columns(), cmd.ifColumnNotExists())
                 .handle(handleTableModificationResult(cmd.ifTableExists()));
     }
 
@@ -246,11 +246,11 @@ public class DdlCommandHandler {
         }
 
         return indexManager.createIndexAsync(
-                cmd.schemaName(),
-                cmd.indexName(),
-                cmd.tableName(),
-                !cmd.ifIndexNotExists(),
-                tableIndexChange -> convert(idx.build(), tableIndexChange))
+                        cmd.schemaName(),
+                        cmd.indexName(),
+                        cmd.tableName(),
+                        !cmd.ifIndexNotExists(),
+                        tableIndexChange -> convert(idx.build(), tableIndexChange))
                 .thenApply(Objects::nonNull);
     }
 
@@ -263,12 +263,11 @@ public class DdlCommandHandler {
      * Adds a column according to the column definition.
      *
      * @param fullName Table with schema name.
-     * @param colsDef  Columns defenitions.
-     * @param failIfExists Flag indicates exceptionally behavior in case of already existing column.
-     *
+     * @param colsDef Columns defenitions.
+     * @param ignoreColumnExistance Flag indicates exceptionally behavior in case of already existing column.
      * @return {@code true} if the full columns set is applied successfully. Otherwise, returns {@code false}.
      */
-    private CompletableFuture<Boolean> addColumnInternal(String fullName, List<ColumnDefinition> colsDef, boolean failIfExists) {
+    private CompletableFuture<Boolean> addColumnInternal(String fullName, List<ColumnDefinition> colsDef, boolean ignoreColumnExistance) {
         AtomicBoolean ret = new AtomicBoolean(true);
 
         return tableManager.alterTableAsync(
@@ -278,16 +277,7 @@ public class DdlCommandHandler {
 
                     List<ColumnDefinition> colsDef0;
 
-                    if (failIfExists) {
-                        colsDef.stream()
-                                .filter(k -> colNamesToOrders.containsKey(k.name()))
-                                .findAny()
-                                .ifPresent(c -> {
-                                    throw new ColumnAlreadyExistsException(c.name());
-                                });
-
-                        colsDef0 = colsDef;
-                    } else {
+                    if (ignoreColumnExistance) {
                         colsDef0 = colsDef.stream().filter(k -> {
                             if (colNamesToOrders.containsKey(k.name())) {
                                 ret.set(false);
@@ -297,13 +287,22 @@ public class DdlCommandHandler {
                                 return true;
                             }
                         }).collect(Collectors.toList());
+                    } else {
+                        colsDef.stream()
+                                .filter(k -> colNamesToOrders.containsKey(k.name()))
+                                .findAny()
+                                .ifPresent(c -> {
+                                    throw new ColumnAlreadyExistsException(c.name());
+                                });
+
+                        colsDef0 = colsDef;
                     }
 
                     for (ColumnDefinition col : colsDef0) {
                         cols.create(col.name(), colChg -> convertColumnDefinition(col, colChg));
                     }
-                }))
-                .thenApply(v -> ret.get());
+                })
+        ).thenApply(v -> ret.get());
     }
 
     private void convertColumnDefinition(ColumnDefinition definition, ColumnChange columnChange) {
@@ -345,42 +344,42 @@ public class DdlCommandHandler {
      *
      * @param fullName Table with schema name.
      * @param colNames Columns definitions.
-     * @param failIfNotExists Flag indicates exceptionally behavior in case of already existing column.
+     * @param ignoreColumnExistance Flag indicates exceptionally behavior in case of already existing column.
      * @return {@code true} if the full columns set is applied successfully. Otherwise, returns {@code false}.
      */
-    private CompletableFuture<Boolean> dropColumnInternal(String fullName, Set<String> colNames, boolean failIfNotExists) {
+    private CompletableFuture<Boolean> dropColumnInternal(String fullName, Set<String> colNames, boolean ignoreColumnExistance) {
         AtomicBoolean ret = new AtomicBoolean(true);
 
         return tableManager.alterTableAsync(
-                fullName,
-                chng -> chng.changeColumns(cols -> {
-                    PrimaryKeyView priKey = chng.primaryKey();
+                        fullName,
+                        chng -> chng.changeColumns(cols -> {
+                            PrimaryKeyView priKey = chng.primaryKey();
 
-                    Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
+                            Map<String, String> colNamesToOrders = columnOrdersToNames(chng.columns());
 
-                    Set<String> colNames0 = new HashSet<>();
+                            Set<String> colNames0 = new HashSet<>();
 
-                    Set<String> primaryCols = Set.of(priKey.columns());
+                            Set<String> primaryCols = Set.of(priKey.columns());
 
-                    for (String colName : colNames) {
-                        if (!colNamesToOrders.containsKey(colName)) {
-                            ret.set(false);
+                            for (String colName : colNames) {
+                                if (!colNamesToOrders.containsKey(colName)) {
+                                    ret.set(false);
 
-                            if (!failIfNotExists) {
-                                throw new ColumnNotFoundException(colName, fullName);
+                                    if (!ignoreColumnExistance) {
+                                        throw new ColumnNotFoundException(colName, fullName);
+                                    }
+                                } else {
+                                    colNames0.add(colName);
+                                }
+
+                                if (primaryCols.contains(colName)) {
+                                    throw new IgniteException(IgniteStringFormatter
+                                            .format("Can`t delete column, belongs to primary key: [name={}]", colName));
+                                }
                             }
-                        } else {
-                            colNames0.add(colName);
-                        }
 
-                        if (primaryCols.contains(colName)) {
-                            throw new IgniteException(IgniteStringFormatter
-                                    .format("Can`t delete column, belongs to primary key: [name={}]", colName));
-                        }
-                    }
-
-                    colNames0.forEach(k -> cols.delete(colNamesToOrders.get(k)));
-                }))
+                            colNames0.forEach(k -> cols.delete(colNamesToOrders.get(k)));
+                        }))
                 .thenApply(v -> ret.get());
     }
 
