@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -41,7 +40,6 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -55,13 +53,13 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
  * These tests check in-memory node restart scenarios.
  */
-@WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
 public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
     /** Default node port. */
     private static final int DEFAULT_NODE_PORT = 3344;
@@ -224,6 +222,80 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
 
         // Check the data rebalanced correctly.
         checkTableWithData(restartingNode, TABLE_NAME);
+    }
+
+    /**
+     * Restarts multiple nodes so the majority is lost.
+     */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17586")
+    @Test
+    public void inMemoryNodeRestartNoMajority(TestInfo testInfo) throws Exception {
+        // Start three nodes, the first one is going to be CMG and MetaStorage leader.
+        IgniteImpl ignite0 = startNode(testInfo, 0);
+        startNode(testInfo, 1);
+        startNode(testInfo, 2);
+
+        // Create a table with replica on every node.
+        createTableWithData(ignite0, TABLE_NAME, 3, 1);
+
+        String tableName = SCHEMA_PREFIX + TABLE_NAME;
+
+        TableImpl table = (TableImpl) ignite0.tables().table(tableName);
+        String tableId = table.tableId().toString();
+
+        // Lose the majority.
+        stopNode(1);
+        stopNode(2);
+
+        IgniteImpl restartingNode = startNode(testInfo, 1);
+
+        Loza loza = restartingNode.raftManager();
+
+        // Check that it restarts.
+        assertTrue(IgniteTestUtils.waitForCondition(
+                () -> loza.startedGroups().stream().anyMatch(grpName -> grpName.contains(tableId)),
+                TimeUnit.SECONDS.toMillis(10)
+        ));
+
+        // Check the data rebalanced correctly.
+        checkTableWithData(restartingNode, TABLE_NAME);
+    }
+
+    /**
+     * Restarts all the nodes with the partition.
+     */
+    @Test
+    public void inMemoryNodeFullPartitionRestart(TestInfo testInfo) throws Exception {
+        // Start three nodes, the first one is going to be CMG and MetaStorage leader.
+        IgniteImpl ignite0 = startNode(testInfo, 0);
+        startNode(testInfo, 1);
+        startNode(testInfo, 2);
+
+        // Create a table with replicas on every node.
+        createTableWithData(ignite0, TABLE_NAME, 3, 1);
+
+        String tableName = SCHEMA_PREFIX + TABLE_NAME;
+
+        TableImpl table = (TableImpl) ignite0.tables().table(tableName);
+        String tableId = table.tableId().toString();
+
+        stopNode(0);
+        stopNode(1);
+        stopNode(2);
+
+        startNode(testInfo, 0);
+        startNode(testInfo, 1);
+        startNode(testInfo, 2);
+
+        // Check that full partition restart happens.
+        for (int i = 0; i < 3; i++) {
+            Loza loza = ignite(i).raftManager();
+
+            assertTrue(IgniteTestUtils.waitForCondition(
+                    () -> loza.startedGroups().stream().anyMatch(grpName -> grpName.contains(tableId)),
+                    TimeUnit.SECONDS.toMillis(10)
+            ));
+        }
     }
 
     /**

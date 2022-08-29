@@ -642,7 +642,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         } else {
                                             // No majority and not a full partition restart - need to restart nodes
                                             // with current partition.
-                                            String msg = "Unable to start partition " + partId + ". Majority not available";
+                                            String msg = "Unable to start partition " + partId + ". Majority not available.";
                                             throw new IgniteInternalException(msg);
                                         }
                                     });
