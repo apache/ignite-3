@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.binarytuple;
 
 import org.apache.ignite.lang.IgniteInternalException;
 
@@ -24,11 +24,20 @@ import org.apache.ignite.lang.IgniteInternalException;
  */
 public class BinaryTupleFormatException extends IgniteInternalException {
     /**
-     * Constructor with error message.
+     * Constructor.
      *
      * @param msg Message.
      */
     public BinaryTupleFormatException(String msg) {
         super(msg);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param msg Message.
+     */
+    public BinaryTupleFormatException(String msg, Throwable cause) {
+        super(msg, cause);
     }
 }

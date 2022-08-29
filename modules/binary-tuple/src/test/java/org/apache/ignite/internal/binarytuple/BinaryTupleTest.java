@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.binarytuple;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,7 +49,7 @@ public class BinaryTupleTest {
         // Header: 1 byte with null map flag.
         // NullMap: 1 byte with first bit set.
         // Offset table: 1 zero byte
-        byte[] bytes = { BinaryTupleSchema.NULLMAP_FLAG, 1, 0 };
+        byte[] bytes = { BinaryTupleCommon.NULLMAP_FLAG, 1, 0 };
 
         var reader = new BinaryTupleReader(1, bytes);
         assertEquals(bytes.length, reader.size());
@@ -87,7 +87,7 @@ public class BinaryTupleTest {
         // Header: 1 byte with null map flag.
         // NullMap: 1 byte with no bit set.
         // Offset table: 1 zero byte
-        byte[] bytes2 = { BinaryTupleSchema.NULLMAP_FLAG, 0, 0 };
+        byte[] bytes2 = { BinaryTupleCommon.NULLMAP_FLAG, 0, 0 };
 
         byte[][] bytesArray = { bytes1, bytes2 };
 

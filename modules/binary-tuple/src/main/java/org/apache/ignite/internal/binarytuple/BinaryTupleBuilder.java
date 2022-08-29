@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.binarytuple;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -75,9 +75,9 @@ public class BinaryTupleBuilder {
     private BinaryTupleBuilder(int numElements, boolean allowNulls, int totalValueSize) {
         this.numElements = numElements;
 
-        int base = BinaryTupleSchema.HEADER_SIZE;
+        int base = BinaryTupleCommon.HEADER_SIZE;
         if (allowNulls) {
-            base += BinaryTupleSchema.nullMapSize(numElements);
+            base += BinaryTupleCommon.nullMapSize(numElements);
         }
 
         entryBase = base;
@@ -85,33 +85,12 @@ public class BinaryTupleBuilder {
         if (totalValueSize < 0) {
             entrySize = Integer.BYTES;
         } else {
-            entrySize = BinaryTupleSchema.flagsToEntrySize(BinaryTupleSchema.valueSizeToFlags(totalValueSize));
+            entrySize = BinaryTupleCommon.flagsToEntrySize(BinaryTupleCommon.valueSizeToFlags(totalValueSize));
         }
 
         valueBase = base + entrySize * numElements;
 
         allocate(totalValueSize);
-    }
-
-    /**
-     * Creates a builder.
-     *
-     * @param schema Tuple schema.
-     * @return Tuple builder.
-     */
-    public static BinaryTupleBuilder create(BinaryTupleSchema schema) {
-        return create(schema.elementCount(), schema.hasNullableElements());
-    }
-
-    /**
-     * Creates a builder.
-     *
-     * @param schema Tuple schema.
-     * @param allowNulls True if NULL values are possible, false otherwise.
-     * @return Tuple builder.
-     */
-    public static BinaryTupleBuilder create(BinaryTupleSchema schema, boolean allowNulls) {
-        return create(schema.elementCount(), schema.hasNullableElements() && allowNulls);
     }
 
     /**
@@ -123,29 +102,6 @@ public class BinaryTupleBuilder {
      */
     public static BinaryTupleBuilder create(int numElements, boolean allowNulls) {
         return create(numElements, allowNulls, -1);
-    }
-
-    /**
-     * Creates a builder.
-     *
-     * @param schema Tuple schema.
-     * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
-     * @return Tuple builder.
-     */
-    public static BinaryTupleBuilder create(BinaryTupleSchema schema, int totalValueSize) {
-        return create(schema.elementCount(), schema.hasNullableElements(), totalValueSize);
-    }
-
-    /**
-     * Creates a builder.
-     *
-     * @param schema Tuple schema.
-     * @param allowNulls True if NULL values are possible, false otherwise.
-     * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
-     * @return Tuple builder.
-     */
-    public static BinaryTupleBuilder create(BinaryTupleSchema schema, boolean allowNulls, int totalValueSize) {
-        return create(schema.elementCount(), schema.hasNullableElements() && allowNulls, totalValueSize);
     }
 
     /**
@@ -164,7 +120,7 @@ public class BinaryTupleBuilder {
      * Check if the binary tuple contains a null map.
      */
     public boolean hasNullMap() {
-        return entryBase > BinaryTupleSchema.HEADER_SIZE;
+        return entryBase > BinaryTupleCommon.HEADER_SIZE;
     }
 
     /**
@@ -179,8 +135,8 @@ public class BinaryTupleBuilder {
 
         hasNullValues = true;
 
-        int nullIndex = BinaryTupleSchema.nullOffset(elementIndex);
-        byte nullMask = BinaryTupleSchema.nullMask(elementIndex);
+        int nullIndex = BinaryTupleCommon.nullOffset(elementIndex);
+        byte nullMask = BinaryTupleCommon.nullMask(elementIndex);
         buffer.put(nullIndex, (byte) (buffer.get(nullIndex) | nullMask));
 
         return proceed();
@@ -388,7 +344,7 @@ public class BinaryTupleBuilder {
         try {
             putString(value);
         } catch (CharacterCodingException e) {
-            throw new AssemblyException("Failed to encode string in binary tuple builder", e);
+            throw new BinaryTupleFormatException("Failed to encode string in binary tuple builder", e);
         }
         return proceed();
     }
@@ -478,7 +434,7 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendDateNotNull(@NotNull LocalDate value) {
-        if (value != BinaryTupleSchema.DEFAULT_DATE) {
+        if (value != BinaryTupleCommon.DEFAULT_DATE) {
             putDate(value);
         }
         return proceed();
@@ -501,7 +457,7 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendTimeNotNull(@NotNull LocalTime value) {
-        if (value != BinaryTupleSchema.DEFAULT_TIME) {
+        if (value != BinaryTupleCommon.DEFAULT_TIME) {
             putTime(value);
         }
         return proceed();
@@ -524,7 +480,7 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendDateTimeNotNull(@NotNull LocalDateTime value) {
-        if (value != BinaryTupleSchema.DEFAULT_DATE_TIME) {
+        if (value != BinaryTupleCommon.DEFAULT_DATE_TIME) {
             putDate(value.toLocalDate());
             putTime(value.toLocalTime());
         }
@@ -548,7 +504,7 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendTimestampNotNull(@NotNull Instant value) {
-        if (value != BinaryTupleSchema.DEFAULT_TIMESTAMP) {
+        if (value != BinaryTupleCommon.DEFAULT_TIMESTAMP) {
             long seconds = value.getEpochSecond();
             int nanos = value.getNano();
             putLong(seconds);
@@ -567,63 +523,6 @@ public class BinaryTupleBuilder {
      */
     public BinaryTupleBuilder appendTimestamp(Instant value) {
         return value == null ? appendNull() : appendTimestampNotNull(value);
-    }
-
-    /**
-     * Append a value for the current element.
-     *
-     * @param schema Tuple schema.
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-    public BinaryTupleBuilder appendValue(BinaryTupleSchema schema, Object value) {
-        BinaryTupleSchema.Element element = schema.element(elementIndex);
-
-        if (value == null) {
-            if (!element.nullable) {
-                throw new SchemaMismatchException("NULL value for non-nullable column in binary tuple builder.");
-            }
-            return appendNull();
-        }
-
-        switch (element.typeSpec) {
-            case INT8:
-                return appendByte((byte) value);
-            case INT16:
-                return appendShort((short) value);
-            case INT32:
-                return appendInt((int) value);
-            case INT64:
-                return appendLong((long) value);
-            case FLOAT:
-                return appendFloat((float) value);
-            case DOUBLE:
-                return appendDouble((double) value);
-            case NUMBER:
-                return appendNumberNotNull((BigInteger) value);
-            case DECIMAL:
-                return appendDecimalNotNull((BigDecimal) value);
-            case UUID:
-                return appendUuidNotNull((UUID) value);
-            case BYTES:
-                return appendBytesNotNull((byte[]) value);
-            case STRING:
-                return appendStringNotNull((String) value);
-            case BITMASK:
-                return appendBitmaskNotNull((BitSet) value);
-            case DATE:
-                return appendDateNotNull((LocalDate) value);
-            case TIME:
-                return appendTimeNotNull((LocalTime) value);
-            case DATETIME:
-                return appendDateTimeNotNull((LocalDateTime) value);
-            case TIMESTAMP:
-                return appendTimestampNotNull((Instant) value);
-            default:
-                break;
-        }
-
-        throw new InvalidTypeException("Unexpected type value: " + element.typeSpec);
     }
 
     /**
@@ -651,6 +550,15 @@ public class BinaryTupleBuilder {
     }
 
     /**
+     * Gets the current element index.
+     *
+     * @return Element index.
+     */
+    public int elementIndex() {
+        return elementIndex;
+    }
+
+    /**
      * Finalize tuple building.
      *
      * <p>NOTE: This should be called only once as it messes up with accumulated internal data.
@@ -661,8 +569,8 @@ public class BinaryTupleBuilder {
         int offset = 0;
 
         int valueSize = buffer.position() - valueBase;
-        byte flags = BinaryTupleSchema.valueSizeToFlags(valueSize);
-        int desiredEntrySize = BinaryTupleSchema.flagsToEntrySize(flags);
+        byte flags = BinaryTupleCommon.valueSizeToFlags(valueSize);
+        int desiredEntrySize = BinaryTupleCommon.flagsToEntrySize(flags);
 
         // Shrink the offset table if needed.
         if (desiredEntrySize != entrySize) {
@@ -698,12 +606,12 @@ public class BinaryTupleBuilder {
         // Drop or move null map if needed.
         if (hasNullMap()) {
             if (!hasNullValues) {
-                offset += BinaryTupleSchema.nullMapSize(numElements);
+                offset += BinaryTupleCommon.nullMapSize(numElements);
             } else {
-                flags |= BinaryTupleSchema.NULLMAP_FLAG;
+                flags |= BinaryTupleCommon.NULLMAP_FLAG;
                 if (offset != 0) {
-                    int n = BinaryTupleSchema.nullMapSize(numElements);
-                    for (int i = BinaryTupleSchema.HEADER_SIZE + n - 1; i >= BinaryTupleSchema.HEADER_SIZE; i--) {
+                    int n = BinaryTupleCommon.nullMapSize(numElements);
+                    for (int i = BinaryTupleCommon.HEADER_SIZE + n - 1; i >= BinaryTupleCommon.HEADER_SIZE; i--) {
                         buffer.put(i + offset, buffer.get(i));
                     }
                 }
@@ -878,7 +786,7 @@ public class BinaryTupleBuilder {
         do {
             capacity *= 2;
             if (capacity < 0) {
-                throw new AssemblyException("Buffer overflow in binary tuple builder");
+                throw new BinaryTupleFormatException("Buffer overflow in binary tuple builder");
             }
         } while ((capacity - buffer.position()) < size);
 

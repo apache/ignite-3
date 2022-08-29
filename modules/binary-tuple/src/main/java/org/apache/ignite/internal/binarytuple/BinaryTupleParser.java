@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.binarytuple;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -46,6 +46,9 @@ public class BinaryTupleParser {
         void nextElement(int index, int begin, int end);
     }
 
+    /** UUID size in bytes. */
+    private static final int UUID_SIZE = 16;
+
     /** Number of elements in the tuple. */
     private final int numElements;
 
@@ -67,7 +70,7 @@ public class BinaryTupleParser {
      * @param numElements Number of tuple elements.
      * @param buffer Buffer with a binary tuple.
      */
-    BinaryTupleParser(int numElements, ByteBuffer buffer) {
+    public BinaryTupleParser(int numElements, ByteBuffer buffer) {
         this.numElements = numElements;
 
         assert buffer.order() == ByteOrder.LITTLE_ENDIAN;
@@ -76,13 +79,13 @@ public class BinaryTupleParser {
 
         byte flags = buffer.get(0);
 
-        int base = BinaryTupleSchema.HEADER_SIZE;
-        if ((flags & BinaryTupleSchema.NULLMAP_FLAG) != 0) {
-            base += BinaryTupleSchema.nullMapSize(numElements);
+        int base = BinaryTupleCommon.HEADER_SIZE;
+        if ((flags & BinaryTupleCommon.NULLMAP_FLAG) != 0) {
+            base += BinaryTupleCommon.nullMapSize(numElements);
         }
 
         entryBase = base;
-        entrySize = 1 << (flags & BinaryTupleSchema.VARSIZE_MASK);
+        entrySize = 1 << (flags & BinaryTupleCommon.VARSIZE_MASK);
         valueBase = base + entrySize * numElements;
     }
 
@@ -104,7 +107,7 @@ public class BinaryTupleParser {
      * Check if the binary tuple contains a null map.
      */
     public boolean hasNullMap() {
-        return entryBase > BinaryTupleSchema.HEADER_SIZE;
+        return entryBase > BinaryTupleCommon.HEADER_SIZE;
     }
 
     /**
@@ -137,8 +140,8 @@ public class BinaryTupleParser {
         }
 
         if (offset == nextOffset && hasNullMap()) {
-            int nullIndex = BinaryTupleSchema.nullOffset(index);
-            byte nullMask = BinaryTupleSchema.nullMask(index);
+            int nullIndex = BinaryTupleCommon.nullOffset(index);
+            byte nullMask = BinaryTupleCommon.nullMask(index);
             if ((buffer.get(nullIndex) & nullMask) != 0) {
                 sink.nextElement(index, 0, 0);
                 return;
@@ -164,8 +167,8 @@ public class BinaryTupleParser {
             }
 
             if (offset == nextOffset && hasNullMap()) {
-                int nullIndex = BinaryTupleSchema.nullOffset(i);
-                byte nullMask = BinaryTupleSchema.nullMask(i);
+                int nullIndex = BinaryTupleCommon.nullOffset(i);
+                byte nullMask = BinaryTupleCommon.nullMask(i);
                 if ((buffer.get(nullIndex) & nullMask) != 0) {
                     sink.nextElement(i, 0, 0);
                     entry += entrySize;
@@ -186,7 +189,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final byte byteValue(int begin, int end) {
+    public final byte byteValue(int begin, int end) {
         switch (end - begin) {
             case 0:
                 return 0;
@@ -204,7 +207,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final short shortValue(int begin, int end) {
+    public final short shortValue(int begin, int end) {
         switch (end - begin) {
             case 0:
                 return 0;
@@ -224,7 +227,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final int intValue(int begin, int end) {
+    public final int intValue(int begin, int end) {
         switch (end - begin) {
             case 0:
                 return 0;
@@ -246,7 +249,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final long longValue(int begin, int end) {
+    public final long longValue(int begin, int end) {
         switch (end - begin) {
             case 0:
                 return 0;
@@ -270,7 +273,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final float floatValue(int begin, int end) {
+    public final float floatValue(int begin, int end) {
         switch (end - begin) {
             case 0:
                 return 0.0F;
@@ -288,7 +291,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final double doubleValue(int begin, int end) {
+    public final double doubleValue(int begin, int end) {
         switch (end - begin) {
             case 0:
                 return 0.0;
@@ -308,7 +311,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final BigInteger numberValue(int begin, int end) {
+    public final BigInteger numberValue(int begin, int end) {
         byte[] bytes;
         int len = end - begin;
         if (buffer.hasArray()) {
@@ -328,7 +331,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final String stringValue(int begin, int end) {
+    public final String stringValue(int begin, int end) {
         byte[] bytes;
         int len = end - begin;
         if (buffer.hasArray()) {
@@ -348,7 +351,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final byte[] bytesValue(int begin, int end) {
+    public final byte[] bytesValue(int begin, int end) {
         byte[] bytes = new byte[end - begin];
         buffer.duplicate().position(begin).limit(end).get(bytes);
         return bytes;
@@ -361,11 +364,11 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final UUID uuidValue(int begin, int end) {
+    public final UUID uuidValue(int begin, int end) {
         int len = end - begin;
-        if (len != NativeTypes.UUID.sizeInBytes()) {
+        if (len != UUID_SIZE) {
             if (len == 0) {
-                return BinaryTupleSchema.DEFAULT_UUID;
+                return BinaryTupleCommon.DEFAULT_UUID;
             }
             throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
@@ -381,7 +384,7 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final BitSet bitmaskValue(int begin, int end) {
+    public final BitSet bitmaskValue(int begin, int end) {
         return BitSet.valueOf(buffer.duplicate().position(begin).limit(end));
     }
 
@@ -392,11 +395,11 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final LocalDate dateValue(int begin, int end) {
+    public final LocalDate dateValue(int begin, int end) {
         int len = end - begin;
         if (len != 3) {
             if (len == 0) {
-                return BinaryTupleSchema.DEFAULT_DATE;
+                return BinaryTupleCommon.DEFAULT_DATE;
             }
             throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
@@ -410,11 +413,11 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final LocalTime timeValue(int begin, int end) {
+    public final LocalTime timeValue(int begin, int end) {
         int len = end - begin;
         if (len < 4 || len > 6) {
             if (len == 0) {
-                return BinaryTupleSchema.DEFAULT_TIME;
+                return BinaryTupleCommon.DEFAULT_TIME;
             }
             throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
@@ -428,11 +431,11 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final LocalDateTime dateTimeValue(int begin, int end) {
+    public final LocalDateTime dateTimeValue(int begin, int end) {
         int len = end - begin;
         if (len < 7 || len > 9) {
             if (len == 0) {
-                return BinaryTupleSchema.DEFAULT_DATE_TIME;
+                return BinaryTupleCommon.DEFAULT_DATE_TIME;
             }
             throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
@@ -446,11 +449,11 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    final Instant timestampValue(int begin, int end) {
+    public final Instant timestampValue(int begin, int end) {
         int len = end - begin;
         if (len != 8 && len != 12) {
             if (len == 0) {
-                return BinaryTupleSchema.DEFAULT_TIMESTAMP;
+                return BinaryTupleCommon.DEFAULT_TIMESTAMP;
             }
             throw new BinaryTupleFormatException("Invalid length for a tuple element");
         }
