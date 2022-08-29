@@ -29,6 +29,7 @@ import java.util.UUID;
 
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
+import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.table.Tuple;
@@ -124,21 +125,27 @@ public class ClientTupleSerializer {
         var columns = schema.columns();
         var count = keyOnly ? schema.keyColumnCount() : columns.length;
 
-        // TODO: Binary tuple
         var builder = BinaryTupleBuilder.create(count, true);
         var noValueMask = new BitSet(count);
 
         for (var i = 0; i < count; i++) {
             var col = columns[i];
-
             Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
 
             if (v == NO_VALUE) {
+                builder.appendNull();
                 noValueMask.set(i);
+                continue;
             }
 
-            out.out().packObject(v);
+            appendValue(builder, col, v);
         }
+
+        var buf = builder.build();
+
+        out.out().packBitSet(noValueMask);
+        out.out().packBinaryHeader(buf.limit() - buf.position()); // TODO IGNITE-17297: ???
+        out.out().writePayload(buf);
     }
 
     /**
@@ -341,5 +348,38 @@ public class ClientTupleSerializer {
         }
 
         return res;
+    }
+
+    private static void appendValue(BinaryTupleBuilder builder, ClientColumn col, Object v) {
+        if (v == null) {
+            builder.appendNull();
+            return;
+        }
+
+        switch (col.type()) {
+            case ClientDataType.INT8:
+                builder.appendByte((byte) v);
+                return;
+
+            case ClientDataType.INT16:
+                builder.appendShort((short) v);
+                return;
+
+            case ClientDataType.INT32:
+                builder.appendInt((int) v);
+                return;
+
+            case ClientDataType.INT64:
+                builder.appendLong((long) v);
+                return;
+
+            case ClientDataType.STRING:
+                builder.appendString((String) v);
+                return;
+
+            default:
+                // TODO IGNITE-17297 support all types.
+                throw new UnsupportedOperationException("TODO");
+        }
     }
 }
