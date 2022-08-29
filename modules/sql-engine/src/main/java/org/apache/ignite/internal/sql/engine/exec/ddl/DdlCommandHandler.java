@@ -178,6 +178,7 @@ public class DdlCommandHandler {
         );
 
         return tableManager.dropTableAsync(fullName)
+                .thenApply(v -> Boolean.TRUE)
                 .handle(handleTableModificationResult(cmd.ifTableExists()));
     }
 
@@ -215,7 +216,7 @@ public class DdlCommandHandler {
     private static BiFunction<Object, Throwable, Boolean> handleTableModificationResult(boolean ignoreTableExistenceErrors) {
         return (val, err) -> {
             if (err == null) {
-                return Boolean.TRUE;
+                return val instanceof Boolean ? (Boolean) val : Boolean.TRUE;
             } else if (ignoreTableExistenceErrors) {
                 Throwable err0 = err instanceof CompletionException ? err.getCause() : err;
 
