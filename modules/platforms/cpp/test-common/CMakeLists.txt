@@ -23,7 +23,8 @@ set(TARGET ${PROJECT_NAME})
 include_directories(include)
 
 set(SOURCES
-	src/test_utils.cpp
+        src/ignite_node.cpp
+        src/test_utils.cpp
 )
 
 add_library(${TARGET} OBJECT ${SOURCES})

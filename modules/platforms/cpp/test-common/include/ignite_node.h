@@ -17,20 +17,34 @@
 
 #pragma once
 
-#include <string>
+#include <cstdio>
 
 namespace ignite
 {
-    /**
-     * Resolve IGNITE_HOME directory. Resolution is performed in several steps:
-     * 1) Check for path provided as argument.
-     * 2) Check for environment variable.
-     * 3) Check for current working directory.
-     * Result of these checks are evaluated based on existence of certain predefined folders inside possible Ignite
-     * home. If they are found, IGNITE_HOME is considered resolved.
-     *
-     * @param path Optional path to check.
-     * @return Resolved Ignite home.
-     */
-    std::string resolveIgniteHome(const std::string& path = "");
+    class IgniteNode
+    {
+    public:
+        /**
+         * Constructor.
+         */
+        IgniteNode() = default;
+
+        /**
+         * Destructor.
+         */
+        ~IgniteNode() = default;
+
+        /**
+         * Start node.
+         */
+        void start();
+
+        /**
+         * Stop node.
+         */
+        void stop();
+
+    private:
+        FILE* file;
+    };
 } // namespace ignite

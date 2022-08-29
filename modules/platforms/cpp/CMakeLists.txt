@@ -28,7 +28,15 @@ set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
 
-#include(GNUInstallDirs)
+if (UNIX)
+	include(GNUInstallDirs)
+endif()
+
+if (MSVC)
+	add_compile_options(/source-charset:utf-8 /execution-charset:utf-8)
+	add_definitions(-D_CRT_SECURE_NO_WARNINGS -D_SCL_SECURE_NO_WARNINGS)
+endif()
+
 set(INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR}/ignite)
 
 option(ENABLE_ADDRESS_SANITIZER "If address sanitizer is enabled" OFF)
