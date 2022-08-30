@@ -17,8 +17,7 @@
 
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
-    using System.IO;
-    using System.Text;
+    using Buffers;
 
     /// <summary>
     /// Binary tuple builder.
@@ -28,15 +27,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <summary>
         /// Builds the tuple.
         /// </summary>
-        /// <returns>Binary tuple as a stream.</returns>
-        public MemoryStream Build()
+        public void Build(PooledArrayBufferWriter target)
         {
-            // TODO: Pooling?
-            // https://github.com/microsoft/Microsoft.IO.RecyclableMemoryStream
-            var ms = new MemoryStream();
-            using var w = new BinaryWriter(ms, leaveOpen: true, encoding: Encoding.UTF8);
-
-            return ms;
+            // TODO: Write directly to the target buffer?
+            // Is the header size known? It should be when we know the count of elements.
         }
     }
 }
