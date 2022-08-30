@@ -60,7 +60,7 @@ BinaryTupleParser::BinaryTupleParser(IntT numElements, BytesView data)
 
     // Fix tuple size if needed.
     uint64_t offset = 0;
-    static_assert(BYTE_ORDER == LITTLE_ENDIAN);
+    static_assert(platform::ByteOrder::littleEndian);
     memcpy(&offset, nextEntry + tableSize - entrySize, entrySize);
     const std::byte *tupleEnd = valueBase + offset;
     const std::byte *currentEnd = &(*binaryTuple.end());
@@ -75,7 +75,7 @@ ElementView BinaryTupleParser::getNext() {
     ++elementIndex;
 
     uint64_t offset = 0;
-    static_assert(BYTE_ORDER == LITTLE_ENDIAN);
+    static_assert(platform::ByteOrder::littleEndian);
     memcpy(&offset, nextEntry, entrySize);
     nextEntry += entrySize;
 

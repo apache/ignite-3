@@ -110,21 +110,21 @@ void BinaryTupleBuilder::putInt8(BytesView bytes) {
 void BinaryTupleBuilder::putInt16(BytesView bytes) {
     SizeT size = sizeOfInt16(BinaryTupleParser::getInt16(bytes));
     assert(size <= bytes.size());
-    static_assert(BYTE_ORDER == LITTLE_ENDIAN);
+    static_assert(platform::ByteOrder::littleEndian);
     putBytes(BytesView{bytes.data(), size});
 }
 
 void BinaryTupleBuilder::putInt32(BytesView bytes) {
     SizeT size = sizeOfInt32(BinaryTupleParser::getInt32(bytes));
     assert(size <= bytes.size());
-    static_assert(BYTE_ORDER == LITTLE_ENDIAN);
+    static_assert(platform::ByteOrder::littleEndian);
     putBytes(BytesView{bytes.data(), size});
 }
 
 void BinaryTupleBuilder::putInt64(BytesView bytes) {
     SizeT size = sizeOfInt64(BinaryTupleParser::getInt64(bytes));
     assert(size <= bytes.size());
-    static_assert(BYTE_ORDER == LITTLE_ENDIAN);
+    static_assert(platform::ByteOrder::littleEndian);
     putBytes(BytesView{bytes.data(), size});
 }
 

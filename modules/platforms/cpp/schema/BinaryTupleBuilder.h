@@ -387,7 +387,7 @@ private:
      */
     void appendEntry() {
         uint64_t offset = nextValue - valueBase;
-        static_assert(BYTE_ORDER == LITTLE_ENDIAN);
+        static_assert(platform::ByteOrder::littleEndian);
         assert(nextEntry + entrySize <= valueBase);
         std::memcpy(nextEntry, &offset, entrySize);
         nextEntry += entrySize;

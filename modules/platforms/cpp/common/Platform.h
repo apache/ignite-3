@@ -26,17 +26,25 @@
 #   define SWITCH_WIN_OTHER(x, y) (y)
 #endif
 
-#define LITTLE_ENDIAN 1
-#define BIG_ENDIAN 2
+namespace ignite::platform
+{
 
-#ifdef __BYTE_ORDER__
-#   if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#       define BYTE_ORDER LITTLE_ENDIAN
-#   else
-#       define BYTE_ORDER BIG_ENDIAN
-#   endif
-#else
-//TODO: Fix this
-#   define BYTE_ORDER LITTLE_ENDIAN
-#endif
+/**
+ * Byte order utility class.
+ */
+class ByteOrder
+{
+private:
+    static constexpr uint32_t fourBytes = 0x01020304;
+    static constexpr uint8_t lesserByte = (const uint8_t&)fourBytes;
 
+public:
+    ByteOrder() = delete;
+
+    static constexpr bool littleEndian = lesserByte == 0x04;
+    static constexpr bool bigEndian = lesserByte == 0x01;
+
+    static_assert(littleEndian || bigEndian, "Unknown byte order");
+};
+
+} // ignite::platform
