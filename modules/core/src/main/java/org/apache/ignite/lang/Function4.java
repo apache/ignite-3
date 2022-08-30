@@ -26,19 +26,21 @@ import java.util.function.Function;
  * @param <A> the type of the first argument to the function
  * @param <B> the type of the second argument to the function
  * @param <C> the type of the third argument to the function
+ * @param <D> the type of the fourth argument to the function
  * @param <R> the type of the result of the function
  */
 @FunctionalInterface
-public interface TriFunction<A, B, C, R> {
+public interface Function4<A, B, C, D, R> {
     /**
      * Applies this function to the given arguments.
      *
      * @param a the first function argument
      * @param b the second function argument
      * @param c the third function argument
+     * @param d the fourth function argument
      * @return the function result
      */
-    R apply(A a, B b, C c);
+    R apply(A a, B b, C c, D d);
 
     /**
      * Returns a composed function that first applies this function to its input, and then applies the {@code after} function to the result.
@@ -49,8 +51,8 @@ public interface TriFunction<A, B, C, R> {
      * @return a composed function that first applies this function and then applies the {@code after} function
      * @throws NullPointerException if after is null
      */
-    default <V> TriFunction<A, B, C, V> andThen(Function<? super R, ? extends V> after) {
+    default <V> Function4<A, B, C, D, V> andThen(Function<? super R, ? extends V> after) {
         Objects.requireNonNull(after);
-        return (A a, B b, C c) -> after.apply(apply(a, b, c));
+        return (A a, B b, C c, D d) -> after.apply(apply(a, b, c, d));
     }
 }
