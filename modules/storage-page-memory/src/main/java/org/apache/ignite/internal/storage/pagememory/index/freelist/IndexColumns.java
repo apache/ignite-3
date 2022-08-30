@@ -21,14 +21,14 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.io.IndexedRowDataIo;
+import org.apache.ignite.internal.storage.pagememory.index.freelist.io.IndexColumnsDataIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Indexed row to store in free list.
+ * Index columns to store in free list.
  */
-public class IndexedRow implements Storable {
+public class IndexColumns implements Storable {
     /** Size offset. */
     public static final int SIZE_OFFSET = 0;
 
@@ -44,12 +44,26 @@ public class IndexedRow implements Storable {
     /** Byte buffer with binary tuple data. */
     private final @Nullable ByteBuffer valueBuffer;
 
-    public IndexedRow(int partitionId, @Nullable ByteBuffer valueBuffer) {
+    /**
+     * Constructor.
+     *
+     * @param partitionId Partition ID.
+     * @param valueBuffer Value buffer.
+     */
+
+    public IndexColumns(int partitionId, @Nullable ByteBuffer valueBuffer) {
         this.partitionId = partitionId;
         this.valueBuffer = valueBuffer;
     }
 
-    public IndexedRow(int partitionId, long link, @Nullable ByteBuffer valueBuffer) {
+    /**
+     * Constructor.
+     *
+     * @param partitionId Partition ID.
+     * @param link Link.
+     * @param valueBuffer Value buffer.
+     */
+    public IndexColumns(int partitionId, long link, @Nullable ByteBuffer valueBuffer) {
         this.partitionId = partitionId;
         this.link = link;
         this.valueBuffer = valueBuffer;
@@ -98,6 +112,6 @@ public class IndexedRow implements Storable {
 
     @Override
     public IoVersions<? extends AbstractDataPageIo<?>> ioVersions() {
-        return IndexedRowDataIo.VERSIONS;
+        return IndexColumnsDataIo.VERSIONS;
     }
 }

@@ -19,11 +19,12 @@ package org.apache.ignite.internal.storage.pagememory.index.hash;
 
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
-import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexRowIo;
+import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeIo;
 import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeMetaIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -32,6 +33,9 @@ import org.jetbrains.annotations.Nullable;
  * {@link BplusTree} implementation for storing {@link HashIndexRow}.
  */
 public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
+    /** Data page reader instance to read payload from data pages. */
+    private final DataPageReader dataPageReader;
+
     /**
      * Constructor.
      *
@@ -61,18 +65,36 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
 
         setIos(null, null, HashIndexTreeMetaIo.VERSIONS);
 
+        dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
+
         initTree(initNew);
+    }
+
+    /**
+     * Returns a partition id.
+     */
+    public int partitionId() {
+        return partId;
+    }
+
+    /**
+     * Returns a data page reader instance to read payload from data pages.
+     */
+    public DataPageReader dataPageReader() {
+        return dataPageReader;
     }
 
     @Override
     protected int compare(BplusIo<HashIndexRowKey> io, long pageAddr, int idx, HashIndexRowKey row) throws IgniteInternalCheckedException {
-        HashIndexRowIo hashIndexRowIo = (HashIndexRowIo) io;
+        HashIndexTreeIo hashIndexTreeIo = (HashIndexTreeIo) io;
 
-        return hashIndexRowIo.compare(pageAddr, idx, row);
+        return hashIndexTreeIo.compare(dataPageReader, partId, pageAddr, idx, row);
     }
 
     @Override
     public HashIndexRow getRow(BplusIo<HashIndexRowKey> io, long pageAddr, int idx, Object x) throws IgniteInternalCheckedException {
-        return null;
+        HashIndexTreeIo hashIndexTreeIo = (HashIndexTreeIo) io;
+
+        return hashIndexTreeIo.getRow(dataPageReader, partId, pageAddr, idx);
     }
 }

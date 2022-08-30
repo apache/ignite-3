@@ -39,8 +39,6 @@ import org.jetbrains.annotations.Nullable;
 public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
     private static final IgniteLogger LOG = Loggers.forClass(RowVersionFreeList.class);
 
-    private final PageEvictionTracker evictionTracker;
-
     private final IoStatisticsHolder statHolder;
 
     private final UpdateTimestampHandler updateTimestampHandler = new UpdateTimestampHandler();
@@ -87,7 +85,6 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
                 evictionTracker
         );
 
-        this.evictionTracker = evictionTracker;
         this.statHolder = statHolder;
     }
 

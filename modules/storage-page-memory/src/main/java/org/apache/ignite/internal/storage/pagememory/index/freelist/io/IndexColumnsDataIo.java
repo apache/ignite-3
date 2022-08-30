@@ -24,38 +24,38 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexedRow;
+import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
- * Data pages IO for {@link IndexedRow}.
+ * Data pages IO for {@link IndexColumns}.
  */
-public class IndexedRowDataIo extends AbstractDataPageIo<IndexedRow> {
+public class IndexColumnsDataIo extends AbstractDataPageIo<IndexColumns> {
     /** I/O versions. */
-    public static final IoVersions<IndexedRowDataIo> VERSIONS = new IoVersions<>(new IndexedRowDataIo(1));
+    public static final IoVersions<IndexColumnsDataIo> VERSIONS = new IoVersions<>(new IndexColumnsDataIo(1));
 
     /**
      * Constructor.
      *
      * @param ver Page format version.
      */
-    protected IndexedRowDataIo(int ver) {
+    protected IndexColumnsDataIo(int ver) {
         super(IndexPageTypes.T_VALUE_VERSION_DATA_IO, ver);
     }
 
     /** {@inheritDoc} */
     @Override
-    protected void writeRowData(long pageAddr, int dataOff, int payloadSize, IndexedRow row, boolean newRow) {
+    protected void writeRowData(long pageAddr, int dataOff, int payloadSize, IndexColumns row, boolean newRow) {
         assertPageType(pageAddr);
 
-        putInt(pageAddr, dataOff + IndexedRow.SIZE_OFFSET, row.valueSize());
+        putInt(pageAddr, dataOff + IndexColumns.SIZE_OFFSET, row.valueSize());
 
-        putByteBuffer(pageAddr, dataOff + IndexedRow.VALUE_OFFSET, row.valueBuffer());
+        putByteBuffer(pageAddr, dataOff + IndexColumns.VALUE_OFFSET, row.valueBuffer());
     }
 
     /** {@inheritDoc} */
     @Override
-    protected void writeFragmentData(IndexedRow row, ByteBuffer pageBuf, int rowOff, int payloadSize) {
+    protected void writeFragmentData(IndexColumns row, ByteBuffer pageBuf, int rowOff, int payloadSize) {
         assertPageType(pageBuf);
 
         if (rowOff == 0) {
@@ -64,19 +64,19 @@ public class IndexedRowDataIo extends AbstractDataPageIo<IndexedRow> {
 
             pageBuf.putInt(row.valueSize());
 
-            putValueBufferIntoPage(pageBuf, row.valueBuffer(), 0, payloadSize - IndexedRow.VALUE_OFFSET);
+            putValueBufferIntoPage(pageBuf, row.valueBuffer(), 0, payloadSize - IndexColumns.VALUE_OFFSET);
         } else {
             // Not a first fragment.
             assert rowOff >= row.headerSize();
 
-            putValueBufferIntoPage(pageBuf, row.valueBuffer(), rowOff - IndexedRow.VALUE_OFFSET, payloadSize);
+            putValueBufferIntoPage(pageBuf, row.valueBuffer(), rowOff - IndexColumns.VALUE_OFFSET, payloadSize);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
-        sb.app("IndexedRowDataIo [\n");
+        sb.app("IndexColumnsDataIo [\n");
         printPageLayout(addr, pageSize, sb);
         sb.app("\n]");
     }

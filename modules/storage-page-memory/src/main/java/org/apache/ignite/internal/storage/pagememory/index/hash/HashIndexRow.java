@@ -17,18 +17,34 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 
 /**
  * {@link IndexRow} implementation used in the {@link HashIndexTree}.
  */
 public class HashIndexRow extends HashIndexRowKey {
+    /** Row id. */
+    private final RowId rowId;
+
     /**
      * Constructor.
      *
      * @param indexColumnsHash Hash of the index columns.
+     * @param indexColumns Index columns.
+     * @param rowId Row id.
      */
-    public HashIndexRow(int indexColumnsHash) {
-        super(indexColumnsHash);
+    public HashIndexRow(int indexColumnsHash, IndexColumns indexColumns, RowId rowId) {
+        super(indexColumnsHash, indexColumns);
+
+        this.rowId = rowId;
+    }
+
+    /**
+     * Returns a row id of the row.
+     */
+    public RowId rowId() {
+        return rowId;
     }
 }

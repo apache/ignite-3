@@ -17,19 +17,26 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
+import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
+
 /**
  * Key to search for a {@link HashIndexRow} in the {@link HashIndexTree}.
  */
 public class HashIndexRowKey {
     private final int indexColumnsHash;
 
+    private final IndexColumns indexColumns;
+
     /**
      * Constructor.
      *
      * @param indexColumnsHash Hash of the index columns.
+     * @param indexColumns Index columns.
      */
-    public HashIndexRowKey(int indexColumnsHash) {
+    public HashIndexRowKey(int indexColumnsHash, IndexColumns indexColumns) {
         this.indexColumnsHash = indexColumnsHash;
+
+        this.indexColumns = indexColumns;
     }
 
     /**
@@ -37,5 +44,12 @@ public class HashIndexRowKey {
      */
     public int indexColumnsHash() {
         return indexColumnsHash;
+    }
+
+    /**
+     * Returns an indexed columns value.
+     */
+    public IndexColumns indexColumns() {
+        return indexColumns;
     }
 }

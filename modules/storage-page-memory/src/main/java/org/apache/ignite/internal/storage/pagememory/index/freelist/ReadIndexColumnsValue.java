@@ -23,16 +23,16 @@ import org.apache.ignite.internal.storage.pagememory.mv.RowVersion;
 /**
  * Reads {@link RowVersion#value()} from page-memory.
  */
-class ReadIndexedRowValue extends ReadPageMemoryRowValue {
+public class ReadIndexColumnsValue extends ReadPageMemoryRowValue {
     /** {@inheritDoc} */
     @Override
     protected int valueSizeOffsetInFirstSlot() {
-        return IndexedRow.SIZE_OFFSET;
+        return IndexColumns.SIZE_OFFSET;
     }
 
     /** {@inheritDoc} */
     @Override
     protected int valueOffsetInFirstSlot() {
-        return IndexedRow.VALUE_OFFSET;
+        return IndexColumns.VALUE_OFFSET;
     }
 }
