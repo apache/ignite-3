@@ -77,6 +77,8 @@ public final class SimpleCondition implements Condition {
          * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition eq(long rev) {
+            assert rev > 0 : "Revision must be positive.";
+
             validate(type());
 
             type(ConditionType.REV_EQUAL);
@@ -95,6 +97,8 @@ public final class SimpleCondition implements Condition {
          * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition ne(long rev) {
+            assert rev > 0 : "Revision must be positive.";
+
             validate(type());
 
             type(ConditionType.REV_NOT_EQUAL);
@@ -113,6 +117,8 @@ public final class SimpleCondition implements Condition {
          * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition gt(long rev) {
+            assert rev > 0 : "Revision must be positive.";
+
             validate(type());
 
             type(ConditionType.REV_GREATER);
@@ -131,6 +137,8 @@ public final class SimpleCondition implements Condition {
          * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition ge(long rev) {
+            assert rev > 0 : "Revision must be positive.";
+
             validate(type());
 
             type(ConditionType.REV_GREATER_OR_EQUAL);
@@ -149,6 +157,8 @@ public final class SimpleCondition implements Condition {
          * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition lt(long rev) {
+            assert rev > 0 : "Revision must be positive.";
+
             validate(type());
 
             type(ConditionType.REV_LESS);
@@ -167,6 +177,8 @@ public final class SimpleCondition implements Condition {
          * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition le(long rev) {
+            assert rev > 0 : "Revision must be positive.";
+
             validate(type());
 
             type(ConditionType.REV_LESS_OR_EQUAL);
