@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
@@ -161,11 +162,11 @@ public class ItInternalTableScanTest {
 
         raftSrv.start();
 
-        replicaManager = new ReplicaManager(network);
+        replicaManager = new ReplicaManager(network, new HybridClock());
 
         replicaManager.start();
 
-        replicaService = new ReplicaService(replicaManager, network.messagingService(), network.topologyService());
+        replicaService = new ReplicaService(replicaManager, network.messagingService(), network.topologyService(), new HybridClock());
 
         String grpName = "test_part_grp";
 
@@ -210,7 +211,8 @@ public class ItInternalTableScanTest {
                 addressToNode,
                 txManager,
                 mock(MvTableStorage.class),
-                mock(ReplicaService.class)
+                mock(ReplicaService.class),
+                mock(HybridClock.class)
         );
     }
 

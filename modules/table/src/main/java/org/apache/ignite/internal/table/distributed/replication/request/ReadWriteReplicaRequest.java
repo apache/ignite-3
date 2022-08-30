@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.replication.request;
 
 import java.util.UUID;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;
 
@@ -25,7 +26,7 @@ import org.apache.ignite.network.annotations.Marshallable;
  * Read Write replica request.
  */
 // TODO: https://issues.apache.org/jira/browse/IGNITE-17464
-public interface ReadWriteReplicaRequest extends NetworkMessage { //extends ReplicaRequest {
+public interface ReadWriteReplicaRequest extends NetworkMessage, TimestampAware { //extends ReplicaRequest {
     @Marshallable
     UUID transactionId();
 }

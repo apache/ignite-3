@@ -273,9 +273,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         SchemaManager schemaManager = new SchemaManager(registry, tblCfg);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17523 seems that it's possible not to instantiate replicaMgr in this test.
-        ReplicaManager replicaMgr = new ReplicaManager(clusterSvc);
+        ReplicaManager replicaMgr = new ReplicaManager(clusterSvc, null);
 
-        ReplicaService replicaSvc = new ReplicaService(replicaMgr, clusterSvc.messagingService(), clusterSvc.topologyService());
+        ReplicaService replicaSvc = new ReplicaService(
+                replicaMgr,
+                clusterSvc.messagingService(),
+                clusterSvc.topologyService(),
+                null);
 
         TableManager tableManager = new TableManager(
                 registry,

@@ -17,25 +17,11 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Message group for the replication process.
+ * Replica response interface with timestamp to adjust a hybrid logical clock.
  */
-@MessageGroup(groupType = 8, groupName = "ReplicaMessages")
-public class ReplicaMessageGroup {
-    /** Message type for {@link ErrorReplicaResponse}. */
-    public static final short ERROR_REPLICA_RESPONSE = 1;
-
-    /** Message type for {@link ReplicaResponse}. */
-    public static final short REPLICA_RESPONSE = 2;
-
-    /** Message type for {@link TimestampAware}. */
-    public static final short TIMESTAMP_AWARE = 3;
-
-    /** Message type for {@link ErrorTimestampAwareReplicaResponse}. */
-    public static final short ERROR_TIMESTAMP_AWARE_REPLICA_RESPONSE = 4;
-
-    /** Message type for {@link TimestampAwareReplicaResponse}. */
-    public static final short TIMESTAMP_AWARE_REPLICA_RESPONSE = 5;
+@Transferable(ReplicaMessageGroup.ERROR_TIMESTAMP_AWARE_REPLICA_RESPONSE)
+public interface ErrorTimestampAwareReplicaResponse extends ErrorReplicaResponse, TimestampAware {
 }

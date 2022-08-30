@@ -22,15 +22,19 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.exception.ReplicaAlreadyIsStartedException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponseBuilder;
+import org.apache.ignite.internal.replicator.message.ErrorTimestampAwareReplicaResponseBuilder;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
@@ -69,13 +73,18 @@ public class ReplicaManager implements IgniteComponent {
     /** Replicas. */
     private final ConcurrentHashMap<String, Replica> replicas = new ConcurrentHashMap<>();
 
+    /** A hybrid logical clock. */
+    private final HybridClock clock;
+
     /**
      * Constructor for replica service.
      *
-     * @param clusterNetSvc                 Cluster network service.
+     * @param clusterNetSvc Cluster network service.
+     * @param clock A hybrid logical clock.
      */
-    public ReplicaManager(ClusterService clusterNetSvc) {
+    public ReplicaManager(ClusterService clusterNetSvc, HybridClock clock) {
         this.clusterNetSvc = clusterNetSvc;
+        this.clock = clock;
     }
 
     /**
@@ -192,23 +201,45 @@ public class ReplicaManager implements IgniteComponent {
 
                     ReplicaRequest request = (ReplicaRequest) message;
 
+                    HybridTimestamp requestTimestamp;
+
+                    if (request instanceof TimestampAware) {
+                        requestTimestamp = ((TimestampAware) request).timestamp();
+                    } else {
+                        requestTimestamp = null;
+                    }
+
                     Replica replica = replicas.get(request.groupId());
 
                     if (replica == null) {
                         var traceId = UUID.randomUUID();
 
-                        clusterNetSvc.messagingService().respond(
-                                senderAddr,
-                                REPLICA_MESSAGES_FACTORY
-                                        .errorReplicaResponse()
-                                        .errorMessage(
-                                                IgniteStringFormatter.format("Replica is not ready "
-                                                        + "[replicationGroupId={}, node={}]",
-                                                        request.groupId(), clusterNetSvc.topologyService().localMember()))
-                                        .errorCode(Replicator.REPLICA_UNAVAILABLE_ERR)
-                                        .errorTraceId(traceId)
-                                        .build(),
-                                correlationId);
+                        String errorMessage = IgniteStringFormatter.format("Replica is not ready "
+                                        + "[replicationGroupId={}, node={}]",
+                                request.groupId(), clusterNetSvc.topologyService().localMember());
+
+                        if (requestTimestamp != null) {
+                            clusterNetSvc.messagingService().respond(
+                                    senderAddr,
+                                    REPLICA_MESSAGES_FACTORY
+                                            .errorTimestampAwareReplicaResponse()
+                                            .errorMessage(errorMessage)
+                                            .errorCode(Replicator.REPLICA_UNAVAILABLE_ERR)
+                                            .errorTraceId(traceId)
+                                            .timestamp(clock.update(requestTimestamp))
+                                            .build(),
+                                    correlationId);
+                        } else {
+                            clusterNetSvc.messagingService().respond(
+                                    senderAddr,
+                                    REPLICA_MESSAGES_FACTORY
+                                            .errorReplicaResponse()
+                                            .errorMessage(errorMessage)
+                                            .errorCode(Replicator.REPLICA_UNAVAILABLE_ERR)
+                                            .errorTraceId(traceId)
+                                            .build(),
+                                    correlationId);
+                        }
                     }
 
                     CompletableFuture<Object> result = replica.processRequest(request);
@@ -217,27 +248,57 @@ public class ReplicaManager implements IgniteComponent {
                         NetworkMessage msg;
 
                         if (ex == null) {
-                            msg = REPLICA_MESSAGES_FACTORY.replicaResponse().result(res).build();
+                            if (requestTimestamp != null) {
+                                msg = REPLICA_MESSAGES_FACTORY
+                                        .timestampAwareReplicaResponse()
+                                        .result(res)
+                                        .timestamp(clock.update(requestTimestamp))
+                                        .build();
+                            } else {
+                                msg = REPLICA_MESSAGES_FACTORY
+                                        .replicaResponse()
+                                        .result(res)
+                                        .build();
+                            }
                         } else {
                             var traceId = UUID.randomUUID();
 
                             LOG.warn("Exception was thrown [traceId={}]", ex, traceId);
 
-                            ErrorReplicaResponseBuilder errorBuilder = REPLICA_MESSAGES_FACTORY
-                                    .errorReplicaResponse()
-                                    .errorClassName(ex.getClass().getName())
-                                    .errorTraceId(traceId);
+                            String errorMessage = IgniteStringFormatter.format("Process replication response finished with "
+                                    + "exception [replicaGrpId={}, msg={}]", request.groupId(), ex.getMessage());
 
-                            if (ex instanceof IgniteInternalException) {
-                                msg = errorBuilder.errorMessage(ex.getMessage())
-                                        .errorCode(((IgniteInternalException) ex).code())
-                                        .build();
+                            if (requestTimestamp != null) {
+                                ErrorTimestampAwareReplicaResponseBuilder errorBuilder = REPLICA_MESSAGES_FACTORY
+                                        .errorTimestampAwareReplicaResponse()
+                                        .errorClassName(ex.getClass().getName())
+                                        .errorTraceId(traceId)
+                                        .timestamp(clock.update(requestTimestamp));
+
+                                if (ex instanceof IgniteInternalException) {
+                                    msg = errorBuilder.errorMessage(ex.getMessage())
+                                            .errorCode(((IgniteInternalException) ex).code())
+                                            .build();
+                                } else {
+                                    msg = errorBuilder.errorMessage(errorMessage)
+                                            .errorCode(Replicator.REPLICA_COMMON_ERR)
+                                            .build();
+                                }
                             } else {
-                                msg = errorBuilder.errorMessage(
-                                                IgniteStringFormatter.format("Process replication response finished with "
-                                                        + "exception [replicaGrpId={}, msg={}]", request.groupId(), ex.getMessage()))
-                                        .errorCode(Replicator.REPLICA_COMMON_ERR)
-                                        .build();
+                                ErrorReplicaResponseBuilder errorBuilder = REPLICA_MESSAGES_FACTORY
+                                        .errorReplicaResponse()
+                                        .errorClassName(ex.getClass().getName())
+                                        .errorTraceId(traceId);
+
+                                if (ex instanceof IgniteInternalException) {
+                                    msg = errorBuilder.errorMessage(ex.getMessage())
+                                            .errorCode(((IgniteInternalException) ex).code())
+                                            .build();
+                                } else {
+                                    msg = errorBuilder.errorMessage(errorMessage)
+                                            .errorCode(Replicator.REPLICA_COMMON_ERR)
+                                            .build();
+                                }
                             }
                         }
 

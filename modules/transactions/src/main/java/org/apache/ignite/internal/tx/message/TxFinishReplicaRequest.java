@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.TreeMap;
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
@@ -35,7 +36,7 @@ import org.apache.ignite.network.annotations.Transferable;
  *  </ol>
  */
 @Transferable(value = TxMessageGroup.TX_FINISH_REQUEST)
-public interface TxFinishReplicaRequest extends ReplicaRequest {
+public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
     /**
      * Returns transaction Id.
      *

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.message;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
@@ -26,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
  * The result of an action.
  */
 @Transferable(value = TxMessageGroup.TX_FINISH_RESPONSE)
-public interface TxFinishResponse extends NetworkMessage, Serializable {
+public interface TxFinishResponse extends NetworkMessage, TimestampAware, Serializable {
     /**
      * Returns the error message.
      *

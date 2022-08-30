@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.message;
 import java.util.UUID;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -32,7 +33,7 @@ import org.apache.ignite.network.annotations.Transferable;
  *  </ol>
  */
 @Transferable(value = TxMessageGroup.TX_CLEANUP_REQUEST)
-public interface TxCleanupReplicaRequest extends ReplicaRequest {
+public interface TxCleanupReplicaRequest extends ReplicaRequest, TimestampAware {
     /**
      * Returns transaction Id.
      *

@@ -762,7 +762,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tableStorage.start();
 
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
-                partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, replicaSvc);
+                partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage, replicaSvc, clock);
 
         var table = new TableImpl(internalTable);
 

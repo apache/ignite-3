@@ -421,12 +421,13 @@ public class ItRebalanceDistributedTest {
 
             raftManager = new Loza(clusterService, dir, new HybridClock());
 
-            replicaManager = new ReplicaManager(clusterService);
+            replicaManager = new ReplicaManager(clusterService, new HybridClock());
 
             ReplicaService replicaSvc = new ReplicaService(
                     replicaManager,
                     clusterService.messagingService(),
-                    clusterService.topologyService()
+                    clusterService.topologyService(),
+                    new HybridClock()
             );
 
             txManager = new TxManagerImpl(clusterService, replicaSvc, lockManager);
