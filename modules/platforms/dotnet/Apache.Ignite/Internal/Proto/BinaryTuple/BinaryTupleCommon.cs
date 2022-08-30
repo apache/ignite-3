@@ -20,7 +20,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     /// <summary>
     /// Common binary tuple constants and utils.
     /// </summary>
-    internal class BinaryTupleCommon
+    internal static class BinaryTupleCommon
     {
         /// <summary>
         /// Size of a tuple header, in bytes.

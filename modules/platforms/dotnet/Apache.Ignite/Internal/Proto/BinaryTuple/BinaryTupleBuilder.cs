@@ -17,7 +17,26 @@
 
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
-    internal class BinaryTupleBuilder
+    using System.IO;
+    using System.Text;
+
+    /// <summary>
+    /// Binary tuple builder.
+    /// </summary>
+    internal sealed class BinaryTupleBuilder
     {
+        /// <summary>
+        /// Builds the tuple.
+        /// </summary>
+        /// <returns>Binary tuple as a stream.</returns>
+        public MemoryStream Build()
+        {
+            // TODO: Pooling?
+            // https://github.com/microsoft/Microsoft.IO.RecyclableMemoryStream
+            var ms = new MemoryStream();
+            using var w = new BinaryWriter(ms, leaveOpen: true, encoding: Encoding.UTF8);
+
+            return ms;
+        }
     }
 }
