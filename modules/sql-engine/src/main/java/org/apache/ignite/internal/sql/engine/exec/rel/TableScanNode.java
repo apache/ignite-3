@@ -213,7 +213,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
         if (subscription != null) {
             subscription.request(waiting);
         } else if (curPartIdx < parts.length) {
-            physTable.scan(parts[curPartIdx++], null).subscribe(new SubscriberImpl());
+            physTable.scan(parts[curPartIdx++], context().transaction()).subscribe(new SubscriberImpl());
         } else {
             waiting = NOT_WAITING;
         }

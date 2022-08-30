@@ -342,24 +342,14 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         InternalTransaction outerTx = context.unwrap(InternalTransaction.class);
 
-        BaseQueryContext ctx = BaseQueryContext.builder()
-                .cancel(new QueryCancel())
-                .frameworkConfig(
-                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(schema)
-                                .build()
-                )
-                .logger(LOG)
-                .parameters(params)
-                .transaction(outerTx)
-                .build();
+        var queryCancel = new QueryCancel();
 
         AsyncCloseable closeableResource = () -> CompletableFuture.runAsync(
-                ctx.cancel()::cancel,
+                queryCancel::cancel,
                 taskExecutor
         );
 
-        ctx.cancel().add(() -> session.unregisterResource(closeableResource));
+        queryCancel.add(() -> session.unregisterResource(closeableResource));
 
         try {
             session.registerResource(closeableResource);
@@ -372,7 +362,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
                 .thenApply(v -> {
-                    var nodes = Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig());
+                    var nodes = Commons.parse(sql, Commons.PARSER_CONFIG);
 
                     if (nodes.size() > 1) {
                         throw new SqlException(QUERY_INVALID_ERR, "Multiple statements aren't allowed.");
@@ -380,45 +370,61 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     return nodes.get(0);
                 })
-                .thenCompose(sqlNode -> prepareSvc.prepareAsync(sqlNode, ctx))
-                .thenApply(plan -> {
-                    context.maybeUnwrap(QueryValidator.class)
-                            .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
+                .thenCompose(sqlNode -> {
+                    BaseQueryContext ctx = BaseQueryContext.builder()
+                            .cancel(new QueryCancel())
+                            .frameworkConfig(
+                                    Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                            .defaultSchema(schema)
+                                            .traitDefs(Commons.LOCAL_TRAITS_SET)
+                                            .build()
+                            )
+                            .logger(LOG)
+                            .parameters(params)
+                            .transaction(outerTx)
+                            .build();
 
-                    // Transactional DDL is not supported as well as RO transactions, hence
-                    // only DML requiring RW transaction is covered
-                    boolean implicitTxRequired = plan.type() == Type.DML && outerTx == null;
-                    InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;
+                    return prepareSvc.prepareAsync(sqlNode, ctx)
+                            .thenApply(plan -> {
+                                context.maybeUnwrap(QueryValidator.class)
+                                        .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
 
-                    BaseQueryContext enrichedContext = implicitTxRequired ? ctx.toBuilder().transaction(implicitTx).build() : ctx;
+                                // Transactional DDL is not supported as well as RO transactions, hence
+                                // only DML requiring RW transaction is covered
+                                boolean implicitTxRequired = plan.type() == Type.DML && outerTx == null;
+                                InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;
 
-                    var dataCursor = executionSrvc.executePlan(plan, enrichedContext);
+                                BaseQueryContext enrichedContext =
+                                        implicitTxRequired ? ctx.toBuilder().transaction(implicitTx).build() : ctx;
 
-                    return new AsyncSqlCursorImpl<>(
-                            SqlQueryType.mapPlanTypeToSqlType(plan.type()),
-                            plan.metadata(),
-                            implicitTx,
-                            new AsyncCursor<List<Object>>() {
-                                @Override
-                                public CompletionStage<BatchedResult<List<Object>>> requestNextAsync(int rows) {
-                                    session.touch();
+                                var dataCursor = executionSrvc.executePlan(plan, enrichedContext);
 
-                                    return dataCursor.requestNextAsync(rows);
-                                }
+                                return new AsyncSqlCursorImpl<>(
+                                        SqlQueryType.mapPlanTypeToSqlType(plan.type()),
+                                        plan.metadata(),
+                                        implicitTx,
+                                        new AsyncCursor<List<Object>>() {
+                                            @Override
+                                            public CompletionStage<BatchedResult<List<Object>>> requestNextAsync(int rows) {
+                                                session.touch();
 
-                                @Override
-                                public CompletableFuture<Void> closeAsync() {
-                                    session.touch();
+                                                return dataCursor.requestNextAsync(rows);
+                                            }
 
-                                    return dataCursor.closeAsync();
-                                }
-                            }
-                    );
+                                            @Override
+                                            public CompletableFuture<Void> closeAsync() {
+                                                session.touch();
+
+                                                return dataCursor.closeAsync();
+                                            }
+                                        }
+                                );
+                            });
                 });
 
         stage.whenComplete((cur, ex) -> {
             if (ex instanceof CancellationException) {
-                ctx.cancel().cancel();
+                queryCancel.cancel();
             }
         });
 

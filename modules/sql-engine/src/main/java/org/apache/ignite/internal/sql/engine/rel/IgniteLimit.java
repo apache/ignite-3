@@ -117,7 +117,7 @@ public class IgniteLimit extends SingleRel implements InternalIgniteRel {
             return null;
         }
 
-        if (TraitUtils.distribution(required) != IgniteDistributions.single()) {
+        if (TraitUtils.distributionEnabled(this) && TraitUtils.distribution(required) != IgniteDistributions.single()) {
             return null;
         }
 
@@ -142,7 +142,7 @@ public class IgniteLimit extends SingleRel implements InternalIgniteRel {
             return null;
         }
 
-        if (TraitUtils.distribution(childTraits) != IgniteDistributions.single()) {
+        if (TraitUtils.distributionEnabled(this) && TraitUtils.distribution(childTraits) != IgniteDistributions.single()) {
             return null;
         }
 
