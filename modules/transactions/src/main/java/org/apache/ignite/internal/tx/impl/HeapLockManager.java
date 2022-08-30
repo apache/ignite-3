@@ -89,7 +89,7 @@ public class HeapLockManager implements LockManager {
     }
 
     @Override
-    public void release(Lock lock) throws LockException {
+    public void release(Lock lock) {
         LockState state = lockState(lock.lockKey());
 
         if (state.tryRelease(lock.txId())) {
@@ -161,6 +161,13 @@ public class HeapLockManager implements LockManager {
          */
         private boolean markedForRemove = false;
 
+        /**
+         * Attempts to acquire a lock for the specified {@code key} in specified lock mode.
+         *
+         * @param txId Transaction id.
+         * @param lockMode Lock mode.
+         * @return The future or null if state is marked for removal and acquired lock mode.
+         */
         public @Nullable IgniteBiTuple<CompletableFuture<Void>, LockMode> tryAcquire(UUID txId, LockMode lockMode) {
             WaiterImpl waiter = new WaiterImpl(txId, lockMode);
 
@@ -311,6 +318,13 @@ public class HeapLockManager implements LockManager {
             return false;
         }
 
+        /**
+         * Attempts to downgrade a lock for the specified {@code key} to a specified lock mode.
+         *
+         * @param lock Lock.
+         * @param lockMode Lock mode.
+         * @throws LockException If the downgrade operation is invalid.
+         */
         void tryDowngrade(Lock lock, LockMode lockMode) throws LockException {
             WaiterImpl waiter = new WaiterImpl(lock.txId(), lockMode);
 
@@ -318,13 +332,13 @@ public class HeapLockManager implements LockManager {
                 WaiterImpl prev = waiters.remove(lock.txId());
 
                 if (prev != null) {
-                    if (prev.lockMode == INTENTION_EXCLUSIVE && lockMode == SHARED ||
-                            prev.lockMode == SHARED && lockMode == INTENTION_EXCLUSIVE ||
-                            prev.lockMode.compareTo(lockMode) < 0) {
+                    if (prev.lockMode == INTENTION_EXCLUSIVE && lockMode == SHARED
+                            || prev.lockMode == SHARED && lockMode == INTENTION_EXCLUSIVE
+                            || prev.lockMode.compareTo(lockMode) < 0) {
                         waiters.put(lock.txId(), waiter);
 
-                        throw new LockException("Cannot change lock mode from " +
-                                prev.lockMode + " to " + lockMode);
+                        throw new LockException("Cannot change lock mode from "
+                                + prev.lockMode + " to " + lockMode);
                     }
 
                     for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
@@ -333,8 +347,8 @@ public class HeapLockManager implements LockManager {
                         if (!lockMode.isCompatible(tmp.lockMode)) {
                             waiters.put(lock.txId(), waiter);
 
-                            throw new LockException("Cannot change lock mode from " +
-                                    prev.lockMode + " to " + lockMode);
+                            throw new LockException("Cannot change lock mode from "
+                                    + prev.lockMode + " to " + lockMode);
                         }
                     }
 
@@ -381,8 +395,10 @@ public class HeapLockManager implements LockManager {
         /** Upgraded lock. */
         private boolean upgraded;
 
+        /** The previous lock mode. */
         private LockMode prevLockMode;
 
+        /** The lock mode. */
         private LockMode lockMode;
 
         /** The state. */
@@ -419,6 +435,8 @@ public class HeapLockManager implements LockManager {
             return this.locked;
         }
 
+        /** {@inheritDoc} */
+        @Override
         public LockMode lockMode() {
             return lockMode;
         }

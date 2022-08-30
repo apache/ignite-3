@@ -29,7 +29,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Lock;
-import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
@@ -133,13 +132,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param txId Transaction id.
      */
     private void unlockAll(UUID txId) {
-        lockManager.locks(txId).forEachRemaining(lock -> {
-            try {
-                lockManager.release(lock);
-            } catch (LockException e) {
-                assert false; // This shouldn't happen during tx finish.
-            }
-        });
+        lockManager.locks(txId).forEachRemaining(lockManager::release);
     }
 
     /** {@inheritDoc} */

@@ -488,13 +488,13 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testLockUpgrade5() throws Exception {
+    public void testLockUpgrade5() {
         UUID txId0 = Timestamp.nextVersion().toUuid();
 
         LockKey key = new LockKey("test");
 
         for (LockMode lockMode : List.of(INTENTION_SHARED, INTENTION_EXCLUSIVE, SHARED_AND_INTENTION_EXCLUSIVE, EXCLUSIVE)) {
-            lockManager.acquire(txId0, key, lockMode);
+            lockManager.acquire(txId0, key, lockMode).join();
 
             assertEquals(lockMode, lockManager.waiter(key, txId0).lockMode());
         }
@@ -513,8 +513,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         lockModes.add(List.of(SHARED, INTENTION_EXCLUSIVE, SHARED_AND_INTENTION_EXCLUSIVE));
 
         for (List<LockMode> lockModes0 : lockModes) {
-            lockManager.acquire(txId0, key, lockModes0.get(0));
-            lockManager.acquire(txId0, key, lockModes0.get(1));
+            lockManager.acquire(txId0, key, lockModes0.get(0)).join();
+            lockManager.acquire(txId0, key, lockModes0.get(1)).join();
 
             assertEquals(lockModes0.get(2), lockManager.waiter(key, txId0).lockMode());
 
@@ -555,7 +555,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testAcquireReleasedLock() throws Exception {
+    public void testAcquireReleasedLock() {
         UUID txId0 = Timestamp.nextVersion().toUuid();
         UUID txId1 = Timestamp.nextVersion().toUuid();
 
@@ -600,7 +600,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testCompatibleLockModes() throws Exception {
+    public void testCompatibleLockModes() {
         UUID txId0 = Timestamp.nextVersion().toUuid();
         UUID txId1 = Timestamp.nextVersion().toUuid();
 
@@ -698,7 +698,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testImpossibleDowngradeLockModes1() throws Exception {
+    public void testImpossibleDowngradeLockModes1() {
         UUID txId0 = Timestamp.nextVersion().toUuid();
 
         LockKey key = new LockKey("test");
@@ -716,7 +716,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
                 fail();
             } catch (LockException e) {
-
+                // Expected.
             }
 
             assertEquals(1, lockManager.queue(key).size());
@@ -727,42 +727,42 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testImpossibleDowngradeLockModes2() throws Exception {
+    public void testImpossibleDowngradeLockModes2() {
         UUID txId0 = Timestamp.nextVersion().toUuid();
 
         LockKey key = new LockKey("test");
 
-            CompletableFuture<Lock> fut = lockManager.acquire(txId0, key, INTENTION_SHARED);
+        CompletableFuture<Lock> fut = lockManager.acquire(txId0, key, INTENTION_SHARED);
 
-            try {
-                lockManager.downgrade(fut.join(), EXCLUSIVE);
+        try {
+            lockManager.downgrade(fut.join(), EXCLUSIVE);
 
-                fail();
-            } catch (LockException e) {
+            fail();
+        } catch (LockException e) {
+            // Expected.
+        }
 
-            }
+        assertEquals(1, lockManager.queue(key).size());
 
-            assertEquals(1, lockManager.queue(key).size());
-
-            lockManager.release(fut.join());
+        lockManager.release(fut.join());
     }
 
     @Test
-    public void testImpossibleDowngradeLockModes3() throws Exception {
+    public void testImpossibleDowngradeLockModes3() {
         UUID txId0 = Timestamp.nextVersion().toUuid();
         UUID txId1 = Timestamp.nextVersion().toUuid();
 
         LockKey key = new LockKey("test");
 
         CompletableFuture<Lock> fut0 = lockManager.acquire(txId0, key, SHARED);
-        CompletableFuture<Lock> fut1 = lockManager.acquire(txId1, key, SHARED);
+        lockManager.acquire(txId1, key, SHARED);
 
         try {
             lockManager.downgrade(fut0.join(), INTENTION_EXCLUSIVE);
 
             fail();
         } catch (LockException e) {
-
+            // Expected.
         }
 
         assertEquals(2, lockManager.queue(key).size());
@@ -820,11 +820,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
                                 continue;
                             }
 
-                            try {
-                                lockManager.release(lock);
-                            } catch (LockException e) {
-                                fail(e.getMessage());
-                            }
+                            lockManager.release(lock);
                         } else {
                             Lock lock;
                             try {
@@ -841,11 +837,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
                                 continue;
                             }
 
-                            try {
-                                lockManager.release(lock);
-                            } catch (LockException e) {
-                                fail(e.getMessage());
-                            }
+                            lockManager.release(lock);
                         }
                     }
                 });

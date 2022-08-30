@@ -27,6 +27,12 @@ public enum LockMode {
     SHARED_AND_INTENTION_EXCLUSIVE,
     EXCLUSIVE;
 
+    /**
+     * Is this lock mode compatible with the specified lock mode.
+     *
+     * @param lockMode Lock mode.
+     * @return Is this lock mode compatible with the specified lock mode.
+     */
     public boolean isCompatible(LockMode lockMode) {
         switch (this) {
             case INTENTION_SHARED:
@@ -71,6 +77,12 @@ public enum LockMode {
         }
     }
 
+    /**
+     * Is this lock mode can be reentered.
+     *
+     * @param lockMode Lock mode.
+     * @return Is this lock mode can be reentered.
+     */
     public boolean allowReenter(LockMode lockMode) {
         switch (this) {
             case INTENTION_SHARED:

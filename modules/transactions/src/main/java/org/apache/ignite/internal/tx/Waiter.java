@@ -37,5 +37,10 @@ public interface Waiter {
      */
     boolean locked();
 
+    /**
+     * Returns lock mode.
+     *
+     * @return Lock mode.
+     */
     LockMode lockMode();
 }
