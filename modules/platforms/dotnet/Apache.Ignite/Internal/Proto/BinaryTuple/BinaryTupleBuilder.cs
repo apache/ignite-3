@@ -33,27 +33,28 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     internal sealed class BinaryTupleBuilder
     {
         /** Number of elements in the tuple. */
-        private readonly int numElements;
+        private readonly int _numElements;
 
         /** Size of an offset table entry. */
-        private readonly int entrySize;
+        private readonly int _entrySize;
 
         /** Position of the varlen offset table. */
-        private readonly int entryBase;
+        private readonly int _entryBase;
 
         /** Starting position of variable-length values. */
-        private readonly int valueBase;
+        private readonly int _valueBase;
 
         /** Buffer for tuple content. */
-        private byte[] buffer = new byte[4000]; // TODO: Pooling
+        private byte[] _buffer = new byte[4000]; // TODO: Pooling
 
         /** Flag indicating if any NULL values were really put here. */
-        private bool hasNullValues;
+        private bool _hasNullValues;
 
         /** Current element. */
-        private int elementIndex;
+        private int _elementIndex;
 
-        private int position;
+        /** Current position in buffer. */
+        private int _position;
 
         /**
      * Constructor.
@@ -64,7 +65,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      */
         private BinaryTupleBuilder(int numElements, bool allowNulls, int totalValueSize)
         {
-            this.numElements = numElements;
+            this._numElements = numElements;
 
             int @base = BinaryTupleCommon.HeaderSize;
             if (allowNulls)
@@ -72,18 +73,20 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 @base += BinaryTupleCommon.NullMapSize(numElements);
             }
 
-            entryBase = @base;
+            _entryBase = @base;
 
             if (totalValueSize < 0)
             {
-                entrySize = 4;
+                _entrySize = 4;
             }
             else
             {
-                entrySize = BinaryTupleCommon.FlagsToEntrySize(BinaryTupleCommon.ValueSizeToFlags(totalValueSize));
+                _entrySize = BinaryTupleCommon.FlagsToEntrySize(BinaryTupleCommon.ValueSizeToFlags(totalValueSize));
             }
 
-            valueBase = @base + entrySize * numElements;
+            _valueBase = @base + _entrySize * numElements;
+
+            _position = _valueBase;
         }
 
         /**
@@ -116,7 +119,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      */
         public bool hasNullMap()
         {
-            return entryBase > BinaryTupleCommon.HeaderSize;
+            return _entryBase > BinaryTupleCommon.HeaderSize;
         }
 
         /**
@@ -131,12 +134,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 throw new InvalidOperationException("Appending a NULL value in binary tuple builder with disabled NULLs");
             }
 
-            hasNullValues = true;
+            _hasNullValues = true;
 
-            int nullIndex = BinaryTupleCommon.NullOffset(elementIndex);
-            byte nullMask = BinaryTupleCommon.NullMask(elementIndex);
+            int nullIndex = BinaryTupleCommon.NullOffset(_elementIndex);
+            byte nullMask = BinaryTupleCommon.NullMask(_elementIndex);
             
-            buffer[nullIndex] = (byte)(buffer[nullIndex] | nullMask);
+            _buffer[nullIndex] = (byte)(_buffer[nullIndex] | nullMask);
 
             return proceed();
         }
@@ -491,7 +494,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      *
      * @return Element index.
      */
-        public int ElementIndex => elementIndex;
+        public int ElementIndex => _elementIndex;
 
         /**
      * Finalize tuple building.
@@ -504,124 +507,124 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             int offset = 0;
 
-            int valueSize = buffer.position() - valueBase;
+            int valueSize = _buffer.position() - _valueBase;
             byte flags = BinaryTupleCommon.valueSizeToFlags(valueSize);
             int desiredEntrySize = BinaryTupleCommon.flagsToEntrySize(flags);
 
             // Shrink the offset table if needed.
-            if (desiredEntrySize != entrySize)
+            if (desiredEntrySize != _entrySize)
             {
-                if (desiredEntrySize > entrySize)
+                if (desiredEntrySize > _entrySize)
                 {
                     throw new IllegalStateException("Offset entry overflow in binary tuple builder");
                 }
 
-                assert entrySize == 4 || entrySize == 2;
+                assert _entrySize == 4 || _entrySize == 2;
                 assert desiredEntrySize == 2 || desiredEntrySize == 1;
 
-                int getIndex = valueBase;
-                int putIndex = valueBase;
-                while (getIndex > entryBase)
+                int getIndex = _valueBase;
+                int putIndex = _valueBase;
+                while (getIndex > _entryBase)
                 {
-                    getIndex -= entrySize;
+                    getIndex -= _entrySize;
                     putIndex -= desiredEntrySize;
 
                     int value;
-                    if (entrySize == 4)
+                    if (_entrySize == 4)
                     {
-                        value = buffer.getInt(getIndex);
+                        value = _buffer.getInt(getIndex);
                     }
                     else
                     {
-                        value = Short.toUnsignedInt(buffer.getShort(getIndex));
+                        value = Short.toUnsignedInt(_buffer.getShort(getIndex));
                     }
 
                     if (desiredEntrySize == 1)
                     {
-                        buffer.put(putIndex, (byte)value);
+                        _buffer.put(putIndex, (byte)value);
                     }
                     else
                     {
-                        buffer.putShort(putIndex, (short)value);
+                        _buffer.putShort(putIndex, (short)value);
                     }
                 }
 
-                offset = (entrySize - desiredEntrySize) * numElements;
+                offset = (_entrySize - desiredEntrySize) * _numElements;
             }
 
             // Drop or move null map if needed.
             if (hasNullMap())
             {
-                if (!hasNullValues)
+                if (!_hasNullValues)
                 {
-                    offset += BinaryTupleCommon.nullMapSize(numElements);
+                    offset += BinaryTupleCommon.nullMapSize(_numElements);
                 }
                 else
                 {
                     flags |= BinaryTupleCommon.NULLMAP_FLAG;
                     if (offset != 0)
                     {
-                        int n = BinaryTupleCommon.nullMapSize(numElements);
+                        int n = BinaryTupleCommon.nullMapSize(_numElements);
                         for (int i = BinaryTupleCommon.HEADER_SIZE + n - 1; i >= BinaryTupleCommon.HEADER_SIZE; i--)
                         {
-                            buffer.put(i + offset, buffer.get(i));
+                            _buffer.put(i + offset, _buffer.get(i));
                         }
                     }
                 }
             }
 
-            buffer.put(offset, flags);
+            _buffer.put(offset, flags);
 
-            return buffer.flip().position(offset).slice().order(ByteOrder.LITTLE_ENDIAN);
+            return _buffer.flip().position(offset).slice().order(ByteOrder.LITTLE_ENDIAN);
         }
 
         /** Put a byte value to the buffer extending it if needed. */
         private void putByte(byte value)
         {
             ensure(1);
-            buffer.put(value);
+            _buffer.put(value);
         }
 
         /** Put a short value to the buffer extending it if needed. */
         private void putShort(short value)
         {
             ensure(2);
-            buffer.putShort(value);
+            _buffer.putShort(value);
         }
 
         /** Put an int value to the buffer extending it if needed. */
         private void putInt(int value)
         {
             ensure(4);
-            buffer.putInt(value);
+            _buffer.putInt(value);
         }
 
         /** Put a long value to the buffer extending it if needed. */
         private void putLong(long value)
         {
             ensure(8);
-            buffer.putLong(value);
+            _buffer.putLong(value);
         }
 
         /** Put a float value to the buffer extending it if needed. */
         private void putFloat(float value)
         {
             ensure(Float.BYTES);
-            buffer.putFloat(value);
+            _buffer.putFloat(value);
         }
 
         /** Put a double value to the buffer extending it if needed. */
         private void putDouble(double value)
         {
             ensure(Double.BYTES);
-            buffer.putDouble(value);
+            _buffer.putDouble(value);
         }
 
         /** Put bytes to the buffer extending it if needed. */
         private void putBytes(byte[] bytes)
         {
             ensure(bytes.length);
-            buffer.put(bytes);
+            _buffer.put(bytes);
         }
 
         /** Put a string to the buffer extending it if needed. */
@@ -630,20 +633,20 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             CharsetEncoder coder = encoder().reset();
             CharBuffer input = CharBuffer.wrap(value);
 
-            CoderResult result = coder.encode(input, buffer, true);
+            CoderResult result = coder.encode(input, _buffer, true);
             while (result.isOverflow())
             {
                 grow((int)coder.maxBytesPerChar());
-                result = coder.encode(input, buffer, true);
+                result = coder.encode(input, _buffer, true);
             }
 
             if (result.isUnderflow())
             {
-                result = coder.flush(buffer);
+                result = coder.flush(_buffer);
                 while (result.isOverflow())
                 {
                     grow((int)coder.maxBytesPerChar());
-                    result = coder.flush(buffer);
+                    result = coder.flush(_buffer);
                 }
             }
 
@@ -697,7 +700,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         private void putElement(ByteBuffer bytes)
         {
             ensure(bytes.remaining());
-            buffer.put(bytes);
+            _buffer.put(bytes);
         }
 
         /** Put element bytes to the buffer extending it if needed. */
@@ -705,40 +708,40 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             assert bytes.limit() <= (offset + length);
             ensure(length);
-            buffer.put(bytes.asReadOnlyBuffer().position(offset).limit(offset + length));
+            _buffer.put(bytes.asReadOnlyBuffer().position(offset).limit(offset + length));
         }
 
         /** Proceed to the next tuple element. */
         private BinaryTupleBuilder proceed()
         {
-            assert elementIndex < numElements;
+            assert _elementIndex < _numElements;
 
-            int offset = buffer.position() - valueBase;
-            switch (entrySize)
+            int offset = _buffer.position() - _valueBase;
+            switch (_entrySize)
             {
                 case Byte.BYTES:
-                    buffer.put(entryBase + elementIndex, (byte)offset);
+                    _buffer.put(_entryBase + _elementIndex, (byte)offset);
                     break;
                 case 2:
-                    buffer.putShort(entryBase + elementIndex * 2, (short)offset);
+                    _buffer.putShort(_entryBase + _elementIndex * 2, (short)offset);
                     break;
                 case 4:
-                    buffer.putInt(entryBase + elementIndex * 4, offset);
+                    _buffer.putInt(_entryBase + _elementIndex * 4, offset);
                     break;
                 default:
                     assert false;
             }
 
-            elementIndex++;
+            _elementIndex++;
             return this;
         }
 
         /** Allocate a non-direct buffer for tuple. */
         private void allocate(int totalValueSize)
         {
-            buffer = ByteBuffer.allocate(estimateBufferCapacity(totalValueSize));
-            buffer.order(ByteOrder.LITTLE_ENDIAN);
-            buffer.position(valueBase);
+            _buffer = ByteBuffer.allocate(estimateBufferCapacity(totalValueSize));
+            _buffer.order(ByteOrder.LITTLE_ENDIAN);
+            _buffer.position(_valueBase);
         }
 
         /** Do our best to find initial buffer capacity. */
@@ -746,16 +749,16 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (totalValueSize < 0)
             {
-                totalValueSize = Integer.max(numElements * 8, DEFAULT_BUFFER_SIZE);
+                totalValueSize = Integer.max(_numElements * 8, DEFAULT_BUFFER_SIZE);
             }
 
-            return valueBase + totalValueSize;
+            return _valueBase + totalValueSize;
         }
 
         /** Ensure that the buffer can fit the required size. */
         private void ensure(int size)
         {
-            if (buffer.remaining() < size)
+            if (_buffer.remaining() < size)
             {
                 grow(size);
             }
@@ -764,7 +767,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /** Reallocate the buffer increasing its capacity to fit the required size. */
         private void grow(int size)
         {
-            int capacity = buffer.Length;
+            int capacity = _buffer.Length;
             do
             {
                 capacity *= 2;
@@ -772,13 +775,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 {
                     throw new IgniteClientException("Buffer overflow in binary tuple builder");
                 }
-            } while ((capacity - buffer.position()) < size);
+            } while ((capacity - _buffer.position()) < size);
 
             ByteBuffer newBuffer = ByteBuffer.allocate(capacity);
             newBuffer.order(ByteOrder.LITTLE_ENDIAN);
-            newBuffer.put(buffer.flip());
+            newBuffer.put(_buffer.flip());
 
-            buffer = newBuffer;
+            _buffer = newBuffer;
         }
     }
 }
