@@ -23,7 +23,10 @@
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
+    using System.Buffers.Binary;
+    using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
+    using System.Text;
     using Buffers;
 
     // TODO: Support all types (IGNITE-15431).
@@ -154,7 +157,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-        public BinaryTupleBuilder appendByte(byte value)
+        public BinaryTupleBuilder appendByte(sbyte value)
         {
             if (value != 0)
             {
@@ -583,32 +586,16 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /** Put a byte value to the buffer extending it if needed. */
-        private void putByte(byte value)
-        {
-            ensure(1);
-            _buffer.put(value);
-        }
+        private void putByte(sbyte value) => GetSpan(1)[0] = unchecked((byte)value);
 
         /** Put a short value to the buffer extending it if needed. */
-        private void putShort(short value)
-        {
-            ensure(2);
-            _buffer.putShort(value);
-        }
+        private void putShort(short value) => BinaryPrimitives.WriteInt16LittleEndian(GetSpan(2), value);
 
         /** Put an int value to the buffer extending it if needed. */
-        private void putInt(int value)
-        {
-            ensure(4);
-            _buffer.putInt(value);
-        }
+        private void putInt(int value) => BinaryPrimitives.WriteInt32LittleEndian(GetSpan(4), value);
 
         /** Put a long value to the buffer extending it if needed. */
-        private void putLong(long value)
-        {
-            ensure(8);
-            _buffer.putLong(value);
-        }
+        private void putLong(long value) => BinaryPrimitives.WriteInt64LittleEndian(GetSpan(8), value);
 
         /** Put a float value to the buffer extending it if needed. */
         private void putFloat(float value)
@@ -634,30 +621,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /** Put a string to the buffer extending it if needed. */
         private void putString(String value)
         {
-            CharsetEncoder coder = encoder().reset();
-            CharBuffer input = CharBuffer.wrap(value);
+            var maxByteCount = Encoding.UTF8.GetMaxByteCount(value.Length);
+            var span = _buffer.GetSpan(maxByteCount);
 
-            CoderResult result = coder.encode(input, _buffer, true);
-            while (result.isOverflow())
-            {
-                grow((int)coder.maxBytesPerChar());
-                result = coder.encode(input, _buffer, true);
-            }
+            var actualBytes = Encoding.UTF8.GetBytes(value, span);
 
-            if (result.isUnderflow())
-            {
-                result = coder.flush(_buffer);
-                while (result.isOverflow())
-                {
-                    grow((int)coder.maxBytesPerChar());
-                    result = coder.flush(_buffer);
-                }
-            }
-
-            if (result.isError())
-            {
-                result.throwException();
-            }
+            _buffer.Advance(actualBytes);
         }
 
         /** Put a date to the buffer extending it if needed. */
@@ -718,12 +687,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /** Proceed to the next tuple element. */
         private BinaryTupleBuilder proceed()
         {
-            assert _elementIndex < _numElements;
+            Debug.Assert(_elementIndex < _numElements);
 
-            int offset = _buffer.position() - _valueBase;
+            int offset = _buffer.Position - _valueBase;
             switch (_entrySize)
             {
-                case Byte.BYTES:
+                case 1:
                     _buffer.put(_entryBase + _elementIndex, (byte)offset);
                     break;
                 case 2:
@@ -733,7 +702,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     _buffer.putInt(_entryBase + _elementIndex * 4, offset);
                     break;
                 default:
-                    assert false;
+                    throw new ArgumentOutOfRangeException("Tuple entry size is invalid.");
             }
 
             _elementIndex++;
@@ -751,33 +720,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return _valueBase + totalValueSize;
         }
 
-        /** Ensure that the buffer can fit the required size. */
-        private void ensure(int size)
+        private Span<byte> GetSpan(int size)
         {
-            if (_buffer.remaining() < size)
-            {
-                grow(size);
-            }
-        }
+            var span = _buffer.GetSpan(size);
 
-        /** Reallocate the buffer increasing its capacity to fit the required size. */
-        private void grow(int size)
-        {
-            int capacity = _buffer.Length;
-            do
-            {
-                capacity *= 2;
-                if (capacity < 0)
-                {
-                    throw new IgniteClientException("Buffer overflow in binary tuple builder");
-                }
-            } while ((capacity - _buffer.position()) < size);
+            _buffer.Advance(size);
 
-            ByteBuffer newBuffer = ByteBuffer.allocate(capacity);
-            newBuffer.order(ByteOrder.LITTLE_ENDIAN);
-            newBuffer.put(_buffer.flip());
-
-            _buffer = newBuffer;
+            return span;
         }
     }
 }

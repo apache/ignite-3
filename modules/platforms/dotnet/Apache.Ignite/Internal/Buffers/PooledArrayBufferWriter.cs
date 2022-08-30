@@ -67,6 +67,11 @@ namespace Apache.Ignite.Internal.Buffers
         }
 
         /// <summary>
+        /// Gets the current position.
+        /// </summary>
+        public int Position => _index - ReservedPrefixSize;
+
+        /// <summary>
         /// Gets the free capacity.
         /// </summary>
         private int FreeCapacity => _buffer.Length - _index;
