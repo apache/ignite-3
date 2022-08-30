@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.table.distributed.command.InsertAndUpdateAllCo
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanCloseReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
@@ -136,21 +138,43 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Object> invoke(ReplicaRequest request) {
-        if (request instanceof ReadWriteSingleRowReplicaRequest) {
-            return processSingleEntryAction((ReadWriteSingleRowReplicaRequest) request);
-        } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
-            return processMultiEntryAction((ReadWriteMultiRowReplicaRequest) request);
-        } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
-            return processTwoEntriesAction((ReadWriteSwapRowReplicaRequest) request);
-        } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
-            return processScanRetrieveBatchAction((ReadWriteScanRetrieveBatchReplicaRequest) request);
-        } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
-            processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
+        CompletableFuture<Object> fut;
+        if (request instanceof ReadWriteReplicaRequest) {
+            ReadWriteReplicaRequest request0 = (ReadWriteReplicaRequest) request;
 
-            return CompletableFuture.completedFuture(null);
+            fut = raftClient.refreshAndGetLeaderWithTerm()
+                    .thenCompose((replicaAndTerm) -> {
+                        if (!replicaAndTerm.get2().equals(request0.term())) {
+                            throw new PrimaryReplicaMissException(request0.term(), replicaAndTerm.get2());
+                        }
+
+                        return null;
+                    });
         } else {
-            throw new UnsupportedReplicaRequestException(request.getClass());
+            fut = CompletableFuture.completedFuture(null);
         }
+
+        return fut.handle((ignore, e) -> {
+            if (e instanceof PrimaryReplicaMissException) {
+                throw (PrimaryReplicaMissException) e;
+            }
+
+            if (request instanceof ReadWriteSingleRowReplicaRequest) {
+                return processSingleEntryAction((ReadWriteSingleRowReplicaRequest) request);
+            } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
+                return processMultiEntryAction((ReadWriteMultiRowReplicaRequest) request);
+            } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
+                return processTwoEntriesAction((ReadWriteSwapRowReplicaRequest) request);
+            } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
+                return processScanRetrieveBatchAction((ReadWriteScanRetrieveBatchReplicaRequest) request);
+            } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
+                processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
+
+                return CompletableFuture.completedFuture(null);
+            } else {
+                throw new UnsupportedReplicaRequestException(request.getClass());
+            }
+        });
     }
 
     /**

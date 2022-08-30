@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.replicator;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -67,19 +66,7 @@ public class Replica {
                 request.groupId(),
                 replicaGrpId);
 
-        return raftGroupService.refreshAndGetLeaderWithTerm()
-                .thenCompose((replicaAndTerm) -> {
-                    if (replicaAndTerm.get1().address().equals(request.primaryReplica().address())
-                            && replicaAndTerm.get2().equals(request.term())) {
-                        return listener.invoke(request);
-                    } else {
-                        return CompletableFuture.failedFuture(new PrimaryReplicaMissException(
-                                request.primaryReplica().address(),
-                                replicaAndTerm.get1().address(),
-                                request.term(),
-                                replicaAndTerm.get2()
-                        ));
-                    }
-                });
+        return listener.invoke(request);
+
     }
 }

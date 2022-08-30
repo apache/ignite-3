@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * Replica request.
@@ -32,21 +30,4 @@ public interface ReplicaRequest extends NetworkMessage {
      * @return Replication group id.
      */
     String groupId();
-
-    /**
-     * Gets a primary replica.
-     *
-     * @return Gets a primary replica.
-     */
-    @Marshallable
-    ClusterNode primaryReplica();
-
-    /**
-     * Gets a raft term.
-     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
-     *
-     * @return Gets a raft term.
-     */
-    @Marshallable
-    Long term();
 }
