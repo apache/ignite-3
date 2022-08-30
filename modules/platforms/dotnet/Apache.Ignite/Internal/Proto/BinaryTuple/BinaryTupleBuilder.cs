@@ -15,11 +15,18 @@
  * limitations under the License.
  */
 
+// TODO: Restore inspections
+// ReSharper disable all
+
+#pragma warning disable
+
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using Buffers;
 
+    // TODO: Support all types (IGNITE-15431).
     /// <summary>
     /// Binary tuple builder.
     /// </summary>
@@ -38,7 +45,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         private readonly int valueBase;
 
         /** Buffer for tuple content. */
-        private readonly PooledArrayBufferWriter buffer = new PooledArrayBufferWriter();
+        private byte[] buffer = new byte[4000]; // TODO: Pooling
 
         /** Flag indicating if any NULL values were really put here. */
         private bool hasNullValues;
@@ -46,6 +53,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /** Current element. */
         private int elementIndex;
 
+        private int position;
 
         /**
      * Constructor.
@@ -87,7 +95,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      */
         public static BinaryTupleBuilder create(int numElements, bool allowNulls)
         {
-            return create(numElements, allowNulls, -1);
+            return Create(numElements, allowNulls, -1);
         }
 
         /**
@@ -127,7 +135,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             int nullIndex = BinaryTupleCommon.NullOffset(elementIndex);
             byte nullMask = BinaryTupleCommon.NullMask(elementIndex);
-            buffer.put(nullIndex, (byte)(buffer.get(nullIndex) | nullMask));
+            
+            buffer[nullIndex] = (byte)(buffer[nullIndex] | nullMask);
 
             return proceed();
         }
@@ -154,17 +163,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-        public BinaryTupleBuilder appendByte(Byte value)
-        {
-            return value == null ? appendNull() : appendByte(value.byteValue());
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
         public BinaryTupleBuilder appendShort(short value)
         {
             if (Byte.MIN_VALUE <= value && value <= Byte.MAX_VALUE)
@@ -174,17 +172,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             putShort(value);
             return proceed();
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendShort(Short value)
-        {
-            return value == null ? appendNull() : appendShort(value.shortValue());
         }
 
         /**
@@ -218,17 +205,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-        public BinaryTupleBuilder appendInt(Integer value)
-        {
-            return value == null ? appendNull() : appendInt(value.intValue());
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
         public BinaryTupleBuilder appendLong(long value)
         {
             if (Short.MIN_VALUE <= value && value <= Short.MAX_VALUE)
@@ -254,17 +230,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-        public BinaryTupleBuilder appendLong(Long value)
-        {
-            return value == null ? appendNull() : appendLong(value.longValue());
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
         public BinaryTupleBuilder appendFloat(float value)
         {
             if (value != 0.0F)
@@ -273,17 +238,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             return proceed();
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendFloat(Float value)
-        {
-            return value == null ? appendNull() : appendFloat(value.floatValue());
         }
 
         /**
@@ -309,73 +263,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-        public BinaryTupleBuilder appendDouble(Double value)
+        public BinaryTupleBuilder appendString(string value)
         {
-            return value == null ? appendNull() : appendDouble(value.doubleValue());
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendNumberNotNull(@NotNull BigInteger value)
-        {
-            putBytes(value.toByteArray());
-            return proceed();
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendNumber(BigInteger value)
-        {
-            return value == null ? appendNull() : appendNumberNotNull(value);
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendDecimalNotNull(@NotNull BigDecimal value)
-        {
-            putBytes(value.unscaledValue().toByteArray());
-            return proceed();
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendDecimal(BigDecimal value)
-        {
-            return value == null ? appendNull() : appendDecimalNotNull(value);
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendStringNotNull(@NotNull String value)
-        {
-            try
-            {
-                putString(value);
-            }
-            catch (CharacterCodingException e)
-            {
-                throw new BinaryTupleFormatException("Failed to encode string in binary tuple builder", e);
-            }
+            putString(value);
 
             return proceed();
         }
@@ -386,18 +276,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-        public BinaryTupleBuilder appendString(String value)
-        {
-            return value == null ? appendNull() : appendStringNotNull(value);
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendBytesNotNull(@NotNull byte[] value)
+        public BinaryTupleBuilder appendBytesNotNull(Span<byte> value)
         {
             putBytes(value);
             return proceed();
@@ -613,7 +492,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      * @return Element index.
      */
         public int ElementIndex => elementIndex;
-    }
 
         /**
      * Finalize tuple building.
@@ -700,28 +578,28 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /** Put a byte value to the buffer extending it if needed. */
         private void putByte(byte value)
         {
-            ensure(Byte.BYTES);
+            ensure(1);
             buffer.put(value);
         }
 
         /** Put a short value to the buffer extending it if needed. */
         private void putShort(short value)
         {
-            ensure(Short.BYTES);
+            ensure(2);
             buffer.putShort(value);
         }
 
         /** Put an int value to the buffer extending it if needed. */
         private void putInt(int value)
         {
-            ensure(Integer.BYTES);
+            ensure(4);
             buffer.putInt(value);
         }
 
         /** Put a long value to the buffer extending it if needed. */
         private void putLong(long value)
         {
-            ensure(Long.BYTES);
+            ensure(8);
             buffer.putLong(value);
         }
 
@@ -841,11 +719,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 case Byte.BYTES:
                     buffer.put(entryBase + elementIndex, (byte)offset);
                     break;
-                case Short.BYTES:
-                    buffer.putShort(entryBase + elementIndex * Short.BYTES, (short)offset);
+                case 2:
+                    buffer.putShort(entryBase + elementIndex * 2, (short)offset);
                     break;
-                case Integer.BYTES:
-                    buffer.putInt(entryBase + elementIndex * Integer.BYTES, offset);
+                case 4:
+                    buffer.putInt(entryBase + elementIndex * 4, offset);
                     break;
                 default:
                     assert false;
@@ -853,6 +731,54 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             elementIndex++;
             return this;
+        }
+
+        /** Allocate a non-direct buffer for tuple. */
+        private void allocate(int totalValueSize)
+        {
+            buffer = ByteBuffer.allocate(estimateBufferCapacity(totalValueSize));
+            buffer.order(ByteOrder.LITTLE_ENDIAN);
+            buffer.position(valueBase);
+        }
+
+        /** Do our best to find initial buffer capacity. */
+        private int estimateBufferCapacity(int totalValueSize)
+        {
+            if (totalValueSize < 0)
+            {
+                totalValueSize = Integer.max(numElements * 8, DEFAULT_BUFFER_SIZE);
+            }
+
+            return valueBase + totalValueSize;
+        }
+
+        /** Ensure that the buffer can fit the required size. */
+        private void ensure(int size)
+        {
+            if (buffer.remaining() < size)
+            {
+                grow(size);
+            }
+        }
+
+        /** Reallocate the buffer increasing its capacity to fit the required size. */
+        private void grow(int size)
+        {
+            int capacity = buffer.Length;
+            do
+            {
+                capacity *= 2;
+                if (capacity < 0)
+                {
+                    throw new IgniteClientException("Buffer overflow in binary tuple builder");
+                }
+            } while ((capacity - buffer.position()) < size);
+
+            ByteBuffer newBuffer = ByteBuffer.allocate(capacity);
+            newBuffer.order(ByteOrder.LITTLE_ENDIAN);
+            newBuffer.put(buffer.flip());
+
+            buffer = newBuffer;
         }
     }
 }
