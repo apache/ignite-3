@@ -21,6 +21,9 @@
 
 #include "ignite_node.h"
 
+/**
+ * Run prior to any other tests.
+ */
 void BeforeAll()
 {
     ignite::IgniteNode node;

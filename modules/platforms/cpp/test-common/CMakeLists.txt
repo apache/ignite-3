@@ -19,7 +19,6 @@ project(ignite-test-common)
 
 set(TARGET ${PROJECT_NAME})
 
-#include_directories(SYSTEM ${Boost_INCLUDE_DIRS} ${JNI_INCLUDE_DIRS})
 include_directories(include)
 
 set(SOURCES
@@ -32,4 +31,6 @@ add_library(${TARGET} OBJECT ${SOURCES})
 
 set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
 set_target_properties(${TARGET} PROPERTIES POSITION_INDEPENDENT_CODE 1)
+
+target_link_libraries(${TARGET} ignite-common)
 target_include_directories(${TARGET} INTERFACE include)

@@ -19,48 +19,54 @@
 
 #include <chrono>
 #include <string>
+#include <memory>
 
 namespace ignite
 {
-    class Process
-    {
-    public:
-        /**
-         * Destructor.
-         */
-        virtual ~Process() = default;
 
-        /**
-         * Make new process instance.
-         *
-         * @param command Command.
-         * @param workDir Working directory.
-         * @return Process.
-         */
-        static std::unique_ptr<Process> make(std::string command, std::string workDir);
+/**
+ * Represents system process launched using commandline instruction.
+ */
+class Process
+{
+public:
+    /**
+     * Destructor.
+     */
+    virtual ~Process() = default;
 
-        /**
-         * Start process.
-         */
-        virtual bool start() = 0;
+    /**
+     * Make new process instance.
+     *
+     * @param command Command.
+     * @param workDir Working directory.
+     * @return Process.
+     */
+    static std::unique_ptr<Process> make(std::string command, std::string workDir);
 
-        /**
-         * Kill the process.
-         */
-        virtual void kill() = 0;
+    /**
+     * Start process.
+     */
+    virtual bool start() = 0;
 
-        /**
-         * Join process.
-         *
-         * @param timeout Timeout.
-         */
-        virtual void join(std::chrono::milliseconds timeout) = 0;
+    /**
+     * Kill the process.
+     */
+    virtual void kill() = 0;
 
-    protected:
-        /**
-         * Constructor.
-         */
-        Process() = default;
-    };
+    /**
+     * Join process.
+     *
+     * @param timeout Timeout.
+     */
+    virtual void join(std::chrono::milliseconds timeout) = 0;
+
+protected:
+    /**
+     * Constructor.
+     */
+    Process() = default;
+};
+
 } // namespace ignite
 

@@ -23,40 +23,48 @@
 
 namespace ignite
 {
-    class IgniteNode
-    {
-    public:
-        /**
-         * Constructor.
-         */
-        IgniteNode() = default;
 
-        /**
-         * Destructor.
-         */
-        ~IgniteNode() = default;
+/**
+ * Represents Ignite server node process.
+ *
+ * Ignite node is started from command line. It is recommended to re-use
+ * a single Ignite node as much as possible to make tests as quick as possible.
+ */
+class IgniteNode
+{
+public:
+    /**
+     * Constructor.
+     */
+    IgniteNode() = default;
 
-        /**
-         * Start node.
-         *
-         * @param dryRun Perform a dry run. Mostly used to ensure that code is compiled and all artifacts are downloaded.
-         */
-        void start(bool dryRun = false);
+    /**
+     * Destructor.
+     */
+    ~IgniteNode() = default;
 
-        /**
-         * Stop node.
-         */
-        void stop();
+    /**
+     * Start node.
+     *
+     * @param dryRun Perform a dry run. Mostly used to ensure that code is compiled and all artifacts are downloaded.
+     */
+    void start(bool dryRun = false);
 
-        /**
-         * Join node process.
-         *
-         * @param timeout Timeout.
-         */
-        void join(std::chrono::milliseconds timeout);
+    /**
+     * Stop node.
+     */
+    void stop();
 
-    private:
-        /** Underlying process. */
-        std::unique_ptr<Process> process;
-    };
+    /**
+     * Join node process.
+     *
+     * @param timeout Timeout.
+     */
+    void join(std::chrono::milliseconds timeout);
+
+private:
+    /** Underlying process. */
+    std::unique_ptr<Process> process;
+};
+
 } // namespace ignite

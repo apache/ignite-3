@@ -17,6 +17,15 @@
 
 #pragma once
 
+/**
+ * Macro SWITCH_WIN_OTHER that uses first option on Windows and second on any other OS.
+ */
+#ifdef WIN32
+#   define SWITCH_WIN_OTHER(x, y) (x)
+#else
+#   define SWITCH_WIN_OTHER(x, y) (y)
+#endif
+
 #define LITTLE_ENDIAN 1
 #define BIG_ENDIAN 2
 
@@ -30,3 +39,4 @@
 //TODO: Fix this
 #   define BYTE_ORDER LITTLE_ENDIAN
 #endif
+

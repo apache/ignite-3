@@ -24,71 +24,73 @@
 
 namespace ignite
 {
-    /**
-     * Checks if the path looks like binary release home directory.
-     * Internally checks for presence of core library.
-     * @return @c true if the path looks like binary release home directory.
-     */
-    bool looksLikeBinaryReleaseHome(const std::filesystem::path& path)
-    {
-        std::filesystem::path coreLibPath = path / "libs";
-        if (!is_directory(coreLibPath))
+
+/**
+ * Checks if the path looks like binary release home directory.
+ * Internally checks for presence of core library.
+ * @return @c true if the path looks like binary release home directory.
+ */
+bool looksLikeBinaryReleaseHome(const std::filesystem::path& path)
+{
+    std::filesystem::path coreLibPath = path / "libs";
+    if (!is_directory(coreLibPath))
+        return false;
+
+    auto iter = std::filesystem::directory_iterator{coreLibPath};
+    return std::any_of(iter, std::filesystem::end(iter), [](auto entry) {
+        const std::filesystem::path& entryPath = entry.path();
+        if (entryPath.extension() != "jar")
             return false;
 
-        auto iter = std::filesystem::directory_iterator{coreLibPath};
-        return std::any_of(iter, std::filesystem::end(iter), [](auto entry) {
-            const std::filesystem::path& entryPath = entry.path();
-            if (entryPath.extension() != "jar")
-                return false;
+        std::string stem = entryPath.stem().string();
+        return stem.find("ignite-core") == 0;
+    });
+}
 
-            std::string stem = entryPath.stem().string();
-            return stem.find("ignite-core") == 0;
-        });
+/**
+ * Checks if the path looks like source release home directory.
+ * Internally checks for presence of core source directory.
+ * @return @c true if the path looks like binary release home directory.
+ */
+bool looksLikeSourceReleaseHome(const std::filesystem::path& path)
+{
+    std::filesystem::path coreSourcePath =
+            path / "modules" / "core" / "src" / "main" / "java" / "org" / "apache" / "ignite";
+
+    return std::filesystem::is_directory(coreSourcePath);
+}
+
+std::string resolveIgniteHome(const std::string& path)
+{
+    std::error_code error;
+
+    std::filesystem::path home = std::filesystem::canonical(path, error);
+    if (!error && std::filesystem::is_directory(path))
+        return home.string();
+
+    const char *env = std::getenv("IGNITE_HOME");
+    if (env)
+    {
+        home = std::filesystem::canonical(env, error);
+        if (!error && std::filesystem::is_directory(home))
+            return home.string();
     }
 
-    /**
-     * Checks if the path looks like source release home directory.
-     * Internally checks for presence of core source directory.
-     * @return @c true if the path looks like binary release home directory.
-     */
-    bool looksLikeSourceReleaseHome(const std::filesystem::path& path)
+    home = std::filesystem::current_path();
+    while (!home.empty() && home.has_relative_path())
     {
-        std::filesystem::path coreSourcePath =
-                path / "modules" / "core" / "src" / "main" / "java" / "org" / "apache" / "ignite";
-
-        return std::filesystem::is_directory(coreSourcePath);
-    }
-
-    std::string resolveIgniteHome(const std::string& path)
-    {
-        std::error_code error;
-
-        std::filesystem::path home = std::filesystem::canonical(path, error);
-        if (!error && std::filesystem::is_directory(path))
+        if (looksLikeBinaryReleaseHome(home) || looksLikeSourceReleaseHome(home))
             return home.string();
 
-        const char *env = std::getenv("IGNITE_HOME");
-        if (env)
-        {
-            home = std::filesystem::canonical(env, error);
-            if (!error && std::filesystem::is_directory(home))
-                return home.string();
-        }
-
-        home = std::filesystem::current_path();
-        while (!home.empty() && home.has_relative_path())
-        {
-            if (looksLikeBinaryReleaseHome(home) || looksLikeSourceReleaseHome(home))
-                return home.string();
-
-            home = home.parent_path();
-        }
-        return home.string();
+        home = home.parent_path();
     }
+    return home.string();
+}
 
-    std::string getMavenPath()
-    {
-        // Currently, we only support systems with "mvn" command in PATH
-        return "mvn";
-    }
+std::string getMavenPath()
+{
+    // Currently, we only support systems with "mvn" command in PATH
+    return "mvn";
+}
+
 } // namespace ignite

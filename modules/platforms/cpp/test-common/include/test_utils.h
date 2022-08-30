@@ -23,21 +23,23 @@
 
 namespace ignite
 {
-    /**
-     * Resolve IGNITE_HOME directory. Resolution is performed in several steps:
-     * 1) Check for path provided as argument.
-     * 2) Check for environment variable.
-     * 3) Check for current working directory.
-     * Result of these checks are evaluated based on existence of certain predefined folders inside possible Ignite
-     * home. If they are found, IGNITE_HOME is considered resolved.
-     *
-     * @param path Optional path to check.
-     * @return Resolved Ignite home.
-     */
-    std::string resolveIgniteHome(const std::string& path = "");
 
-    /**
-     * Get path to maven executable.
-     */
-    std::string getMavenPath();
+/**
+ * Resolve IGNITE_HOME directory. Resolution is performed in several steps:
+ * 1) Check for path provided as argument.
+ * 2) Check for environment variable.
+ * 3) Check for current working directory.
+ * Result of these checks are evaluated based on existence of certain predefined folders inside possible Ignite
+ * home. If they are found, IGNITE_HOME is considered resolved.
+ *
+ * @param path Optional path to check.
+ * @return Resolved Ignite home.
+ */
+std::string resolveIgniteHome(const std::string& path = "");
+
+/**
+ * Get path to maven executable.
+ */
+std::string getMavenPath();
+
 } // namespace ignite

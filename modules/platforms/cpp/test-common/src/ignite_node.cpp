@@ -19,54 +19,61 @@
 #include <stdexcept>
 #include <iostream>
 
+#include "common/Platform.h"
+
 #include "ignite_node.h"
 #include "test_utils.h"
 
+namespace
+{
+
+/**
+ * System shell command string.
+ */
+constexpr std::string_view SYSTEM_SHELL = SWITCH_WIN_OTHER("cmd.exe /c ", "/bin/bash -c ");
+
+} // anonymous namespace
+
 namespace ignite
 {
-    void IgniteNode::start(bool dryRun)
+
+void IgniteNode::start(bool dryRun)
+{
+    std::string home = resolveIgniteHome();
+    if (home.empty())
+        throw std::runtime_error(
+                "Can not resolve Ignite home directory. Try setting IGNITE_HOME explicitly");
+
+    std::string command = std::string(SYSTEM_SHELL) + getMavenPath() + " exec:java@platform-test-node-runner";
+
+    if (dryRun)
+        command += " -Dexec.args=dry-run";
+
+    auto workDir = std::filesystem::path(home) / "modules" / "runner";
+
+    std::cout << "IGNITE_HOME=" << home << std::endl;
+    std::cout << "working dir=" << workDir << std::endl;
+    std::cout << "command=" << command << std::endl;
+
+    process = Process::make(command, workDir.string());
+    if (!process->start())
     {
-        std::string home = resolveIgniteHome();
-        if (home.empty())
-            throw std::runtime_error(
-                    "Can not resolve Ignite home directory. Try setting IGNITE_HOME explicitly");
+        process.reset();
 
-        std::string command =
-#ifdef WIN32
-        "cmd.exe /c ";
-#else
-        "/bin/bash -c ";
-#endif
-
-        command += getMavenPath() + " exec:java@platform-test-node-runner";
-
-        if (dryRun)
-            command += " -Dexec.args=dry-run";
-
-        auto workDir = std::filesystem::path(home) / "modules" / "runner";
-
-        std::cout << "IGNITE_HOME=" << home << std::endl;
-        std::cout << "working dir=" << workDir << std::endl;
-        std::cout << "command=" << command << std::endl;
-
-        process = Process::make(command, workDir.string());
-        if (!process->start())
-        {
-            process.reset();
-
-            throw std::runtime_error("Failed to invoke Ignite command: '" + command + "'");
-        }
+        throw std::runtime_error("Failed to invoke Ignite command: '" + command + "'");
     }
+}
 
-    void IgniteNode::stop()
-    {
-        if (process)
-            process->kill();
-    }
+void IgniteNode::stop()
+{
+    if (process)
+        process->kill();
+}
 
-    void IgniteNode::join(std::chrono::milliseconds timeout)
-    {
-        if (process)
-            process->join(timeout);
-    }
+void IgniteNode::join(std::chrono::milliseconds timeout)
+{
+    if (process)
+        process->join(timeout);
+}
+
 } // namespace ignite
