@@ -15,26 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.index.hash.io;
+package org.apache.ignite.internal.storage.pagememory.index.freelist;
 
-import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
-import org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes;
-import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexTree;
+import org.apache.ignite.internal.pagememory.datapage.ReadPageMemoryRowValue;
+import org.apache.ignite.internal.storage.pagememory.mv.RowVersion;
 
 /**
- * IO routines for {@link HashIndexTree} meta pages.
+ * Reads {@link RowVersion#value()} from page-memory.
  */
-public class HashIndexTreeMetaIo extends BplusMetaIo {
-    /** I/O versions. */
-    public static final IoVersions<HashIndexTreeMetaIo> VERSIONS = new IoVersions<>(new HashIndexTreeMetaIo(1));
+class ReadIndexedRowValue extends ReadPageMemoryRowValue {
+    /** {@inheritDoc} */
+    @Override
+    protected int valueSizeOffsetInFirstSlot() {
+        return IndexedRow.SIZE_OFFSET;
+    }
 
-    /**
-     * Constructor.
-     *
-     * @param ver Page format version.
-     */
-    protected HashIndexTreeMetaIo(int ver) {
-        super(IndexPageTypes.T_HASH_INDEX_META_IO, ver);
+    /** {@inheritDoc} */
+    @Override
+    protected int valueOffsetInFirstSlot() {
+        return IndexedRow.VALUE_OFFSET;
     }
 }

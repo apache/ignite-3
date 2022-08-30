@@ -21,6 +21,7 @@ import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
+import org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 
@@ -28,9 +29,6 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
  * IO routines for {@link IndexMetaTree} inner pages.
  */
 public class IndexMetaInnerIo extends BplusInnerIo<IndexMeta> implements IndexMetaIo {
-    /** Page IO type. */
-    public static final short T_INDEX_META_INNER_IO = 14;
-
     /** I/O versions. */
     public static final IoVersions<IndexMetaInnerIo> VERSIONS = new IoVersions<>(new IndexMetaInnerIo(1));
 
@@ -40,7 +38,7 @@ public class IndexMetaInnerIo extends BplusInnerIo<IndexMeta> implements IndexMe
      * @param ver Page format version.
      */
     private IndexMetaInnerIo(int ver) {
-        super(T_INDEX_META_INNER_IO, ver, true, SIZE_IN_BYTES);
+        super(IndexPageTypes.T_INDEX_META_INNER_IO, ver, true, SIZE_IN_BYTES);
     }
 
     /** {@inheritDoc} */

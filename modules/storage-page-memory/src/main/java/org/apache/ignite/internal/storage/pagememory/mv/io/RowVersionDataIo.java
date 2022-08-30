@@ -73,42 +73,27 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
 
     /** {@inheritDoc} */
     @Override
-    protected void writeFragmentData(RowVersion row, ByteBuffer buf, int rowOff, int payloadSize) {
-        assertPageType(buf);
+    protected void writeFragmentData(RowVersion row, ByteBuffer pageBuf, int rowOff, int payloadSize) {
+        assertPageType(pageBuf);
 
         if (rowOff == 0) {
             // first fragment
             assert row.headerSize() <= payloadSize : "Header must entirely fit in the first fragment, but header size is "
                     + row.headerSize() + " and payload size is " + payloadSize;
 
-            HybridTimestamps.writeTimestampToBuffer(buf, row.timestamp());
+            HybridTimestamps.writeTimestampToBuffer(pageBuf, row.timestamp());
 
-            PartitionlessLinks.writeToBuffer(buf, row.nextLink());
+            PartitionlessLinks.writeToBuffer(pageBuf, row.nextLink());
 
-            buf.putInt(row.valueSize());
+            pageBuf.putInt(row.valueSize());
 
-            int valueBytesToWrite = payloadSize - row.headerSize();
-            putValueFragmentToBuffer(row, buf, 0, valueBytesToWrite);
+            putValueBufferIntoPage(pageBuf, row.value(), 0, payloadSize - row.headerSize());
         } else {
             // non-first fragment
-            assert rowOff > row.headerSize();
+            assert rowOff >= row.headerSize();
 
-            putValueFragmentToBuffer(row, buf, rowOff - row.headerSize(), payloadSize);
+            putValueBufferIntoPage(pageBuf, row.value(), rowOff - row.headerSize(), payloadSize);
         }
-    }
-
-    private void putValueFragmentToBuffer(RowVersion row, ByteBuffer buf, int readBufferPosition, int valueBytesToWrite) {
-        ByteBuffer valueBuffer = row.value();
-
-        int oldLimit = valueBuffer.limit();
-        int oldPosition = valueBuffer.position();
-
-        valueBuffer.position(readBufferPosition);
-        valueBuffer.limit(valueBuffer.position() + valueBytesToWrite);
-        buf.put(valueBuffer);
-
-        valueBuffer.position(oldPosition);
-        valueBuffer.limit(oldLimit);
     }
 
     /**
