@@ -33,7 +33,7 @@ import org.junit.jupiter.api.Test;
 class VolatileLogStorageBudgetingTest {
     private final ControlledBudget budget = new ControlledBudget();
 
-    private final LogStorage storage = new VolatileLogStorage(budget);
+    private final LogStorage storage = new VolatileLogStorage(budget, new OnHeapLogs(), new OnHeapLogs());
 
     @BeforeEach
     void initStorage() {

@@ -21,9 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
@@ -90,7 +88,7 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
         assertEquals(0, exitCode);
         assertThat(
                 out.toString(UTF_8),
-                containsString("Node configuration was updated successfully.")
+                containsString("Node configuration was updated successfully")
 
         );
 
@@ -126,8 +124,7 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
         assertEquals(1, exitCode);
         assertThat(
                 err.toString(UTF_8),
-                both(startsWith("An error occurred"))
-                        .and(containsString("'network' configuration doesn't have the 'foo' sub-configuration"))
+                containsString("'network' configuration doesn't have the 'foo' sub-configuration")
         );
 
         resetStreams();
@@ -144,8 +141,7 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
         assertEquals(1, exitCode);
         assertThat(
                 err.toString(UTF_8),
-                both(containsString("An error occurred"))
-                        .and(containsString("'long' is expected as a type for the 'network.shutdownQuietPeriod' configuration value"))
+                containsString("'long' is expected as a type for the 'network.shutdownQuietPeriod' configuration value")
         );
     }
 
@@ -157,7 +153,6 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
                 "show",
                 "--node-url",
                 "http://localhost:" + node.restAddress().port(),
-                "--selector",
                 "network"
         );
 

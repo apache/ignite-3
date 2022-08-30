@@ -22,8 +22,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.ignite.internal.sql.engine.util.FilteringIterator;
-import org.apache.ignite.internal.sql.engine.util.TransformingIterator;
+import org.apache.ignite.internal.util.FilteringIterator;
+import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**

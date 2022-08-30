@@ -213,4 +213,13 @@ public class ColumnFamily {
     public String name() {
         return cfName;
     }
+
+    /**
+     * Returns the RocksDB instance that contains this Column Family.
+     *
+     * @return RocksDB instance that contains this Column Family.
+     */
+    public RocksDB db() {
+        return db;
+    }
 }

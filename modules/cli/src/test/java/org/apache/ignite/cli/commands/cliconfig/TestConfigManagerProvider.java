@@ -21,6 +21,7 @@ import io.micronaut.context.annotation.Replaces;
 import jakarta.inject.Singleton;
 import org.apache.ignite.cli.config.ConfigManager;
 import org.apache.ignite.cli.config.ConfigManagerProvider;
+import org.apache.ignite.cli.config.ini.IniConfigManager;
 
 /**
  * Test implementation of {@link ConfigManagerProvider}.
@@ -29,7 +30,7 @@ import org.apache.ignite.cli.config.ConfigManagerProvider;
 @Replaces(ConfigManagerProvider.class)
 public class TestConfigManagerProvider implements ConfigManagerProvider {
 
-    public ConfigManager configManager;
+    public ConfigManager configManager = new IniConfigManager(TestConfigManagerHelper.createIntegrationTests());
 
     @Override
     public ConfigManager get() {

@@ -21,6 +21,7 @@ import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.cli.core.call.Call;
+import org.apache.ignite.cli.core.call.CallOutput;
 import org.apache.ignite.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.TopologyApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -35,7 +36,7 @@ public class LogicalTopologyCall implements Call<TopologyCallInput, List<Cluster
 
     /** {@inheritDoc} */
     @Override
-    public TopologyCallOutput execute(TopologyCallInput input) {
+    public CallOutput<List<ClusterNode>> execute(TopologyCallInput input) {
         try {
             return TopologyCallOutput.success(fetchLogicalTopology(input));
         } catch (ApiException | IllegalArgumentException e) {

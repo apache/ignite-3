@@ -17,15 +17,36 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.NullValueDefaultConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.UnlimitedBudgetConfigurationSchema;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvTableStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
+import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Class for testing the {@link HashIndexStorage}.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class TestHashIndexStorageTest extends AbstractHashIndexStorageTest {
-    @Override
-    protected HashIndexStorage createIndexStorage(String name, TableView tableCfg) {
-        return new TestHashIndexStorage(new HashIndexDescriptor(name, tableCfg));
+    @BeforeEach
+    void setUp(
+            @InjectConfiguration(
+                    polymorphicExtensions = {
+                            TestConcurrentHashMapDataStorageConfigurationSchema.class,
+                            HashIndexConfigurationSchema.class,
+                            NullValueDefaultConfigurationSchema.class,
+                            UnlimitedBudgetConfigurationSchema.class
+                    },
+                    value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
+            )
+            TableConfiguration tableCfg
+    ) {
+        initialize(new TestConcurrentHashMapMvTableStorage(tableCfg));
     }
 }

@@ -23,12 +23,13 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionlessLink;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
+import org.apache.ignite.internal.storage.pagememory.mv.HybridTimestamps;
+import org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks;
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersion;
-import org.apache.ignite.internal.storage.pagememory.mv.Timestamps;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.lang.IgniteStringBuilder;
 import org.jetbrains.annotations.Nullable;
 
@@ -61,7 +62,7 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
         putShort(addr, 0, (short) payloadSize);
         addr += 2;
 
-        addr += Timestamps.writeTimestampToMemory(addr, 0, row.timestamp());
+        addr += HybridTimestamps.writeTimestampToMemory(addr, 0, row.timestamp());
 
         addr += writePartitionlessLink(addr, row.nextLink());
 
@@ -81,7 +82,7 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
             assert row.headerSize() <= payloadSize : "Header must entirely fit in the first fragment, but header size is "
                     + row.headerSize() + " and payload size is " + payloadSize;
 
-            Timestamps.writeTimestampToBuffer(buf, row.timestamp());
+            HybridTimestamps.writeTimestampToBuffer(buf, row.timestamp());
 
             PartitionlessLinks.writeToBuffer(buf, row.nextLink());
 
@@ -119,10 +120,10 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
      * @param pageSize  size of the page
      * @param timestamp timestamp to store
      */
-    public void updateTimestamp(long pageAddr, int itemId, int pageSize, @Nullable Timestamp timestamp) {
+    public void updateTimestamp(long pageAddr, int itemId, int pageSize, @Nullable HybridTimestamp timestamp) {
         int payloadOffset = getPayloadOffset(pageAddr, itemId, pageSize, 0);
 
-        Timestamps.writeTimestampToMemory(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, timestamp);
+        HybridTimestamps.writeTimestampToMemory(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, timestamp);
     }
 
     /** {@inheritDoc} */

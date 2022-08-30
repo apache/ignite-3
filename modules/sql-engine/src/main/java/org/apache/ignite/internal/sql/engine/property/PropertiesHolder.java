@@ -66,7 +66,7 @@ public interface PropertiesHolder {
      * @param values Values to hold.
      * @return Holder.
      */
-    static PropertiesHolder holderFor(Map<Property<?>, Object> values) {
+    static PropertiesHolder fromMap(Map<Property<?>, Object> values) {
         for (Map.Entry<Property<?>, Object> e : values.entrySet()) {
             if (e.getValue() == null) {
                 continue;

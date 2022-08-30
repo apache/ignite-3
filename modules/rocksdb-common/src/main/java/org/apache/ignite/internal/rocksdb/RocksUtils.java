@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rocksdb;
 
 import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 
@@ -73,6 +74,37 @@ public class RocksUtils {
             it.status();
         } catch (RocksDBException e) {
             throw new IgniteInternalException(e);
+        }
+    }
+
+    /**
+     * Creates a byte array that can be used as an upper bound when iterating over RocksDB content.
+     *
+     * <p>This method tries to increment the least significant byte (in BE order) that is not equal to 0xFF (bytes are treated as
+     * unsigned values).
+     *
+     * @param rangeStart Start of a range of keys (prefix) in RocksDB.
+     * @return End of a range of keys in RocksDB or {@code null} if all bytes of the prefix are equal to 0xFF.
+     */
+    public static byte @Nullable [] rangeEnd(byte[] rangeStart) {
+        byte[] rangeEnd = rangeStart.clone();
+
+        int i = rangeStart.length - 1;
+
+        // Cycle through all bytes that are equal to 0xFF
+        while (i >= 0 && rangeStart[i] == -1) {
+            rangeEnd[i] = 0;
+
+            i--;
+        }
+
+        if (i == -1) {
+            // All bytes are equal to 0xFF, no upper bound should be used
+            return null;
+        } else {
+            rangeEnd[i] += 1;
+
+            return rangeEnd;
         }
     }
 }

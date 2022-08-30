@@ -25,7 +25,6 @@ import java.nio.file.Files;
 import java.sql.SQLException;
 import org.apache.ignite.cli.call.sql.SqlQueryCall;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.SqlQueryResultDecorator;
 import org.apache.ignite.cli.core.CallExecutionPipelineProvider;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.StringCallInput;
@@ -35,6 +34,7 @@ import org.apache.ignite.cli.core.exception.handler.SqlExceptionHandler;
 import org.apache.ignite.cli.core.repl.Repl;
 import org.apache.ignite.cli.core.repl.executor.RegistryCommandExecutor;
 import org.apache.ignite.cli.core.repl.executor.ReplExecutorProvider;
+import org.apache.ignite.cli.decorators.SqlQueryResultDecorator;
 import org.apache.ignite.cli.deprecated.IgniteCliException;
 import org.apache.ignite.cli.sql.SqlManager;
 import org.apache.ignite.cli.sql.SqlSchemaProvider;
@@ -46,7 +46,7 @@ import picocli.CommandLine.Parameters;
 /**
  * Command for sql execution in REPL mode.
  */
-@Command(name = "sql", description = "Executes SQL query.")
+@Command(name = "sql", description = "Executes SQL query")
 public class SqlReplCommand extends BaseCommand implements Runnable {
     @Option(names = {"-u", "--jdbc-url"}, required = true,
             descriptionKey = "ignite.jdbc-url", description = "JDBC url to ignite cluster")
@@ -56,10 +56,10 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
     private ExecOptions execOptions;
 
     private static class ExecOptions {
-        @Parameters(index = "0", description = "SQL query to execute.")
+        @Parameters(index = "0", description = "SQL query to execute")
         private String command;
 
-        @Option(names = {"-f", "--script-file"}, description = "Path to file with SQL commands to execute.")
+        @Option(names = {"-f", "--script-file"}, description = "Path to file with SQL commands to execute")
         private File file;
     }
 
@@ -70,7 +70,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
         try {
             return String.join("\n", Files.readAllLines(file.toPath(), StandardCharsets.UTF_8));
         } catch (IOException e) {
-            throw new IgniteCliException("File with command not found.");
+            throw new IgniteCliException("File with command not found");
         }
     }
 

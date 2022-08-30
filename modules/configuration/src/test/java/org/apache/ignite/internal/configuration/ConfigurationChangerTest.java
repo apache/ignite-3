@@ -251,7 +251,7 @@ public class ConfigurationChangerTest {
 
         storage.fail(false);
 
-        CompletableFuture<Map<String, ? extends Serializable>> dataFuture = storage.readAll().thenApply(Data::values);
+        CompletableFuture<Map<String, ? extends Serializable>> dataFuture = storage.readDataOnRecovery().thenApply(Data::values);
 
         assertThat(dataFuture, willBe(anEmptyMap()));
 

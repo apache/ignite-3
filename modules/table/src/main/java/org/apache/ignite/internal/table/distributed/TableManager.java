@@ -86,7 +86,7 @@ import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
-import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -117,6 +117,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
+import org.apache.ignite.lang.IgniteTriConsumer;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -204,6 +205,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Schema manager. */
     private final SchemaManager schemaManager;
 
+    private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
+
     /** Executor for scheduling retries of a rebalance. */
     private final ScheduledExecutorService rebalanceScheduler;
 
@@ -225,6 +228,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param txManager Transaction manager.
      * @param dataStorageMgr Data storage manager.
      * @param schemaManager Schema manager.
+     * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for volatile
+     *                                         tables.
      */
     public TableManager(
             Consumer<Function<Long, CompletableFuture<?>>> registry,
@@ -235,7 +240,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             TxManager txManager,
             DataStorageManager dataStorageMgr,
             MetaStorageManager metaStorageMgr,
-            SchemaManager schemaManager
+            SchemaManager schemaManager,
+            LogStorageFactoryCreator volatileLogStorageFactoryCreator
     ) {
         this.tablesCfg = tablesCfg;
         this.raftMgr = raftMgr;
@@ -244,6 +250,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.dataStorageMgr = dataStorageMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.schemaManager = schemaManager;
+        this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
 
         netAddrResolver = addr -> {
             ClusterNode node = topologyService.getByAddress(addr);
@@ -609,7 +616,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         if (internalTbl.storage().isVolatile()) {
             raftGroupOptions = RaftGroupOptions.forVolatileStores()
-                    .setLogStorageFactory(new VolatileLogStorageFactory(tableConfig.volatileRaft().logStorage().value()))
+                    .setLogStorageFactory(volatileLogStorageFactoryCreator.factory(tableConfig.volatileRaft().logStorage().value()))
                     .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage());
         } else {
             raftGroupOptions = RaftGroupOptions.forPersistentStores();
@@ -696,6 +703,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<?> createTableLocally(long causalityToken, String name, UUID tblId, int partitions) {
+        LOG.trace("Creating local table: name={}, id={}, token={}", name, tblId, causalityToken);
+
         TableConfiguration tableCfg = tablesCfg.tables().get(name);
 
         MvTableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createMvTable(tableCfg);
@@ -739,6 +748,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param table Table.
      */
     private void completeApiCreateFuture(TableImpl table) {
+        LOG.trace("Finish creating table: name={}, id={}", table.name(), table.tableId());
+
         CompletableFuture<Table> tblFut = tableCreateFuts.get(table.tableId());
 
         if (tblFut != null) {
@@ -978,9 +989,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                                 descriptor.columnMapping(SchemaUtils.columnMapper(
                                                         tblImpl.schemaView().schema(currTableView.schemas().size()),
-                                                        currTableView,
+                                                        currTableView.columns(),
                                                         descriptor,
-                                                        tblCh));
+                                                        tblCh.columns()));
                                             } catch (IllegalArgumentException ex) {
                                                 // Convert unexpected exceptions here,
                                                 // because validation actually happens later,
@@ -1085,8 +1096,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             } else {
                 tablesCfg.tables()
                         .change(change -> {
-                            if (change.get(name) == null) {
+                            TableView tableCfg = change.get(name);
+
+                            if (tableCfg == null) {
                                 throw new TableNotFoundException(name);
+                            }
+
+                            List<String> indicesNames = tableCfg.indices().namedListKeys();
+
+                            //TODO: https://issues.apache.org/jira/browse/IGNITE-17562
+                            // Let's drop orphaned indices instantly.
+                            if (!indicesNames.isEmpty()) {
+                                // TODO: https://issues.apache.org/jira/browse/IGNITE-17474 Implement cascade drop for indices.
+                                throw new IgniteException("Can't drop table with indices.");
                             }
 
                             change.delete(name);
@@ -1295,37 +1317,31 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
 
-        EventListener<TableEventParameters> clo = new EventListener<>() {
-            @Override
-            public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
-                if (!id.equals(parameters.tableId())) {
-                    return completedFuture(false);
+        IgniteTriConsumer<Long, Map<UUID, TableImpl>, Throwable> tablesListener = (token, tables, th) -> {
+            if (th == null) {
+                TableImpl table = tables.get(id);
+
+                if (table != null) {
+                    getTblFut.complete(table);
                 }
-
-                if (e == null) {
-                    tablesByIdVv.get(parameters.causalityToken()).thenRun(() -> getTblFut.complete(parameters.table()));
-                } else {
-                    getTblFut.completeExceptionally(e);
-                }
-
-                return completedFuture(true);
-            }
-
-            @Override
-            public void remove(@NotNull Throwable e) {
-                getTblFut.completeExceptionally(e);
+            } else {
+                getTblFut.completeExceptionally(th);
             }
         };
 
-        listen(TableEvent.CREATE, clo);
+        tablesByIdVv.whenComplete(tablesListener);
 
+        // This check is needed for the case when we have registered tablesListener,
+        // but tablesByIdVv has already been completed, so listener would be triggered only for the next versioned value update.
         tbl = tablesByIdVv.latest().get(id);
 
-        if (tbl != null && getTblFut.complete(tbl) || !isTableConfigured(id) && getTblFut.complete(null)) {
-            removeListener(TableEvent.CREATE, clo, null);
+        if (tbl != null) {
+            tablesByIdVv.removeWhenComplete(tablesListener);
+
+            return CompletableFuture.completedFuture(tbl);
         }
 
-        return getTblFut;
+        return getTblFut.whenComplete((unused, throwable) -> tablesByIdVv.removeWhenComplete(tablesListener));
     }
 
     /**

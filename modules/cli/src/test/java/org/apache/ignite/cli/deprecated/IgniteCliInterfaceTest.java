@@ -203,14 +203,9 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     ignitePaths.serverJavaUtilLoggingPros(),
                     cli.getOut());
 
-            assertOutputEqual("\nNode is successfully started. To stop, type ignite node stop " + nodeName + "\n\n"
-                            + "+-----------+---------+\n"
-                            + "| Node name | node1   |\n"
-                            + "+-----------+---------+\n"
-                            + "| PID       | 1       |\n"
-                            + "+-----------+---------+\n"
-                            + "| Log File  | logfile |\n"
-                            + "+-----------+---------+\n"
+            assertOutputEqual("Done\n"
+                    + "[name: " + nodeName + ", pid: 1]\n\n"
+                            + "Node is successfully started. To stop, type ignite node stop node1"
             );
             assertThatStderrIsEmpty();
         }
@@ -343,7 +338,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             assertOutputEqual(
                     "Stopping locally running node with consistent ID "
                             + cmd.getColorScheme().parameterText(nodeName)
-                            + cmd.getColorScheme().text("... @|bold,green Done!|@\n")
+                            + cmd.getColorScheme().text("...\n@|bold,green Done|@\n")
             );
             assertThatStderrIsEmpty();
         }
@@ -368,7 +363,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             assertOutputEqual(
                     "Stopping locally running node with consistent ID "
                             + cmd.getColorScheme().parameterText(nodeName)
-                            + cmd.getColorScheme().text("... @|bold,red Failed|@\n")
+                            + cmd.getColorScheme().text("...\n@|bold,red Failed|@\n")
             );
             assertThatStderrIsEmpty();
         }
@@ -391,14 +386,15 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             assertThatExitCodeMeansSuccess(exitCode);
             verify(nodeMgr).getRunningNodes(ignitePaths.logDir, ignitePaths.cliPidsDir());
-            assertOutputEqual(cmd.getColorScheme().text("Number of running nodes: @|bold 2|@\n\n")
-                    + "+---------------+-----+----------+\n"
-                    + cmd.getColorScheme().text("| @|bold Consistent ID|@ | @|bold PID|@ | @|bold Log File|@ |\n")
-                    + "+---------------+-----+----------+\n"
-                    + "| new1          | 1   | logFile1 |\n"
-                    + "+---------------+-----+----------+\n"
-                    + "| new2          | 2   | logFile2 |\n"
-                    + "+---------------+-----+----------+\n"
+            assertOutputEqual(
+                    "╔═══════════════╤═════╤══════════╗\n"
+                    + "║ consistent id │ pid │ log file ║\n"
+                    + "╠═══════════════╪═════╪══════════╣\n"
+                    + "║ new1          │ 1   │ logFile1 ║\n"
+                    + "╟───────────────┼─────┼──────────╢\n"
+                    + "║ new2          │ 2   │ logFile2 ║\n"
+                    + "╚═══════════════╧═════╧══════════╝\n\n"
+                    + cmd.getColorScheme().text("Number of running nodes: @|bold 2|@\n")
             );
             assertThatStderrIsEmpty();
         }
@@ -418,8 +414,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             assertThatExitCodeMeansSuccess(exitCode);
             verify(nodeMgr).getRunningNodes(ignitePaths.logDir, ignitePaths.cliPidsDir());
-            assertOutputEqual("Currently, there are no locally running nodes.\n\n"
-                            + "Use the " + cmd.getColorScheme().commandText("ignite node start") + " command to start a new node.\n"
+            assertOutputEqual("There are no locally running nodes\n"
+                            + "use the " + cmd.getColorScheme().commandText("ignite node start") + " command to start a new node"
             );
             assertThatStderrIsEmpty();
         }
@@ -471,7 +467,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             }
 
             @Test
-            @DisplayName("show --node-url http://localhost:10300 --selector local.baseline")
+            @DisplayName("show --node-url http://localhost:10300 local.baseline")
             void showSubtree() {
                 clientAndServer
                         .when(request()
@@ -480,7 +476,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
 
-                int exitCode = execute("node config show --node-url " + mockUrl + " --selector local.baseline");
+                int exitCode = execute("node config show --node-url " + mockUrl + " local.baseline");
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
@@ -508,7 +504,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
-                assertOutputEqual("Node configuration was updated successfully.");
+                assertOutputEqual("Node configuration was updated successfully");
                 assertThatStderrIsEmpty();
             }
         }
@@ -550,7 +546,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             assertThatExitCodeMeansSuccess(exitCode);
 
-            assertOutputEqual("Cluster was initialized successfully.");
+            assertOutputEqual("Cluster was initialized successfully");
             assertThatStderrIsEmpty();
         }
 
@@ -563,7 +559,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     )
                     .respond(response()
                             .withStatusCode(INTERNAL_SERVER_ERROR_500.code())
-                            .withBody("Oops")
+                            .withBody("{\"status\":500, \"detail\":\"Oops\"}")
                     );
 
             int exitCode = cmd(ctx).execute(
@@ -579,7 +575,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             assertThatExitCodeIs(1, exitCode);
 
             assertThatStdoutIsEmpty();
-            assertErrOutputEqual("An error occurred [errorCode=500, response=Oops]");
+            assertErrOutputEqual("Oops");
         }
 
         @Test
@@ -619,7 +615,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             assertThatExitCodeMeansSuccess(exitCode);
 
-            assertOutputEqual("Cluster was initialized successfully.");
+            assertOutputEqual("Cluster was initialized successfully");
             assertThatStderrIsEmpty();
         }
 
@@ -665,7 +661,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             }
 
             @Test
-            @DisplayName("show --cluster-endpoint-url http://localhost:10300 --selector local.baseline")
+            @DisplayName("show --cluster-endpoint-url http://localhost:10300 local.baseline")
             void showSubtree() {
                 clientAndServer
                         .when(request()
@@ -674,7 +670,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
 
-                int exitCode = execute("cluster config show --cluster-endpoint-url " + mockUrl + " --selector local.baseline");
+                int exitCode = execute("cluster config show --cluster-endpoint-url " + mockUrl + " local.baseline");
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
@@ -702,7 +698,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
-                assertOutputEqual("Cluster configuration was updated successfully.");
+                assertOutputEqual("Cluster configuration was updated successfully");
                 assertThatStderrIsEmpty();
             }
         }

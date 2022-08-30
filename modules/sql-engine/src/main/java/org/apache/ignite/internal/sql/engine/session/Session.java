@@ -88,6 +88,11 @@ public class Session implements AsyncCloseable {
         return sessionId;
     }
 
+    /** Returns the duration in millis after which the session will be considered expired if no one touched it in the middle. */
+    public long idleTimeoutMs() {
+        return idleTimeoutMs;
+    }
+
     /** Checks whether the given session has expired or not. */
     public boolean expired() {
         var last = lastTouched.get();

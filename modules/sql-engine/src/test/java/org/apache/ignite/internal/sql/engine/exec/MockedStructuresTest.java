@@ -22,6 +22,8 @@ import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageCo
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -64,10 +66,13 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
@@ -84,6 +89,7 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -180,6 +186,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     TableManager tblManager;
 
+    IndexManager idxManager;
+
     SqlQueryProcessor queryProc;
 
     /** Test node. */
@@ -258,12 +266,18 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         tblManager = mockManagers();
 
+        idxManager = new IndexManager(tblManager, (lsnr) -> {});
+
+        idxManager.start();
+
         queryProc = new SqlQueryProcessor(
                 revisionUpdater,
                 cs,
                 tblManager,
+                idxManager,
                 schemaManager,
                 dataStorageManager,
+                tm,
                 () -> dataStorageModules.collectSchemasFields(List.of(
                         RocksDbDataStorageConfigurationSchema.class,
                         TestConcurrentHashMapDataStorageConfigurationSchema.class
@@ -284,7 +298,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      */
     @Test
     public void testInnerTxInitiated() throws Exception {
-        SessionId sesId = queryProc.createSession(PropertiesHolder.holderFor(Map.of()));
+        SessionId sesId = queryProc.createSession(1000, PropertiesHolder.fromMap(Map.of()));
 
         InternalTransaction tx = mock(InternalTransaction.class);
 
@@ -665,6 +679,34 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Tests that schema that is not applied yet is accessible after some time.
+     *
+     * @throws Exception If test has failed.
+     */
+    @Test
+    public void testSchemaForTheFutureUpdate() throws Exception {
+        String curMethodName = getCurrentMethodName();
+
+        awaitFirst(queryProc.queryAsync("PUBLIC", String.format("CREATE TABLE %s "
+                + "(c1 int PRIMARY KEY, c2 decimal(10), c3 varchar, c4 varchar, c5 varchar)", curMethodName)));
+
+        SchemaRegistry schemaRegistry = (((TableImpl) tblManager.tables().get(0)).schemaView());
+
+        runAsync(() -> {
+            Thread.sleep(3000);
+            awaitFirst(queryProc.queryAsync("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName)));
+        });
+
+        int lastSchemaVersion = schemaRegistry.lastSchemaVersion();
+
+        //Ensure that we can get schema for the future update
+        assertTrue(waitForCondition(
+                () -> schemaRegistry.schema(lastSchemaVersion + 1).version() == lastSchemaVersion + 1,
+                5000
+        ));
+    }
+
     // todo copy-paste from TableManagerTest will be removed after https://issues.apache.org/jira/browse/IGNITE-16050
 
     /**
@@ -739,7 +781,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 tm,
                 dataStorageManager,
                 msm,
-                schemaManager
+                schemaManager,
+                view -> new LocalLogStorageFactory()
         );
 
         tableManager.start();

@@ -18,6 +18,7 @@
 package org.apache.ignite.cli.core.repl.context;
 
 import java.io.PrintWriter;
+import java.util.function.Consumer;
 import picocli.CommandLine;
 
 /**
@@ -27,6 +28,8 @@ import picocli.CommandLine;
 public class CommandLineContextProvider {
 
     private static volatile CommandLine cmd;
+
+    private static volatile Consumer<Runnable> printWrapper = Runnable::run;
 
     /**
      * Getter for {@link CommandLineContext}.
@@ -49,5 +52,23 @@ public class CommandLineContextProvider {
 
     public static void setCmd(CommandLine cmd) {
         CommandLineContextProvider.cmd = cmd;
+    }
+
+    /**
+     * Sets the wrapper which will be used when printing from the flow.
+     *
+     * @param printWrapper print wrapper.
+     */
+    public static void setPrintWrapper(Consumer<Runnable> printWrapper) {
+        CommandLineContextProvider.printWrapper = printWrapper;
+    }
+
+    /**
+     * Passes the @{link Runnable} to the print wrapper.
+     *
+     * @param printer lambda which will be wrapped.
+     */
+    public static void print(Runnable printer) {
+        printWrapper.accept(printer);
     }
 }

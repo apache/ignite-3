@@ -17,7 +17,6 @@
 
 package org.apache.ignite.cli.commands;
 
-import jakarta.inject.Singleton;
 import org.apache.ignite.cli.VersionProvider;
 import org.apache.ignite.cli.commands.cliconfig.CliCommand;
 import org.apache.ignite.cli.commands.cluster.ClusterCommand;
@@ -45,7 +44,6 @@ import picocli.CommandLine.Option;
                 NodeCommand.class,
                 ClusterCommand.class
         })
-@Singleton
 public class TopLevelCliCommand extends BaseCommand {
     @SuppressWarnings("PMD.UnusedPrivateField")
     @Option(names = {"--version"}, versionHelp = true, description = "Print version information and exit")

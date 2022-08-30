@@ -36,6 +36,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
@@ -109,11 +110,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * @param topSrvc Topology service.
      * @param msgSrvc Message service.
      * @param sqlSchemaManager Schema manager.
+     * @param indexManager Index manager.
      * @param tblManager Table manager.
      * @param taskExecutor Task executor.
      * @param handler Row handler.
      * @param mailboxRegistry Mailbox registry.
      * @param exchangeSrvc Exchange service.
+     * @param dataStorageManager Storage manager.
      * @param <RowT> Type of the sql row.
      * @return An execution service.
      */
@@ -122,19 +125,19 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             MessageService msgSrvc,
             SqlSchemaManager sqlSchemaManager,
             TableManager tblManager,
+            IndexManager indexManager,
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSrvc,
             DataStorageManager dataStorageManager
-
     ) {
         return new ExecutionServiceImpl<>(
                 topSrvc.localMember().id(),
                 msgSrvc,
                 new MappingServiceImpl(topSrvc),
                 sqlSchemaManager,
-                new DdlCommandHandler(tblManager, dataStorageManager),
+                new DdlCommandHandler(tblManager, indexManager, dataStorageManager),
                 taskExecutor,
                 handler,
                 exchangeSrvc,
@@ -145,7 +148,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /**
      * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public ExecutionServiceImpl(
+    ExecutionServiceImpl(
             String localNodeId,
             MessageService msgSrvc,
             MappingService mappingSrvc,
@@ -356,9 +359,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private volatile Long rootFragmentId = null;
 
-        private InternalTransaction transaction;
+        private @Nullable InternalTransaction transaction;
 
-        private DistributedQueryManager(BaseQueryContext ctx, InternalTransaction transaction) {
+        private DistributedQueryManager(
+                BaseQueryContext ctx,
+                @Nullable InternalTransaction transaction
+        ) {
             this(ctx);
 
             this.transaction = transaction;
