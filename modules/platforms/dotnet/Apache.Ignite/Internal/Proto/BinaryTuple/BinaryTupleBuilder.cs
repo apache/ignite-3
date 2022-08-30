@@ -32,6 +32,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     /// </summary>
     internal sealed class BinaryTupleBuilder
     {
+        private const int DefaultBufferSize = 4000; // TODO: Pooling
+
         /** Number of elements in the tuple. */
         private readonly int _numElements;
 
@@ -45,7 +47,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         private readonly int _valueBase;
 
         /** Buffer for tuple content. */
-        private byte[] _buffer = new byte[4000]; // TODO: Pooling
+        private readonly PooledArrayBufferWriter _buffer = new();
 
         /** Flag indicating if any NULL values were really put here. */
         private bool _hasNullValues;
@@ -138,8 +140,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             int nullIndex = BinaryTupleCommon.NullOffset(_elementIndex);
             byte nullMask = BinaryTupleCommon.NullMask(_elementIndex);
+
+            var span = _buffer.GetSpan(nullIndex, 1);
             
-            _buffer[nullIndex] = (byte)(_buffer[nullIndex] | nullMask);
+            span[0] |= nullMask;
 
             return proceed();
         }
@@ -736,20 +740,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return this;
         }
 
-        /** Allocate a non-direct buffer for tuple. */
-        private void allocate(int totalValueSize)
-        {
-            _buffer = ByteBuffer.allocate(estimateBufferCapacity(totalValueSize));
-            _buffer.order(ByteOrder.LITTLE_ENDIAN);
-            _buffer.position(_valueBase);
-        }
-
         /** Do our best to find initial buffer capacity. */
         private int estimateBufferCapacity(int totalValueSize)
         {
             if (totalValueSize < 0)
             {
-                totalValueSize = Integer.max(_numElements * 8, DEFAULT_BUFFER_SIZE);
+                totalValueSize = Math.Max(_numElements * 8, DefaultBufferSize);
             }
 
             return _valueBase + totalValueSize;

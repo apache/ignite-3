@@ -113,6 +113,24 @@ namespace Apache.Ignite.Internal.Buffers
         }
 
         /// <summary>
+        /// Gets a span for writing at the specified position.
+        /// </summary>
+        /// <param name="position">Position.</param>
+        /// <param name="size">Size.</param>
+        /// <returns>Span for writing.</returns>
+        public Span<byte> GetSpan(int position, int size)
+        {
+            var overflow = ReservedPrefixSize + position + size - _index;
+
+            if (overflow > 0)
+            {
+                CheckAndResizeBuffer(overflow);
+            }
+
+            return _buffer.AsSpan(ReservedPrefixSize + position, size);
+        }
+
+        /// <summary>
         /// Gets the <see cref="MessagePackWriter"/> for this buffer.
         /// </summary>
         /// <returns><see cref="MessagePackWriter"/> for this buffer.</returns>
