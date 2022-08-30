@@ -20,4 +20,9 @@
 namespace ignite
 {
 
+std::future<IgniteClient> IgniteClient::startAsync(IgniteClientConfiguration configuration)
+{
+    return {};
+}
+
 } // namespace ignite
