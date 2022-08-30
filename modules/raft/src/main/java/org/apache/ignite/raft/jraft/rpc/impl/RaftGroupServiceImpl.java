@@ -513,7 +513,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         ActionRequest req = factory.actionRequest().command(cmd).groupId(groupId).readOnlySafe(true).build();
 
-        CompletableFuture<ActionResponse> fut = new CompletableFuture<ActionResponse>().orTimeout(timeout, TimeUnit.MILLISECONDS);
+        CompletableFuture<ActionResponse> fut = new CompletableFuture<>();
 
         sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
 
