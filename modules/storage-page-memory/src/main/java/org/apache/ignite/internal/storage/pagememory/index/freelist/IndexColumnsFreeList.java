@@ -32,8 +32,6 @@ import org.jetbrains.annotations.Nullable;
  * Free list implementation to store {@link IndexColumns} values.
  */
 public class IndexColumnsFreeList extends AbstractFreeList<IndexColumns>  {
-    private final IoStatisticsHolder statHolder;
-
     /**
      * Constructor.
      *
@@ -76,7 +74,5 @@ public class IndexColumnsFreeList extends AbstractFreeList<IndexColumns>  {
                 pageListCacheLimit,
                 evictionTracker
         );
-
-        this.statHolder = statHolder;
     }
 }
