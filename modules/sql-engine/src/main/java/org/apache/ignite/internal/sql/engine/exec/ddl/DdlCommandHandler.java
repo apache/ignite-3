@@ -237,13 +237,8 @@ public class DdlCommandHandler {
     /** Handles create index command. */
     private boolean handleCreateIndex(CreateIndexCommand cmd) {
         Consumer<TableIndexChange> indexChanger = tableIndexChange -> {
-            if ("SORTED".equals(tableIndexChange.type())) {
-                createSortedIndexInternal(cmd, tableIndexChange.convert(SortedIndexChange.class));
-
-                return;
-            }
-
-            throw new IgniteInternalException("Unsupported index type." + SchemaUtils.canonicalName(cmd.schemaName(), cmd.indexName()));
+            // Only sorted idx for now.
+            createSortedIndexInternal(cmd, tableIndexChange.convert(SortedIndexChange.class));
         };
 
         return indexManager.createIndex(
@@ -268,6 +263,7 @@ public class DdlCommandHandler {
     private void createSortedIndexInternal(CreateIndexCommand cmd, SortedIndexChange indexChange) {
         indexChange.changeColumns(colsInit -> {
             for (Pair<String, Boolean> col : cmd.columns()) {
+                //TODO: https://issues.apache.org/jira/browse/IGNITE-17563 Pass null ordering for columns.
                 colsInit.create(col.getFirst(), colInit -> colInit.changeAsc(col.getSecond()));
             }
         });
