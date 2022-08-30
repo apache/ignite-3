@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.BiPredicate;
-import java.util.function.Function;
+import java.util.function.IntFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -96,7 +96,7 @@ public class RendezvousAffinityFunction {
             Map<String, Collection<ClusterNode>> neighborhoodCache,
             boolean exclNeighbors,
             BiPredicate<ClusterNode, T> nodeFilter,
-            Function<Integer, T> aggregator
+            IntFunction<T> aggregator
     ) {
         if (nodes.size() <= 1) {
             T res = aggregator.apply(1);
@@ -199,7 +199,7 @@ public class RendezvousAffinityFunction {
      * @return Assignment.
      */
     private static <T extends Collection<ClusterNode>> T replicatedAssign(List<ClusterNode> nodes,
-            Iterable<ClusterNode> sortedNodes, Function<Integer, T> aggregator) {
+            Iterable<ClusterNode> sortedNodes, IntFunction<T> aggregator) {
         ClusterNode first = sortedNodes.iterator().next();
 
         T res = aggregator.apply(nodes.size());
@@ -277,7 +277,7 @@ public class RendezvousAffinityFunction {
             int replicas,
             boolean exclNeighbors,
             BiPredicate<ClusterNode, T> nodeFilter,
-            Function<Integer, T> aggregator
+            IntFunction<T> aggregator
     ) {
         assert partitions <= MAX_PARTITIONS_COUNT : "partitions <= " + MAX_PARTITIONS_COUNT;
         assert partitions > 0 : "parts > 0";

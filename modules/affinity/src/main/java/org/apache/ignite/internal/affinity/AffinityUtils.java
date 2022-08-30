@@ -22,7 +22,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.function.IntFunction;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 
@@ -34,7 +34,7 @@ public class AffinityUtils {
      * Calculates affinity assignments.
      *
      * @param partitions Partitions count.
-     * @param replicas   Replicas count.
+     * @param replicas Replicas count.
      * @param aggregator Function that creates a collection for the partition assignments.
      * @return List nodes by partition.
      */
@@ -42,7 +42,7 @@ public class AffinityUtils {
             @NotNull Collection<ClusterNode> baselineNodes,
             int partitions,
             int replicas,
-            Function<Integer, T> aggregator
+            IntFunction<T> aggregator
     ) {
         return RendezvousAffinityFunction.assignPartitions(
                 baselineNodes,
@@ -58,7 +58,7 @@ public class AffinityUtils {
      * Calculates affinity assignments.
      *
      * @param partitions Partitions count.
-     * @param replicas   Replicas count.
+     * @param replicas Replicas count.
      * @return List nodes by partition.
      */
     public static List<List<ClusterNode>> calculateAssignments(

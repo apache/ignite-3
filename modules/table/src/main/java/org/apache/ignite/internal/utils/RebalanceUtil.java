@@ -372,6 +372,7 @@ public class RebalanceUtil {
         ByteArray changeTriggerKey = partChangeTriggerKey(partId);
         byte[] rev = ByteUtils.longToBytes(event.entryEvent().newEntry().revision());
 
+        // Here is what happens in the MetaStorage:
         // if ((notExists(changeTriggerKey) || value(changeTriggerKey) < revision) && (notExists(pendingKey) && notExists(stableKey)) {
         //     put(pendingKey, pending)
         //     put(stableKey, assignments)
@@ -381,7 +382,7 @@ public class RebalanceUtil {
         //     put(changeTriggerKey, revision)
         // }
 
-        If iif = iif(
+        If resultingOperation = iif(
                 and(
                         or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
                         and(notExists(pendingKey), (notExists(stablePartAssignmentsKey(partId))))
@@ -404,7 +405,7 @@ public class RebalanceUtil {
                 )
         );
 
-        return metaStorageMgr.invoke(iif).thenApply(unused -> null);
+        return metaStorageMgr.invoke(resultingOperation).thenApply(unused -> null);
     }
 
     /**
