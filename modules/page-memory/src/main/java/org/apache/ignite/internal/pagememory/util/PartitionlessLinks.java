@@ -51,7 +51,12 @@ public class PartitionlessLinks {
         int tag = getShort(pageAddr, offset) & 0xFFFF;
         int pageIdx = getInt(pageAddr, offset + Short.BYTES);
 
-        assert pageIdx != 0 : "Links to meta pages are impossible";
+        // NULL_LINK is stored as zeroes. This is fine, because no real link can be like this. Page with index 0 is never a data page.
+        if (pageIdx == 0) {
+            assert tag == 0 : tag;
+
+            return PageIdUtils.NULL_LINK;
+        }
 
         byte flags = (byte) tag;
         int itemId = tag >>> 8;

@@ -29,6 +29,9 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * @see FullPageId
  */
 public final class PageIdUtils {
+    /** Represents an absent or missing link. */
+    public static final long NULL_LINK = 0;
+
     /** Size of the page index portion. */
     public static final int PAGE_IDX_SIZE = Integer.SIZE;
 

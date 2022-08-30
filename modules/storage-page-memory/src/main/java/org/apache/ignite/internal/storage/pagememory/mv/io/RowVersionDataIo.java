@@ -28,7 +28,6 @@ import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
 import org.apache.ignite.internal.storage.pagememory.mv.HybridTimestamps;
-import org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks;
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersion;
 import org.apache.ignite.lang.IgniteStringBuilder;
 import org.jetbrains.annotations.Nullable;

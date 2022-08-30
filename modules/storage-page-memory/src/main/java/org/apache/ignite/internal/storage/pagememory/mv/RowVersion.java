@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
@@ -35,9 +36,6 @@ import org.jetbrains.annotations.Nullable;
  * Represents row version inside row version chain.
  */
 public final class RowVersion implements Storable {
-    /** Represents an absent partitionless link. */
-    public static final long NULL_LINK = 0;
-
     private static final int NEXT_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
     private static final int VALUE_SIZE_STORE_SIZE_BYTES = Integer.BYTES;
 
