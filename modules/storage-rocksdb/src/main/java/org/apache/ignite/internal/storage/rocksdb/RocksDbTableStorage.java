@@ -130,7 +130,6 @@ public class RocksDbTableStorage implements MvTableStorage {
      */
     private volatile Runnable latestFlushClosure;
 
-    //TODO Use it instead of the "stopped" flag.
     /** Busy lock to stop synchronously. */
     final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 

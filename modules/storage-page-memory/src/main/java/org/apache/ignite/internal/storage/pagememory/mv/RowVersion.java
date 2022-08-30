@@ -17,33 +17,31 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
+
 import java.nio.ByteBuffer;
 import java.util.Objects;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.storage.pagememory.mv.io.RowVersionDataIo;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents row version inside row version chain.
  */
-public class RowVersion implements Storable {
-    /** A 'timestamp' representing absense of a timestamp. */
-    public static final Timestamp NULL_TIMESTAMP = new Timestamp(Long.MIN_VALUE, Long.MIN_VALUE);
-
+public final class RowVersion implements Storable {
     /** Represents an absent partitionless link. */
     public static final long NULL_LINK = 0;
 
-    private static final int TIMESTAMP_STORE_SIZE_BYTES = 2 * Long.BYTES;
     private static final int NEXT_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
     private static final int VALUE_SIZE_STORE_SIZE_BYTES = Integer.BYTES;
 
     public static final int TIMESTAMP_OFFSET = 0;
-    public static final int NEXT_LINK_OFFSET = TIMESTAMP_STORE_SIZE_BYTES;
+    public static final int NEXT_LINK_OFFSET = TIMESTAMP_OFFSET + HYBRID_TIMESTAMP_SIZE;
     public static final int VALUE_SIZE_OFFSET = NEXT_LINK_OFFSET + NEXT_LINK_STORE_SIZE_BYTES;
     public static final int VALUE_OFFSET = VALUE_SIZE_OFFSET + VALUE_SIZE_STORE_SIZE_BYTES;
 
@@ -51,7 +49,7 @@ public class RowVersion implements Storable {
 
     private long link;
 
-    private final @Nullable Timestamp timestamp;
+    private final @Nullable HybridTimestamp timestamp;
 
     private final long nextLink;
 
@@ -70,11 +68,9 @@ public class RowVersion implements Storable {
     /**
      * Constructor.
      */
-    public RowVersion(int partitionId, long link, @Nullable Timestamp timestamp, long nextLink, @Nullable ByteBuffer value) {
+    public RowVersion(int partitionId, long link, @Nullable HybridTimestamp timestamp, long nextLink, @Nullable ByteBuffer value) {
         this.partitionId = partitionId;
         link(link);
-
-        assert !NULL_TIMESTAMP.equals(timestamp) : "Null timestamp provided";
 
         this.timestamp = timestamp;
         this.nextLink = nextLink;
@@ -82,16 +78,8 @@ public class RowVersion implements Storable {
         this.value = value;
     }
 
-    public @Nullable Timestamp timestamp() {
+    public @Nullable HybridTimestamp timestamp() {
         return timestamp;
-    }
-
-    public Timestamp timestampForStorage() {
-        return timestampForStorage(timestamp);
-    }
-
-    static Timestamp timestampForStorage(@Nullable Timestamp timestamp) {
-        return timestamp == null ? NULL_TIMESTAMP : timestamp;
     }
 
     /**
@@ -126,10 +114,6 @@ public class RowVersion implements Storable {
     }
 
     boolean isUncommitted() {
-        return isUncommitted(timestamp);
-    }
-
-    static boolean isUncommitted(Timestamp timestamp) {
         return timestamp == null;
     }
 
@@ -160,13 +144,13 @@ public class RowVersion implements Storable {
     public int size() {
         assert value != null;
 
-        return TIMESTAMP_STORE_SIZE_BYTES + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES + value.limit();
+        return headerSize() + value.limit();
     }
 
     /** {@inheritDoc} */
     @Override
     public int headerSize() {
-        return TIMESTAMP_STORE_SIZE_BYTES + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES;
+        return HYBRID_TIMESTAMP_SIZE + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES;
     }
 
     /** {@inheritDoc} */
