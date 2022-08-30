@@ -15,48 +15,30 @@
  * limitations under the License.
  */
 
-#pragma once
-
 #include <chrono>
 
-#include "process.h"
+#include <gtest/gtest.h>
 
-namespace ignite
+#include "ignite_node.h"
+
+void BeforeAll()
 {
-    class IgniteNode
-    {
-    public:
-        /**
-         * Constructor.
-         */
-        IgniteNode() = default;
+    ignite::IgniteNode node;
 
-        /**
-         * Destructor.
-         */
-        ~IgniteNode() = default;
+    // Ignite dry run to make sure everything is built, all artifacts downloaded
+    // and Ignite node is ready to run.
+    node.start(true);
 
-        /**
-         * Start node.
-         *
-         * @param dryRun Perform a dry run. Mostly used to ensure that code is compiled and all artifacts are downloaded.
-         */
-        void start(bool dryRun = false);
+    // Five minutes should be enough but feel free to increase.
+    node.join(std::chrono::minutes(5));
+    node.stop();
+}
 
-        /**
-         * Stop node.
-         */
-        void stop();
 
-        /**
-         * Join node process.
-         *
-         * @param timeout Timeout.
-         */
-        void join(std::chrono::milliseconds timeout);
+int main(int argc, char** argv)
+{
+    BeforeAll();
 
-    private:
-        /** Underlying process. */
-        std::unique_ptr<Process> process;
-    };
-} // namespace ignite
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}

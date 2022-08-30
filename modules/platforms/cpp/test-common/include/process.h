@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <string>
 
 namespace ignite
@@ -44,9 +45,16 @@ namespace ignite
         virtual bool start() = 0;
 
         /**
-         * Stop process.
+         * Kill the process.
          */
-        virtual void stop() = 0;
+        virtual void kill() = 0;
+
+        /**
+         * Join process.
+         *
+         * @param timeout Timeout.
+         */
+        virtual void join(std::chrono::milliseconds timeout) = 0;
 
     protected:
         /**

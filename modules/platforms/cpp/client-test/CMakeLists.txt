@@ -27,11 +27,12 @@ include_directories(${GTEST_INCLUDE_DIR})
 
 set(SOURCES
 	src/ignite_client_test.cpp
+	src/main.cpp
 )
 
 add_executable(${TARGET} ${SOURCES})
 
-target_link_libraries(${TARGET} ignite-test-common ${GTEST_LIBRARY} ${GTEST_MAIN_LIBRARY})
+target_link_libraries(${TARGET} ignite-test-common ${GTEST_LIBRARY})
 
 set(TEST_TARGET IgniteClientTest)
 add_test(NAME ${TEST_TARGET} COMMAND ${TARGET})

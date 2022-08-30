@@ -52,15 +52,21 @@ namespace ignite
         process = Process::make(command, workDir.string());
         if (!process->start())
         {
-            throw std::runtime_error("Failed to invoke Ignite command: '" + command + "'");
-
             process.reset();
+
+            throw std::runtime_error("Failed to invoke Ignite command: '" + command + "'");
         }
     }
 
     void IgniteNode::stop()
     {
         if (process)
-            process->stop();
+            process->kill();
+    }
+
+    void IgniteNode::join(std::chrono::milliseconds timeout)
+    {
+        if (process)
+            process->join(timeout);
     }
 } // namespace ignite

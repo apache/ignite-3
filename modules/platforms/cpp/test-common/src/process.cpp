@@ -18,7 +18,7 @@
 #ifdef WIN32
 #   include <windows.h>
 #   include <tlhelp32.h>
-#endif // WIN32
+#endif
 
 #include <filesystem>
 #include <utility>
@@ -34,7 +34,7 @@ namespace
      * @param processId ID of the parent process.
      * @return Process tree.
      */
-    std::vector<DWORD> getProcessTree(DWORD processId)
+    std::vector<DWORD> getProcessTree(DWORD processId) // NOLINT(misc-no-recursion)
     {
         std::vector<DWORD> children;
         PROCESSENTRY32 pe;
@@ -120,9 +120,9 @@ namespace
         }
 
         /**
-         * Stop process.
+         * Kill the process.
          */
-        void stop() override
+        void kill() override
         {
             std::vector<DWORD> processTree = getProcessTree(info.dwProcessId);
             for (auto procId : processTree)
@@ -137,10 +137,20 @@ namespace
 
             TerminateProcess(info.hProcess, 1);
 
-            WaitForSingleObject( info.hProcess, INFINITE );
-
             CloseHandle( info.hProcess );
             CloseHandle( info.hThread );
+        }
+
+        /**
+         * Join process.
+         *
+         * @param timeout Timeout.
+         */
+        void join(std::chrono::milliseconds timeout) override
+        {
+            auto msecs = timeout.count() < 0 ? INFINITE : static_cast<DWORD>(timeout.count());
+
+            WaitForSingleObject(info.hProcess, msecs);
         }
 
     private:
@@ -157,8 +167,9 @@ namespace
         PROCESS_INFORMATION info;
     };
 
-#else
-#endif
+#else // #ifdef WIN32
+
+#endif // #ifdef WIN32
 }
 
 namespace ignite
