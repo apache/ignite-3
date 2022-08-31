@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.fakes;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -45,7 +44,7 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
 
     @Override
     public List<SessionInfo> liveSessions() {
-        return Collections.EMPTY_LIST;
+        return Collections.emptyList();
     }
 
     @Override

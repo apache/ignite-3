@@ -49,8 +49,9 @@ public interface QueryProcessor extends IgniteComponent {
     CompletableFuture<Void> closeSession(SessionId sessionId);
 
     /**
-     * Provide list af live session.
-     * <p> This method return the information is actual only on method invocation time.,
+     * Provide list of live sessions.
+     *
+     * <p>This method return the information is actual only on method invocation time.
      *
      * @return List of active sessions.
      */

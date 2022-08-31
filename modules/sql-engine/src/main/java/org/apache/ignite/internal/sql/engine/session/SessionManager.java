@@ -124,7 +124,9 @@ public class SessionManager implements LifecycleAware {
     }
 
     /**
-     * @return list of active sessions
+     * Provide list af live session.
+     *
+     * @return List of active sessions
      */
     public List<SessionInfo> liveSessions() {
         return activeSessions.values().stream().filter((s) -> !s.expired()).map(SessionInfo::new).collect(Collectors.toList());
