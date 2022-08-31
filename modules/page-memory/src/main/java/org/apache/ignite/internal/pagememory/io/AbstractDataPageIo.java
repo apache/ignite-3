@@ -1253,9 +1253,9 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
 
         buf.position(dataOff);
 
-        short p = (short) (payloadSize | FRAGMENTED_FLAG);
+        short fragmentSize = (short) (payloadSize | FRAGMENTED_FLAG);
 
-        buf.putShort(p);
+        buf.putShort(fragmentSize);
         buf.putLong(lastLink);
 
         int rowOff = rowSize - written - payloadSize;

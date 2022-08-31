@@ -31,7 +31,7 @@ import java.nio.ByteBuffer;
 /**
  * Handling of <em>partitionless links</em>, that is, page memory links from which partition ID is removed.
  *
- * <p>They are used to sparing storage space in cases when we know the partition ID from the context.
+ * <p>They are used to save storage space in cases when we know the partition ID from the context.
  *
  * @see PageIdUtils#link(long, int)
  */
