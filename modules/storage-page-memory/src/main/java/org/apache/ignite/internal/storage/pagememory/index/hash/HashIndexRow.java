@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.index.hash;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
+import org.apache.ignite.internal.util.HashUtils;
 
 /**
  * {@link IndexRow} implementation used in the {@link HashIndexTree}.
@@ -27,6 +28,16 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns
 public class HashIndexRow extends HashIndexRowKey {
     /** Row id. */
     private final RowId rowId;
+
+    /**
+     * Constructor.
+     *
+     * @param indexColumns Index columns.
+     * @param rowId Row id.
+     */
+    public HashIndexRow(IndexColumns indexColumns, RowId rowId) {
+        this(HashUtils.hash32(indexColumns.valueBuffer()), indexColumns, rowId);
+    }
 
     /**
      * Constructor.

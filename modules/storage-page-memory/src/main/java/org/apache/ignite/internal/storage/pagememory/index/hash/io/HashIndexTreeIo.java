@@ -177,7 +177,7 @@ public interface HashIndexTreeIo {
 
         ByteBuffer indexColumnsBuffer = ByteBuffer.wrap(indexColumnsTraversal.result());
 
-        IndexColumns indexColumns = new IndexColumns(partitionId, indexColumnsBuffer);
+        IndexColumns indexColumns = new IndexColumns(partitionId, link, indexColumnsBuffer);
 
         long rowIdMsb = getLong(pageAddr, off + ROW_ID_MSB_OFFSET);
         long rowIdLsb = getLong(pageAddr, off + ROW_ID_LSB_OFFSET);

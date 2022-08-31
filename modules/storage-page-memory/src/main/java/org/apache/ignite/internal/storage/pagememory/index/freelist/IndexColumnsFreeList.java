@@ -45,7 +45,6 @@ public class IndexColumnsFreeList extends AbstractFreeList<IndexColumns>  {
      * @param initNew {@code True} if new metadata should be initialized.
      * @param pageListCacheLimit Page list cache limit.
      * @param evictionTracker Page eviction tracker.
-     * @param statHolder Statistics holder to track IO operations.
      * @throws IgniteInternalCheckedException If failed.
      */
     public IndexColumnsFreeList(
