@@ -619,6 +619,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             partitionStorage,
                                                             updatedRaftGroupService,
                                                             lockMgr,
+                                                            grpId,
                                                             tblId,
                                                             new ConcurrentHashMap<>()
                                                     )
@@ -1525,6 +1526,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             partitionStorage,
                                             tbl.internalTable().partitionRaftGroupService(part),
                                             lockMgr,
+                                            partId,
                                             tblId,
                                             new ConcurrentHashMap<>()
                                     )
