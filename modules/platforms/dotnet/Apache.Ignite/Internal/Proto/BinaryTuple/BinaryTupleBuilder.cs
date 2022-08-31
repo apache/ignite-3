@@ -309,192 +309,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-        public BinaryTupleBuilder appendUuidNotNull(@NotNull UUID value)
-        {
-            long lsb = value.getLeastSignificantBits();
-            long msb = value.getMostSignificantBits();
-            if ((lsb | msb) != 0L)
-            {
-                putLong(lsb);
-                putLong(msb);
-            }
-
-            return proceed();
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendUuid(UUID value)
-        {
-            return value == null ? appendNull() : appendUuidNotNull(value);
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendBitmaskNotNull(@NotNull BitSet value)
-        {
-            putBytes(value.toByteArray());
-            return proceed();
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendBitmask(BitSet value)
-        {
-            return value == null ? appendNull() : appendBitmaskNotNull(value);
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendDateNotNull(@NotNull LocalDate value)
-        {
-            if (value != BinaryTupleCommon.DEFAULT_DATE)
-            {
-                putDate(value);
-            }
-
-            return proceed();
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendDate(LocalDate value)
-        {
-            return value == null ? appendNull() : appendDateNotNull(value);
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendTimeNotNull(@NotNull LocalTime value)
-        {
-            if (value != BinaryTupleCommon.DEFAULT_TIME)
-            {
-                putTime(value);
-            }
-
-            return proceed();
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendTime(LocalTime value)
-        {
-            return value == null ? appendNull() : appendTimeNotNull(value);
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendDateTimeNotNull(@NotNull LocalDateTime value)
-        {
-            if (value != BinaryTupleCommon.DEFAULT_DATE_TIME)
-            {
-                putDate(value.toLocalDate());
-                putTime(value.toLocalTime());
-            }
-
-            return proceed();
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendDateTime(LocalDateTime value)
-        {
-            return value == null ? appendNull() : appendDateTimeNotNull(value);
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendTimestampNotNull(@NotNull Instant value)
-        {
-            if (value != BinaryTupleCommon.DEFAULT_TIMESTAMP)
-            {
-                long seconds = value.getEpochSecond();
-                int nanos = value.getNano();
-                putLong(seconds);
-                if (nanos != 0)
-                {
-                    putInt(nanos);
-                }
-            }
-
-            return proceed();
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendTimestamp(Instant value)
-        {
-            return value == null ? appendNull() : appendTimestampNotNull(value);
-        }
-
-        /**
-     * Append some arbitrary content as the current element.
-     *
-     * @param bytes Buffer with element raw bytes.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendElementBytes(@NotNull ByteBuffer bytes)
-        {
-            putElement(bytes);
-            return proceed();
-        }
-
-        /**
-     * Append some arbitrary content as the current element.
-     *
-     * @param bytes Buffer with element raw bytes.
-     * @param offset Offset of the element in the buffer.
-     * @param length Length of the element in the buffer.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendElementBytes(@NotNull ByteBuffer bytes, int offset, int length) {
-            putElement(bytes, offset, length);
-            return proceed();
-        }
+        public BinaryTupleBuilder appendGuid(Guid value) => throw new NotSupportedException("TODO IGNITE-17593");
 
         /**
      * Gets the current element index.
@@ -523,11 +338,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             {
                 if (desiredEntrySize > _entrySize)
                 {
-                    throw new IllegalStateException("Offset entry overflow in binary tuple builder");
+                    throw new InvalidOperationException("Offset entry overflow in binary tuple builder");
                 }
 
-                assert _entrySize == 4 || _entrySize == 2;
-                assert desiredEntrySize == 2 || desiredEntrySize == 1;
+                Debug.Assert(_entrySize == 4 || _entrySize == 2);
+                Debug.Assert(desiredEntrySize == 2 || desiredEntrySize == 1);
 
                 int getIndex = _valueBase;
                 int putIndex = _valueBase;
@@ -598,25 +413,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         private void putLong(long value) => BinaryPrimitives.WriteInt64LittleEndian(GetSpan(8), value);
 
         /** Put a float value to the buffer extending it if needed. */
-        private void putFloat(float value)
-        {
-            ensure(Float.BYTES);
-            _buffer.putFloat(value);
-        }
+        private unsafe void putFloat(float value) => putInt(*(int*)&value);
 
         /** Put a double value to the buffer extending it if needed. */
-        private void putDouble(double value)
-        {
-            ensure(Double.BYTES);
-            _buffer.putDouble(value);
-        }
+        private unsafe void putDouble(double value) => putLong(*(long*)&value);
 
         /** Put bytes to the buffer extending it if needed. */
-        private void putBytes(byte[] bytes)
-        {
-            ensure(bytes.length);
-            _buffer.put(bytes);
-        }
+        private void putBytes(byte[] bytes) => bytes.CopyTo(GetSpan(bytes.Length));
 
         /** Put a string to the buffer extending it if needed. */
         private void putString(String value)
@@ -627,61 +430,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             var actualBytes = Encoding.UTF8.GetBytes(value, span);
 
             _buffer.Advance(actualBytes);
-        }
-
-        /** Put a date to the buffer extending it if needed. */
-        private void putDate(LocalDate value)
-        {
-            int year = value.getYear();
-            int month = value.getMonthValue();
-            int day = value.getDayOfMonth();
-
-            int date = (year << 9) | (month << 5) | day;
-
-            putShort((short)date);
-            putByte((byte)(date >> 16));
-        }
-
-        /** Put a time to the buffer extending it if needed. */
-        private void putTime(LocalTime value)
-        {
-            long hour = value.getHour();
-            long minute = value.getMinute();
-            long second = value.getSecond();
-            long nanos = value.getNano();
-
-            if ((nanos % 1000) != 0)
-            {
-                long time = (hour << 42) | (minute << 36) | (second << 30) | nanos;
-                putInt((int)time);
-                putShort((short)(time >>> 32));
-            }
-            else if ((nanos % 1000000) != 0)
-            {
-                long time = (hour << 32) | (minute << 26) | (second << 20) | (nanos / 1000);
-                putInt((int)time);
-                putByte((byte)(time >>> 32));
-            }
-            else
-            {
-                long time = (hour << 22) | (minute << 16) | (second << 10) | (nanos / 1000000);
-                putInt((int)time);
-            }
-        }
-
-        /** Put element bytes to the buffer extending it if needed. */
-        private void putElement(ByteBuffer bytes)
-        {
-            ensure(bytes.remaining());
-            _buffer.put(bytes);
-        }
-
-        /** Put element bytes to the buffer extending it if needed. */
-        private void putElement(ByteBuffer bytes, int offset, int length)
-        {
-            assert bytes.limit() <= (offset + length);
-            ensure(length);
-            _buffer.put(bytes.asReadOnlyBuffer().position(offset).limit(offset + length));
         }
 
         /** Proceed to the next tuple element. */
