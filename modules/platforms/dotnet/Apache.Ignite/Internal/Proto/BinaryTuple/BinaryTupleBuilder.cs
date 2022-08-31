@@ -356,6 +356,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     else
                     {
                         // TODO: Instance methods for this stuff - used a lot.
+                        // TODO: GetSpan does not advance!
                         BinaryPrimitives.WriteInt16LittleEndian(_buffer.GetSpan(putIndex, 2), (short)value);
                     }
                 }
