@@ -231,7 +231,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
             assert TableScanNode.this.activeSubscription == null;
 
             TableScanNode.this.activeSubscription = subscription;
-            subscription.request(inBufSize);
+            subscription.request(waiting);
         }
 
         /** {@inheritDoc} */

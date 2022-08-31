@@ -380,6 +380,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                             .build()
                             )
                             .logger(LOG)
+                            .cancel(queryCancel)
                             .parameters(params)
                             .transaction(outerTx)
                             .build();
