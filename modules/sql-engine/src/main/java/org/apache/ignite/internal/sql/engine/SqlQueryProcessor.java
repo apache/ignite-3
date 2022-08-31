@@ -64,6 +64,7 @@ import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -237,6 +238,12 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         return session.closeAsync();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<SessionInfo> liveSessions() {
+        return sessionManager.liveSessions();
     }
 
     /** {@inheritDoc} */

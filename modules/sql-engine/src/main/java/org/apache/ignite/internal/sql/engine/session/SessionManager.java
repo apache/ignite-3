@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.session;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.CurrentTimeProvider;
@@ -122,13 +124,20 @@ public class SessionManager implements LifecycleAware {
     }
 
     /**
+     * @return list of active sessions
+     */
+    public List<SessionInfo> liveSessions() {
+        return activeSessions.values().stream().filter((s) -> !s.expired()).map(SessionInfo::new).collect(Collectors.toList());
+    }
+
+    /**
      * Destroy a given session.
      *
      * @param session Session which should be destroyed
      */
     private void destroySession(Session session) {
-        activeSessions.remove(session.sessionId());
         session.closeAsync();
+        activeSessions.remove(session.sessionId());
     }
 
     private SessionId nextSessionId() {

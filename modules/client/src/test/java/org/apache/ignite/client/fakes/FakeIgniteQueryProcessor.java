@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.fakes;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -25,6 +27,7 @@ import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 
 /**
  * Fake {@link QueryProcessor}.
@@ -38,6 +41,11 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     @Override
     public CompletableFuture<Void> closeSession(SessionId sessionId) {
         return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public List<SessionInfo> liveSessions() {
+        return Collections.EMPTY_LIST;
     }
 
     @Override

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ErrorGroups.Sql;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -55,8 +56,6 @@ public class ItCommonApiTest extends AbstractBasicIntegrationTest {
     /** Check correctness of session expiration. */
     @Test
     public void testSessionExpiration() throws Exception {
-        long timeout = TimeUnit.SECONDS.toMillis(2); // time from SessionManager.checkPeriod * 2
-
         IgniteSql sql = igniteSql();
 
         sql("CREATE TABLE TST(id INTEGER PRIMARY KEY, val INTEGER)");
@@ -65,11 +64,14 @@ public class ItCommonApiTest extends AbstractBasicIntegrationTest {
         Session ses1 = sql.sessionBuilder().defaultPageSize(1).idleTimeout(1, TimeUnit.SECONDS).build();
         Session ses2 = sql.sessionBuilder().defaultPageSize(1).idleTimeout(100, TimeUnit.SECONDS).build();
 
+        assertEquals(2, queryProcessor().liveSessions().size());
+
         ResultSet rs1 = ses1.execute(null, "SELECT id FROM TST");
         ResultSet rs2 = ses2.execute(null, "SELECT id FROM TST");
 
-        // waiting for run session cleanup thread
-        Thread.sleep(timeout + ses1.idleTimeout(TimeUnit.MILLISECONDS));
+        waitForCondition(() -> {
+            return queryProcessor().liveSessions().size() == 1;
+        }, 10_000);
 
         // first session should be expired for the moment
         SqlException ex = assertThrows(SqlException.class, () -> ses1.execute(null, "SELECT 1 + 1"));
