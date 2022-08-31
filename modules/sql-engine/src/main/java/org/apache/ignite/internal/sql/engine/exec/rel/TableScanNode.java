@@ -192,7 +192,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
             requestNextBatch();
         }
 
-        if (requested > 0 && waiting == NOT_WAITING ) {
+        if (requested > 0 && waiting == NOT_WAITING) {
             if (inBuff.isEmpty()) {
                 requested = 0;
                 downstream().end();
