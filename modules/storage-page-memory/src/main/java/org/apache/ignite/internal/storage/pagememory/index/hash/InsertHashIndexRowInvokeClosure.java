@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
@@ -51,7 +53,7 @@ public class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexR
      * @param statHolder Statistics holder to track IO operations.
      */
     public InsertHashIndexRowInvokeClosure(HashIndexRow hashIndexRow, IndexColumnsFreeList freeList, IoStatisticsHolder statHolder) {
-        assert hashIndexRow.indexColumns().link() == 0L;
+        assert hashIndexRow.indexColumns().link() == NULL_LINK;
 
         this.hashIndexRow = hashIndexRow;
         this.freeList = freeList;

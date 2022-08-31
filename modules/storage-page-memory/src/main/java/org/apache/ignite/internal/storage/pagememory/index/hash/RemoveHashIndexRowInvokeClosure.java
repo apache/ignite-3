@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
@@ -86,12 +88,12 @@ public class RemoveHashIndexRowInvokeClosure implements InvokeClosure<HashIndexR
     public void afterCompletion() throws IgniteInternalCheckedException {
         IndexColumns indexColumns = hashIndexRow.indexColumns();
 
-        if (indexColumns.link() != 0L) {
+        if (indexColumns.link() != NULL_LINK) {
             assert operationType == OperationType.REMOVE;
 
             freeList.removeDataRowByLink(indexColumns.link(), statHolder);
 
-            indexColumns.link(0L);
+            indexColumns.link(NULL_LINK);
         }
     }
 }

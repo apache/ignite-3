@@ -41,8 +41,6 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * Interface for {@link IndexMeta} B+Tree-related IO.
  *
- * <p>TODO: IGNITE-17535 не забудь!
- *
  * <p>Defines a following data layout:
  * <ul>
  *     <li>Index ID - {@link UUID} (16 bytes);</li>
@@ -73,7 +71,7 @@ public interface HashIndexTreeIo {
     int offset(int idx);
 
     /**
-     * Stores a version chain, copied from another page.
+     * Stores a hash index row, copied from another page.
      *
      * @see BplusIo#store(long, int, BplusIo, long, int)
      */
@@ -85,7 +83,7 @@ public interface HashIndexTreeIo {
     }
 
     /**
-     * Stores a version chain in the page.
+     * Stores a hash index row in the page.
      *
      * @see BplusIo#storeByOffset(long, int, Object)
      */
@@ -128,6 +126,7 @@ public interface HashIndexTreeIo {
 
         long link = readPartitionlessLink(partitionId, pageAddr, off + INDEX_COLUMNS_LINK_OFFSET);
 
+        //TODO Add in-place compare in IGNITE-17536
         ReadIndexColumnsValue indexColumnsTraversal = new ReadIndexColumnsValue();
 
         dataPageReader.traverse(link, indexColumnsTraversal, null);

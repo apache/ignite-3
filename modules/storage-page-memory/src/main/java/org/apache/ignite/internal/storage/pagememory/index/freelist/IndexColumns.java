@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.freelist;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
@@ -39,7 +41,7 @@ public class IndexColumns implements Storable {
     private final int partitionId;
 
     /** Link value. */
-    private long link;
+    private long link = NULL_LINK;
 
     /** Byte buffer with binary tuple data. */
     private final @Nullable ByteBuffer valueBuffer;
@@ -107,6 +109,7 @@ public class IndexColumns implements Storable {
 
     @Override
     public int headerSize() {
+        // Size of the tuple and its header. For further use in future optimizations.
         return VALUE_OFFSET + Byte.BYTES;
     }
 

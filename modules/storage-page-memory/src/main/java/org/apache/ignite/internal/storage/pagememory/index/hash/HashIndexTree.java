@@ -24,7 +24,9 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
+import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeInnerIo;
 import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeIo;
+import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeLeafIo;
 import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeMetaIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -63,7 +65,7 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
     ) throws IgniteInternalCheckedException {
         super("HashIndexTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
-        setIos(null, null, HashIndexTreeMetaIo.VERSIONS);
+        setIos(HashIndexTreeInnerIo.VERSIONS, HashIndexTreeLeafIo.VERSIONS, HashIndexTreeMetaIo.VERSIONS);
 
         dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
 
