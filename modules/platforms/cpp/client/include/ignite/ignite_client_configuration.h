@@ -21,6 +21,8 @@
 #include <string>
 #include <vector>
 
+#include <ignite/ignite_logger.h>
+
 namespace ignite
 {
 
@@ -49,7 +51,8 @@ public:
      * @param endpoint Endpoints list.
      */
     IgniteClientConfiguration(std::initializer_list<std::string> endpoints) :
-        m_endpoints(endpoints) { }
+        m_endpoints(endpoints),
+        m_logger() { }
 
     /**
      * Get endpoints.
@@ -83,9 +86,35 @@ public:
         IgniteClientConfiguration::m_endpoints = endpoints;
     }
 
+    /**
+     * Get logger.
+     *
+     * @return Current logger.
+     */
+    [[nodiscard]]
+    std::shared_ptr<IgniteLogger> getLogger() const
+    {
+        return m_logger;
+    }
+
+    /**
+     * Set logger to be used by client.
+     *
+     * The logger is @c nullptr by default, which means no logging is performed.
+     *
+     * @param logger Logger to use.
+     */
+    void setLogger(std::shared_ptr<IgniteLogger> logger)
+    {
+        m_logger = std::move(logger);
+    }
+
 private:
     /** Endpoints. */
     std::vector<std::string> m_endpoints;
+
+    /** Logger. */
+    std::shared_ptr<IgniteLogger> m_logger;
 };
 
 } // namespace ignite
