@@ -22,6 +22,9 @@ import java.util.List;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIoModule;
+import org.apache.ignite.internal.storage.pagememory.index.freelist.io.IndexColumnsDataIo;
+import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeInnerIo;
+import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeLeafIo;
 import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeMetaIo;
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaInnerIo;
 import org.apache.ignite.internal.storage.pagememory.index.meta.io.IndexMetaLeafIo;
@@ -35,11 +38,15 @@ public class IndexPageIoModule implements PageIoModule {
     @Override
     public Collection<IoVersions<?>> ioVersions() {
         return List.of(
+                IndexColumnsDataIo.VERSIONS,
+                // Meta tree IO.
                 IndexMetaTreeMetaIo.VERSIONS,
                 IndexMetaInnerIo.VERSIONS,
                 IndexMetaLeafIo.VERSIONS,
-                // Hash index Io
-                HashIndexTreeMetaIo.VERSIONS
+                // Hash index IO.
+                HashIndexTreeMetaIo.VERSIONS,
+                HashIndexTreeInnerIo.VERSIONS,
+                HashIndexTreeLeafIo.VERSIONS
         );
     }
 }
