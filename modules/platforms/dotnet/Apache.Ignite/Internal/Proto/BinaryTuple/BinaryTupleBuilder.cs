@@ -313,13 +313,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      *
      * @return Buffer with tuple bytes.
      */
-        public object Build()
+        public Memory<byte> Build()
         {
             int offset = 0;
 
-            int valueSize = _buffer.position() - _valueBase;
-            byte flags = BinaryTupleCommon.valueSizeToFlags(valueSize);
-            int desiredEntrySize = BinaryTupleCommon.flagsToEntrySize(flags);
+            int valueSize = _buffer.Position - _valueBase;
+            byte flags = BinaryTupleCommon.ValueSizeToFlags(valueSize);
+            int desiredEntrySize = BinaryTupleCommon.FlagsToEntrySize(flags);
 
             // Shrink the offset table if needed.
             if (desiredEntrySize != _entrySize)
@@ -342,20 +342,20 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     int value;
                     if (_entrySize == 4)
                     {
-                        value = _buffer.getInt(getIndex);
+                        value = BinaryPrimitives.ReadInt32LittleEndian(_buffer.GetSpan(getIndex, 4));
                     }
                     else
                     {
-                        value = Short.toUnsignedInt(_buffer.getShort(getIndex));
+                        value = BinaryPrimitives.ReadUInt16LittleEndian(_buffer.GetSpan(getIndex, 2));
                     }
 
                     if (desiredEntrySize == 1)
                     {
-                        _buffer.put(putIndex, (byte)value);
+                        _buffer.GetSpan(putIndex, 1)[0] = (byte)value;
                     }
                     else
                     {
-                        _buffer.putShort(putIndex, (short)value);
+                        BinaryPrimitives.WriteInt16LittleEndian(_buffer.GetSpan(putIndex, 2), (short)value);
                     }
                 }
 
@@ -367,25 +367,25 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             {
                 if (!_hasNullValues)
                 {
-                    offset += BinaryTupleCommon.nullMapSize(_numElements);
+                    offset += BinaryTupleCommon.NullMapSize(_numElements);
                 }
                 else
                 {
-                    flags |= BinaryTupleCommon.NULLMAP_FLAG;
+                    flags |= BinaryTupleCommon.NullmapFlag;
                     if (offset != 0)
                     {
-                        int n = BinaryTupleCommon.nullMapSize(_numElements);
-                        for (int i = BinaryTupleCommon.HEADER_SIZE + n - 1; i >= BinaryTupleCommon.HEADER_SIZE; i--)
+                        int n = BinaryTupleCommon.NullMapSize(_numElements);
+                        for (int i = BinaryTupleCommon.HeaderSize + n - 1; i >= BinaryTupleCommon.HeaderSize; i--)
                         {
-                            _buffer.put(i + offset, _buffer.get(i));
+                            _buffer.GetSpan(i + offset, 1)[0] = _buffer.GetSpan(i, 1)[0];
                         }
                     }
                 }
             }
 
-            _buffer.put(offset, flags);
+            _buffer.GetSpan(offset, 1)[0] = flags;
 
-            return _buffer.flip().position(offset).slice().order(ByteOrder.LITTLE_ENDIAN);
+            return _buffer.GetWrittenMemory().Slice(offset);
         }
 
         /** Put a byte value to the buffer extending it if needed. */
