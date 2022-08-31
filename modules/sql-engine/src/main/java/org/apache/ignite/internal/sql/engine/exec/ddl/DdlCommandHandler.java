@@ -42,9 +42,11 @@ import org.apache.ignite.configuration.schemas.table.ConstantValueDefaultChange;
 import org.apache.ignite.configuration.schemas.table.FunctionCallDefaultChange;
 import org.apache.ignite.configuration.schemas.table.NullValueDefaultChange;
 import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
+import org.apache.ignite.configuration.schemas.table.SortedIndexChange;
 import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.configuration.schemas.table.TableIndexChange;
 import org.apache.ignite.internal.index.IndexManager;
-import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
+import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AbstractTableDdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
@@ -69,10 +71,6 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.schema.SchemaBuilders;
-import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.SortedIndexColumnBuilder;
-import org.jetbrains.annotations.NotNull;
 
 /** DDL commands handler. */
 public class DdlCommandHandler {
@@ -160,7 +158,7 @@ public class DdlCommandHandler {
             }
         };
 
-        String fullName = TableDefinitionImpl.canonicalName(
+        String fullName = SchemaUtils.canonicalName(
                 IgniteObjectName.quote(cmd.schemaName()),
                 IgniteObjectName.quote(cmd.tableName())
         );
@@ -172,7 +170,7 @@ public class DdlCommandHandler {
 
     /** Handles drop table command. */
     private CompletableFuture<Boolean> handleDropTable(DropTableCommand cmd) {
-        String fullName = TableDefinitionImpl.canonicalName(
+        String fullName = SchemaUtils.canonicalName(
                 IgniteObjectName.quote(cmd.schemaName()),
                 IgniteObjectName.quote(cmd.tableName())
         );
@@ -188,7 +186,7 @@ public class DdlCommandHandler {
             return completedFuture(Boolean.FALSE);
         }
 
-        String fullName = TableDefinitionImpl.canonicalName(
+        String fullName = SchemaUtils.canonicalName(
                 IgniteObjectName.quote(cmd.schemaName()),
                 IgniteObjectName.quote(cmd.tableName())
         );
@@ -203,7 +201,7 @@ public class DdlCommandHandler {
             return completedFuture(Boolean.FALSE);
         }
 
-        String fullName = TableDefinitionImpl.canonicalName(
+        String fullName = SchemaUtils.canonicalName(
                 IgniteObjectName.quote(cmd.schemaName()),
                 IgniteObjectName.quote(cmd.tableName())
         );
@@ -231,32 +229,38 @@ public class DdlCommandHandler {
 
     /** Handles create index command. */
     private CompletableFuture<Boolean> handleCreateIndex(CreateIndexCommand cmd) {
-        // Only sorted idx for now.
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-17563 Pass null ordering for columns.
-        SortedIndexDefinitionBuilder idx = SchemaBuilders.sortedIndex(cmd.indexName());
-
-        for (Pair<String, Boolean> idxInfo : cmd.columns()) {
-            SortedIndexColumnBuilder idx0 = idx.addIndexColumn(idxInfo.getFirst());
-
-            if (idxInfo.getSecond()) {
-                idx0.desc();
-            }
-
-            idx0.done();
-        }
+        Consumer<TableIndexChange> indexChanger = tableIndexChange -> {
+            // Only sorted idx for now.
+            createSortedIndexInternal(cmd, tableIndexChange.convert(SortedIndexChange.class));
+        };
 
         return indexManager.createIndexAsync(
                         cmd.schemaName(),
                         cmd.indexName(),
                         cmd.tableName(),
                         !cmd.ifIndexNotExists(),
-                        tableIndexChange -> convert(idx.build(), tableIndexChange))
+                        indexChanger)
                 .thenApply(Objects::nonNull);
     }
 
     /** Handles drop index command. */
     private CompletableFuture<Boolean> handleDropIndex(DropIndexCommand cmd) {
         return indexManager.dropIndexAsync(cmd.schemaName(), cmd.indexName(), !cmd.ifNotExists());
+    }
+
+    /**
+     * Creates sorted index.
+     *
+     * @param cmd Create index command.
+     * @param indexChange Index configuration changer.
+     */
+    private void createSortedIndexInternal(CreateIndexCommand cmd, SortedIndexChange indexChange) {
+        indexChange.changeColumns(colsInit -> {
+            for (Pair<String, Boolean> col : cmd.columns()) {
+                //TODO: https://issues.apache.org/jira/browse/IGNITE-17563 Pass null ordering for columns.
+                colsInit.create(col.getFirst(), colInit -> colInit.changeAsc(col.getSecond()));
+            }
+        });
     }
 
     /**

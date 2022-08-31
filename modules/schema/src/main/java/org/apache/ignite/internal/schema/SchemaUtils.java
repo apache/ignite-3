@@ -143,4 +143,13 @@ public class SchemaUtils {
 
         return true;
     }
+
+    /**
+     * Creates canonical table name.
+     *
+     * @return Table with schema canonical name.
+     */
+    public static String canonicalName(String schema, String name) {
+        return schema + '.' + name;
+    }
 }

@@ -19,9 +19,9 @@ package org.apache.ignite.internal.storage.pagememory.mv.io;
 
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
-import static org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
-import static org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks.readPartitionlessLink;
-import static org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks.writePartitionlessLink;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionlessLink;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionlessLink;
 import static org.apache.ignite.internal.storage.pagememory.mv.VersionChain.NULL_UUID_COMPONENT;
 
 import java.util.UUID;

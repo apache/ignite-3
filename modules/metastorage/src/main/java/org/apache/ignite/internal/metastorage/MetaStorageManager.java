@@ -185,7 +185,7 @@ public class MetaStorageManager implements IgniteComponent {
                     RaftGroupOptions.defaults()
             );
 
-            return raftServiceFuture.thenApply(service -> new MetaStorageServiceImpl(service, thisNode.id()));
+            return raftServiceFuture.thenApply(service -> new MetaStorageServiceImpl(service, thisNode.id(), thisNode.name()));
         } catch (NodeStoppingException e) {
             return CompletableFuture.failedFuture(e);
         }

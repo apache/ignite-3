@@ -66,6 +66,7 @@ namespace Apache.Ignite.Internal.Sql
                 w.Write(statement.Schema);
                 w.Write(statement.PageSize);
                 w.Write((long)statement.Timeout.TotalMilliseconds);
+                w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
 
                 w.WriteMapHeader(statement.Properties.Count);
 

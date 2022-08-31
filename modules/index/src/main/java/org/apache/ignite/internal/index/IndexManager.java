@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.schema.definition.TableDefinitionImpl.canonicalName;
+import static org.apache.ignite.internal.schema.SchemaUtils.canonicalName;
 
 import java.util.ArrayList;
 import java.util.Arrays;

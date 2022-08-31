@@ -19,8 +19,10 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Sql query cursor.
@@ -30,6 +32,7 @@ import org.apache.ignite.sql.ResultSetMetadata;
 public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     private final SqlQueryType queryType;
     private final ResultSetMetadata meta;
+    private final @Nullable InternalTransaction implicitTx;
     private final AsyncCursor<T> dataCursor;
 
     /**
@@ -42,10 +45,12 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     public AsyncSqlCursorImpl(
             SqlQueryType queryType,
             ResultSetMetadata meta,
+            @Nullable InternalTransaction implicitTx,
             AsyncCursor<T> dataCursor
     ) {
         this.queryType = queryType;
         this.meta = meta;
+        this.implicitTx = implicitTx;
         this.dataCursor = dataCursor;
     }
 
@@ -66,7 +71,16 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     public CompletionStage<BatchedResult<T>> requestNextAsync(int rows) {
         return dataCursor.requestNextAsync(rows).handle((batch, t) -> {
             if (t != null) {
+                if (implicitTx != null) {
+                    implicitTx.rollback();
+                }
+
                 throw IgniteException.wrap(t);
+            }
+
+            if (implicitTx != null && !batch.hasMore()) {
+                // last batch, need to commit transaction
+                implicitTx.commit();
             }
 
             return batch;

@@ -19,15 +19,13 @@ package org.apache.ignite.internal.storage.pagememory.index.meta.io;
 
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
+import org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 
 /**
  * IO routines for {@link IndexMetaTree} meta pages.
  */
 public class IndexMetaTreeMetaIo extends BplusMetaIo {
-    /** Page IO type. */
-    public static final short T_INDEX_META_TREE_META_IO = 13;
-
     /** I/O versions. */
     public static final IoVersions<IndexMetaTreeMetaIo> VERSIONS = new IoVersions<>(new IndexMetaTreeMetaIo(1));
 
@@ -37,6 +35,6 @@ public class IndexMetaTreeMetaIo extends BplusMetaIo {
      * @param ver Page format version.
      */
     protected IndexMetaTreeMetaIo(int ver) {
-        super(T_INDEX_META_TREE_META_IO, ver);
+        super(IndexPageTypes.T_INDEX_META_TREE_META_IO, ver);
     }
 }

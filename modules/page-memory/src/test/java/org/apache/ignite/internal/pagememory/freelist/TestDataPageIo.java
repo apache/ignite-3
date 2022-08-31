@@ -57,11 +57,11 @@ class TestDataPageIo extends AbstractDataPageIo<TestDataRow> {
 
     /** {@inheritDoc} */
     @Override
-    protected void writeFragmentData(TestDataRow row, ByteBuffer buf, int rowOff, int payloadSize) {
-        assertPageType(buf);
+    protected void writeFragmentData(TestDataRow row, ByteBuffer pageBuf, int rowOff, int payloadSize) {
+        assertPageType(pageBuf);
 
         if (payloadSize > 0) {
-            buf.put(row.bytes, rowOff, payloadSize);
+            pageBuf.put(row.bytes, rowOff, payloadSize);
         }
     }
 
