@@ -47,6 +47,8 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -55,6 +57,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * ExecutionTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
+@DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://issues.apache.org/jira/browse/IGNITE-17601")
 public class ExecutionTest extends AbstractExecutionTest {
     @Test
     public void testSimpleExecution() {

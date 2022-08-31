@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft;
+package org.apache.ignite.internal.storage.chm.schema;
 
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
+import static org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine.ENGINE_NAME;
+
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
 
 /**
- * Tests for {@link RaftStorageManager} based on {@link RocksDbClusterStateStorage}.
+ * Data storage configuration for {@link TestConcurrentHashMapStorageEngine}.
  */
-@DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://issues.apache.org/jira/browse/IGNITE-17601")
-public class RocksDbClusterStateStorageManagerTest extends AbstractClusterStateStorageManagerTest {
-    @Override
-    ClusterStateStorage clusterStateStorage() {
-        return new RocksDbClusterStateStorage(workDir);
-    }
+@PolymorphicConfigInstance(ENGINE_NAME)
+public class TestConcurrentHashMapDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
 }

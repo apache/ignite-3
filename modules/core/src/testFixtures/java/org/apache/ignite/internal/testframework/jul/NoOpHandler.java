@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,18 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft;
+package org.apache.ignite.internal.testframework.jul;
 
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
 
 /**
- * Tests for {@link RaftStorageManager} based on {@link RocksDbClusterStateStorage}.
+ * Adapter for {@link Handler} with empty implementations of all methods but {@link Handler#publish(LogRecord)}.
  */
-@DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://issues.apache.org/jira/browse/IGNITE-17601")
-public class RocksDbClusterStateStorageManagerTest extends AbstractClusterStateStorageManagerTest {
+public abstract class NoOpHandler extends Handler {
     @Override
-    ClusterStateStorage clusterStateStorage() {
-        return new RocksDbClusterStateStorage(workDir);
+    public void flush() {
+        // no-op
+    }
+
+    @Override
+    public void close() throws SecurityException {
+        // no-op
     }
 }

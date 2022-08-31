@@ -1,9 +1,27 @@
-.idea
-*.iml
 target
 work
 .DS_Store
 .flattened-pom.xml
+
+.classpath
+.project
+.settings
+
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+
+.classpath
+.project
+.settings
+
 
 .classpath
 .project

@@ -1,0 +1,6 @@
+apply plugin: 'java-test-fixtures'
+
+pmdTestFixtures {
+    ruleSetFiles = files("$rootDir/check-rules/pmd-rules.xml")
+    enabled = false
+}

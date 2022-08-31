@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,18 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft;
-
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
+package org.apache.ignite.internal.schema.testobjects;
 
 /**
- * Tests for {@link RaftStorageManager} based on {@link RocksDbClusterStateStorage}.
+ * Test object.
  */
-@DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://issues.apache.org/jira/browse/IGNITE-17601")
-public class RocksDbClusterStateStorageManagerTest extends AbstractClusterStateStorageManagerTest {
-    @Override
-    ClusterStateStorage clusterStateStorage() {
-        return new RocksDbClusterStateStorage(workDir);
+public class TestOuterObject {
+    private long id;
+
+    /**
+     * Inner class.
+     */
+    @SuppressWarnings("InnerClassMayBeStatic")
+    public class InnerObject {
+        private long id1;
+    }
+
+    /**
+     * Nested class.
+     */
+    public static class NestedObject {
+        private long id2;
     }
 }
