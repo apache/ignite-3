@@ -210,7 +210,6 @@ public class DdlCommandHandler {
                 .handle(handleTableModificationResult(cmd.ifTableExists()));
     }
 
-    @NotNull
     private static BiFunction<Object, Throwable, Boolean> handleTableModificationResult(boolean ignoreTableExistenceErrors) {
         return (val, err) -> {
             if (err == null) {
