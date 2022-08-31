@@ -134,6 +134,10 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
     /** {@inheritDoc} */
     @Override
     protected void rewindInternal() {
+        requested = 0;
+        waiting = 0;
+        curPartIdx = 0;
+
         if (activeSubscription != null) {
             activeSubscription.cancel();
 
@@ -159,8 +163,6 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
         }
 
         checkState();
-
-        assert waiting >= 0;
 
         if (requested > 0 && !inBuff.isEmpty()) {
             inLoop = true;
@@ -190,13 +192,13 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
             requestNextBatch();
         }
 
-        if (waiting == NOT_WAITING && !inBuff.isEmpty()) {
-            context().execute(this::push, this::onError);
-        }
-
-        if (requested > 0 && waiting == NOT_WAITING && inBuff.isEmpty()) {
-            requested = 0;
-            downstream().end();
+        if (requested > 0 && waiting == NOT_WAITING ) {
+            if (inBuff.isEmpty()) {
+                requested = 0;
+                downstream().end();
+            } else {
+                context().execute(this::push, this::onError);
+            }
         }
     }
 
@@ -206,7 +208,8 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
         }
 
         if (waiting == 0) {
-            waiting = inBufSize;
+            // we must not request rows more than inBufSize
+            waiting = inBufSize - inBuff.size();
         }
 
         Subscription subscription = this.activeSubscription;
