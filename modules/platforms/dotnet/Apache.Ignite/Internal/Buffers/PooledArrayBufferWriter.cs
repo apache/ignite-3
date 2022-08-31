@@ -78,12 +78,13 @@ namespace Apache.Ignite.Internal.Buffers
         /// <summary>
         /// Gets the written memory, including reserved prefix (see <see cref="ReservedPrefixSize"/>).
         /// </summary>
+        /// <param name="skipPrefix">Whether to skip the prefix (see <see cref="ReservedPrefixSize"/>).</param>
         /// <returns>Written array.</returns>
-        public Memory<byte> GetWrittenMemory()
+        public Memory<byte> GetWrittenMemory(bool skipPrefix = false)
         {
             Debug.Assert(!_disposed, "!_disposed");
 
-            return new(_buffer, start: 0, length: _index);
+            return new(_buffer, start: skipPrefix ? ReservedPrefixSize : 0, length: _index);
         }
 
         /// <inheritdoc />
