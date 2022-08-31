@@ -37,14 +37,14 @@ class IgniteClient
 {
 public:
     // Deleted
-    IgniteClient() = delete;
+    IgniteClient(const IgniteClient&) = delete;
+    IgniteClient& operator=(const IgniteClient&) = delete;
 
     // Default
+    IgniteClient() = default;
     ~IgniteClient() = default;
     IgniteClient(IgniteClient&&) = default;
-    IgniteClient(const IgniteClient&) = default;
     IgniteClient& operator=(IgniteClient&&) = default;
-    IgniteClient& operator=(const IgniteClient&) = default;
 
     /**
      * Start client asynchronously.
@@ -68,8 +68,15 @@ public:
     static std::future<IgniteClient> startAsync(IgniteClientConfiguration configuration);
 
 private:
+    /**
+     * Constructor
+     *
+     * @param impl Implementation
+     */
+    explicit IgniteClient(std::unique_ptr<impl::IgniteClientImpl> impl);
+
     /** Implementation. */
-    std::shared_ptr<impl::IgniteClientImpl> m_impl;
+    std::unique_ptr<impl::IgniteClientImpl> m_impl;
 };
 
 } // namespace ignite

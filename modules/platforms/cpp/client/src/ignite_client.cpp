@@ -17,12 +17,25 @@
 
 #include "ignite/ignite_client.h"
 
+#include "ignite_client_impl.h"
+
 namespace ignite
 {
 
+
 std::future<IgniteClient> IgniteClient::startAsync(IgniteClientConfiguration configuration)
 {
-    return {};
+    return std::async(std::launch::async, [cfg = std::move(configuration)]() {
+
+        auto impl = std::make_unique<impl::IgniteClientImpl>(cfg);
+
+        impl->start();
+
+        return IgniteClient(std::move(impl));
+    });
 }
+
+IgniteClient::IgniteClient(std::unique_ptr<impl::IgniteClientImpl> impl) :
+    m_impl(std::move(impl)) { }
 
 } // namespace ignite
