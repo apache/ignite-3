@@ -437,17 +437,21 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             Debug.Assert(_elementIndex < _numElements);
 
             int offset = _buffer.Position - _valueBase;
+
             switch (_entrySize)
             {
                 case 1:
-                    _buffer.put(_entryBase + _elementIndex, (byte)offset);
+                    _buffer.GetSpan(_entryBase + _elementIndex, 1)[0] = (byte)offset;
                     break;
+
                 case 2:
-                    _buffer.putShort(_entryBase + _elementIndex * 2, (short)offset);
+                    BinaryPrimitives.WriteInt16LittleEndian(_buffer.GetSpan(_entryBase + _elementIndex * 2, 2), (short)offset);
                     break;
+
                 case 4:
-                    _buffer.putInt(_entryBase + _elementIndex * 4, offset);
+                    BinaryPrimitives.WriteInt32LittleEndian(_buffer.GetSpan(_entryBase + _elementIndex * 4, 4), offset);
                     break;
+
                 default:
                     throw new ArgumentOutOfRangeException("Tuple entry size is invalid.");
             }
