@@ -15,8 +15,26 @@
  * limitations under the License.
  */
 
-/**
- * Table schema manipulation API.
- */
+package org.apache.ignite.internal.schema.testutils.builder;
 
-package org.apache.ignite.schema.modification;
+import java.util.Map;
+
+/**
+ * Builder base interface.
+ */
+public interface SchemaObjectBuilder {
+    /**
+     * Provide hints to a builder.
+     *
+     * @param hints Hints.
+     * @return {@code This} for chaining.
+     */
+    SchemaObjectBuilder withHints(Map<String, String> hints);
+
+    /**
+     * Builds schema object.
+     *
+     * @return Built object.
+     */
+    Object build();
+}

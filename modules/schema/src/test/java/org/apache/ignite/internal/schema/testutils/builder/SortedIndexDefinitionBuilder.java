@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition.builder;
+package org.apache.ignite.internal.schema.testutils.builder;
 
 import java.util.Map;
 import org.apache.ignite.schema.definition.index.SortedIndexDefinition;

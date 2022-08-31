@@ -24,14 +24,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.ignite.internal.schema.modification.TableModificationBuilderImpl;
+import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.schema.definition.index.IndexDefinition;
-import org.apache.ignite.schema.modification.TableModificationBuilder;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Table.
@@ -106,28 +104,13 @@ public class TableDefinitionImpl extends AbstractSchemaObject implements TableDe
     /** {@inheritDoc} */
     @Override
     public String canonicalName() {
-        return canonicalName(schemaName, name());
-    }
-
-    /**
-     * Creates canonical table name.
-     *
-     * @return Table with schema canonical name.
-     */
-    public static String canonicalName(@NotNull String schema, @NotNull String name) {
-        return schema + '.' + name;
+        return SchemaUtils.canonicalName(schemaName, name());
     }
 
     /** {@inheritDoc} */
     @Override
     public Collection<IndexDefinition> indices() {
         return Collections.unmodifiableCollection(indices.values());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public TableModificationBuilder toBuilder() {
-        return new TableModificationBuilderImpl(this);
     }
 
     /**

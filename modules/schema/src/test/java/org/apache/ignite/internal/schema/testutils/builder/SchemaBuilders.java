@@ -15,20 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema;
+package org.apache.ignite.internal.schema.testutils.builder;
 
-import org.apache.ignite.internal.schema.definition.builder.ColumnDefinitionBuilderImpl;
-import org.apache.ignite.internal.schema.definition.builder.HashIndexDefinitionBuilderImpl;
-import org.apache.ignite.internal.schema.definition.builder.PrimaryKeyDefinitionBuilderImpl;
-import org.apache.ignite.internal.schema.definition.builder.SortedIndexDefinitionBuilderImpl;
-import org.apache.ignite.internal.schema.definition.builder.TableDefinitionBuilderImpl;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.schema.definition.builder.ColumnDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.HashIndexDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.PrimaryKeyDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.TableDefinitionBuilder;
 
 /**
  * Schema builder helper.

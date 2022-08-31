@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.builder;
+package org.apache.ignite.internal.schema.testutils.builder;
 
 import java.util.Arrays;
 import java.util.List;
@@ -23,13 +23,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.definition.index.HashIndexDefinitionImpl;
 import org.apache.ignite.internal.util.IgniteObjectName;
-import org.apache.ignite.schema.definition.builder.HashIndexDefinitionBuilder;
 import org.apache.ignite.schema.definition.index.HashIndexDefinition;
 
 /**
  * Hash index builder.
  */
-public class HashIndexDefinitionBuilderImpl extends AbstractIndexBuilder implements HashIndexDefinitionBuilder {
+class HashIndexDefinitionBuilderImpl extends AbstractIndexBuilder implements HashIndexDefinitionBuilder {
     /** Index columns. */
     private List<String> columns;
 

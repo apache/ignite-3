@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.builder;
+package org.apache.ignite.internal.schema.testutils.builder;
 
 import java.util.Arrays;
 import java.util.List;
@@ -27,13 +27,11 @@ import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
-import org.apache.ignite.schema.definition.builder.PrimaryKeyDefinitionBuilder;
-import org.apache.ignite.schema.definition.builder.SchemaObjectBuilder;
 
 /**
  * Primary key builder.
  */
-public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, PrimaryKeyDefinitionBuilder {
+class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, PrimaryKeyDefinitionBuilder {
     /** Index columns. */
     @IgniteToStringInclude
     private List<String> columns;

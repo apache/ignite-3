@@ -15,32 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.definition.builder;
+package org.apache.ignite.internal.schema.testutils.builder;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+import org.apache.ignite.internal.schema.definition.SchemaValidationUtils;
 import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
 import org.apache.ignite.internal.util.IgniteObjectName;
-import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
 import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.schema.definition.builder.TableDefinitionBuilder;
-import org.apache.ignite.schema.definition.index.ColumnarIndexDefinition;
-import org.apache.ignite.schema.definition.index.IndexColumnDefinition;
 import org.apache.ignite.schema.definition.index.IndexDefinition;
 
 /**
  * Table builder.
  */
-public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
+class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
     /** Schema name. */
     private final String schemaName;
 
@@ -60,7 +54,7 @@ public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
      * Constructor.
      *
      * @param schemaName Schema name.
-     * @param tableName  Table name.
+     * @param tableName Table name.
      */
     public TableDefinitionBuilderImpl(String schemaName, String tableName) {
         this.schemaName = IgniteObjectName.parse(schemaName);
@@ -126,8 +120,8 @@ public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
         assert primaryKeyDefinition != null : "Primary key index must be configured.";
         assert columns.size() > primaryKeyDefinition.columns().size() : "Key or/and value columns must be defined.";
 
-        validatePrimaryKey(primaryKeyDefinition.columns(), columns);
-        validateIndices(indices.values(), columns.values(), primaryKeyDefinition.colocationColumns());
+        SchemaValidationUtils.validatePrimaryKey(primaryKeyDefinition.columns(), columns);
+        SchemaValidationUtils.validateIndices(indices.values(), columns.values(), primaryKeyDefinition.colocationColumns());
 
         return new TableDefinitionImpl(
                 schemaName,
@@ -136,49 +130,5 @@ public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
                 primaryKeyDefinition,
                 Collections.unmodifiableMap(indices)
         );
-    }
-
-    /**
-     * Validate primary key.
-     *
-     * @param pkColNames Primary key columns.
-     * @param cols       Table columns.
-     */
-    private static void validatePrimaryKey(Set<String> pkColNames, final Map<String, ColumnDefinition> cols) {
-        pkColNames.stream()
-                .filter(pkCol -> cols.get(pkCol).nullable())
-                .findAny()
-                .ifPresent((pkCol) -> {
-                    throw new IllegalStateException("Primary key cannot contain nullable column [col=" + pkCol + "].");
-                });
-    }
-
-    /**
-     * Validate indices.
-     *
-     * @param indices Table indices.
-     * @param cols Table columns.
-     * @param colocationColNames Colocation columns names.
-     */
-    public static void validateIndices(
-            Collection<IndexDefinition> indices,
-            Collection<ColumnDefinition> cols,
-            List<String> colocationColNames) {
-        Set<String> colNames = cols.stream().map(ColumnDefinition::name).collect(Collectors.toSet());
-
-        for (IndexDefinition idx : indices) {
-            assert idx instanceof ColumnarIndexDefinition : "Only columnar indices are supported.";
-            // Note: E.g. functional index is not columnar index as it index an expression result only.
-
-            ColumnarIndexDefinition idx0 = (ColumnarIndexDefinition) idx;
-
-            if (!idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(colNames::contains)) {
-                throw new IllegalStateException("Index column must exist in the schema.");
-            }
-
-            if (idx0.unique() && !(idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(colocationColNames::contains))) {
-                throw new IllegalStateException("Unique index must contains all colocation columns.");
-            }
-        }
     }
 }
