@@ -191,12 +191,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      */
         public BinaryTupleBuilder appendInt(int value)
         {
-            if (Byte.MIN_VALUE <= value && value <= Byte.MAX_VALUE)
+            if (sbyte.MinValue <= value && value <= sbyte.MaxValue)
             {
-                return appendByte((byte)value);
+                return appendByte((sbyte)value);
             }
 
-            if (Short.MIN_VALUE <= value && value <= Short.MAX_VALUE)
+            if (short.MinValue <= value && value <= short.MaxValue)
             {
                 putShort((short)value);
             }
@@ -216,12 +216,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      */
         public BinaryTupleBuilder appendLong(long value)
         {
-            if (Short.MIN_VALUE <= value && value <= Short.MAX_VALUE)
+            if (short.MinValue <= value && value <= short.MaxValue)
             {
                 return appendShort((short)value);
             }
 
-            if (Integer.MIN_VALUE <= value && value <= Integer.MAX_VALUE)
+            if (int.MinValue <= value && value <= int.MaxValue)
             {
                 putInt((int)value);
             }
@@ -289,17 +289,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             putBytes(value);
             return proceed();
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendBytes(byte[] value)
-        {
-            return value == null ? appendNull() : appendBytesNotNull(value);
         }
 
         /**
@@ -418,7 +407,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         private unsafe void putDouble(double value) => putLong(*(long*)&value);
 
         /** Put bytes to the buffer extending it if needed. */
-        private void putBytes(byte[] bytes) => bytes.CopyTo(GetSpan(bytes.Length));
+        private void putBytes(Span<byte> bytes) => bytes.CopyTo(GetSpan(bytes.Length));
 
         /** Put a string to the buffer extending it if needed. */
         private void putString(String value)
