@@ -17,7 +17,6 @@
 
 // TODO: Restore inspections
 // ReSharper disable all
-
 #pragma warning disable
 
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
@@ -175,9 +174,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      */
         public BinaryTupleBuilder appendShort(short value)
         {
-            if (Byte.MIN_VALUE <= value && value <= Byte.MAX_VALUE)
+            if (sbyte.MinValue <= value && value <= sbyte.MaxValue)
             {
-                return appendByte((byte)value);
+                return appendByte((sbyte)value);
             }
 
             putShort(value);
