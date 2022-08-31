@@ -64,7 +64,7 @@ public:
 
 private:
     /** Underlying process. */
-    std::unique_ptr<Process> process;
+    std::unique_ptr<Process> m_process;
 };
 
 } // namespace ignite

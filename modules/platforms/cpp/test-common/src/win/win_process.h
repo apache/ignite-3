@@ -82,10 +82,10 @@ public:
      * @param workDir Working directory.
      */
     WinProcess(std::string command, std::string workDir) :
-            running(false),
-            command(std::move(command)),
-            workDir(std::move(workDir)),
-            info{}
+            m_running(false),
+            m_command(std::move(command)),
+            m_workDir(std::move(workDir)),
+            m_info{}
     { }
 
     /**
@@ -99,26 +99,26 @@ public:
      */
     bool start() override
     {
-        if (running)
+        if (m_running)
             return false;
 
         STARTUPINFO si;
 
         std::memset(&si, 0, sizeof(si));
         si.cb = sizeof(si);
-        std::memset(&info, 0, sizeof(info));
+        std::memset(&m_info, 0, sizeof(m_info));
 
-        std::vector<char> cmd(command.begin(), command.end());
+        std::vector<char> cmd(m_command.begin(), m_command.end());
         cmd.push_back(0);
 
         BOOL success = CreateProcess(
                 NULL, cmd.data(), NULL, NULL,
-                FALSE, 0, NULL, workDir.c_str(),
-                &si, &info);
+                FALSE, 0, NULL, m_workDir.c_str(),
+                &si, &m_info);
 
-        running = success == TRUE;
+        m_running = success == TRUE;
 
-        return running;
+        return m_running;
     }
 
     /**
@@ -126,7 +126,7 @@ public:
      */
     void kill() override
     {
-        std::vector<DWORD> processTree = getProcessTree(info.dwProcessId);
+        std::vector<DWORD> processTree = getProcessTree(m_info.dwProcessId);
         for (auto procId : processTree)
         {
             HANDLE hChildProc = ::OpenProcess(PROCESS_ALL_ACCESS, FALSE, procId);
@@ -137,10 +137,10 @@ public:
             }
         }
 
-        TerminateProcess(info.hProcess, 1);
+        TerminateProcess(m_info.hProcess, 1);
 
-        CloseHandle( info.hProcess );
-        CloseHandle( info.hThread );
+        CloseHandle(m_info.hProcess );
+        CloseHandle(m_info.hThread );
     }
 
     /**
@@ -152,21 +152,21 @@ public:
     {
         auto msecs = timeout.count() < 0 ? INFINITE : static_cast<DWORD>(timeout.count());
 
-        WaitForSingleObject(info.hProcess, msecs);
+        WaitForSingleObject(m_info.hProcess, msecs);
     }
 
 private:
     /** Running flag. */
-    bool running;
+    bool m_running;
 
     /** Command. */
-    const std::string command;
+    const std::string m_command;
 
     /** Working directory. */
-    const std::string workDir;
+    const std::string m_workDir;
 
     /** Process information. */
-    PROCESS_INFORMATION info;
+    PROCESS_INFORMATION m_info;
 };
 
 } // namespace ignite::win

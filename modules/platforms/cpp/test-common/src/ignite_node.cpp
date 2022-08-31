@@ -55,10 +55,10 @@ void IgniteNode::start(bool dryRun)
     std::cout << "working dir=" << workDir << std::endl;
     std::cout << "command=" << command << std::endl;
 
-    process = Process::make(command, workDir.string());
-    if (!process->start())
+    m_process = Process::make(command, workDir.string());
+    if (!m_process->start())
     {
-        process.reset();
+        m_process.reset();
 
         throw std::runtime_error("Failed to invoke Ignite command: '" + command + "'");
     }
@@ -66,14 +66,14 @@ void IgniteNode::start(bool dryRun)
 
 void IgniteNode::stop()
 {
-    if (process)
-        process->kill();
+    if (m_process)
+        m_process->kill();
 }
 
 void IgniteNode::join(std::chrono::milliseconds timeout)
 {
-    if (process)
-        process->join(timeout);
+    if (m_process)
+        m_process->join(timeout);
 }
 
 } // namespace ignite
