@@ -225,7 +225,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             while (recs.MoveNext()); // First MoveNext is called outside to check for empty IEnumerable.
 
             countSpan[0] = MessagePackCode.Int32;
-            BinaryPrimitives.WriteInt32BigEndian(countSpan, count);
+            BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
 
             w.Flush();
         }
