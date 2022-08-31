@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.mv;
+package org.apache.ignite.internal.pagememory.util;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.link;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
@@ -27,23 +27,22 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 
 /**
- * Handling of <em>partitionless links</em>, that is, page memory links from which partition ID is removed. They are used to spare storage
- * space in cases when we know the partition ID from the context.
+ * Handling of <em>partitionless links</em>, that is, page memory links from which partition ID is removed.
+ *
+ * <p>They are used to save storage space in cases when we know the partition ID from the context.
  *
  * @see PageIdUtils#link(long, int)
  */
 public class PartitionlessLinks {
-    /**
-     * Number of bytes a partitionless link takes in storage.
-     */
+    /** Number of bytes a partitionless link takes in storage. */
     public static final int PARTITIONLESS_LINK_SIZE_BYTES = 6;
 
     /**
      * Reads a partitionless link from the memory.
      *
+     * @param partitionId Partition ID.
      * @param pageAddr Page address.
      * @param offset Data offset.
      * @return Partitionless link.
@@ -52,11 +51,11 @@ public class PartitionlessLinks {
         int tag = getShort(pageAddr, offset) & 0xFFFF;
         int pageIdx = getInt(pageAddr, offset + Short.BYTES);
 
-        // Links to metapages are impossible. For the sake of simplicity, NULL_LINK is returned in this case.
+        // NULL_LINK is stored as zeroes. This is fine, because no real link can be like this. Page with index 0 is never a data page.
         if (pageIdx == 0) {
             assert tag == 0 : tag;
 
-            return RowVersion.NULL_LINK;
+            return PageIdUtils.NULL_LINK;
         }
 
         byte flags = (byte) tag;

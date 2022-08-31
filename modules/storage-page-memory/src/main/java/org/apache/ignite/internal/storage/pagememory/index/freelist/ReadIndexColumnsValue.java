@@ -15,26 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.index.meta.io;
+package org.apache.ignite.internal.storage.pagememory.index.freelist;
 
-import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
-import org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes;
-import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.pagememory.datapage.ReadPageMemoryRowValue;
+import org.apache.ignite.internal.storage.pagememory.mv.RowVersion;
 
 /**
- * IO routines for {@link IndexMetaTree} meta pages.
+ * Reads {@link RowVersion#value()} from page-memory.
  */
-public class IndexMetaTreeMetaIo extends BplusMetaIo {
-    /** I/O versions. */
-    public static final IoVersions<IndexMetaTreeMetaIo> VERSIONS = new IoVersions<>(new IndexMetaTreeMetaIo(1));
+public class ReadIndexColumnsValue extends ReadPageMemoryRowValue {
+    /** {@inheritDoc} */
+    @Override
+    protected int valueSizeOffsetInFirstSlot() {
+        return IndexColumns.SIZE_OFFSET;
+    }
 
-    /**
-     * Constructor.
-     *
-     * @param ver Page format version.
-     */
-    protected IndexMetaTreeMetaIo(int ver) {
-        super(IndexPageTypes.T_INDEX_META_TREE_META_IO, ver);
+    /** {@inheritDoc} */
+    @Override
+    protected int valueOffsetInFirstSlot() {
+        return IndexColumns.VALUE_OFFSET;
     }
 }

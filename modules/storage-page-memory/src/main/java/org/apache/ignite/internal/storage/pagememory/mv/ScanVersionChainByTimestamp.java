@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks.readPartitionlessLink;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionlessLink;
 
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
@@ -80,7 +81,7 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal<HybridTimestamp
     private long advanceToNextVersion(long pageAddr, DataPagePayload payload) {
         long nextLink = readPartitionlessLink(partitionId, pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
 
-        if (nextLink == RowVersion.NULL_LINK) {
+        if (nextLink == NULL_LINK) {
             return STOP_TRAVERSAL;
         }
 

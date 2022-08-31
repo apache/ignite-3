@@ -15,26 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.index.meta.io;
+package org.apache.ignite.internal.storage.pagememory.index.hash.io;
 
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
 import org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes;
-import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexTree;
 
 /**
- * IO routines for {@link IndexMetaTree} meta pages.
+ * IO routines for {@link HashIndexTree} meta pages.
  */
-public class IndexMetaTreeMetaIo extends BplusMetaIo {
+public class HashIndexTreeMetaIo extends BplusMetaIo {
     /** I/O versions. */
-    public static final IoVersions<IndexMetaTreeMetaIo> VERSIONS = new IoVersions<>(new IndexMetaTreeMetaIo(1));
+    public static final IoVersions<HashIndexTreeMetaIo> VERSIONS = new IoVersions<>(new HashIndexTreeMetaIo(1));
 
     /**
      * Constructor.
      *
      * @param ver Page format version.
      */
-    protected IndexMetaTreeMetaIo(int ver) {
-        super(IndexPageTypes.T_INDEX_META_TREE_META_IO, ver);
+    protected HashIndexTreeMetaIo(int ver) {
+        super(IndexPageTypes.T_HASH_INDEX_META_IO, ver);
     }
 }

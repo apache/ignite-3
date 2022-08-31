@@ -32,7 +32,6 @@ import org.jetbrains.annotations.Nullable;
  * segment lock. Page data is copied into temp buffer during {@link #write(PersistentPageMemory, FullPageId, ByteBuffer)} and then sent to
  * real implementation by {@link #finishReplacement}.
  */
-// TODO: IGNITE-15818 Maybe refactor.
 public class DelayedDirtyPageWrite implements WriteDirtyPage {
     /** Real flush dirty page implementation. */
     private final WriteDirtyPage flushDirtyPage;

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -226,9 +228,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         VersionChain currentChain = findVersionChain(rowId);
 
         if (currentChain == null) {
-            RowVersion newVersion = insertRowVersion(row, RowVersion.NULL_LINK);
+            RowVersion newVersion = insertRowVersion(row, NULL_LINK);
 
-            VersionChain versionChain = new VersionChain(rowId, txId, newVersion.link(), RowVersion.NULL_LINK);
+            VersionChain versionChain = new VersionChain(rowId, txId, newVersion.link(), NULL_LINK);
 
             updateVersionChain(versionChain);
 
@@ -277,7 +279,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             // Next can be safely replaced with any value (like 0), because this field is only used when there
             // is some uncommitted value, but when we add an uncommitted value, we 'fix' such placeholder value
             // (like 0) by replacing it with a valid value.
-            VersionChain versionChainReplacement = new VersionChain(rowId, null, latestVersion.nextLink(), RowVersion.NULL_LINK);
+            VersionChain versionChainReplacement = new VersionChain(rowId, null, latestVersion.nextLink(), NULL_LINK);
 
             updateVersionChain(versionChainReplacement);
         } else {

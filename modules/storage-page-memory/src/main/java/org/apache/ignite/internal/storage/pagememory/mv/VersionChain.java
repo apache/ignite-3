@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+
 import java.util.UUID;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tostring.S;
@@ -91,7 +93,7 @@ public class VersionChain extends VersionChainKey {
      * Returns {@code true} if this version chain has at least one committed version.
      */
     public boolean hasCommittedVersions() {
-        return newestCommittedLink() != RowVersion.NULL_LINK;
+        return newestCommittedLink() != NULL_LINK;
     }
 
     /** {@inheritDoc} */
