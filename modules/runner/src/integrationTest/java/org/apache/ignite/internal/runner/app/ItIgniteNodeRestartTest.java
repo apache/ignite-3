@@ -79,6 +79,7 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
+import org.apache.ignite.internal.table.message.TableMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -210,6 +211,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         CmgMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         RaftMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         TxMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
+        TableMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
 
         var clusterLocalConfiguration = new ClusterLocalConfiguration(name, serializationRegistry);
 
@@ -270,6 +272,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         SchemaManager schemaManager = new SchemaManager(registry, tblCfg);
 
         TableManager tableManager = new TableManager(
+                name,
                 registry,
                 tblCfg,
                 raftMgr,

@@ -236,6 +236,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Inner initialisation. */
     @BeforeEach
     void before() throws Exception {
+        when(rm.messagingService()).thenReturn(mock(MessagingService.class));
+        when(rm.topologyService()).thenReturn(mock(TopologyService.class));
+
         revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
             function.apply(0L).join();
 
@@ -773,6 +776,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     private TableManager createTableManager() {
         TableManager tableManager = new TableManager(
+                "",
                 revisionUpdater,
                 tblsCfg,
                 rm,

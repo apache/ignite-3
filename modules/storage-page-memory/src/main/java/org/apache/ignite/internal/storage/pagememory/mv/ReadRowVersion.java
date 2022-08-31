@@ -21,17 +21,17 @@ import static org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLink
 
 import java.nio.ByteBuffer;
 import java.util.function.Predicate;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Traversal for reading a row version by its link. Loads the version value conditionally.
  */
-class ReadRowVersion implements PageMemoryTraversal<Predicate<Timestamp>> {
+class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> {
     private final int partitionId;
 
     private RowVersion result;
@@ -40,7 +40,7 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<Timestamp>> {
 
     private long firstFragmentLink;
 
-    private @Nullable Timestamp timestamp;
+    private @Nullable HybridTimestamp timestamp;
 
     private long nextLink;
 
@@ -52,7 +52,7 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<Timestamp>> {
 
     /** {@inheritDoc} */
     @Override
-    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Predicate<Timestamp> loadValue) {
+    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Predicate<HybridTimestamp> loadValue) {
         if (readingFirstSlot) {
             readingFirstSlot = false;
 
@@ -62,10 +62,10 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<Timestamp>> {
         }
     }
 
-    private long readFullOrInitiateReadFragmented(long link, long pageAddr, DataPagePayload payload, Predicate<Timestamp> loadValue) {
+    private long readFullOrInitiateReadFragmented(long link, long pageAddr, DataPagePayload payload, Predicate<HybridTimestamp> loadValue) {
         firstFragmentLink = link;
 
-        timestamp = Timestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
+        timestamp = HybridTimestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
         nextLink = readPartitionlessLink(partitionId, pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
 
         if (!loadValue.test(timestamp)) {

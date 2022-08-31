@@ -23,6 +23,7 @@ import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Arrays.copyOf;
 import static java.util.Arrays.copyOfRange;
+import static org.apache.ignite.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
 import java.nio.ByteBuffer;
@@ -33,13 +34,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.GridUnsafe;
@@ -61,16 +62,16 @@ import org.rocksdb.WriteOptions;
  * | partId (2 bytes, BE) | rowId (16 bytes, BE) |</code></pre>
  * or
  * <pre><code>
- * | partId (2 bytes, BE) | rowId (16 bytes, BE) | timestamp (16 bytes, DESC) |</code></pre>
+ * | partId (2 bytes, BE) | rowId (16 bytes, BE) | timestamp (12 bytes, DESC) |</code></pre>
  * depending on transaction status. Pending transactions data doesn't have a timestamp assigned.
  *
  * <p/>BE means Big Endian, meaning that lexicographical bytes order matches a natural order of partitions.
  *
- * <p/>DESC means that timestamps are sorted from newest to oldest (N2O). Please refer to {@link #putTimestamp(ByteBuffer, Timestamp)} to
- * see how it's achieved. Missing timestamp could be interpreted as a moment infinitely far away in the future.
+ * <p/>DESC means that timestamps are sorted from newest to oldest (N2O). Please refer to {@link #putTimestamp(ByteBuffer, HybridTimestamp)}
+ * to see how it's achieved. Missing timestamp could be interpreted as a moment infinitely far away in the future.
  */
 public class RocksDbMvPartitionStorage implements MvPartitionStorage {
-    /** Position of row id inside of the key. */
+    /** Position of row id inside the key. */
     private static final int ROW_ID_OFFSET = Short.BYTES;
 
     /** UUID size in bytes. */
@@ -79,14 +80,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** Size of the key without timestamp. */
     private static final int ROW_PREFIX_SIZE = ROW_ID_OFFSET + ROW_ID_SIZE;
 
-    /** Timestamp size in bytes. */
-    private static final int TIMESTAMP_SIZE = 2 * Long.BYTES;
-
-    /** Transaction id size. Matches timestamp size. */
-    private static final int TX_ID_SIZE = TIMESTAMP_SIZE;
+    /** Transaction id size. */
+    private static final int TX_ID_SIZE = 2 * Long.BYTES;
 
     /** Maximum size of the key. */
-    private static final int MAX_KEY_SIZE = ROW_PREFIX_SIZE + TIMESTAMP_SIZE;
+    private static final int MAX_KEY_SIZE = ROW_PREFIX_SIZE + HYBRID_TIMESTAMP_SIZE;
 
     /** Thread-local direct buffer instance to read keys from RocksDB. */
     private static final ThreadLocal<ByteBuffer> MV_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(BIG_ENDIAN));
@@ -296,7 +294,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             // Check concurrent transaction data.
             byte[] keyBufArray = keyBuf.array();
 
-            byte[] previousValue = writeBatch.getFromBatchAndDB(db, cf, readOpts, copyOf(keyBufArray, ROW_PREFIX_SIZE));
+            byte[] keyBytes = copyOf(keyBufArray, ROW_PREFIX_SIZE);
+
+            byte[] previousValue = writeBatch.getFromBatchAndDB(db, cf, readOpts, keyBytes);
 
             // Previous value must belong to the same transaction.
             if (previousValue != null) {
@@ -309,12 +309,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 // Write empty value as a tombstone.
                 if (previousValue != null) {
                     // Reuse old array with transaction id already written to it.
-                    writeBatch.put(cf, copyOf(keyBufArray, ROW_PREFIX_SIZE), copyOf(previousValue, TX_ID_SIZE));
+                    writeBatch.put(cf, keyBytes, copyOf(previousValue, TX_ID_SIZE));
                 } else {
-                    // Use tail of the key buffer to save on array allocations.
-                    putTransactionId(keyBufArray, ROW_PREFIX_SIZE, txId);
+                    byte[] txIdBytes = new byte[TX_ID_SIZE];
 
-                    writeBatch.put(cf, copyOf(keyBufArray, ROW_PREFIX_SIZE), copyOfRange(keyBufArray, ROW_PREFIX_SIZE, MAX_KEY_SIZE));
+                    putTransactionId(txIdBytes, 0, txId);
+
+                    writeBatch.put(cf, keyBytes, txIdBytes);
                 }
             } else {
                 writeUnversioned(keyBufArray, row, txId);
@@ -358,7 +359,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
         try {
-            byte[] previousValue = writeBatch.getFromBatchAndDB(db, cf, readOpts, copyOf(keyBuf.array(), ROW_PREFIX_SIZE));
+            byte[] keyBytes = copyOf(keyBuf.array(), ROW_PREFIX_SIZE);
+
+            byte[] previousValue = writeBatch.getFromBatchAndDB(db, cf, readOpts, keyBytes);
 
             if (previousValue == null) {
                 //the chain doesn't contain an uncommitted write intent
@@ -366,7 +369,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             }
 
             // Perform unconditional remove for the key without associated timestamp.
-            writeBatch.delete(cf, copyOf(keyBuf.array(), ROW_PREFIX_SIZE));
+            writeBatch.delete(cf, keyBytes);
 
             return wrapValueIntoBinaryRow(previousValue, true);
         } catch (RocksDBException e) {
@@ -376,14 +379,16 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public void commitWrite(RowId rowId, Timestamp timestamp) throws StorageException {
+    public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
         WriteBatchWithIndex writeBatch = requireWriteBatch();
 
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
         try {
             // Read a value associated with pending write.
-            byte[] valueBytes = writeBatch.getFromBatchAndDB(db, cf, readOpts, copyOf(keyBuf.array(), ROW_PREFIX_SIZE));
+            byte[] uncommittedKeyBytes = copyOf(keyBuf.array(), ROW_PREFIX_SIZE);
+
+            byte[] valueBytes = writeBatch.getFromBatchAndDB(db, cf, readOpts, uncommittedKeyBytes);
 
             if (valueBytes == null) {
                 //the chain doesn't contain an uncommitted write intent
@@ -391,7 +396,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             }
 
             // Delete pending write.
-            writeBatch.delete(cf, copyOf(keyBuf.array(), ROW_PREFIX_SIZE));
+            writeBatch.delete(cf, uncommittedKeyBytes);
 
             // Add timestamp to the key, and put the value back into the storage.
             putTimestamp(keyBuf, timestamp);
@@ -410,11 +415,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable BinaryRow read(RowId rowId, Timestamp timestamp) throws StorageException {
+    public @Nullable BinaryRow read(RowId rowId, HybridTimestamp timestamp) throws StorageException {
         return read(rowId, timestamp, null);
     }
 
-    private @Nullable BinaryRow read(RowId rowId, @Nullable Timestamp timestamp, @Nullable UUID txId)
+    private @Nullable BinaryRow read(RowId rowId, @Nullable HybridTimestamp timestamp, @Nullable UUID txId)
             throws TxIdMismatchException, StorageException {
         assert timestamp == null ^ txId == null;
 
@@ -499,11 +504,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, Timestamp timestamp) throws StorageException {
+    public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, HybridTimestamp timestamp) throws StorageException {
         return scan(keyFilter, timestamp, null);
     }
 
-    private Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp, @Nullable UUID txId)
+    private Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable HybridTimestamp timestamp, @Nullable UUID txId)
             throws TxIdMismatchException, StorageException {
         assert timestamp == null ^ txId == null;
 
@@ -516,10 +521,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         it.seek(partitionStartPrefix());
 
         // Size of the buffer to seek values. Should fit partition id, row id and maybe timestamp, if it's not null.
-        int seekKeyBufSize = ROW_PREFIX_SIZE + (timestamp == null ? 0 : TIMESTAMP_SIZE);
+        int seekKeyBufSize = ROW_PREFIX_SIZE + (timestamp == null ? 0 : HYBRID_TIMESTAMP_SIZE);
 
         // Here's seek buffer itself. Originally it contains a valid partition id, row id payload that's filled with zeroes, and maybe
-        // a timestamp value. Zero row id guarantees that it's lexicographically less then or equal to any other row id stored in the
+        // a timestamp value. Zero row id guarantees that it's lexicographically less than or equal to any other row id stored in the
         // partition.
         // Byte buffer from a thread-local field can't be used here, because of two reasons:
         //  - no one guarantees that there will only be a single cursor;
@@ -613,7 +618,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         }
 
                         // Or iterator may still be valid even if there's no version for required timestamp. In this case row id
-                        // itself will be different and we must check it.
+                        // itself will be different, and we must check it.
                         keyLength = it.key(directBuffer.limit(MAX_KEY_SIZE));
 
                         valueHasTxId = keyLength == ROW_PREFIX_SIZE;
@@ -676,7 +681,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             /** {@inheritDoc} */
             @Override
             public void close() throws Exception {
-                IgniteUtils.closeAll(options, it);
+                IgniteUtils.closeAll(it, options);
             }
 
             private void incrementRowId(ByteBuffer buf) {
@@ -697,6 +702,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 }
 
                 short partitionId = (short) (1 + buf.getShort(0));
+
+                assert partitionId != 0;
 
                 buf.putShort(0, partitionId);
             }
@@ -807,14 +814,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /**
      * Writes a timestamp into a byte buffer, in descending lexicographical bytes order.
      */
-    private static void putTimestamp(ByteBuffer buf, Timestamp ts) {
+    private static void putTimestamp(ByteBuffer buf, HybridTimestamp ts) {
         assert buf.order() == BIG_ENDIAN;
 
-        // Two things to note here:
-        //  - "xor" with a single sign bit makes long values comparable according to RocksDB convention, where bytes are unsigned.
-        //  - "bitwise negation" turns ascending order into a descending one.
-        buf.putLong(~ts.getTimestamp() ^ (1L << 63));
-        buf.putLong(~ts.getNodeId() ^ (1L << 63));
+        // "bitwise negation" turns ascending order into a descending one.
+        buf.putLong(~ts.getPhysical());
+        buf.putInt(~ts.getLogical());
     }
 
     private static void putTransactionId(byte[] array, int off, UUID txId) {
@@ -839,7 +844,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         if (invalid) {
             // Check the status first. This operation is guaranteed to throw if an internal error has occurred during
-            // the iteration. Otherwise we've exhausted the data range.
+            // the iteration. Otherwise, we've exhausted the data range.
             try {
                 it.status();
             } catch (RocksDBException e) {

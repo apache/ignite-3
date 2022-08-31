@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -28,6 +28,9 @@ public class HybridTimestamp implements Comparable<HybridTimestamp>, Serializabl
     /** Serial version UID. */
     private static final long serialVersionUID = 2459861612869605904L;
 
+    /** Timestamp size in bytes. */
+    public static final int HYBRID_TIMESTAMP_SIZE = Long.BYTES + Integer.BYTES;
+
     /** Physical clock. */
     private final long physical;
 
@@ -41,6 +44,11 @@ public class HybridTimestamp implements Comparable<HybridTimestamp>, Serializabl
      * @param logical The logical time.
      */
     public HybridTimestamp(long physical, int logical) {
+        assert physical > 0 : physical;
+        // Value -1 is used in "org.apache.ignite.hlc.HybridClock.update" to produce "0" after the increment.
+        // Real usable value cannot be negative.
+        assert logical >= -1 : logical;
+
         this.physical = physical;
         this.logical = logical;
     }
@@ -82,6 +90,8 @@ public class HybridTimestamp implements Comparable<HybridTimestamp>, Serializabl
      * @return The logical component.
      */
     public int getLogical() {
+        assert logical >= 0;
+
         return logical;
     }
 

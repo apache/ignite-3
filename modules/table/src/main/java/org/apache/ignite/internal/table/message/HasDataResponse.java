@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.table.message;
 
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * MV partition storage test implementation for {@link TestConcurrentHashMapMvPartitionStorage} class.
+ * A response to the {@link HasDataRequest}.
  */
-public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
-    /**
-     * Creates new instance.
-     */
-    public TestMvPartitionStorageTest() {
-        storage = new TestConcurrentHashMapMvPartitionStorage(PARTITION_ID);
-    }
+@Transferable(TableMessageGroup.HAS_DATA_RESPONSE)
+public interface HasDataResponse extends NetworkMessage {
+    /** {@code true} if a node has data for a partition of a table, {@code false} otherwise. */
+    boolean result();
 }

@@ -84,7 +84,7 @@ public class MetaStorageRangeCursorTest {
 
         when(raftGroupService.run(any())).thenAnswer(invocation -> runCommand(invocation.getArgument(0)));
 
-        MetaStorageService metaStorageService = new MetaStorageServiceImpl(raftGroupService, "test");
+        MetaStorageService metaStorageService = new MetaStorageServiceImpl(raftGroupService, "test", "test");
 
         checkCursor(metaStorageService.range(intToBytes(0), intToBytes(keyTo)), limit);
         checkCursor(metaStorageService.range(intToBytes(0), intToBytes(keyTo), 0), limit);

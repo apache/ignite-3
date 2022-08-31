@@ -26,12 +26,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,11 +51,11 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
 
     private static class VersionChain {
         final @Nullable BinaryRow row;
-        final @Nullable Timestamp begin;
+        final @Nullable HybridTimestamp begin;
         final @Nullable UUID txId;
         final @Nullable VersionChain next;
 
-        VersionChain(@Nullable BinaryRow row, @Nullable Timestamp begin, @Nullable UUID txId, @Nullable VersionChain next) {
+        VersionChain(@Nullable BinaryRow row, @Nullable HybridTimestamp begin, @Nullable UUID txId, @Nullable VersionChain next) {
             this.row = row;
             this.begin = begin;
             this.txId = txId;
@@ -66,7 +66,7 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
             return new VersionChain(row, null, txId, next);
         }
 
-        static VersionChain createCommitted(@Nullable Timestamp timestamp, VersionChain uncommittedVersionChain) {
+        static VersionChain createCommitted(@Nullable HybridTimestamp timestamp, VersionChain uncommittedVersionChain) {
             return new VersionChain(uncommittedVersionChain.row, timestamp, null, uncommittedVersionChain.next);
         }
 
@@ -161,7 +161,7 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
 
     /** {@inheritDoc} */
     @Override
-    public void commitWrite(RowId rowId, Timestamp timestamp) {
+    public void commitWrite(RowId rowId, HybridTimestamp timestamp) {
         map.compute(rowId, (ignored, versionChain) -> {
             assert versionChain != null;
 
@@ -183,7 +183,7 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable BinaryRow read(RowId rowId, @Nullable Timestamp timestamp) {
+    public @Nullable BinaryRow read(RowId rowId, @Nullable HybridTimestamp timestamp) {
         VersionChain versionChain = map.get(rowId);
 
         return read(versionChain, timestamp, null, null);
@@ -192,7 +192,7 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
     @Nullable
     private static BinaryRow read(
             VersionChain versionChain,
-            @Nullable Timestamp timestamp,
+            @Nullable HybridTimestamp timestamp,
             @Nullable UUID txId,
             @Nullable Predicate<BinaryRow> filter
     ) {
@@ -252,7 +252,7 @@ public class TestConcurrentHashMapMvPartitionStorage implements MvPartitionStora
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<BinaryRow> scan(Predicate<BinaryRow> filter, Timestamp timestamp) {
+    public Cursor<BinaryRow> scan(Predicate<BinaryRow> filter, HybridTimestamp timestamp) {
         Iterator<BinaryRow> iterator = map.values().stream()
                 .map(versionChain -> read(versionChain, timestamp, null, filter))
                 .filter(Objects::nonNull)

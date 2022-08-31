@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.BiPredicate;
+import java.util.function.IntFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -85,18 +86,24 @@ public class RendezvousAffinityFunction {
      * @param neighborhoodCache Neighborhood.
      * @param exclNeighbors     If true neighbors are excluded, false otherwise.
      * @param nodeFilter        Filter for nodes.
+     * @param aggregator        Function that creates a collection for the partition assignments.
      * @return Assignment.
      */
-    public static List<ClusterNode> assignPartition(
+    public static <T extends Collection<ClusterNode>> T assignPartition(
             int part,
             List<ClusterNode> nodes,
             int replicas,
             Map<String, Collection<ClusterNode>> neighborhoodCache,
             boolean exclNeighbors,
-            BiPredicate<ClusterNode, List<ClusterNode>> nodeFilter
+            BiPredicate<ClusterNode, T> nodeFilter,
+            IntFunction<T> aggregator
     ) {
         if (nodes.size() <= 1) {
-            return nodes;
+            T res = aggregator.apply(1);
+
+            res.addAll(nodes);
+
+            return res;
         }
 
         IgniteBiTuple<Long, ClusterNode>[] hashArr =
@@ -118,12 +125,12 @@ public class RendezvousAffinityFunction {
 
         // REPLICATED cache case
         if (replicas == Integer.MAX_VALUE) {
-            return replicatedAssign(nodes, sortedNodes);
+            return replicatedAssign(nodes, sortedNodes, aggregator);
         }
 
         Iterator<ClusterNode> it = sortedNodes.iterator();
 
-        List<ClusterNode> res = new ArrayList<>(effectiveReplicas);
+        T res = aggregator.apply(effectiveReplicas);
 
         Collection<ClusterNode> allNeighbors = new HashSet<>();
 
@@ -188,13 +195,14 @@ public class RendezvousAffinityFunction {
      *
      * @param nodes       Topology.
      * @param sortedNodes Sorted for specified partitions nodes.
+     * @param aggregator  Function that creates a collection for the partition assignments.
      * @return Assignment.
      */
-    private static List<ClusterNode> replicatedAssign(List<ClusterNode> nodes,
-            Iterable<ClusterNode> sortedNodes) {
+    private static <T extends Collection<ClusterNode>> T replicatedAssign(List<ClusterNode> nodes,
+            Iterable<ClusterNode> sortedNodes, IntFunction<T> aggregator) {
         ClusterNode first = sortedNodes.iterator().next();
 
-        List<ClusterNode> res = new ArrayList<>(nodes.size());
+        T res = aggregator.apply(nodes.size());
 
         res.add(first);
 
@@ -238,7 +246,7 @@ public class RendezvousAffinityFunction {
      * @param currentTopologySnapshot List of topology nodes.
      * @param partitions              Number of table partitions.
      * @param replicas                Number partition replicas.
-     * @param exclNeighbors           If true neighbors are excluded fro the one partition assignment, false otherwise.
+     * @param exclNeighbors           If true neighbors are excluded from the one partition assignment, false otherwise.
      * @param nodeFilter              Filter for nodes.
      * @return List nodes by partition.
      */
@@ -249,18 +257,40 @@ public class RendezvousAffinityFunction {
             boolean exclNeighbors,
             BiPredicate<ClusterNode, List<ClusterNode>> nodeFilter
     ) {
+        return assignPartitions(currentTopologySnapshot, partitions, replicas, exclNeighbors, nodeFilter, ArrayList::new);
+    }
+
+    /**
+     * Generates an assignment by the given parameters.
+     *
+     * @param currentTopologySnapshot List of topology nodes.
+     * @param partitions              Number of table partitions.
+     * @param replicas                Number partition replicas.
+     * @param exclNeighbors           If true neighbors are excluded from the one partition assignment, false otherwise.
+     * @param nodeFilter              Filter for nodes.
+     * @param aggregator              Function that creates a collection for the partition assignments.
+     * @return List nodes by partition.
+     */
+    public static <T extends Collection<ClusterNode>> List<T> assignPartitions(
+            Collection<ClusterNode> currentTopologySnapshot,
+            int partitions,
+            int replicas,
+            boolean exclNeighbors,
+            BiPredicate<ClusterNode, T> nodeFilter,
+            IntFunction<T> aggregator
+    ) {
         assert partitions <= MAX_PARTITIONS_COUNT : "partitions <= " + MAX_PARTITIONS_COUNT;
         assert partitions > 0 : "parts > 0";
         assert replicas > 0 : "replicas > 0";
 
-        List<List<ClusterNode>> assignments = new ArrayList<>(partitions);
+        List<T> assignments = new ArrayList<>(partitions);
 
         Map<String, Collection<ClusterNode>> neighborhoodCache = exclNeighbors ? neighbors(currentTopologySnapshot) : null;
 
         List<ClusterNode> nodes = new ArrayList<>(currentTopologySnapshot);
 
         for (int i = 0; i < partitions; i++) {
-            List<ClusterNode> partAssignment = assignPartition(i, nodes, replicas, neighborhoodCache, exclNeighbors, nodeFilter);
+            T partAssignment = assignPartition(i, nodes, replicas, neighborhoodCache, exclNeighbors, nodeFilter, aggregator);
 
             assignments.add(partAssignment);
         }

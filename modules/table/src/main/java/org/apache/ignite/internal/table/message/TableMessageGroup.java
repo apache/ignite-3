@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.table.message;
 
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
+import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
- * MV partition storage test implementation for {@link TestConcurrentHashMapMvPartitionStorage} class.
+ * Table module message group.
  */
-public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
-    /**
-     * Creates new instance.
-     */
-    public TestMvPartitionStorageTest() {
-        storage = new TestConcurrentHashMapMvPartitionStorage(PARTITION_ID);
-    }
+@MessageGroup(groupType = 8, groupName = "TableMessages")
+public class TableMessageGroup {
+    /** {@link HasDataRequest}. */
+    static final int HAS_DATA_REQUEST = 0;
+
+    /** {@link HasDataResponse}. */
+    static final int HAS_DATA_RESPONSE = 1;
 }
