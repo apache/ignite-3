@@ -33,7 +33,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -113,9 +112,7 @@ public class TxStateStorageTest {
             TxMeta txMeta1 = new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(txId));
             TxMeta txMeta2 = new TxMeta(TxState.COMMITED, new ArrayList<>(), generateTimestamp(UUID.randomUUID()));
 
-            storage.put(txId, txMeta0);
-
-            assertTxMetaEquals(storage.get(txId), txMeta0);
+            assertTrue(storage.compareAndSet(txId, null, txMeta0));
 
             assertFalse(storage.compareAndSet(txId, txMeta1.txState(), txMeta2));
             assertTrue(storage.compareAndSet(txId, txMeta0.txState(), txMeta2));
@@ -222,6 +219,6 @@ public class TxStateStorageTest {
     }
 
     private TxStateStorage createStorage() {
-        return new TxStateRocksDbStorage(workDir, Executors.newSingleThreadExecutor());
+        return new TxStateRocksDbStorage(workDir);
     }
 }

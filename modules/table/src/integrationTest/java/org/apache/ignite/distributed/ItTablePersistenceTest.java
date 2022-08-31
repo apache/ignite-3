@@ -44,7 +44,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.TxManager;
@@ -102,7 +101,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** {@inheritDoc} */
     @Override
     public void beforeFollowerStop(RaftGroupService service) throws Exception {
-        TxManagerImpl txManager = new TxManagerImpl(clientService(), new HeapLockManager());
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
+        TxManagerImpl txManager = new TxManagerImpl(clientService(), null, new HeapLockManager());
 
         managers.add(txManager);
 
@@ -126,7 +126,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** {@inheritDoc} */
     @Override
     public void afterFollowerStop(RaftGroupService service) throws Exception {
-        TxManagerImpl txManager = new TxManagerImpl(clientService(), new HeapLockManager());
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
+        TxManagerImpl txManager = new TxManagerImpl(clientService(), null, new HeapLockManager());
 
         managers.add(txManager);
 
@@ -156,7 +157,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** {@inheritDoc} */
     @Override
     public void afterSnapshot(RaftGroupService service) throws Exception {
-        TxManager txManager = new TxManagerImpl(clientService(), new HeapLockManager());
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
+        TxManager txManager = new TxManagerImpl(clientService(), null, new HeapLockManager());
 
         managers.add(txManager);
 
@@ -209,21 +211,22 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
     public RaftGroupListener createListener(ClusterService service, Path workDir) {
         return paths.entrySet().stream()
                 .filter(entry -> entry.getValue().equals(workDir))
                 .map(Map.Entry::getKey)
                 .findAny()
                 .orElseGet(() -> {
-                    TableTxManagerImpl txManager = new TableTxManagerImpl(service, new HeapLockManager());
+                    TxManagerImpl txManager = new TxManagerImpl(service, null, new HeapLockManager());
 
                     txManager.start(); // Init listener.
 
                     var testMpPartStorage = new TestConcurrentHashMapMvPartitionStorage(0);
 
                     PartitionListener listener = new PartitionListener(
-                            UUID.randomUUID(),
                             testMpPartStorage,
+                            null,
                             txManager,
                             new ConcurrentHashMap<>());
 

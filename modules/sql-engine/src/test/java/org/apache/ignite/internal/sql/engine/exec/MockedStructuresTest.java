@@ -738,7 +738,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 tm,
                 dataStorageManager,
                 msm,
-                schemaManager
+                schemaManager,
+                null
         );
 
         tableManager.start();

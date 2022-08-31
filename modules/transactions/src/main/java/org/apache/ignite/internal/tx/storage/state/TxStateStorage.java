@@ -82,7 +82,7 @@ public interface TxStateStorage extends AutoCloseable {
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when
      *                                 the operation has failed.
      */
-    boolean compareAndSet(UUID txId, @NotNull TxState txStateExpected, @NotNull TxMeta txMeta);
+    boolean compareAndSet(UUID txId, TxState txStateExpected, @NotNull TxMeta txMeta);
 
     /**
      * Remove the tx meta from the storage.

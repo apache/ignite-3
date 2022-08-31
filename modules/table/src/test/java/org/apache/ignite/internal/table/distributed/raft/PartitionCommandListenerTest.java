@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -96,18 +97,21 @@ public class PartitionCommandListenerTest {
      * Initializes a table listener before tests.
      */
     @BeforeEach
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
     public void before() {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         NetworkAddress addr = new NetworkAddress("127.0.0.1", 5003);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(addr);
 
+        ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+
         UUID tblId = UUID.randomUUID();
 
-        var txManager = new TxManagerImpl(clusterService, new HeapLockManager());
+        var txManager = new TxManagerImpl(clusterService, replicaService, new HeapLockManager());
 
         commandListener = new PartitionListener(
-                tblId,
                 mvPartitionStorage,
+                null,
                 txManager,
                 primaryIndex
         );

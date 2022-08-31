@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
@@ -29,6 +30,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -40,14 +43,13 @@ import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertAndUpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
-import org.apache.ignite.internal.table.distributed.command.PartitionCommand;
+import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
-import org.apache.ignite.internal.tx.LockKey;
-import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.client.Command;
@@ -56,7 +58,6 @@ import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.TestOnly;
 
@@ -64,15 +65,14 @@ import org.jetbrains.annotations.TestOnly;
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener {
-    /**
-     * Lock context id.
-     *
-     * @see LockKey#contextId()
-     */
-    private final UUID lockContextId;
+    /** Logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
     /** Versioned partition storage. */
     private final MvPartitionStorage storage;
+
+    /** Transaction state storage. */
+    private final TxStateStorage txStateStorage;
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -87,22 +87,25 @@ public class PartitionListener implements RaftGroupListener {
     /** Keys that were removed by the transaction. */
     private ConcurrentHashMap<UUID, Set<RowId>> txsRemovedKeys = new ConcurrentHashMap<>();
 
+    /** Rows that were inserted, updated or removed. */
+    private ConcurrentHashMap<UUID, Set<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
+
     /**
      * The constructor.
      *
-     * @param tableId Table id.
      * @param store  The storage.
+     * @param txStateStorage Transaction state storage.
      * @param txManager Transaction manager.
      * @param primaryIndex Primary index map.
      */
     public PartitionListener(
-            UUID tableId,
             MvPartitionStorage store,
+            TxStateStorage txStateStorage,
             TxManager txManager,
             ConcurrentHashMap<ByteBuffer, RowId> primaryIndex
     ) {
-        this.lockContextId = tableId;
         this.storage = store;
+        this.txStateStorage = txStateStorage;
         this.txManager = txManager;
         this.primaryIndex = primaryIndex;
     }
@@ -113,11 +116,7 @@ public class PartitionListener implements RaftGroupListener {
         iterator.forEachRemaining((CommandClosure<? extends ReadCommand> clo) -> {
             Command command = clo.command();
 
-            if (!tryEnlistIntoTransaction(command, clo)) {
-                return;
-            }
-
-            assert false : "Command was not found [cmd=" + clo.command() + ']';
+            assert false : "No read commands expected, [cmd=" + clo.command() + ']';
         });
     }
 
@@ -126,10 +125,6 @@ public class PartitionListener implements RaftGroupListener {
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();
-
-            if (!tryEnlistIntoTransaction(command, clo)) {
-                return;
-            }
 
             long commandIndex = clo.index();
 
@@ -160,34 +155,21 @@ public class PartitionListener implements RaftGroupListener {
 
                 clo.result(null);
             } else if (command instanceof FinishTxCommand) {
-                clo.result(handleFinishTxCommand((FinishTxCommand) command, commandIndex));
+                try {
+                    handleFinishTxCommand((FinishTxCommand) command, commandIndex);
+                } catch (IgniteInternalException e) {
+                    clo.result(e);
+                }
+
+                clo.result(null);
+            } else if (command instanceof TxCleanupCommand) {
+                handleTxCleanupCommand((TxCleanupCommand) command, commandIndex);
+
+                clo.result(null);
             } else {
                 assert false : "Command was not found [cmd=" + command + ']';
             }
         });
-    }
-
-    /**
-     * Attempts to enlist a command into a transaction.
-     *
-     * @param command The command.
-     * @param clo     The closure.
-     * @return {@code true} if a command is compatible with a transaction state or a command is not transactional.
-     */
-    private boolean tryEnlistIntoTransaction(Command command, CommandClosure<?> clo) {
-        if (command instanceof PartitionCommand) {
-            UUID txId = ((PartitionCommand) command).getTxId();
-
-            TxState state = txManager.getOrCreateTransaction(txId);
-
-            if (state != null && state != TxState.PENDING) {
-                clo.result(new TransactionException(format("Failed to enlist a key into a transaction, state={}", state)));
-
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /**
@@ -198,13 +180,15 @@ public class PartitionListener implements RaftGroupListener {
      */
     private void handleInsertCommand(InsertCommand cmd, long commandIndex) {
         BinaryRow row = cmd.getRow();
-        UUID txId = cmd.getTxId();
+        UUID txId = cmd.txId();
 
         RowId rowId = storage.insert(row,  txId);
 
         primaryIndex.put(row.keySlice(), rowId);
 
-        txsInsertedKeys.computeIfAbsent(txId, entry -> new ConcurrentHashSet<RowId>()).add(rowId);
+        txsInsertedKeys.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
+
+        txsPendingRowIds.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
 
         storage.lastAppliedIndex(commandIndex);
     }
@@ -217,11 +201,13 @@ public class PartitionListener implements RaftGroupListener {
      */
     private void handleDeleteCommand(DeleteCommand cmd, long commandIndex) {
         RowId rowId = cmd.getRowId();
-        UUID txId = cmd.getTxId();
+        UUID txId = cmd.txId();
 
         storage.addWrite(rowId, null, txId);
 
-        txsRemovedKeys.computeIfAbsent(txId, entry -> new ConcurrentHashSet<RowId>()).add(rowId);
+        txsRemovedKeys.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
+
+        txsPendingRowIds.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
 
         storage.lastAppliedIndex(commandIndex);
     }
@@ -235,9 +221,11 @@ public class PartitionListener implements RaftGroupListener {
     private void handleUpdateCommand(UpdateCommand cmd, long commandIndex) {
         BinaryRow row = cmd.getRow();
         RowId rowId = cmd.getRowId();
-        UUID txId = cmd.getTxId();
+        UUID txId = cmd.txId();
 
         storage.addWrite(rowId, row,  txId);
+
+        txsPendingRowIds.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
 
         storage.lastAppliedIndex(commandIndex);
     }
@@ -249,7 +237,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Index of the RAFT command.
      */
     private void handleInsertAndUpdateAllCommand(InsertAndUpdateAllCommand cmd, long commandIndex) {
-        UUID txId = cmd.getTxId();
+        UUID txId = cmd.txId();
         Collection<BinaryRow> rowsToInsert = cmd.getRows();
         Map<RowId, BinaryRow> rowsToUpdate = cmd.getRowsToUpdate();
 
@@ -259,13 +247,17 @@ public class PartitionListener implements RaftGroupListener {
 
                 primaryIndex.put(row.keySlice(), rowId);
 
-                txsInsertedKeys.computeIfAbsent(txId, entry -> new ConcurrentHashSet<RowId>()).add(rowId);
+                txsInsertedKeys.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
+
+                txsPendingRowIds.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
             }
         }
 
         if (!CollectionUtils.nullOrEmpty(rowsToUpdate)) {
             for (Map.Entry<RowId, BinaryRow> entry : rowsToUpdate.entrySet()) {
                 storage.addWrite(entry.getKey(), entry.getValue(), txId);
+
+                txsPendingRowIds.computeIfAbsent(txId, entry0 -> new ConcurrentHashSet<>()).add(entry.getKey());
             }
         }
 
@@ -279,13 +271,15 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Index of the RAFT command.
      */
     private void handleDeleteAllCommand(DeleteAllCommand cmd, long commandIndex) {
-        UUID txId = cmd.getTxId();
+        UUID txId = cmd.txId();
         Collection<RowId> rowIds = cmd.getRowIds();
 
         for (RowId rowId : rowIds) {
             storage.addWrite(rowId, null, txId);
 
-            txsRemovedKeys.computeIfAbsent(txId, entry -> new ConcurrentHashSet<RowId>()).add(rowId);
+            txsRemovedKeys.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
+
+            txsPendingRowIds.computeIfAbsent(txId, entry -> new ConcurrentHashSet<>()).add(rowId);
         }
 
         storage.lastAppliedIndex(commandIndex);
@@ -296,55 +290,80 @@ public class PartitionListener implements RaftGroupListener {
      *
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
-     * @return Result.
+     * @throws IgniteInternalException if exception occurred during txn state change.
      */
-    private boolean handleFinishTxCommand(FinishTxCommand cmd, long commandIndex) {
-        UUID txId = cmd.getTxId();
+    private void handleFinishTxCommand(FinishTxCommand cmd, long commandIndex) throws IgniteInternalException {
+        UUID txId = cmd.txId();
 
-        boolean stateChanged = txManager.changeState(txId, TxState.PENDING, cmd.finish() ? TxState.COMMITED : TxState.ABORTED);
+        TxState stateToSet = cmd.commit() ? TxState.COMMITED : TxState.ABORTED;
 
-        LockManager lockManager = txManager.lockManager();
+        boolean txStateChangeRes = txStateStorage.compareAndSet(
+                txId,
+                null,
+                new TxMeta(
+                        stateToSet,
+                        cmd.replicationGroupIds(),
+                        cmd.commitTimestamp()
+                )
+        );
 
-        // This code is technically incorrect and assumes that "stateChanged" is always true.
-        // This was done because transaction state is not persisted
-        // and thus FinishTxCommand couldn't be completed on recovery after node restart ("changeState" uses "replace").
-        if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
-            lockManager.locks(txId)
-                    .forEachRemaining(
-                            lock -> {
-                                if (lock.lockMode() == LockMode.EXCLUSIVE && lock.lockKey().key() instanceof RowId) {
-                                    storage.commitWrite((RowId) lock.lockKey().key(), new Timestamp(txId));
-                                }
-                            }
-                    );
-        } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
-            lockManager.locks(txId)
-                    .forEachRemaining(
-                            lock -> {
-                                if (lock.lockMode() == LockMode.EXCLUSIVE && lock.lockKey().key() instanceof RowId) {
-                                    storage.abortWrite((RowId) lock.lockKey().key());
-                                }
-                            }
-                    );
+        if (!txStateChangeRes) {
+            UUID traceId = UUID.randomUUID();
+
+            String errorMsg = format("Fail to finish the transaction txId = {} because of inconsistent state = {},"
+                    + " expected state = null, state to set = {}", txId, txStateStorage.get(txId), stateToSet);
+
+            IgniteInternalException stateChangeException = new IgniteInternalException(traceId, TX_UNEXPECTED_STATE, errorMsg);
+
+            // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
+            LOG.error(errorMsg);
+
+            throw stateChangeException;
         }
 
-        // TODO: tmp
-        if (/*txManager.state(txId) == TxState.COMMITED*/cmd.finish()) {
-            for (RowId rowId : txsRemovedKeys.get(txId)) {
+        storage.lastAppliedIndex(commandIndex);
+    }
+
+
+    /**
+     * Handler for the {@link TxCleanupCommand}.
+     *
+     * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
+     */
+    private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex) {
+        UUID txId = cmd.txId();
+
+        Set<RowId> removedRowIds = txsRemovedKeys.get(txId);
+
+        Set<RowId> insertedRowIds = txsInsertedKeys.get(txId);
+
+        Set<RowId> pendingRowIds = txsPendingRowIds.get(txId);
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17577 Use HybridTimestamp instead.
+        Timestamp commitTimestamp = new Timestamp(cmd.commitTimestamp().getPhysical(), cmd.commitTimestamp().getLogical());
+
+        if (cmd.commit()) {
+            pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp));
+        } else {
+            pendingRowIds.forEach(rowId -> storage.abortWrite(rowId));
+        }
+
+        if (cmd.commit()) {
+            for (RowId rowId : removedRowIds) {
                 primaryIndex.remove(rowId);
             }
-        } else /*if (txManager.state(txId) == TxState.ABORTED)*/ {
-            for (RowId rowId : txsInsertedKeys.get(txId)) {
+        } else {
+            for (RowId rowId : insertedRowIds) {
                 primaryIndex.remove(rowId);
             }
         }
 
         txsRemovedKeys.remove(txId);
         txsInsertedKeys.remove(txId);
+        txsPendingRowIds.remove(txId);
 
         storage.lastAppliedIndex(commandIndex);
-
-        return stateChanged;
     }
 
     /** {@inheritDoc} */

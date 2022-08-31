@@ -42,6 +42,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -70,8 +71,8 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -110,9 +111,12 @@ public class ItColocationTest {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager()) {
+        ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+
+        TxManager txManager = new TxManagerImpl(clusterService, replicaService,  new HeapLockManager()) {
             @Override
-            public CompletableFuture<Void> finishRemote(NetworkAddress addr, boolean commit, Set<String> groups, UUID id) {
+            public CompletableFuture<Void> finish(ClusterNode recipientNode, boolean commit, TreeMap<ClusterNode, List<String>> groups,
+                    UUID txId) {
                 return CompletableFuture.completedFuture(null);
             }
         };

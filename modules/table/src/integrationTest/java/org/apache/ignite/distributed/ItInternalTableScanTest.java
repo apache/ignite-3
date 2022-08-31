@@ -53,6 +53,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -68,6 +69,7 @@ import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -103,11 +105,19 @@ public class ItInternalTableScanTest {
     /** Id for the test RAFT group. */
     public static final String RAFT_GRP_ID = "test_part_grp";
 
+    /** Mock txState storage. */
+    @Mock
+    private TxStateStorage txStateStorage;
+
     /** Mock partition storage. */
     @Mock
     private MvPartitionStorage mockStorage;
 
     private ClusterService network;
+
+    private ReplicaManager replicaManager;
+
+    private ReplicaService replicaService;
 
     private RaftServer raftSrv;
 
@@ -151,13 +161,21 @@ public class ItInternalTableScanTest {
 
         raftSrv.start();
 
+        replicaManager = new ReplicaManager(network);
+
+        replicaManager.start();
+
+        replicaService = new ReplicaService(replicaManager, network.messagingService(), network.topologyService());
+
         String grpName = "test_part_grp";
 
         List<Peer> conf = List.of(new Peer(nodeNetworkAddress));
 
+        txStateStorage = mock(TxStateStorage.class);
+
         mockStorage = mock(MvPartitionStorage.class);
 
-        txManager = new TxManagerImpl(network, new HeapLockManager());
+        txManager = new TxManagerImpl(network, replicaService, new HeapLockManager());
 
         txManager.start();
 
@@ -165,7 +183,7 @@ public class ItInternalTableScanTest {
 
         raftSrv.startRaftGroup(
                 grpName,
-                new PartitionListener(tblId, mockStorage, txManager, new ConcurrentHashMap<>()),
+                new PartitionListener(mockStorage, txStateStorage, txManager, new ConcurrentHashMap<>()),
                 conf,
                 RaftGroupOptions.defaults()
         );
@@ -205,6 +223,10 @@ public class ItInternalTableScanTest {
     public void tearDown() throws Exception {
         raftSrv.stopRaftGroup(RAFT_GRP_ID);
 
+        if (replicaManager != null) {
+            replicaManager.beforeNodeStop();
+        }
+
         if (raftSrv != null) {
             raftSrv.beforeNodeStop();
         }
@@ -214,6 +236,10 @@ public class ItInternalTableScanTest {
         }
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+
+        if (replicaManager != null) {
+            replicaManager.stop();
+        }
 
         if (raftSrv != null) {
             raftSrv.stop();

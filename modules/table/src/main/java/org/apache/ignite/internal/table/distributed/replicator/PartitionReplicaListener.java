@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -29,6 +30,8 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
@@ -40,8 +43,10 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
+import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertAndUpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
+import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanCloseReplicaRequest;
@@ -49,9 +54,13 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
 import org.apache.ignite.internal.tx.Lock;
+import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -82,12 +91,18 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Raft client. */
     private final RaftGroupService raftClient;
 
+    /** Tx manager. */
+    private final TxManager txManager;
+
     /** Lock manager. */
     private final LockManager lockManager;
 
     //TODO: https://issues.apache.org/jira/browse/IGNITE-17205 Temporary solution until the implementation of the primary index is done.
     /** Dummy primary index. */
     private final ConcurrentHashMap<ByteBuffer, RowId> primaryIndex;
+
+    /** Hybrid clock. */
+    private final HybridClock hybridClock;
 
     /**
      * Cursors map. The key of the map is internal Ignite uuid which consists of a transaction id ({@link UUID}) and a cursor id ({@link
@@ -98,27 +113,32 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * The constructor.
      *
-     * @param mvDataStorage      Data storage.
-     * @param raftClient         Raft client.
-     * @param lockManager        Lock manager.
-     * @param replicationGroupId Replication group id.
-     * @param tableId            Table id.
-     * @param primaryIndex       Primary index.
+     * @param mvDataStorage Data storage.
+     * @param raftClient Raft client.
+     * @param txManager Transaction manager.
+     * @param lockManager Lock manager.
+     * @param tableId Table id.
+     * @param primaryIndex Primary index.
+     * @param hybridClock Hybrid clock.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
             RaftGroupService raftClient,
+            TxManager txManager,
             LockManager lockManager,
             String replicationGroupId,
             UUID tableId,
-            ConcurrentHashMap<ByteBuffer, RowId> primaryIndex
+            ConcurrentHashMap<ByteBuffer, RowId> primaryIndex,
+            HybridClock hybridClock
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
+        this.txManager = txManager;
         this.lockManager = lockManager;
         this.replicationGroupId = replicationGroupId;
         this.tableId = tableId;
         this.primaryIndex = primaryIndex;
+        this.hybridClock = hybridClock;
 
         //TODO: IGNITE-17479 Integrate indexes into replicaListener command handlers
         this.indexScanId = new UUID(tableId.getMostSignificantBits(), tableId.getLeastSignificantBits() + 1);
@@ -154,6 +174,10 @@ public class PartitionReplicaListener implements ReplicaListener {
             processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
 
             return CompletableFuture.completedFuture(null);
+        } else if (request instanceof TxFinishReplicaRequest) {
+            return processTxFinishAction((TxFinishReplicaRequest) request);
+        } else if (request instanceof TxCleanupReplicaRequest) {
+            return processTxCleanupAction((TxCleanupReplicaRequest) request);
         } else {
             throw new UnsupportedReplicaRequestException(request.getClass());
         }
@@ -219,7 +243,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Precesses scan retrieve batch request.
+     * Processes scan retrieve batch request.
      *
      * @param request Scan retrieve batch request operation.
      * @return Listener response.
@@ -240,6 +264,79 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
 
             return CompletableFuture.completedFuture(batchRows);
+        });
+    }
+
+    /**
+     * Process transaction finish request:
+     * <ol>
+     *     <li>Evaluate commit timestamp.</li>
+     *     <li>Run specific raft {@code FinishTxCommand} command, that will apply txn state to corresponding txStateStorage.</li>
+     *     <li>Send cleanup requests to all enlisted primary replicas.</li>
+     * </ol>
+     * This operation is NOT idempotent, because of commit timestamp evaluation.
+     *
+     * @param request Transaction finish request.
+     * @return future result of the operation.
+     */
+    private CompletableFuture<Object> processTxFinishAction(TxFinishReplicaRequest request) {
+        HybridTimestamp commitTimestamp = hybridClock.now();
+
+        List<String> aggregatedGroupIds = request.groups().values().stream().flatMap(List::stream).collect(Collectors.toList());
+
+        UUID txId = request.txId();
+
+        boolean commit = request.commit();
+
+        CompletableFuture<Object> chaneStateFuture = raftClient.run(
+                new FinishTxCommand(
+                        txId,
+                        commit,
+                        commitTimestamp,
+                        aggregatedGroupIds
+                )
+        );
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17578
+        chaneStateFuture.thenRun(
+                () -> request.groups().forEach(
+                        (recipientNode, replicationGroupIds) -> txManager.cleanup(
+                                recipientNode,
+                                replicationGroupIds,
+                                txId,
+                                commit,
+                                commitTimestamp
+                        )
+                )
+        );
+
+        return chaneStateFuture;
+    }
+
+
+    /**
+     * Process transaction cleanup request:
+     * <ol>
+     *     <li>Run specific raft {@code TxCleanupCommand} command, that will convert all pending entries(writeIntents)
+     *     to either regular values(TxState.COMMITED) or removing them (TxState.ABORTED).</li>
+     *     <li>Release all locks that were held on local Replica by given transaction.</li>
+     * </ol>
+     * This operation is idempotent, so it's safe to retry it.
+     *
+     * @param request Transaction cleanup request.
+     * @return CompletableFuture of void.
+     */
+    private CompletableFuture processTxCleanupAction(TxCleanupReplicaRequest request) {
+        return raftClient.run(new TxCleanupCommand(request.txId(), request.commit(), request.commitTimestamp())).thenApply(ignored -> {
+            lockManager.locks(request.txId()).forEachRemaining(lock -> {
+                try {
+                    lockManager.release(lock);
+                } catch (LockException e) {
+                    throw new AssertionError(e); // This shouldn't happen during tx finish.
+                }
+            });
+
+            return null;
         });
     }
 

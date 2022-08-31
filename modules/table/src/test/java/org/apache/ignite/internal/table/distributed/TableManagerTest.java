@@ -760,6 +760,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      *                         create otherwise, the waiting will not be.
      * @return Table manager.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
     private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut, boolean waitingSqlSchema) {
         TableManager tableManager = new TableManager(
                 revisionUpdater,
@@ -773,7 +774,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
                 msm,
-                sm = new SchemaManager(revisionUpdater, tblsCfg)
+                sm = new SchemaManager(revisionUpdater, tblsCfg),
+                null
         );
 
         sm.start();

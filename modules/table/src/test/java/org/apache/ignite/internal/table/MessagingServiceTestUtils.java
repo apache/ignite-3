@@ -30,11 +30,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
+import org.apache.ignite.hlc.HybridClock;
+import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.message.TxFinishRequest;
+import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishResponse;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
@@ -63,15 +64,18 @@ public class MessagingServiceTestUtils {
 
         doAnswer(
                 invocationClose -> {
-                    assert invocationClose.getArgument(1) instanceof TxFinishRequest;
+                    assert invocationClose.getArgument(1) instanceof TxFinishReplicaRequest;
 
-                    TxFinishRequest txFinishRequest = invocationClose.getArgument(1);
+                    TxFinishReplicaRequest txFinishRequest = invocationClose.getArgument(1);
 
                     UUID txId = txFinishRequest.txId();
 
                     txManager.changeState(txId, TxState.PENDING, txFinishRequest.commit() ? TxState.COMMITED : TxState.ABORTED);
 
-                    FinishTxCommand finishTxCommand = new FinishTxCommand(txId, txFinishRequest.commit());
+                    HybridClock clock = new HybridClock();
+
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
+                    TxCleanupCommand finishTxCommand = new TxCleanupCommand(txId, txFinishRequest.commit(), clock.now());
 
                     partitionListeners.forEach(partitionListener ->
                             partitionListener.onWrite(iterator(finishTxCommand, raftIndexFactory.apply(partitionListener)))
@@ -86,7 +90,7 @@ public class MessagingServiceTestUtils {
                     return CompletableFuture.completedFuture(mock(TxFinishResponse.class));
                 }
         ).when(messagingService)
-                .invoke(any(NetworkAddress.class), any(TxFinishRequest.class), anyLong());
+                .invoke(any(NetworkAddress.class), any(TxFinishReplicaRequest.class), anyLong());
 
         return messagingService;
     }

@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.UUID;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -53,6 +54,9 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Mock
     private ClusterService clusterService;
 
+    @Mock
+    private ReplicaService replicaService;
+
     /** Init test callback. */
     @BeforeEach
     public void before() {
@@ -60,7 +64,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(ADDR);
 
-        txManager = new TxManagerImpl(clusterService, new HeapLockManager());
+        replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+
+        txManager = new TxManagerImpl(clusterService, replicaService, new HeapLockManager());
     }
 
     @Test

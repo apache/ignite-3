@@ -22,6 +22,7 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -54,9 +55,11 @@ public class TxLocalTest extends TxAbstractTest {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
+        ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+
         lockManager = new HeapLockManager();
 
-        txManager = new TxManagerImpl(clusterService, lockManager);
+        txManager = new TxManagerImpl(clusterService, replicaService, lockManager);
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 

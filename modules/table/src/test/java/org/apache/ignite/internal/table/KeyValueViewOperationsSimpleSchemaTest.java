@@ -34,6 +34,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -713,9 +714,11 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         Mockito.when(clusterService.topologyService().localMember().address())
                 .thenReturn(DummyInternalTableImpl.ADDR);
 
+        ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+
         LockManager lockManager = new HeapLockManager();
 
-        TxManager txManager = new TxManagerImpl(clusterService, lockManager);
+        TxManager txManager = new TxManagerImpl(clusterService, replicaService, lockManager);
 
         AtomicLong raftIndex = new AtomicLong();
 

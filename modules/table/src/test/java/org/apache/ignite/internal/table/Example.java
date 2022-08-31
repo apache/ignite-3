@@ -51,7 +51,7 @@ public class Example {
      * Returns table implementation.
      */
     private static List<Table> tableFactory() {
-        TxManagerImpl txManager = new TxManagerImpl(null, new HeapLockManager());
+        TxManagerImpl txManager = new TxManagerImpl(null, null,  new HeapLockManager());
 
         return Collections.singletonList(new TableImpl(new DummyInternalTableImpl(txManager, new AtomicLong()), null));
     }

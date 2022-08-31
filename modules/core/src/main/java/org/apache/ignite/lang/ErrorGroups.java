@@ -180,6 +180,9 @@ public class ErrorGroups {
 
         /** Error of tx state storage. */
         public static int TX_STATE_STORAGE_ERR = TX_ERR_GROUP.registerErrorCode(3);
+
+        /** Error of unexpected tx state on state change. */
+        public static int TX_UNEXPECTED_STATE = TX_ERR_GROUP.registerErrorCode(4);
     }
 
     /** Replicator error group. */

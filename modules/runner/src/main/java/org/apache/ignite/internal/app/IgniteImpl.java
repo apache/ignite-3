@@ -78,11 +78,11 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
@@ -205,9 +205,7 @@ public class IgniteImpl implements Ignite {
     /** Schema manager. */
     private final SchemaManager schemaManager;
 
-    /**
-     * A hybrid logical clock.
-     */
+    /** A hybrid logical clock. */
     private final HybridClock clock;
 
     /**
@@ -269,9 +267,11 @@ public class IgniteImpl implements Ignite {
 
         LockManager lockMgr = new HeapLockManager();
 
-        txManager = new TableTxManagerImpl(clusterSvc, lockMgr);
-
         replicaMgr = new ReplicaManager(clusterSvc);
+
+        ReplicaService replicaSvc = new ReplicaService(replicaMgr, clusterSvc.messagingService(), clusterSvc.topologyService());
+
+        txManager = new TxManagerImpl(clusterSvc, replicaSvc, lockMgr);
 
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
@@ -335,8 +335,6 @@ public class IgniteImpl implements Ignite {
             clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
         );
 
-        ReplicaService replicaSvc = new ReplicaService(replicaMgr, clusterSvc.messagingService(), clusterSvc.topologyService());
-
         distributedTblMgr = new TableManager(
                 registry,
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
@@ -349,7 +347,8 @@ public class IgniteImpl implements Ignite {
                 txManager,
                 dataStorageMgr,
                 metaStorageMgr,
-                schemaManager
+                schemaManager,
+                clock
         );
 
         indexManager = new IndexManager(

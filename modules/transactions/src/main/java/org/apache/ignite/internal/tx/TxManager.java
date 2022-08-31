@@ -18,10 +18,13 @@
 package org.apache.ignite.internal.tx;
 
 import java.nio.ByteBuffer;
-import java.util.Set;
+import java.util.List;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -53,6 +56,7 @@ public interface TxManager extends IgniteComponent {
      * @param after After state.
      * @return {@code True} if a state was changed.
      */
+    // TODO: sanpwc remove
     boolean changeState(UUID txId, @Nullable TxState before, TxState after);
 
     /**
@@ -60,6 +64,7 @@ public interface TxManager extends IgniteComponent {
      *
      * @param txId Transaction id.
      */
+    // TODO: sanpwc remove
     void forget(UUID txId);
 
     /**
@@ -68,6 +73,7 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return The future.
      */
+    // TODO: sanpwc remove
     CompletableFuture<Void> commitAsync(UUID txId);
 
     /**
@@ -76,6 +82,7 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return The future.
      */
+    // TODO: sanpwc remove
     CompletableFuture<Void> rollbackAsync(UUID txId);
 
     /**
@@ -125,14 +132,32 @@ public interface TxManager extends IgniteComponent {
     TxState getOrCreateTransaction(UUID txId);
 
     /**
-     * Finishes a dependant remote transactions.
+     * Finishes a dependant transactions.
      *
-     * @param addr   The address.
+     * @param recipientNode Recipient node.
      * @param commit {@code True} if a commit requested.
      * @param groups Enlisted partition groups.
-     * @param txId   Transaction id.
+     * @param txId Transaction id.
      */
-    CompletableFuture<Void> finishRemote(NetworkAddress addr, boolean commit, Set<String> groups, UUID txId);
+    CompletableFuture<Void> finish(ClusterNode recipientNode, boolean commit, TreeMap<ClusterNode, List<String>> groups, UUID txId);
+
+    /**
+     * Sends cleanup request to the specified primary replica.
+     *
+     * @param recipientNode Primary replica to process given cleanup request.
+     * @param replicationGroupIds Replication group id.
+     * @param txId Transaction id.
+     * @param commit {@code True} if a commit requested.
+     * @param commitTimestamp Commit timestamp.
+     * @return Completable future of Void.
+     */
+    CompletableFuture<Void> cleanup(
+            ClusterNode recipientNode,
+            List<String> replicationGroupIds,
+            UUID txId,
+            boolean commit,
+            HybridTimestamp commitTimestamp
+    );
 
     /**
      * Checks if a passed address belongs to a local node.

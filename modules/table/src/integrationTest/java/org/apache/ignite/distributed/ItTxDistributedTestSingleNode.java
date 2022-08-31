@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +49,6 @@ import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapMvPartitionSt
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
-import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -57,6 +57,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -191,7 +192,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             raftServers.put(node, raftSrv);
 
-            TableTxManagerImpl txMgr = new TableTxManagerImpl(cluster.get(i), new HeapLockManager());
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17523 inline replicaService if necessary, stabilize.
+            TxManagerImpl txMgr = new TxManagerImpl(cluster.get(i), null, new HeapLockManager());
 
             txMgr.start();
 
@@ -214,7 +216,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         TxManager txMgr;
 
         if (startClient()) {
-            txMgr = new TxManagerImpl(client, new HeapLockManager());
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17523 inline replicaService if necessary, stabilize.
+            txMgr = new TxManagerImpl(client, null, new HeapLockManager());
         } else {
             // Collocated mode.
             txMgr = txManagers.get(accRaftClients.get(0).clusterService().topologyService().localMember());
@@ -283,11 +286,15 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             for (ClusterNode node : partNodes) {
                 var testMpPartStorage = new TestConcurrentHashMapMvPartitionStorage(0);
 
+                int partId = p;
+
                 raftServers.get(node).prepareRaftGroup(
                         grpId,
                         partNodes,
-                        () -> new PartitionListener(tblId,
+                        () -> new PartitionListener(
                                 testMpPartStorage,
+                                // TODO: https://issues.apache.org/jira/browse/IGNITE-17581 Use TestConcurrentHashMapTxStateStrorage instead
+                                new TxStateRocksDbStorage(Paths.get("tx_state_storage" + tblId + partId)),
                                 txManagers.get(node),
                                 new ConcurrentHashMap<>()),
                         RaftGroupOptions.defaults()

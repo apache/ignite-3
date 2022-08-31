@@ -22,7 +22,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
 /**
  * Replica listener.
- * TODO:IGNITE-17258 Implement ReplicaListener.
  */
 public interface ReplicaListener {
 

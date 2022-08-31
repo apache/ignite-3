@@ -36,7 +36,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
@@ -54,6 +53,8 @@ import org.apache.ignite.internal.cluster.management.raft.ConcurrentMapClusterSt
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -74,13 +75,14 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDa
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -106,6 +108,8 @@ import org.mockito.Mockito;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItRebalanceDistributedTest {
+    /** Ignite logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
 
     public static final int BASE_PORT = 20_000;
 
@@ -364,6 +368,8 @@ public class ItRebalanceDistributedTest {
 
         private final Loza raftManager;
 
+        private final ReplicaManager replicaManager;
+
         private final MetaStorageManager metaStorageManager;
 
         private final DistributedConfigurationStorage cfgStorage;
@@ -382,7 +388,7 @@ public class ItRebalanceDistributedTest {
 
         private final SchemaManager schemaManager;
 
-        private final ReplicaManager replicaMgr;
+        private List<IgniteComponent> nodeComponents;
 
         /**
          * Constructor that simply creates a subset of components of this node.
@@ -415,7 +421,15 @@ public class ItRebalanceDistributedTest {
 
             raftManager = new Loza(clusterService, dir, new HybridClock());
 
-            txManager = new TableTxManagerImpl(clusterService, lockManager);
+            replicaManager = new ReplicaManager(clusterService);
+
+            ReplicaService replicaSvc = new ReplicaService(
+                    replicaManager,
+                    clusterService.messagingService(),
+                    clusterService.topologyService()
+            );
+
+            txManager = new TxManagerImpl(clusterService, replicaSvc, lockManager);
 
             List<RootKey<?, ?>> rootKeys = List.of(
                     TablesConfiguration.KEY);
@@ -480,10 +494,6 @@ public class ItRebalanceDistributedTest {
 
             schemaManager = new SchemaManager(registry, tablesCfg);
 
-            replicaMgr = new ReplicaManager(clusterService);
-
-            ReplicaService replicaSvc = new ReplicaService(replicaMgr, clusterService.messagingService(), clusterService.topologyService());
-
             tableManager = new TableManager(
                     registry,
                     tablesCfg,
@@ -496,19 +506,18 @@ public class ItRebalanceDistributedTest {
                     txManager,
                     dataStorageMgr,
                     metaStorageManager,
-                    schemaManager);
+                    schemaManager,
+                    new HybridClock());
         }
 
         /**
          * Starts the created components.
          */
         void start() throws Exception {
-            vaultManager.start();
+            nodeComponents = List.of(vaultManager, nodeCfgMgr, clusterService, raftManager, cmgManager, metaStorageManager,
+                    clusterCfgMgr, replicaManager, txManager, baselineMgr, dataStorageMgr, schemaManager, tableManager);
 
-            nodeCfgMgr.start();
-
-            Stream.of(clusterService, clusterCfgMgr, dataStorageMgr, raftManager, replicaMgr, txManager, cmgManager,
-                    metaStorageManager, baselineMgr, schemaManager, tableManager).forEach(IgniteComponent::start);
+            nodeComponents.forEach(IgniteComponent::start);
 
             CompletableFuture.allOf(
                     nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
@@ -523,17 +532,22 @@ public class ItRebalanceDistributedTest {
          * Stops the created components.
          */
         void stop() throws Exception {
-            var components =
-                    List.of(tableManager, schemaManager, baselineMgr, metaStorageManager, cmgManager, dataStorageMgr, replicaMgr,
-                            raftManager, txManager, clusterCfgMgr, clusterService, nodeCfgMgr, vaultManager);
+            new ReverseIterator<>(nodeComponents).forEachRemaining(component -> {
+                try {
+                    component.beforeNodeStop();
+                } catch (Exception e) {
+                    LOG.error("Unable to execute before node stop [component={}]", e, component);
+                }
+            });
 
-            for (IgniteComponent igniteComponent : components) {
-                igniteComponent.beforeNodeStop();
-            }
+            new ReverseIterator<>(nodeComponents).forEachRemaining(component -> {
+                try {
+                    component.stop();
+                } catch (Exception e) {
+                    LOG.error("Unable to stop component [component={}]", e, component);
+                }
+            });
 
-            for (IgniteComponent component : components) {
-                component.stop();
-            }
         }
 
         NetworkAddress address() {

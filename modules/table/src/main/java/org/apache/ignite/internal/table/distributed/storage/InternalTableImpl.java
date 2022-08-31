@@ -398,6 +398,8 @@ public class InternalTableImpl implements InternalTable {
                         throw (RuntimeException) e;
                     }); // Preserve failed state.
                 } else {
+                    tx0.enlistResultFuture(fut);
+
                     return implicit ? tx0.commitAsync().thenApply(ignored -> r) : completedFuture(r);
                 }
             }
