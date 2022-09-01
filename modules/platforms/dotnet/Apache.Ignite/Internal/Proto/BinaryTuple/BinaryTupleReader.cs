@@ -67,6 +67,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private bool HasNullMap => _entryBase > BinaryTupleCommon.HeaderSize;
 
+        /// <summary>
+        /// Gets a value indicating whether the element at specified index is null.
+        /// </summary>
+        /// <param name="index">Element index.</param>
+        /// <returns>True when the element is null; false otherwise.</returns>
+        public bool HasNullValue(int index) => Seek(index).IsEmpty;
+
         private int GetOffset(int position)
         {
             var span = _buffer.Span[position..];
