@@ -25,7 +25,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -147,21 +146,18 @@ public class TransactionImpl implements InternalTransaction {
      * @return The future.
      */
     private CompletableFuture<Void> finish(boolean commit) {
-        TreeMap<ClusterNode, List<String>> groups = new TreeMap<>();
+        TreeMap<ClusterNode, List<IgniteBiTuple<String, Long>>> groups = new TreeMap<>();
 
         // TODO: sanpwc better conversion required.
         enlisted.forEach((groupId, groupMeta) -> {
             ClusterNode recipientNode = groupMeta.get1();
 
             if (groups.containsKey(recipientNode)) {
-                groups.get(recipientNode).add(groupId);
+                groups.get(recipientNode).add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
             } else {
-                groups.put(recipientNode, new ArrayList<>()).add(groupId);
+                groups.put(recipientNode, new ArrayList<>()).add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
             }
         });
-
-        Map<ClusterNode, Long> enlistedTerms =
-                enlisted.values().stream().collect(Collectors.toMap(IgniteBiTuple::get1, IgniteBiTuple::get2));
 
         return CompletableFuture.allOf(enlistedResults.toArray(new CompletableFuture[0])).handle(
                 (ignored, ex) -> {
@@ -173,7 +169,6 @@ public class TransactionImpl implements InternalTransaction {
                                     enlisted.entrySet().iterator().next().getValue(),
                                     commit,
                                     groups,
-                                    enlistedTerms,
                                     id
                             );
                         }

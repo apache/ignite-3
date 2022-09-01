@@ -19,7 +19,6 @@ package org.apache.ignite.internal.tx;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -141,7 +140,11 @@ public interface TxManager extends IgniteComponent {
      * @param groups Enlisted partition groups.
      * @param txId Transaction id.
      */
-    CompletableFuture<Void> finish(IgniteBiTuple<ClusterNode, Long> recipientNode, boolean commit, TreeMap<ClusterNode, List<String>> groups, Map<ClusterNode, Long> enlistedTerms, UUID txId);
+    CompletableFuture<Void> finish(
+            IgniteBiTuple<ClusterNode, Long> recipientNode,
+            boolean commit,
+            TreeMap<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
+            UUID txId);
 
     /**
      * Sends cleanup request to the specified primary replica.

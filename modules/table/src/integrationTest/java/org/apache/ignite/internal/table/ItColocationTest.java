@@ -71,6 +71,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Command;
@@ -115,7 +116,10 @@ public class ItColocationTest {
 
         TxManager txManager = new TxManagerImpl(clusterService, replicaService,  new HeapLockManager()) {
             @Override
-            public CompletableFuture<Void> finish(ClusterNode recipientNode, boolean commit, TreeMap<ClusterNode, List<String>> groups,
+            public CompletableFuture<Void> finish(
+                    IgniteBiTuple<ClusterNode, Long> recipientNode,
+                    boolean commit,
+                    TreeMap<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
                     UUID txId) {
                 return CompletableFuture.completedFuture(null);
             }

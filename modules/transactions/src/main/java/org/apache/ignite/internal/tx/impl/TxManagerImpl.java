@@ -23,7 +23,6 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -193,18 +192,16 @@ public class TxManagerImpl implements TxManager {
     public CompletableFuture<Void> finish(
             IgniteBiTuple<ClusterNode, Long> recipientNode,
             boolean commit,
-            TreeMap<ClusterNode, List<String>> groups,
-            Map<ClusterNode, Long> enlistedTerms,
+            TreeMap<ClusterNode, List<IgniteBiTuple<String, Long>>> groups,
             UUID txId
     ) {
         assert groups != null && !groups.isEmpty();
 
         TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
-                .groupId(groups.firstEntry().getValue().get(0))
+                .groupId(groups.firstEntry().getValue().get(0).get1())
                 .groups(groups)
                 .commit(commit)
                 .term(recipientNode.get2())
-                .enlisted(enlistedTerms)
                 .build();
 
         CompletableFuture<NetworkMessage> fut;
