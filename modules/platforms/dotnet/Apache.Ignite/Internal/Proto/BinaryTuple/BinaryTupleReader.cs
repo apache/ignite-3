@@ -73,7 +73,18 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="index">Element index.</param>
         /// <returns>True when the element is null; false otherwise.</returns>
-        public bool IsNull(int index) => Seek(index).IsEmpty;
+        public bool IsNull(int index)
+        {
+            if (!HasNullMap)
+            {
+                return false;
+            }
+
+            int nullIndex = BinaryTupleCommon.NullOffset(index);
+            byte nullMask = BinaryTupleCommon.NullMask(index);
+
+            return (_buffer.Span[nullIndex] & nullMask) != 0;
+        }
 
         /// <summary>
         /// Gets a byte value.
@@ -159,14 +170,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 throw new InvalidOperationException("Corrupted offset table");
             }
 
-            if (offset == nextOffset && HasNullMap)
+            if (offset == nextOffset && IsNull(index))
             {
-                int nullIndex = BinaryTupleCommon.NullOffset(index);
-                byte nullMask = BinaryTupleCommon.NullMask(index);
-                if ((_buffer.Span[nullIndex] & nullMask) != 0)
-                {
-                    return Span<byte>.Empty;
-                }
+                throw new InvalidOperationException($"Binary tuple element with index {index} is null.");
             }
 
             return _buffer.Span.Slice(offset, nextOffset - offset);
