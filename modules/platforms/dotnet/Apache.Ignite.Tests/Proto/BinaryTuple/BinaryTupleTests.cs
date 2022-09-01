@@ -34,9 +34,8 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(value != 0 ? 1 : 0, res[1]);
             Assert.AreEqual(value != 0 ? 3 : 2, res.Length);
 
-            // TODO
-            // BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
-            // assertEquals(value, reader.byteValue(0));
+            var reader = new BinaryTupleReader(res, 1);
+            Assert.AreEqual(value, reader.GetByte(0));
         }
     }
 }
