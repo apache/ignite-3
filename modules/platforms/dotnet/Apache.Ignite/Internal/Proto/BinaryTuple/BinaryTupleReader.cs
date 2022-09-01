@@ -117,7 +117,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             switch (_entrySize)
             {
                 case 1:
-                    return span[position];
+                    return span[0];
 
                 case 2:
                     return BinaryPrimitives.ReadUInt16LittleEndian(span);
