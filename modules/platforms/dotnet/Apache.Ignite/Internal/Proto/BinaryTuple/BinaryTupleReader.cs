@@ -65,6 +65,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             _valueBase = @base + _entrySize * numElements;
         }
 
+        private bool HasNullMap => _entryBase > BinaryTupleCommon.HeaderSize;
+
         private int GetOffset(int position)
         {
             var span = _buffer.Span[position..];
@@ -94,7 +96,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
         }
 
-        private void Seek(int index)
+        private Span<byte> Seek(int index)
         {
             Debug.Assert(index >= 0, "index >= 0");
             Debug.Assert(index < _numElements, "index < numElements");
@@ -107,22 +109,24 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 offset += GetOffset(entry - _entrySize);
             }
 
-            int nextOffset = valueBase + getOffset(entry);
-            if (nextOffset < offset) {
-                throw new BinaryTupleFormatException("Corrupted offset table");
+            int nextOffset = _valueBase + GetOffset(entry);
+
+            if (nextOffset < offset)
+            {
+                throw new InvalidOperationException("Corrupted offset table");
             }
 
-            if (offset == nextOffset && hasNullMap()) {
-                int nullIndex = BinaryTupleCommon.nullOffset(index);
-                byte nullMask = BinaryTupleCommon.nullMask(index);
-                if ((buffer.get(nullIndex) & nullMask) != 0) {
-                    sink.nextElement(index, 0, 0);
-                    return;
+            if (offset == nextOffset && HasNullMap)
+            {
+                int nullIndex = BinaryTupleCommon.NullOffset(index);
+                byte nullMask = BinaryTupleCommon.NullMask(index);
+                if ((_buffer.Span[nullIndex] & nullMask) != 0)
+                {
+                    return Span<byte>.Empty;
                 }
             }
 
-            sink.nextElement(index, offset, nextOffset);
-
+            return _buffer.Span.Slice(offset, nextOffset - offset);
         }
     }
 }
