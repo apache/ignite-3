@@ -373,11 +373,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case 2:
-                    _buffer.WriteShort((short)offset, _entryBase + _elementIndex);
+                    _buffer.WriteShort((short)offset, _entryBase + _elementIndex * 2);
                     break;
 
                 case 4:
-                    _buffer.WriteInt(offset, _entryBase + _elementIndex);
+                    _buffer.WriteInt(offset, _entryBase + _elementIndex * 4);
                     break;
 
                 default:
