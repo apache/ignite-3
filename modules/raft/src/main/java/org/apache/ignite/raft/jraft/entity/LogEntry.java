@@ -25,6 +25,8 @@ import org.apache.ignite.raft.jraft.util.CrcUtil;
  * A replica log entry.
  */
 public class LogEntry implements Checksum {
+    public static final ByteBuffer EMPTY_DATA = ByteBuffer.wrap(new byte[0]);
+
     /** entry type */
     private EnumOutter.EntryType type;
     /** log id with index/term */
@@ -38,7 +40,7 @@ public class LogEntry implements Checksum {
     /** log entry old learners */
     private List<PeerId> oldLearners;
     /** entry data */
-    private ByteBuffer data;
+    private ByteBuffer data = EMPTY_DATA;
     /** checksum for log entry */
     private long checksum;
     /** true when the log has checksum **/
