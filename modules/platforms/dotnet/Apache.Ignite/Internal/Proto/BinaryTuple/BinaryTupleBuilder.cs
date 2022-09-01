@@ -17,8 +17,6 @@
 
 // TODO: Restore inspections
 // ReSharper disable all
-#pragma warning disable
-
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
@@ -28,11 +26,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Text;
     using Buffers;
 
-    // TODO: Support all types (IGNITE-15431).
     /// <summary>
     /// Binary tuple builder.
     /// </summary>
-    internal sealed class BinaryTupleBuilder
+    internal sealed class BinaryTupleBuilder : IDisposable // TODO: Support all types (IGNITE-15431).
     {
         /** Number of elements in the tuple. */
         private readonly int _numElements;
@@ -58,24 +55,25 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /** Current position in buffer. */
         private int _position;
 
-        /**
-     * Constructor.
-     *
-     * @param numElements Number of tuple elements.
-     * @param allowNulls True if NULL values are possible, false otherwise.
-     * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
-     */
-        private BinaryTupleBuilder(int numElements, bool allowNulls, int totalValueSize)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BinaryTupleBuilder"/> class.
+        /// </summary>
+        /// <param name="numElements">Capacity.</param>
+        /// <param name="allowNulls">Whether nulls are allowed.</param>
+        /// <param name="totalValueSize">Total value size, -1 when unknown.</param>
+        public BinaryTupleBuilder(int numElements, bool allowNulls = true, int totalValueSize = -1)
         {
+            Debug.Assert(numElements > 0, "numElements > 0");
+
             this._numElements = numElements;
 
-            int @base = BinaryTupleCommon.HeaderSize;
+            int baseOffset = BinaryTupleCommon.HeaderSize;
             if (allowNulls)
             {
-                @base += BinaryTupleCommon.NullMapSize(numElements);
+                baseOffset += BinaryTupleCommon.NullMapSize(numElements);
             }
 
-            _entryBase = @base;
+            _entryBase = baseOffset;
 
             if (totalValueSize < 0)
             {
@@ -86,52 +84,27 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 _entrySize = BinaryTupleCommon.FlagsToEntrySize(BinaryTupleCommon.ValueSizeToFlags(totalValueSize));
             }
 
-            _valueBase = @base + _entrySize * numElements;
+            _valueBase = baseOffset + _entrySize * numElements;
 
             _position = _valueBase;
         }
 
-        /**
-     * Creates a builder.
-     *
-     * @param numElements Number of tuple elements.
-     * @param allowNulls True if NULL values are possible, false otherwise.
-     * @return Tuple builder.
-     */
-        public static BinaryTupleBuilder create(int numElements, bool allowNulls)
-        {
-            return Create(numElements, allowNulls, -1);
-        }
+        /// <summary>
+        /// Gets a value indicating whether null map is present.
+        /// </summary>
+        public bool HasNullMap => _entryBase > BinaryTupleCommon.HeaderSize;
 
-        /**
-     * Creates a builder.
-     *
-     * @param numElements Number of tuple elements.
-     * @param allowNulls True if NULL values are possible, false otherwise.
-     * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
-     * @return Tuple builder.
-     */
-        public static BinaryTupleBuilder Create(int numElements, bool allowNulls, int totalValueSize)
-        {
-            return new BinaryTupleBuilder(numElements, allowNulls, totalValueSize);
-        }
+        /// <summary>
+        /// Gets the current element index.
+        /// </summary>
+        public int ElementIndex => _elementIndex;
 
-        /**
-     * Check if the binary tuple contains a null map.
-     */
-        public bool hasNullMap()
+        /// <summary>
+        /// Appends a null value.
+        /// </summary>
+        public void AppendNull()
         {
-            return _entryBase > BinaryTupleCommon.HeaderSize;
-        }
-
-        /**
-     * Append a NULL value for the current element.
-     *
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendNull()
-        {
-            if (!hasNullMap())
+            if (!HasNullMap)
             {
                 throw new InvalidOperationException("Appending a NULL value in binary tuple builder with disabled NULLs");
             }
@@ -142,175 +115,154 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             byte nullMask = BinaryTupleCommon.NullMask(_elementIndex);
 
             var span = _buffer.GetSpan(nullIndex, 1);
-            
+
             span[0] |= nullMask;
 
-            return proceed();
+            OnWrite();
         }
 
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendByte(sbyte value)
+        /// <summary>
+        /// Appends a byte.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendByte(sbyte value)
         {
             if (value != 0)
             {
-                putByte(value);
+                PutByte(value);
             }
 
-            return proceed();
+            OnWrite();
         }
 
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendShort(short value)
+        /// <summary>
+        /// Appends a short.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendShort(short value)
         {
-            if (sbyte.MinValue <= value && value <= sbyte.MaxValue)
+            if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
             {
-                return appendByte((sbyte)value);
-            }
-
-            putShort(value);
-            return proceed();
-        }
-
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendInt(int value)
-        {
-            if (sbyte.MinValue <= value && value <= sbyte.MaxValue)
-            {
-                return appendByte((sbyte)value);
-            }
-
-            if (short.MinValue <= value && value <= short.MaxValue)
-            {
-                putShort((short)value);
+                AppendByte((sbyte)value);
             }
             else
             {
-                putInt(value);
+                PutShort(value);
+                OnWrite();
             }
-
-            return proceed();
         }
 
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendLong(long value)
+        /// <summary>
+        /// Appends an int.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendInt(int value)
         {
-            if (short.MinValue <= value && value <= short.MaxValue)
+            if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
             {
-                return appendShort((short)value);
+                AppendByte((sbyte)value);
+                return;
             }
 
-            if (int.MinValue <= value && value <= int.MaxValue)
+            if (value >= short.MinValue && value <= short.MaxValue)
             {
-                putInt((int)value);
+                PutShort((short)value);
             }
             else
             {
-                putLong(value);
+                PutInt(value);
             }
 
-            return proceed();
+            OnWrite();
         }
 
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendFloat(float value)
+        /// <summary>
+        /// Appends a long.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendLong(long value)
+        {
+            if (value >= short.MinValue && value <= short.MaxValue)
+            {
+                AppendShort((short)value);
+                return;
+            }
+
+            if (value >= int.MinValue && value <= int.MaxValue)
+            {
+                PutInt((int)value);
+            }
+            else
+            {
+                PutLong(value);
+            }
+
+            OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a gloat.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendFloat(float value)
         {
             if (value != 0.0F)
             {
-                putFloat(value);
+                PutFloat(value);
             }
 
-            return proceed();
+            OnWrite();
         }
 
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendDouble(double value)
+        /// <summary>
+        /// Appends a double.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendDouble(double value)
         {
             if (value == ((float)value))
             {
-                return appendFloat((float)value);
+                AppendFloat((float)value);
+                return;
             }
 
-            putDouble(value);
-            return proceed();
+            PutDouble(value);
+            OnWrite();
         }
 
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendString(string value)
+        /// <summary>
+        /// Appends a string.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendString(string value)
         {
-            putString(value);
+            PutString(value);
 
-            return proceed();
+            OnWrite();
         }
 
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendBytes(Span<byte> value)
+        /// <summary>
+        /// Appends bytes.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendBytes(Span<byte> value)
         {
-            putBytes(value);
-            return proceed();
+            PutBytes(value);
+            OnWrite();
         }
 
-        /**
-     * Append a value for the current element.
-     *
-     * @param value Element value.
-     * @return {@code this} for chaining.
-     */
-        public BinaryTupleBuilder appendGuid(Guid value) => throw new NotSupportedException("TODO IGNITE-17593");
+        /// <summary>
+        /// Appends a guid.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendGuid(Guid value) => throw new NotSupportedException("TODO IGNITE-17593");
 
-        /**
-     * Gets the current element index.
-     *
-     * @return Element index.
-     */
-        public int ElementIndex => _elementIndex;
-
-        /**
-     * Finalize tuple building.
-     *
-     * <p>NOTE: This should be called only once as it messes up with accumulated internal data.
-     *
-     * @return Buffer with tuple bytes.
-     */
+        /// <summary>
+        /// Builds the tuple.
+        /// <para />
+        /// NOTE: This should be called only once as it messes up with accumulated internal data.
+        /// </summary>
+        /// <returns>Resulting memory.</returns>
         public Memory<byte> Build()
         {
             int offset = 0;
@@ -327,8 +279,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     throw new InvalidOperationException("Offset entry overflow in binary tuple builder");
                 }
 
-                Debug.Assert(_entrySize == 4 || _entrySize == 2);
-                Debug.Assert(desiredEntrySize == 2 || desiredEntrySize == 1);
+                Debug.Assert(_entrySize == 4 || _entrySize == 2, "_entrySize == 4 || _entrySize == 2");
+                Debug.Assert(desiredEntrySize == 2 || desiredEntrySize == 1, "desiredEntrySize == 2 || desiredEntrySize == 1");
 
                 int getIndex = _valueBase;
                 int putIndex = _valueBase;
@@ -361,7 +313,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             // Drop or move null map if needed.
-            if (hasNullMap())
+            if (HasNullMap)
             {
                 if (!_hasNullValues)
                 {
@@ -386,29 +338,27 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return _buffer.GetWrittenMemory().Slice(offset);
         }
 
-        /** Put a byte value to the buffer extending it if needed. */
-        private void putByte(sbyte value) => _buffer.WriteByte(unchecked((byte)value));
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            _buffer.Dispose();
+        }
 
-        /** Put a short value to the buffer extending it if needed. */
-        private void putShort(short value) => _buffer.WriteShort(value);
+        private void PutByte(sbyte value) => _buffer.WriteByte(unchecked((byte)value));
 
-        /** Put an int value to the buffer extending it if needed. */
-        private void putInt(int value) => _buffer.WriteInt(value);
+        private void PutShort(short value) => _buffer.WriteShort(value);
 
-        /** Put a long value to the buffer extending it if needed. */
-        private void putLong(long value) => _buffer.WriteLong(value);
+        private void PutInt(int value) => _buffer.WriteInt(value);
 
-        /** Put a float value to the buffer extending it if needed. */
-        private unsafe void putFloat(float value) => putInt(*(int*)&value);
+        private void PutLong(long value) => _buffer.WriteLong(value);
 
-        /** Put a double value to the buffer extending it if needed. */
-        private unsafe void putDouble(double value) => putLong(*(long*)&value);
+        private unsafe void PutFloat(float value) => PutInt(*(int*)&value);
 
-        /** Put bytes to the buffer extending it if needed. */
-        private void putBytes(Span<byte> bytes) => bytes.CopyTo(GetSpan(bytes.Length));
+        private unsafe void PutDouble(double value) => PutLong(*(long*)&value);
 
-        /** Put a string to the buffer extending it if needed. */
-        private void putString(String value)
+        private void PutBytes(Span<byte> bytes) => bytes.CopyTo(GetSpan(bytes.Length));
+
+        private void PutString(string value)
         {
             var maxByteCount = Encoding.UTF8.GetMaxByteCount(value.Length);
             var span = _buffer.GetSpan(maxByteCount);
@@ -418,10 +368,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             _buffer.Advance(actualBytes);
         }
 
-        /** Proceed to the next tuple element. */
-        private BinaryTupleBuilder proceed()
+        /// <summary>
+        /// Proceed to the next tuple element.
+        /// </summary>
+        private void OnWrite()
         {
-            Debug.Assert(_elementIndex < _numElements);
+            Debug.Assert(_elementIndex < _numElements, "_elementIndex < _numElements");
 
             int offset = _buffer.Position - _valueBase;
 
@@ -444,7 +396,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             _elementIndex++;
-            return this;
         }
 
         private Span<byte> GetSpan(int size)
