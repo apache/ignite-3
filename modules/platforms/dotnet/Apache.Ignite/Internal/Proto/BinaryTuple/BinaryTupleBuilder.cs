@@ -16,13 +16,10 @@
  */
 
 // TODO: Restore inspections
-// ReSharper disable all
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
-    using System.Buffers.Binary;
     using System.Diagnostics;
-    using System.Diagnostics.CodeAnalysis;
     using System.Text;
     using Buffers;
 
@@ -52,9 +49,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /** Current element. */
         private int _elementIndex;
 
-        /** Current position in buffer. */
-        private int _position;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="BinaryTupleBuilder"/> class.
         /// </summary>
@@ -75,18 +69,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             _entryBase = baseOffset;
 
-            if (totalValueSize < 0)
-            {
-                _entrySize = 4;
-            }
-            else
-            {
-                _entrySize = BinaryTupleCommon.FlagsToEntrySize(BinaryTupleCommon.ValueSizeToFlags(totalValueSize));
-            }
+            _entrySize = totalValueSize < 0
+                ? 4
+                : BinaryTupleCommon.FlagsToEntrySize(BinaryTupleCommon.ValueSizeToFlags(totalValueSize));
 
             _valueBase = baseOffset + _entrySize * numElements;
-
-            _position = _valueBase;
         }
 
         /// <summary>
@@ -220,7 +207,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         public void AppendDouble(double value)
         {
-            if (value == ((float)value))
+            // ReSharper disable once CompareOfFloatsByEqualityOperator
+            if (value == (float)value)
             {
                 AppendFloat((float)value);
                 return;
@@ -392,7 +380,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 default:
-                    throw new ArgumentOutOfRangeException("Tuple entry size is invalid.");
+                    throw new InvalidOperationException("Tuple entry size is invalid.");
             }
 
             _elementIndex++;
