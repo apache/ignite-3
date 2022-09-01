@@ -285,7 +285,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-        public BinaryTupleBuilder appendBytesNotNull(Span<byte> value)
+        public BinaryTupleBuilder appendBytes(Span<byte> value)
         {
             putBytes(value);
             return proceed();
@@ -342,22 +342,20 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     int value;
                     if (_entrySize == 4)
                     {
-                        value = BinaryPrimitives.ReadInt32LittleEndian(_buffer.GetSpan(getIndex, 4));
+                        value = _buffer.ReadInt(getIndex);
                     }
                     else
                     {
-                        value = BinaryPrimitives.ReadUInt16LittleEndian(_buffer.GetSpan(getIndex, 2));
+                        value = _buffer.ReadShort(getIndex);
                     }
 
                     if (desiredEntrySize == 1)
                     {
-                        _buffer.GetSpan(putIndex, 1)[0] = (byte)value;
+                        _buffer.WriteByte((byte)value, putIndex);
                     }
                     else
                     {
-                        // TODO: Instance methods for this stuff - used a lot.
-                        // TODO: GetSpan does not advance!
-                        BinaryPrimitives.WriteInt16LittleEndian(_buffer.GetSpan(putIndex, 2), (short)value);
+                        _buffer.WriteShort((short)value, putIndex);
                     }
                 }
 
@@ -391,16 +389,16 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /** Put a byte value to the buffer extending it if needed. */
-        private void putByte(sbyte value) => GetSpan(1)[0] = unchecked((byte)value);
+        private void putByte(sbyte value) => _buffer.WriteByte(unchecked((byte)value));
 
         /** Put a short value to the buffer extending it if needed. */
-        private void putShort(short value) => BinaryPrimitives.WriteInt16LittleEndian(GetSpan(2), value);
+        private void putShort(short value) => _buffer.WriteShort(value);
 
         /** Put an int value to the buffer extending it if needed. */
-        private void putInt(int value) => BinaryPrimitives.WriteInt32LittleEndian(GetSpan(4), value);
+        private void putInt(int value) => _buffer.WriteInt(value);
 
         /** Put a long value to the buffer extending it if needed. */
-        private void putLong(long value) => BinaryPrimitives.WriteInt64LittleEndian(GetSpan(8), value);
+        private void putLong(long value) => _buffer.WriteLong(value);
 
         /** Put a float value to the buffer extending it if needed. */
         private unsafe void putFloat(float value) => putInt(*(int*)&value);

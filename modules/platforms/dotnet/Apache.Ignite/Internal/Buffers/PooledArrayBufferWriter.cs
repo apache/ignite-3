@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Buffers
 {
     using System;
     using System.Buffers;
+    using System.Buffers.Binary;
     using System.Diagnostics;
     using MessagePack;
 
@@ -89,10 +90,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// <inheritdoc />
         public void Advance(int count)
         {
-            if (count < 0)
-            {
-                throw new ArgumentException(null, nameof(count));
-            }
+            Debug.Assert(count >= 0, "count >= 0");
 
             if (_index > _buffer.Length - count)
             {
@@ -151,15 +149,106 @@ namespace Apache.Ignite.Internal.Buffers
         }
 
         /// <summary>
+        /// Writes a byte at current position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        public void WriteByte(byte val)
+        {
+            CheckAndResizeBuffer(1);
+            _buffer[_index++] = val;
+        }
+
+        /// <summary>
+        /// Writes a byte at specified position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        /// <param name="pos">Position.</param>
+        public void WriteByte(byte val, int pos)
+        {
+            _buffer[pos + _prefixSize] = val;
+        }
+
+        /// <summary>
+        /// Writes a short at current position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        public void WriteShort(short val)
+        {
+            CheckAndResizeBuffer(2);
+            BinaryPrimitives.WriteInt16LittleEndian(_buffer.AsSpan(_index), val);
+            _index += 2;
+        }
+
+        /// <summary>
+        /// Writes a short at specified position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        /// <param name="pos">Position.</param>
+        public void WriteShort(short val, int pos)
+        {
+            BinaryPrimitives.WriteInt16LittleEndian(_buffer.AsSpan(pos + _prefixSize), val);
+        }
+
+        /// <summary>
+        /// Writes an int at current position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        public void WriteInt(int val)
+        {
+            CheckAndResizeBuffer(4);
+            BinaryPrimitives.WriteInt32LittleEndian(_buffer.AsSpan(_index), val);
+            _index += 4;
+        }
+
+        /// <summary>
+        /// Writes an int at specified position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        /// <param name="pos">Position.</param>
+        public void WriteInt(int val, int pos)
+        {
+            BinaryPrimitives.WriteInt32LittleEndian(_buffer.AsSpan(pos + _prefixSize), val);
+        }
+
+        /// <summary>
+        /// Reads a byte at specified position.
+        /// </summary>
+        /// <param name="pos">Position.</param>
+        /// <returns>Result.</returns>
+        public byte ReadByte(int pos) => _buffer[pos + _prefixSize];
+
+        /// <summary>
+        /// Reads a short at specified position.
+        /// </summary>
+        /// <param name="pos">Position.</param>
+        /// <returns>Result.</returns>
+        public short ReadShort(int pos) => BinaryPrimitives.ReadInt16LittleEndian(_buffer.AsSpan(pos + _prefixSize));
+
+        /// <summary>
+        /// Reads an int at specified position.
+        /// </summary>
+        /// <param name="pos">Position.</param>
+        /// <returns>Result.</returns>
+        public int ReadInt(int pos) => BinaryPrimitives.ReadInt32LittleEndian(_buffer.AsSpan(pos + _prefixSize));
+
+        /// <summary>
+        /// Writes a long at current position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        public void WriteLong(long val)
+        {
+            CheckAndResizeBuffer(8);
+            BinaryPrimitives.WriteInt64LittleEndian(_buffer.AsSpan(_index), val);
+            _index += 8;
+        }
+
+        /// <summary>
         /// Checks underlying buffer and resizes if necessary.
         /// </summary>
         /// <param name="sizeHint">Size hint.</param>
         private void CheckAndResizeBuffer(int sizeHint)
         {
-            if (sizeHint < 0)
-            {
-                throw new ArgumentException(null, nameof(sizeHint));
-            }
+            Debug.Assert(sizeHint >= 0, "sizeHint >= 0");
 
             if (sizeHint == 0)
             {
