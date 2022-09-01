@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
+    using System.Diagnostics;
 
     /// <summary>
     /// Binary tuple reader.
@@ -61,6 +62,59 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             _entryBase = @base;
             _entrySize = 1 << (flags & BinaryTupleCommon.VarsizeMask);
             _valueBase = @base + _entrySize * numElements;
+        }
+
+        private int GetOffset(int position)
+        {
+            switch (_entrySize)
+            {
+                case 1:
+                    return Byte.toUnsignedInt(buffer.get(position));
+                case 2:
+                    return Short.toUnsignedInt(buffer.getShort(position));
+                case 4:
+                {
+                    int offset = buffer.getInt(position);
+                    if (offset < 0) {
+                        throw new InvalidOperationException("Unsupported offset table size");
+                    }
+
+                    return offset;
+                }
+                default:
+                    throw new InvalidOperationException("Invalid offset table size");
+            }
+        }
+
+        private void Seek(int index)
+        {
+            Debug.Assert(index >= 0, "index >= 0");
+            Debug.Assert(index < _numElements, "index < numElements");
+
+            int entry = _entryBase + index * _entrySize;
+
+            int offset = _valueBase;
+            if (index > 0)
+            {
+                offset += GetOffset(entry - _entrySize);
+            }
+
+            int nextOffset = valueBase + getOffset(entry);
+            if (nextOffset < offset) {
+                throw new BinaryTupleFormatException("Corrupted offset table");
+            }
+
+            if (offset == nextOffset && hasNullMap()) {
+                int nullIndex = BinaryTupleCommon.nullOffset(index);
+                byte nullMask = BinaryTupleCommon.nullMask(index);
+                if ((buffer.get(nullIndex) & nullMask) != 0) {
+                    sink.nextElement(index, 0, 0);
+                    return;
+                }
+            }
+
+            sink.nextElement(index, offset, nextOffset);
+
         }
     }
 }
