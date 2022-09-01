@@ -24,15 +24,43 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     /// </summary>
     internal sealed class BinaryTupleReader
     {
+        /** Buffer. */
         private readonly Memory<byte> _buffer;
+
+        /** Number of elements in the tuple. */
+        private readonly int _numElements;
+
+        /** Size of an offset table entry. */
+        private readonly int _entrySize;
+
+        /** Position of the varlen offset table. */
+        private readonly int _entryBase;
+
+        /** Starting position of variable-length values. */
+        private readonly int _valueBase;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BinaryTupleReader"/> class.
         /// </summary>
         /// <param name="buffer">Buffer.</param>
-        public BinaryTupleReader(Memory<byte> buffer)
+        /// <param name="numElements">Number of elements in the tuple.</param>
+        public BinaryTupleReader(Memory<byte> buffer, int numElements)
         {
             _buffer = buffer;
+            _numElements = numElements;
+
+            var flags = buffer.Span[0];
+
+            int @base = BinaryTupleCommon.HeaderSize;
+
+            if ((flags & BinaryTupleCommon.NullmapFlag) != 0)
+            {
+                @base += BinaryTupleCommon.NullMapSize(numElements);
+            }
+
+            _entryBase = @base;
+            _entrySize = 1 << (flags & BinaryTupleCommon.VarsizeMask);
+            _valueBase = @base + _entrySize * numElements;
         }
     }
 }
