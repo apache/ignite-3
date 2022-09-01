@@ -125,7 +125,7 @@ namespace Apache.Ignite.Internal.Compute
             // Try direct connection to the specified node.
             if (_socket.GetEndpoint(node.Name) is { } endpoint)
             {
-                using var writerWithoutNode = new PooledArrayBufferWriter();
+                using var writerWithoutNode = ProtoCommon.GetMessageWriter();
                 Write(writerWithoutNode, writeNode: false);
 
                 using var res1 = await _socket.TryDoOutInOpAsync(endpoint, ClientOp.ComputeExecute, writerWithoutNode)
@@ -139,7 +139,7 @@ namespace Apache.Ignite.Internal.Compute
             }
 
             // When direct connection is not available, use default connection and pass target node info to the server.
-            using var writerWithNode = new PooledArrayBufferWriter();
+            using var writerWithNode = ProtoCommon.GetMessageWriter();
             Write(writerWithNode, writeNode: true);
 
             using var res2 = await _socket.DoOutInOpAsync(ClientOp.ComputeExecute, writerWithNode).ConfigureAwait(false);
@@ -230,7 +230,7 @@ namespace Apache.Ignite.Internal.Compute
 
             PooledArrayBufferWriter Write(Table table, Schema schema)
             {
-                var bufferWriter = new PooledArrayBufferWriter();
+                var bufferWriter = ProtoCommon.GetMessageWriter();
                 var w = bufferWriter.GetMessageWriter();
 
                 w.Write(table.Id);

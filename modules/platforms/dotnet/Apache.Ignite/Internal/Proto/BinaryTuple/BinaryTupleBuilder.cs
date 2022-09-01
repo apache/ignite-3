@@ -387,8 +387,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             _buffer.GetSpan(offset, 1)[0] = flags;
 
-            // TODO: Generify PooledArrayBufferWriter to somehow avoid ReservedPrefixSize everywhere.
-            return _buffer.GetWrittenMemory(skipPrefix: true).Slice(offset);
+            return _buffer.GetWrittenMemory().Slice(offset);
         }
 
         /** Put a byte value to the buffer extending it if needed. */

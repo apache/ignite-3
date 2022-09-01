@@ -80,7 +80,7 @@ namespace Apache.Ignite.Internal
         private readonly IIgniteLogger? _logger;
 
         /** Pre-allocated buffer for message size + op code + request id. To be used under <see cref="_sendLock"/>. */
-        private readonly byte[] _prefixBuffer = new byte[PooledArrayBufferWriter.ReservedPrefixSize];
+        private readonly byte[] _prefixBuffer = new byte[ProtoCommon.MessagePrefixSize];
 
         /** Request id generator. */
         private long _requestId;
@@ -378,13 +378,13 @@ namespace Apache.Ignite.Internal
 
         private static async ValueTask WriteHandshakeAsync(NetworkStream stream, ClientProtocolVersion version)
         {
-            using var bufferWriter = new PooledArrayBufferWriter();
+            using var bufferWriter = new PooledArrayBufferWriter(prefixSize: ProtoCommon.MessagePrefixSize);
             WriteHandshake(version, bufferWriter.GetMessageWriter());
 
             // Prepend size.
             var buf = bufferWriter.GetWrittenMemory();
-            var size = buf.Length - PooledArrayBufferWriter.ReservedPrefixSize;
-            var resBuf = buf.Slice(PooledArrayBufferWriter.ReservedPrefixSize - 4);
+            var size = buf.Length - ProtoCommon.MessagePrefixSize;
+            var resBuf = buf.Slice(ProtoCommon.MessagePrefixSize - 4);
             WriteMessageSize(resBuf, size);
 
             await stream.WriteAsync(resBuf).ConfigureAwait(false);
@@ -475,10 +475,10 @@ namespace Apache.Ignite.Internal
                 {
                     var requestBuf = request.GetWrittenMemory();
 
-                    WriteMessageSize(_prefixBuffer, prefixSize + requestBuf.Length - PooledArrayBufferWriter.ReservedPrefixSize);
+                    WriteMessageSize(_prefixBuffer, prefixSize + requestBuf.Length - ProtoCommon.MessagePrefixSize);
                     var prefixBytes = _prefixBuffer.AsMemory()[..(prefixSize + 4)];
 
-                    var requestBufStart = PooledArrayBufferWriter.ReservedPrefixSize - prefixBytes.Length;
+                    var requestBufStart = ProtoCommon.MessagePrefixSize - prefixBytes.Length;
                     var requestBufWithPrefix = requestBuf.Slice(requestBufStart);
 
                     // Copy prefix to request buf to avoid extra WriteAsync call for the prefix.

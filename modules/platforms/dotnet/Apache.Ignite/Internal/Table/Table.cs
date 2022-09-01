@@ -151,7 +151,7 @@ namespace Apache.Ignite.Internal.Table
         /// <returns>Schema.</returns>
         private async Task<Schema> LoadSchemaAsync(int? version)
         {
-            using var writer = new PooledArrayBufferWriter();
+            using var writer = ProtoCommon.GetMessageWriter();
             Write();
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.SchemasGet, writer).ConfigureAwait(false);

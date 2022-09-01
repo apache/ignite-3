@@ -39,10 +39,8 @@ namespace Apache.Ignite.Internal.Buffers
     /// </summary>
     internal sealed class PooledArrayBufferWriter : IBufferWriter<byte>, IDisposable
     {
-        /// <summary>
-        /// Reserved prefix size.
-        /// </summary>
-        public const int ReservedPrefixSize = 4 + 5 + 9; // Size (4 bytes) + OpCode (5 bytes) + RequestId (9 bytes)/
+        /** Prefix size. */
+        private readonly int _prefixSize;
 
         /** Underlying pooled array. */
         private byte[] _buffer;
@@ -57,18 +55,20 @@ namespace Apache.Ignite.Internal.Buffers
         /// Initializes a new instance of the <see cref="PooledArrayBufferWriter"/> class.
         /// </summary>
         /// <param name="initialCapacity">Initial capacity.</param>
-        public PooledArrayBufferWriter(int initialCapacity = PooledBuffer.DefaultCapacity)
+        /// <param name="prefixSize">Size of the reserved space at the start of the buffer.</param>
+        public PooledArrayBufferWriter(int initialCapacity = PooledBuffer.DefaultCapacity, int prefixSize = 0)
         {
             // NOTE: Shared pool has 1M elements limit before .NET 6.
             // https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-6/#buffering
             _buffer = ByteArrayPool.Rent(initialCapacity);
-            _index = ReservedPrefixSize;
+            _prefixSize = prefixSize;
+            _index = prefixSize;
         }
 
         /// <summary>
         /// Gets the current position.
         /// </summary>
-        public int Position => _index - ReservedPrefixSize;
+        public int Position => _index - _prefixSize;
 
         /// <summary>
         /// Gets the free capacity.
@@ -76,15 +76,14 @@ namespace Apache.Ignite.Internal.Buffers
         private int FreeCapacity => _buffer.Length - _index;
 
         /// <summary>
-        /// Gets the written memory, including reserved prefix (see <see cref="ReservedPrefixSize"/>).
+        /// Gets the written memory, including prefix, if any.
         /// </summary>
-        /// <param name="skipPrefix">Whether to skip the prefix (see <see cref="ReservedPrefixSize"/>).</param>
         /// <returns>Written array.</returns>
-        public Memory<byte> GetWrittenMemory(bool skipPrefix = false)
+        public Memory<byte> GetWrittenMemory()
         {
             Debug.Assert(!_disposed, "!_disposed");
 
-            return new(_buffer, start: skipPrefix ? ReservedPrefixSize : 0, length: _index);
+            return new(_buffer, start: 0, length: _index);
         }
 
         /// <inheritdoc />
@@ -125,14 +124,14 @@ namespace Apache.Ignite.Internal.Buffers
         /// <returns>Span for writing.</returns>
         public Span<byte> GetSpan(int position, int size)
         {
-            var overflow = ReservedPrefixSize + position + size - _index;
+            var overflow = _prefixSize + position + size - _index;
 
             if (overflow > 0)
             {
                 CheckAndResizeBuffer(overflow);
             }
 
-            return _buffer.AsSpan(ReservedPrefixSize + position, size);
+            return _buffer.AsSpan(_prefixSize + position, size);
         }
 
         /// <summary>
