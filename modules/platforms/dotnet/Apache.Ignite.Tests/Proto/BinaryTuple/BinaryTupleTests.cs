@@ -29,7 +29,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         public void ByteTest([Values(0, 1, sbyte.MaxValue, sbyte.MinValue)] sbyte value)
         {
             using var builder = new BinaryTupleBuilder(numElements: 1, allowNulls: false, totalValueSize: 1);
-            builder.AppendByte(1);
+            builder.AppendByte(value);
             var res = builder.Build().ToArray();
             Assert.AreEqual(value != 0 ? 1 : 0, res[1]);
             Assert.AreEqual(value != 0 ? 3 : 2, res.Length);
