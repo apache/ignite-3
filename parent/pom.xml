@@ -767,13 +767,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.apache.ignite</groupId>
-                <artifactId>ignite-vault</artifactId>
-                <version>${project.version}</version>
-                <type>test-jar</type>
-            </dependency>
-
-            <dependency>
                 <groupId>org.junit</groupId>
                 <artifactId>junit-bom</artifactId>
                 <version>${junit.version}</version>
