@@ -164,8 +164,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Object> invoke(ReplicaRequest request) {
-        return raftClient.refreshAndGetLeaderWithTerm()
-                .thenCompose(replicaAndTerm -> ensureReplicaIsPrimary(request, replicaAndTerm.get2()))
+        return ensureReplicaIsPrimary(request)
                 .thenCompose((ignore) -> {
                     if (request instanceof ReadWriteSingleRowReplicaRequest) {
                         return processSingleEntryAction((ReadWriteSingleRowReplicaRequest) request);
@@ -294,8 +293,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         boolean commit = request.commit();
 
-        CompletableFuture<Object> chaneStateFuture = raftClient.refreshAndGetLeaderWithTerm()
-                .thenCompose(replicaAndTerm -> ensureReplicaIsPrimary(request, replicaAndTerm.get2()))
+        CompletableFuture<Object> chaneStateFuture = ensureReplicaIsPrimary(request)
                 .thenCompose((ignore) -> raftClient.run(
                         new FinishTxCommand(
                                 txId,
@@ -1007,23 +1005,29 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Replica request.
      * @return Future.
      */
-    private CompletableFuture<Void> ensureReplicaIsPrimary(ReplicaRequest request, Long currentTerm) {
-        Long expectedTerm = null;
+    private CompletableFuture<Void> ensureReplicaIsPrimary(ReplicaRequest request) {
+        return raftClient.refreshAndGetLeaderWithTerm()
+                .thenCompose(replicaAndTerm -> {
+                            Long currentTerm = replicaAndTerm.get2();
 
-        if (request instanceof ReadWriteReplicaRequest) {
-            expectedTerm = ((ReadWriteReplicaRequest) request).term();
-        } else if (request instanceof TxFinishReplicaRequest) {
-            expectedTerm = ((TxFinishReplicaRequest) request).term();
-        }
+                            Long expectedTerm = null;
 
-        if (expectedTerm != null) {
-            if (expectedTerm.equals(currentTerm)) {
-                return CompletableFuture.completedFuture(null);
-            } else {
-                return CompletableFuture.failedFuture(new PrimaryReplicaMissException(expectedTerm, currentTerm));
-            }
-        } else {
-            return CompletableFuture.completedFuture(null);
-        }
+                            if (request instanceof ReadWriteReplicaRequest) {
+                                expectedTerm = ((ReadWriteReplicaRequest) request).term();
+                            } else if (request instanceof TxFinishReplicaRequest) {
+                                expectedTerm = ((TxFinishReplicaRequest) request).term();
+                            }
+
+                            if (expectedTerm != null) {
+                                if (expectedTerm.equals(currentTerm)) {
+                                    return CompletableFuture.completedFuture(null);
+                                } else {
+                                    return CompletableFuture.failedFuture(new PrimaryReplicaMissException(expectedTerm, currentTerm));
+                                }
+                            } else {
+                                return CompletableFuture.completedFuture(null);
+                            }
+                        }
+                );
     }
 }
