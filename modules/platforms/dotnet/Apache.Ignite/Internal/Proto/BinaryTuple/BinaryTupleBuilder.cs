@@ -377,13 +377,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                         int n = BinaryTupleCommon.NullMapSize(_numElements);
                         for (int i = BinaryTupleCommon.HeaderSize + n - 1; i >= BinaryTupleCommon.HeaderSize; i--)
                         {
-                            _buffer.GetSpan(i + offset, 1)[0] = _buffer.GetSpan(i, 1)[0];
+                            _buffer.WriteByte(_buffer.ReadByte(i), i + offset);
                         }
                     }
                 }
             }
 
-            _buffer.GetSpan(offset, 1)[0] = flags;
+            _buffer.WriteByte(flags, offset);
 
             return _buffer.GetWrittenMemory().Slice(offset);
         }
@@ -430,15 +430,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             switch (_entrySize)
             {
                 case 1:
-                    _buffer.GetSpan(_entryBase + _elementIndex, 1)[0] = (byte)offset;
+                    _buffer.WriteByte((byte)offset, _entryBase + _elementIndex);
                     break;
 
                 case 2:
-                    BinaryPrimitives.WriteInt16LittleEndian(_buffer.GetSpan(_entryBase + _elementIndex * 2, 2), (short)offset);
+                    _buffer.WriteShort((short)offset, _entryBase + _elementIndex);
                     break;
 
                 case 4:
-                    BinaryPrimitives.WriteInt32LittleEndian(_buffer.GetSpan(_entryBase + _elementIndex * 4, 4), offset);
+                    _buffer.WriteInt(offset, _entryBase + _elementIndex);
                     break;
 
                 default:
