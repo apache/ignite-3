@@ -211,6 +211,17 @@ namespace Apache.Ignite.Internal.Buffers
         }
 
         /// <summary>
+        /// Writes a long at current position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        public void WriteLong(long val)
+        {
+            CheckAndResizeBuffer(8);
+            BinaryPrimitives.WriteInt64LittleEndian(_buffer.AsSpan(_index), val);
+            _index += 8;
+        }
+
+        /// <summary>
         /// Reads a byte at specified position.
         /// </summary>
         /// <param name="pos">Position.</param>
@@ -230,17 +241,6 @@ namespace Apache.Ignite.Internal.Buffers
         /// <param name="pos">Position.</param>
         /// <returns>Result.</returns>
         public int ReadInt(int pos) => BinaryPrimitives.ReadInt32LittleEndian(_buffer.AsSpan(pos + _prefixSize));
-
-        /// <summary>
-        /// Writes a long at current position.
-        /// </summary>
-        /// <param name="val">Value.</param>
-        public void WriteLong(long val)
-        {
-            CheckAndResizeBuffer(8);
-            BinaryPrimitives.WriteInt64LittleEndian(_buffer.AsSpan(_index), val);
-            _index += 8;
-        }
 
         /// <summary>
         /// Checks underlying buffer and resizes if necessary.
