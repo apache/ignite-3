@@ -43,6 +43,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -301,7 +302,9 @@ public class RecordViewOperationsTest {
         Mockito.when(clusterService.topologyService().localMember().address())
                 .thenReturn(DummyInternalTableImpl.ADDR);
 
-        TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager());
+        ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+
+        TxManager txManager = new TxManagerImpl(clusterService, replicaService, new HeapLockManager());
 
         AtomicLong raftIndex = new AtomicLong();
 

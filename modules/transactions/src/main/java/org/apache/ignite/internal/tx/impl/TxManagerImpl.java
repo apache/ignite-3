@@ -22,11 +22,13 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
-import java.util.Set;
+import java.util.List;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiFunction;
+import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
@@ -36,32 +38,29 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.message.TxFinishRequest;
+import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishResponse;
-import org.apache.ignite.internal.tx.message.TxFinishResponseBuilder;
-import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * A transaction manager implementation.
  *
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
-public class TxManagerImpl implements TxManager, NetworkMessageHandler {
+public class TxManagerImpl implements TxManager {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
-    /** Tx finish timeout. */
-    private static final int TIMEOUT = 5_000;
-
     /** Cluster service. */
     protected final ClusterService clusterService;
+
+    private ReplicaService replicaService;
 
     /** Lock manager. */
     private final LockManager lockManager;
@@ -76,8 +75,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param clusterService Cluster service.
      * @param lockManager Lock manager.
      */
-    public TxManagerImpl(ClusterService clusterService, LockManager lockManager) {
+    public TxManagerImpl(ClusterService clusterService, ReplicaService replicaService,  LockManager lockManager) {
         this.clusterService = clusterService;
+        this.replicaService = replicaService;
         this.lockManager = lockManager;
     }
 
@@ -88,7 +88,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         states.put(txId, TxState.PENDING);
 
-        return new TransactionImpl(this, txId, clusterService.topologyService().localMember().address());
+        return new TransactionImpl(this, txId);
     }
 
     /** {@inheritDoc} */
@@ -188,21 +188,61 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> finishRemote(
-            NetworkAddress addr,
-            boolean commit, Set<String> groups, UUID txId
+    public CompletableFuture<Void> finish(
+            ClusterNode recipientNode,
+            boolean commit,
+            TreeMap<ClusterNode, List<String>> groups,
+            UUID txId
     ) {
         assert groups != null && !groups.isEmpty();
 
-        TxFinishRequest req = FACTORY.txFinishRequest().txId(txId).groups(groups)
-                .commit(commit).build();
+        TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
+                .groupId(groups.firstEntry().getValue().get(0))
+                .groups(groups)
+                .commit(commit)
+                .build();
 
-        CompletableFuture<NetworkMessage> fut = clusterService.messagingService()
-                .invoke(addr, req, TIMEOUT);
+        CompletableFuture<NetworkMessage> fut;
+        try {
+            fut = replicaService.invoke(recipientNode, req);
+        } catch (NodeStoppingException e) {
+            throw new TransactionException("Failed to finish transaction. Node is stopping.");
+        } catch (Throwable t) {
+            throw new TransactionException("Failed to finish transaction.");
+        }
 
         // Submit response to a dedicated pool to avoid deadlocks. TODO: IGNITE-15389
         return fut.thenApplyAsync(resp -> ((TxFinishResponse) resp).errorMessage()).thenCompose(msg ->
                 msg == null ? completedFuture(null) : failedFuture(new TransactionException(msg)));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> cleanup(
+            ClusterNode recipientNode,
+            List<String> replicationGroupIds,
+            UUID txId,
+            boolean commit,
+            HybridTimestamp commitTimestamp
+    ) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17582 Grouping replica requests.
+        replicationGroupIds.forEach(groupId -> {
+            try {
+                replicaService.invoke(
+                        recipientNode,
+                        FACTORY.txCleanupReplicaRequest()
+                                .groupId(groupId)
+                                .txId(txId)
+                                .commit(commit)
+                                .commitTimestamp(commitTimestamp)
+                                .build()
+                );
+            } catch (NodeStoppingException e) {
+                throw new TransactionException("Failed to perform tx cleanup, node is stopping.");
+            }
+        });
+
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -220,7 +260,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        clusterService.messagingService().addMessageHandler(TxMessageGroup.class, this);
+        // No-op.
     }
 
     /** {@inheritDoc} */
@@ -233,57 +273,5 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public LockManager lockManager() {
         return lockManager;
-    }
-
-    /**
-     * Finishes a transaction for a group.
-     *
-     * @param groupId Group id.
-     * @param txId Transaction id.
-     * @param commit {@code True} to commit, false to abort.
-     * @return The future.
-     */
-    protected CompletableFuture<?> finish(String groupId, UUID txId, boolean commit) {
-        return CompletableFuture.completedFuture(null);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void onReceived(NetworkMessage message, NetworkAddress senderAddr,
-            @Nullable Long correlationId) {
-        // Support raft and transactions interop.
-        if (message instanceof TxFinishRequest) {
-            TxFinishRequest req = (TxFinishRequest) message;
-
-            Set<String> groups = req.groups();
-
-            CompletableFuture[] futs = new CompletableFuture[groups.size()];
-
-            int i = 0;
-
-            // Finish a tx for enlisted groups.
-            for (String grp : groups) {
-                futs[i++] = finish(grp, req.txId(), req.commit());
-            }
-
-            CompletableFuture.allOf(futs).thenCompose(ignored -> req.commit()
-                    ? commitAsync(req.txId()) :
-                    rollbackAsync(req.txId()))
-                    .handle(new BiFunction<Void, Throwable, Void>() {
-                        @Override
-                        public Void apply(Void ignored, Throwable err) {
-                            TxFinishResponseBuilder resp = FACTORY.txFinishResponse();
-
-                            if (err != null) {
-                                resp.errorMessage(err.getMessage());
-                            }
-
-                            clusterService.messagingService()
-                                    .respond(senderAddr, resp.build(), correlationId);
-
-                            return null;
-                        }
-                    });
-        }
     }
 }

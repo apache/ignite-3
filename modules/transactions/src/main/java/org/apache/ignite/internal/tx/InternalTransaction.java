@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
@@ -57,4 +58,11 @@ public interface InternalTransaction extends Transaction {
      * @return {@code True} if a partition is enlisted into the transaction.
      */
     IgniteBiTuple<ClusterNode, Long> enlist(String replicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm);
+
+    /**
+     * Enlists operation future in transaction. It's used in order to wait corresponding tx operations before commit.
+     *
+     * @param resultFuture Operation result future.
+     */
+    void enlistResultFuture(CompletableFuture resultFuture);
 }

@@ -148,13 +148,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 }
         ).when(svc).run(any());
 
-        UUID tblId = UUID.randomUUID();
-
         var mvPartStorage = new TestConcurrentHashMapMvPartitionStorage(0);
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
         partitionListener = new PartitionListener(
-                tblId,
                 mvPartStorage,
+                null,
                 txManager,
                 new ConcurrentHashMap<>()
         );

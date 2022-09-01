@@ -17,15 +17,14 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 
 /**
- * State machine command to finish the transaction on commit or rollback.
+ * State machine command to cleanup on transaction commit.
  */
-public class FinishTxCommand extends PartitionCommand implements WriteCommand {
+public class TxCleanupCommand extends PartitionCommand implements WriteCommand {
     /**
      * Commit or rollback state.
      */
@@ -37,23 +36,16 @@ public class FinishTxCommand extends PartitionCommand implements WriteCommand {
     private final HybridTimestamp commitTimestamp;
 
     /**
-     * Replication groups ids.
-     */
-    private final List<String> replicationGroupIds;
-
-    /**
      * The constructor.
      *
      * @param txId The txId.
      * @param commit Commit or rollback state {@code True} to commit.
-     * @param commitTimestamp Transaction commit timestamp.
-     * @param replicationGroupIds Set of replication groups ids.
+     * @param commitTimestamp  Transaction commit timestamp.
      */
-    public FinishTxCommand(UUID txId, boolean commit, HybridTimestamp commitTimestamp, List<String> replicationGroupIds) {
+    public TxCleanupCommand(UUID txId, boolean commit, HybridTimestamp commitTimestamp) {
         super(txId);
         this.commit = commit;
         this.commitTimestamp = commitTimestamp;
-        this.replicationGroupIds = replicationGroupIds;
     }
 
     /**
@@ -72,14 +64,5 @@ public class FinishTxCommand extends PartitionCommand implements WriteCommand {
      */
     public HybridTimestamp commitTimestamp() {
         return commitTimestamp;
-    }
-
-    /**
-     * Returns ordered replication groups ids.
-     *
-     * @return Ordered replication groups ids.
-     */
-    public List<String> replicationGroupIds() {
-        return replicationGroupIds;
     }
 }

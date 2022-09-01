@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
@@ -70,7 +72,7 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
     private volatile TransactionDBOptions txDbOptions;
 
     /** Thread-pool for snapshot operations execution. */
-    private final ExecutorService snapshotExecutor;
+    private final ExecutorService snapshotExecutor = Executors.newFixedThreadPool(2);
 
     /** Snapshot manager. */
     private volatile RocksSnapshotManager snapshotManager;
@@ -85,11 +87,9 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
      * The constructor.
      *
      * @param dbPath Database path.
-     * @param snapshotExecutor Snapshot thread pool.
      */
-    public TxStateRocksDbStorage(Path dbPath, ExecutorService snapshotExecutor) {
+    public TxStateRocksDbStorage(Path dbPath) {
         this.dbPath = dbPath;
-        this.snapshotExecutor = snapshotExecutor;
     }
 
     /** {@inheritDoc} */
@@ -118,6 +118,8 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
 
     /** {@inheritDoc} */
     @Override public void stop() throws Exception {
+        IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
+
         IgniteUtils.closeAll(options, txDbOptions, db);
 
         db = null;
@@ -148,14 +150,26 @@ public class TxStateRocksDbStorage implements TxStateStorage, AutoCloseable {
     }
 
     /** {@inheritDoc} */
-    @Override public boolean compareAndSet(UUID txId, @NotNull TxState txStateExpected, @NotNull TxMeta txMeta) {
-        requireNonNull(txStateExpected);
+    @Override public boolean compareAndSet(UUID txId, TxState txStateExpected, @NotNull TxMeta txMeta) {
         requireNonNull(txMeta);
 
         byte[] txIdBytes = toBytes(txId);
 
         try (Transaction rocksTx = db.beginTransaction(new WriteOptions())) {
             byte[] txMetaExistingBytes = rocksTx.get(new ReadOptions(), toBytes(txId));
+
+            if (txStateExpected == null) {
+                if (txMetaExistingBytes == null) {
+                    rocksTx.put(txIdBytes, toBytes(txMeta));
+
+                    rocksTx.commit();
+
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+
             TxMeta txMetaExisting = (TxMeta) fromBytes(txMetaExistingBytes);
 
             if (txMetaExisting.txState() == txStateExpected) {

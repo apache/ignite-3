@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmen
 import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -67,6 +68,7 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.causality.VersionedValue;
@@ -111,6 +113,7 @@ import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -224,6 +227,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private final ExecutorService ioExecutor;
 
+    private final HybridClock clock;
+
     /** Rebalance scheduler pool size. */
     private static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
 
@@ -253,7 +258,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             TxManager txManager,
             DataStorageManager dataStorageMgr,
             MetaStorageManager metaStorageMgr,
-            SchemaManager schemaManager
+            SchemaManager schemaManager,
+            HybridClock clock
     ) {
         this.tablesCfg = tablesCfg;
         this.raftMgr = raftMgr;
@@ -265,6 +271,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.dataStorageMgr = dataStorageMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.schemaManager = schemaManager;
+        this.clock = clock;
 
         netAddrResolver = addr -> {
             ClusterNode node = topologyService.getByAddress(addr);
@@ -576,7 +583,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     raftMgr.startRaftGroupNode(
                                             grpId,
                                             newPartAssignment,
-                                            new PartitionListener(tblId, partitionStorage, txManager, new ConcurrentHashMap<>()),
+                                            new PartitionListener(
+                                                    partitionStorage,
+                                                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17579 TxStateStorage management.
+                                                    new TxStateRocksDbStorage(Paths.get("tx_state_storage" + tblId + partId)),
+                                                    txManager,
+                                                    new ConcurrentHashMap<>()
+                                            ),
                                             new RebalanceRaftGroupEventsListener(
                                                     metaStorageMgr,
                                                     tablesCfg.tables().get(tablesById.get(tblId).name()),
@@ -618,9 +631,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     new PartitionReplicaListener(
                                                             partitionStorage,
                                                             updatedRaftGroupService,
+                                                            txManager,
                                                             lockMgr,
+                                                            grpId,
                                                             tblId,
-                                                            new ConcurrentHashMap<>()
+                                                            new ConcurrentHashMap<>(),
+                                                            clock
                                                     )
                                             );
                                         } catch (NodeStoppingException ex) {
@@ -1491,8 +1507,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             RaftGroupOptions groupOptions = groupOptionsForPartition(tbl.internalTable(), partitionStorage, assignments);
 
                             RaftGroupListener raftGrpLsnr = new PartitionListener(
-                                    tblId,
                                     partitionStorage,
+                                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17579 TxStateStorage management.
+                                    new TxStateRocksDbStorage(Paths.get("tx_state_storage" + tblId + partId)),
                                     txManager,
                                     new ConcurrentHashMap<>()
                             );
@@ -1524,9 +1541,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     new PartitionReplicaListener(
                                             partitionStorage,
                                             tbl.internalTable().partitionRaftGroupService(part),
+                                            txManager,
                                             lockMgr,
+                                            partId,
                                             tblId,
-                                            new ConcurrentHashMap<>()
+                                            new ConcurrentHashMap<>(),
+                                            clock
                                     )
                             );
                         }

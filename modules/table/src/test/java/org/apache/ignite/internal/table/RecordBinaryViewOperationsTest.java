@@ -30,6 +30,7 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -691,7 +692,9 @@ public class RecordBinaryViewOperationsTest {
 
         LockManager lockManager = new HeapLockManager();
 
-        TxManager txManager = new TxManagerImpl(clusterService, lockManager);
+        ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+
+        TxManager txManager = new TxManagerImpl(clusterService, replicaService, lockManager);
 
         AtomicLong raftIndex = new AtomicLong();
 

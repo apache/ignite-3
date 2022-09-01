@@ -42,7 +42,7 @@ public abstract class PartitionCommand implements WriteCommand {
      *
      * @return Transaction id.
      */
-    public UUID getTxId() {
+    public UUID txId() {
         return txId;
     }
 }

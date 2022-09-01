@@ -79,10 +79,10 @@ import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -225,7 +225,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var raftMgr = new Loza(clusterSvc, dir, new HybridClock());
 
-        var txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523
+        var txManager = new TxManagerImpl(clusterSvc, null, new HeapLockManager());
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
@@ -271,6 +272,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tblCfg);
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17523 seems that it's possible not to instantiate replicaMgr in this test.
         ReplicaManager replicaMgr = new ReplicaManager(clusterSvc);
 
         ReplicaService replicaSvc = new ReplicaService(replicaMgr, clusterSvc.messagingService(), clusterSvc.topologyService());
@@ -287,7 +289,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 txManager,
                 dataStorageManager,
                 metaStorageMgr,
-                schemaManager
+                schemaManager,
+                null
         );
 
         // Preparing the result map.

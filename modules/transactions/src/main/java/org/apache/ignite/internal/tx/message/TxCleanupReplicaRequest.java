@@ -17,22 +17,26 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import java.io.Serializable;
-import java.util.Set;
 import java.util.UUID;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Submit an action to a replication group.
+ * Transaction cleanup replica request that will trigger following actions processing.
+ *
+ *  <ol>
+ *      <li>Convert all pending entries(writeIntents) to either regular values(TxState.COMMITED) or remove them (TxState.ABORTED).</li>
+ *      <li>Release all locks that were held on local replica by given transaction.</li>
+ *  </ol>
  */
-@Transferable(value = TxMessageGroup.TX_FINISH_REQUEST)
-public interface TxFinishRequest extends NetworkMessage, Serializable {
+@Transferable(value = TxMessageGroup.TX_CLEANUP_REQUEST)
+public interface TxCleanupReplicaRequest extends ReplicaRequest {
     /**
-     * Returns the timestamp.
+     * Returns transaction Id.
      *
-     * @return The timestamp.
+     * @return Transaction id.
      */
     @Marshallable
     UUID txId();
@@ -45,10 +49,10 @@ public interface TxFinishRequest extends NetworkMessage, Serializable {
     boolean commit();
 
     /**
-     * Returns enlisted partition groups.
+     * Returns transaction commit timestamp.
      *
-     * @return Enlisted partition groups.
+     * @return Commit timestamp.
      */
     @Marshallable
-    Set<String> groups();
+    HybridTimestamp commitTimestamp();
 }

@@ -75,7 +75,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 /**
- * TODO asch IGNITE-15928 validate zero locks after test finish.
+ * TODO asch IGNITE-15928 validate zero locks after test commit.
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
