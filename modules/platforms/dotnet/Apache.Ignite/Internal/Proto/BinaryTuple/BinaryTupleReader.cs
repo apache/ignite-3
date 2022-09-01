@@ -91,35 +91,55 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public sbyte GetByte(int index) => (sbyte)Seek(index)[0];
+        public sbyte GetByte(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => unchecked((sbyte)s[0])
+        };
 
         /// <summary>
         /// Gets a short value.
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public short GetShort(int index) => BinaryPrimitives.ReadInt16LittleEndian(Seek(index));
+        public short GetShort(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => BinaryPrimitives.ReadInt16LittleEndian(s)
+        };
 
         /// <summary>
         /// Gets an int value.
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public int GetInt(int index) => BinaryPrimitives.ReadInt32LittleEndian(Seek(index));
+        public int GetInt(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => BinaryPrimitives.ReadInt32LittleEndian(s)
+        };
 
         /// <summary>
         /// Gets a long value.
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public long GetLong(int index) => BinaryPrimitives.ReadInt64LittleEndian(Seek(index));
+        public long GetLong(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => BinaryPrimitives.ReadInt64LittleEndian(s)
+        };
 
         /// <summary>
         /// Gets a string value.
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public string GetString(int index) => Encoding.UTF8.GetString(Seek(index));
+        public string GetString(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => string.Empty,
+            var s => Encoding.UTF8.GetString(s)
+        };
 
         private int GetOffset(int position)
         {

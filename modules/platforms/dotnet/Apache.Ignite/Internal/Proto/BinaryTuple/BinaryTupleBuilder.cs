@@ -344,6 +344,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private void PutString(string value)
         {
+            if (value.Length == 0)
+            {
+                return;
+            }
+
             var maxByteCount = Encoding.UTF8.GetMaxByteCount(value.Length);
             var span = _buffer.GetSpan(maxByteCount);
 
