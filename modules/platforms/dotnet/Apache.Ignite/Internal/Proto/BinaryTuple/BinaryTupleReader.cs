@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System;
     using System.Buffers.Binary;
     using System.Diagnostics;
+    using System.Text;
 
     /// <summary>
     /// Binary tuple reader.
@@ -72,7 +73,42 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="index">Element index.</param>
         /// <returns>True when the element is null; false otherwise.</returns>
-        public bool HasNullValue(int index) => Seek(index).IsEmpty;
+        public bool IsNull(int index) => Seek(index).IsEmpty;
+
+        /// <summary>
+        /// Gets a byte value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public sbyte GetByte(int index) => (sbyte)Seek(index)[0];
+
+        /// <summary>
+        /// Gets a short value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public short GetShort(int index) => BinaryPrimitives.ReadInt16LittleEndian(Seek(index));
+
+        /// <summary>
+        /// Gets an int value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public int GetInt(int index) => BinaryPrimitives.ReadInt32LittleEndian(Seek(index));
+
+        /// <summary>
+        /// Gets a long value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public long GetLong(int index) => BinaryPrimitives.ReadInt64LittleEndian(Seek(index));
+
+        /// <summary>
+        /// Gets a string value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public string GetString(int index) => Encoding.UTF8.GetString(Seek(index));
 
         private int GetOffset(int position)
         {
