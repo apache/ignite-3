@@ -293,15 +293,14 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         boolean commit = request.commit();
 
-        CompletableFuture<Object> chaneStateFuture = ensureReplicaIsPrimary(request)
-                .thenCompose((ignore) -> raftClient.run(
-                        new FinishTxCommand(
-                                txId,
-                                commit,
-                                commitTimestamp,
-                                aggregatedGroupIds
-                        )
-                ));
+        CompletableFuture<Object> chaneStateFuture = raftClient.run(
+                new FinishTxCommand(
+                        txId,
+                        commit,
+                        commitTimestamp,
+                        aggregatedGroupIds
+                )
+        );
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17578
         chaneStateFuture.thenRun(
