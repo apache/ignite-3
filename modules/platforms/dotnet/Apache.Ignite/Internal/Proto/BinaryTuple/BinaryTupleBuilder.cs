@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-// TODO: Restore inspections
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
@@ -277,15 +276,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     getIndex -= _entrySize;
                     putIndex -= desiredEntrySize;
 
-                    int value;
-                    if (_entrySize == 4)
-                    {
-                        value = _buffer.ReadInt(getIndex);
-                    }
-                    else
-                    {
-                        value = _buffer.ReadShort(getIndex);
-                    }
+                    var value = _entrySize == 4
+                        ? _buffer.ReadInt(getIndex)
+                        : _buffer.ReadShort(getIndex);
 
                     if (desiredEntrySize == 1)
                     {
