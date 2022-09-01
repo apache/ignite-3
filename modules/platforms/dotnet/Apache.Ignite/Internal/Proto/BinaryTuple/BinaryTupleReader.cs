@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
+    using System.Buffers.Binary;
     using System.Diagnostics;
 
     /// <summary>
@@ -66,21 +67,28 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private int GetOffset(int position)
         {
+            var span = _buffer.Span[position..];
+
             switch (_entrySize)
             {
                 case 1:
-                    return Byte.toUnsignedInt(buffer.get(position));
+                    return span[position];
+
                 case 2:
-                    return Short.toUnsignedInt(buffer.getShort(position));
+                    return BinaryPrimitives.ReadUInt16LittleEndian(span);
+
                 case 4:
                 {
-                    int offset = buffer.getInt(position);
-                    if (offset < 0) {
+                    var offset = BinaryPrimitives.ReadInt32LittleEndian(span);
+
+                    if (offset < 0)
+                    {
                         throw new InvalidOperationException("Unsupported offset table size");
                     }
 
                     return offset;
                 }
+
                 default:
                     throw new InvalidOperationException("Invalid offset table size");
             }
