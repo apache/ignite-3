@@ -35,6 +35,7 @@ public interface ReadWriteReplicaRequest extends NetworkMessage { //extends Repl
      *
      * @return Gets a raft term.
      */
+    @Deprecated
     @Marshallable
     Long term();
 }

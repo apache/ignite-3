@@ -58,4 +58,14 @@ public interface TxFinishReplicaRequest extends ReplicaRequest {
      */
     @Marshallable
     TreeMap<ClusterNode, List<String>> groups();
+
+    /**
+     * Gets a raft term.
+     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
+     *
+     * @return Gets a raft term.
+     */
+    @Deprecated
+    @Marshallable
+    Long term();
 }

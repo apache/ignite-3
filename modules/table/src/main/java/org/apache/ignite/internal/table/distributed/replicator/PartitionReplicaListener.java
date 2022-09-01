@@ -32,6 +32,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanCloseReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
@@ -162,25 +164,29 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Object> invoke(ReplicaRequest request) {
-        if (request instanceof ReadWriteSingleRowReplicaRequest) {
-            return processSingleEntryAction((ReadWriteSingleRowReplicaRequest) request);
-        } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
-            return processMultiEntryAction((ReadWriteMultiRowReplicaRequest) request);
-        } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
-            return processTwoEntriesAction((ReadWriteSwapRowReplicaRequest) request);
-        } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
-            return processScanRetrieveBatchAction((ReadWriteScanRetrieveBatchReplicaRequest) request);
-        } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
-            processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
+        return raftClient.refreshAndGetLeaderWithTerm()
+                .thenCompose(replicaAndTerm -> ensureReplicaIsPrimary(request, replicaAndTerm.get2()))
+                .thenCompose((ignore) -> {
+                    if (request instanceof ReadWriteSingleRowReplicaRequest) {
+                        return processSingleEntryAction((ReadWriteSingleRowReplicaRequest) request);
+                    } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
+                        return processMultiEntryAction((ReadWriteMultiRowReplicaRequest) request);
+                    } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
+                        return processTwoEntriesAction((ReadWriteSwapRowReplicaRequest) request);
+                    } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
+                        return processScanRetrieveBatchAction((ReadWriteScanRetrieveBatchReplicaRequest) request);
+                    } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
+                        processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
 
-            return CompletableFuture.completedFuture(null);
-        } else if (request instanceof TxFinishReplicaRequest) {
-            return processTxFinishAction((TxFinishReplicaRequest) request);
-        } else if (request instanceof TxCleanupReplicaRequest) {
-            return processTxCleanupAction((TxCleanupReplicaRequest) request);
-        } else {
-            throw new UnsupportedReplicaRequestException(request.getClass());
-        }
+                        return CompletableFuture.completedFuture(null);
+                    } else if (request instanceof TxFinishReplicaRequest) {
+                        return processTxFinishAction((TxFinishReplicaRequest) request);
+                    } else if (request instanceof TxCleanupReplicaRequest) {
+                        return processTxCleanupAction((TxCleanupReplicaRequest) request);
+                    } else {
+                        throw new UnsupportedReplicaRequestException(request.getClass());
+                    }
+                });
     }
 
     /**
@@ -288,14 +294,16 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         boolean commit = request.commit();
 
-        CompletableFuture<Object> chaneStateFuture = raftClient.run(
-                new FinishTxCommand(
-                        txId,
-                        commit,
-                        commitTimestamp,
-                        aggregatedGroupIds
-                )
-        );
+        CompletableFuture<Object> chaneStateFuture = raftClient.refreshAndGetLeaderWithTerm()
+                .thenCompose(replicaAndTerm -> ensureReplicaIsPrimary(request, replicaAndTerm.get2()))
+                .thenCompose((ignore) -> raftClient.run(
+                        new FinishTxCommand(
+                                txId,
+                                commit,
+                                commitTimestamp,
+                                aggregatedGroupIds
+                        )
+                ));
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17578
         chaneStateFuture.thenRun(
@@ -991,5 +999,31 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return rowLockFut;
                     }));
         });
+    }
+
+    /**
+     * Ensure that the primary replica was not changed.
+     *
+     * @param request Replica request.
+     * @return Future.
+     */
+    private CompletableFuture<Void> ensureReplicaIsPrimary(ReplicaRequest request, Long currentTerm) {
+        Long expectedTerm = null;
+
+        if (request instanceof ReadWriteReplicaRequest) {
+            expectedTerm = ((ReadWriteReplicaRequest) request).term();
+        } else if (request instanceof TxFinishReplicaRequest) {
+            expectedTerm = ((TxFinishReplicaRequest) request).term();
+        }
+
+        if (expectedTerm != null) {
+            if (expectedTerm.equals(currentTerm)) {
+                return CompletableFuture.completedFuture(null);
+            } else {
+                return CompletableFuture.failedFuture(new PrimaryReplicaMissException(expectedTerm, currentTerm));
+            }
+        } else {
+            return CompletableFuture.completedFuture(null);
+        }
     }
 }

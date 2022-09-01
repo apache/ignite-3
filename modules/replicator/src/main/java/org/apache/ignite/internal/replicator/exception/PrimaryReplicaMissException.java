@@ -29,26 +29,26 @@ public class PrimaryReplicaMissException extends IgniteInternalException {
     /**
      * The constructor.
      *
-     * @param requestTerm Raft term from request.
-     * @param localTerm Local raft term.
+     * @param expectedPrimaryReplicaTerm Expected term from.
+     * @param currentPrimaryReplicaTerm Current raft term.
      */
-    public PrimaryReplicaMissException(Long requestTerm, Long localTerm) {
-        this(requestTerm, localTerm, null);
+    public PrimaryReplicaMissException(Long expectedPrimaryReplicaTerm, Long currentPrimaryReplicaTerm) {
+        this(expectedPrimaryReplicaTerm, currentPrimaryReplicaTerm, null);
     }
 
     /**
      * The constructor.
      *
-     * @param requestTerm Raft term from request.
-     * @param localTerm Local raft term.
+     * @param expectedPrimaryReplicaTerm Expected term from.
+     * @param currentPrimaryReplicaTerm Current raft term.
      * @param cause Cause exception.
      */
-    public PrimaryReplicaMissException(Long requestTerm, Long localTerm,
-            Throwable cause) {
+    public PrimaryReplicaMissException(Long expectedPrimaryReplicaTerm, Long currentPrimaryReplicaTerm, Throwable cause) {
         super(Replicator.REPLICA_MISS_ERR,
                 IgniteStringFormatter.format(
-                        "The primary replica was changed [requestTerm={}, localTerm={}]",
-                        requestTerm, localTerm
+                        "Maybe the primary replica has changed because the term has been changed "
+                                + "[expectedPrimaryReplicaTerm={}, currentPrimaryReplicaTerm={}]",
+                        expectedPrimaryReplicaTerm, currentPrimaryReplicaTerm
                 ),
                 cause);
     }

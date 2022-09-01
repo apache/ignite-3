@@ -21,7 +21,7 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /**
- * Represents a function that accepts three arguments and produces a result.
+ * Represents a function that accepts four arguments and produces a result.
  *
  * @param <A> the type of the first argument to the function
  * @param <B> the type of the second argument to the function
