@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishResponse;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -189,9 +191,10 @@ public class TxManagerImpl implements TxManager {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> finish(
-            ClusterNode recipientNode,
+            IgniteBiTuple<ClusterNode, Long> recipientNode,
             boolean commit,
             TreeMap<ClusterNode, List<String>> groups,
+            Map<ClusterNode, Long> enlistedTerms,
             UUID txId
     ) {
         assert groups != null && !groups.isEmpty();
@@ -200,11 +203,13 @@ public class TxManagerImpl implements TxManager {
                 .groupId(groups.firstEntry().getValue().get(0))
                 .groups(groups)
                 .commit(commit)
+                .term(recipientNode.get2())
+                .enlisted(enlistedTerms)
                 .build();
 
         CompletableFuture<NetworkMessage> fut;
         try {
-            fut = replicaService.invoke(recipientNode, req);
+            fut = replicaService.invoke(recipientNode.get1(), req);
         } catch (NodeStoppingException e) {
             throw new TransactionException("Failed to finish transaction. Node is stopping.");
         } catch (Throwable t) {
@@ -220,7 +225,7 @@ public class TxManagerImpl implements TxManager {
     @Override
     public CompletableFuture<Void> cleanup(
             ClusterNode recipientNode,
-            List<String> replicationGroupIds,
+            List<IgniteBiTuple<String, Long>> replicationGroupIds,
             UUID txId,
             boolean commit,
             HybridTimestamp commitTimestamp
@@ -231,10 +236,11 @@ public class TxManagerImpl implements TxManager {
                 replicaService.invoke(
                         recipientNode,
                         FACTORY.txCleanupReplicaRequest()
-                                .groupId(groupId)
+                                .groupId(groupId.get1())
                                 .txId(txId)
                                 .commit(commit)
                                 .commitTimestamp(commitTimestamp)
+                                .term(groupId.get2())
                                 .build()
                 );
             } catch (NodeStoppingException e) {

@@ -19,11 +19,13 @@ package org.apache.ignite.internal.tx;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -139,7 +141,7 @@ public interface TxManager extends IgniteComponent {
      * @param groups Enlisted partition groups.
      * @param txId Transaction id.
      */
-    CompletableFuture<Void> finish(ClusterNode recipientNode, boolean commit, TreeMap<ClusterNode, List<String>> groups, UUID txId);
+    CompletableFuture<Void> finish(IgniteBiTuple<ClusterNode, Long> recipientNode, boolean commit, TreeMap<ClusterNode, List<String>> groups, Map<ClusterNode, Long> enlistedTerms, UUID txId);
 
     /**
      * Sends cleanup request to the specified primary replica.
@@ -153,11 +155,11 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> cleanup(
             ClusterNode recipientNode,
-            List<String> replicationGroupIds,
+            List<IgniteBiTuple<String, Long>> replicationGroupIds,
             UUID txId,
             boolean commit,
             HybridTimestamp commitTimestamp
-    );
+            );
 
     /**
      * Checks if a passed address belongs to a local node.

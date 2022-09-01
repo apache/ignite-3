@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -159,6 +160,9 @@ public class TransactionImpl implements InternalTransaction {
             }
         });
 
+        Map<ClusterNode, Long> enlistedTerms =
+                enlisted.values().stream().collect(Collectors.toMap(IgniteBiTuple::get1, IgniteBiTuple::get2));
+
         return CompletableFuture.allOf(enlistedResults.toArray(new CompletableFuture[0])).handle(
                 (ignored, ex) -> {
                     if (ex != null && commit) {
@@ -166,9 +170,10 @@ public class TransactionImpl implements InternalTransaction {
                     } else {
                         if (!enlisted.isEmpty()) {
                             txManager.finish(
-                                    enlisted.entrySet().iterator().next().getValue().get1(),
+                                    enlisted.entrySet().iterator().next().getValue(),
                                     commit,
                                     groups,
+                                    enlistedTerms,
                                     id
                             );
                         }

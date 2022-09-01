@@ -65,6 +65,7 @@ import org.apache.ignite.internal.tx.message.TxCleanupReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteUuid;
@@ -287,7 +288,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> processTxFinishAction(TxFinishReplicaRequest request) {
         HybridTimestamp commitTimestamp = hybridClock.now();
 
-        List<String> aggregatedGroupIds = request.groups().values().stream().flatMap(List::stream).collect(Collectors.toList());
+        List<String> aggregatedGroupIds = request.groups().values().stream()
+                .flatMap(List::stream).map(IgniteBiTuple::get1).collect(Collectors.toList());
 
         UUID txId = request.txId();
 
@@ -1015,6 +1017,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 expectedTerm = ((ReadWriteReplicaRequest) request).term();
                             } else if (request instanceof TxFinishReplicaRequest) {
                                 expectedTerm = ((TxFinishReplicaRequest) request).term();
+                            } else if (request instanceof TxCleanupReplicaRequest) {
+                                expectedTerm = ((TxCleanupReplicaRequest) request).term();
                             }
 
                             if (expectedTerm != null) {
