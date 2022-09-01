@@ -58,7 +58,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             Debug.Assert(numElements > 0, "numElements > 0");
 
-            this._numElements = numElements;
+            _numElements = numElements;
 
             int baseOffset = BinaryTupleCommon.HeaderSize;
             if (allowNulls)
@@ -73,6 +73,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 : BinaryTupleCommon.FlagsToEntrySize(BinaryTupleCommon.ValueSizeToFlags(totalValueSize));
 
             _valueBase = baseOffset + _entrySize * numElements;
+
+            _buffer.GetSpan(_valueBase);
+            _buffer.Advance(_valueBase);
         }
 
         /// <summary>
