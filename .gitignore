@@ -17,13 +17,3 @@ build/
 *.iml
 *.ipr
 out/
-
-.classpath
-.project
-.settings
-
-
-.classpath
-.project
-.settings
-

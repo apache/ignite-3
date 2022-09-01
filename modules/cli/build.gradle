@@ -133,7 +133,7 @@ task generateAutocompletionScript(type: JavaExec) {
 build.dependsOn generateAutocompletionScript
 
 application {
-    mainClass = ' org.apache.ignite.cli.Main'
+    mainClass = 'org.apache.ignite.cli.Main'
 }
 
 idea.module {
