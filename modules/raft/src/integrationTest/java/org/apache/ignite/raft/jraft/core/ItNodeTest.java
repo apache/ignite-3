@@ -549,6 +549,11 @@ public class ItNodeTest {
             LOG.info("Replicator has been created {} {}", peer, val);
         }
 
+        @Override
+        public void stateChanged(final PeerId peer, final ReplicatorState newState) {
+            LOG.info("Replicator {} state is changed into {}.", peer, newState);
+        }
+
         /** {@inheritDoc} */
         @Override
         public void onError(PeerId peer, Status status) {
