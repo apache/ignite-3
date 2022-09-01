@@ -665,11 +665,11 @@ public final class IgniteTestUtils {
      */
     public static String testNodeName(TestInfo testInfo, int idx) {
         String testMethodName = testInfo.getTestMethod().map(Method::getName).orElse("null");
+        String testClassName = testInfo.getTestClass().map(Class::getSimpleName).orElse("null");
 
-        return isWindowsOs() ? shortTestMethodName(testMethodName) + "_" + idx :
-                IgniteStringFormatter.format("{}_{}_{}",
-                        testInfo.getTestClass().map(Class::getSimpleName).orElse("null"),
-                        testMethodName,
+        return IgniteStringFormatter.format("{}_{}_{}",
+                        shortTestMethodName(testClassName),
+                        shortTestMethodName(testMethodName),
                         idx);
     }
 
