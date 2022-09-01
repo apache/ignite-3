@@ -34,8 +34,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     /// </summary>
     internal sealed class BinaryTupleBuilder
     {
-        private const int DefaultBufferSize = 4000; // TODO: Pooling
-
         /** Number of elements in the tuple. */
         private readonly int _numElements;
 
@@ -447,17 +445,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             _elementIndex++;
             return this;
-        }
-
-        /** Do our best to find initial buffer capacity. */
-        private int estimateBufferCapacity(int totalValueSize)
-        {
-            if (totalValueSize < 0)
-            {
-                totalValueSize = Math.Max(_numElements * 8, DefaultBufferSize);
-            }
-
-            return _valueBase + totalValueSize;
         }
 
         private Span<byte> GetSpan(int size)
