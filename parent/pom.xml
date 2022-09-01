@@ -1591,6 +1591,7 @@
                         <exclude>**/*.bat</exclude> <!-- Files in bat format -->
                         <exclude>**/*.ini</exclude> <!-- Files in ini format -->
                         <exclude>modules/runner/src/integrationTest/sql/**</exclude> <!-- SQL logic tests. -->
+                        <exclude>gradle/**</exclude> <!-- Gradle internal -->
                     </excludes>
                 </configuration>
             </plugin>
