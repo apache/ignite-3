@@ -267,9 +267,9 @@ public class IgniteImpl implements Ignite {
 
         LockManager lockMgr = new HeapLockManager();
 
-        replicaMgr = new ReplicaManager(clusterSvc);
+        replicaMgr = new ReplicaManager(clusterSvc, clock);
 
-        ReplicaService replicaSvc = new ReplicaService(replicaMgr, clusterSvc.messagingService(), clusterSvc.topologyService());
+        ReplicaService replicaSvc = new ReplicaService(replicaMgr, clusterSvc.messagingService(), clusterSvc.topologyService(), clock);
 
         txManager = new TxManagerImpl(clusterSvc, replicaSvc, lockMgr);
 

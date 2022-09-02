@@ -15,28 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.internal.replicator.message;
 
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Read Write replica request.
+ * Replica response interface with timestamp to adjust a hybrid logical clock.
+ * TODO:IGNITE-17258 Add a specific response type for a replica listener. (@Transferable(ReplicaMessageGroup.TYPE_RESPONSE))
  */
-// TODO: https://issues.apache.org/jira/browse/IGNITE-17464
-public interface ReadWriteReplicaRequest extends NetworkMessage, TimestampAware { //extends ReplicaRequest {
-    @Marshallable
-    UUID transactionId();
-
-    /**
-     * Gets a raft term.
-     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
-     *
-     * @return Gets a raft term.
-     */
-    @Deprecated
-    @Marshallable
-    Long term();
+@Transferable(ReplicaMessageGroup.TIMESTAMP_AWARE_REPLICA_RESPONSE)
+public interface TimestampAwareReplicaResponse extends ReplicaResponse, TimestampAware {
 }

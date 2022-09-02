@@ -236,7 +236,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 addressToNode,
                 txMgr,
                 Mockito.mock(MvTableStorage.class),
-                Mockito.mock(ReplicaService.class)
+                Mockito.mock(ReplicaService.class),
+                Mockito.mock(HybridClock.class)
         ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
 
         this.customers = new TableImpl(new InternalTableImpl(
@@ -248,7 +249,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 addressToNode,
                 txMgr,
                 Mockito.mock(MvTableStorage.class),
-                Mockito.mock(ReplicaService.class)
+                Mockito.mock(ReplicaService.class),
+                Mockito.mock(HybridClock.class)
         ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
 
         log.info("Tables have been started");

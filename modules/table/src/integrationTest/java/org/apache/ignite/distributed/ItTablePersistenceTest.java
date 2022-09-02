@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -117,7 +118,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 addressToNode,
                 txManager,
                 mock(MvTableStorage.class),
-                mock(ReplicaService.class)
+                mock(ReplicaService.class),
+                mock(HybridClock.class)
         );
 
         table.upsert(FIRST_VALUE, null).get();
@@ -142,7 +144,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 addressToNode,
                 txManager,
                 mock(MvTableStorage.class),
-                mock(ReplicaService.class)
+                mock(ReplicaService.class),
+                mock(HybridClock.class)
         );
 
         // Remove the first key
@@ -173,7 +176,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 addressToNode,
                 txManager,
                 mock(MvTableStorage.class),
-                mock(ReplicaService.class)
+                mock(ReplicaService.class),
+                mock(HybridClock.class)
         );
 
         table.upsert(SECOND_VALUE, null).get();

@@ -48,6 +48,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
@@ -162,7 +163,8 @@ public class ItColocationTest {
                 null,
                 txManager,
                 Mockito.mock(MvTableStorage.class),
-                Mockito.mock(ReplicaService.class)
+                Mockito.mock(ReplicaService.class),
+                Mockito.mock(HybridClock.class)
         );
     }
 

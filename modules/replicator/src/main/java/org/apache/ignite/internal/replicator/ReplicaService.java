@@ -19,14 +19,15 @@ package org.apache.ignite.internal.replicator;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.exception.ExceptionUtils;
-import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -49,22 +50,28 @@ public class ReplicaService {
     /** Local node. */
     private final ClusterNode localNode;
 
+    /** A hybrid logical clock. */
+    private final HybridClock clock;
+
     /**
      * The constructor of replica client.
      *
      * @param replicaManager   Replica manager.
      * @param messagingService Cluster message service.
      * @param topologyService  Topology service.
+     * @param clock A hybrid logical clock.
      */
     public ReplicaService(
             ReplicaManager replicaManager,
             MessagingService messagingService,
-            TopologyService topologyService
+            TopologyService topologyService,
+            HybridClock clock
     ) {
         this.replicaManager = replicaManager;
         this.messagingService = messagingService;
 
         this.localNode = topologyService.localMember();
+        this.clock = clock;
     }
 
     /**
@@ -90,14 +97,16 @@ public class ReplicaService {
             if (throwable != null) {
                 if (throwable instanceof TimeoutException) {
                     throw new ReplicationTimeoutException(req.groupId());
-                } else if (throwable instanceof PrimaryReplicaMissException) {
-                    throw (PrimaryReplicaMissException) throwable;
                 }
 
                 throw new ReplicationException(req.groupId(), throwable);
             } else {
                 assert response instanceof ReplicaResponse : IgniteStringFormatter.format("Unexpected message response [resp={}]",
                         response);
+
+                if (response instanceof TimestampAware) {
+                    clock.update(((TimestampAware) response).timestamp());
+                }
 
                 if (response instanceof ErrorReplicaResponse) {
                     var errResp = (ErrorReplicaResponse) response;

@@ -29,4 +29,13 @@ public class ReplicaMessageGroup {
 
     /** Message type for {@link ReplicaResponse}. */
     public static final short REPLICA_RESPONSE = 2;
+
+    /** Message type for {@link TimestampAware}. */
+    public static final short TIMESTAMP_AWARE = 3;
+
+    /** Message type for {@link ErrorTimestampAwareReplicaResponse}. */
+    public static final short ERROR_TIMESTAMP_AWARE_REPLICA_RESPONSE = 4;
+
+    /** Message type for {@link TimestampAwareReplicaResponse}. */
+    public static final short TIMESTAMP_AWARE_REPLICA_RESPONSE = 5;
 }
