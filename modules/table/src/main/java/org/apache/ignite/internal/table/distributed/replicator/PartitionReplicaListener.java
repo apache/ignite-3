@@ -285,6 +285,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Transaction finish request.
      * @return future result of the operation.
      */
+    // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
     private CompletableFuture<Object> processTxFinishAction(TxFinishReplicaRequest request) {
         HybridTimestamp commitTimestamp = hybridClock.now();
 
@@ -333,6 +334,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Transaction cleanup request.
      * @return CompletableFuture of void.
      */
+    // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
     private CompletableFuture processTxCleanupAction(TxCleanupReplicaRequest request) {
         return raftClient.run(new TxCleanupCommand(request.txId(), request.commit(), request.commitTimestamp())).thenApply(ignored -> {
             lockManager.locks(request.txId()).forEachRemaining(lock -> {
@@ -1011,10 +1013,16 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         if (request instanceof ReadWriteReplicaRequest) {
             expectedTerm = ((ReadWriteReplicaRequest) request).term();
+
+            assert expectedTerm != null;
         } else if (request instanceof TxFinishReplicaRequest) {
             expectedTerm = ((TxFinishReplicaRequest) request).term();
+
+            assert expectedTerm != null;
         } else if (request instanceof TxCleanupReplicaRequest) {
             expectedTerm = ((TxCleanupReplicaRequest) request).term();
+
+            assert expectedTerm != null;
         } else {
             expectedTerm = null;
         }

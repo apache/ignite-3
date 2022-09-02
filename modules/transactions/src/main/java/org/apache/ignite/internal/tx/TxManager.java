@@ -136,8 +136,9 @@ public interface TxManager extends IgniteComponent {
      * Finishes a dependant transactions.
      *
      * @param recipientNode Recipient node.
+     * @param term Raft term.
      * @param commit {@code True} if a commit requested.
-     * @param groups Enlisted partition groups.
+     * @param groups Enlisted partition groups with raft terms.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
@@ -151,7 +152,7 @@ public interface TxManager extends IgniteComponent {
      * Sends cleanup request to the specified primary replica.
      *
      * @param recipientNode Primary replica to process given cleanup request.
-     * @param replicationGroupIds Replication group id.
+     * @param replicationGroupIds Replication group id with raft term.
      * @param txId Transaction id.
      * @param commit {@code True} if a commit requested.
      * @param commitTimestamp Commit timestamp.
