@@ -166,42 +166,23 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public unsafe float GetFloat(int index)
+        public float GetFloat(int index) => Seek(index) switch
         {
-            var span = Seek(index);
-
-            if (span.IsEmpty)
-            {
-                return default;
-            }
-
-            var int32 = BinaryPrimitives.ReadInt32LittleEndian(span);
-            return *(float*)&int32;
-        }
+            { IsEmpty: true } => default,
+            var s => BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(s))
+        };
 
         /// <summary>
         /// Gets a double value.
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public unsafe double GetDouble(int index)
+        public double GetDouble(int index) => Seek(index) switch
         {
-            var span = Seek(index);
-
-            if (span.IsEmpty)
-            {
-                return default;
-            }
-
-            if (span.Length == 4)
-            {
-                var int32 = BinaryPrimitives.ReadInt32LittleEndian(span);
-                return *(float*)&int32;
-            }
-
-            var int64 = BinaryPrimitives.ReadInt64LittleEndian(span);
-            return *(double*)&int64;
-        }
+            { IsEmpty: true } => default,
+            { Length: 4 } s => BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(s)),
+            var s => BitConverter.Int64BitsToDouble(BinaryPrimitives.ReadInt64LittleEndian(s))
+        };
 
         private int GetOffset(int position)
         {
