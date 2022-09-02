@@ -131,6 +131,17 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         };
 
         /// <summary>
+        /// Gets a Guid value.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public Guid GetGuid(int index) => Seek(index) switch
+        {
+            { IsEmpty: true } => default,
+            var s => UuidSerializer.Read(s)
+        };
+
+        /// <summary>
         /// Gets a string value.
         /// </summary>
         /// <param name="index">Index.</param>

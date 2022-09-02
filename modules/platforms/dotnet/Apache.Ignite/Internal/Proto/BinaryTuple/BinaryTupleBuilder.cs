@@ -245,7 +245,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Appends a guid.
         /// </summary>
         /// <param name="value">Value.</param>
-        public void AppendGuid(Guid value) => throw new NotSupportedException("TODO IGNITE-17593");
+        public void AppendGuid(Guid value)
+        {
+            if (value != default)
+            {
+                UuidSerializer.Write(value, GetSpan(16));
+            }
+
+            OnWrite();
+        }
 
         /// <summary>
         /// Builds the tuple.

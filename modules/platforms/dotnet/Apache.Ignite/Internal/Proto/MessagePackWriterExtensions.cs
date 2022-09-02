@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Proto
 {
     using System;
-    using System.Diagnostics;
     using MessagePack;
     using Transactions;
 
