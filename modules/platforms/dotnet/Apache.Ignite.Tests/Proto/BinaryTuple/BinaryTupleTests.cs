@@ -48,8 +48,23 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
             var reader = new BinaryTupleReader(bytes, 1);
 
-            var ex = Assert.Throws<InvalidOperationException>(() => reader.GetString(0));
-            Assert.AreEqual("Binary tuple element with index 0 is null.", ex!.Message);
+            var getters = new Action<BinaryTupleReader>[]
+            {
+                x => x.GetString(0),
+                x => x.GetByte(0),
+                x => x.GetShort(0),
+                x => x.GetInt(0),
+                x => x.GetLong(0),
+                x => x.GetFloat(0),
+                x => x.GetDouble(0),
+                x => x.GetGuid(0)
+            };
+
+            foreach (var getter in getters)
+            {
+                var ex = Assert.Throws<InvalidOperationException>(() => getter(reader));
+                Assert.AreEqual("Binary tuple element with index 0 is null.", ex!.Message);
+            }
         }
 
         [Test]
