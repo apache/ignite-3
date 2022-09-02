@@ -24,3 +24,4 @@ Module Name | Description
 [runner](runner/README.md)|Ignite server node runner. The module that wires up the Ignite components and handles node lifecycle.
 [schema](schema/README.md)|Ignite schema API implementation and schema management classes.
 [table](table/README.md)|Ignite table API implementation.
+[vault](vault/README.md)|Ignite local persistent key-value storage.
