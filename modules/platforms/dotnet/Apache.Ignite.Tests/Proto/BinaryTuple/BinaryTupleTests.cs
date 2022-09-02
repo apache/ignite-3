@@ -268,12 +268,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         {
             {
                 float value = 0.0F;
+                var bytes = Build(b => b.AppendFloat(value));
 
-                var builder = new BinaryTupleBuilder(1, false, 0);
-                builder.AppendFloat(value);
-                var bytes = builder.Build();
-
-                Assert.AreEqual(0, bytes.Span[1]);
+                Assert.AreEqual(0, bytes[1]);
                 Assert.AreEqual(2, bytes.Length);
 
                 var reader = new BinaryTupleReader(bytes, 1);
@@ -282,12 +279,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
             {
                 float value = 0.5F;
+                var bytes = Build(b => b.AppendFloat(value));
 
-                var builder = new BinaryTupleBuilder(1, false, 4);
-                builder.AppendFloat(value);
-                var bytes = builder.Build();
-
-                Assert.AreEqual(4, bytes.Span[1]);
+                Assert.AreEqual(4, bytes[1]);
                 Assert.AreEqual(6, bytes.Length);
 
                 var reader = new BinaryTupleReader(bytes, 1);
