@@ -201,13 +201,7 @@ public class ReplicaManager implements IgniteComponent {
 
                     ReplicaRequest request = (ReplicaRequest) message;
 
-                    HybridTimestamp requestTimestamp;
-
-                    if (request instanceof TimestampAware) {
-                        requestTimestamp = ((TimestampAware) request).timestamp();
-                    } else {
-                        requestTimestamp = null;
-                    }
+                    HybridTimestamp requestTimestamp = extractTimestamp(request);
 
                     Replica replica = replicas.get(request.groupId());
 
@@ -257,6 +251,17 @@ public class ReplicaManager implements IgniteComponent {
         String locNodeName = clusterNetSvc.topologyService().localMember().name();
 
         return replicas.stream().anyMatch(r -> locNodeName.equals(r.name()));
+    }
+
+    /**
+     * Extract a hybrid timestamp from timestamp aware request or return null.
+     */
+    private HybridTimestamp extractTimestamp(ReplicaRequest request) {
+        if (request instanceof TimestampAware) {
+            return ((TimestampAware) request).timestamp();
+        } else {
+            return null;
+        }
     }
 
     /**
