@@ -1007,30 +1007,32 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future.
      */
     private CompletableFuture<Void> ensureReplicaIsPrimary(ReplicaRequest request) {
-        return raftClient.refreshAndGetLeaderWithTerm()
-                .thenCompose(replicaAndTerm -> {
-                            Long currentTerm = replicaAndTerm.get2();
+        Long expectedTerm;
 
-                            Long expectedTerm = null;
+        if (request instanceof ReadWriteReplicaRequest) {
+            expectedTerm = ((ReadWriteReplicaRequest) request).term();
+        } else if (request instanceof TxFinishReplicaRequest) {
+            expectedTerm = ((TxFinishReplicaRequest) request).term();
+        } else if (request instanceof TxCleanupReplicaRequest) {
+            expectedTerm = ((TxCleanupReplicaRequest) request).term();
+        } else {
+            expectedTerm = null;
+        }
 
-                            if (request instanceof ReadWriteReplicaRequest) {
-                                expectedTerm = ((ReadWriteReplicaRequest) request).term();
-                            } else if (request instanceof TxFinishReplicaRequest) {
-                                expectedTerm = ((TxFinishReplicaRequest) request).term();
-                            } else if (request instanceof TxCleanupReplicaRequest) {
-                                expectedTerm = ((TxCleanupReplicaRequest) request).term();
-                            }
+        if (expectedTerm != null) {
+            return raftClient.refreshAndGetLeaderWithTerm()
+                    .thenCompose(replicaAndTerm -> {
+                                Long currentTerm = replicaAndTerm.get2();
 
-                            if (expectedTerm != null) {
                                 if (expectedTerm.equals(currentTerm)) {
                                     return CompletableFuture.completedFuture(null);
                                 } else {
                                     return CompletableFuture.failedFuture(new PrimaryReplicaMissException(expectedTerm, currentTerm));
                                 }
-                            } else {
-                                return CompletableFuture.completedFuture(null);
                             }
-                        }
-                );
+                    );
+        } else {
+            return CompletableFuture.completedFuture(null);
+        }
     }
 }
