@@ -127,6 +127,52 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
+        public void TestLong()
+        {
+            int[] values = { sbyte.MinValue, -1, 0, 1, sbyte.MaxValue };
+            foreach (int value in values)
+            {
+                var builder = new BinaryTupleBuilder(1, false, 1);
+                builder.AppendInt(value);
+                var bytes = builder.Build();
+
+                Assert.AreEqual(value != 0 ? 1 : 0, bytes.Span[1]);
+                Assert.AreEqual(value != 0 ? 3 : 2, bytes.Length);
+
+                var reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetInt(0));
+            }
+
+            values = new[] { short.MinValue, sbyte.MinValue - 1, sbyte.MaxValue + 1, short.MaxValue };
+            foreach (int value in values)
+            {
+                var builder = new BinaryTupleBuilder(1, false, 2);
+                builder.AppendInt(value);
+                var bytes = builder.Build();
+
+                Assert.AreEqual(2, bytes.Span[1]);
+                Assert.AreEqual(4, bytes.Length);
+
+                var reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetInt(0));
+            }
+
+            values = new[] { int.MinValue, short.MinValue - 1, short.MaxValue + 1, int.MaxValue };
+            foreach (int value in values)
+            {
+                var builder = new BinaryTupleBuilder(1, false, 3);
+                builder.AppendInt(value);
+                var bytes = builder.Build();
+
+                Assert.AreEqual(4, bytes.Span[1]);
+                Assert.AreEqual(6, bytes.Length);
+
+                BinaryTupleReader reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetInt(0));
+            }
+        }
+
+        [Test]
         public void TestString()
         {
             var values = new[] {"ascii", "我愛Java", string.Empty, "a string with a bit more characters"};
