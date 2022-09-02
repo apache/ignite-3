@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Proto.BinaryTuple
 {
     using System;
+    using System.Linq;
     using Internal.Proto.BinaryTuple;
     using NUnit.Framework;
 
@@ -345,14 +346,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         {
             var values = new[] {"ascii", "我愛Java", string.Empty, "a string with a bit more characters"};
 
-            using var builder = new BinaryTupleBuilder(values.Length);
-            foreach (var value in values)
-            {
-                builder.AppendString(value);
-            }
-
-            var res = builder.Build();
-            var reader = new BinaryTupleReader(res, values.Length);
+            var reader = BuildAndRead(b => values.ToList().ForEach(b.AppendString), numElements: values.Length);
 
             for (var i = 0; i < values.Length; i++)
             {
