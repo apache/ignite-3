@@ -252,7 +252,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             {
                 float value = 0.5F;
 
-                var builder = new BinaryTupleBuilder(1, false, 0);
+                var builder = new BinaryTupleBuilder(1, false, 4);
                 builder.AppendFloat(value);
                 var bytes = builder.Build();
 
@@ -261,6 +261,52 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
                 var reader = new BinaryTupleReader(bytes, 1);
                 Assert.AreEqual(value, reader.GetFloat(0));
+            }
+        }
+
+        [Test]
+        public void TestDouble()
+        {
+            {
+                double value = 0.0;
+
+                var builder = new BinaryTupleBuilder(1, false, 0);
+                builder.AppendDouble(value);
+                var bytes = builder.Build();
+
+                Assert.AreEqual(0, bytes.Span[1]);
+                Assert.AreEqual(2, bytes.Length);
+
+                var reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetDouble(0));
+            }
+
+            {
+                double value = 0.5;
+
+                var builder = new BinaryTupleBuilder(1, false, 4);
+                builder.AppendDouble(value);
+                var bytes = builder.Build();
+
+                Assert.AreEqual(4, bytes.Span[1]);
+                Assert.AreEqual(6, bytes.Length);
+
+                var reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetDouble(0));
+            }
+
+            {
+                double value = 0.1;
+
+                var builder = new BinaryTupleBuilder(1, false, 8);
+                builder.AppendDouble(value);
+                var bytes = builder.Build();
+
+                Assert.AreEqual(8, bytes.Span[1]);
+                Assert.AreEqual(10, bytes.Length);
+
+                var reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetDouble(0));
             }
         }
 
