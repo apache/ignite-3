@@ -19,13 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.schema.definition.ColumnType;
-import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Table;
-import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -40,68 +33,16 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
      */
     @BeforeAll
     static void initTestData() {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "TEST")
-                .columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("GRP0", ColumnType.INT32).asNullable(true).build(),
-                        SchemaBuilders.column("GRP1", ColumnType.INT32).asNullable(true).build(),
-                        SchemaBuilders.column("VAL0", ColumnType.INT32).asNullable(true).build(),
-                        SchemaBuilders.column("VAL1", ColumnType.INT32).asNullable(true).build()
-                )
-                .withPrimaryKey("ID")
-                .build();
+        sql("CREATE TABLE test (id INT PRIMARY KEY, grp0 INT, grp1 INT, val0 INT, val1 INT) WITH replicas=2,partitions=10");
+        sql("CREATE TABLE test_one_col_idx (pk INT PRIMARY KEY, col0 INT)");
 
-        TableDefinition schTbl2 = SchemaBuilders.tableBuilder("PUBLIC", "TEST_ONE_COL_IDX")
-                .columns(
-                        SchemaBuilders.column("PK", ColumnType.INT32).build(),
-                        SchemaBuilders.column("COL0", ColumnType.INT32).asNullable(true).build()
-                )
-                .withPrimaryKey("PK")
-                .build();
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17304 uncomment this
+        // sql("CREATE INDEX test_idx ON test(grp0, grp1)");
+        // sql("CREATE INDEX test_one_col_idx_idx ON test_one_col_idx(col0)");
 
-        Table table = CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(2)
-                        .changePartitions(10)
-        );
-
-        Table tblOneColIdx = CLUSTER_NODES.get(0).tables().createTable(schTbl2.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl2, tblCh)
-        );
-
-        CLUSTER_NODES.get(0).tables().alterTable(schTbl1.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.addIndex(SchemaBuilders.sortedIndex(schTbl1.name() + "IDX")
-                        .addIndexColumn("GRP0").done()
-                        .addIndexColumn("GRP1").done()
-                        .build(), tblCh)
-        );
-        CLUSTER_NODES.get(0).tables().alterTable(schTbl2.canonicalName(), tblCh ->
-                SchemaConfigurationConverter.addIndex(SchemaBuilders.sortedIndex(schTbl2.name() + "IDX")
-                        .addIndexColumn("COL0").desc().done()
-                        .build(), tblCh)
-        );
-
-        RecordView<Tuple> view = table.recordView();
         for (int i = 0; i < ROWS; i++) {
-            view.insert(
-                    null,
-                    Tuple.create()
-                            .set("ID", i)
-                            .set("GRP0", i / 10)
-                            .set("GRP1", i / 100)
-                            .set("VAL0", 1)
-                            .set("VAL1", 2)
-            );
-        }
-
-        RecordView<Tuple> view1 = tblOneColIdx.recordView();
-        for (int i = 0; i < ROWS; i++) {
-            view1.insert(
-                    null,
-                    Tuple.create()
-                            .set("PK", i)
-                            .set("COL0", i)
-            );
+            sql("INSERT INTO test (id, grp0, grp1, val0, val1) VALUES (?, ?, ?, ?, ?)", i, i / 10, i / 100, 1, 2);
+            sql("INSERT INTO test_one_col_idx (pk, col0) VALUES (?, ?)", i, i);
         }
     }
 
