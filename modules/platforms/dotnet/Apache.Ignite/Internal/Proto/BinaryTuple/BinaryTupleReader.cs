@@ -108,6 +108,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public short GetShort(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
+            { Length: 1 } s => unchecked((sbyte)s[0]),
             var s => BinaryPrimitives.ReadInt16LittleEndian(s)
         };
 
