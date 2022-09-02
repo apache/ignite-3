@@ -365,11 +365,13 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         {
             var guid = Guid.NewGuid();
 
-            using var builder = new BinaryTupleBuilder(2);
-            builder.AppendGuid(Guid.Empty);
-            builder.AppendGuid(guid);
-
-            var reader = new BinaryTupleReader(builder.Build(), 2);
+            var reader = BuildAndRead(
+                b =>
+                {
+                    b.AppendGuid(Guid.Empty);
+                    b.AppendGuid(guid);
+                },
+                numElements: 2);
 
             Assert.AreEqual(Guid.Empty, reader.GetGuid(0));
             Assert.AreEqual(guid, reader.GetGuid(1));
@@ -377,12 +379,18 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
         private static BinaryTupleReader BuildAndRead(Action<BinaryTupleBuilder> build, int numElements = 1)
         {
+            var bytes = Build(build, numElements);
+
+            return new BinaryTupleReader(bytes, numElements);
+        }
+
+        private static byte[] Build(Action<BinaryTupleBuilder> build, int numElements = 1)
+        {
             using var builder = new BinaryTupleBuilder(numElements);
 
             build(builder);
-            var bytes = builder.Build().ToArray();
 
-            return new BinaryTupleReader(bytes, numElements);
+            return builder.Build().ToArray();
         }
     }
 }
