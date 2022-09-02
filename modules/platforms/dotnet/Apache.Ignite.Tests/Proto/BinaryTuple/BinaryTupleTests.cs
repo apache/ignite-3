@@ -44,6 +44,43 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
+        public void TestDefaultValue()
+        {
+            // Header: 1 zero byte.
+            // Offset table: 1 zero byte.
+            byte[] bytes1 = { 0, 0 };
+
+            // Header: 1 byte with null map flag.
+            // NullMap: 1 byte with no bit set.
+            // Offset table: 1 zero byte
+            byte[] bytes2 = { BinaryTupleCommon.NullmapFlag, 0, 0 };
+
+            byte[][] bytesArray = { bytes1, bytes2 };
+
+            foreach (var bytes in bytesArray)
+            {
+                var reader = new BinaryTupleReader(bytes, 1);
+
+                if (bytes.Length == bytes1.Length)
+                {
+                    Assert.IsFalse(reader.HasNullMap);
+                }
+                else
+                {
+                    Assert.IsTrue(reader.HasNullMap);
+                }
+
+                Assert.IsFalse(reader.IsNull(0));
+                Assert.AreEqual(string.Empty, reader.GetString(0));
+                Assert.AreEqual(Guid.Empty, reader.GetGuid(0));
+                Assert.AreEqual(0, reader.GetByte(0));
+                Assert.AreEqual(0, reader.GetShort(0));
+                Assert.AreEqual(0, reader.GetInt(0));
+                Assert.AreEqual(0L, reader.GetLong(0));
+            }
+        }
+
+        [Test]
         public void TestByte([Values(0, 1, sbyte.MaxValue, sbyte.MinValue)] sbyte value)
         {
             using var builder = new BinaryTupleBuilder(numElements: 1, allowNulls: false, totalValueSize: 1);
