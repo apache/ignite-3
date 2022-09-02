@@ -113,9 +113,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         [Test]
         public void TestByte([Values(0, 1, sbyte.MaxValue, sbyte.MinValue)] sbyte value)
         {
-            using var builder = new BinaryTupleBuilder(numElements: 1, allowNulls: false, totalValueSize: 1);
-            builder.AppendByte(value);
-            var res = builder.Build().ToArray();
+            var res = Build(b => b.AppendByte(value));
 
             Assert.AreEqual(value != 0 ? 1 : 0, res[1]);
             Assert.AreEqual(value != 0 ? 3 : 2, res.Length);
@@ -131,11 +129,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
             foreach (var value in values)
             {
-                using var builder = new BinaryTupleBuilder(1, false, 1);
-                builder.AppendShort(value);
-                var bytes = builder.Build();
+                var bytes = Build(b => b.AppendShort(value));
 
-                Assert.AreEqual(value != 0 ? 1 : 0, bytes.Span[1]);
+                Assert.AreEqual(value != 0 ? 1 : 0, bytes[1]);
                 Assert.AreEqual(value != 0 ? 3 : 2, bytes.Length);
 
                 var reader = new BinaryTupleReader(bytes, 1);
@@ -146,10 +142,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
             foreach (var value in values)
             {
-                using var builder = new BinaryTupleBuilder(1, false, 2);
-                builder.AppendShort(value);
-                var bytes = builder.Build();
-                Assert.AreEqual(2, bytes.Span[1]);
+                var bytes = Build(b => b.AppendShort(value));
+
+                Assert.AreEqual(2, bytes[1]);
                 Assert.AreEqual(4, bytes.Length);
 
                 var reader = new BinaryTupleReader(bytes, 1);
